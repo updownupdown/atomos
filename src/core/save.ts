@@ -25,7 +25,7 @@ export interface Settings {
 
 export interface SaveData {
   version: 1;
-  built: Record<number, { perfect: boolean; colour?: string }>;
+  built: Record<number, { perfect: boolean; flawless?: boolean; colour?: string }>;
   discoveredShapes: string[];
   photons: Record<number, number[]>;
   isotopes: Record<string, { collected?: boolean; witnessed?: WitnessRecord[] }>;

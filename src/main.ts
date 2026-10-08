@@ -1,7 +1,7 @@
 import { AtomScene, type ScreenPoint } from './render/scene';
 import {
   applyPlacement, axisOrbital, band, cascade, captureLadder, configuration, electronCount,
-  isGroundState, newAtom, nextSubshell, removeLastElectron, resolvePlacement,
+  isGroundState, newAtom, nextSubshell, reachableLines, removeLastElectron, resolvePlacement,
   type Atom, type Axis, type OrbitalId, type Spin,
 } from './core/physics';
 import { ELEMENTS, FAMILY_COLOURS, FAMILY_NAMES, MAX_Z, element } from './core/elements';
@@ -11,14 +11,13 @@ import {
 } from './core/isotopes';
 import { clearSave, defaultSave, frontier, loadSave, writeSave, type SaveData } from './core/save';
 import { bandLabel, wavelengthToHex } from './render/colour';
+import { bandCentre, captureBands, CENTRE, FREE, readPull, type Band, type PullReading } from './core/tuning';
 import { drawSpiral, hitSpiral, layoutSpiral, type SpiralNode } from './ui/spiral';
 import { buildTracks, drawWitness, slowFactor } from './ui/witness';
 import * as sfx from './audio';
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
-/** Pull fraction above which the electron carries enough energy to knock one out. */
-const SAFE = 0.86;
 
 type Mode = 'build' | 'slice' | 'done';
 
@@ -27,9 +26,24 @@ interface Aim {
   cur: ScreenPoint;
   path: ScreenPoint[];
   power: number;
-  level: number | 'ionise' | null;
+  pullMax: number;
+  bands: Band[];
+  reading: PullReading;
+  /** Whether the launch line passes through the atom at all. */
+  onTarget: boolean;
   axis: Axis | null;
   spin: Spin | null;
+}
+
+/** Where a launched electron is headed and what the atom will make of it. */
+interface Shot {
+  from: ScreenPoint;
+  toward: ScreenPoint;
+  reading: PullReading;
+  onTarget: boolean;
+  axis: Axis | null;
+  spin: Spin | null;
+  power: number;
 }
 
 class Game {
@@ -48,6 +62,9 @@ class Game {
   private assistAxis: Axis = 'x';
   private assistSpin: Spin | null = null;
   private modalCleanup: (() => void) | null = null;
+  /** Electrons lost and undos used in the current build; either spoils a flawless build. */
+  private lost = 0;
+  private undos = 0;
 
   constructor() {
     this.scene = new AtomScene($<HTMLCanvasElement>('atom'));
@@ -71,6 +88,8 @@ class Game {
     this.mode = 'build';
     this.busy = false;
     this.assistLevel = 0;
+    this.lost = 0;
+    this.undos = 0;
     const colour = this.colourFor(z);
     this.scene.setColour(colour);
     document.documentElement.style.setProperty('--el', colour);
@@ -112,7 +131,8 @@ class Game {
     const dots = $('electrons');
     const k = electronCount(this.atom);
     dots.innerHTML = Array.from({ length: el.z }, (_, i) => `<span class="${i < k ? 'on' : ''}"></span>`).join('');
-    dots.setAttribute('aria-label', `${k} of ${el.z} electrons placed`);
+    if (this.lost + this.undos > 0) dots.innerHTML += `<em class="lost">${[this.lost ? `${this.lost} lost` : '', this.undos ? `${this.undos} undone` : ''].filter(Boolean).join(' · ')}</em>`;
+    dots.setAttribute('aria-label', `${k} of ${el.z} electrons placed${this.lost ? `, ${this.lost} lost` : ''}`);
     this.scene.setAtom(this.atom, this.neutrons, { pDiscovered: this.pDiscovered(), target: this.targetOrbital(null) });
     this.scene.setGhost(null);
     this.renderLadder(null);
@@ -127,8 +147,8 @@ class Game {
     if (!sub) return '';
     const how = this.save.settings.assist
       ? 'Choose an energy level, then press <span class="hl">Launch</span>.'
-      : 'Drag away from the atom and let go to launch an electron. Pull further for more energy.';
-    if (k === 0 && this.z === 1) return `A lone proton waits. ${how}`;
+      : 'Pull back from the atom and release inside a <span class="hl">lit band</span>. Higher bands release more light but are narrower.';
+    if (k === 0 && this.z === 1) return `A lone proton waits. Press on it and pull back like a slingshot: how far you pull sets the electron\'s energy, and the atom only catches it at an allowed level.`;
     if (sub.id === '2p' && !this.pDiscovered()) return 'This electron needs a shape no atom of yours has had yet.';
     if (sub.id === '2p') return `Electron ${k + 1} goes into a 2p lobe. Aim along the lobe you want; spreading out sounds sweeter.`;
     return `Electron ${k + 1} will settle into the ${sub.id} orbital. ${how}`;
@@ -174,6 +194,12 @@ class Game {
       ctx.fillRect(x(nm), 0, Math.max(1, x(nm + 2) - x(nm)), h);
     }
     const lines = this.save.photons[this.z] ?? [];
+    // Lines this element can still release, as faint gaps waiting to be filled.
+    ctx.fillStyle = 'rgba(170, 185, 230, 0.28)';
+    for (const nm of reachableLines(this.z)) {
+      if (lines.includes(nm)) continue;
+      for (let y = 3; y < h - 3; y += 4) ctx.fillRect(x(nm) - 0.5, y, 1, 2);
+    }
     for (const nm of lines) {
       const visible = band(nm) === 'visible';
       ctx.fillStyle = visible ? wavelengthToHex(nm) : 'rgba(200, 190, 255, 0.75)';
@@ -244,7 +270,8 @@ class Game {
     const axis = sub?.id === '2p' ? this.assistAxis : null;
     const n = this.scene.nucleusScreen();
     const r = this.scene.extentScreenRadius();
-    void this.fire({ x: n.x + r * 1.8, y: n.y + r * 0.9 }, level, axis, this.assistSpin, 0.5);
+    const power = bandCentre(level, captureBands(ladder.levels.map((l) => l.n)));
+    void this.fire({ from: { x: n.x + r * 1.8, y: n.y + r * 0.9 }, toward: n, reading: { kind: 'level', n: level, precision: 1 }, onTarget: true, axis, spin: this.assistSpin, power });
   }
 
   // ---- input -----------------------------------------------------------------
@@ -313,7 +340,13 @@ class Game {
       this.slicePath = [p];
       return;
     }
-    this.aim = { start: p, cur: p, path: [p], power: 0, level: null, axis: null, spin: null };
+    const ladder = captureLadder(this.atom);
+    this.aim = {
+      start: p, cur: p, path: [p], power: 0,
+      pullMax: Math.max(160, Math.min(300, 0.5 * Math.min(window.innerWidth, window.innerHeight))),
+      bands: captureBands(ladder ? ladder.levels.map((l) => l.n) : []),
+      reading: { kind: 'none' }, onTarget: true, axis: null, spin: null,
+    };
   }
 
   private onMove(e: PointerEvent): void {
@@ -330,23 +363,30 @@ class Game {
     if (Math.hypot(p.x - last.x, p.y - last.y) > 3) a.path.push(p);
     const dx = p.x - a.start.x, dy = p.y - a.start.y;
     const dist = Math.hypot(dx, dy);
-    const pullMax = 0.36 * Math.min(window.innerWidth, window.innerHeight);
-    a.power = Math.min(1, dist / pullMax);
-    const ladder = captureLadder(this.atom);
-    if (!ladder || dist < 18) {
-      a.level = null;
-    } else if (a.power > SAFE) {
-      a.level = 'ionise';
-    } else {
-      const bins = ladder.levels.length;
-      a.level = ladder.levels[Math.min(bins - 1, Math.floor((a.power / SAFE) * bins))].n;
-    }
+    a.power = Math.min(1.2, dist / a.pullMax);
+    const before = a.reading;
+    a.reading = readPull(a.power, a.bands);
+    if (a.reading.kind === 'level' && (before.kind !== 'level' || before.n !== a.reading.n)) sfx.tickSound(a.reading.n);
+    a.onTarget = this.aimHits(a.cur, a.start);
     const sub = nextSubshell(this.atom);
     a.axis = sub?.id === '2p' && dist > 18 ? this.scene.screenDirToAxis(-dx, -dy) : null;
     a.spin = curlSpin(a.path);
     this.scene.setGhost(dist > 18 ? this.targetOrbital(a.axis) : null);
-    this.renderLadder(a.level);
+    this.renderLadder(a.reading.kind === 'level' ? a.reading.n : a.reading.kind === 'free' ? 'ionise' : null);
     this.drawAim();
+  }
+
+  /** Does a launch from `from` heading through `through` pass close enough to the nucleus to be caught? */
+  private aimHits(from: ScreenPoint, through: ScreenPoint): boolean {
+    const n = this.scene.nucleusScreen();
+    const dx = through.x - from.x, dy = through.y - from.y;
+    const len = Math.hypot(dx, dy);
+    if (len < 1) return false;
+    const ux = dx / len, uy = dy / len;
+    const t = (n.x - from.x) * ux + (n.y - from.y) * uy;
+    if (t < 0) return false;
+    const miss = Math.hypot(n.x - (from.x + ux * t), n.y - (from.y + uy * t));
+    return miss < Math.max(30, this.scene.extentScreenRadius() * 0.55);
   }
 
   private onUp(e: PointerEvent): void {
@@ -360,12 +400,12 @@ class Game {
     const a = this.aim;
     this.aim = null;
     this.clearOverlay();
-    if (!a || a.level === null) {
+    if (!a || a.reading.kind === 'none') {
       this.scene.setGhost(null);
       this.renderLadder(null);
       return;
     }
-    void this.fire(a.cur, a.level, a.axis, a.spin, a.power);
+    void this.fire({ from: a.cur, toward: a.start, reading: a.reading, onTarget: a.onTarget, axis: a.axis, spin: a.spin, power: Math.min(1, a.power) });
   }
 
   private onCancel(e: PointerEvent): void {
@@ -397,23 +437,65 @@ class Game {
     const dpr = this.overlay.width / window.innerWidth;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
-    const danger = a.level === 'ionise';
-    // The drawn pull path, then a straight band showing the launch direction.
-    ctx.strokeStyle = 'rgba(160, 190, 255, 0.25)';
-    ctx.lineWidth = 1;
+    const dx = a.cur.x - a.start.x, dy = a.cur.y - a.start.y;
+    const dist = Math.hypot(dx, dy);
+    if (dist < 4) return;
+    const ux = dx / dist, uy = dy / dist;
+    const at = (f: number) => ({ x: a.start.x + ux * f * a.pullMax, y: a.start.y + uy * f * a.pullMax });
+
+    // The launch line: where the electron will travel once released.
+    const n = this.scene.nucleusScreen();
+    const reach = Math.hypot(n.x - a.cur.x, n.y - a.cur.y) * 1.6 + 40;
+    ctx.strokeStyle = a.onTarget ? 'rgba(200, 225, 255, 0.35)' : 'rgba(255, 122, 107, 0.75)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([2, 7]);
     ctx.beginPath();
-    a.path.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
-    ctx.stroke();
-    ctx.strokeStyle = danger ? 'rgba(255, 122, 107, 0.9)' : 'rgba(111, 211, 255, 0.85)';
-    ctx.lineWidth = 2;
-    ctx.setLineDash([6, 6]);
-    ctx.beginPath();
-    ctx.moveTo(a.start.x, a.start.y);
-    ctx.lineTo(a.cur.x, a.cur.y);
+    ctx.moveTo(a.cur.x, a.cur.y);
+    ctx.lineTo(a.cur.x - ux * reach, a.cur.y - uy * reach);
     ctx.stroke();
     ctx.setLineDash([]);
+
+    // The energy ruler along the pull: a dim track, a lit band for each allowed level, a red free zone.
+    const perpX = -uy, perpY = ux;
+    const seg = (f0: number, f1: number, colour: string, width: number) => {
+      const p0 = at(f0), p1 = at(f1);
+      ctx.strokeStyle = colour;
+      ctx.lineWidth = width;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(p0.x, p0.y);
+      ctx.lineTo(p1.x, p1.y);
+      ctx.stroke();
+    };
+    const first = a.bands[0]?.lo ?? 0;
+    seg(first * 0.6, FREE, 'rgba(120, 140, 200, 0.22)', 2);
+    seg(FREE, 1.12, 'rgba(255, 110, 95, 0.55)', 6);
+    ctx.font = '600 11px system-ui, sans-serif';
+    ctx.textBaseline = 'middle';
+    for (const b of a.bands) {
+      const on = a.reading.kind === 'level' && a.reading.n === b.n;
+      seg(b.lo, b.hi, on ? 'rgba(160, 235, 255, 1)' : 'rgba(111, 211, 255, 0.55)', on ? 10 : 7);
+      const c = at(b.centre);
+      ctx.strokeStyle = on ? '#ffffff' : 'rgba(220, 240, 255, 0.7)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(c.x - perpX * 7, c.y - perpY * 7);
+      ctx.lineTo(c.x + perpX * 7, c.y + perpY * 7);
+      ctx.stroke();
+      // Labels sit to the right of the ruler (or above it when the pull is sideways).
+      const flip = perpX < 0 || (Math.abs(perpX) < 0.01 && perpY > 0) ? -1 : 1;
+      const ox = perpX * flip, oy = perpY * flip;
+      ctx.fillStyle = on ? '#ffffff' : 'rgba(190, 215, 255, 0.75)';
+      ctx.textAlign = ox > 0.5 ? 'left' : 'center';
+      ctx.fillText(`n=${b.n}`, c.x + ox * 14, c.y + oy * 16);
+    }
+
+    // The electron in the sling.
+    const reading = a.reading;
+    const hot = reading.kind === 'free';
+    const caught = reading.kind === 'level' && a.onTarget;
     const g = ctx.createRadialGradient(a.cur.x, a.cur.y, 0, a.cur.x, a.cur.y, 16);
-    g.addColorStop(0, danger ? 'rgba(255, 150, 140, 1)' : 'rgba(220, 245, 255, 1)');
+    g.addColorStop(0, hot ? 'rgba(255, 150, 140, 1)' : caught ? 'rgba(230, 250, 255, 1)' : 'rgba(170, 180, 210, 0.9)');
     g.addColorStop(1, 'rgba(120, 200, 255, 0)');
     ctx.fillStyle = g;
     ctx.beginPath();
@@ -423,19 +505,23 @@ class Game {
     if (a.axis) this.drawAxisGuides(ctx, a.axis);
 
     const tip = $('aim');
-    if (a.level === null) {
+    if (reading.kind === 'none') {
       tip.style.display = 'none';
       return;
     }
     const parts: string[] = [];
-    parts.push(a.level === 'ionise' ? '<span style="color:var(--bad)">too much energy</span>' : `captured at n=${a.level}`);
+    if (!a.onTarget) parts.push('<span style="color:var(--bad)">aim misses the atom</span>');
+    else if (reading.kind === 'free') parts.push('<span style="color:var(--bad)">too much energy</span>');
+    else if (reading.kind === 'between') parts.push(`<span style="color:var(--muted)">${reading.below === null ? `short of n=${reading.above}` : reading.above === null ? `past n=${reading.below}` : `between n=${reading.below} and n=${reading.above}`} · not caught</span>`);
+    else parts.push(`caught at n=${reading.n}${reading.precision >= 1 - CENTRE ? ' · centre' : ''}`);
     if (a.axis) parts.push(`2p<sub>${a.axis}</sub>`);
     parts.push(a.spin === null ? 'spin auto' : a.spin === 1 ? 'spin ↑' : 'spin ↓');
     tip.innerHTML = parts.join(' · ');
     tip.style.display = 'block';
-    const half = tip.offsetWidth / 2 + 8;
-    tip.style.left = `${Math.min(window.innerWidth - half, Math.max(half, a.cur.x))}px`;
-    tip.style.top = `${a.cur.y}px`;
+    // A fixed spot under the header, clear of the finger and the ruler.
+    const ladderLeft = $('ladder').getBoundingClientRect().left || window.innerWidth;
+    tip.style.left = `${Math.max(tip.offsetWidth / 2 + 12, Math.min(window.innerWidth / 2, ladderLeft - tip.offsetWidth / 2 - 8))}px`;
+    tip.style.top = `${$('electrons').getBoundingClientRect().bottom + 52}px`;
   }
 
   /** Faint guides showing which pull direction fills which lobe. */
@@ -526,13 +612,32 @@ class Game {
 
   // ---- firing electrons --------------------------------------------------------------
 
-  private async fire(from: ScreenPoint, level: number | 'ionise', axis: Axis | null, spin: Spin | null, power: number): Promise<void> {
+  private async fire(shot: Shot): Promise<void> {
     if (this.busy) return;
     if (this.needsSlice()) return this.enterSlice();
+    const { from, reading, axis, spin, power } = shot;
     this.busy = true;
     this.renderAssist();
 
-    if (level === 'ionise') {
+    if (!shot.onTarget || reading.kind === 'between') {
+      this.lost++;
+      sfx.missSound();
+      await this.scene.flyby(from, shot.toward);
+      if (!shot.onTarget) {
+        this.say('<span class="warn">Missed.</span> The electron flew past the atom and is lost. Press on the atom itself, then pull straight back from it.');
+      } else if (reading.kind === 'between') {
+        const where = reading.below === null ? `short of the n=${reading.above} band`
+          : reading.above === null ? `past the n=${reading.below} band`
+          : `between n=${reading.below} and n=${reading.above}`;
+        this.say(`<span class="warn">Not caught.</span> Its energy fell ${where}, and an atom only holds electrons at its allowed levels, so it passed straight through. Release inside a lit band.`);
+      }
+      this.busy = false;
+      this.refresh();
+      return;
+    }
+
+    if (reading.kind === 'free') {
+      this.lost++;
       if (electronCount(this.atom) === 0) {
         sfx.bounceSound();
         await this.scene.bounce(from);
@@ -555,6 +660,7 @@ class Game {
       return;
     }
     if (outcome.kind === 'bounced') {
+      this.lost++;
       sfx.bounceSound();
       await this.scene.bounce(from);
       this.say(outcome.reason === 'pauli'
@@ -565,10 +671,18 @@ class Game {
       return;
     }
 
+    if (reading.kind !== 'level') {
+      this.busy = false;
+      return;
+    }
+    const level = reading.n;
+    const centred = reading.precision >= 1 - CENTRE;
     await this.scene.launch(from, power);
     sfx.captureSound();
+    if (centred) sfx.centreSound();
     const photons = cascade(this.atom, level);
     const lines = (this.save.photons[this.z] ??= []);
+    const before = new Set(lines);
     const parts: string[] = [];
     for (const [i, ph] of photons.entries()) {
       const hex = wavelengthToHex(ph.nm);
@@ -586,7 +700,8 @@ class Game {
     this.busy = false;
     this.refresh();
 
-    const light = `Light released: ${parts.join(', ')}.`;
+    const fresh = photons.filter((ph) => !before.has(Math.round(ph.nm * 10) / 10)).length;
+    const light = `${centred ? '<span class="hl">Dead centre.</span> ' : ''}Caught at n=${level}. Light released: ${parts.join(', ')}${fresh ? ` <span class="hl">(${fresh} new)</span>` : ''}.`;
     if (outcome.sour === 'hund-pair') {
       sfx.sourSound();
       this.say(`<span class="warn">A sour note.</span> You paired electrons while an empty lobe was free. Electrons repel, so in the lowest-energy state they spread out first (Hund\'s rule). Undo to try another lobe. ${light}`);
@@ -603,16 +718,18 @@ class Game {
   private undo(): void {
     if (this.busy || this.atom.history.length === 0 || this.mode === 'slice') return;
     this.atom = removeLastElectron(this.atom);
+    this.undos++;
     this.mode = 'build';
     this.refresh();
-    this.say(`Electron removed. ${this.guidance()}`);
+    this.say(`Electron removed. Undoing is free, but a flawless build uses none. ${this.guidance()}`);
   }
 
   private finish(): void {
     this.mode = 'done';
     const ground = isGroundState(this.atom);
     const prev = this.save.built[this.z];
-    this.save.built[this.z] = { perfect: (prev?.perfect ?? false) || ground, colour: prev?.colour };
+    const flawless = ground && this.lost === 0 && this.undos === 0;
+    this.save.built[this.z] = { perfect: (prev?.perfect ?? false) || ground, flawless: (prev?.flawless ?? false) || flawless, colour: prev?.colour };
     const stableA = element(this.z).commonA;
     const key = isotopeKey(this.z, stableA);
     this.save.isotopes[key] = { ...this.save.isotopes[key], collected: true };
@@ -620,9 +737,12 @@ class Game {
     this.scene.celebrate();
     sfx.completeSound();
     this.refresh();
-    this.say(ground
-      ? `<span class="hl">${element(this.z).name} complete, in its true ground state.</span>`
-      : `<span class="hl">${element(this.z).name} complete.</span> It is in an excited state; rebuild it with spread-out, aligned 2p electrons for a perfect build.`);
+    const name = element(this.z).name;
+    this.say(flawless
+      ? `<span class="hl">${name} complete and flawless:</span> ground state, nothing lost, nothing undone.`
+      : ground
+        ? `<span class="hl">${name} complete, in its true ground state.</span> ${this.lost ? `${this.lost} electron${this.lost === 1 ? '' : 's'} lost` : 'Undo used'}, so not flawless this time.`
+        : `<span class="hl">${name} complete.</span> It is in an excited state; rebuild it with spread-out, aligned 2p electrons for a perfect build.`);
     window.setTimeout(() => this.showCard(this.z, true), this.save.settings.reducedMotion ? 300 : 1200);
   }
 
@@ -714,8 +834,9 @@ class Game {
       <h2>Atomos</h2>
       <p class="muted">Feel prototype · hydrogen to neon</p>
       <p>Every atom here is built from real rules. Electrons are not little planets: each one is a cloud of probability, and its shape comes from the maths of waves.</p>
-      <p><b>To launch an electron</b>, drag away from the atom and let go. The further you pull, the higher the energy level it is caught at. As it falls to its final orbital it releases light, and that light is real: building hydrogen gives you its true red line.</p>
-      <p><b>Too much energy</b> knocks an electron out, so find the edge without crossing it.</p>
+      <p><b>Catch electrons with a slingshot.</b> Press on the atom and pull back. How far you pull sets the electron's energy, and an atom only catches electrons at its allowed energy levels: the <b>lit bands</b> on your pull line. Release inside one and the electron is caught, then falls inward, releasing real light. Hydrogen caught at n=3 gives its true red line.</p>
+      <p><b>Miss and it is lost.</b> Release between bands and the electron passes straight through. Pull past the top and it knocks an electron out. Higher bands release more light but are narrower.</p>
+      <p><b>Three goals per element:</b> build it; build it <b>flawlessly</b> (ground state, nothing lost, no undo); and find <b>every line</b> of its light, shown as gaps in the spectrum strip.</p>
       <p class="muted">Two fingers (or the right mouse button) turn the atom. If dragging is hard, switch on <b>Assisted controls</b> in Settings to play with buttons only.</p>
       <div class="actions"><button class="primary" id="intro-go">Build hydrogen</button><button class="secondary" id="intro-assist">Use assisted controls</button></div>`);
     sheet.querySelector<HTMLButtonElement>('#intro-go')!.onclick = () => this.closeModal();
@@ -736,6 +857,8 @@ class Game {
     const stable = isotopesOf(z).filter(isStable);
     const stableHave = stable.filter((i) => this.save.isotopes[isotopeKey(z, i.a)]?.collected).length;
     const visibleLines = lines.filter((nm) => band(nm) === 'visible').length;
+    const reachable = reachableLines(z);
+    const found = reachable.filter((nm) => lines.includes(nm)).length;
     const atom = this.atomForCard(z);
     const next = z < MAX_Z ? element(z + 1) : null;
     const palette = this.palette(z);
@@ -750,10 +873,13 @@ class Game {
       <div class="tiers">
         <span class="tier ${built ? 'on' : ''}">Discovered</span>
         <span class="tier ${built?.perfect ? 'on' : ''}">Perfect ground state</span>
+        <span class="tier ${built?.flawless ? 'on' : ''}">Flawless build</span>
         <span class="tier ${stableHave === stable.length && stable.length ? 'on' : ''}">Stable isotopes ${stableHave}/${stable.length}</span>
-        <span class="tier ${lines.length >= 3 ? 'on' : ''}">Light: ${lines.length} line${lines.length === 1 ? '' : 's'}</span>
+        <span class="tier ${found === reachable.length ? 'on' : ''}">Light ${found}/${reachable.length} lines</span>
       </div>
       ${justBuilt && built && !built.perfect ? '<p class="muted">Not yet perfect: in the ground state, lone 2p electrons sit in separate lobes with matching spins.</p>' : ''}
+      ${built && found < reachable.length ? `<p class="muted">${reachable.length - found} line${reachable.length - found === 1 ? '' : 's'} still to find. Each electron caught higher up cascades through more levels, so the narrow top bands hold the rarest light.</p>` : ''}
+      ${built && !built.flawless ? '<p class="muted">Flawless: the ground state with no electron lost and no undo.</p>' : ''}
       <h3>Facts</h3>
       <ul class="facts">${el.facts.map((f) => `<li>${f}</li>`).join('')}</ul>
       ${el.famousLine ? `<h3>Signature light</h3><div class="line-row"><span class="swatch" style="background:${wavelengthToHex(el.famousLine.nm)};color:${wavelengthToHex(el.famousLine.nm)}"></span><span>${el.famousLine.nm} nm · ${el.famousLine.label}</span></div>
@@ -963,13 +1089,13 @@ class Game {
       <label class="toggle"><span>${title}<small>${help}</small></span><input type="checkbox" data-key="${key}" ${s[key] ? 'checked' : ''}></label>`;
     const sheet = this.openModal(`
       <h2>Settings</h2>
-      ${toggle('assist', 'Assisted controls', 'Play with buttons and keys instead of dragging. Energy never reaches the knock-out zone.')}
+      ${toggle('assist', 'Assisted controls', 'Play with buttons and keys instead of dragging. Every launch lands dead centre in the band you choose.')}
       ${toggle('reducedMotion', 'Reduce motion', 'Calmer clouds, shorter animations, no auto-rotation.')}
       ${toggle('sound', 'Sound', 'Tones for captures, light and harmony.')}
       ${toggle('haptics', 'Vibration', 'Taps on supported phones.')}
       ${toggle('autoCore', 'Auto-fill cores', 'After building helium, heavier atoms start with its filled 1s shell.')}
       <h3>How accurate is this?</h3>
-      <p class="muted">Orbital shapes are sampled from the exact hydrogen-like wavefunctions, scaled for each atom with Slater's rules. Each capture releases the real ionisation energy (NIST data). Higher levels use the Rydberg formula, which is exact for one-electron atoms and approximate otherwise. Sub-shell splitting in the cascade is not modelled yet. The nucleus is drawn about 10,000 times too large; at true scale it would be invisible.</p>
+      <p class="muted">Orbital shapes are sampled from the exact hydrogen-like wavefunctions, scaled for each atom with Slater's rules. Each capture releases the real ionisation energy (NIST data). Higher levels use the Rydberg formula, which is exact for one-electron atoms and approximate otherwise. Sub-shell splitting in the cascade is not modelled yet, and the cascade steps down one level at a time. Capture bands are a game rule: a real atom can catch a free electron at any energy and send the excess away as light, but here capture only happens near an allowed level, so you can feel that the levels are discrete. The nucleus is drawn about 10,000 times too large; at true scale it would be invisible.</p>
       <h3>Progress</h3>
       <p class="muted">${Object.keys(this.save.built).length} of ${MAX_Z} elements built · ${ISOTOPES.filter((i) => this.save.isotopes[isotopeKey(i.z, i.a)]?.collected || this.save.isotopes[isotopeKey(i.z, i.a)]?.witnessed?.length).length} of ${ISOTOPES.length} isotopes found</p>
       <div class="actions"><button class="secondary" id="set-reset">Reset all progress</button><button class="primary" id="set-close">Done</button></div>`);

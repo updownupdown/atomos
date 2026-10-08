@@ -406,6 +406,26 @@ export class AtomScene {
     });
   }
 
+  /** An uncaught electron: it travels along its aim line, past or through the atom, and away. */
+  flyby(from: ScreenPoint, toward: ScreenPoint): Promise<void> {
+    this.lastInteraction = performance.now();
+    const e = this.makeElectron();
+    (e.material as THREE.MeshBasicMaterial).color.setRGB(1.4, 1.6, 2.2);
+    const a = this.screenToWorldOnPlane(from);
+    const b = this.screenToWorldOnPlane(toward);
+    const dir = b.clone().sub(a).normalize();
+    const end = a.clone().addScaledVector(dir, a.length() * 2.6 + this.extent * 3);
+    return new Promise((resolve) => {
+      this.tween(this.reducedMotion ? 300 : 900, (p) => {
+        e.position.lerpVectors(a, end, p);
+        e.scale.setScalar(this.extent * 0.035 * (1 - 0.6 * p));
+      }, () => {
+        this.scene.remove(e);
+        resolve();
+      });
+    });
+  }
+
   /** Electron approaches, is refused by the atom, and flies back out. */
   bounce(from: ScreenPoint): Promise<void> {
     const e = this.makeElectron();

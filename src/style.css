@@ -388,3 +388,12 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) {
   .toast { animation: none; }
 }
+
+.electrons em.lost {
+  font-style: normal;
+  font-size: 11px;
+  line-height: 10px;
+  color: var(--warn, #ffc46b);
+  margin-left: 4px;
+  letter-spacing: 0.02em;
+}
