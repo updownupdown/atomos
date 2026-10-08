@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+    <meta name="theme-color" content="#03050b" />
+    <meta name="description" content="Build atoms from light and probability. Atomos feel prototype: hydrogen to neon." />
+    <title>Atomos</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <div id="app">
+      <canvas id="atom" aria-label="The atom you are building. Drag away from it and release to launch an electron."></canvas>
+      <canvas id="overlay" aria-hidden="true"></canvas>
+
+      <header class="top">
+        <button class="badge" id="badge" aria-label="Open this element's card">
+          <span class="badge-z" id="badge-z">1</span>
+          <span class="badge-sym" id="badge-sym">H</span>
+          <span class="badge-text">
+            <span class="badge-name" id="badge-name">Hydrogen</span>
+            <span class="badge-config" id="badge-config">bare nucleus</span>
+          </span>
+        </button>
+        <nav class="top-actions">
+          <button class="icon-btn" id="btn-map" aria-label="Open the map">Map</button>
+          <button class="icon-btn" id="btn-settings" aria-label="Open settings">Settings</button>
+        </nav>
+      </header>
+
+      <div class="electrons" id="electrons" aria-label="Electrons placed"></div>
+
+      <aside class="ladder" id="ladder" aria-label="Energy levels for the next electron"></aside>
+
+      <div class="aim" id="aim" aria-hidden="true"></div>
+
+      <div class="bottom">
+        <p class="message" id="message" role="status" aria-live="polite"></p>
+        <div class="spectrum-wrap">
+          <canvas id="spectrum" aria-label="Light this atom has released"></canvas>
+          <div class="spectrum-labels"><span>X-ray</span><span>ultraviolet</span><span>visible</span><span>infrared</span></div>
+        </div>
+        <div class="bottom-actions">
+          <button class="text-btn" id="btn-undo">Undo</button>
+          <button class="text-btn" id="btn-restart">Restart atom</button>
+        </div>
+      </div>
+
+      <div class="assist" id="assist" hidden></div>
+
+      <div class="modal" id="modal" hidden>
+        <div class="sheet" id="sheet" role="dialog" aria-modal="true"></div>
+      </div>
+      <div class="toasts" id="toasts" aria-live="polite"></div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
