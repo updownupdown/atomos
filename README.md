@@ -15,6 +15,10 @@ npm run build        # dist/, the bundle Capacitor will wrap for Android
 npm run build:single # dist-single/index.html, one self-contained file for sharing previews
 ```
 
+## Deployment
+
+Every push to `main` builds the app and publishes it to GitHub Pages at https://updownupdown.github.io/atomos/ (`.github/workflows/pages.yml`). Pull requests run the typecheck, tests and build without deploying. Pages must be set to deploy from GitHub Actions in the repository settings.
+
 ## What is in the prototype
 
 - **Launch electrons.** Drag away from the atom and let go. Pull distance sets the energy level the electron is caught at; it then cascades down to the lowest free orbital and releases real photons. Pull too far and it knocks an electron out.
