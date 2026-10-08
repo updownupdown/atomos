@@ -120,13 +120,13 @@ export function drawWitness(canvas: HTMLCanvasElement, tracks: Track[], progress
 
   // Background: stray bubbles and a faint grid like old chamber photographs.
   const bg = rng(seed ^ 0x5bd1e995);
-  ctx.fillStyle = 'rgba(150, 180, 230, 0.10)';
+  ctx.fillStyle = 'rgba(226, 220, 207, 0.10)';
   for (let i = 0; i < 160; i++) {
     ctx.beginPath();
     ctx.arc(bg() * w, bg() * h, bg() * 1.4 + 0.3, 0, Math.PI * 2);
     ctx.fill();
   }
-  ctx.strokeStyle = 'rgba(120, 140, 200, 0.06)';
+  ctx.strokeStyle = 'rgba(226, 220, 207, 0.05)';
   for (let x = 0; x < w; x += s / 8) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
   for (let y = 0; y < h; y += s / 8) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
 
@@ -150,13 +150,13 @@ export function drawWitness(canvas: HTMLCanvasElement, tracks: Track[], progress
         const [x0, y0] = tr.path[0];
         const [x1, y1] = tr.path[tr.path.length - 1];
         ctx.setLineDash([3, 6]);
-        ctx.strokeStyle = 'rgba(160, 170, 200, 0.35)';
+        ctx.strokeStyle = 'rgba(226, 220, 207, 0.35)';
         ctx.beginPath();
         ctx.moveTo(cx + x0 * s, cy + y0 * s);
         ctx.lineTo(cx + x1 * s, cy + y1 * s);
         ctx.stroke();
         ctx.setLineDash([]);
-        label(ctx, tr.label, cx + x1 * s, cy + y1 * s, 'rgba(160, 170, 200, 0.7)');
+        label(ctx, tr.label, cx + x1 * s, cy + y1 * s, 'rgba(226, 220, 207, 0.7)');
       }
       continue;
     }
@@ -166,7 +166,7 @@ export function drawWitness(canvas: HTMLCanvasElement, tracks: Track[], progress
       for (let d = 0; d < density; d++) {
         const jx = (br() - 0.5) * tr.width * 0.9, jy = (br() - 0.5) * tr.width * 0.9;
         const r = (0.6 + br() * 0.9) * (tr.width > 2 ? 1.3 : 1);
-        ctx.fillStyle = tr.kind === 'electron' || tr.kind === 'positron' ? 'rgba(160, 225, 255, 0.85)' : 'rgba(255, 225, 190, 0.9)';
+        ctx.fillStyle = tr.kind === 'electron' || tr.kind === 'positron' ? 'rgba(243, 238, 226, 0.85)' : 'rgba(255, 220, 180, 0.9)';
         ctx.beginPath();
         ctx.arc(cx + x * s + jx, cy + y * s + jy, r, 0, Math.PI * 2);
         ctx.fill();
@@ -174,7 +174,7 @@ export function drawWitness(canvas: HTMLCanvasElement, tracks: Track[], progress
     }
     if (progress >= 1 && tr.kind !== 'recoil') {
       const [x, y] = tr.path[tr.path.length - 1];
-      label(ctx, tr.label, cx + x * s, cy + y * s, 'rgba(230, 235, 255, 0.8)');
+      label(ctx, tr.label, cx + x * s, cy + y * s, 'rgba(226, 220, 207, 0.85)');
     }
   }
   // The vertex.
@@ -185,7 +185,7 @@ export function drawWitness(canvas: HTMLCanvasElement, tracks: Track[], progress
 }
 
 function label(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, colour: string): void {
-  ctx.font = '12px system-ui, sans-serif';
+  ctx.font = "12px 'Courier Prime', 'Courier New', monospace";
   ctx.fillStyle = colour;
   const w = ctx.measureText(text).width;
   const cw = ctx.canvas.clientWidth;

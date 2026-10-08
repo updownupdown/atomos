@@ -3,15 +3,21 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
-    <meta name="theme-color" content="#03050b" />
+    <meta name="theme-color" content="#0c0b0a" />
     <meta name="description" content="Build atoms from light and probability. Atomos feel prototype: hydrogen to neon." />
     <title>Atomos</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo+Narrow:wght@400;600&family=Courier+Prime:wght@400;700&display=swap" />
     <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
     <div id="app">
       <canvas id="atom" aria-label="The atom you are building. Drag away from it and release to launch an electron."></canvas>
       <canvas id="overlay" aria-hidden="true"></canvas>
+      <div class="grain" aria-hidden="true"></div>
+      <div class="vignette" aria-hidden="true"></div>
+      <div class="edge" id="edge" aria-hidden="true">ATOMOS 400 &#9656; PLATE 0001</div>
 
       <header class="top">
         <button class="badge" id="badge" aria-label="Open this element's card">
