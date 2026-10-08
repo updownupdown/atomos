@@ -15,8 +15,12 @@ export interface WitnessRecord {
   lifetime: number; // seconds this atom actually lived
 }
 
+/** How the player launches electrons: pull-back slingshot, drawn wave, or tapped rhythm. */
+export type LaunchStyle = 'sling' | 'trace' | 'rhythm';
+
 export interface Settings {
   assist: boolean;
+  launch: LaunchStyle;
   reducedMotion: boolean;
   sound: boolean;
   haptics: boolean;
@@ -46,7 +50,7 @@ export function defaultSave(): SaveData {
     isotopes: {},
     specimens: [],
     log: [],
-    settings: { assist: false, reducedMotion: reduced, sound: true, haptics: true, autoCore: true },
+    settings: { assist: false, launch: 'trace', reducedMotion: reduced, sound: true, haptics: true, autoCore: true },
   };
 }
 
