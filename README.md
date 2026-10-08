@@ -21,7 +21,8 @@ Every push to `main` builds the app and publishes it to GitHub Pages at https://
 
 ## What is in the prototype
 
-- **Launch electrons.** Drag away from the atom and let go. Pull distance sets the energy level the electron is caught at; it then cascades down to the lowest free orbital and releases real photons. Pull too far and it knocks an electron out.
+- **Catch electrons in capture bands.** Press on the atom and pull back. Pull distance sets the electron's energy, and the atom only catches it inside a narrow band around an allowed level (n), drawn along the pull line. Higher bands are narrower but cascade through more levels and release more light. Release between bands and the electron passes through and is lost; aim off the atom and it flies past; pull past the top and it knocks an electron out. Band logic lives in `src/core/tuning.ts`.
+- **Three goals per element.** Build it; build it flawlessly (ground state, no electron lost, no undo); and find every line it can release, shown as gaps in the spectrum strip.
 - **Aim the lobe, curl the spin.** For 2p electrons the pull direction picks the x, y or z lobe (guides appear while aiming). A curled pull sets spin up or down; a straight pull lets the atom choose. Pairing early or misaligning spins is allowed but sounds sour and costs the perfect ground-state badge (Hund's rule).
 - **Slice the Wave.** Boron's fifth electron needs a shape you have never made. Swipe through the nucleus to cut the spherical cloud into the first p orbital.
 - **Core auto-fill.** After helium is built, heavier atoms start with its 1s shell.

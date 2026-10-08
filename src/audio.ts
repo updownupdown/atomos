@@ -86,3 +86,19 @@ export function ioniseSound(): void {
   tone(300, 0.3, 0.07, 'sawtooth');
   buzz(60);
 }
+
+/** A soft tick as the pull crosses into a capture band; higher bands tick higher. */
+export function tickSound(n: number): void {
+  tone(600 + 120 * n, 0.06, 0.04, 'sine');
+  buzz(6);
+}
+
+export function missSound(): void {
+  tone(260, 0.35, 0.05, 'triangle');
+  tone(196, 0.45, 0.04, 'triangle', 0.12);
+  buzz([15, 50, 15]);
+}
+
+export function centreSound(): void {
+  tone(1318.5, 0.5, 0.035, 'sine', 0.05);
+}

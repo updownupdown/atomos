@@ -13,6 +13,8 @@ import { element } from './elements';
 export const RYDBERG_EV = 13.605693;
 export const HC_EV_NM = 1239.84198;
 export const MAX_LEVEL = 7;
+/** How many capture levels are offered above the orbital being filled. */
+export const LEVELS_OFFERED = 4;
 
 export type Axis = 'x' | 'y' | 'z';
 export type Spin = 1 | -1;
@@ -170,7 +172,7 @@ export function captureLadder(a: Atom): CaptureLadder | null {
   const q = a.z - k;
   const ie = element(a.z).ionisation[a.z - k - 1];
   const levels: Level[] = [];
-  for (let n = sub.n + 1; n <= MAX_LEVEL; n++) {
+  for (let n = sub.n + 1; n <= Math.min(MAX_LEVEL, sub.n + LEVELS_OFFERED); n++) {
     levels.push({ n, energy: -(RYDBERG_EV * q * q) / (n * n) });
   }
   return { groundLabel: sub.id, groundEnergy: -ie, levels };
@@ -190,7 +192,8 @@ export function cascade(a: Atom, nCap: number): Photon[] {
   const photons: Photon[] = [];
   const byN = new Map(ladder.levels.map((l) => [l.n, l.energy]));
   const lowest = ladder.levels[0].n;
-  const start = Math.max(lowest, Math.min(MAX_LEVEL, nCap));
+  const highest = ladder.levels[ladder.levels.length - 1].n;
+  const start = Math.max(lowest, Math.min(highest, nCap));
   for (let n = start; n > lowest; n--) {
     const ev = byN.get(n - 1)! * -1 - byN.get(n)! * -1;
     photons.push({ from: `n=${n}`, to: `n=${n - 1}`, ev, nm: HC_EV_NM / ev });
@@ -219,4 +222,22 @@ export function configuration(a: Atom): string {
     if (c > 0) parts.push(`${s.id}${String(c).split('').map((d) => SUPERSCRIPT[d]).join('')}`);
   }
   return parts.join(' ') || 'bare nucleus';
+}
+
+/**
+ * Every line an element can release while it is built in its ground-state order,
+ * rounded to 0.1 nm: the full set a player can collect for that element.
+ */
+export function reachableLines(z: number): number[] {
+  let a = newAtom(z);
+  const lines = new Set<number>();
+  for (let k = 0; k < z; k++) {
+    const ladder = captureLadder(a);
+    if (!ladder) break;
+    for (const l of ladder.levels) for (const p of cascade(a, l.n)) lines.add(Math.round(p.nm * 10) / 10);
+    const r = resolvePlacement(a);
+    if (r?.kind !== 'placed') break;
+    a = applyPlacement(a, r.orbital, r.spin);
+  }
+  return [...lines].sort((x, y) => x - y);
 }
