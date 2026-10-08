@@ -39,14 +39,14 @@ export function drawSpiral(canvas: HTMLCanvasElement, nodes: SpiralNode[], t: nu
   // The arm itself.
   ctx.beginPath();
   nodes.forEach((n, i) => (i === 0 ? ctx.moveTo(n.x, n.y) : ctx.lineTo(n.x, n.y)));
-  ctx.strokeStyle = 'rgba(120, 150, 230, 0.16)';
+  ctx.strokeStyle = 'rgba(226, 220, 207, 0.18)';
   ctx.lineWidth = 1;
   ctx.stroke();
 
   for (const n of nodes) {
     ctx.save();
     if (n.state === 'future') {
-      ctx.fillStyle = 'rgba(140, 160, 220, 0.28)';
+      ctx.fillStyle = 'rgba(226, 220, 207, 0.26)';
       ctx.beginPath();
       ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
       ctx.fill();
@@ -62,7 +62,7 @@ export function drawSpiral(canvas: HTMLCanvasElement, nodes: SpiralNode[], t: nu
       ctx.beginPath();
       ctx.arc(n.x, n.y, n.r * 1.9, 0, Math.PI * 2);
       ctx.fill();
-      ctx.fillStyle = '#04060d';
+      ctx.fillStyle = '#0c0b0a';
       ctx.beginPath();
       ctx.arc(n.x, n.y, n.r * 0.95, 0, Math.PI * 2);
       ctx.fill();
@@ -71,13 +71,13 @@ export function drawSpiral(canvas: HTMLCanvasElement, nodes: SpiralNode[], t: nu
       ctx.stroke();
     } else if (n.state === 'frontier') {
       const pulse = 0.5 + 0.5 * Math.sin(t * 3);
-      ctx.strokeStyle = `rgba(111, 211, 255, ${0.45 + 0.5 * pulse})`;
+      ctx.strokeStyle = `rgba(224, 80, 58, ${0.5 + 0.5 * pulse})`;
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.arc(n.x, n.y, n.r * (1 + 0.15 * pulse), 0, Math.PI * 2);
       ctx.stroke();
     } else {
-      ctx.strokeStyle = 'rgba(140, 160, 220, 0.35)';
+      ctx.strokeStyle = 'rgba(226, 220, 207, 0.35)';
       ctx.setLineDash([3, 3]);
       ctx.beginPath();
       ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
@@ -85,14 +85,14 @@ export function drawSpiral(canvas: HTMLCanvasElement, nodes: SpiralNode[], t: nu
     }
     if (selected === n.z) {
       ctx.setLineDash([]);
-      ctx.strokeStyle = '#ffffff';
+      ctx.strokeStyle = '#f3eee2';
       ctx.lineWidth = 1.5;
       ctx.beginPath();
       ctx.arc(n.x, n.y, n.r * 1.35, 0, Math.PI * 2);
       ctx.stroke();
     }
-    ctx.fillStyle = n.state === 'locked' ? 'rgba(170, 185, 230, 0.55)' : '#eef2ff';
-    ctx.font = `${n.state === 'locked' ? 600 : 650} ${Math.round(n.r * (n.state === 'locked' ? 0.85 : 0.8))}px system-ui, sans-serif`;
+    ctx.fillStyle = n.state === 'locked' ? 'rgba(226, 220, 207, 0.55)' : n.state === 'frontier' ? '#e0503a' : '#f3eee2';
+    ctx.font = `700 ${Math.round(n.r * (n.state === 'locked' ? 0.85 : 0.8))}px 'Courier Prime', 'Courier New', monospace`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(n.state === 'frontier' ? n.symbol : n.symbol, n.x, n.y + 1);

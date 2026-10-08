@@ -93,15 +93,16 @@ export class AtomScene {
   private reducedMotion = false;
   private unstable = false;
   private lastInteraction = 0;
-  private colourPos = new THREE.Color('#6fd3ff');
-  private colourNeg = new THREE.Color('#ff7ad9');
+  // Droplets on a plate: silver for one spin, warm cream for the other.
+  private colourPos = new THREE.Color('#e8e2d4');
+  private colourNeg = new THREE.Color('#f2dfc0');
 
   constructor(private canvas: HTMLCanvasElement) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 0.95;
-    this.scene.background = new THREE.Color('#03050b');
+    this.scene.background = new THREE.Color('#0c0b0a');
 
     this.camera = new THREE.PerspectiveCamera(42, 1, 0.001, 1000);
     this.camera.position.set(0.9, 0.6, 3).normalize().multiplyScalar(this.dist);
@@ -126,7 +127,7 @@ export class AtomScene {
 
     this.nucleus = new THREE.InstancedMesh(
       new THREE.SphereGeometry(1, 20, 14),
-      new THREE.MeshStandardMaterial({ roughness: 0.35, metalness: 0.05, emissive: new THREE.Color('#1a1410') }),
+      new THREE.MeshStandardMaterial({ roughness: 0.35, metalness: 0.05, emissive: new THREE.Color('#2a1c10') }),
       40,
     );
     this.nucleus.count = 0;
@@ -135,7 +136,7 @@ export class AtomScene {
 
     this.composer = new EffectComposer(this.renderer);
     this.composer.addPass(new RenderPass(this.scene, this.camera));
-    this.bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.65, 0.5, 0.15);
+    this.bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.5, 0.45, 0.2);
     this.composer.addPass(this.bloom);
     this.composer.addPass(new OutputPass());
 
@@ -158,7 +159,7 @@ export class AtomScene {
     }
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-    const stars = new THREE.Points(g, new THREE.PointsMaterial({ color: 0x6f7ea8, size: 1, sizeAttenuation: false, transparent: true, opacity: 0.3 }));
+    const stars = new THREE.Points(g, new THREE.PointsMaterial({ color: 0x9a9284, size: 1, sizeAttenuation: false, transparent: true, opacity: 0.22 }));
     this.scene.add(stars);
   }
 
@@ -271,8 +272,8 @@ export class AtomScene {
       this.nucleusZ = z;
       this.nucleonBase = packNucleons(count);
       this.nucleus.count = count;
-      const proton = new THREE.Color('#ffb070');
-      const neutron = new THREE.Color('#8fb0ff');
+      const proton = new THREE.Color('#ffc890');
+      const neutron = new THREE.Color('#d2cbbd');
       // Interleave protons and neutrons so neither clumps on one side.
       let p = 0;
       for (let i = 0; i < count; i++) {

@@ -18,6 +18,10 @@ import * as sfx from './audio';
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
+/** Droplet silver: the default electron colour until the player tints an element. */
+const SILVER = '#e8e2d4';
+const MONO = "'Courier Prime', 'Courier New', monospace";
+
 
 type Mode = 'build' | 'slice' | 'done';
 
@@ -106,7 +110,7 @@ class Game {
   }
 
   private colourFor(z: number): string {
-    return this.save.built[z]?.colour ?? FAMILY_COLOURS[element(z).family];
+    return this.save.built[z]?.colour ?? SILVER;
   }
 
   private pDiscovered(): boolean {
@@ -128,6 +132,7 @@ class Game {
     $('badge-sym').textContent = el.symbol;
     $('badge-name').textContent = el.name;
     $('badge-config').textContent = configuration(this.atom);
+    $('edge').textContent = `ATOMOS 400 \u25b8 ${el.symbol.toUpperCase()} ${el.z} \u25b8 PLATE ${String(el.z).padStart(4, '0')}`;
     const dots = $('electrons');
     const k = electronCount(this.atom);
     dots.innerHTML = Array.from({ length: el.z }, (_, i) => `<span class="${i < k ? 'on' : ''}"></span>`).join('');
@@ -195,14 +200,14 @@ class Game {
     }
     const lines = this.save.photons[this.z] ?? [];
     // Lines this element can still release, as faint gaps waiting to be filled.
-    ctx.fillStyle = 'rgba(170, 185, 230, 0.28)';
+    ctx.fillStyle = 'rgba(226, 220, 207, 0.28)';
     for (const nm of reachableLines(this.z)) {
       if (lines.includes(nm)) continue;
       for (let y = 3; y < h - 3; y += 4) ctx.fillRect(x(nm) - 0.5, y, 1, 2);
     }
     for (const nm of lines) {
       const visible = band(nm) === 'visible';
-      ctx.fillStyle = visible ? wavelengthToHex(nm) : 'rgba(200, 190, 255, 0.75)';
+      ctx.fillStyle = visible ? wavelengthToHex(nm) : 'rgba(240, 234, 220, 0.8)';
       ctx.fillRect(x(nm) - 1, 3, 2, h - 6);
       if (visible) {
         ctx.fillStyle = wavelengthToHex(nm) + '55';
@@ -446,7 +451,7 @@ class Game {
     // The launch line: where the electron will travel once released.
     const n = this.scene.nucleusScreen();
     const reach = Math.hypot(n.x - a.cur.x, n.y - a.cur.y) * 1.6 + 40;
-    ctx.strokeStyle = a.onTarget ? 'rgba(200, 225, 255, 0.35)' : 'rgba(255, 122, 107, 0.75)';
+    ctx.strokeStyle = a.onTarget ? 'rgba(226, 220, 207, 0.4)' : 'rgba(224, 80, 58, 0.85)';
     ctx.lineWidth = 1.5;
     ctx.setLineDash([2, 7]);
     ctx.beginPath();
@@ -468,15 +473,15 @@ class Game {
       ctx.stroke();
     };
     const first = a.bands[0]?.lo ?? 0;
-    seg(first * 0.6, FREE, 'rgba(120, 140, 200, 0.22)', 2);
-    seg(FREE, 1.12, 'rgba(255, 110, 95, 0.55)', 6);
-    ctx.font = '600 11px system-ui, sans-serif';
+    seg(first * 0.6, FREE, 'rgba(226, 220, 207, 0.22)', 2);
+    seg(FREE, 1.12, 'rgba(224, 80, 58, 0.6)', 6);
+    ctx.font = `700 11px ${MONO}`;
     ctx.textBaseline = 'middle';
     for (const b of a.bands) {
       const on = a.reading.kind === 'level' && a.reading.n === b.n;
-      seg(b.lo, b.hi, on ? 'rgba(160, 235, 255, 1)' : 'rgba(111, 211, 255, 0.55)', on ? 10 : 7);
+      seg(b.lo, b.hi, on ? 'rgba(243, 238, 226, 1)' : 'rgba(226, 220, 207, 0.5)', on ? 10 : 7);
       const c = at(b.centre);
-      ctx.strokeStyle = on ? '#ffffff' : 'rgba(220, 240, 255, 0.7)';
+      ctx.strokeStyle = on ? '#0c0b0a' : 'rgba(226, 220, 207, 0.7)';
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.moveTo(c.x - perpX * 7, c.y - perpY * 7);
@@ -485,7 +490,7 @@ class Game {
       // Labels sit to the right of the ruler (or above it when the pull is sideways).
       const flip = perpX < 0 || (Math.abs(perpX) < 0.01 && perpY > 0) ? -1 : 1;
       const ox = perpX * flip, oy = perpY * flip;
-      ctx.fillStyle = on ? '#ffffff' : 'rgba(190, 215, 255, 0.75)';
+      ctx.fillStyle = on ? '#f3eee2' : 'rgba(226, 220, 207, 0.75)';
       ctx.textAlign = ox > 0.5 ? 'left' : 'center';
       ctx.fillText(`n=${b.n}`, c.x + ox * 14, c.y + oy * 16);
     }
@@ -495,8 +500,8 @@ class Game {
     const hot = reading.kind === 'free';
     const caught = reading.kind === 'level' && a.onTarget;
     const g = ctx.createRadialGradient(a.cur.x, a.cur.y, 0, a.cur.x, a.cur.y, 16);
-    g.addColorStop(0, hot ? 'rgba(255, 150, 140, 1)' : caught ? 'rgba(230, 250, 255, 1)' : 'rgba(170, 180, 210, 0.9)');
-    g.addColorStop(1, 'rgba(120, 200, 255, 0)');
+    g.addColorStop(0, hot ? 'rgba(224, 80, 58, 1)' : caught ? 'rgba(255, 252, 245, 1)' : 'rgba(200, 194, 182, 0.9)');
+    g.addColorStop(1, hot ? 'rgba(224, 80, 58, 0)' : 'rgba(226, 220, 207, 0)');
     ctx.fillStyle = g;
     ctx.beginPath();
     ctx.arc(a.cur.x, a.cur.y, 16, 0, Math.PI * 2);
@@ -530,20 +535,20 @@ class Game {
     const r = Math.min(this.scene.extentScreenRadius() * 0.9, Math.min(window.innerWidth, window.innerHeight) * 0.38);
     const dirs = this.scene.axisDirections();
     const maxLen = Math.max(dirs.x.len, dirs.y.len, dirs.z.len);
-    ctx.font = '600 13px system-ui, sans-serif';
+    ctx.font = `700 13px ${MONO}`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     for (const axis of ['x', 'y', 'z'] as Axis[]) {
       const d = dirs[axis];
       if (d.len < maxLen * 0.2) continue;
       const on = axis === chosen;
-      ctx.strokeStyle = on ? 'rgba(111, 211, 255, 0.8)' : 'rgba(160, 180, 230, 0.22)';
+      ctx.strokeStyle = on ? 'rgba(224, 80, 58, 0.85)' : 'rgba(226, 220, 207, 0.22)';
       ctx.lineWidth = on ? 2 : 1;
       ctx.beginPath();
       ctx.moveTo(o.x - d.x * r, o.y - d.y * r);
       ctx.lineTo(o.x + d.x * r, o.y + d.y * r);
       ctx.stroke();
-      ctx.fillStyle = on ? '#e8f7ff' : 'rgba(170, 185, 230, 0.6)';
+      ctx.fillStyle = on ? '#e0503a' : 'rgba(226, 220, 207, 0.6)';
       ctx.fillText(axis, o.x + d.x * (r + 14), o.y + d.y * (r + 14));
     }
   }
@@ -554,8 +559,8 @@ class Game {
     const dpr = this.overlay.width / window.innerWidth;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
-    ctx.shadowColor = '#9fe6ff';
+    ctx.strokeStyle = 'rgba(243, 238, 226, 0.9)';
+    ctx.shadowColor = '#f3eee2';
     ctx.shadowBlur = 12;
     ctx.lineWidth = 2;
     ctx.beginPath();
@@ -924,7 +929,7 @@ class Game {
   }
 
   private palette(z: number): string[] {
-    const set = new Set<string>([FAMILY_COLOURS[element(z).family], '#ffffff']);
+    const set = new Set<string>([SILVER, FAMILY_COLOURS[element(z).family], '#ffffff']);
     for (const lines of Object.values(this.save.photons)) {
       for (const nm of lines) if (band(nm) === 'visible') set.add(wavelengthToHex(Math.round(nm / 4) * 4));
     }
@@ -1046,7 +1051,7 @@ class Game {
     const nodes: SpiralNode[] = layoutSpiral(
       size,
       (z) => (this.save.built[z] ? 'built' : z === front && z <= MAX_Z ? 'frontier' : z <= MAX_Z ? 'locked' : 'future'),
-      (z) => (z <= MAX_Z ? this.colourFor(z) : '#8090c0'),
+      (z) => (z <= MAX_Z ? this.colourFor(z) : SILVER),
     );
     const info = sheet.querySelector<HTMLElement>('#map-info')!;
     const describe = (n: SpiralNode) => {
