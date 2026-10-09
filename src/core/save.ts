@@ -15,30 +15,23 @@ export interface WitnessRecord {
   lifetime: number; // seconds this atom actually lived
 }
 
-/** How the player launches electrons: a held charge, a tapped pulse, or a tuned dial. */
-export type LaunchStyle = 'charge' | 'pulse' | 'tune';
-const STYLES: LaunchStyle[] = ['charge', 'pulse', 'tune'];
-
 export interface Settings {
-  assist: boolean;
-  launch: LaunchStyle;
-  /** How long a Charge press takes to climb the ladder. */
-  climb: 'normal' | 'slow';
-  /** Beat speed for Pulse. */
-  tempo: 'slow' | 'medium' | 'brisk';
-  /** Testing aid: every element buildable from the map, p orbital already discovered. */
+  /** Testing aid: every element buildable from the map. */
   unlockAll: boolean;
   reducedMotion: boolean;
   sound: boolean;
   haptics: boolean;
-  autoCore: boolean;
+}
+
+export interface Built {
+  /** Both puzzles solved cleanly: no spoiled fusion, shells settled at or under par. */
+  flawless: boolean;
+  colour?: string;
 }
 
 export interface SaveData {
   version: 1;
-  built: Record<number, { perfect: boolean; flawless?: boolean; colour?: string }>;
-  discoveredShapes: string[];
-  photons: Record<number, number[]>;
+  built: Record<number, Built>;
   isotopes: Record<string, { collected?: boolean; witnessed?: WitnessRecord[] }>;
   specimens: Specimen[];
   log: { at: number; text: string }[];
@@ -52,12 +45,10 @@ export function defaultSave(): SaveData {
   return {
     version: 1,
     built: {},
-    discoveredShapes: ['s'],
-    photons: {},
     isotopes: {},
     specimens: [],
     log: [],
-    settings: { assist: false, launch: 'charge', climb: 'normal', tempo: 'medium', unlockAll: false, reducedMotion: reduced, sound: true, haptics: true, autoCore: true },
+    settings: { unlockAll: false, reducedMotion: reduced, sound: true, haptics: true },
   };
 }
 
@@ -65,12 +56,15 @@ export function loadSave(): SaveData {
   try {
     const raw = localStorage.getItem(KEY);
     if (!raw) return defaultSave();
-    const data = JSON.parse(raw) as SaveData;
+    const data = JSON.parse(raw) as Partial<SaveData> & { settings?: Partial<Settings> };
     const base = defaultSave();
-    const settings = { ...base.settings, ...data.settings };
-    // Earlier prototypes saved launch styles that no longer exist.
-    if (!STYLES.includes(settings.launch)) settings.launch = base.settings.launch;
-    return { ...base, ...data, settings };
+    const settings = base.settings;
+    for (const k of Object.keys(settings) as (keyof Settings)[]) {
+      if (typeof data.settings?.[k] === 'boolean') settings[k] = data.settings[k] as boolean;
+    }
+    const built: Record<number, Built> = {};
+    for (const [z, b] of Object.entries(data.built ?? {})) built[Number(z)] = { flawless: Boolean(b?.flawless), colour: b?.colour };
+    return { ...base, built, isotopes: data.isotopes ?? {}, specimens: data.specimens ?? [], log: data.log ?? [], settings };
   } catch {
     return defaultSave();
   }
