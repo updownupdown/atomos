@@ -2,7 +2,11 @@
 
 import { AppShell } from './shell';
 import { registerSW } from 'virtual:pwa-register';
+import { showSplash } from './ui/splash';
+import { markSvg } from './ui/mark';
 
+showSplash();
+document.getElementById('gal-mark')!.innerHTML = markSvg();
 const shell = new AppShell();
 
 // Reachable from the console for prototyping and automated checks.

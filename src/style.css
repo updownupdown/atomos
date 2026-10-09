@@ -466,7 +466,48 @@ body.stage-nucleus #atom { opacity: 0.12; }
 .gal-top { position: absolute; left: 0; right: 0; top: 0; z-index: 2; display: flex; justify-content: space-between; align-items: flex-start; padding: calc(10px + var(--top)) 14px 0; pointer-events: none; }
 .gal-top > * { pointer-events: auto; }
 .gal-title { display: flex; flex-direction: column; gap: 2px; }
-.gal-name { font-family: var(--sans); font-weight: 600; font-size: 20px; letter-spacing: 0.04em; }
+.gal-name { display: flex; align-items: center; gap: 8px; font-family: var(--sans); font-weight: 600; font-size: 20px; letter-spacing: 0.04em; }
+.gal-mark { display: inline-flex; color: var(--text); }
+.gal-mark svg { width: 24px; height: 24px; }
+
+/* Splash: the mark assembles on the plate while the app boots. See src/ui/splash.ts. */
+.splash {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: var(--bg);
+  color: var(--text);
+  transition: opacity 0.45s ease;
+}
+.splash.out { opacity: 0; pointer-events: none; }
+.splash .grain { position: absolute; }
+.splash-mark { width: min(46vw, 210px); height: auto; position: relative; }
+.splash-word { font-family: var(--mono); font-weight: 700; font-size: 15px; letter-spacing: 0.32em; text-transform: uppercase; margin-top: 18px; padding-left: 0.32em; }
+.splash-sub { font-family: var(--mono); font-size: 11px; color: var(--muted); letter-spacing: 0.06em; }
+
+/* Starting states, only while playing: everything hidden or wound back. */
+.splash.play .nucleon { transform-box: fill-box; transform-origin: center; transform: scale(0); animation: splash-pop 0.42s cubic-bezier(0.2, 1.4, 0.4, 1) forwards; }
+.splash.play .nucleon:nth-of-type(1) { animation-delay: 0.05s; }
+.splash.play .nucleon:nth-of-type(2) { animation-delay: 0.17s; }
+.splash.play .nucleon:nth-of-type(3) { animation-delay: 0.27s; }
+.splash.play .nucleon:nth-of-type(4) { animation-delay: 0.37s; }
+.splash.play .nucleon:nth-of-type(5) { animation-delay: 0.47s; }
+.splash.play .nucleon:nth-of-type(6) { animation-delay: 0.57s; }
+.splash.play .nucleon:nth-of-type(7) { animation-delay: 0.67s; }
+.splash.play .shell { stroke-dasharray: 1; stroke-dashoffset: 1; animation: splash-draw 0.8s cubic-bezier(0.4, 0, 0.2, 1) 0.55s forwards; }
+.splash.play .orbit { transform-box: view-box; transform-origin: 50px 50px; transform: rotate(-200deg); animation: splash-swing 1.05s cubic-bezier(0.2, 0.9, 0.3, 1) 0.8s forwards; }
+.splash.play .orbit + .orbit { animation-delay: 0.92s; }
+.splash.play .splash-word, .splash.play .splash-sub { opacity: 0; animation: splash-fade 0.6s ease 1.35s forwards; }
+.splash.play .splash-sub { animation-delay: 1.55s; }
+@keyframes splash-pop { to { transform: scale(1); } }
+@keyframes splash-draw { to { stroke-dashoffset: 0; } }
+@keyframes splash-swing { to { transform: rotate(0deg); } }
+@keyframes splash-fade { to { opacity: 1; } }
 .gal-sub { font-family: var(--mono); font-size: 11px; color: var(--muted); }
 .gal-hover { position: absolute; left: 50%; top: calc(56px + var(--top)); transform: translateX(-50%); z-index: 2; background: var(--label); color: var(--label-ink); font-family: var(--mono); font-size: 12px; padding: 3px 8px; border-radius: 2px; pointer-events: none; }
 .gal-hover[hidden] { display: none; }
