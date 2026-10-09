@@ -2,17 +2,18 @@ import { AtomScene, type ScreenPoint } from './render/scene';
 import { applyPlacement, configuration, electronCount, newAtom, resolvePlacement, type Atom } from './core/physics';
 import { ELEMENTS, FAMILY_COLOURS, FAMILY_NAMES, MAX_Z, element } from './core/elements';
 import {
-  ISOTOPES, MODE_LABEL, decayProducts, findIsotope, formatDuration, isFleeting, isStable,
+  MODE_LABEL, decayProducts, findIsotope, formatDuration, isFleeting, isStable,
   isotopeKey, isotopesOf, sampleLifetime, type Isotope,
 } from './core/isotopes';
-import { clearSave, defaultSave, frontier, loadSave, writeSave, type SaveData } from './core/save';
+import { frontier, loadSave, writeSave, type SaveData } from './core/save';
 import { wavelengthToHex } from './render/colour';
-import { drawSpiral, hitSpiral, layoutSpiral, type SpiralNode } from './ui/spiral';
 import { buildTracks, drawWitness, slowFactor } from './ui/witness';
 import { mergeLevel, ringsLevel } from './puzzles/levels';
-import { MergeView, sup } from './puzzles/mergeView';
+import { MergeView } from './puzzles/mergeView';
 import { RingsView } from './puzzles/ringsView';
-import { SUBSHELL_COLOURS, type Area, type PuzzleView } from './puzzles/view';
+import { type Area, type PuzzleView } from './puzzles/view';
+import { puzzleType } from './puzzles/catalogue';
+import { closeModal, modalOpen, openModal } from './ui/modal';
 import * as sfx from './audio';
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -46,8 +47,9 @@ export class Game {
   private nucleusClean = true;
   private ringsClean = true;
   private shownHint = '';
+  private paused = false;
 
-  constructor(private onGallery: () => void = () => {}) {
+  constructor(private hooks: { onElement?: (z: number) => void } = {}) {
     this.scene = new AtomScene($<HTMLCanvasElement>('atom'));
     this.applySettings();
     this.bindInput();
@@ -62,11 +64,31 @@ export class Game {
 
   // ---- lifecycle --------------------------------------------------------------
 
-  /** Open the puzzles for an element, from the gallery. */
+  /** Open the puzzles for an element, from the app shell. */
   openElement(z: number): void {
     this.start(Math.min(MAX_Z, Math.max(1, z)));
     this.resizeOverlay();
     window.dispatchEvent(new Event('resize'));
+  }
+
+  get currentZ(): number { return this.z; }
+
+  /** The screen is hidden: stop drawing until resume(). */
+  pause(): void {
+    this.paused = true;
+  }
+
+  resume(): void {
+    this.paused = false;
+    window.dispatchEvent(new Event('resize'));
+    this.resizeOverlay();
+    this.ensureLoop();
+  }
+
+  /** Settings changed in the global sheet: re-read them. */
+  reloadSettings(): void {
+    this.save.settings = loadSave().settings;
+    this.applySettings();
   }
 
 
@@ -77,6 +99,7 @@ export class Game {
     this.busy = false;
     this.nucleusClean = true;
     this.ringsClean = true;
+    this.hooks.onElement?.(z);
     const colour = this.colourFor(z);
     this.scene.setColour(colour);
     document.documentElement.style.setProperty('--el', colour);
@@ -160,6 +183,7 @@ export class Game {
 
   private frame(now: number): void {
     this.loopRaf = 0;
+    if (this.paused) return;
     const p = this.puzzle;
     if (!p) {
       this.clearOverlay();
@@ -252,11 +276,7 @@ export class Game {
     $('btn-undo').onclick = () => this.undo();
     $('btn-restart').onclick = () => this.restartPuzzle();
     $('btn-why').onclick = () => this.showWhy();
-    $('btn-map').onclick = () => this.showMap();
-    $('btn-gallery').onclick = () => { this.closeModal(); this.onGallery(); };
-    $('btn-settings').onclick = () => this.showSettings();
     $('badge').onclick = () => this.showCard(this.z, false);
-    $('modal').addEventListener('click', (e) => { if (e.target === $('modal')) this.closeModal(); });
     window.addEventListener('keydown', (e) => this.onKey(e));
     window.addEventListener('blur', () => this.onCancel());
   }
@@ -291,10 +311,7 @@ export class Game {
   }
 
   private onKey(e: KeyboardEvent): void {
-    if (!$('modal').hidden) {
-      if (e.key === 'Escape') this.closeModal();
-      return;
-    }
+    if (this.paused || $('app').hidden || modalOpen()) return;
     if (e.key === 'u' || (e.key === 'z' && (e.ctrlKey || e.metaKey))) return this.undo();
     if (e.key === 'r' && !e.ctrlKey && !e.metaKey) return this.restartPuzzle();
     if (this.puzzle && !this.busy && this.puzzle.key(e)) {
@@ -406,20 +423,12 @@ export class Game {
   // ---- modals -----------------------------------------------------------------
 
   private openModal(html: string, cleanup: (() => void) | null = null): HTMLElement {
-    this.modalCleanup?.();
     this.modalCleanup = cleanup;
-    const sheet = $('sheet');
-    sheet.innerHTML = html;
-    $('modal').hidden = false;
-    sheet.scrollTop = 0;
-    return sheet;
+    return openModal(html, () => { this.modalCleanup = null; this.benchZ = null; cleanup?.(); });
   }
 
   private closeModal(): void {
-    this.modalCleanup?.();
-    this.modalCleanup = null;
-    this.benchZ = null;
-    $('modal').hidden = true;
+    closeModal();
   }
 
   private showIntro(): void {
@@ -427,23 +436,13 @@ export class Game {
       <h2>Atomos</h2>
       <p class="muted">Prototype · hydrogen to neon</p>
       <p>Every atom is two puzzles. <b>Merge</b> the nucleus: swipe to slide light nuclei together until they add up to the one you need. Then settle the <b>Shells</b>: turn the rings and hop electrons through the gate until every socket is lit.</p>
-      <p>No timers, no reading required. The <b>Why?</b> button explains the science behind each puzzle, if you want it.</p>
+      <p>No timers, no reading required. The microscope explains the science behind each puzzle, if you want it.</p>
       <div class="actions"><button class="primary" id="intro-go">Build hydrogen</button></div>`);
     sheet.querySelector<HTMLButtonElement>('#intro-go')!.onclick = () => this.closeModal();
   }
 
   private showWhy(): void {
-    const el = element(this.z);
-    const t = { z: this.z, a: el.commonA };
-    const html = this.stage === 'nucleus'
-      ? `<h2>Why Merge?</h2>
-        <p>A nucleus is protons and neutrons held together by the strong force. Stars build the elements up to iron by <b>fusion</b>: light nuclei slam together and stick, releasing energy. Hydrogen fuses to helium in the Sun; three heliums make carbon in red giants.</p>
-        <p>On this board, two nuclei fuse only when their sum is a nuclide that really exists. A proton and a neutron make deuterium, two deuterons an alpha, but two protons make nothing: helium-2 falls apart at once. Beryllium-8 cracks because the real one splits back into two alphas in a hundred-quadrillionth of a second, which is why stars need three heliums at once to make carbon.</p>
-        <p class="muted">Game rule: real nuclei do not slide about, and fusing anything past hydrogen takes the heat of a star. ${sup(String(t.a))}${el.symbol} is ${el.name}'s most common isotope, ${t.z} protons and ${t.a - t.z} neutrons.</p>`
-      : `<h2>Why Shells?</h2>
-        <p>Electrons live in <b>shells</b> round the nucleus, and shell n holds at most 2n² electrons: 2, then 8, then 18. That is the real reason the periodic table has rows of 2, 8, 8, 18. Each ring here has exactly that many slots.</p>
-        <p>The sockets are coloured by sub-shell: <span style="color:${SUBSHELL_COLOURS.s}">s</span> holds 2, <span style="color:${SUBSHELL_COLOURS.p}">p</span> holds 6, <span style="color:${SUBSHELL_COLOURS.d}">d</span> 10, <span style="color:${SUBSHELL_COLOURS.f}">f</span> 14. Electrons fill the lowest-energy sockets first, which for ${el.name} gives ${configuration(this.groundAtom(this.z))}. Every socket lit and nothing stray is the <b>ground state</b>.</p>
-        <p class="muted">Game rule: electrons are not beads and there is no gate; a real electron is a cloud of probability, which is what the atom behind this puzzle shows.</p>`;
+    const html = puzzleType(this.stage === 'nucleus' ? 'merge' : 'rings').science!(this.z);
     const sheet = this.openModal(`${html}<div class="actions"><button class="primary" id="why-close">Back to the puzzle</button></div>`);
     sheet.querySelector<HTMLButtonElement>('#why-close')!.onclick = () => this.closeModal();
   }
@@ -602,101 +601,6 @@ export class Game {
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
-  }
-
-  private showMap(): void {
-    let raf = 0;
-    let selected: number | null = null;
-    const front = frontier(this.save, MAX_Z);
-    const sheet = this.openModal(`
-      <h2>Your table</h2>
-      <p class="muted">All 118 elements on one spiral, in order of proton number. This prototype covers the first ten.</p>
-      <canvas class="map-canvas" id="map"></canvas>
-      <div class="map-info" id="map-info"></div>
-      <div class="actions"><button class="secondary" id="map-close">Close</button></div>`, () => cancelAnimationFrame(raf));
-    const canvas = sheet.querySelector<HTMLCanvasElement>('#map')!;
-    const dpr = Math.min(2, window.devicePixelRatio);
-    canvas.width = canvas.clientWidth * dpr;
-    canvas.height = canvas.clientWidth * dpr;
-    const size = canvas.clientWidth;
-    const nodes: SpiralNode[] = layoutSpiral(
-      size,
-      (z) => (this.save.built[z] ? 'built' : (z === front || this.save.settings.unlockAll) && z <= MAX_Z ? 'frontier' : z <= MAX_Z ? 'locked' : 'future'),
-      (z) => (z <= MAX_Z ? this.colourFor(z) : SILVER),
-    );
-    const info = sheet.querySelector<HTMLElement>('#map-info')!;
-    const describe = (n: SpiralNode) => {
-      if (n.z > MAX_Z) {
-        info.innerHTML = `<p><b>${n.symbol}</b>, element ${n.z}. Beyond this prototype.</p>`;
-        return;
-      }
-      const el = element(n.z);
-      if (n.state === 'built') {
-        info.innerHTML = `<p><b>${el.name}</b>${this.save.built[n.z].flawless ? ', flawless' : ''}.</p><button class="primary" id="map-open">Open card</button>`;
-        info.querySelector<HTMLButtonElement>('#map-open')!.onclick = () => this.showCard(n.z, false);
-      } else if (n.state === 'frontier') {
-        info.innerHTML = `<p><b>${n.z === front ? 'Next' : 'Unlocked for testing'}:</b> “${el.hint}”</p><button class="primary" id="map-build">Build ${el.name}</button>`;
-        info.querySelector<HTMLButtonElement>('#map-build')!.onclick = () => { this.closeModal(); this.start(n.z); };
-      } else {
-        info.innerHTML = `<p>A silhouette, element ${n.z}. Build the elements before it first.</p>`;
-      }
-    };
-    describe(nodes[front - 1]);
-    selected = front;
-    canvas.onclick = (e) => {
-      const r = canvas.getBoundingClientRect();
-      const hit = hitSpiral(nodes, e.clientX - r.left, e.clientY - r.top);
-      if (hit) {
-        selected = hit.z;
-        describe(hit);
-      }
-    };
-    const loop = (t: number) => {
-      drawSpiral(canvas, nodes, t / 1000, selected);
-      if (!this.save.settings.reducedMotion) raf = requestAnimationFrame(loop);
-    };
-    raf = requestAnimationFrame(loop);
-    sheet.querySelector<HTMLButtonElement>('#map-close')!.onclick = () => this.closeModal();
-  }
-
-  private showSettings(): void {
-    const s = this.save.settings;
-    const toggle = (key: keyof typeof s, title: string, help: string) => `
-      <label class="toggle"><span>${title}<small>${help}</small></span><input type="checkbox" data-key="${key}" ${s[key] ? 'checked' : ''}></label>`;
-    const sheet = this.openModal(`
-      <h2>Settings</h2>
-      ${toggle('reducedMotion', 'Reduce motion', 'Calmer clouds, shorter animations, no auto-rotation.')}
-      ${toggle('sound', 'Sound', 'Tones for fusions, hops and finished atoms.')}
-      ${toggle('haptics', 'Vibration', 'Taps on supported phones.')}
-      <h3>Keyboard</h3>
-      <p class="muted">Merge: arrow keys swipe. Shells: 1, 2, 3 pick a ring, left and right turn it, space hops the electron at the gate (up and down choose the direction). U undoes, R restarts the puzzle.</p>
-      <h3>Testing</h3>
-      ${toggle('unlockAll', 'Unlock every element', 'Build any of the ten elements from the map without earning it.')}
-      <h3>How accurate is this?</h3>
-      <p class="muted">Merge only lets nuclei fuse when the sum is a real nuclide, and the most common isotope of each element is the one you make; but nuclei do not slide, and real fusion needs the heat of a star. Shell Rings uses the true shell capacities (2n²), sub-shell sizes and filling order, drawn as beads and sockets rather than the probability clouds the finished atom shows. Orbital shapes in the atom are sampled from the exact hydrogen-like wavefunctions, scaled for each atom with Slater's rules. The nucleus is drawn about 10,000 times too large; at true scale it would be invisible.</p>
-      <h3>Progress</h3>
-      <p class="muted">${Object.keys(this.save.built).length} of ${MAX_Z} elements built · ${ISOTOPES.filter((i) => this.save.isotopes[isotopeKey(i.z, i.a)]?.collected || this.save.isotopes[isotopeKey(i.z, i.a)]?.witnessed?.length).length} of ${ISOTOPES.length} isotopes found</p>
-      <div class="actions"><button class="secondary" id="set-reset">Reset all progress</button><button class="primary" id="set-close">Done</button></div>`);
-    sheet.querySelectorAll<HTMLInputElement>('input[data-key]').forEach((inp) => (inp.onchange = () => {
-      (s as unknown as Record<string, boolean>)[inp.dataset.key!] = inp.checked;
-      writeSave(this.save);
-      this.applySettings();
-    }));
-    sheet.querySelector<HTMLButtonElement>('#set-close')!.onclick = () => this.closeModal();
-    sheet.querySelector<HTMLButtonElement>('#set-reset')!.onclick = (e) => {
-      const b = e.currentTarget as HTMLButtonElement;
-      if (b.dataset.confirm) {
-        clearSave();
-        this.save = defaultSave();
-        this.closeModal();
-        this.start(1);
-        this.applySettings();
-        this.showIntro();
-      } else {
-        b.dataset.confirm = '1';
-        b.textContent = 'Tap again to erase everything';
-      }
-    };
   }
 
   private applySettings(): void {

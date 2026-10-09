@@ -1,30 +1,10 @@
-// Entry point. The gallery is the home screen; the puzzle screen that unlocks
-// an element is loaded on demand from the gallery's Build button and hands
-// back when the player taps Gallery.
+// Entry point: the app shell owns the header and every screen beneath it.
 
-import { GalleryApp } from './gallery';
-import type { Game } from './game';
+import { AppShell } from './shell';
 import { registerSW } from 'virtual:pwa-register';
 
-const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
-
-let game: Game | null = null;
-
-const app = new GalleryApp({
-  onBuild: async (z) => {
-    if (!game) {
-      const { Game } = await import('./game');
-      game = new Game(() => {
-        $('app').hidden = true;
-        app.show();
-      });
-    }
-    app.hide();
-    $('app').hidden = false;
-    game.openElement(z);
-  },
-});
+const shell = new AppShell();
 
 // Reachable from the console for prototyping and automated checks.
-(window as unknown as { atomosGallery: GalleryApp }).atomosGallery = app;
+(window as unknown as { atomos: AppShell }).atomos = shell;
 registerSW({ immediate: true });
