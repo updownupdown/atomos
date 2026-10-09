@@ -13,7 +13,7 @@ export default defineConfig(({ mode }) => ({
     : [
         VitePWA({
           registerType: 'autoUpdate',
-          includeAssets: ['icons/apple-touch-icon.png'],
+          includeAssets: ['icons/apple-touch-icon.png', 'icons/favicon.svg', 'icons/atomos.svg'],
           manifest: {
             name: 'Atomos',
             short_name: 'Atomos',
