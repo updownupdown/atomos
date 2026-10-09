@@ -18,6 +18,19 @@
     <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
+    <header class="nav" id="nav" aria-label="Main">
+      <nav class="nav-tabs">
+        <button id="nav-gallery" aria-current="page">Gallery</button>
+        <button id="nav-atom" aria-current="false">Atom</button>
+        <button id="nav-puzzles" aria-current="false">Puzzles</button>
+      </nav>
+      <div class="seg nav-mode" id="nav-mode" role="group" aria-label="Atom mode" hidden>
+        <button id="mode-view" aria-pressed="true">View</button>
+        <button id="mode-build" aria-pressed="false">Build</button>
+      </div>
+      <button class="nav-settings" id="nav-settings" aria-label="Settings">Settings</button>
+    </header>
+
     <div id="gallery-screen">
       <canvas id="gal" aria-label="Every element as an atom. Drag to move, pinch to zoom, tap one to look closer."></canvas>
       <div id="gal-labels" class="gal-labels" aria-hidden="true"></div>
@@ -27,9 +40,6 @@
           <span class="gal-name">Atomos</span>
           <span class="gal-sub"><span id="gal-count">0 of 118</span> collected</span>
         </div>
-        <nav class="gal-actions">
-          <button class="icon-btn" id="gal-build" aria-label="Open the builder">Build</button>
-        </nav>
       </header>
       <div class="gal-hover" id="gal-hover" hidden></div>
       <footer class="gal-bottom">
@@ -75,11 +85,6 @@
             <span class="badge-config" id="badge-config">bare nucleus</span>
           </span>
         </button>
-        <nav class="top-actions">
-          <button class="icon-btn" id="btn-gallery" aria-label="Back to the gallery">Gallery</button>
-          <button class="icon-btn" id="btn-map" aria-label="Open the map">Map</button>
-          <button class="icon-btn" id="btn-settings" aria-label="Open settings">Settings</button>
-        </nav>
       </header>
 
       <div class="stage" id="stage" aria-live="polite"></div>
@@ -89,15 +94,58 @@
         <div class="bottom-actions">
           <button class="text-btn" id="btn-undo">Undo</button>
           <button class="text-btn" id="btn-restart">Restart puzzle</button>
-          <button class="text-btn why" id="btn-why">Why?</button>
+          <button class="science-btn" id="btn-why" aria-label="The science behind this puzzle" title="The science behind this puzzle"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3.5 7.5 5l6 6 1.5-1.5z"/><path d="M8.5 6 6 8.5l3.5 3.5"/><path d="M13 11.5c2.2 1.6 3.3 4.2 2.6 6.8"/><path d="M6 20.5h12"/><path d="M10 20.5c-1.8-.5-3-2-3-3.8"/><path d="M13.5 17.5H19"/></svg></button>
         </div>
       </div>
 
-      <div class="modal" id="modal" hidden>
-        <div class="sheet" id="sheet" role="dialog" aria-modal="true"></div>
-      </div>
-      <div class="toasts" id="toasts" aria-live="polite"></div>
     </div>
+
+    <section id="puzzles-screen" hidden aria-label="Puzzle playground">
+      <div class="pg-types" id="pg-types"></div>
+      <div class="pg-head">
+        <div class="pg-about">
+          <h2 id="pg-title">Merge</h2>
+          <p class="pg-blurb" id="pg-blurb"></p>
+          <p class="pg-role" id="pg-role"></p>
+        </div>
+        <div class="pg-pick">
+          <button class="arrow-sm" id="pg-prev" aria-label="Previous element">‹</button>
+          <span class="pg-el" id="pg-el"></span>
+          <button class="arrow-sm" id="pg-next" aria-label="Next element">›</button>
+          <input type="range" id="pg-range" min="1" max="118" value="6" aria-label="Element" />
+          <button class="text-btn" id="pg-deal">New deal</button>
+          <span class="pg-dealno" id="pg-dealno">deal 1</span>
+        </div>
+      </div>
+      <div class="pg-play" id="pg-play">
+        <canvas id="pg-canvas" aria-label="The puzzle."></canvas>
+        <div class="pg-done" id="pg-done" hidden>
+          <span class="stamp" id="pg-result"></span>
+          <div class="actions">
+            <button class="primary" id="pg-again">New deal</button>
+            <button class="secondary" id="pg-nextel">Next element</button>
+          </div>
+        </div>
+      </div>
+      <div class="pg-planned" id="pg-planned" hidden>
+        <p class="stamp">Not built yet</p>
+        <p class="muted">This one is on the progression map but has no board to play. It is next in line.</p>
+      </div>
+      <div class="pg-bottom">
+        <p class="message" id="pg-hint" role="status" aria-live="polite"></p>
+        <div class="bottom-actions">
+          <span class="pg-count" id="pg-count"></span>
+          <button class="text-btn" id="pg-undo">Undo</button>
+          <button class="text-btn" id="pg-restart">Restart</button>
+          <button class="science-btn" id="pg-science" aria-label="The science behind this puzzle" title="The science behind this puzzle"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3.5 7.5 5l6 6 1.5-1.5z"/><path d="M8.5 6 6 8.5l3.5 3.5"/><path d="M13 11.5c2.2 1.6 3.3 4.2 2.6 6.8"/><path d="M6 20.5h12"/><path d="M10 20.5c-1.8-.5-3-2-3-3.8"/><path d="M13.5 17.5H19"/></svg></button>
+        </div>
+      </div>
+    </section>
+
+    <div class="modal" id="modal" hidden>
+      <div class="sheet" id="modal-sheet" role="dialog" aria-modal="true"></div>
+    </div>
+    <div class="toasts" id="toasts" aria-live="polite"></div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

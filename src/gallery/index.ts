@@ -13,8 +13,10 @@ import { loadSave, writeSave, type SaveData } from '../core/save';
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
 export interface GalleryHandlers {
-  /** Opens the old building prototype on an element. */
+  /** Opens Build mode on an element. */
   onBuild: (z: number) => void;
+  /** The loupe opened on an element, or closed (null): the app shell tracks which. */
+  onLoupe?: (z: number | null) => void;
 }
 
 export class GalleryApp {
@@ -74,7 +76,6 @@ export class GalleryApp {
     const tabs = $('sheet-tabs');
     tabs.innerHTML = TABS.map((t) => `<button data-id="${t.id}" aria-pressed="${t.id === this.tab}">${t.label}</button>`).join('');
     tabs.querySelectorAll<HTMLButtonElement>('button').forEach((b) => (b.onclick = () => this.setTab(b.dataset.id as Tab)));
-    $('gal-build').onclick = () => this.handlers.onBuild(this.current?.z ?? 1);
   }
 
   private setLayout(id: LayoutId): void {
@@ -117,6 +118,18 @@ export class GalleryApp {
       this.detail.start();
       requestAnimationFrame(() => screen.classList.add('in'));
     }
+    this.handlers.onLoupe?.(e.z);
+  }
+
+  /** Open the loupe on an element (Atom, View mode), from the app shell. */
+  openAtom(z: number): void {
+    if (this.current?.z === z && !$('loupe-screen').hidden) return;
+    this.open(elementAt(z));
+  }
+
+  /** Back to the maps, from the app shell. */
+  closeAtom(): void {
+    if (!$('loupe-screen').hidden) this.close();
   }
 
   private close(): void {
@@ -127,6 +140,7 @@ export class GalleryApp {
     if (this.current) this.gallery.focus(this.current.z);
     this.gallery.start();
     window.setTimeout(() => { screen.hidden = true; }, 220);
+    this.handlers.onLoupe?.(null);
   }
 
   private step(dir: 1 | -1): void {
@@ -159,7 +173,7 @@ export class GalleryApp {
   }
 
   private key(ev: KeyboardEvent): void {
-    if ($('loupe-screen').hidden) return;
+    if ($('gallery-screen').hidden || $('loupe-screen').hidden) return;
     if (ev.key === 'ArrowRight') this.step(1);
     else if (ev.key === 'ArrowLeft') this.step(-1);
     else if (ev.key === 'Escape') { if (this.sheetOpen) this.toggleSheet(false); else this.close(); }
