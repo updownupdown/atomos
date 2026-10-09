@@ -43,10 +43,18 @@
         <header class="loupe-top">
           <button class="icon-btn" id="loupe-back" aria-label="Back to the gallery">‹ Gallery</button>
           <div class="seg style-switch" id="style-switch" role="group" aria-label="How the atom is drawn"></div>
+          <button class="science-btn" id="loupe-science" aria-expanded="false" aria-controls="sheet" aria-label="Open the science of this element"></button>
         </header>
-        <button class="arrow prev" id="loupe-prev" aria-label="Previous element">‹</button>
-        <button class="arrow next" id="loupe-next" aria-label="Next element">›</button>
-        <button class="loupe-card" id="card" aria-expanded="false" aria-controls="sheet" aria-label="Open everything about this element"></button>
+        <div class="dec dec-tl" id="dec-top-left" aria-label="Shells, layers, electrons and size"></div>
+        <div class="dec dec-tr" id="dec-top-right" aria-label="Isotopes"></div>
+        <footer class="loupe-bottom">
+          <div class="dec dec-shells" id="dec-shells" aria-label="Electron configuration"></div>
+          <div class="name-row">
+            <button class="arrow" id="loupe-prev" aria-label="Previous element">‹</button>
+            <div class="dec-name-row" id="dec-name"></div>
+            <button class="arrow" id="loupe-next" aria-label="Next element">›</button>
+          </div>
+        </footer>
         <div class="data-sheet" id="sheet" hidden role="dialog" aria-label="Everything about this element">
           <div class="sheet-head">
             <h2 id="sheet-title"></h2>

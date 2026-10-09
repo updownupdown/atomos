@@ -1,12 +1,12 @@
 // The gallery screen: the vitrine of all 118 atoms and the loupe over one of
-// them, wired to the page. The top layer is visual; every number lives in the
-// sheet the player opens from the card.
+// them, wired to the page. The top layer is visual, with a few white captions
+// round the atom; every number lives in the sheet behind the microscope.
 
 import { STYLES, type Style } from './atom';
 import { ELEMENTS, MAX_Z, elementAt, type Element } from './data';
 import { Detail } from './detail';
 import { Gallery } from './gallery';
-import { cardHTML, TABS, tabHTML, type Tab } from './info';
+import { decoratorsHTML, MICROSCOPE, TABS, tabHTML, type Tab } from './info';
 import { LAYOUTS, type LayoutId } from './layouts';
 import { loadSave, writeSave, type SaveData } from '../core/save';
 
@@ -38,7 +38,6 @@ export class GalleryApp {
     this.detail.setStyle(this.style);
     this.gallery.onPick = (e) => this.open(e);
     this.gallery.onHover = (e) => this.hover(e);
-    this.detail.onSwipe = (dir) => this.step(dir);
     this.detail.onTap = () => this.toggleSheet(false);
     window.addEventListener('keydown', (ev) => this.key(ev));
     this.gallery.start();
@@ -68,7 +67,8 @@ export class GalleryApp {
     $('loupe-back').onclick = () => this.close();
     $('loupe-prev').onclick = () => this.step(-1);
     $('loupe-next').onclick = () => this.step(1);
-    $('card').onclick = () => this.toggleSheet();
+    $('loupe-science').innerHTML = MICROSCOPE;
+    $('loupe-science').onclick = () => this.toggleSheet();
     $('sheet-close').onclick = () => this.toggleSheet(false);
     $('sheet-build').onclick = () => { if (this.current) this.handlers.onBuild(this.current.z); };
     const tabs = $('sheet-tabs');
@@ -98,17 +98,21 @@ export class GalleryApp {
     if (e) tag.textContent = `${e.z} ${e.name}${this.collected(e.z) ? '' : ' · not yet collected'}`;
   }
 
-  private open(e: Element, dir: 1 | -1 | 0 = 0): void {
+  private open(e: Element): void {
     const first = !this.current;
     this.current = e;
     this.gallery.select(e.z);
-    this.detail.show(e, !first, dir);
+    this.detail.show(e, !first);
     this.detail.setCollected(this.collected(e.z));
-    $('card').innerHTML = cardHTML(e, this.collected(e.z));
+    const dec = decoratorsHTML(e, this.collected(e.z));
+    $('dec-top-left').innerHTML = dec.topLeft;
+    $('dec-top-right').innerHTML = dec.topRight;
+    $('dec-shells').textContent = dec.bottom;
+    $('dec-name').innerHTML = dec.name;
     $<HTMLButtonElement>('loupe-prev').disabled = e.z === 1;
     $<HTMLButtonElement>('loupe-next').disabled = e.z === MAX_Z;
-    $('loupe-prev').textContent = e.z > 1 ? `‹ ${elementAt(e.z - 1).symbol}` : '‹';
-    $('loupe-next').textContent = e.z < MAX_Z ? `${elementAt(e.z + 1).symbol} ›` : '›';
+    $('loupe-prev').title = e.z > 1 ? elementAt(e.z - 1).name : '';
+    $('loupe-next').title = e.z < MAX_Z ? elementAt(e.z + 1).name : '';
     if (this.sheetOpen) this.renderSheet();
     const screen = $('loupe-screen');
     if (screen.hidden) {
@@ -133,14 +137,14 @@ export class GalleryApp {
     if (!this.current) return;
     const z = this.current.z + dir;
     if (z < 1 || z > MAX_Z) return;
-    this.open(elementAt(z), dir);
+    this.open(elementAt(z));
   }
 
   private toggleSheet(open = !this.sheetOpen): void {
     this.sheetOpen = open;
     const sheet = $('sheet');
     sheet.hidden = !open;
-    $('card').setAttribute('aria-expanded', String(open));
+    $('loupe-science').setAttribute('aria-expanded', String(open));
     if (open) this.renderSheet();
   }
 

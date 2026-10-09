@@ -427,24 +427,25 @@ body.stage-nucleus #atom { opacity: 0.12; }
 .loupe-top { position: absolute; left: 0; right: 0; top: 0; z-index: 2; display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: calc(6px + var(--safe-top)) 10px 0; pointer-events: none; }
 .loupe-top > * { pointer-events: auto; }
 .style-switch button { font-size: 12px; min-height: 36px; padding: 0 10px; }
-.arrow { position: absolute; top: 50%; transform: translateY(-50%); z-index: 2; background: transparent; border: 1px solid var(--line); border-radius: 2px; color: var(--muted); font-family: var(--mono); font-size: 14px; min-width: 44px; min-height: 44px; padding: 0 8px; }
-.arrow:hover { color: var(--text); border-color: var(--line-strong); }
+.science-btn { background: transparent; border: 1px solid var(--line); border-radius: 2px; color: var(--text); min-width: 40px; min-height: 36px; display: inline-flex; align-items: center; justify-content: center; padding: 0 8px; }
+.science-btn:hover, .science-btn[aria-expanded='true'] { border-color: var(--text); }
+.dec { position: absolute; z-index: 2; pointer-events: none; font-family: var(--mono); font-size: 11px; line-height: 1.5; color: #ffffff; letter-spacing: 0.04em; display: flex; flex-direction: column; }
+.dec .dim { color: var(--muted); }
+.dec-tl { left: 14px; top: calc(58px + var(--safe-top)); align-items: flex-start; }
+.dec-tr { right: 14px; top: calc(58px + var(--safe-top)); align-items: flex-end; text-align: right; }
+.loupe-bottom { position: absolute; left: 0; right: 0; bottom: calc(10px + var(--safe-bottom)); z-index: 2; display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 0 10px; pointer-events: none; }
+.loupe-bottom > * { pointer-events: auto; }
+.dec-shells { position: static; align-items: center; text-align: center; color: #ffffff; opacity: 0.85; }
+.name-row { display: flex; align-items: center; justify-content: center; gap: 14px; width: 100%; }
+.dec-name-row { display: flex; align-items: baseline; gap: 10px; color: #ffffff; font-family: var(--sans); min-width: 0; }
+.dec-z { font-family: var(--mono); font-size: 13px; color: #ffffff; opacity: 0.8; }
+.dec-sym { font-weight: 600; font-size: 30px; line-height: 1; }
+.dec-name { font-weight: 600; font-size: 20px; }
+.arrow { background: transparent; border: 1px solid var(--line); border-radius: 2px; color: #ffffff; font-family: var(--mono); font-size: 20px; line-height: 1; min-width: 44px; min-height: 44px; padding: 0 8px; }
+.arrow:hover { border-color: var(--line-strong); }
 .arrow:disabled { opacity: 0.25; cursor: default; }
-.arrow.prev { left: 8px; }
-.arrow.next { right: 8px; }
-.loupe-card { position: absolute; left: 10px; right: 10px; bottom: calc(10px + var(--safe-bottom)); z-index: 2; background: var(--label); color: var(--label-ink); border: 0; border-radius: 2px; padding: 10px 12px; text-align: left; display: flex; flex-direction: column; gap: 6px; font-family: var(--mono); box-shadow: 0 8px 30px rgba(0,0,0,0.5); }
-.loupe-card:focus-visible { outline: 2px solid var(--accent); }
-.lc-top { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
-.lc-sym { font-family: var(--sans); font-weight: 600; font-size: 34px; line-height: 1; }
-.lc-name { font-family: var(--sans); font-weight: 600; font-size: 18px; }
-.lc-z { margin-left: auto; font-size: 12px; color: var(--label-muted); }
-.lc-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px 10px; font-size: 11px; color: var(--label-muted); }
-.lc-stats b { display: block; font-family: var(--sans); font-size: 18px; color: var(--label-ink); line-height: 1.1; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.lc-stats .wide { grid-column: span 1; }
-.lc-layers { display: flex; flex-wrap: wrap; gap: 3px; }
 .pill { font-size: 10px; padding: 1px 5px; border-radius: 2px; color: #0c0b0a; font-weight: 700; font-family: var(--mono); }
 .pill.core { background: transparent; color: var(--label-muted); border: 1px dashed #9a927f; font-weight: 400; }
-@media (max-width: 420px) { .lc-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } .loupe-card { gap: 4px; } }
 
 .data-sheet { position: absolute; inset: 0; z-index: 4; background: var(--panel-solid); display: flex; flex-direction: column; padding: calc(8px + var(--safe-top)) 0 var(--safe-bottom); }
 .data-sheet[hidden] { display: none; }

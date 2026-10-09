@@ -1,6 +1,6 @@
-// The loupe: one atom, large, with its fixed scale rings. Drag to turn it,
-// swipe sideways (or use the arrows) to step to the neighbouring element and
-// watch the difference animate in. Three looks: the probability cloud, the
+// The loupe: one atom, large, with its fixed scale rings. Drag to turn it in
+// 3D; the arrows step to the neighbouring element and the same atom stays in
+// place while its layers morph. Three looks: the probability cloud, the
 // idealised orbital surfaces, or both.
 
 import * as THREE from 'three';
@@ -17,18 +17,13 @@ export class Detail {
   view: AtomView;
   private width = 1;
   private height = 1;
-  private drag: { x: number; y: number; t: number; dx: number; moved: boolean } | null = null;
-  private velocity = 0;
+  private drag: { x: number; y: number; moved: boolean } | null = null;
   private raf = 0;
   private last = performance.now();
   private running = false;
   private reducedMotion = false;
   private autoSpin = true;
   private style: Style = 'cloud';
-  /** Extra sideways drift while a swipe is in flight, in scene units. */
-  private slide = 0;
-  private slideTarget = 0;
-  onSwipe: ((dir: 1 | -1) => void) | null = null;
   onTap: (() => void) | null = null;
 
   constructor(private canvas: HTMLCanvasElement, private ringLabels: HTMLElement) {
@@ -63,14 +58,10 @@ export class Detail {
     this.view.setStyle(style);
   }
 
-  show(e: Element, animate: boolean, dir: 1 | -1 | 0 = 0): void {
+  show(e: Element, animate: boolean): void {
     this.view.setElement(e, animate && !this.reducedMotion);
     for (const r of this.ringLines) r.line.visible = e.vdw >= r.pm;
     this.placeRingLabels(e);
-    if (dir !== 0 && !this.reducedMotion) {
-      // The old atom is nudged away and the new one settles back to centre.
-      this.slide = -dir * 0.9;
-    }
   }
 
   setCollected(collected: boolean): void {
@@ -126,32 +117,21 @@ export class Detail {
     c.style.touchAction = 'none';
     c.addEventListener('pointerdown', (ev) => {
       c.setPointerCapture(ev.pointerId);
-      this.drag = { x: ev.clientX, y: ev.clientY, t: performance.now(), dx: 0, moved: false };
-      this.velocity = 0;
+      this.drag = { x: ev.clientX, y: ev.clientY, moved: false };
     });
     c.addEventListener('pointermove', (ev) => {
       if (!this.drag) return;
       const dx = ev.clientX - this.drag.x, dy = ev.clientY - this.drag.y;
       if (Math.hypot(dx, dy) > 5) this.drag.moved = true;
       if (!this.drag.moved) return;
-      const now = performance.now();
-      this.velocity = dx - this.drag.dx;
-      this.drag.dx = dx;
-      this.drag.t = now;
       this.spin.rotation.y += (ev.movementX || 0) * 0.008;
       this.spin.rotation.x = clamp(this.spin.rotation.x + (ev.movementY || 0) * 0.008, -1.2, 1.2);
     });
-    const up = (ev: PointerEvent) => {
+    const up = () => {
       if (!this.drag) return;
       const d = this.drag;
       this.drag = null;
-      const dx = ev.clientX - d.x, dy = ev.clientY - d.y;
-      if (!d.moved) { this.onTap?.(); return; }
-      // A swipe: mostly sideways, far enough or fast enough.
-      const quick = performance.now() - d.t < 80 && Math.abs(this.velocity) > 9;
-      if (Math.abs(dx) > Math.abs(dy) * 1.4 && (Math.abs(dx) > this.width * 0.28 || quick)) {
-        this.onSwipe?.(dx < 0 ? 1 : -1);
-      }
+      if (!d.moved) this.onTap?.();
     };
     c.addEventListener('pointerup', up);
     c.addEventListener('pointercancel', up);
@@ -162,8 +142,6 @@ export class Detail {
     const dt = Math.min(0.05, (now - this.last) / 1000);
     this.last = now;
     if (this.autoSpin && !this.drag && !this.reducedMotion) this.spin.rotation.y += dt * 0.2;
-    this.slide += (this.slideTarget - this.slide) * Math.min(1, dt * 5);
-    this.spin.position.x = this.slide;
     this.view.update(dt);
     this.renderer.render(this.scene, this.camera);
     this.raf = requestAnimationFrame((t) => this.frame(t));
