@@ -1,11 +1,13 @@
-// Drawing and touch for the Merge puzzle: a swipe slides the board.
+// Drawing and touch for the Merge puzzle: a swipe slides the board; a cluster
+// of the wanted size flies up into the nucleus.
 
 import { ALL_SYMBOLS } from '../core/elements';
-import { cloneMerge, jammed, sameNucleus, slide, tileLabel, won, type Dir, type MergeState, type Nucleus, type Tile } from './merge';
-import { droplet, ease, MONO, type Area, type Point, type PuzzleView } from './view';
+import { cloneMerge, jammed, slide, wanted, won, type Dir, type MergeState, type Tile } from './merge';
+import { ease, MONO, type Area, type Point, type PuzzleView } from './view';
 
 const SLIDE_MS = 150;
 const POP_MS = 260;
+const FLY_MS = 520;
 const SWIPE = 22;
 
 const symbolOf = (z: number) => ALL_SYMBOLS[z - 1] ?? '?';
@@ -17,6 +19,8 @@ export class MergeView implements PuzzleView {
   private animAt = 0;
   private area: Area = { x: 0, y: 0, w: 1, h: 1 };
   private reduced: boolean;
+  /** Where each socket sits on screen, for the flight animation. */
+  private socketAt: Point[] = [];
 
   constructor(private readonly initial: MergeState, reducedMotion: boolean) {
     this.state = cloneMerge(initial);
@@ -24,19 +28,21 @@ export class MergeView implements PuzzleView {
   }
 
   get won(): boolean { return won(this.state); }
-  get stuck(): boolean { return !this.won && jammed(this.state); }
+  get stuck(): boolean { return jammed(this.state); }
   get moves(): number { return this.state.moves; }
-  get par(): number | null { return null; }
+  get par(): number | null { return this.state.par; }
   get clean(): boolean { return this.state.spoils === 0; }
-  get target(): Nucleus { return this.state.target; }
 
   hint(): string {
-    const t = tileLabel(this.state.target, symbolOf);
-    if (this.won) return `That is ${sup(t.mass)}${t.name}: the nucleus is made.`;
+    const t = this.state.target;
+    const name = `${sup(String(t.a))}${symbolOf(t.z)}`;
+    const want = wanted(this.state);
+    if (this.won) return `That is ${name}: ${t.a} nucleons, all gathered.`;
     if (this.stuck) return 'Jammed: nothing can move. Restart the board.';
-    if (this.state.moves === 0) return `<span class="hl">Swipe</span> to slide everything. Light nuclei fuse when they meet and add up. Make <span class="hl">${sup(t.mass)}${t.name}</span>.`;
-    if (this.state.spoils && this.state.cells.some((c) => c?.spoiled)) return 'Too heavy: that one cracks. It crumbles on your next swipe.';
-    return `Make ${sup(t.mass)}${t.name}: ${this.state.target.z} protons, ${this.state.target.a - this.state.target.z} neutrons.`;
+    if (this.state.moves === 0) return `<span class="hl">Swipe</span> to slide everything. Two clusters of the same size merge into one. Build a <span class="hl">${want}</span> and it joins the nucleus.`;
+    if (this.state.cells.some((c) => c?.spoiled)) return 'Too big for what is left: that one cracks. It crumbles on your next swipe.';
+    if (this.state.flown.length) return `A ${this.state.flown[0].tile.v} joins ${name}. Next: a <span class="hl">${want}</span>.`;
+    return `${name} needs a <span class="hl">${want}</span> next.`;
   }
 
   restart(): void {
@@ -91,15 +97,15 @@ export class MergeView implements PuzzleView {
   draw(ctx: CanvasRenderingContext2D, area: Area, now: number): void {
     this.area = area;
     const n = this.state.size;
-    const side = Math.min(area.w, area.h - 70) * 0.94;
+    const goalH = 84;
+    const side = Math.min(area.w, area.h - goalH) * 0.94;
     const cell = side / n;
     const x0 = area.x + (area.w - side) / 2;
-    const y0 = area.y + 60 + (area.h - 60 - side) / 2;
+    const y0 = area.y + goalH + (area.h - goalH - side) / 2;
     const centre = (i: number): Point => ({ x: x0 + (i % n) * cell + cell / 2, y: y0 + Math.floor(i / n) * cell + cell / 2 });
     const r = cell * 0.4;
 
-    // The goal, pinned above the board like a specimen label.
-    this.drawGoal(ctx, x0 + side / 2, y0 - 34, r * 0.62);
+    this.drawGoal(ctx, x0, y0 - goalH + 10, side, r);
 
     // The board: a faint ruled grid.
     ctx.strokeStyle = 'rgba(226, 220, 207, 0.16)';
@@ -111,14 +117,14 @@ export class MergeView implements PuzzleView {
     }
     ctx.setLineDash([]);
 
-    const t = this.reduced ? 1 : (now - this.animAt) / SLIDE_MS;
-    const pop = this.reduced ? 1 : (now - this.animAt) / POP_MS;
+    const since = now - this.animAt;
+    const t = this.reduced ? 1 : since / SLIDE_MS;
+    const pop = this.reduced ? 1 : since / POP_MS;
     const sliding = t < 1;
     const byId = new Map<number, number>();
     this.state.cells.forEach((tile, i) => tile && byId.set(tile.id, i));
 
     if (sliding) {
-      // Tiles in flight: each journey from last move, drawn where it is now on the way.
       for (const j of this.state.last) {
         const a = centre(j.from), b = centre(j.to);
         const p = { x: a.x + (b.x - a.x) * ease(t), y: a.y + (b.y - a.y) * ease(t) };
@@ -126,6 +132,7 @@ export class MergeView implements PuzzleView {
         if (tile) this.drawTile(ctx, tile, p.x, p.y, r, 1, false);
       }
     }
+    const want = wanted(this.state);
     for (const [i, tile] of this.state.cells.entries()) {
       if (!tile) continue;
       const inFlight = sliding && this.state.last.some((j) => j.id === tile.id || j.into === tile.id);
@@ -134,11 +141,23 @@ export class MergeView implements PuzzleView {
       const fresh = this.state.spawned.includes(tile.id);
       const scale = fresh ? ease(Math.min(1, pop)) : 1;
       const made = this.state.last.some((j) => j.into === tile.id) && pop < 1;
-      this.drawTile(ctx, tile, c.x, c.y, r * (made ? 1 + 0.18 * Math.sin(Math.PI * pop) : scale), 1, sameNucleus(tile, this.state.target) && !tile.spoiled);
+      this.drawTile(ctx, tile, c.x, c.y, r * (made ? 1 + 0.18 * Math.sin(Math.PI * pop) : scale), 1, want !== null && tile.v === want / 2 && !tile.spoiled);
+    }
+
+    // Clusters flying into the nucleus.
+    const fly = this.reduced ? 1 : Math.max(0, since - SLIDE_MS) / FLY_MS;
+    if (fly < 1) {
+      this.state.flown.forEach((f, k) => {
+        const a = centre(f.from);
+        const b = this.socketAt[this.state.filled - this.state.flown.length + k] ?? a;
+        const e = ease(fly);
+        const p = { x: a.x + (b.x - a.x) * e, y: a.y + (b.y - a.y) * e - Math.sin(Math.PI * e) * 30 };
+        this.drawTile(ctx, f.tile, p.x, p.y, r * (1 - 0.5 * e), 1, true);
+      });
     }
   }
 
-  /** Tiles that fused last move are gone from the board; remember what they looked like for the slide. */
+  /** Tiles that merged last move are gone from the board; remember what they looked like for the slide. */
   private ghosts = new Map<number, Tile>();
 
   private ghostOf(id: number): Tile | undefined {
@@ -149,38 +168,67 @@ export class MergeView implements PuzzleView {
     return tile;
   }
 
-  private drawGoal(ctx: CanvasRenderingContext2D, x: number, y: number, r: number): void {
-    const t = this.state.target;
+  /** The nucleus being gathered: its name, and a socket per wanted cluster. */
+  private drawGoal(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, r: number): void {
+    const s = this.state;
+    const t = s.target;
+    const sr = Math.min(r * 0.7, 26);
     ctx.font = `13px ${MONO}`;
     ctx.fillStyle = 'rgba(226, 220, 207, 0.7)';
-    ctx.textAlign = 'right';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('make', x - r - 10, y);
-    this.drawTile(ctx, { ...t, id: 0, spoiled: false }, x, y, r, this.won ? 1 : 0.9, this.won);
     ctx.textAlign = 'left';
-    ctx.fillText(`${t.z} p · ${t.a - t.z} n`, x + r + 10, y);
+    ctx.textBaseline = 'middle';
+    const label = `${sup(String(t.a))}${symbolOf(t.z)}`;
+    ctx.font = `700 22px ${MONO}`;
+    ctx.fillStyle = this.won ? '#e0503a' : 'rgba(226, 220, 207, 0.9)';
+    ctx.fillText(label, x + 4, y + 22);
+    ctx.font = `12px ${MONO}`;
+    ctx.fillStyle = 'rgba(226, 220, 207, 0.55)';
+    ctx.fillText(`${t.a} nucleons · ${t.z} p · ${t.a - t.z} n`, x + 4, y + 46);
+    // Sockets, right-aligned, largest first.
+    const gap = sr * 2 + 14;
+    const total = s.sockets.length * gap;
+    let cx = x + w - total + sr + 4;
+    const cy = y + 34;
+    this.socketAt = [];
+    s.sockets.forEach((v, i) => {
+      this.socketAt.push({ x: cx, y: cy });
+      const filled = i < s.filled;
+      const next = i === s.filled;
+      if (filled) this.drawTile(ctx, { id: 0, v, spoiled: false }, cx, cy, sr, 1, false);
+      else {
+        ctx.strokeStyle = next ? '#e0503a' : 'rgba(226, 220, 207, 0.35)';
+        ctx.lineWidth = next ? 2 : 1;
+        ctx.setLineDash(next ? [] : [3, 4]);
+        ctx.beginPath();
+        ctx.arc(cx, cy, sr, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = next ? '#e0503a' : 'rgba(226, 220, 207, 0.5)';
+        ctx.font = `700 ${Math.round(sr * 0.8)}px ${MONO}`;
+        ctx.textAlign = 'center';
+        ctx.fillText(String(v), cx, cy + 1);
+      }
+      cx += gap;
+    });
   }
 
-  private drawTile(ctx: CanvasRenderingContext2D, tile: Tile, x: number, y: number, r: number, alpha: number, isTarget: boolean): void {
-    const proton = tile.z === 1 && tile.a === 1;
-    const neutron = tile.z === 0;
+  private drawTile(ctx: CanvasRenderingContext2D, tile: Tile, x: number, y: number, r: number, alpha: number, lit: boolean): void {
     ctx.save();
     ctx.globalAlpha = alpha * (tile.spoiled ? 0.55 : 1);
-    if (isTarget) {
-      ctx.shadowColor = 'rgba(224, 80, 58, 0.9)';
-      ctx.shadowBlur = r * 0.9;
+    if (lit) {
+      ctx.shadowColor = 'rgba(224, 80, 58, 0.8)';
+      ctx.shadowBlur = r * 0.8;
     }
-    // The body: a warm proton, a grey neutron, or a silver droplet for anything bigger.
     const g = ctx.createRadialGradient(x - r * 0.3, y - r * 0.3, 0, x, y, r);
-    if (proton) { g.addColorStop(0, '#f2c56c'); g.addColorStop(1, '#a8701e'); }
-    else if (neutron) { g.addColorStop(0, '#b3ab9c'); g.addColorStop(1, '#5f5a50'); }
-    else { g.addColorStop(0, '#fbf8f0'); g.addColorStop(0.75, '#d3cdbf'); g.addColorStop(1, '#8f8879'); }
+    const tone = Math.min(1, Math.log2(tile.v) / 6);
+    if (tile.v === 1) { g.addColorStop(0, '#b3ab9c'); g.addColorStop(1, '#5f5a50'); }
+    else { g.addColorStop(0, '#fbf8f0'); g.addColorStop(0.75, `rgb(${211 + 30 * tone}, ${205 + 10 * tone}, ${191 - 60 * tone})`); g.addColorStop(1, `rgb(${143 + 40 * tone}, ${136}, ${121 - 50 * tone})`); }
     ctx.fillStyle = g;
     ctx.beginPath();
     ctx.arc(x, y, r, 0, Math.PI * 2);
     ctx.fill();
     ctx.shadowBlur = 0;
-    if (!proton && !neutron) this.drawNucleons(ctx, tile, x, y, r);
+    if (tile.v > 1) this.drawNucleons(ctx, tile, x, y, r);
     if (tile.spoiled) {
       ctx.strokeStyle = 'rgba(224, 80, 58, 0.95)';
       ctx.lineWidth = Math.max(1.5, r * 0.08);
@@ -194,45 +242,38 @@ export class MergeView implements PuzzleView {
       ctx.lineTo(x + r * 0.8, y + r * 0.1);
       ctx.stroke();
     }
-    if (isTarget) {
+    if (lit) {
       ctx.strokeStyle = '#e0503a';
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.arc(x, y, r + 4, 0, Math.PI * 2);
       ctx.stroke();
     }
-    const label = tileLabel(tile, symbolOf);
+    const label = String(tile.v);
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillStyle = proton || neutron ? '#1b1813' : '#1b1813';
-    ctx.font = `700 ${Math.round(r * (label.name.length > 1 ? 0.62 : 0.78))}px ${MONO}`;
-    if (!proton && !neutron) {
-      ctx.fillStyle = 'rgba(251, 248, 240, 0.82)';
+    if (tile.v > 1) {
+      ctx.fillStyle = 'rgba(251, 248, 240, 0.85)';
       ctx.beginPath();
-      ctx.ellipse(x, y, r * 0.62, r * 0.42, 0, 0, Math.PI * 2);
+      ctx.ellipse(x, y, r * (label.length > 1 ? 0.56 : 0.42), r * 0.4, 0, 0, Math.PI * 2);
       ctx.fill();
-      ctx.fillStyle = '#1b1813';
     }
-    ctx.fillText(label.name, x + (label.mass ? r * 0.12 : 0), y);
-    if (label.mass) {
-      ctx.font = `700 ${Math.round(r * 0.36)}px ${MONO}`;
-      ctx.textAlign = 'right';
-      ctx.fillText(label.mass, x - r * 0.18, y - r * 0.3);
-    }
+    ctx.fillStyle = '#1b1813';
+    ctx.font = `700 ${Math.round(r * (label.length > 1 ? 0.6 : 0.78))}px ${MONO}`;
+    ctx.fillText(label, x, y + 1);
     ctx.restore();
   }
 
-  /** The nucleons packed inside a tile: protons warm, neutrons grey, in a sunflower spiral. */
+  /** The nucleons packed inside a cluster, in a sunflower spiral. */
   private drawNucleons(ctx: CanvasRenderingContext2D, tile: Tile, x: number, y: number, r: number): void {
-    const count = tile.a;
-    const dot = Math.max(2.2, (r * 0.95) / Math.sqrt(count + 2));
+    const count = Math.min(tile.v, 64);
+    const dot = Math.max(1.6, (r * 0.95) / Math.sqrt(count + 2));
     const golden = Math.PI * (3 - Math.sqrt(5));
     for (let i = 0; i < count; i++) {
       const k = (i + 0.5) / count;
       const rr = Math.sqrt(k) * (r - dot - 1);
       const a = i * golden;
-      const isProton = i % 2 === 0 ? i / 2 < tile.z : tile.z > Math.ceil(count / 2) && (i - 1) / 2 < tile.z - Math.ceil(count / 2);
-      ctx.fillStyle = isProton ? 'rgba(214, 150, 60, 0.9)' : 'rgba(120, 114, 104, 0.9)';
+      ctx.fillStyle = i % 2 ? 'rgba(120, 114, 104, 0.9)' : 'rgba(214, 150, 60, 0.9)';
       ctx.beginPath();
       ctx.arc(x + Math.cos(a) * rr, y + Math.sin(a) * rr, dot, 0, Math.PI * 2);
       ctx.fill();
@@ -244,5 +285,3 @@ const SUP: Record<string, string> = { '0': '⁰', '1': '¹', '2': '²', '3': '³
 export function sup(s: string): string {
   return s.split('').map((c) => SUP[c] ?? c).join('');
 }
-
-export { droplet };

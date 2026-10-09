@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { ALPHA, fuse, jammed, NEUTRON, newMerge, overshoots, PROTON, slide, won, type MergeState, type Tile } from '../src/puzzles/merge';
+import { jammed, newMerge, slide, socketsFor, wanted, won, type MergeState, type Tile } from '../src/puzzles/merge';
 
-const t = (z: number, a: number, id = 1): Tile => ({ z, a, id, spoiled: false });
+const t = (v: number, id = 1): Tile => ({ id, v, spoiled: false });
 
 function board(target: { z: number; a: number }, tiles: (Tile | null)[]): MergeState {
   const s = newMerge(target, 1);
@@ -10,82 +10,102 @@ function board(target: { z: number; a: number }, tiles: (Tile | null)[]): MergeS
   return s;
 }
 
-describe('fusion rule', () => {
-  it('fuses a proton and a neutron into deuterium, and two deuterons into an alpha', () => {
-    expect(fuse(PROTON, NEUTRON)).toEqual({ z: 1, a: 2 });
-    expect(fuse({ z: 1, a: 2 }, { z: 1, a: 2 })).toEqual(ALPHA);
+const C12 = { z: 6, a: 12 };
+const empty = (n: number) => Array<Tile | null>(n).fill(null);
+
+describe('sockets', () => {
+  it('writes the mass number as clusters, largest first', () => {
+    expect(socketsFor(12)).toEqual([8, 4]);
+    expect(socketsFor(7)).toEqual([4, 2, 1]);
+    expect(socketsFor(56)).toEqual([32, 16, 8]);
+    expect(socketsFor(4)).toEqual([4]);
   });
 
-  it('refuses sums that are not real nuclides', () => {
-    expect(fuse(PROTON, PROTON)).toBeNull(); // helium-2 does not exist
-    expect(fuse(NEUTRON, NEUTRON)).toBeNull();
-  });
-
-  it('only lets a light nucleus do the slamming', () => {
-    expect(fuse({ z: 3, a: 7 }, { z: 3, a: 7 })).toBeNull();
-    expect(fuse({ z: 3, a: 6 }, PROTON)).toEqual({ z: 4, a: 7 });
-    expect(fuse(ALPHA, ALPHA)).toEqual({ z: 4, a: 8 });
-  });
-
-  it('knows when a nucleus has gone past the target', () => {
-    expect(overshoots({ z: 4, a: 8 }, { z: 3, a: 7 })).toBe(true);
-    expect(overshoots({ z: 3, a: 8 }, { z: 3, a: 7 })).toBe(true);
-    expect(overshoots({ z: 3, a: 6 }, { z: 3, a: 7 })).toBe(false);
+  it('wants the largest cluster first', () => {
+    expect(wanted(newMerge(C12, 1))).toBe(8);
   });
 });
 
 describe('sliding', () => {
-  const Li7 = { z: 3, a: 7 };
-
-  it('slides tiles to the wall and fuses the pair that meets', () => {
-    const s = board(Li7, [t(1, 1, 1), null, t(0, 1, 2), null, ...Array(12).fill(null)]);
+  it('slides tiles to the wall and merges the equal pair that meets', () => {
+    const s = board(C12, [t(1, 1), null, t(1, 2), null, ...empty(12)]);
     const n = slide(s, 'right')!;
     expect(n).not.toBeNull();
-    expect(n.cells[3]).toMatchObject({ z: 1, a: 2 });
+    expect(n.cells[3]).toMatchObject({ v: 2 });
     expect(n.moves).toBe(1);
-    // One new tile dealt somewhere on the board.
-    expect(n.cells.filter(Boolean)).toHaveLength(2);
+    expect(n.cells.filter(Boolean)).toHaveLength(2); // one new tile dealt
+  });
+
+  it('does not merge clusters of different sizes', () => {
+    const s = board(C12, [t(1, 1), null, t(2, 2), null, ...empty(12)]);
+    const n = slide(s, 'right')!;
+    expect(n.cells[3]).toMatchObject({ v: 2 });
+    expect(n.cells[2]).toMatchObject({ v: 1 });
   });
 
   it('is not a move when nothing can shift', () => {
-    const s = board(Li7, [null, null, null, t(1, 1, 1), ...Array(12).fill(null)]);
+    const s = board(C12, [null, null, null, t(1, 1), ...empty(12)]);
     expect(slide(s, 'right')).toBeNull();
   });
 
-  it('fuses each tile at most once per swipe', () => {
-    // p n n in a row: p+n make D, but D must not then swallow the next n in the same swipe.
-    const s = board(Li7, [t(1, 1, 1), t(0, 1, 2), t(0, 1, 3), null, ...Array(12).fill(null)]);
+  it('merges each tile at most once per swipe', () => {
+    const s = board(C12, [t(1, 1), t(1, 2), t(1, 3), null, ...empty(12)]);
     const n = slide(s, 'left')!;
-    expect(n.cells[0]).toMatchObject({ z: 1, a: 2 });
-    expect(n.cells[1]).toMatchObject({ z: 0, a: 1 });
+    expect(n.cells[0]).toMatchObject({ v: 2 });
+    expect(n.cells[1]).toMatchObject({ v: 1 });
   });
 
-  it('spoils a fusion that overshoots the target, then crumbles it next swipe', () => {
-    const s = board({ z: 3, a: 7 }, [t(2, 4, 1), t(2, 4, 2), null, null, ...Array(12).fill(null)]);
+  it('sends a wanted cluster into the nucleus the moment it forms', () => {
+    const s = board(C12, [t(4, 1), t(4, 2), null, null, ...empty(12)]);
     const n = slide(s, 'left')!;
-    expect(n.cells[0]).toMatchObject({ z: 4, a: 8, spoiled: true });
+    expect(n.filled).toBe(1);
+    expect(n.flown[0].tile.v).toBe(8);
+    expect(n.cells.some((c) => c?.v === 8)).toBe(false);
+    expect(wanted(n)).toBe(4);
+  });
+
+  it('spoils a cluster bigger than anything still wanted, which crumbles next swipe', () => {
+    const s = board({ z: 2, a: 7 }, [t(4, 1), t(4, 2), null, null, ...empty(12)]);
+    s.filled = 1; // the 4 is in; now 2 and 1 are wanted
+    const n = slide(s, 'left')!;
+    expect(n.cells[0]).toMatchObject({ v: 8, spoiled: true });
     expect(n.spoils).toBe(1);
-    const m = slide({ ...n, cells: [n.cells[0], null, null, null, null, null, null, null, null, null, null, null, null, null, null, t(1, 1, 50)] }, 'up')!;
+    const m = slide({ ...n, cells: [n.cells[0], null, null, null, ...empty(11), t(1, 50)] }, 'up')!;
     expect(m.cells.some((x) => x?.spoiled)).toBe(false);
   });
 
-  it('wins when the target nucleus appears', () => {
-    const s = board(Li7, [t(3, 6, 1), t(0, 1, 2), null, null, ...Array(12).fill(null)]);
+  it('wins when every socket is filled', () => {
+    const s = board({ z: 2, a: 4 }, [t(2, 1), t(2, 2), null, null, ...empty(12)]);
     expect(won(s)).toBe(false);
     const n = slide(s, 'left')!;
     expect(won(n)).toBe(true);
+    expect(n.cells.filter(Boolean)).toHaveLength(0); // no deal after the win
   });
 
   it('reports a jam when no swipe changes anything', () => {
-    const full: Tile[] = [];
-    for (let i = 0; i < 16; i++) full.push(t(i % 2 ? 1 : 0, 1, i + 1));
-    // Alternating p and n would fuse; make it alternating p and lithium-7 instead, which cannot.
-    const stuck = full.map((x, i) => (i % 2 ? t(3, 7, x.id) : t(3, 7, x.id)));
-    expect(jammed(board({ z: 10, a: 20 }, stuck))).toBe(true);
+    const stuck: Tile[] = [];
+    for (let i = 0; i < 16; i++) stuck.push(t(((i + Math.floor(i / 4)) % 2) ? 1 : 2, i + 1));
+    expect(jammed(board(C12, stuck))).toBe(true);
   });
 
   it('deals the same tiles for the same seed', () => {
-    const a = newMerge(Li7, 42), b = newMerge(Li7, 42);
-    expect(a.cells.map((x) => x && [x.z, x.a])).toEqual(b.cells.map((x) => x && [x.z, x.a]));
+    const a = newMerge(C12, 42), b = newMerge(C12, 42);
+    expect(a.cells.map((x) => x && x.v)).toEqual(b.cells.map((x) => x && x.v));
+  });
+
+  it('can be won by play for a spread of elements', () => {
+    // Greedy play: prefer the swipe that merges most; a win within a few hundred swipes.
+    for (const target of [{ z: 2, a: 4 }, { z: 3, a: 7 }, C12, { z: 26, a: 56 }]) {
+      let s = newMerge(target, 7);
+      let swipes = 0;
+      while (!won(s) && swipes < 2000) {
+        const options = (['left', 'up', 'right', 'down'] as const).map((d) => slide(s, d)).filter((x): x is MergeState => x !== null);
+        if (!options.length) { s = newMerge(target, 7 + swipes); continue; }
+        options.sort((a, b) => a.cells.filter(Boolean).length - b.cells.filter(Boolean).length);
+        s = options[0];
+        swipes++;
+      }
+      expect(won(s)).toBe(true);
+    }
   });
 });

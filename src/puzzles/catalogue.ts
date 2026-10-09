@@ -2,11 +2,27 @@
 // and the rest from the locked progression map, so the playground can show
 // where each one sits and the game can ask for a level by id.
 
-import { element } from '../core/elements';
+import { elementAt as element } from '../gallery/data';
 import { applyPlacement, configuration, newAtom, resolvePlacement } from '../core/physics';
 import { newMerge } from './merge';
 import { MergeView, sup } from './mergeView';
 import { newRings } from './rings';
+import { newSliding } from './sliding';
+import { SlidingView } from './slidingView';
+import { newPacking } from './packing';
+import { PackingView } from './packingView';
+import { newLines } from './lines';
+import { LinesView } from './linesView';
+import { newSlideStop } from './slideStop';
+import { SlideStopView } from './slideStopView';
+import { newLight } from './light';
+import { LightView } from './lightView';
+import { newCodebreaker } from './codebreaker';
+import { CodebreakerView } from './codebreakerView';
+import { newDecay } from './decay';
+import { DecayView } from './decayView';
+import { newRutherford } from './rutherford';
+import { RutherfordView } from './rutherfordView';
 import { RingsView } from './ringsView';
 import { SUBSHELL_COLOURS, type PuzzleView } from './view';
 
@@ -54,16 +70,18 @@ function groundConfiguration(z: number): string {
 export const PUZZLES: PuzzleType[] = [
   {
     id: 'merge', name: 'Merge', tier: 'every',
-    blurb: 'Swipe to slide the board; matching nuclei fuse into heavier ones.',
-    role: 'Builds the nucleus of every element up to iron. Being redesigned so that like merges with like.',
+    blurb: 'Swipe to slide the board; two clusters of the same size merge. Gather the clusters the nucleus wants.',
+    role: 'Builds the nucleus of every element up to iron.',
     zRange: [2, 26],
     make: (z, deal, reduced) => new MergeView(newMerge({ z, a: element(z).commonA }, dealSeed('merge', z, deal)), reduced),
     science: (z) => {
       const el = element(z);
+      const parts = [];
+      for (let b = 64; b >= 1; b >>= 1) if (el.commonA & b) parts.push(b);
       return `<h2>Merge: the science</h2>
-        <p>A nucleus is protons and neutrons held together by the strong force. Stars build the elements up to iron by <b>fusion</b>: light nuclei slam together and stick, releasing energy. Hydrogen fuses to helium in the Sun; three heliums make carbon in red giants.</p>
-        <p>On this board, two nuclei fuse only when their sum is a nuclide that really exists. A proton and a neutron make deuterium, two deuterons an alpha, but two protons make nothing: helium-2 falls apart at once. Beryllium-8 cracks because the real one splits back into two alphas in a hundred-quadrillionth of a second, which is why stars need three heliums at once to make carbon.</p>
-        <p class="muted">Game rule: real nuclei do not slide about, and fusing anything past hydrogen takes the heat of a star. ${sup(String(el.commonA))}${el.symbol} is ${el.name}'s most common isotope, ${z} protons and ${el.commonA - z} neutrons.</p>`;
+        <p>A nucleus is protons and neutrons, its <b>nucleons</b>, held together by the strong force. ${sup(String(el.commonA))}${el.symbol}, ${el.name}'s most common isotope, has ${el.commonA} of them: ${z} protons and ${el.commonA - z} neutrons.</p>
+        <p>Stars build the elements up to iron by <b>fusion</b>: light nuclei slam together and stick, releasing energy. Hydrogen fuses to helium in the Sun; three heliums make carbon in red giants. Past iron, fusion costs more energy than it gives, which is why the heavier elements need a different puzzle.</p>
+        <p class="muted">Game rule: the board counts nucleons in clusters that double when two of a size meet, and ${el.commonA} written that way is ${parts.join(' + ')}. Real nuclei are not assembled by pairing clusters, and nothing slides about inside a star.</p>`;
     },
   },
   {
@@ -82,51 +100,102 @@ export const PUZZLES: PuzzleType[] = [
   },
   {
     id: 'sliding', name: 'Sliding Block', tier: 'every',
-    blurb: 'Slide the blocks out of the way so the key piece reaches the exit.',
+    blurb: 'Drag the bars out of the way so the red key bar can slide out.',
     role: 'Builds the nucleus of every element past iron, where fusion stops paying.',
     zRange: [27, 118],
+    make: (z, deal, reduced) => new SlidingView(newSliding(z, dealSeed('sliding', z, deal)), reduced),
+    science: (z) => {
+      const el = element(z);
+      return `<h2>Sliding Block: the science</h2>
+        <p>Fusion stops paying at iron: its nucleus is the most tightly bound of all, so sticking more nuclei to it costs energy instead of releasing it. The elements past iron, ${el.name} among them, are made another way: a nucleus <b>captures neutrons</b> one at a time, and some of those neutrons turn into protons by beta decay, nudging it up the table.</p>
+        <p>The slow version (the <b>s-process</b>) happens over thousands of years inside old red giants. The rapid version (the <b>r-process</b>) happens in seconds, when neutron stars collide or a massive star explodes, and makes the heaviest elements of all: gold, platinum, uranium.</p>
+        <p class="muted">Game rule: the crowded tray and the key bar are a picture of a nucleus squeezing in one more piece, not a model of neutron capture. ${el.name}'s most common isotope has ${el.commonA} nucleons.</p>`;
+    },
   },
   {
     id: 'packing', name: 'Packing', tier: 'facet',
-    blurb: 'Fit the pieces into the outline so nothing sticks out.',
+    blurb: 'Drag the pieces into the outline until it is filled exactly; tap a piece to turn it.',
     role: 'Opens an element\'s isotope vault; later isotopes rotate Packing, Merge and Sliding Block.',
     zRange: [1, 118],
+    make: (z, deal, reduced) => new PackingView(newPacking(z, dealSeed('packing', z, deal)), reduced),
+    science: (z) => {
+      const el = element(z);
+      return `<h2>Packing: the science</h2>
+        <p>Same element, different weights: an <b>isotope</b> is ${el.name} with a different number of neutrons. ${el.name} has ${el.isotopes.length} known isotopes, ${el.isotopes.filter((i) => i.stable).length} of them stable. Too many or too few neutrons and the nucleus is unstable, so the stable ones sit in a narrow <b>valley</b> on the chart of nuclides.</p>
+        <p>Nucleons do pack: the nucleus is a dense liquid-like drop, and its radius grows with the cube root of the mass number, which is why a heavy nucleus is only a few times wider than a light one.</p>
+        <p class="muted">Game rule: the pieces are a game of fitting shapes, not the real arrangement of nucleons, which have no fixed positions at all.</p>`;
+    },
   },
   {
     id: 'lines', name: 'Field Lines', tier: 'facet',
-    blurb: 'Draw one path through the grid that obeys every mark it passes.',
+    blurb: 'Draw one line from the circle to the tail: cover every dot and keep each colour in its own pocket.',
     role: 'Discovers each new orbital shape (19) and a chapter per particle (17).',
     zRange: [1, 118],
+    make: (z, deal, reduced) => new LinesView(newLines(z, dealSeed('lines', z, deal)), reduced),
+    science: (z) => {
+      const el = element(z);
+      return `<h2>Field Lines: the science</h2>
+        <p>An electron in an atom is a standing wave, and a standing wave has <b>nodes</b>: surfaces where it is exactly zero. The nodes divide space into lobes, and the sign of the wave flips from one lobe to the next. That is what gives the p orbital its two lobes, the d orbital its four, and so on. ${el.name}'s outermost electrons sit in ${el.subshells[el.subshells.length - 1].key} orbitals.</p>
+        <p>The number of nodes is fixed by the quantum numbers: an orbital with principal number n has n − 1 of them in total, split between spherical shells and planes or cones through the nucleus.</p>
+        <p class="muted">Game rule: the line that sorts colours into pockets is a playful stand-in for a nodal surface; the colours are the sub-shell palette, not real field lines.</p>`;
+    },
   },
   {
     id: 'decay', name: 'Decay Path', tier: 'facet',
-    blurb: 'Follow a radioactive isotope step by step down to something stable.',
+    blurb: 'Step a radioactive nucleus across the chart, one decay at a time, until it lands on a stable tile.',
     role: 'Rare, visual and number-free; only for radioactive isotopes.',
     zRange: [1, 118],
+    make: (z, deal, reduced) => new DecayView(newDecay(z, dealSeed('decay', z, deal)), reduced),
+    science: () => `<h2>Decay Path: the science</h2>
+      <p>Every known nucleus is a tile on the <b>chart of nuclides</b>: neutrons across, protons up. Most are unstable and decay. <b>α</b> emission sheds two protons and two neutrons; <b>β⁻</b> turns a neutron into a proton; <b>β⁺</b> (or electron capture) turns a proton into a neutron. Each step lands on a lighter or better balanced nucleus, until a stable one is reached.</p>
+      <p>Uranium-238 takes fourteen such steps to become lead-206, over four and a half billion years.</p>
+      <p class="muted">Game rule: a real nucleus has one dominant decay mode and no choice; here you pick the route. The shapes of the steps and the tiles themselves are real.</p>`,
   },
   {
     id: 'slideStop', name: 'Slide Until Stop', tier: 'gate',
-    blurb: 'Skate across the ice: you only stop when you hit something.',
+    blurb: 'Swipe to skate: the droplet slides until it hits a rock. Stop on the red ring.',
     role: 'Opens each new period of the table.',
     zRange: [1, 118],
+    make: (z, deal, reduced) => new SlideStopView(newSlideStop(z, dealSeed('slideStop', z, deal)), reduced),
+    science: () => `<h2>Slide Until Stop: the science</h2>
+      <p>A thing in motion keeps moving until a force acts on it: Newton's first law. On the ice board the rocks are the only forces, so the droplet slides until one stops it.</p>
+      <p>Electrons in a metal behave a little like this. They move freely through the lattice and are scattered only by defects and vibrations; the colder and purer the metal, the further they travel between collisions, which is why resistance falls with temperature.</p>
+      <p class="muted">Game rule: the maze is a maze. Real electrons do not skate from rock to rock.</p>`,
   },
   {
     id: 'light', name: 'Light Routing', tier: 'gate',
-    blurb: 'Turn the mirrors so the beam lands on every target.',
+    blurb: 'Tap the mirrors to flip them until the beam lights every ring.',
     role: 'Opens each new lens (arrangement) of the gallery.',
     zRange: [1, 118],
+    make: (z, deal, reduced) => new LightView(newLight(z, dealSeed('light', z, deal)), reduced),
+    science: () => `<h2>Light Routing: the science</h2>
+      <p>Light reflects from a mirror at the angle it arrived, and its path runs the same backwards: ray optics. Everything we know about atoms began with light: the sharp coloured lines in an element's spectrum are photons released as electrons drop between energy levels, and each element has its own set.</p>
+      <p>A spectrometer is exactly this puzzle made serious: slits, mirrors and a prism or grating steering light onto a detector.</p>
+      <p class="muted">Game rule: no atom contains mirrors.</p>`,
   },
   {
     id: 'rutherford', name: 'Rutherford Probe', tier: 'gate',
-    blurb: 'Fire particles at the unseen and work out what is there from how they scatter.',
+    blurb: 'Fire probes into the box and deduce the hidden nucleus from how they come out.',
     role: 'Played once; opens the nucleus view.',
-    zRange: [79, 79],
+    zRange: [1, 118],
+    make: (z, deal, reduced) => new RutherfordView(newRutherford(z, dealSeed('rutherford', z, deal)), reduced),
+    science: () => `<h2>Rutherford Probe: the science</h2>
+      <p>In 1909 Hans Geiger and Ernest Marsden fired alpha particles at a sheet of gold foil. Nearly all passed straight through, but about one in eight thousand bounced back, which Rutherford said was as surprising as a shell rebounding off tissue paper. The only explanation: almost all of the atom's mass and all its positive charge sit in a <b>nucleus</b> tens of thousands of times smaller than the atom.</p>
+      <p class="muted">Game rule: real scattering is by the electric force at every angle; the straight tracks and right-angle turns are the Black Box game's rules. The method, deducing the unseen from how probes scatter, is Rutherford's.</p>`,
   },
   {
     id: 'codebreaker', name: 'Codebreaker', tier: 'gate',
-    blurb: 'Guess the hidden sequence from the clues each guess earns.',
+    blurb: 'Guess the sealed sequence of four; each guess earns clues about what was right.',
     role: 'Guards the 15 synthetic elements.',
     zRange: [104, 118],
+    make: (z, deal, reduced) => new CodebreakerView(newCodebreaker(z, dealSeed('codebreaker', z, deal)), reduced),
+    science: (z) => {
+      const el = element(z);
+      return `<h2>Codebreaker: the science</h2>
+        <p>${el.name} does not occur in nature. Elements past uranium are made a few atoms at a time by firing one nucleus at another in an accelerator, and nobody ever sees them: they are identified by <b>inference</b>, from the chain of decays their detectors record, each alpha particle narrowing down which nuclide it must have been.</p>
+        <p>Claiming a new element means convincing a joint committee of chemists and physicists that the decay chain could only be that nuclide. ${el.name} was ${el.discoveryYear ? `first made in ${el.discoveryYear}` : 'accepted after years of such arguments'}.</p>
+        <p class="muted">Game rule: the clue dots stand in for detector signatures; the secret is a code, not a nucleus.</p>`;
+    },
   },
   {
     id: 'colour', name: 'Colour Charge', tier: 'reserve',
