@@ -112,7 +112,7 @@ export class AtomScene {
     this.controls.enablePan = false;
     this.controls.enableDamping = true;
     this.controls.rotateSpeed = 0.6;
-    // One finger and the left mouse button belong to the slingshot.
+    // One finger and the left mouse button belong to launching.
     this.controls.mouseButtons = { LEFT: null, MIDDLE: null, RIGHT: THREE.MOUSE.ROTATE } as unknown as typeof this.controls.mouseButtons;
     this.controls.touches = { ONE: null, TWO: THREE.TOUCH.DOLLY_ROTATE } as unknown as typeof this.controls.touches;
     this.controls.addEventListener('start', () => (this.lastInteraction = performance.now()));
@@ -386,7 +386,7 @@ export class AtomScene {
     return p;
   }
 
-  /** Electron flies in from where the slingshot was released and spirals into the cloud. */
+  /** Electron flies in from where it was launched and spirals into the cloud. */
   launch(from: ScreenPoint, power: number): Promise<void> {
     this.lastInteraction = performance.now();
     const e = this.makeElectron();

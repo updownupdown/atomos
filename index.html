@@ -4,6 +4,12 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
     <meta name="theme-color" content="#0c0b0a" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Atomos" />
+    <link rel="icon" type="image/png" href="./icons/icon-192.png" />
+    <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
     <meta name="description" content="Build atoms from light and probability. Atomos feel prototype: hydrogen to neon." />
     <title>Atomos</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -13,7 +19,7 @@
   </head>
   <body>
     <div id="app">
-      <canvas id="atom" aria-label="The atom you are building. Drag away from it and release to launch an electron."></canvas>
+      <canvas id="atom" aria-label="The atom you are building. Hold, tap or drag here to launch electrons."></canvas>
       <canvas id="overlay" aria-hidden="true"></canvas>
       <div class="grain" aria-hidden="true"></div>
       <div class="vignette" aria-hidden="true"></div>

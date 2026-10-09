@@ -297,6 +297,7 @@ body.assist-on .launch-switch { display: none; }
 .assist .row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .assist .label { color: var(--muted); font-family: var(--mono); font-size: 12px; }
 .seg { display: flex; gap: 4px; }
+.toggle .seg button { min-width: 44px; min-height: 36px; padding: 0 10px; font-size: 12px; }
 .seg button {
   min-width: 40px;
   min-height: 40px;
@@ -334,7 +335,7 @@ body.assist-on .launch-switch { display: none; }
 @media (max-width: 899px) {
   body.assist-on .bottom { bottom: calc(var(--safe-bottom) + 232px); }
   .assist { left: 16px; right: 16px; width: auto; }
-  .ladder { top: calc(var(--safe-top) + 112px); transform: none; }
+  .ladder { top: calc(var(--safe-top) + 150px); transform: none; }
 }
 
 /* Modal sheets: a darker plate with a paper card pinned to it. */
