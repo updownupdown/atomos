@@ -10,7 +10,7 @@
     <meta name="apple-mobile-web-app-title" content="Atomos" />
     <link rel="icon" type="image/png" href="./icons/icon-192.png" />
     <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
-    <meta name="description" content="Build atoms from light and probability. Atomos feel prototype: hydrogen to neon." />
+    <meta name="description" content="Build atoms, puzzle by puzzle. Atomos prototype: hydrogen to neon." />
     <title>Atomos</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -19,8 +19,8 @@
   </head>
   <body>
     <div id="app">
-      <canvas id="atom" aria-label="The atom you are building. Hold, tap or drag here to launch electrons."></canvas>
-      <canvas id="overlay" aria-hidden="true"></canvas>
+      <canvas id="atom" aria-label="The atom you are building."></canvas>
+      <canvas id="overlay" aria-label="The puzzle. Swipe to slide nuclei, or drag round a ring to turn it."></canvas>
       <div class="grain" aria-hidden="true"></div>
       <div class="vignette" aria-hidden="true"></div>
       <div class="edge" id="edge" aria-hidden="true">ATOMOS 400 &#9656; PLATE 0001</div>
@@ -40,26 +40,16 @@
         </nav>
       </header>
 
-      <div class="electrons" id="electrons" aria-label="Electrons placed"></div>
-
-      <aside class="ladder" id="ladder" aria-label="Energy levels for the next electron"></aside>
-
-      <div class="aim" id="aim" aria-hidden="true"></div>
+      <div class="stage" id="stage" aria-live="polite"></div>
 
       <div class="bottom">
         <p class="message" id="message" role="status" aria-live="polite"></p>
-        <div class="spectrum-wrap">
-          <canvas id="spectrum" aria-label="Light this atom has released"></canvas>
-          <div class="spectrum-labels"><span>X-ray</span><span>ultraviolet</span><span>visible</span><span>infrared</span></div>
-        </div>
         <div class="bottom-actions">
           <button class="text-btn" id="btn-undo">Undo</button>
-          <button class="text-btn" id="btn-restart">Restart atom</button>
-          <div class="launch-switch seg" id="launch-switch" role="group" aria-label="Launch style"></div>
+          <button class="text-btn" id="btn-restart">Restart puzzle</button>
+          <button class="text-btn why" id="btn-why">Why?</button>
         </div>
       </div>
-
-      <div class="assist" id="assist" hidden></div>
 
       <div class="modal" id="modal" hidden>
         <div class="sheet" id="sheet" role="dialog" aria-modal="true"></div>
