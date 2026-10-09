@@ -15,6 +15,7 @@ import { SlidingView } from './puzzles/slidingView';
 import { type Area, type PuzzleView } from './puzzles/view';
 import { puzzleType } from './puzzles/catalogue';
 import { closeModal, modalOpen, openModal } from './ui/modal';
+import { elementAt, shortConfiguration } from './gallery/data';
 import * as sfx from './audio';
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -131,7 +132,7 @@ export class Game {
     $('badge-z').textContent = String(el.z);
     $('badge-sym').textContent = el.symbol;
     $('badge-name').textContent = el.name;
-    $('badge-config').textContent = this.stage === 'nucleus' ? `${el.z} p · ${this.neutrons} n` : configuration(this.atom);
+    $('badge-config').textContent = this.stage === 'nucleus' ? `${el.z} p · ${this.neutrons} n` : this.stage === 'done' ? shortConfiguration(elementAt(this.z)) : configuration(this.atom);
     $('edge').textContent = `ATOMOS 400 ▸ ${el.symbol.toUpperCase()} ${el.z} ▸ PLATE ${String(el.z).padStart(4, '0')}`;
     this.renderStage();
     ($('btn-undo') as HTMLButtonElement).disabled = !this.puzzle?.canUndo() || this.busy;
@@ -240,7 +241,7 @@ export class Game {
       this.atom = applyPlacement(this.atom, r.orbital, r.spin);
       this.scene.setAtom(this.atom, this.neutrons, { pDiscovered: true });
       sfx.captureSound();
-      $('badge-config').textContent = configuration(this.atom);
+      $('badge-config').textContent = electronCount(this.atom) >= this.z ? shortConfiguration(elementAt(this.z)) : configuration(this.atom);
       await wait(reduced ? 60 : 220);
     }
     this.busy = false;
@@ -454,14 +455,13 @@ export class Game {
     const colour = this.colourFor(z);
     const stable = isotopesOf(z).filter(isStable);
     const stableHave = stable.filter((i) => this.save.isotopes[isotopeKey(z, i.a)]?.collected).length;
-    const atom = this.groundAtom(z);
     const next = z < MAX_Z ? element(z + 1) : null;
     const sheet = this.openModal(`
       <div class="card-head" style="--el:${colour}">
         <div class="card-sym"><small>${z}</small>${el.symbol}</div>
         <div>
           <h2>${el.name}</h2>
-          <div class="muted">${FAMILY_NAMES[el.family]} · ${configuration(atom)}</div>
+          <div class="muted">${FAMILY_NAMES[el.family]} · ${shortConfiguration(elementAt(z))}</div>
         </div>
       </div>
       <div class="tiers">
@@ -496,15 +496,6 @@ export class Game {
     sheet.querySelector<HTMLButtonElement>('#card-rebuild')?.addEventListener('click', () => { this.closeModal(); this.start(z); });
     sheet.querySelector<HTMLButtonElement>('#card-iso')?.addEventListener('click', () => this.showBench(z));
     sheet.querySelector<HTMLButtonElement>('#card-close')!.onclick = () => this.closeModal();
-  }
-
-  private groundAtom(z: number): Atom {
-    let a = newAtom(z);
-    for (let i = 0; i < z; i++) {
-      const r = resolvePlacement(a);
-      if (r?.kind === 'placed') a = applyPlacement(a, r.orbital, r.spin);
-    }
-    return a;
   }
 
   private showBench(z: number): void {

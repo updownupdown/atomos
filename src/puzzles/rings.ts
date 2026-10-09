@@ -10,6 +10,7 @@
 // Game rule, not physics: electrons are clouds, not beads, and there is no gate.
 // But the slot counts, the sub-shell colours and the filling order are real.
 
+import { elementAt } from '../gallery/data';
 import { pick, rand, randInt, seeded, type Rng } from './rng';
 
 export type Kind = 's' | 'p' | 'd' | 'f';
@@ -51,18 +52,9 @@ export function stepsToTop(r: Ring, slot: number): number {
 
 /** Electrons per shell in the ground state, filled in Madelung order. */
 export function shellCounts(z: number): number[] {
-  const order: [number, number][] = [
-    [1, 2], [2, 2], [2, 6], [3, 2], [3, 6], [4, 2], [3, 10], [4, 6], [5, 2], [4, 10], [5, 6],
-    [6, 2], [4, 14], [5, 10], [6, 6], [7, 2], [5, 14], [6, 10], [7, 6],
-  ];
+  // The real ground-state configuration, exceptions included (chromium, copper, the lanthanides).
   const counts: number[] = [];
-  let left = z;
-  for (const [n, cap] of order) {
-    if (left <= 0) break;
-    const k = Math.min(cap, left);
-    counts[n - 1] = (counts[n - 1] ?? 0) + k;
-    left -= k;
-  }
+  for (const sub of elementAt(z).subshells) counts[sub.n - 1] = (counts[sub.n - 1] ?? 0) + sub.count;
   for (let i = 0; i < counts.length; i++) counts[i] ??= 0;
   return counts;
 }
