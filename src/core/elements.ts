@@ -4,13 +4,19 @@
 // Database ionization energies; transcribed by hand, to be replaced by a generated
 // dataset before release.
 
+import { ELEMENTS as GALLERY } from '../gallery/data';
+
 export type Family =
   | 'reactive-nonmetal'
   | 'noble-gas'
   | 'alkali-metal'
   | 'alkaline-earth'
   | 'metalloid'
-  | 'halogen';
+  | 'halogen'
+  | 'post-transition'
+  | 'transition-metal'
+  | 'lanthanide'
+  | 'actinide';
 
 export interface FamousLine {
   nm: number;
@@ -128,12 +134,35 @@ export const ELEMENTS: ElementInfo[] = [
   },
 ];
 
-export const MAX_Z = ELEMENTS.length;
+export const MAX_Z = GALLERY.length;
 
+/** The hand-written entries cover hydrogen to neon; past neon the gallery's generated dataset fills in. */
 export function element(z: number): ElementInfo {
-  const e = ELEMENTS[z - 1];
+  const e = ELEMENTS[z - 1] ?? derived.get(z) ?? derive(z);
   if (!e) throw new Error(`No element data for Z=${z}`);
   return e;
+}
+
+const derived = new Map<number, ElementInfo>();
+
+const SERIES_FAMILY: Record<string, Family> = {
+  'Nonmetals': 'reactive-nonmetal', 'Noble gases': 'noble-gas', 'Alkali metals': 'alkali-metal',
+  'Alkaline earth metals': 'alkaline-earth', 'Metalloids': 'metalloid', 'Halogens': 'halogen',
+  'Poor metals': 'post-transition', 'Transition metals': 'transition-metal', 'Lanthanides': 'lanthanide', 'Actinides': 'actinide',
+};
+
+function derive(z: number): ElementInfo | undefined {
+  const g = GALLERY[z - 1];
+  if (!g) return undefined;
+  const facts = [g.description, g.uses, g.sources].filter((t): t is string => Boolean(t));
+  const info: ElementInfo = {
+    z, symbol: g.symbol, name: g.name, family: SERIES_FAMILY[g.series] ?? 'post-transition', commonA: g.commonA,
+    ionisation: g.ionisation ? [g.ionisation] : [],
+    hint: g.description?.split(/(?<=\.)\s/)[0] ?? `${g.name}, element ${z}.`,
+    facts,
+  };
+  derived.set(z, info);
+  return info;
 }
 
 export const FAMILY_COLOURS: Record<Family, string> = {
@@ -143,6 +172,10 @@ export const FAMILY_COLOURS: Record<Family, string> = {
   'alkaline-earth': '#ffd772',
   'metalloid': '#7fe6c8',
   'halogen': '#a6ff8f',
+  'post-transition': '#c9c2b2',
+  'transition-metal': '#e6b04a',
+  'lanthanide': '#d68ad8',
+  'actinide': '#a865d6',
 };
 
 export const FAMILY_NAMES: Record<Family, string> = {
@@ -152,6 +185,10 @@ export const FAMILY_NAMES: Record<Family, string> = {
   'alkaline-earth': 'Alkaline earth metal',
   'metalloid': 'Metalloid',
   'halogen': 'Halogen',
+  'post-transition': 'Post-transition metal',
+  'transition-metal': 'Transition metal',
+  'lanthanide': 'Lanthanide',
+  'actinide': 'Actinide',
 };
 
 /** Names for the whole table, so the spiral map can show what lies ahead. */

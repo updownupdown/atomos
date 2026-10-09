@@ -1,25 +1,27 @@
-// Merge: build the nucleus by fusing light nuclei.
+// Merge: gather the nucleons for a nucleus.
 //
-// A 4x4 board of nuclei. Swiping slides every tile; when a light nucleus (mass
-// number 4 or less: a proton, a neutron, deuterium, tritium, helium-3 or an alpha)
-// runs into another tile and the two add up to a real nuclide, they fuse. Make the
-// element's most common nucleus to win. Fusing past it spoils the tile, which
-// cracks and crumbles away on the next swipe.
+// A 4x4 board of nucleon clusters. Swiping slides every tile; two clusters of
+// the same size that meet merge into one twice the size, as in 2048. The
+// nucleus wants a fixed set of clusters (its mass number written in powers of
+// two: carbon-12 is 8 + 4), largest first. The moment a cluster of the wanted
+// size exists it flies off the board into the nucleus. Fill every socket to win.
+// A cluster bigger than anything still wanted is spoiled: it cracks and crumbles
+// away on the next swipe.
 //
-// Game rule, not physics: real fusion needs enormous energy and nuclei do not
-// slide about; but every fusion here does add up, and beryllium-8 really does
-// fall back apart (it is spoiled for every target but beryllium itself).
+// Game rule, not physics: real nuclei are not built by pairing up clusters;
+// the clusters are only a way to count nucleons.
 
-import { findIsotope } from '../core/isotopes';
-import { rand, randInt, seeded, weighted, type Rng } from './rng';
+import { randInt, seeded, weighted, type Rng } from './rng';
 
 export interface Nucleus {
   z: number;
   a: number;
 }
 
-export interface Tile extends Nucleus {
+export interface Tile {
   id: number;
+  /** Nucleons in the cluster: 1, 2, 4, 8, ... */
+  v: number;
   spoiled: boolean;
 }
 
@@ -30,7 +32,7 @@ export interface Journey {
   id: number;
   from: number;
   to: number;
-  /** The id of the tile it fused into, when it did. */
+  /** The id of the tile it merged into, when it did. */
   into?: number;
 }
 
@@ -38,55 +40,49 @@ export interface MergeState {
   size: number;
   cells: (Tile | null)[];
   target: Nucleus;
+  /** Cluster sizes the nucleus wants, largest first. */
+  sockets: number[];
+  /** How many sockets are filled, in order. */
+  filled: number;
   moves: number;
   spoils: number;
+  par: number;
   nextId: number;
   rng: Rng;
   last: Journey[];
   /** Ids of tiles spawned by the last move. */
   spawned: number[];
+  /** Tiles that flew into the nucleus on the last move, with the cell they left. */
+  flown: { tile: Tile; from: number }[];
 }
 
-export const PROTON: Nucleus = { z: 1, a: 1 };
-export const NEUTRON: Nucleus = { z: 0, a: 1 };
-export const ALPHA: Nucleus = { z: 2, a: 4 };
-
-/** A nucleus light enough to be slammed into another. */
-export function isLight(n: Nucleus): boolean {
-  return n.a <= 4;
+/** The mass number as powers of two, largest first. */
+export function socketsFor(a: number): number[] {
+  const out: number[] = [];
+  for (let b = 1 << 30; b >= 1; b >>= 1) if (a & b) out.push(b);
+  return out;
 }
 
-export function sameNucleus(a: Nucleus, b: Nucleus): boolean {
-  return a.z === b.z && a.a === b.a;
+/** The cluster size the nucleus wants next, or null when it is complete. */
+export function wanted(s: MergeState): number | null {
+  return s.filled < s.sockets.length ? s.sockets[s.filled] : null;
 }
 
-/** Whether the sum of two nuclei is a real nuclide, and what it is. */
-export function fuse(a: Nucleus, b: Nucleus): Nucleus | null {
-  if (!isLight(a) && !isLight(b)) return null;
-  const z = a.z + b.z, mass = a.a + b.a;
-  if (z === 0) return null;
-  return findIsotope(z, mass) ? { z, a: mass } : null;
-}
-
-/** A nucleus that has gone past the target can never become it. */
-export function overshoots(n: Nucleus, target: Nucleus): boolean {
-  return n.z > target.z || (n.z === target.z && n.a > target.a);
-}
-
-/** What the board deals out: protons and neutrons, with alphas once the target is big enough to want them. */
-export function spawnMix(target: Nucleus): { kinds: Nucleus[]; weights: number[] } {
-  const kinds = [PROTON, NEUTRON];
-  const weights = [4, 3];
-  if (target.z >= 4) {
-    kinds.push(ALPHA);
-    weights.push(target.z >= 6 ? 3 : 2);
+/** What the board deals out: mostly single nucleons, some pairs, a few fours for big nuclei. */
+export function spawnMix(target: Nucleus): { kinds: number[]; weights: number[] } {
+  const kinds = [1, 2];
+  const weights = [6, 3];
+  if (target.a >= 16) {
+    kinds.push(4);
+    weights.push(target.a >= 40 ? 2 : 1);
   }
   return { kinds, weights };
 }
 
 export function newMerge(target: Nucleus, seed: number, size = 4): MergeState {
   const s: MergeState = {
-    size, cells: Array(size * size).fill(null), target, moves: 0, spoils: 0, nextId: 1, rng: seeded(seed), last: [], spawned: [],
+    size, cells: Array(size * size).fill(null), target, sockets: socketsFor(target.a), filled: 0,
+    moves: 0, spoils: 0, par: Math.ceil(target.a * 0.7) + 1, nextId: 1, rng: seeded(seed), last: [], spawned: [], flown: [],
   };
   for (let i = 0; i < 3; i++) spawn(s);
   s.spawned = [];
@@ -94,7 +90,7 @@ export function newMerge(target: Nucleus, seed: number, size = 4): MergeState {
 }
 
 export function cloneMerge(s: MergeState): MergeState {
-  return { ...s, cells: s.cells.map((t) => (t ? { ...t } : null)), rng: { ...s.rng }, last: [], spawned: [] };
+  return { ...s, cells: s.cells.map((t) => (t ? { ...t } : null)), rng: { ...s.rng }, last: [], spawned: [], flown: [] };
 }
 
 function spawn(s: MergeState): void {
@@ -102,8 +98,11 @@ function spawn(s: MergeState): void {
   if (!empty.length) return;
   const at = empty[randInt(s.rng, empty.length)];
   const mix = spawnMix(s.target);
-  const kind = mix.kinds[weighted(s.rng, mix.weights)];
-  const tile: Tile = { ...kind, id: s.nextId++, spoiled: false };
+  let v = mix.kinds[weighted(s.rng, mix.weights)];
+  // Never deal a cluster already too big to be wanted.
+  const want = wanted(s);
+  if (want !== null && v > want) v = 1;
+  const tile: Tile = { id: s.nextId++, v, spoiled: false };
   s.cells[at] = tile;
   s.spawned.push(tile.id);
 }
@@ -126,6 +125,19 @@ function lines(size: number, dir: Dir): number[][] {
   return out;
 }
 
+/** Any tile of the wanted size leaves the board for the nucleus; repeats while sockets keep matching. */
+function collect(s: MergeState): void {
+  for (;;) {
+    const want = wanted(s);
+    if (want === null) return;
+    const i = s.cells.findIndex((t) => t && !t.spoiled && t.v === want);
+    if (i < 0) return;
+    s.flown.push({ tile: s.cells[i]!, from: i });
+    s.cells[i] = null;
+    s.filled++;
+  }
+}
+
 /**
  * Slides every tile in one direction. Returns the new state, or null when nothing
  * would move (a swipe into a wall is not a move). Spoiled tiles crumble first.
@@ -135,22 +147,23 @@ export function slide(s: MergeState, dir: Dir): MergeState | null {
   const before = s.cells.map((t) => (t ? `${t.id}` : '.')).join(',');
   for (let i = 0; i < next.cells.length; i++) if (next.cells[i]?.spoiled) next.cells[i] = null;
   const journeys: Journey[] = [];
+  const want = wanted(s);
   for (const line of lines(s.size, dir)) {
-    const out: { tile: Tile; fused: boolean; at: number }[] = [];
+    const out: { tile: Tile; merged: boolean; at: number }[] = [];
     for (const idx of line) {
       const tile = next.cells[idx];
       if (!tile) continue;
       const prev = out[out.length - 1];
-      const product = prev && !prev.fused ? fuse(prev.tile, tile) : null;
-      if (prev && product) {
-        const made: Tile = { ...product, id: next.nextId++, spoiled: overshoots(product, s.target) };
+      if (prev && !prev.merged && prev.tile.v === tile.v) {
+        const v = tile.v * 2;
+        const made: Tile = { id: next.nextId++, v, spoiled: want !== null && v > want };
         if (made.spoiled) next.spoils++;
         journeys.push({ id: tile.id, from: idx, to: line[out.length - 1], into: made.id });
         journeys.push({ id: prev.tile.id, from: prev.at, to: line[out.length - 1], into: made.id });
-        out[out.length - 1] = { tile: made, fused: true, at: line[out.length - 1] };
+        out[out.length - 1] = { tile: made, merged: true, at: line[out.length - 1] };
       } else {
         journeys.push({ id: tile.id, from: idx, to: line[out.length] });
-        out.push({ tile, fused: false, at: idx });
+        out.push({ tile, merged: false, at: idx });
       }
     }
     for (let i = 0; i < line.length; i++) next.cells[line[i]] = i < out.length ? out[i].tile : null;
@@ -159,33 +172,19 @@ export function slide(s: MergeState, dir: Dir): MergeState | null {
   if (before === after) return null;
   next.moves = s.moves + 1;
   next.last = journeys;
-  spawn(next);
+  collect(next);
+  if (!won(next)) {
+    spawn(next);
+    collect(next);
+  }
   return next;
 }
 
 export function won(s: MergeState): boolean {
-  return s.cells.some((t) => t && !t.spoiled && sameNucleus(t, s.target));
+  return s.filled >= s.sockets.length;
 }
 
 /** No swipe would change the board: the only way on is a restart. */
 export function jammed(s: MergeState): boolean {
-  return (['up', 'down', 'left', 'right'] as Dir[]).every((d) => slide(s, d) === null);
+  return !won(s) && (['up', 'down', 'left', 'right'] as Dir[]).every((d) => slide(s, d) === null);
 }
-
-/** The short name a tile wears: p, n, or the mass number with the element's symbol. */
-export function tileLabel(n: Nucleus, symbol: (z: number) => string): { mass: string; name: string } {
-  if (sameNucleus(n, PROTON)) return { mass: '', name: 'p' };
-  if (sameNucleus(n, NEUTRON)) return { mass: '', name: 'n' };
-  if (n.z === 1 && n.a === 2) return { mass: '2', name: 'D' };
-  if (n.z === 1 && n.a === 3) return { mass: '3', name: 'T' };
-  return { mass: String(n.a), name: symbol(n.z) };
-}
-
-/** A deterministic shuffle helper used by tests and level checks. */
-export function sampleDeal(target: Nucleus, seed: number, n: number): Nucleus[] {
-  const rng = seeded(seed);
-  const mix = spawnMix(target);
-  return Array.from({ length: n }, () => mix.kinds[weighted(rng, mix.weights)]);
-}
-
-export { rand };

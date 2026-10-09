@@ -2,7 +2,7 @@
 // for playtesting and tuning. Temporary; the game proper reaches puzzles
 // through each atom's Build mode.
 
-import { MAX_Z, element } from './core/elements';
+import { elementAt as element } from './gallery/data';
 import { loadSave } from './core/save';
 import { PUZZLES, TIER_LABEL, type PuzzleType, type Tier } from './puzzles/catalogue';
 import { PuzzleHost } from './puzzles/host';
@@ -147,4 +147,4 @@ export class Playground {
   }
 }
 
-export { MAX_Z, MICROSCOPE };
+export { MICROSCOPE };

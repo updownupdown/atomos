@@ -1,6 +1,6 @@
 import { AtomScene, type ScreenPoint } from './render/scene';
 import { applyPlacement, configuration, electronCount, newAtom, resolvePlacement, type Atom } from './core/physics';
-import { ELEMENTS, FAMILY_COLOURS, FAMILY_NAMES, MAX_Z, element } from './core/elements';
+import { FAMILY_COLOURS, FAMILY_NAMES, MAX_Z, element } from './core/elements';
 import {
   MODE_LABEL, decayProducts, findIsotope, formatDuration, isFleeting, isStable,
   isotopeKey, isotopesOf, sampleLifetime, type Isotope,
@@ -8,9 +8,10 @@ import {
 import { frontier, loadSave, writeSave, type SaveData } from './core/save';
 import { wavelengthToHex } from './render/colour';
 import { buildTracks, drawWitness, slowFactor } from './ui/witness';
-import { mergeLevel, ringsLevel } from './puzzles/levels';
+import { MERGE_UP_TO, mergeLevel, ringsLevel, slidingLevel } from './puzzles/levels';
 import { MergeView } from './puzzles/mergeView';
 import { RingsView } from './puzzles/ringsView';
+import { SlidingView } from './puzzles/slidingView';
 import { type Area, type PuzzleView } from './puzzles/view';
 import { puzzleType } from './puzzles/catalogue';
 import { closeModal, modalOpen, openModal } from './ui/modal';
@@ -112,7 +113,7 @@ export class Game {
     this.stage = stage;
     this.shownHint = '';
     const reduced = this.save.settings.reducedMotion;
-    if (stage === 'nucleus') this.puzzle = new MergeView(mergeLevel(this.z), reduced);
+    if (stage === 'nucleus') this.puzzle = this.z <= MERGE_UP_TO ? new MergeView(mergeLevel(this.z), reduced) : new SlidingView(slidingLevel(this.z), reduced);
     else if (stage === 'shells') this.puzzle = new RingsView(ringsLevel(this.z), reduced);
     else this.puzzle = null;
     document.body.classList.toggle('puzzling', this.puzzle !== null);
@@ -442,7 +443,7 @@ export class Game {
   }
 
   private showWhy(): void {
-    const html = puzzleType(this.stage === 'nucleus' ? 'merge' : 'rings').science!(this.z);
+    const html = puzzleType(this.stage === 'nucleus' ? (this.z <= MERGE_UP_TO ? 'merge' : 'sliding') : 'rings').science!(this.z);
     const sheet = this.openModal(`${html}<div class="actions"><button class="primary" id="why-close">Back to the puzzle</button></div>`);
     sheet.querySelector<HTMLButtonElement>('#why-close')!.onclick = () => this.closeModal();
   }
@@ -625,8 +626,9 @@ export class Game {
     if (!this.puzzle || this.busy) return;
     const p = this.puzzle as unknown as { state: unknown };
     if (this.stage === 'nucleus') {
-      const s = p.state as { cells: ({ z: number; a: number; id: number; spoiled: boolean } | null)[]; target: { z: number; a: number } };
-      s.cells[0] = { ...s.target, id: 999, spoiled: false };
+      const s = p.state as { sockets?: number[]; filled?: number; blocks?: { x: number; len: number }[]; size?: number };
+      if (s.sockets) s.filled = s.sockets.length;
+      else if (s.blocks) s.blocks[0] = { ...s.blocks[0], x: s.size! - s.blocks[0].len };
     } else {
       const s = p.state as { rings: { cells: boolean[]; sockets: (string | null)[] }[] };
       for (const r of s.rings) r.cells = r.sockets.map((k) => k !== null);
@@ -638,7 +640,7 @@ export class Game {
 // ---- helpers -----------------------------------------------------------------
 
 function isoName(z: number, a: number): string {
-  return z >= 1 && z <= ELEMENTS.length ? `${element(z).name.toLowerCase()}-${a}` : `element ${z}-${a}`;
+  return z >= 1 && z <= MAX_Z ? `${element(z).name.toLowerCase()}-${a}` : `element ${z}-${a}`;
 }
 
 function superscriptNum(n: number): string {
