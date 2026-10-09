@@ -19,23 +19,20 @@ const num = (v: number | null, unit = '', digits = 3) => (v == null ? '<span cla
 const kelvin = (k: number | null) => (k == null ? '<span class="na">not known</span>' : `${Math.round(k)} K <span class="dim">(${Math.round(k - 273.15)} °C)</span>`);
 const row = (label: string, value: string) => `<div class="kv"><span>${label}</span><b>${value}</b></div>`;
 
-/** The one-line card shown under the loupe: the simple layer. */
-export function cardHTML(e: Element, collected: boolean): string {
-  const iso = e.stableIsotopes ? `${e.stableIsotopes} stable isotope${e.stableIsotopes > 1 ? 's' : ''}` : `half-life ${formatHalfLife(keyIsotope(e)?.halfLife ?? null)}`;
-  return `
-    <div class="lc-top">
-      <span class="lc-sym">${e.symbol}</span>
-      <span class="lc-name">${esc(e.name)}</span>
-      <span class="lc-z">${e.z}${collected ? '' : ' · not yet collected'}</span>
-    </div>
-    <div class="lc-stats">
-      <span><b>${e.shells}</b>shell${e.shells > 1 ? 's' : ''}</span>
-      <span><b>${e.subshells.length}</b>layer${e.subshells.length > 1 ? 's' : ''}</span>
-      <span><b>${e.z}</b>electron${e.z > 1 ? 's' : ''}</span>
-      <span class="wide"><b>${e.vdw} pm</b>${iso}</span>
-    </div>
-    <div class="lc-layers">${layerPills(e)}</div>`;
+/** Small white captions round the loupe: the simple layer, worn like plate markings. */
+export function decoratorsHTML(e: Element, collected: boolean): { topLeft: string; topRight: string; bottom: string; name: string } {
+  const key = keyIsotope(e);
+  const iso = e.stableIsotopes
+    ? `${e.stableIsotopes} stable isotope${e.stableIsotopes > 1 ? 's' : ''}`
+    : `no stable isotope<br>${e.symbol}-${key?.a ?? e.commonA} · ${formatHalfLife(key?.halfLife ?? null)}`;
+  return {
+    topLeft: `<span>${e.shells} shell${e.shells > 1 ? 's' : ''}</span><span>${e.subshells.length} layer${e.subshells.length > 1 ? 's' : ''}</span><span>${e.z} electron${e.z > 1 ? 's' : ''}</span><span>${e.vdw} pm${e.vdwEstimated ? ' ~' : ''}</span>`,
+    topRight: `<span>${iso}</span><span>${e.isotopes.length} known</span>${collected ? '' : '<span class="dim">not yet collected</span>'}`,
+    bottom: shortConfiguration(e),
+    name: `<span class="dec-z">${e.z}</span><span class="dec-sym">${e.symbol}</span><span class="dec-name">${esc(e.name)}</span>`,
+  };
 }
+
 
 export function layerPills(e: Element): string {
   return e.subshells.map((s) => s.core
