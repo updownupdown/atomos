@@ -1,6 +1,6 @@
-// Entry point. The gallery is the home screen; the electron-launching builder
-// from the earlier prototypes is loaded on demand from the gallery's Build
-// button and hands back when the player taps Gallery.
+// Entry point. The gallery is the home screen; the puzzle screen that unlocks
+// an element is loaded on demand from the gallery's Build button and hands
+// back when the player taps Gallery.
 
 import { GalleryApp } from './gallery';
 import type { Game } from './game';
