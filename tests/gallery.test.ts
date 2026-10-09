@@ -1,0 +1,107 @@
+import { describe, expect, it } from 'vitest';
+import { ELEMENTS, MAX_Z, elementAt, formatHalfLife, shortConfiguration } from '../src/gallery/data';
+import { LAYOUTS, layout } from '../src/gallery/layouts';
+import { harmonic, orbitalSurface, radial, radialTable, sampleSubshell } from '../src/gallery/orbital';
+
+describe('element dataset', () => {
+  it('has all 118 elements in order with electrons summing to Z', () => {
+    expect(MAX_Z).toBe(118);
+    for (const e of ELEMENTS) {
+      expect(e.subshells.reduce((a, s) => a + s.count, 0)).toBe(e.z);
+      for (const s of e.subshells) expect(s.count).toBeLessThanOrEqual(s.capacity);
+      expect(e.vdw).toBeGreaterThan(0);
+    }
+  });
+  it('marks the noble-gas core and writes the short configuration', () => {
+    expect(shortConfiguration(elementAt(26))).toBe('[Ar] 3d⁶ 4s²');
+    expect(shortConfiguration(elementAt(1))).toBe('1s¹');
+    expect(elementAt(79).core).toBe('Xe');
+    expect(elementAt(10).core).toBe('He');
+    expect(elementAt(2).core).toBeNull();
+  });
+  it('uses van der Waals radii, so caesium is larger than radon', () => {
+    expect(elementAt(55).vdw).toBeGreaterThan(elementAt(86).vdw);
+    expect(elementAt(1).vdw).toBe(110);
+    expect(elementAt(87).vdw).toBe(348);
+  });
+  it('counts 250 observationally stable isotopes and finds the key isotope', () => {
+    expect(ELEMENTS.reduce((a, e) => a + e.stableIsotopes, 0)).toBe(250);
+    expect(elementAt(26).commonA).toBe(56);
+    expect(elementAt(92).commonA).toBe(238);
+    expect(elementAt(43).stableIsotopes).toBe(0);
+  });
+  it('formats half-lives', () => {
+    expect(formatHalfLife(null)).toBe('stable');
+    expect(formatHalfLife(0.00069)).toBe('690 µs');
+    expect(formatHalfLife(1.4e17)).toBe('4.44 billion y');
+  });
+});
+
+describe('layouts', () => {
+  it('places every element without two sharing a spot', () => {
+    for (const { id } of LAYOUTS) {
+      const l = layout(id);
+      expect(l.atoms).toHaveLength(118);
+      const seen = new Set<string>();
+      for (const a of l.atoms) {
+        const key = `${a.x.toFixed(2)},${a.y.toFixed(2)},${a.zz.toFixed(2)}`;
+        expect(seen.has(key), `${id} ${a.z}`).toBe(false);
+        seen.add(key);
+      }
+    }
+  });
+  it('puts helium above neon in the table and beside hydrogen in the left step', () => {
+    const t = layout('table');
+    expect(t.atoms[1].x).toBeCloseTo(t.atoms[9].x);
+    const ls = layout('leftstep');
+    expect(ls.atoms[1].y).toBeCloseTo(ls.atoms[0].y);
+    expect(ls.atoms[1].x).toBeGreaterThan(ls.atoms[0].x);
+  });
+});
+
+describe('orbitals', () => {
+  it('radial functions have n - l - 1 nodes', () => {
+    const nodes = (n: number, l: number) => {
+      let count = 0;
+      let prev = radial(n, l, 0.01);
+      for (let x = 0.02; x < 80; x += 0.01) {
+        const v = radial(n, l, x);
+        if (Math.sign(v) !== Math.sign(prev) && v !== 0) count++;
+        prev = v;
+      }
+      return count;
+    };
+    expect(nodes(1, 0)).toBe(0);
+    expect(nodes(2, 0)).toBe(1);
+    expect(nodes(3, 1)).toBe(1);
+    expect(nodes(4, 3)).toBe(0);
+    expect(nodes(5, 0)).toBe(4);
+  });
+  it('mean radius grows with n, as (3/2) n^2 for s orbitals', () => {
+    expect(radialTable(1, 0).mean).toBeCloseTo(1.5, 1);
+    expect(radialTable(2, 0).mean).toBeCloseTo(6, 0);
+    expect(radialTable(3, 0).mean).toBeLessThan(radialTable(4, 0).mean);
+  });
+  it('samples a p orbital along its axis', () => {
+    const c = sampleSubshell(2, 'p', 200);
+    expect(c.positions.length).toBe(6 * 200 * 3);
+    // Slot 0 fills pz, which the renderer draws along screen y.
+    let along = 0, across = 0;
+    for (let i = 0; i < 200; i++) {
+      const x = c.positions[i * 3], y = c.positions[i * 3 + 1], z = c.positions[i * 3 + 2];
+      along += y * y;
+      across += x * x + z * z;
+    }
+    expect(along).toBeGreaterThan(across);
+    expect(harmonic(1, 0, 0, 0, 1)).toBe(1);
+  });
+  it('builds closed surfaces for every orbital kind', () => {
+    for (const [block, count] of [['s', 1], ['p', 3], ['d', 5], ['f', 7]] as const) {
+      for (let oi = 0; oi < count; oi++) {
+        const s = orbitalSurface(block, oi, 16, 12);
+        expect(s.index.length).toBe(16 * 12 * 6);
+        expect(Math.max(...s.index)).toBeLessThan(s.positions.length / 3);
+      }
+    }
+  });
+});

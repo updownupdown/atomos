@@ -19,7 +19,15 @@ npm run build:single # dist-single/index.html, one self-contained file for shari
 
 Every push to `main` builds the app and publishes it to GitHub Pages at https://updownupdown.github.io/atomos/ (`.github/workflows/pages.yml`). Pull requests run the typecheck, tests and build without deploying. Pages must be set to deploy from GitHub Actions in the repository settings.
 
-## What is in the prototype
+## The gallery
+
+The app opens on the gallery: all 118 elements as live atoms, drawn at their true relative sizes (van der Waals radii) with every orbital family in a fixed colour (s blue, p green, d amber, f violet). Five arrangements: spiral, the standard table, Janet's left-step table, a helix and a discovery timeline. Drag to pan, pinch or scroll to zoom, tap an atom to open the loupe.
+
+The loupe shows one atom large, with fixed scale rings at 150, 200, 250 and 300 pm. Drag turns it; a sideways swipe (or the arrows, or the arrow keys) steps to the next element, and the electrons that change fade in white or out red while the layers both atoms share only rescale. Three looks: the probability cloud, the idealised orbital shapes, or both. The card at the bottom is the simple layer; tapping it opens the data sheet with everything the dataset knows (structure, isotopes, properties, story).
+
+`src/gallery/` holds it: `data.ts` (the generated dataset and derived structure), `orbital.ts` (spherical harmonics, true radial functions, sampling, boundary surfaces), `atom.ts` (one atom as a Three.js object, with transitions), `layouts.ts`, `gallery.ts`, `detail.ts`, `info.ts`. The dataset in `src/data/` is produced by `scripts/gen-elements.py` from the mendeleev package. The electron-launching builder from the earlier prototypes is still there behind the Build button.
+
+## What is in the builder prototype
 
 - **Three launch styles**, switchable at the bottom of the screen, all under evaluation:
   - **Charge** (`src/core/tuning.ts`): press and hold anywhere and the electron climbs the energy ladder beside the atom; let go while a rung is lit. Rungs higher up have narrower bands. Hold on past the top and the electron breaks free, knocking one out of the atom. A flick up or down as you let go sets spin. Climb speed is a setting.
@@ -50,7 +58,10 @@ Every push to `main` builds the app and publishes it to GitHub Pages at https://
 src/core/      rules and data with no rendering: physics.ts, elements.ts, isotopes.ts, save.ts
 src/render/    Three.js scene, orbital sampling, light colours
 src/ui/        spiral map, witness (bubble chamber) renderer
-src/main.ts    game controller and screens
+src/gallery/   the atom gallery and loupe (home screen)
+src/data/      generated element and isotope dataset
+src/game.ts    the builder prototype's controller and screens
+src/main.ts    entry point: gallery first, builder on demand
 tests/         vitest suites for the core
 ```
 
