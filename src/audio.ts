@@ -102,3 +102,40 @@ export function missSound(): void {
 export function centreSound(): void {
   tone(1318.5, 0.5, 0.035, 'sine', 0.05);
 }
+
+/** The pulse: a soft low tick every beat, a touch brighter while a phrase is being tapped. */
+export function beatSound(inPhrase: boolean): void {
+  tone(inPhrase ? 220 : 165, 0.08, inPhrase ? 0.05 : 0.035, 'triangle');
+}
+
+// The dial's hum: one oscillator that runs while the dial is held, rising in pitch with the
+// setting and swelling as it nears a line the atom can absorb at.
+let hum: { o: OscillatorNode; g: GainNode } | null = null;
+
+export function startHum(): void {
+  const a = audio();
+  if (!a || hum) return;
+  const o = a.createOscillator();
+  const g = a.createGain();
+  o.type = 'sine';
+  o.frequency.setValueAtTime(220, a.currentTime);
+  g.gain.setValueAtTime(0.0001, a.currentTime);
+  o.connect(g).connect(a.destination);
+  o.start();
+  hum = { o, g };
+}
+
+export function setHum(freq: number, resonance: number): void {
+  if (!hum || !ctx) return;
+  const t = ctx.currentTime;
+  hum.o.frequency.setTargetAtTime(freq, t, 0.03);
+  hum.g.gain.setTargetAtTime(0.012 + 0.06 * resonance, t, 0.04);
+}
+
+export function stopHum(): void {
+  if (!hum || !ctx) return;
+  const { o, g } = hum;
+  hum = null;
+  g.gain.setTargetAtTime(0.0001, ctx.currentTime, 0.05);
+  o.stop(ctx.currentTime + 0.3);
+}

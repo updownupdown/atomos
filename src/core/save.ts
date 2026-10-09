@@ -15,12 +15,19 @@ export interface WitnessRecord {
   lifetime: number; // seconds this atom actually lived
 }
 
-/** How the player launches electrons: pull-back slingshot, drawn wave, or tapped rhythm. */
-export type LaunchStyle = 'sling' | 'trace' | 'rhythm';
+/** How the player launches electrons: a held charge, a tapped pulse, or a tuned dial. */
+export type LaunchStyle = 'charge' | 'pulse' | 'tune';
+const STYLES: LaunchStyle[] = ['charge', 'pulse', 'tune'];
 
 export interface Settings {
   assist: boolean;
   launch: LaunchStyle;
+  /** How long a Charge press takes to climb the ladder. */
+  climb: 'normal' | 'slow';
+  /** Beat speed for Pulse. */
+  tempo: 'slow' | 'medium' | 'brisk';
+  /** Testing aid: every element buildable from the map, p orbital already discovered. */
+  unlockAll: boolean;
   reducedMotion: boolean;
   sound: boolean;
   haptics: boolean;
@@ -50,7 +57,7 @@ export function defaultSave(): SaveData {
     isotopes: {},
     specimens: [],
     log: [],
-    settings: { assist: false, launch: 'trace', reducedMotion: reduced, sound: true, haptics: true, autoCore: true },
+    settings: { assist: false, launch: 'charge', climb: 'normal', tempo: 'medium', unlockAll: false, reducedMotion: reduced, sound: true, haptics: true, autoCore: true },
   };
 }
 
@@ -60,7 +67,10 @@ export function loadSave(): SaveData {
     if (!raw) return defaultSave();
     const data = JSON.parse(raw) as SaveData;
     const base = defaultSave();
-    return { ...base, ...data, settings: { ...base.settings, ...data.settings } };
+    const settings = { ...base.settings, ...data.settings };
+    // Earlier prototypes saved launch styles that no longer exist.
+    if (!STYLES.includes(settings.launch)) settings.launch = base.settings.launch;
+    return { ...base, ...data, settings };
   } catch {
     return defaultSave();
   }

@@ -10,41 +10,41 @@ import {
   isotopeKey, isotopesOf, sampleLifetime, type Isotope,
 } from './core/isotopes';
 import { clearSave, defaultSave, frontier, loadSave, writeSave, type LaunchStyle, type SaveData } from './core/save';
-import { analyseBeats, analyseTrace, judgeWave, type WaveVerdict } from './core/wave';
+import { judgePhrase, phraseCloses, TEMPOS } from './core/pulse';
+import { DIAL_MAX, dialAngle, dialLines, readDial, resonance, turnDial, type DialLine } from './core/dial';
 import { bandLabel, wavelengthToHex } from './render/colour';
 import { bandCentre, captureBands, CENTRE, FREE, readPull, type Band, type PullReading } from './core/tuning';
 import { drawSpiral, hitSpiral, layoutSpiral, type SpiralNode } from './ui/spiral';
 import { buildTracks, drawWitness, slowFactor } from './ui/witness';
 import * as sfx from './audio';
+import { registerSW } from 'virtual:pwa-register';
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
 /** Droplet silver: the default electron colour until the player tints an element. */
 const SILVER = '#e8e2d4';
 const MONO = "'Courier Prime', 'Courier New', monospace";
-/** One turn of the rhythm marker round the atom, in milliseconds. */
-const BEAT_PERIOD = 4000;
+/** A charge held this far past the top of the ladder breaks free on its own. */
+const OVERFLOW = 1.12;
 const STYLES: { id: LaunchStyle; label: string }[] = [
-  { id: 'trace', label: 'Trace' },
-  { id: 'rhythm', label: 'Rhythm' },
-  { id: 'sling', label: 'Sling' },
+  { id: 'charge', label: 'Charge' },
+  { id: 'pulse', label: 'Pulse' },
+  { id: 'tune', label: 'Tune' },
 ];
-
 
 type Mode = 'build' | 'slice' | 'done';
 
-interface Aim {
-  start: ScreenPoint;
+/** A held press in Charge style: the electron climbs the ladder until it is let go. */
+interface Charge {
+  at: ScreenPoint;
   cur: ScreenPoint;
-  path: ScreenPoint[];
+  t0: number;
   power: number;
-  pullMax: number;
   bands: Band[];
   reading: PullReading;
-  /** Whether the launch line passes through the atom at all. */
-  onTarget: boolean;
-  axis: Axis | null;
-  spin: Spin | null;
+  keyboard: boolean;
+  /** Recent finger heights, to read a flick up or down at release as spin. */
+  recent: { t: number; y: number }[];
 }
 
 /** Where a launched electron is headed and what the atom will make of it. */
@@ -68,14 +68,18 @@ class Game {
   private neutrons = 0;
   private mode: Mode = 'build';
   private busy = false;
-  private aim: Aim | null = null;
   private slicePath: ScreenPoint[] | null = null;
-  /** The wave being drawn in Trace style. */
-  private tracePath: ScreenPoint[] | null = null;
-  /** Beats tapped so far in Rhythm style, as performance.now() times, and where the wave began. */
-  private beat: { taps: number[]; angle: number } | null = null;
-  private beatClock = performance.now();
-  private beatRaf = 0;
+  private charge: Charge | null = null;
+  /** Taps so far in Pulse style, as performance.now() times, where the first landed, and any swiped spin. */
+  private phrase: { taps: number[]; at: ScreenPoint; spin: Spin | null } | null = null;
+  private pulsePhase = performance.now();
+  private pulseBeat = -1;
+  private pulseShown = -1;
+  private pulseTouch: { start: ScreenPoint; cur: ScreenPoint } | null = null;
+  /** Dial setting in Tune style, as a fraction of the ionisation energy. */
+  private dial = 0;
+  private dialDrag: { last: ScreenPoint; t0: number; moved: number } | null = null;
+  private dialShown = '';
   private pointers = new Set<number>();
   private overlay = $<HTMLCanvasElement>('overlay');
   private assistLevel = 0;
@@ -110,11 +114,16 @@ class Game {
     this.assistLevel = 0;
     this.lost = 0;
     this.undos = 0;
+    this.charge = null;
+    this.phrase = null;
+    this.dial = 0;
+    this.pulseShown = -1;
+    this.dialShown = '';
     const colour = this.colourFor(z);
     this.scene.setColour(colour);
     document.documentElement.style.setProperty('--el', colour);
     let note = '';
-    if (z >= 3 && this.save.settings.autoCore && this.save.built[2]) {
+    if (z >= 3 && this.save.settings.autoCore && (this.save.built[2] || this.save.settings.unlockAll)) {
       for (let i = 0; i < 2; i++) {
         const r = resolvePlacement(this.atom);
         if (r?.kind === 'placed') this.atom = applyPlacement(this.atom, r.orbital, r.spin);
@@ -130,7 +139,7 @@ class Game {
   }
 
   private pDiscovered(): boolean {
-    return this.save.discoveredShapes.includes('p');
+    return this.save.discoveredShapes.includes('p') || this.save.settings.unlockAll;
   }
 
   private targetOrbital(axis: Axis | null): OrbitalId | null {
@@ -161,7 +170,7 @@ class Game {
     this.renderAssist();
     ($('btn-undo') as HTMLButtonElement).disabled = this.atom.history.length === 0 || this.busy;
     this.renderSwitch();
-    this.syncBeatLoop();
+    this.ensureLoop();
   }
 
   private style(): LaunchStyle {
@@ -178,9 +187,12 @@ class Game {
     if (this.style() === style) return;
     this.save.settings.launch = style;
     writeSave(this.save);
-    this.aim = null;
-    this.tracePath = null;
-    this.beat = null;
+    this.charge = null;
+    this.phrase = null;
+    this.dialDrag = null;
+    this.pulseShown = -1;
+    this.dialShown = '';
+    sfx.stopHum();
     this.clearOverlay();
     this.refresh();
     if (this.mode === 'build') this.say(this.guidance());
@@ -196,20 +208,20 @@ class Game {
     const range = levels.length ? `n=${levels[0]} to n=${levels[levels.length - 1]}` : '';
     const how = assist
       ? 'Choose an energy level, then press <span class="hl">Launch</span>.'
-      : style === 'trace'
-        ? `Draw one loop round the nucleus as a wave: <span class="hl">n even waves</span> catch it at level n (${range}). Clockwise spins ↑, anticlockwise ↓.`
-        : style === 'rhythm'
-          ? `Tap to start a wave as the marker passes, then tap <span class="hl">n even beats</span> before it comes round again to catch at level n (${range}).`
-          : 'Pull back from the atom and release inside a <span class="hl">lit band</span>. Higher bands release more light but are narrower.';
+      : style === 'charge'
+        ? `Press and hold: the electron climbs the ladder. <span class="hl">Let go while the rung you want is lit</span> (${range}). Hold on too long and it breaks free. Flick up or down as you let go to set spin.`
+        : style === 'pulse'
+          ? `Tap along with the beat: <span class="hl">n beats in a row</span> send the electron to level n (${range}). The first beat you leave silent ends the phrase. Swipe up or down on a tap to set spin.`
+          : `Drag round the atom to turn the dial. The atom glows and hums near an energy it can absorb at. <span class="hl">Tap the atom</span> to fire at the dial's setting.`;
     if (k === 0 && this.z === 1 && !assist) {
-      if (style === 'trace') return `A lone proton waits. A bound electron is a wave that must join up with itself round the nucleus, so only whole numbers of waves fit: level n holds n. <span class="hl">Draw a loop round the nucleus with 2 to 5 even waves in it</span>, ending where you began.`;
-      if (style === 'rhythm') return `A lone proton waits. A bound electron is a wave that must join up with itself round the nucleus, so only whole numbers of waves fit: level n holds n. <span class="hl">Tap anywhere to start the wave, then tap 2 to 5 even beats</span> before the marker comes back round.`;
-      return `A lone proton waits. Press on it and pull back like a slingshot: how far you pull sets the electron\'s energy, and the atom only catches it at an allowed level.`;
+      if (style === 'charge') return `A lone proton waits. An atom only holds electrons at its allowed energy levels, the rungs on the ladder. <span class="hl">Press and hold</span> to send the electron climbing, and <span class="hl">let go while a rung is lit</span>.`;
+      if (style === 'pulse') return `A lone proton waits. A bound electron is a wave that must join up with itself round the nucleus, so only whole numbers of waves fit: level n holds n. <span class="hl">Tap 2 to 5 beats in time with the pulse</span>, then leave one silent.`;
+      return `A lone proton waits. It only absorbs an electron at certain energies, the lines on the dial. <span class="hl">Drag round the atom</span> to tune until it glows, then <span class="hl">tap it</span> to fire.`;
     }
     if (sub.id === '2p' && !this.pDiscovered()) return 'This electron needs a shape no atom of yours has had yet.';
     if (sub.id === '2p') {
-      const lobe = assist ? 'Pick the lobe you want' : style === 'trace' ? 'Start your loop on the lobe you want' : style === 'rhythm' ? 'Start the beat as the marker crosses the lobe you want' : 'Aim along the lobe you want';
-      return `Electron ${k + 1} goes into a 2p lobe. ${lobe}; spreading out sounds sweeter. ${assist || style === 'sling' ? '' : how}`;
+      const lobe = assist ? 'Pick the lobe you want' : style === 'charge' ? 'Hold on the lobe you want' : 'Tap on the lobe you want';
+      return `Electron ${k + 1} goes into a 2p lobe. ${lobe}; spreading out sounds sweeter. ${how}`;
     }
     return `Electron ${k + 1} will settle into the ${sub.id} orbital. ${how}`;
   }
@@ -350,6 +362,14 @@ class Game {
     $('badge').onclick = () => this.showCard(this.z, false);
     $('modal').addEventListener('click', (e) => { if (e.target === $('modal')) this.closeModal(); });
     window.addEventListener('keydown', (e) => this.onKey(e));
+    window.addEventListener('keyup', (e) => this.onKeyUp(e));
+    window.addEventListener('blur', () => this.onCancel(null));
+  }
+
+  /** Where a keyboard launch comes from: just right of the atom. */
+  private keyPoint(): ScreenPoint {
+    const n = this.scene.nucleusScreen();
+    return { x: n.x + this.scene.extentScreenRadius() * 1.6, y: n.y };
   }
 
   private onKey(e: KeyboardEvent): void {
@@ -358,11 +378,20 @@ class Game {
       return;
     }
     const ladder = captureLadder(this.atom);
+    const assist = this.save.settings.assist;
+    const style = this.style();
     if (e.key === ' ' || e.key === 'Enter') {
       e.preventDefault();
       if (this.mode === 'slice') this.performCut(this.scene.screenPerpAxis(0, 1));
-      else if (this.style() === 'rhythm' && !this.save.settings.assist) this.tapBeat();
-      else this.assistLaunch();
+      else if (assist) this.assistLaunch();
+      else if (style === 'pulse') this.tap(this.keyPoint(), performance.now());
+      else if (style === 'tune') this.fireDial(this.keyPoint());
+      else if (!e.repeat && !this.charge) this.beginCharge(this.keyPoint(), true);
+    } else if ((e.key === 'ArrowRight' || e.key === 'ArrowLeft') && style === 'tune' && !assist) {
+      e.preventDefault();
+      const step = (e.shiftKey ? 0.02 : 0.004) * (e.key === 'ArrowRight' ? 1 : -1);
+      this.dial = Math.max(0, Math.min(DIAL_MAX, this.dial + step));
+      this.ensureLoop();
     } else if (e.key === 'ArrowUp' && ladder) {
       this.assistLevel = Math.min(ladder.levels.length - 1, this.assistLevel + 1);
       this.renderAssist();
@@ -380,6 +409,10 @@ class Game {
     }
   }
 
+  private onKeyUp(e: KeyboardEvent): void {
+    if ((e.key === ' ' || e.key === 'Enter') && this.charge?.keyboard) this.releaseCharge(null);
+  }
+
   private needsSlice(): boolean {
     return nextSubshell(this.atom)?.id === '2p' && !this.pDiscovered();
   }
@@ -388,10 +421,12 @@ class Game {
     if (e.pointerType === 'mouse' && e.button !== 0) return;
     this.pointers.add(e.pointerId);
     if (this.pointers.size > 1) {
-      // Two fingers rotate the view instead.
-      this.aim = null;
+      // Two fingers rotate the view instead. A charge in progress is simply let go of.
+      this.charge = null;
       this.slicePath = null;
-      this.tracePath = null;
+      this.dialDrag = null;
+      this.pulseTouch = null;
+      sfx.stopHum();
       this.clearOverlay();
       return;
     }
@@ -402,21 +437,19 @@ class Game {
       this.slicePath = [p];
       return;
     }
-    if (this.style() === 'trace') {
-      this.tracePath = [p];
-      return;
+    if (this.save.settings.assist) return;
+    switch (this.style()) {
+      case 'charge': this.beginCharge(p, false); break;
+      case 'pulse':
+        this.pulseTouch = { start: p, cur: p };
+        this.tap(p, performance.now());
+        break;
+      case 'tune':
+        this.dialDrag = { last: p, t0: performance.now(), moved: 0 };
+        sfx.startHum();
+        this.updateHum();
+        break;
     }
-    if (this.style() === 'rhythm') {
-      this.tapBeat();
-      return;
-    }
-    const ladder = captureLadder(this.atom);
-    this.aim = {
-      start: p, cur: p, path: [p], power: 0,
-      pullMax: Math.max(160, Math.min(300, 0.5 * Math.min(window.innerWidth, window.innerHeight))),
-      bands: captureBands(ladder ? ladder.levels.map((l) => l.n) : []),
-      reading: { kind: 'none' }, onTarget: true, axis: null, spin: null,
-    };
   }
 
   private onMove(e: PointerEvent): void {
@@ -426,43 +459,34 @@ class Game {
       this.drawSlice();
       return;
     }
-    if (this.tracePath) {
-      const last = this.tracePath[this.tracePath.length - 1];
-      if (Math.hypot(p.x - last.x, p.y - last.y) > 2) this.tracePath.push(p);
-      this.drawTrace();
+    if (this.charge && !this.charge.keyboard) {
+      const c = this.charge;
+      c.cur = p;
+      const now = performance.now();
+      c.recent.push({ t: now, y: p.y });
+      while (c.recent.length && c.recent[0].t < now - 160) c.recent.shift();
       return;
     }
-    if (!this.aim) return;
-    const a = this.aim;
-    a.cur = p;
-    const last = a.path[a.path.length - 1];
-    if (Math.hypot(p.x - last.x, p.y - last.y) > 3) a.path.push(p);
-    const dx = p.x - a.start.x, dy = p.y - a.start.y;
-    const dist = Math.hypot(dx, dy);
-    a.power = Math.min(1.2, dist / a.pullMax);
-    const before = a.reading;
-    a.reading = readPull(a.power, a.bands);
-    if (a.reading.kind === 'level' && (before.kind !== 'level' || before.n !== a.reading.n)) sfx.tickSound(a.reading.n);
-    a.onTarget = this.aimHits(a.cur, a.start);
-    const sub = nextSubshell(this.atom);
-    a.axis = sub?.id === '2p' && dist > 18 ? this.scene.screenDirToAxis(-dx, -dy) : null;
-    a.spin = curlSpin(a.path);
-    this.scene.setGhost(dist > 18 ? this.targetOrbital(a.axis) : null);
-    this.renderLadder(a.reading.kind === 'level' ? a.reading.n : a.reading.kind === 'free' ? 'ionise' : null);
-    this.drawAim();
-  }
-
-  /** Does a launch from `from` heading through `through` pass close enough to the nucleus to be caught? */
-  private aimHits(from: ScreenPoint, through: ScreenPoint): boolean {
-    const n = this.scene.nucleusScreen();
-    const dx = through.x - from.x, dy = through.y - from.y;
-    const len = Math.hypot(dx, dy);
-    if (len < 1) return false;
-    const ux = dx / len, uy = dy / len;
-    const t = (n.x - from.x) * ux + (n.y - from.y) * uy;
-    if (t < 0) return false;
-    const miss = Math.hypot(n.x - (from.x + ux * t), n.y - (from.y + uy * t));
-    return miss < Math.max(30, this.scene.extentScreenRadius() * 0.55);
+    if (this.pulseTouch) {
+      this.pulseTouch.cur = p;
+      return;
+    }
+    if (this.dialDrag) {
+      const d = this.dialDrag;
+      const n = this.scene.nucleusScreen();
+      const a0 = Math.atan2(d.last.y - n.y, d.last.x - n.x);
+      const a1 = Math.atan2(p.y - n.y, p.x - n.x);
+      let da = a1 - a0;
+      while (da > Math.PI) da -= 2 * Math.PI;
+      while (da < -Math.PI) da += 2 * Math.PI;
+      d.moved += Math.hypot(p.x - d.last.x, p.y - d.last.y);
+      d.last = p;
+      const before = readDial(this.dial, this.dialLines());
+      this.dial = turnDial(this.dial, da, Math.hypot(p.x - n.x, p.y - n.y), this.ringRadius());
+      const after = readDial(this.dial, this.dialLines());
+      if (after.kind === 'level' && (before.kind !== 'level' || before.n !== after.n)) sfx.tickSound(after.n);
+      this.updateHum();
+    }
   }
 
   private onUp(e: PointerEvent): void {
@@ -473,30 +497,35 @@ class Game {
       this.checkSlice(path);
       return;
     }
-    if (this.tracePath) {
-      const path = this.tracePath;
-      this.tracePath = null;
-      this.finishTrace(path);
+    if (this.charge && !this.charge.keyboard) {
+      const r = this.charge.recent;
+      const dy = r.length > 1 ? r[r.length - 1].y - r[0].y : 0;
+      this.releaseCharge(dy < -18 ? 1 : dy > 18 ? -1 : null);
       return;
     }
-    if (!this.aim && this.style() === 'rhythm') return;
-    const a = this.aim;
-    this.aim = null;
-    this.clearOverlay();
-    if (!a || a.reading.kind === 'none') {
-      this.scene.setGhost(null);
-      this.renderLadder(null);
+    if (this.pulseTouch) {
+      const dy = this.pulseTouch.cur.y - this.pulseTouch.start.y;
+      if (this.phrase && Math.abs(dy) > 24) this.phrase.spin = dy < 0 ? 1 : -1;
+      this.pulseTouch = null;
       return;
     }
-    void this.fire({ from: a.cur, toward: a.start, reading: a.reading, onTarget: a.onTarget, axis: a.axis, spin: a.spin, power: Math.min(1, a.power) });
+    if (this.dialDrag) {
+      const d = this.dialDrag;
+      this.dialDrag = null;
+      sfx.stopHum();
+      if (d.moved < 10 && performance.now() - d.t0 < 400) this.fireDial({ x: e.clientX, y: e.clientY });
+    }
   }
 
-  private onCancel(e: PointerEvent): void {
-    this.pointers.delete(e.pointerId);
-    this.aim = null;
+  private onCancel(e: PointerEvent | null): void {
+    if (e) this.pointers.delete(e.pointerId);
+    this.charge = null;
     this.slicePath = null;
-    this.tracePath = null;
+    this.dialDrag = null;
+    this.pulseTouch = null;
+    sfx.stopHum();
     this.clearOverlay();
+    this.renderLadder(null);
   }
 
   // ---- overlay drawing ------------------------------------------------------------
@@ -515,105 +544,44 @@ class Game {
     $('aim').style.display = 'none';
   }
 
-  private drawAim(): void {
-    const a = this.aim!;
+  private overlayCtx(): CanvasRenderingContext2D {
     const ctx = this.overlay.getContext('2d')!;
     const dpr = this.overlay.width / window.innerWidth;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
-    const dx = a.cur.x - a.start.x, dy = a.cur.y - a.start.y;
-    const dist = Math.hypot(dx, dy);
-    if (dist < 4) return;
-    const ux = dx / dist, uy = dy / dist;
-    const at = (f: number) => ({ x: a.start.x + ux * f * a.pullMax, y: a.start.y + uy * f * a.pullMax });
-
-    // The launch line: where the electron will travel once released.
-    const n = this.scene.nucleusScreen();
-    const reach = Math.hypot(n.x - a.cur.x, n.y - a.cur.y) * 1.6 + 40;
-    ctx.strokeStyle = a.onTarget ? 'rgba(226, 220, 207, 0.4)' : 'rgba(224, 80, 58, 0.85)';
-    ctx.lineWidth = 1.5;
-    ctx.setLineDash([2, 7]);
-    ctx.beginPath();
-    ctx.moveTo(a.cur.x, a.cur.y);
-    ctx.lineTo(a.cur.x - ux * reach, a.cur.y - uy * reach);
-    ctx.stroke();
-    ctx.setLineDash([]);
-
-    // The energy ruler along the pull: a dim track, a lit band for each allowed level, a red free zone.
-    const perpX = -uy, perpY = ux;
-    const seg = (f0: number, f1: number, colour: string, width: number) => {
-      const p0 = at(f0), p1 = at(f1);
-      ctx.strokeStyle = colour;
-      ctx.lineWidth = width;
-      ctx.lineCap = 'round';
-      ctx.beginPath();
-      ctx.moveTo(p0.x, p0.y);
-      ctx.lineTo(p1.x, p1.y);
-      ctx.stroke();
-    };
-    const first = a.bands[0]?.lo ?? 0;
-    seg(first * 0.6, FREE, 'rgba(226, 220, 207, 0.22)', 2);
-    seg(FREE, 1.12, 'rgba(224, 80, 58, 0.6)', 6);
-    ctx.font = `700 11px ${MONO}`;
-    ctx.textBaseline = 'middle';
-    for (const b of a.bands) {
-      const on = a.reading.kind === 'level' && a.reading.n === b.n;
-      seg(b.lo, b.hi, on ? 'rgba(243, 238, 226, 1)' : 'rgba(226, 220, 207, 0.5)', on ? 10 : 7);
-      const c = at(b.centre);
-      ctx.strokeStyle = on ? '#0c0b0a' : 'rgba(226, 220, 207, 0.7)';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(c.x - perpX * 7, c.y - perpY * 7);
-      ctx.lineTo(c.x + perpX * 7, c.y + perpY * 7);
-      ctx.stroke();
-      // Labels sit to the right of the ruler (or above it when the pull is sideways).
-      const flip = perpX < 0 || (Math.abs(perpX) < 0.01 && perpY > 0) ? -1 : 1;
-      const ox = perpX * flip, oy = perpY * flip;
-      ctx.fillStyle = on ? '#f3eee2' : 'rgba(226, 220, 207, 0.75)';
-      ctx.textAlign = ox > 0.5 ? 'left' : 'center';
-      ctx.fillText(`n=${b.n}`, c.x + ox * 14, c.y + oy * 16);
-    }
-
-    // The electron in the sling.
-    const reading = a.reading;
-    const hot = reading.kind === 'free';
-    const caught = reading.kind === 'level' && a.onTarget;
-    const g = ctx.createRadialGradient(a.cur.x, a.cur.y, 0, a.cur.x, a.cur.y, 16);
-    g.addColorStop(0, hot ? 'rgba(224, 80, 58, 1)' : caught ? 'rgba(255, 252, 245, 1)' : 'rgba(200, 194, 182, 0.9)');
-    g.addColorStop(1, hot ? 'rgba(224, 80, 58, 0)' : 'rgba(226, 220, 207, 0)');
-    ctx.fillStyle = g;
-    ctx.beginPath();
-    ctx.arc(a.cur.x, a.cur.y, 16, 0, Math.PI * 2);
-    ctx.fill();
-
-    if (a.axis) this.drawAxisGuides(ctx, a.axis);
-
-    const tip = $('aim');
-    if (reading.kind === 'none') {
-      tip.style.display = 'none';
-      return;
-    }
-    const parts: string[] = [];
-    if (!a.onTarget) parts.push('<span style="color:var(--bad)">aim misses the atom</span>');
-    else if (reading.kind === 'free') parts.push('<span style="color:var(--bad)">too much energy</span>');
-    else if (reading.kind === 'between') parts.push(`<span style="color:var(--muted)">${reading.below === null ? `short of n=${reading.above}` : reading.above === null ? `past n=${reading.below}` : `between n=${reading.below} and n=${reading.above}`} · not caught</span>`);
-    else parts.push(`caught at n=${reading.n}${reading.precision >= 1 - CENTRE ? ' · centre' : ''}`);
-    if (a.axis) parts.push(`2p<sub>${a.axis}</sub>`);
-    parts.push(a.spin === null ? 'spin auto' : a.spin === 1 ? 'spin ↑' : 'spin ↓');
-    this.showTip(parts.join(' · '));
+    return ctx;
   }
 
   private showTip(html: string): void {
     const tip = $('aim');
     tip.innerHTML = html;
     tip.style.display = 'block';
-    // A fixed spot under the header, clear of the finger and the ruler.
+    // A fixed spot under the header, clear of the finger and the ladder.
     const ladderLeft = $('ladder').getBoundingClientRect().left || window.innerWidth;
     tip.style.left = `${Math.max(tip.offsetWidth / 2 + 12, Math.min(window.innerWidth / 2, ladderLeft - tip.offsetWidth / 2 - 8))}px`;
-    tip.style.top = `${$('electrons').getBoundingClientRect().bottom + 52}px`;
+    tip.style.top = `${$('electrons').getBoundingClientRect().bottom + 44}px`;
   }
 
-  /** Faint guides showing which pull direction fills which lobe. */
+  private levels(): number[] {
+    return captureLadder(this.atom)?.levels.map((l) => l.n) ?? [];
+  }
+
+  /** The guide ring round the atom, in screen pixels. */
+  private ringRadius(): number {
+    return Math.min(this.scene.extentScreenRadius() * 1.05, Math.min(window.innerWidth, window.innerHeight) * 0.36);
+  }
+
+  private drawRing(ctx: CanvasRenderingContext2D, c: ScreenPoint, r: number): void {
+    ctx.strokeStyle = 'rgba(226, 220, 207, 0.22)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([2, 6]);
+    ctx.beginPath();
+    ctx.arc(c.x, c.y, r, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  /** Faint guides showing which direction fills which lobe. */
   private drawAxisGuides(ctx: CanvasRenderingContext2D, chosen: Axis): void {
     const o = this.scene.nucleusScreen();
     const r = Math.min(this.scene.extentScreenRadius() * 0.9, Math.min(window.innerWidth, window.innerHeight) * 0.38);
@@ -637,12 +605,20 @@ class Game {
     }
   }
 
+  /** A glowing droplet: the electron waiting to be launched. */
+  private drawDroplet(ctx: CanvasRenderingContext2D, p: ScreenPoint, tone: 'cool' | 'lit' | 'hot', r = 16): void {
+    const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r);
+    g.addColorStop(0, tone === 'hot' ? 'rgba(224, 80, 58, 1)' : tone === 'lit' ? 'rgba(255, 252, 245, 1)' : 'rgba(200, 194, 182, 0.9)');
+    g.addColorStop(1, tone === 'hot' ? 'rgba(224, 80, 58, 0)' : 'rgba(226, 220, 207, 0)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
   private drawSlice(): void {
     const path = this.slicePath!;
-    const ctx = this.overlay.getContext('2d')!;
-    const dpr = this.overlay.width / window.innerWidth;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+    const ctx = this.overlayCtx();
     ctx.strokeStyle = 'rgba(243, 238, 226, 0.9)';
     ctx.shadowColor = '#f3eee2';
     ctx.shadowBlur = 12;
@@ -653,293 +629,424 @@ class Game {
     ctx.shadowBlur = 0;
   }
 
-
-  // ---- standing-wave launches: Trace and Rhythm ------------------------------------
-
-  private levels(): number[] {
-    return captureLadder(this.atom)?.levels.map((l) => l.n) ?? [];
+  /** The lobe a launch from screen point p would fill, when the next electron is a 2p one. */
+  private axisFrom(p: ScreenPoint): Axis | null {
+    const n = this.scene.nucleusScreen();
+    if (nextSubshell(this.atom)?.id !== '2p' || Math.hypot(p.x - n.x, p.y - n.y) < 18) return null;
+    return this.scene.screenDirToAxis(p.x - n.x, p.y - n.y);
   }
 
-  /** The guide ring the wave is drawn round, in screen pixels. */
-  private ringRadius(): number {
-    return Math.min(this.scene.extentScreenRadius() * 1.05, Math.min(window.innerWidth, window.innerHeight) * 0.36);
+  // ---- the animation loop behind Charge, Pulse and Tune ------------------------------
+
+  private loopRaf = 0;
+
+  private needsLoop(): boolean {
+    if (this.mode !== 'build' || this.save.settings.assist || this.slicePath) return false;
+    return this.charge !== null || this.style() === 'pulse' || this.style() === 'tune';
   }
 
-  private overlayCtx(): CanvasRenderingContext2D {
-    const ctx = this.overlay.getContext('2d')!;
-    const dpr = this.overlay.width / window.innerWidth;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
-    return ctx;
+  private ensureLoop(): void {
+    if (!this.loopRaf && this.needsLoop()) this.loopRaf = requestAnimationFrame((t) => this.frame(t));
   }
 
-  private drawRing(ctx: CanvasRenderingContext2D, c: ScreenPoint, r: number): void {
-    ctx.strokeStyle = 'rgba(226, 220, 207, 0.22)';
+  private frame(now: number): void {
+    this.loopRaf = 0;
+    if (!this.needsLoop()) {
+      this.phrase = null;
+      this.clearOverlay();
+      return;
+    }
+    if (this.charge) this.chargeFrame(now);
+    else if (this.style() === 'pulse') this.pulseFrame(now);
+    else this.drawDial(now);
+    this.loopRaf = requestAnimationFrame((t) => this.frame(t));
+  }
+
+  // ---- Charge: hold to climb the ladder, let go on a rung ----------------------------
+
+  private climbMs(): number {
+    return this.save.settings.climb === 'slow' ? 4400 : 2800;
+  }
+
+  private beginCharge(p: ScreenPoint, keyboard: boolean): void {
+    if (this.busy || this.mode !== 'build' || !captureLadder(this.atom)) return;
+    if (this.needsSlice()) return this.enterSlice();
+    this.charge = { at: p, cur: p, t0: performance.now(), power: 0, bands: captureBands(this.levels()), reading: { kind: 'none' }, keyboard, recent: [] };
+    this.ensureLoop();
+  }
+
+  private chargeFrame(now: number): void {
+    const c = this.charge!;
+    c.power = (now - c.t0) / this.climbMs();
+    const before = c.reading;
+    c.reading = readPull(Math.min(c.power, 1.2), c.bands);
+    if (c.reading.kind === 'level' && (before.kind !== 'level' || before.n !== c.reading.n)) sfx.tickSound(c.reading.n);
+    if (c.reading.kind === 'free' && before.kind !== 'free') sfx.buzz(30);
+    if (c.power >= OVERFLOW) {
+      // Held on past the top of the ladder: the electron breaks free on its own.
+      this.releaseCharge(null);
+      return;
+    }
+    const axis = this.axisFrom(c.at);
+    this.scene.setGhost(this.targetOrbital(axis));
+    this.renderLadder(c.reading.kind === 'level' ? c.reading.n : c.reading.kind === 'free' ? 'ionise' : null);
+    this.drawCharge(c, axis);
+  }
+
+  private releaseCharge(spin: Spin | null): void {
+    const c = this.charge;
+    this.charge = null;
+    this.clearOverlay();
+    this.scene.setGhost(null);
+    this.renderLadder(null);
+    if (!c || this.busy || this.mode !== 'build') return;
+    // Read the climb at the moment of release, not at the last drawn frame.
+    c.power = Math.min(OVERFLOW, (performance.now() - c.t0) / this.climbMs());
+    c.reading = readPull(Math.min(c.power, 1.2), c.bands);
+    if (c.reading.kind === 'none') {
+      this.say(`A tap launches nothing. <span class="hl">Press and hold</span> to send the electron up the ladder, and let go on the rung you want.`);
+      return;
+    }
+    const reading = c.reading;
+    const ev = (p: number) => this.powerToEv(p, c.bands);
+    const between = reading.kind === 'between'
+      ? reading.below === null ? `short of n=${reading.above}` : reading.above === null ? `past n=${reading.below}` : `between n=${reading.below} and n=${reading.above}`
+      : '';
+    void this.fire({
+      from: c.at, toward: this.scene.nucleusScreen(), reading, onTarget: true, axis: this.axisFrom(c.at), spin, power: Math.min(1, c.power),
+      note: (bare) => reading.kind === 'free'
+        ? bare
+          ? `<span class="bad">Too fast to catch.</span> You held on past the top of the ladder, and a bare nucleus cannot hold an electron with more energy than its ionisation energy. Let go while a rung is lit.`
+          : `<span class="bad">Too much energy.</span> You held on past the top of the ladder. The electron struck hard enough to knock one free, so both are lost. Let go while a rung is lit.`
+        : `<span class="warn">Not caught.</span> Let go at about ${ev(c.power)} eV, ${between}. An atom only holds electrons at its allowed levels, so it passed straight through. Let go while the rung is lit.`,
+    });
+  }
+
+  /** Rough energy, in eV above the ground state, that a point on the climb corresponds to. */
+  private powerToEv(power: number, bands: Band[]): string {
+    const ladder = captureLadder(this.atom);
+    if (!ladder) return '?';
+    const ie = -ladder.groundEnergy;
+    const pts = [{ p: 0, e: 0 }, ...bands.map((b) => ({ p: b.centre, e: ie + ladder.levels.find((l) => l.n === b.n)!.energy })), { p: FREE, e: ie }];
+    for (let i = 1; i < pts.length; i++) {
+      if (power <= pts[i].p) {
+        const f = (power - pts[i - 1].p) / (pts[i].p - pts[i - 1].p);
+        return (pts[i - 1].e + f * (pts[i].e - pts[i - 1].e)).toFixed(ie >= 100 ? 0 : 1);
+      }
+    }
+    return `over ${ie.toFixed(ie >= 100 ? 0 : 1)}`;
+  }
+
+  /** The climbing electron is drawn on a track beside the energy ladder, so the rungs are the real targets. */
+  private drawCharge(c: Charge, axis: Axis | null): void {
+    const ctx = this.overlayCtx();
+    const box = $('ladder');
+    const rect = box.getBoundingClientRect();
+    const rows = [...box.querySelectorAll<HTMLElement>('.rung')];
+    const mid = (el: HTMLElement) => { const r = el.getBoundingClientRect(); return (r.top + r.bottom) / 2; };
+    const ground = rows.find((r) => r.classList.contains('ground'));
+    const free = rows.find((r) => r.classList.contains('danger'));
+    if (!ground || !free) return;
+    const stops: { p: number; y: number }[] = [{ p: 0, y: mid(ground) }];
+    for (const b of c.bands) {
+      const row = rows.find((r) => r.querySelector('b')?.textContent === `n=${b.n}`);
+      if (row) stops.push({ p: b.centre, y: mid(row) });
+    }
+    const fr = free.getBoundingClientRect();
+    stops.push({ p: FREE, y: fr.bottom }, { p: OVERFLOW, y: fr.top - 4 });
+    const yAt = (p: number): number => {
+      for (let i = 1; i < stops.length; i++) {
+        if (p <= stops[i].p) {
+          const f = (p - stops[i - 1].p) / (stops[i].p - stops[i - 1].p);
+          return stops[i - 1].y + f * (stops[i].y - stops[i - 1].y);
+        }
+      }
+      return stops[stops.length - 1].y;
+    };
+    const x = rect.left - 14;
+    const seg = (p0: number, p1: number, colour: string, width: number) => {
+      ctx.strokeStyle = colour;
+      ctx.lineWidth = width;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(x, yAt(p0));
+      ctx.lineTo(x, yAt(p1));
+      ctx.stroke();
+    };
+    seg(0, FREE, 'rgba(226, 220, 207, 0.22)', 2);
+    seg(FREE, OVERFLOW, 'rgba(224, 80, 58, 0.6)', 6);
+    for (const b of c.bands) {
+      const on = c.reading.kind === 'level' && c.reading.n === b.n;
+      seg(b.lo, b.hi, on ? 'rgba(243, 238, 226, 1)' : 'rgba(226, 220, 207, 0.5)', on ? 10 : 7);
+    }
+    // The electron: it sits where the finger is and its energy shows on the track.
+    const tone = c.reading.kind === 'free' ? 'hot' : c.reading.kind === 'level' ? 'lit' : 'cool';
+    const y = yAt(Math.min(c.power, OVERFLOW));
+    ctx.strokeStyle = 'rgba(226, 220, 207, 0.35)';
     ctx.lineWidth = 1;
     ctx.setLineDash([2, 6]);
     ctx.beginPath();
-    ctx.arc(c.x, c.y, r, 0, Math.PI * 2);
+    ctx.moveTo(c.cur.x, c.cur.y);
+    ctx.lineTo(x - 8, y);
     ctx.stroke();
     ctx.setLineDash([]);
-  }
-
-  /** The red mark where a wave began: it has to meet itself here. */
-  private drawStartMark(ctx: CanvasRenderingContext2D, p: ScreenPoint): void {
-    ctx.strokeStyle = 'rgba(224, 80, 58, 0.9)';
-    ctx.fillStyle = 'rgba(224, 80, 58, 0.9)';
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, 9, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  private spinHint(): string {
-    if (this.style() === 'trace') return 'Draw your loop the other way round.';
-    if (this.style() === 'rhythm') return 'Let the atom choose.';
-    return 'Curl your pull the other way, or pull straight to let the atom choose.';
-  }
-
-  private verdictTip(v: WaveVerdict): string {
-    switch (v.kind) {
-      case 'level': return `joins up · caught at n=${v.n}${v.precision >= 1 - CENTRE ? ' · centre' : ''}`;
-      case 'unclosed': return '<span style="color:var(--bad)">does not join up</span>';
-      case 'uneven': return '<span style="color:var(--bad)">too uneven</span>';
-      case 'flat': return '<span style="color:var(--muted)">no waves</span>';
-      case 'low': return `<span style="color:var(--muted)">below n=${v.lowest} · not caught</span>`;
-      case 'free': return '<span style="color:var(--bad)">too much energy</span>';
-      default: return '';
-    }
-  }
-
-  private drawTrace(): void {
-    const path = this.tracePath!;
-    const ctx = this.overlayCtx();
-    const n = this.scene.nucleusScreen();
-    this.drawRing(ctx, n, this.ringRadius());
-    const shape = analyseTrace(path, n);
-    const levels = this.levels();
-    const verdict = shape?.loop ? judgeWave(shape.waves, shape.dev, shape.seam, levels) : null;
-    const good = verdict?.kind === 'level';
-    const s0 = path[0];
-    const sub = nextSubshell(this.atom);
-    const axis = sub?.id === '2p' && this.pDiscovered() && path.length > 3 ? this.scene.screenDirToAxis(s0.x - n.x, s0.y - n.y) : null;
+    this.drawDroplet(ctx, { x, y }, tone, 12);
+    if (!c.keyboard) this.drawDroplet(ctx, c.cur, tone);
     if (axis) this.drawAxisGuides(ctx, axis);
-    this.drawStartMark(ctx, s0);
-    ctx.strokeStyle = good ? 'rgba(255, 252, 245, 0.95)' : 'rgba(226, 220, 207, 0.75)';
-    ctx.shadowColor = '#f3eee2';
-    ctx.shadowBlur = good ? 14 : 6;
-    ctx.lineWidth = 2;
-    ctx.lineJoin = 'round';
-    ctx.lineCap = 'round';
-    ctx.beginPath();
-    path.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
-    ctx.stroke();
-    ctx.shadowBlur = 0;
-    this.scene.setGhost(path.length > 3 ? this.targetOrbital(axis) : null);
-    if (!shape) {
-      $('aim').style.display = 'none';
-      return;
-    }
-    const parts = [`${shape.waves} wave${shape.waves === 1 ? '' : 's'}`];
-    if (!shape.loop) parts.push(`<span style="color:var(--muted)">${Math.round(Math.min(1, Math.abs(shape.turns)) * 100)}% round</span>`);
-    else if (verdict) parts.push(this.verdictTip(verdict));
+
+    const parts: string[] = [];
+    if (c.reading.kind === 'free') parts.push('<span style="color:var(--bad)">too much energy · breaking free</span>');
+    else if (c.reading.kind === 'level') parts.push(`let go now · n=${c.reading.n}${c.reading.precision >= 1 - CENTRE ? ' · centre' : ''}`);
+    else parts.push('<span style="color:var(--muted)">climbing · not on a rung</span>');
     if (axis) parts.push(`2p<sub>${axis}</sub>`);
-    parts.push(shape.spin === 1 ? 'spin ↑' : 'spin ↓');
+    parts.push('flick ↑ or ↓ to set spin');
     this.showTip(parts.join(' · '));
-    this.renderLadder(verdict?.kind === 'level' ? verdict.n : verdict?.kind === 'free' ? 'ionise' : levels.includes(shape.waves) ? shape.waves : null);
   }
 
-  private finishTrace(path: ScreenPoint[]): void {
-    this.clearOverlay();
-    if (this.busy || this.mode !== 'build') return;
-    const n = this.scene.nucleusScreen();
-    let len = 0;
-    for (let i = 1; i < path.length; i++) len += Math.hypot(path[i].x - path[i - 1].x, path[i].y - path[i - 1].y);
-    const shape = analyseTrace(path, n);
-    if (!shape || len < 60) {
-      // A tap or a tiny scribble launches nothing.
-      this.scene.setGhost(null);
-      this.renderLadder(null);
-      return;
-    }
-    const s0 = path[0];
-    const axis = nextSubshell(this.atom)?.id === '2p' ? this.scene.screenDirToAxis(s0.x - n.x, s0.y - n.y) : null;
-    const verdict: WaveVerdict = shape.loop && shape.radius > this.ringRadius() * 0.25
-      ? judgeWave(shape.waves, shape.dev, shape.seam, this.levels())
-      : { kind: 'open' };
-    void this.fire(this.waveShot(verdict, s0, axis, shape.spin, 'trace'));
+  // ---- Pulse: a beat that never stops; n taps in a row go to level n ------------------
+
+  private period(): number {
+    return TEMPOS[this.save.settings.tempo];
   }
 
-  /** Turn a standing-wave verdict into a launch, with failure messages worded for its style. */
-  private waveShot(v: WaveVerdict, from: ScreenPoint, axis: Axis | null, spin: Spin | null, style: 'trace' | 'rhythm'): Shot {
-    const toward = this.scene.nucleusScreen();
-    const levels = this.levels();
-    const top = levels[levels.length - 1];
-    const unit = style === 'trace' ? 'wave' : 'beat';
-    const count = (k: number) => `${k} ${unit}${k === 1 ? '' : 's'}`;
-    const base = { from, toward, axis, spin, onTarget: true };
-    if (v.kind === 'level') return { ...base, reading: { kind: 'level', n: v.n, precision: v.precision }, power: v.n / (top + 1) };
-    if (v.kind === 'free') {
-      const past = `${count(v.waves)} would be level n=${v.waves}, past the highest level on offer (n=${v.highest}).`;
-      return {
-        ...base, reading: { kind: 'free' }, power: 1,
-        note: (bare) => bare
-          ? `<span class="bad">Too fast to catch.</span> ${past} A bare nucleus cannot hold an electron with that much energy.`
-          : `<span class="bad">Too much energy.</span> ${past} The electron struck hard enough to knock one free, so both are lost.`,
-      };
-    }
-    const lo = levels[0], hi = top;
-    let note: string;
-    switch (v.kind) {
-      case 'open':
-        note = '<span class="warn">Lost.</span> The wave has to go all the way round the nucleus and meet itself at the red mark where it began. This one never closed its loop, so nothing held the electron.';
-        break;
-      case 'flat':
-        note = `<span class="warn">Not caught.</span> A smooth loop holds no waves. Level n holds n whole waves, so put ${lo} to ${hi} even wiggles in your loop.`;
-        break;
-      case 'unclosed':
-        note = '<span class="warn">Not caught.</span> The wave did not meet itself where it began: it ended part-way through a wave. Out of step, a wave cancels itself out, which is why only whole numbers of waves, and so only certain energies, are allowed. End on the same part of the wave you started on.';
-        break;
-      case 'uneven':
-        note = `<span class="warn">Not caught.</span> ${count(v.waves)}, but too unevenly spaced to make a clean standing wave. ${style === 'trace' ? 'Space the crests evenly round the loop.' : 'Space the beats evenly through one turn of the marker.'}`;
-        break;
-      case 'low':
-        note = `<span class="warn">Not caught.</span> ${count(v.waves)} would be level n=${v.waves}, below the levels open to this electron. The lowest here is n=${v.lowest}; it falls further on its own once caught.`;
-        break;
-    }
-    return { ...base, onTarget: v.kind !== 'open', reading: { kind: 'between', below: null, above: null }, power: 0.5, note: () => note };
-  }
-
-  private markerAngle(t: number): number {
-    return -Math.PI / 2 + 2 * Math.PI * ((((t - this.beatClock) / BEAT_PERIOD) % 1 + 1) % 1);
-  }
-
-  private beatDrawn = false;
-  private beatShown = -1;
-
-  /** Run the rhythm marker only while Rhythm is the launch style. */
-  private syncBeatLoop(): void {
-    const want = this.style() === 'rhythm' && !this.save.settings.assist;
-    if (want && !this.beatRaf) this.beatRaf = requestAnimationFrame(() => this.beatFrame());
-    if (!want && this.beatRaf) {
-      cancelAnimationFrame(this.beatRaf);
-      this.beatRaf = 0;
-      this.beat = null;
-      if (this.beatDrawn) this.clearOverlay();
-      this.beatDrawn = false;
-    }
-  }
-
-  private beatFrame(): void {
-    this.beatRaf = requestAnimationFrame(() => this.beatFrame());
-    if (this.mode !== 'build' || this.slicePath || !captureLadder(this.atom)) {
-      if (this.beatDrawn) this.clearOverlay();
-      this.beatDrawn = false;
-      this.beat = null;
-      return;
-    }
-    const now = performance.now();
-    if (this.beat && !this.busy && now - this.beat.taps[0] >= BEAT_PERIOD) this.evaluateBeat();
-    this.drawBeat(now);
-  }
-
-  private tapBeat(): void {
+  private tap(p: ScreenPoint, t: number): void {
     if (this.busy || this.mode !== 'build' || !captureLadder(this.atom)) return;
     if (this.needsSlice()) return this.enterSlice();
-    const now = performance.now();
-    if (!this.beat) this.beat = { taps: [now], angle: this.markerAngle(now) };
-    else this.beat.taps.push(now);
-    sfx.tickSound(Math.min(7, this.beat.taps.length + 1));
+    if (!this.phrase) this.phrase = { taps: [t], at: p, spin: null };
+    else this.phrase.taps.push(t);
+    sfx.tickSound(Math.min(7, this.phrase.taps.length + 1));
     const levels = this.levels();
-    if (this.beat.taps.length > levels[levels.length - 1] + 1) this.evaluateBeat();
+    if (this.phrase.taps.length > levels[levels.length - 1]) this.evaluatePhrase();
+    this.ensureLoop();
   }
 
-  private evaluateBeat(): void {
-    const b = this.beat!;
-    this.beat = null;
-    const shape = analyseBeats(b.taps, BEAT_PERIOD);
-    const verdict = judgeWave(shape.waves, shape.dev, 0, this.levels());
-    const n = this.scene.nucleusScreen();
-    const r = this.ringRadius();
-    const from = { x: n.x + Math.cos(b.angle) * r, y: n.y + Math.sin(b.angle) * r };
-    const axis = nextSubshell(this.atom)?.id === '2p' ? this.scene.screenDirToAxis(Math.cos(b.angle), Math.sin(b.angle)) : null;
-    void this.fire(this.waveShot(verdict, from, axis, null, 'rhythm'));
+  private pulseFrame(now: number): void {
+    const period = this.period();
+    const beat = Math.floor((now - this.pulsePhase) / period);
+    if (beat !== this.pulseBeat) {
+      this.pulseBeat = beat;
+      sfx.beatSound(this.phrase !== null);
+    }
+    const ph = this.phrase;
+    if (ph && !this.busy && now >= phraseCloses(ph.taps[ph.taps.length - 1], period, this.pulsePhase)) this.evaluatePhrase();
+    this.drawPulse(now);
   }
 
-  private drawBeat(now: number): void {
+  private evaluatePhrase(): void {
+    const ph = this.phrase;
+    this.phrase = null;
+    this.pulseTouch = null;
+    if (!ph || this.busy) return;
+    const levels = this.levels();
+    const v = judgePhrase(ph.taps, this.period(), this.pulsePhase, levels);
+    const toward = this.scene.nucleusScreen();
+    const base = { from: ph.at, toward, axis: this.axisFrom(ph.at), spin: ph.spin, onTarget: true };
+    const beats = (k: number) => `${k} beat${k === 1 ? '' : 's'}`;
+    let shot: Shot;
+    switch (v.kind) {
+      case 'level':
+        shot = { ...base, reading: { kind: 'level', n: v.n, precision: v.precision }, power: v.n / (levels[levels.length - 1] + 1) };
+        break;
+      case 'free':
+        shot = {
+          ...base, reading: { kind: 'free' }, power: 1,
+          note: (bare) => `<span class="bad">${bare ? 'Too fast to catch.' : 'Too much energy.'}</span> ${beats(v.n)} would be level n=${v.n}, past the highest level on offer (n=${v.highest}). ${bare ? 'A bare nucleus cannot hold an electron with that much energy.' : 'The electron struck hard enough to knock one free, so both are lost.'}`,
+        };
+        break;
+      case 'off':
+        shot = {
+          ...base, reading: { kind: 'between', below: null, above: null }, power: 0.5,
+          note: () => `<span class="warn">Out of step.</span> ${beats(v.n)}, but one landed off the beat, so the wave did not join up with itself and nothing held the electron. Tap on the pulse: each beat is one crest of the wave.`,
+        };
+        break;
+      case 'low':
+        shot = {
+          ...base, reading: { kind: 'between', below: null, above: null }, power: 0.5,
+          note: () => `<span class="warn">Not caught.</span> ${beats(v.n)} would be level n=${v.n}, below the levels open to this electron. The lowest here is n=${v.lowest}; it falls further on its own once caught.`,
+        };
+        break;
+    }
+    void this.fire(shot);
+  }
+
+  private drawPulse(now: number): void {
     const ctx = this.overlayCtx();
-    this.beatDrawn = true;
     const c = this.scene.nucleusScreen();
     const R = this.ringRadius();
+    const period = this.period();
+    const f = (((now - this.pulsePhase) / period) % 1 + 1) % 1;
     this.drawRing(ctx, c, R);
-    const ang = this.markerAngle(now);
-    const at = (a: number, r: number) => ({ x: c.x + Math.cos(a) * r, y: c.y + Math.sin(a) * r });
-    const sub = nextSubshell(this.atom);
-    if (sub?.id === '2p' && this.pDiscovered()) {
-      const a = this.beat ? this.beat.angle : ang;
-      this.drawAxisGuides(ctx, this.scene.screenDirToAxis(Math.cos(a), Math.sin(a)));
-    }
-    const b = this.beat;
-    if (b) {
-      // The wave laid down so far: each tap is a crest, and the wave between taps stretches to fit.
-      const t0 = b.taps[0];
-      const phis = b.taps.map((t) => ((t - t0) / BEAT_PERIOD) * 2 * Math.PI);
-      const nowPhi = Math.min(2 * Math.PI, ((now - t0) / BEAT_PERIOD) * 2 * Math.PI);
-      const lastGap = phis.length > 1 ? phis[phis.length - 1] - phis[phis.length - 2] : 0;
-      const A = R * 0.09;
-      const phase = (phi: number): number | null => {
-        for (let k = 0; k < phis.length - 1; k++) {
-          if (phi < phis[k + 1]) return 2 * Math.PI * (k + (phi - phis[k]) / (phis[k + 1] - phis[k]));
-        }
-        return lastGap ? 2 * Math.PI * (phis.length - 1 + (phi - phis[phis.length - 1]) / lastGap) : null;
-      };
+    // The beat: a ring of light that leaves the nucleus on every beat and fades as it reaches the guide ring.
+    ctx.strokeStyle = `rgba(243, 238, 226, ${0.55 * (1 - f)})`;
+    ctx.lineWidth = 2 + 4 * (1 - f);
+    ctx.beginPath();
+    ctx.arc(c.x, c.y, R * (0.25 + 0.75 * f), 0, Math.PI * 2);
+    ctx.stroke();
+    const ph = this.phrase;
+    const k = ph ? ph.taps.length : 0;
+    const axis = ph ? this.axisFrom(ph.at) : null;
+    if (axis) this.drawAxisGuides(ctx, axis);
+    this.scene.setGhost(ph ? this.targetOrbital(axis) : null);
+    if (ph) {
+      // The standing wave so far: k crests round the ring, breathing in time with the beat.
+      const A = R * 0.09 * Math.cos(2 * Math.PI * f);
+      const a0 = Math.atan2(ph.at.y - c.y, ph.at.x - c.x);
       ctx.strokeStyle = 'rgba(243, 238, 226, 0.9)';
       ctx.shadowColor = '#f3eee2';
       ctx.shadowBlur = 8;
       ctx.lineWidth = 2;
       ctx.beginPath();
-      for (let phi = 0; phi <= nowPhi; phi += 0.02) {
-        const ph = phase(phi);
-        const p = at(b.angle + phi, R + (ph === null ? 0 : A * Math.cos(ph)));
-        if (phi === 0) ctx.moveTo(p.x, p.y);
-        else ctx.lineTo(p.x, p.y);
+      for (let i = 0; i <= 240; i++) {
+        const t = (i / 240) * 2 * Math.PI;
+        const r = R + A * Math.cos(k * t);
+        const x = c.x + Math.cos(a0 + t) * r, y = c.y + Math.sin(a0 + t) * r;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
       }
+      ctx.closePath();
       ctx.stroke();
       ctx.shadowBlur = 0;
-      ctx.fillStyle = '#f3eee2';
-      for (const phi of phis) {
-        const p = at(b.angle + phi, R + A);
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
-        ctx.fill();
-      }
-      this.drawStartMark(ctx, at(b.angle, R));
+      this.drawDroplet(ctx, ph.at, 'lit', 14);
     }
-    // The marker: a droplet going steadily round, once every few seconds.
-    const m = at(ang, R);
-    const g = ctx.createRadialGradient(m.x, m.y, 0, m.x, m.y, 14);
-    g.addColorStop(0, 'rgba(255, 252, 245, 1)');
-    g.addColorStop(1, 'rgba(226, 220, 207, 0)');
-    ctx.fillStyle = g;
-    ctx.beginPath();
-    ctx.arc(m.x, m.y, 14, 0, Math.PI * 2);
-    ctx.fill();
-
-    const shown = b ? b.taps.length : 0;
-    if (shown !== this.beatShown) {
-      this.beatShown = shown;
-      const levels = this.levels();
-      if (!b) {
+    const levels = this.levels();
+    const top = levels[levels.length - 1];
+    if (k !== this.pulseShown) {
+      this.pulseShown = k;
+      if (!ph) {
         $('aim').style.display = 'none';
         this.renderLadder(null);
       } else {
-        this.showTip(`${shown} beat${shown === 1 ? '' : 's'} · <span style="color:var(--muted)">closes when the marker reaches the red mark</span>`);
-        this.renderLadder(levels.includes(shown) ? shown : shown > levels[levels.length - 1] ? 'ionise' : null);
+        const parts = [`${k} beat${k === 1 ? '' : 's'}`, levels.includes(k) ? `n=${k}` : k > top ? '<span style="color:var(--bad)">too many</span>' : `<span style="color:var(--muted)">below n=${levels[0]}</span>`];
+        if (axis) parts.push(`2p<sub>${axis}</sub>`);
+        parts.push(ph.spin === null ? 'spin auto' : ph.spin === 1 ? 'spin ↑' : 'spin ↓');
+        parts.push('<span style="color:var(--muted)">a silent beat ends it</span>');
+        this.showTip(parts.join(' · '));
+        this.renderLadder(levels.includes(k) ? k : k > top ? 'ionise' : null);
       }
     }
+  }
+
+  // ---- Tune: turn a dial to a level the atom can absorb at, then tap to fire ------------
+
+  private dialLines(): DialLine[] {
+    const ladder = captureLadder(this.atom);
+    return ladder ? dialLines(ladder.groundEnergy, ladder.levels) : [];
+  }
+
+  private updateHum(): void {
+    const lines = this.dialLines();
+    sfx.setHum(180 * Math.pow(2, this.dial * 2.2), resonance(this.dial, lines));
+  }
+
+  private fireDial(p: ScreenPoint): void {
+    if (this.busy || this.mode !== 'build' || !captureLadder(this.atom)) return;
+    if (this.needsSlice()) return this.enterSlice();
+    const lines = this.dialLines();
+    const reading = readDial(this.dial, lines);
+    if (reading.kind === 'none') {
+      this.say('The dial is at zero. <span class="hl">Drag round the atom</span> to turn it up until the atom glows, then tap to fire.');
+      return;
+    }
+    const ladder = captureLadder(this.atom)!;
+    const ev = (-ladder.groundEnergy * this.dial).toFixed(-ladder.groundEnergy >= 100 ? 0 : 1);
+    const between = reading.kind === 'between'
+      ? reading.below === null ? `short of n=${reading.above}` : reading.above === null ? `past n=${reading.below}` : `between n=${reading.below} and n=${reading.above}`
+      : '';
+    void this.fire({
+      from: p, toward: this.scene.nucleusScreen(), reading, onTarget: true, axis: this.axisFrom(p), spin: null, power: this.dial / DIAL_MAX,
+      note: (bare) => reading.kind === 'free'
+        ? `<span class="bad">${bare ? 'Too fast to catch.' : 'Too much energy.'}</span> The dial is past the ionisation limit (${(-ladder.groundEnergy).toFixed(1)} eV), so ${bare ? 'a bare nucleus cannot hold the electron' : 'the electron struck hard enough to knock one free, and both are lost'}. Turn it back below the red arc.`
+        : `<span class="warn">Passed straight through.</span> ${ev} eV is ${between}, and the atom has no level there to absorb at. Turn the dial until the atom glows and hums.`,
+    });
+  }
+
+  private drawDial(now: number): void {
+    const ctx = this.overlayCtx();
+    const c = this.scene.nucleusScreen();
+    const R = this.ringRadius();
+    const lines = this.dialLines();
+    const reading = readDial(this.dial, lines);
+    const res = resonance(this.dial, lines);
+    const at = (a: number, r: number) => ({ x: c.x + Math.cos(a) * r, y: c.y + Math.sin(a) * r });
+    const arc = (v0: number, v1: number, r: number, colour: string, width: number) => {
+      ctx.strokeStyle = colour;
+      ctx.lineWidth = width;
+      ctx.lineCap = 'butt';
+      ctx.beginPath();
+      ctx.arc(c.x, c.y, r, dialAngle(v0), dialAngle(v1));
+      ctx.stroke();
+    };
+    // Resonance: the cloud brightens as the dial nears a line, shimmering a little on it.
+    if (res > 0) {
+      const glow = res * (0.9 + 0.1 * Math.sin(now / 90));
+      const g = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, R * 0.8);
+      g.addColorStop(0, `rgba(243, 238, 226, ${0.22 * glow})`);
+      g.addColorStop(1, 'rgba(243, 238, 226, 0)');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(c.x, c.y, R * 0.8, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // The dial: a scale of energy from zero to just past the ionisation limit.
+    arc(0, 1, R, 'rgba(226, 220, 207, 0.22)', 2);
+    arc(1, DIAL_MAX, R, 'rgba(224, 80, 58, 0.6)', 6);
+    ctx.font = `700 11px ${MONO}`;
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'center';
+    for (const l of lines) {
+      const on = reading.kind === 'level' && reading.n === l.n;
+      arc(l.v - l.half, l.v + l.half, R, on ? 'rgba(243, 238, 226, 1)' : 'rgba(226, 220, 207, 0.5)', on ? 10 : 7);
+      const a = dialAngle(l.v);
+      const p0 = at(a, R - 9), p1 = at(a, R + 9);
+      ctx.strokeStyle = on ? '#0c0b0a' : 'rgba(226, 220, 207, 0.7)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(p0.x, p0.y);
+      ctx.lineTo(p1.x, p1.y);
+      ctx.stroke();
+      // Labels step outward where lines crowd together, so they stay readable.
+      const prev = lines[lines.indexOf(l) - 1];
+      const crowded = prev && dialAngle(l.v) - dialAngle(prev.v) < 0.22;
+      const lp = at(a, R + (crowded && lines.indexOf(l) % 2 ? 40 : 22));
+      ctx.fillStyle = on ? '#f3eee2' : 'rgba(226, 220, 207, 0.75)';
+      ctx.fillText(`n=${l.n}`, lp.x, lp.y);
+    }
+    const zero = at(dialAngle(0), R + 22), top = at(dialAngle(DIAL_MAX), R + 22);
+    ctx.fillStyle = 'rgba(226, 220, 207, 0.5)';
+    ctx.fillText('0', zero.x, zero.y);
+    ctx.fillStyle = '#e0503a';
+    ctx.fillText('free', top.x, top.y);
+    // The needle.
+    const a = dialAngle(this.dial);
+    const n0 = at(a, R * 0.55), n1 = at(a, R + 2);
+    ctx.strokeStyle = reading.kind === 'free' ? 'rgba(224, 80, 58, 0.9)' : 'rgba(243, 238, 226, 0.9)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(n0.x, n0.y);
+    ctx.lineTo(n1.x, n1.y);
+    ctx.stroke();
+    this.drawDroplet(ctx, n1, reading.kind === 'free' ? 'hot' : reading.kind === 'level' ? 'lit' : 'cool', 12);
+    if (this.dialDrag) {
+      const axis = this.axisFrom(this.dialDrag.last);
+      if (axis) this.drawAxisGuides(ctx, axis);
+    }
+    const key = `${reading.kind}:${reading.kind === 'level' ? reading.n : ''}:${this.dialDrag !== null}`;
+    if (key !== this.dialShown) {
+      this.dialShown = key;
+      this.renderLadder(reading.kind === 'level' ? reading.n : reading.kind === 'free' ? 'ionise' : null);
+      const parts: string[] = [];
+      if (reading.kind === 'free') parts.push('<span style="color:var(--bad)">past the ionisation limit</span>');
+      else if (reading.kind === 'level') parts.push(`on the n=${reading.n} line${reading.precision >= 1 - CENTRE ? ' · centre' : ''} · tap the atom to fire`);
+      else if (reading.kind === 'none') parts.push('<span style="color:var(--muted)">dial at zero · drag round the atom</span>');
+      else parts.push('<span style="color:var(--muted)">no line here · keep tuning</span>');
+      this.showTip(parts.join(' · '));
+    }
+  }
+
+  private spinHint(): string {
+    if (this.style() === 'charge') return 'Flick the other way as you let go.';
+    if (this.style() === 'pulse') return 'Swipe the other way on one of your taps.';
+    return 'Let the atom choose.';
   }
 
   // ---- slice the wave ----------------------------------------------------------------
@@ -1004,12 +1111,12 @@ class Game {
       if (shot.note) {
         this.say(shot.note(false));
       } else if (!shot.onTarget) {
-        this.say('<span class="warn">Missed.</span> The electron flew past the atom and is lost. Press on the atom itself, then pull straight back from it.');
+        this.say('<span class="warn">Missed.</span> The electron flew past the atom and is lost.');
       } else if (reading.kind === 'between') {
         const where = reading.below === null ? `short of the n=${reading.above} band`
           : reading.above === null ? `past the n=${reading.below} band`
           : `between n=${reading.below} and n=${reading.above}`;
-        this.say(`<span class="warn">Not caught.</span> Its energy fell ${where}, and an atom only holds electrons at its allowed levels, so it passed straight through. Release inside a lit band.`);
+        this.say(`<span class="warn">Not caught.</span> Its energy fell ${where}, and an atom only holds electrons at its allowed levels, so it passed straight through.`);
       }
       this.busy = false;
       this.refresh();
@@ -1021,13 +1128,13 @@ class Game {
       if (electronCount(this.atom) === 0) {
         sfx.bounceSound();
         await this.scene.bounce(from);
-        this.say(shot.note?.(true) ?? '<span class="bad">Too fast to catch.</span> A bare nucleus cannot hold an electron moving that quickly. Pull back a little less.');
+        this.say(shot.note?.(true) ?? '<span class="bad">Too fast to catch.</span> A bare nucleus cannot hold an electron moving that quickly.');
       } else {
         await this.scene.launch(from, power);
         sfx.ioniseSound();
         void this.scene.ionise();
         this.atom = removeLastElectron(this.atom);
-        this.say(shot.note?.(false) ?? '<span class="bad">Too much energy.</span> The electron struck the atom hard enough to knock one free, so both are lost. Pull back a little less.');
+        this.say(shot.note?.(false) ?? '<span class="bad">Too much energy.</span> The electron struck the atom hard enough to knock one free, so both are lost.');
       }
       this.busy = false;
       this.refresh();
@@ -1215,8 +1322,8 @@ class Game {
       <p class="muted">Feel prototype · hydrogen to neon</p>
       <p>Every atom here is built from real rules. Electrons are not little planets: each one is a cloud of probability, and its shape comes from the maths of waves.</p>
       <p><b>Catch electrons.</b> An atom only holds electrons at its allowed energy levels. A bound electron is a wave that has to join up with itself round the nucleus, so only whole numbers of waves fit: level n holds n. Caught electrons fall inward, releasing real light. Hydrogen caught at n=3 gives its true red line.</p>
-      <p><b>Three ways to launch</b>, switchable at the bottom of the screen: <b>Trace</b> a wave loop round the nucleus, tap a <b>Rhythm</b> of even beats, or pull back a <b>Sling</b> and release in a lit band.</p>
-      <p><b>Miss and it is lost.</b> A wave that does not join up, an uneven rhythm or a release between bands lets the electron go. Too much energy knocks an electron out. Higher levels release more light but are harder to hit.</p>
+      <p><b>Three ways to launch</b>, switchable at the bottom of the screen: <b>Charge</b> (hold, and let go on a rung of the ladder), <b>Pulse</b> (tap n beats in time to reach level n), or <b>Tune</b> (turn a dial to a line the atom absorbs at, then tap to fire).</p>
+      <p><b>Miss and it is lost.</b> Let go off a rung, tap off the beat or fire off a line and the electron passes through. Too much energy knocks an electron out. Higher levels release more light but are harder to hit.</p>
       <p><b>Three goals per element:</b> build it; build it <b>flawlessly</b> (ground state, nothing lost, no undo); and find <b>every line</b> of its light, shown as gaps in the spectrum strip.</p>
       <p class="muted">Two fingers (or the right mouse button) turn the atom. If dragging is hard, switch on <b>Assisted controls</b> in Settings to play with buttons only.</p>
       <div class="actions"><button class="primary" id="intro-go">Build hydrogen</button><button class="secondary" id="intro-assist">Use assisted controls</button></div>`);
@@ -1426,7 +1533,7 @@ class Game {
     const size = canvas.clientWidth;
     const nodes: SpiralNode[] = layoutSpiral(
       size,
-      (z) => (this.save.built[z] ? 'built' : z === front && z <= MAX_Z ? 'frontier' : z <= MAX_Z ? 'locked' : 'future'),
+      (z) => (this.save.built[z] ? 'built' : (z === front || this.save.settings.unlockAll) && z <= MAX_Z ? 'frontier' : z <= MAX_Z ? 'locked' : 'future'),
       (z) => (z <= MAX_Z ? this.colourFor(z) : SILVER),
     );
     const info = sheet.querySelector<HTMLElement>('#map-info')!;
@@ -1440,7 +1547,7 @@ class Game {
         info.innerHTML = `<p><b>${el.name}</b>${this.save.built[n.z].perfect ? ', perfect' : ''}.</p><button class="primary" id="map-open">Open card</button>`;
         info.querySelector<HTMLButtonElement>('#map-open')!.onclick = () => this.showCard(n.z, false);
       } else if (n.state === 'frontier') {
-        info.innerHTML = `<p><b>Next:</b> “${el.hint}”</p><button class="primary" id="map-build">Build ${el.name}</button>`;
+        info.innerHTML = `<p><b>${n.z === front ? 'Next' : 'Unlocked for testing'}:</b> “${el.hint}”</p><button class="primary" id="map-build">Build ${el.name}</button>`;
         info.querySelector<HTMLButtonElement>('#map-build')!.onclick = () => { this.closeModal(); this.start(n.z); };
       } else {
         info.innerHTML = `<p>A silhouette, element ${n.z}. Build the elements before it first.</p>`;
@@ -1468,6 +1575,8 @@ class Game {
     const s = this.save.settings;
     const toggle = (key: keyof typeof s, title: string, help: string) => `
       <label class="toggle"><span>${title}<small>${help}</small></span><input type="checkbox" data-key="${key}" ${s[key] ? 'checked' : ''}></label>`;
+    const choice = (key: keyof typeof s, title: string, help: string, options: [string, string][]) => `
+      <div class="toggle"><span>${title}<small>${help}</small></span><span class="seg">${options.map(([v, label]) => `<button data-choice="${key}" data-value="${v}" aria-pressed="${s[key] === v}">${label}</button>`).join('')}</span></div>`;
     const sheet = this.openModal(`
       <h2>Settings</h2>
       ${toggle('assist', 'Assisted controls', 'Play with buttons and keys instead of dragging. Every launch lands dead centre in the band you choose.')}
@@ -1475,9 +1584,14 @@ class Game {
       ${toggle('sound', 'Sound', 'Tones for captures, light and harmony.')}
       ${toggle('haptics', 'Vibration', 'Taps on supported phones.')}
       ${toggle('autoCore', 'Auto-fill cores', 'After building helium, heavier atoms start with its filled 1s shell.')}
+      <h3>Launch feel</h3>
+      ${choice('climb', 'Charge climb', 'How long a held press takes to reach the top of the ladder.', [['normal', 'normal'], ['slow', 'slow']])}
+      ${choice('tempo', 'Pulse tempo', 'Beats per minute for the Pulse style.', [['slow', '75'], ['medium', '94'], ['brisk', '120']])}
+      <h3>Testing</h3>
+      ${toggle('unlockAll', 'Unlock every element', 'Build any element from the map without earning it, with the p orbital already discovered. For trying the launch styles on later atoms.')}
       <h3>How accurate is this?</h3>
       <p class="muted">Orbital shapes are sampled from the exact hydrogen-like wavefunctions, scaled for each atom with Slater's rules. Each capture releases the real ionisation energy (NIST data). Higher levels use the Rydberg formula, which is exact for one-electron atoms and approximate otherwise. Sub-shell splitting in the cascade is not modelled yet, and the cascade steps down one level at a time. Capture bands are a game rule: a real atom can catch a free electron at any energy and send the excess away as light, but here capture only happens near an allowed level, so you can feel that the levels are discrete. The nucleus is drawn about 10,000 times too large; at true scale it would be invisible.</p>
-      <p class="muted">Trace and Rhythm use de Broglie's 1924 picture: a bound electron is a wave that must join up with itself round the nucleus, so level n holds n whole waves. It explains why levels are discrete and gives hydrogen's energies exactly, but it is the Bohr model: real orbitals are 3D clouds, not waves on a ring, and capture has no path to draw. Loop direction for spin is a game convention; spin is not literally rotation.</p>
+      <p class="muted">Pulse uses de Broglie's 1924 picture: a bound electron is a wave that must join up with itself round the nucleus, so level n holds n whole waves. It explains why levels are discrete and gives hydrogen's energies exactly, but it is the Bohr model: real orbitals are 3D clouds, not waves on a ring. Tune's dial shows the levels at their true spacing as fractions of the ionisation energy, which is why they crowd toward the top; the glow near a line stands in for resonance, the reason an atom absorbs only at its lines. Charge's ladder spaces the rungs evenly for playability, so it is not to scale. Flicks and swipes for spin are a game convention; spin is not literally rotation.</p>
       <h3>Progress</h3>
       <p class="muted">${Object.keys(this.save.built).length} of ${MAX_Z} elements built · ${ISOTOPES.filter((i) => this.save.isotopes[isotopeKey(i.z, i.a)]?.collected || this.save.isotopes[isotopeKey(i.z, i.a)]?.witnessed?.length).length} of ${ISOTOPES.length} isotopes found</p>
       <div class="actions"><button class="secondary" id="set-reset">Reset all progress</button><button class="primary" id="set-close">Done</button></div>`);
@@ -1488,6 +1602,11 @@ class Game {
       this.renderAssist();
       this.renderLadder(null);
       if (this.mode !== 'slice') this.say(this.guidance());
+    }));
+    sheet.querySelectorAll<HTMLButtonElement>('[data-choice]').forEach((b) => (b.onclick = () => {
+      (s as unknown as Record<string, string>)[b.dataset.choice!] = b.dataset.value!;
+      writeSave(this.save);
+      this.showSettings();
     }));
     sheet.querySelector<HTMLButtonElement>('#set-close')!.onclick = () => this.closeModal();
     sheet.querySelector<HTMLButtonElement>('#set-reset')!.onclick = (e) => {
@@ -1512,6 +1631,7 @@ class Game {
     sfx.setHaptics(s.haptics);
     this.scene.setReducedMotion(s.reducedMotion);
     this.renderAssist();
+    this.ensureLoop();
   }
 
   private toast(text: string): void {
@@ -1524,23 +1644,6 @@ class Game {
 }
 
 // ---- helpers -----------------------------------------------------------------
-
-/** Signed turning of the pull path: a clear clockwise curl means spin up. */
-function curlSpin(path: ScreenPoint[]): Spin | null {
-  if (path.length < 4) return null;
-  let turn = 0;
-  for (let i = 2; i < path.length; i++) {
-    const a1 = Math.atan2(path[i - 1].y - path[i - 2].y, path[i - 1].x - path[i - 2].x);
-    const a2 = Math.atan2(path[i].y - path[i - 1].y, path[i].x - path[i - 1].x);
-    let d = a2 - a1;
-    while (d > Math.PI) d -= 2 * Math.PI;
-    while (d < -Math.PI) d += 2 * Math.PI;
-    turn += d;
-  }
-  if (turn > 1.2) return 1;
-  if (turn < -1.2) return -1;
-  return null;
-}
 
 function segmentDistance(p: ScreenPoint, a: ScreenPoint, b: ScreenPoint): number {
   const dx = b.x - a.x, dy = b.y - a.y;
@@ -1578,4 +1681,6 @@ function superscriptNum(n: number): string {
 
 const wait = (ms: number) => new Promise((r) => window.setTimeout(r, ms));
 
-new Game();
+// The running game, reachable from the console for prototyping and automated checks.
+(window as unknown as { atomos: Game }).atomos = new Game();
+registerSW({ immediate: true });
