@@ -10,7 +10,7 @@
     <meta name="apple-mobile-web-app-title" content="Atomos" />
     <link rel="icon" type="image/png" href="./icons/icon-192.png" />
     <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
-    <meta name="description" content="Build atoms, puzzle by puzzle. Atomos prototype: hydrogen to neon." />
+    <meta name="description" content="Every atom, up close. Atomos: a collection of the 118 elements, unlocked puzzle by puzzle." />
     <title>Atomos</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -18,7 +18,48 @@
     <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
-    <div id="app">
+    <div id="gallery-screen">
+      <canvas id="gal" aria-label="Every element as an atom. Drag to move, pinch to zoom, tap one to look closer."></canvas>
+      <div id="gal-labels" class="gal-labels" aria-hidden="true"></div>
+      <div class="grain" aria-hidden="true"></div>
+      <header class="gal-top">
+        <div class="gal-title">
+          <span class="gal-name">Atomos</span>
+          <span class="gal-sub"><span id="gal-count">0 of 118</span> collected</span>
+        </div>
+        <nav class="gal-actions">
+          <button class="icon-btn" id="gal-build" aria-label="Open the builder">Build</button>
+        </nav>
+      </header>
+      <div class="gal-hover" id="gal-hover" hidden></div>
+      <footer class="gal-bottom">
+        <div class="seg layout-switch" id="layout-switch" role="group" aria-label="Arrangement"></div>
+        <p class="layout-note" id="layout-note"></p>
+      </footer>
+
+      <section id="loupe-screen" class="loupe-screen" hidden aria-label="One atom, up close">
+        <canvas id="loupe" aria-label="The selected atom. Drag to turn it, swipe sideways for the next element."></canvas>
+        <div id="ring-labels" class="ring-labels" aria-hidden="true"></div>
+        <header class="loupe-top">
+          <button class="icon-btn" id="loupe-back" aria-label="Back to the gallery">‹ Gallery</button>
+          <div class="seg style-switch" id="style-switch" role="group" aria-label="How the atom is drawn"></div>
+        </header>
+        <button class="arrow prev" id="loupe-prev" aria-label="Previous element">‹</button>
+        <button class="arrow next" id="loupe-next" aria-label="Next element">›</button>
+        <button class="loupe-card" id="card" aria-expanded="false" aria-controls="sheet" aria-label="Open everything about this element"></button>
+        <div class="data-sheet" id="sheet" hidden role="dialog" aria-label="Everything about this element">
+          <div class="sheet-head">
+            <h2 id="sheet-title"></h2>
+            <button class="text-btn" id="sheet-build">Build it</button>
+            <button class="icon-btn" id="sheet-close" aria-label="Close">Close</button>
+          </div>
+          <div class="seg sheet-tabs" id="sheet-tabs" role="tablist"></div>
+          <div class="sheet-body" id="sheet-body"></div>
+        </div>
+      </section>
+    </div>
+
+    <div id="app" hidden>
       <canvas id="atom" aria-label="The atom you are building."></canvas>
       <canvas id="overlay" aria-label="The puzzle. Swipe to slide nuclei, or drag round a ring to turn it."></canvas>
       <div class="grain" aria-hidden="true"></div>
@@ -35,6 +76,7 @@
           </span>
         </button>
         <nav class="top-actions">
+          <button class="icon-btn" id="btn-gallery" aria-label="Back to the gallery">Gallery</button>
           <button class="icon-btn" id="btn-map" aria-label="Open the map">Map</button>
           <button class="icon-btn" id="btn-settings" aria-label="Open settings">Settings</button>
         </nav>
