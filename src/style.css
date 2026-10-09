@@ -485,12 +485,12 @@ body.stage-nucleus #atom { opacity: 0.12; }
 .loupe-top { position: absolute; left: 0; right: 0; top: 0; z-index: 2; display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: calc(6px + var(--top)) 10px 0; pointer-events: none; }
 .loupe-top > * { pointer-events: auto; }
 .style-switch button { font-size: 12px; min-height: 36px; padding: 0 10px; }
-.science-btn { background: transparent; border: 1px solid var(--line); border-radius: 2px; color: var(--text); min-width: 40px; min-height: 36px; display: inline-flex; align-items: center; justify-content: center; padding: 0 8px; }
-.science-btn:hover, .science-btn[aria-expanded='true'] { border-color: var(--text); }
+.loupe-top .science-btn { margin-left: 0; }
+.science-btn[aria-expanded='true'] { border-color: var(--text); }
 .dec { position: absolute; z-index: 2; pointer-events: none; font-family: var(--mono); font-size: 11px; line-height: 1.5; color: #ffffff; letter-spacing: 0.04em; display: flex; flex-direction: column; }
 .dec .dim { color: var(--muted); }
-.dec-tl { left: 14px; top: calc(58px + var(--safe-top)); align-items: flex-start; }
-.dec-tr { right: 14px; top: calc(58px + var(--safe-top)); align-items: flex-end; text-align: right; }
+.dec-tl { left: 14px; top: calc(58px + var(--top)); align-items: flex-start; }
+.dec-tr { right: 14px; top: calc(58px + var(--top)); align-items: flex-end; text-align: right; }
 .loupe-bottom { position: absolute; left: 0; right: 0; bottom: calc(10px + var(--safe-bottom)); z-index: 2; display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 0 10px; pointer-events: none; }
 .loupe-bottom > * { pointer-events: auto; }
 .dec-shells { position: static; align-items: center; text-align: center; color: #ffffff; opacity: 0.85; }

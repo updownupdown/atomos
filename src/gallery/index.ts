@@ -6,7 +6,8 @@ import { STYLES, type Style } from './atom';
 import { ELEMENTS, MAX_Z, elementAt, type Element } from './data';
 import { Detail } from './detail';
 import { Gallery } from './gallery';
-import { decoratorsHTML, MICROSCOPE, TABS, tabHTML, type Tab } from './info';
+import { decoratorsHTML, TABS, tabHTML, type Tab } from './info';
+import { MICROSCOPE } from '../ui/icons';
 import { LAYOUTS, type LayoutId } from './layouts';
 import { loadSave, writeSave, type SaveData } from '../core/save';
 
@@ -66,7 +67,6 @@ export class GalleryApp {
     const styles = $('style-switch');
     styles.innerHTML = STYLES.map((s) => `<button data-id="${s.id}" aria-pressed="${s.id === this.style}">${s.label}</button>`).join('');
     styles.querySelectorAll<HTMLButtonElement>('button').forEach((b) => (b.onclick = () => this.setStyle(b.dataset.id as Style)));
-    $('loupe-back').onclick = () => this.close();
     $('loupe-prev').onclick = () => this.step(-1);
     $('loupe-next').onclick = () => this.step(1);
     $('loupe-science').innerHTML = MICROSCOPE;

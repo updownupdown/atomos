@@ -33,8 +33,6 @@ export function decoratorsHTML(e: Element, collected: boolean): { topLeft: strin
   };
 }
 
-/** The microscope: the app-wide sign for "dig into the science". */
-export const MICROSCOPE = `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3l5 5-4 4-5-5z"/><path d="M11 10l2 2"/><path d="M7.5 13.5A6 6 0 0 0 13 20"/><path d="M5 21h14"/><path d="M9 17h4"/><path d="M16 14a4 4 0 0 1-1 2.7"/></svg>`;
 
 export function layerPills(e: Element): string {
   return e.subshells.map((s) => s.core
