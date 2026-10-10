@@ -7,6 +7,7 @@
 // every symbol in the Instructions modal is drawn exactly as on the board.
 
 import { adjacent, check, clearPath, cloneLines, completeLine, edgeKey, edgeOf, extend, isEnd, isStart, nextStretch, pathEdges, regions, retract, same, sharedPrefix, solved, verdict, type Kind, type LinesState, type Mark, type Near, type Pt } from './lines';
+import { drawFrame, framePad, frameWidth, type FrameGap } from './frame';
 import { bead, C, fitGrid, tile } from './palette';
 import { drawHelpMark, ease, type Area, type Help, type Illustration, type Point, type PuzzleView, type RuleCard, type Stat } from './view';
 
@@ -92,6 +93,10 @@ function paintLines(ctx: CanvasRenderingContext2D, s: LinesState, g: Grid, o: Pa
   ctx.save();
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
+
+  // The frame round the board, opened where a charge sits on it: a + charge on the rim sits in
+  // its gap like the logo's electrons, and a − charge's stub leaves through one.
+  boardFrame(ctx, s, g);
 
   // Tiles, with channels between them where the line runs.
   const inset = c * 0.1;
@@ -223,6 +228,111 @@ function paintLines(ctx: CanvasRenderingContext2D, s: LinesState, g: Grid, o: Pa
   ctx.restore();
 }
 
+/** The frame round a board, with a gap wherever a charge would sit on its line. */
+function boardFrame(ctx: CanvasRenderingContext2D, s: LinesState, g: Grid): void {
+  const { c } = g;
+  const p = framePad(c), lw = frameWidth(c);
+  const box = { x: g.x - p, y: g.y - p, w: s.cols * c + p * 2, h: s.rows * c + p * 2 };
+  const r = Math.min(c * 0.2 + p, box.w / 2, box.h / 2);
+  const clear = lw * 0.9;
+  const holes: Hole[] = [];
+  // A + charge's bead, where it reaches the frame's line.
+  const rs = startRadius(c);
+  for (const st of s.starts) holes.push({ at: px(g, st), r: rs + clear });
+  // A − charge: where its stub crosses the line, as wide as its ring.
+  for (const end of s.ends) {
+    const node = px(g, end), td = tailDir(s, end), t = terminal(g, node, td);
+    holes.push({ at: { x: node.x + td.x * p, y: node.y + td.y * p }, r: t.r + clear, cross: true });
+  }
+  frameWithHoles(ctx, box, r, lw, holes);
+}
+
+/** Something on the frame's line that it must open round: a disc at `at`, or (`cross`) a stub crossing the line there, `r` either side. */
+interface Hole { at: Point; r: number; cross?: boolean }
+
+type Box = { x: number; y: number; w: number; h: number };
+
+/** A point on the frame's center line, `d` along it from where roundRect starts (x + r, y), running clockwise. */
+function along(b: Box, r: number, d: number): Point {
+  const sw = b.w - 2 * r, sh = b.h - 2 * r, q = (Math.PI * r) / 2;
+  const arc = (cx: number, cy: number, a0: number, u: number): Point => ({ x: cx + r * Math.cos(a0 + u / Math.max(r, 1e-6)), y: cy + r * Math.sin(a0 + u / Math.max(r, 1e-6)) });
+  if (d < sw) return { x: b.x + r + d, y: b.y };
+  d -= sw;
+  if (d < q) return arc(b.x + b.w - r, b.y + r, -Math.PI / 2, d);
+  d -= q;
+  if (d < sh) return { x: b.x + b.w, y: b.y + r + d };
+  d -= sh;
+  if (d < q) return arc(b.x + b.w - r, b.y + b.h - r, 0, d);
+  d -= q;
+  if (d < sw) return { x: b.x + b.w - r - d, y: b.y + b.h };
+  d -= sw;
+  if (d < q) return arc(b.x + r, b.y + b.h - r, Math.PI / 2, d);
+  d -= q;
+  if (d < sh) return { x: b.x, y: b.y + b.h - r - d };
+  return arc(b.x + r, b.y + r, Math.PI, d - sh);
+}
+
+/**
+ * Draws the frame with an opening round each hole that reaches its line. The openings are found
+ * along the frame's own path (so one at a corner follows the curve), merged where they meet,
+ * and handed to drawFrame as gaps. drawFrame's path starts at the top-left corner, and an
+ * opening over that point would leave a stray round cap there, so when one does the frame is
+ * drawn mirrored (the box maps onto itself) to start the path at another corner.
+ */
+function frameWithHoles(ctx: CanvasRenderingContext2D, box: Box, r: number, lw: number, holes: Hole[]): void {
+  const sw = box.w - 2 * r, sh = box.h - 2 * r, q = (Math.PI * r) / 2;
+  const total = 2 * sw + 2 * sh + 4 * q;
+  const cx = box.x + box.w / 2, cy = box.y + box.h / 2;
+  const n = Math.max(8, Math.ceil(total / 1.5));
+  for (const [fx, fy] of [[1, 1], [-1, 1], [1, -1], [-1, -1]]) {
+    const cuts: [number, number][] = [];
+    for (const h of holes) {
+      const p = { x: cx + (h.at.x - cx) * fx, y: cy + (h.at.y - cy) * fy };
+      let best = 0, bd = Infinity;
+      for (let k = 0; k < n; k++) {
+        const d = (k / n) * total, o = along(box, r, d), e = Math.hypot(o.x - p.x, o.y - p.y);
+        if (e < bd) { bd = e; best = d; }
+      }
+      // How far either way the opening runs: the hole's reach where its line crosses, plus the
+      // stroke's own half width.
+      const reach = h.cross ? h.r : bd < h.r + lw / 2 ? Math.sqrt((h.r + lw / 2) ** 2 - bd * bd) : 0;
+      if (!h.cross && bd >= h.r + lw / 2) continue;
+      cuts.push([best - reach, best + reach]);
+    }
+    // An opening over the path's start (or its end, the same point) would leave a stray cap.
+    if (cuts.some(([a, b]) => a < lw || b > total - lw)) continue;
+    cuts.sort((a, b) => a[0] - b[0]);
+    const merged: [number, number][] = [];
+    for (const k of cuts) {
+      const last = merged[merged.length - 1];
+      if (last && k[0] <= last[1] + lw) last[1] = Math.max(last[1], k[1]);
+      else merged.push([...k]);
+    }
+    const gaps = merged.map(([a, b]) => gapAt(box, r, (a + b) / 2, b - a));
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.scale(fx, fy);
+    ctx.translate(-cx, -cy);
+    drawFrame(ctx, box, { width: lw, radius: r, gaps });
+    ctx.restore();
+    return;
+  }
+  // Openings at all four corners: no start is free, so draw it whole rather than with a stray cap.
+  drawFrame(ctx, box, { width: lw, radius: r });
+}
+
+/**
+ * A gap of `size` centered `d` along the frame's path. drawFrame places a top-side gap at
+ * (at - x - r) along the path, and that holds past the top run too, round every corner and side,
+ * so any point of the path can be named as a top-side gap.
+ */
+function gapAt(b: Box, r: number, d: number, size: number): FrameGap {
+  return { side: 'top', at: b.x + r + d, size };
+}
+
+/** A + charge's radius. */
+const startRadius = (c: number): number => Math.max(11, c * 0.26);
+
 /**
  * The head of a line: a dot in the line's color with a soft glow that breathes
  * with `breath` (0 to 1), and a faint halo, so it reads as a handle to pick up.
@@ -248,7 +358,7 @@ function lineHead(ctx: CanvasRenderingContext2D, x: number, y: number, c: number
 
 /** A + charge: a warm proton-colored bead with a bold plus, where a line begins. */
 function startCharge(ctx: CanvasRenderingContext2D, x: number, y: number, c: number, begun: boolean, picked: boolean, glow: boolean): void {
-  const r = Math.max(11, c * 0.26);
+  const r = startRadius(c);
   bead(ctx, x, y, r, C.proton, { rim: begun ? C.silver : undefined, glow: begun && glow ? C.proton : undefined });
   ctx.save();
   ctx.strokeStyle = C.tileInk;

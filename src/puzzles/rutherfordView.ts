@@ -7,6 +7,7 @@
 // or fires, F or M marks, Tab switches tool, Escape lowers an aimed port.
 
 import { chord, cloneRutherford, fire, nextLead, portLine, probe, remaining, scope, solved, toggleMark, traceBeam, type CellKind, type RutherfordState, type Side } from './rutherford';
+import { drawFrame, frameWidth } from './frame';
 import { C, font, tile } from './palette';
 import { drawHelpMark, type Area, type Help, type Point, type PuzzleView, type RuleCard, type Stat } from './view';
 
@@ -330,16 +331,22 @@ export class RutherfordView implements PuzzleView {
   private layout(area: Area): Layout {
     const n = this.state.size;
     const unit = n + 2 * BAND;
-    const availW = Math.max(1, area.w - 16), availH = Math.max(1, area.h - 16 - BAR_H - 10);
-    const cell = Math.max(4, Math.min(availW / unit, availH / unit, 58));
+    // The frame's stroke runs just outside the port band; its width shrinks (never grows) with
+    // the cell, so the room for the cell fitted without it is always enough.
+    const fit = (room: number) => {
+      const availW = Math.max(1, area.w - 16 - room * 2), availH = Math.max(1, area.h - 16 - room * 2 - BAR_H - 10);
+      return { availH, cell: Math.max(4, Math.min(availW / unit, availH / unit, 58)) };
+    };
+    const room = frameWidth(fit(0).cell) + 1;
+    const { availH, cell } = fit(room);
     const band = cell * BAND, fw = cell * unit;
-    const fx = area.x + (area.w - fw) / 2, fy = area.y + 8 + (availH - fw) / 2;
+    const fx = area.x + (area.w - fw) / 2, fy = area.y + 8 + room + (availH - fw) / 2;
     const w = Math.min(area.w - 16, Math.max(fw, 300));
     const seg = Math.min(100, (w - 130) / 2);
     return {
       cell, band, x: fx + band, y: fy + band,
       frame: { x: fx, y: fy, w: fw },
-      bar: { x: area.x + (area.w - w) / 2, y: fy + fw + 10, w, h: BAR_H, seg },
+      bar: { x: area.x + (area.w - w) / 2, y: fy + fw + room + 10, w, h: BAR_H, seg },
     };
   }
 
@@ -363,8 +370,9 @@ export class RutherfordView implements PuzzleView {
     const cur = this.cellOf(this.cursor);
     const focus = cur >= 0 && s.probed[cur] && s.kind[cur] === 'scatter' ? new Set(scope(s, cur)) : null;
 
-    // The detector frame, then the foil.
-    tile(ctx, L.frame.x, L.frame.y, L.frame.w, L.frame.w, L.band * 0.7, C.surface, C.line2, 1);
+    // The detector: the band the ports sit in, inside the board frame, then the foil.
+    const lw = frameWidth(c), out = lw / 2;
+    drawFrame(ctx, { x: L.frame.x - out, y: L.frame.y - out, w: L.frame.w + out * 2, h: L.frame.w + out * 2 }, { width: lw, radius: L.band * 0.7 + out, fill: C.surface });
     foilSheet(ctx, L.x, L.y, n, n, c);
 
     for (let i = 0; i < n * n; i++) {
