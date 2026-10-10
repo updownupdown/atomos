@@ -6,10 +6,11 @@ import * as THREE from 'three';
 import { AtomView } from './atom';
 import { BLOCK_COLOUR, ELEMENTS, elementAt, type Element } from './data';
 import { layout, type LayoutId, type Placed, type Tone } from './layouts';
+import { token } from './tokens';
 
 const TONE: Record<Tone, { color: string; opacity: number }> = {
-  rule: { color: '#8a8478', opacity: 0.7 },
-  faint: { color: '#8a8478', opacity: 0.32 },
+  rule: { color: token('--c-text-2', '#8a9296'), opacity: 0.7 },
+  faint: { color: token('--c-text-2', '#8a9296'), opacity: 0.32 },
   s: { color: BLOCK_COLOUR.s, opacity: 0.85 },
   p: { color: BLOCK_COLOUR.p, opacity: 0.85 },
   d: { color: BLOCK_COLOUR.d, opacity: 0.85 },
@@ -77,7 +78,7 @@ export class Gallery {
     }
     const pts: THREE.Vector3[] = [];
     for (let i = 0; i <= 96; i++) pts.push(new THREE.Vector3(Math.cos((i / 96) * Math.PI * 2), Math.sin((i / 96) * Math.PI * 2), 0));
-    this.ring = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0xe0503a, transparent: true, opacity: 0.9 }));
+    this.ring = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: token('--c-target', '#e0503a'), transparent: true, opacity: 0.9 }));
     this.ring.visible = false;
     this.root.add(this.ring);
     this.setLayout('spiral', false);

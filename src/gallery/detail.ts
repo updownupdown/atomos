@@ -8,6 +8,7 @@
 import * as THREE from 'three';
 import { AtomView, type Style } from './atom';
 import { CLOUD_RINGS, type Element } from './data';
+import { token } from './tokens';
 
 export class Detail {
   private renderer: THREE.WebGLRenderer;
@@ -31,7 +32,7 @@ export class Detail {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' });
     this.renderer.setPixelRatio(Math.min(2, window.devicePixelRatio));
     this.scene.add(new THREE.AmbientLight(0xffffff, 0.55));
-    const key = new THREE.DirectionalLight(0xfff3e4, 1.1);
+    const key = new THREE.DirectionalLight(0xf4f7f8, 1.1);
     key.position.set(3, 4, 6);
     this.scene.add(key);
     const rim = new THREE.DirectionalLight(0xbcd0ff, 0.5);
@@ -144,8 +145,8 @@ function ring(r: number, style: 'solid' | 'dashed'): THREE.Line {
   }
   const g = new THREE.BufferGeometry().setFromPoints(pts);
   const m = style === 'solid'
-    ? new THREE.LineBasicMaterial({ color: 0xdcd5c4, transparent: true, opacity: 0.45 })
-    : new THREE.LineDashedMaterial({ color: 0xdcd5c4, transparent: true, opacity: 0.45, dashSize: r * 0.09, gapSize: r * 0.06 });
+    ? new THREE.LineBasicMaterial({ color: token('--c-text', '#e4e8ea'), transparent: true, opacity: 0.4 })
+    : new THREE.LineDashedMaterial({ color: token('--c-text', '#e4e8ea'), transparent: true, opacity: 0.45, dashSize: r * 0.09, gapSize: r * 0.06 });
   const line = new THREE.Line(g, m);
   if (style === 'dashed') line.computeLineDistances();
   return line;
