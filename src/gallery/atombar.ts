@@ -35,8 +35,8 @@ export function createAtomBar(o: AtomBarOptions): AtomBar {
   const el = document.createElement('footer');
   el.className = 'loupe-bar atom-bar';
   el.innerHTML = `<button class="bar-mid" aria-haspopup="dialog"></button>`
-    + `<button class="bar-arrow" data-dir="-1" aria-label="Previous element">${icon('prev', { size: 26 })}</button>`
-    + `<button class="bar-arrow" data-dir="1" aria-label="Next element">${icon('next', { size: 26 })}</button>`;
+    + `<button class="bar-arrow" data-dir="-1" aria-label="Previous element">${icon('step-prev', { size: 26 })}</button>`
+    + `<button class="bar-arrow" data-dir="1" aria-label="Next element">${icon('step-next', { size: 26 })}</button>`;
   const [mid, prev, next] = [...el.querySelectorAll<HTMLButtonElement>('button')];
   let z = 1;
   const set = (to: number) => {
