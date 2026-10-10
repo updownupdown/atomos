@@ -4,8 +4,17 @@
 
 import * as THREE from 'three';
 import { AtomView } from './atom';
-import { ELEMENTS, elementAt, type Element } from './data';
-import { layout, type LayoutId, type Placed } from './layouts';
+import { BLOCK_COLOUR, ELEMENTS, elementAt, type Element } from './data';
+import { layout, type LayoutId, type Placed, type Tone } from './layouts';
+
+const TONE: Record<Tone, { color: string; opacity: number }> = {
+  rule: { color: '#8a8478', opacity: 0.7 },
+  faint: { color: '#8a8478', opacity: 0.32 },
+  s: { color: BLOCK_COLOUR.s, opacity: 0.85 },
+  p: { color: BLOCK_COLOUR.p, opacity: 0.85 },
+  d: { color: BLOCK_COLOUR.d, opacity: 0.85 },
+  f: { color: BLOCK_COLOUR.f, opacity: 0.85 },
+};
 
 interface Node {
   e: Element;
@@ -28,6 +37,8 @@ export class Gallery {
   private root = new THREE.Group();
   private nodes: Node[] = [];
   private markers: HTMLSpanElement[] = [];
+  private guides = new THREE.Group();
+  private guideMaterials: THREE.LineBasicMaterial[] = [];
   private layoutId: LayoutId = 'spiral';
   private transition = 1;
   private spin = 0;
@@ -54,6 +65,7 @@ export class Gallery {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' });
     this.renderer.setPixelRatio(Math.min(2, window.devicePixelRatio));
     this.scene.add(this.root);
+    this.root.add(this.guides);
     for (const e of ELEMENTS) {
       const view = new AtomView({ perSlot: 6, shapes: false, pointSize: 1 });
       view.setElement(e, false);
@@ -102,13 +114,44 @@ export class Gallery {
     for (const m of this.markers) m.remove();
     this.markers = l.markers.map((m) => {
       const s = document.createElement('span');
-      s.className = 'marker';
+      s.className = `marker ${m.kind}`;
+      if (m.tone && m.kind === 'block') s.style.color = TONE[m.tone].color;
       s.textContent = m.text;
       s.dataset.x = String(m.x); s.dataset.y = String(m.y); s.dataset.z = String(m.zz);
       this.labels.appendChild(s);
       return s;
     });
+    this.buildGuides(id);
     this.fit();
+  }
+
+  /** Thin lines that explain the arrangement: rails in the orbital colours, edges, seams. */
+  private buildGuides(id: LayoutId): void {
+    for (const c of [...this.guides.children]) {
+      this.guides.remove(c);
+      (c as THREE.Line).geometry.dispose();
+    }
+    for (const m of this.guideMaterials) m.dispose();
+    this.guideMaterials = [];
+    const mats = new Map<string, THREE.LineBasicMaterial>();
+    for (const g of layout(id).guides) {
+      const key = `${g.tone}${g.dashed ? '-' : ''}`;
+      let mat = mats.get(key);
+      if (!mat) {
+        const t = TONE[g.tone];
+        mat = g.dashed
+          ? new THREE.LineDashedMaterial({ color: t.color, transparent: true, opacity: t.opacity, dashSize: 0.18, gapSize: 0.14, depthWrite: false })
+          : new THREE.LineBasicMaterial({ color: t.color, transparent: true, opacity: t.opacity, depthWrite: false });
+        mat.userData.base = t.opacity;
+        mats.set(key, mat);
+        this.guideMaterials.push(mat);
+      }
+      const geo = new THREE.BufferGeometry().setFromPoints(g.pts.map(([x, y]) => new THREE.Vector3(x, y, -0.05)));
+      const line = new THREE.Line(geo, mat);
+      if (g.dashed) line.computeLineDistances();
+      line.renderOrder = -1;
+      this.guides.add(line);
+    }
   }
 
   select(z: number | null): void {
@@ -151,8 +194,13 @@ export class Gallery {
     const w = box.max.x - box.min.x + 2.6;
     const h = box.max.y - box.min.y + 1.8;
     const vfov = (this.camera.fov * Math.PI) / 180;
-    this.fitDistance = Math.max(h / 2 / Math.tan(vfov / 2), w / 2 / Math.tan(vfov / 2) / this.camera.aspect, 4);
-    this.centre = new THREE.Vector2((box.max.x + box.min.x) / 2, (box.max.y + box.min.y) / 2);
+    // Keep the layout clear of the title above and the layout switch below.
+    const top = Math.min(130, this.height * 0.16), bottom = Math.min(96, this.height * 0.12);
+    const share = Math.max(0.5, (this.height - top - bottom) / this.height);
+    this.fitDistance = Math.max(h / 2 / Math.tan(vfov / 2) / share, w / 2 / Math.tan(vfov / 2) / this.camera.aspect, 4);
+    // Shift the camera so the layout's centre lands in the middle of the clear band.
+    const unitsPerPx = (2 * this.fitDistance * Math.tan(vfov / 2)) / this.height;
+    this.centre = new THREE.Vector2((box.max.x + box.min.x) / 2, (box.max.y + box.min.y) / 2 + ((top - bottom) / 2) * unitsPerPx);
   }
   private centre = new THREE.Vector2();
 
@@ -247,6 +295,8 @@ export class Gallery {
       this.transition = Math.min(1, this.transition + dt * 1.2);
       const k = this.transition < 0.5 ? 4 * this.transition ** 3 : 1 - (-2 * this.transition + 2) ** 3 / 2;
       for (const n of this.nodes) n.view.group.position.lerpVectors(n.from, n.to, k);
+      for (const m of this.guideMaterials) m.opacity = m.userData.base * k;
+      for (const m of this.markers) m.style.visibility = k > 0.6 ? 'visible' : 'hidden';
     }
     this.spin += (this.spinTarget - this.spin) * Math.min(1, dt * 8);
     this.root.rotation.y = this.spin;
@@ -292,7 +342,7 @@ export class Gallery {
     for (const m of this.markers) {
       this.tmp.set(Number(m.dataset.x), Number(m.dataset.y), Number(m.dataset.z));
       const [x, y] = this.project(this.tmp);
-      m.style.transform = `translate(${x.toFixed(1)}px,${y.toFixed(1)}px) translateX(-50%)`;
+      m.style.transform = `translate(${x.toFixed(1)}px,${y.toFixed(1)}px) translate(-50%,-50%)`;
     }
   }
 

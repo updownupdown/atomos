@@ -20,19 +20,30 @@ const kelvin = (k: number | null) => (k == null ? '<span class="na">not known</s
 const row = (label: string, value: string) => `<div class="kv"><span>${label}</span><b>${value}</b></div>`;
 
 /** Small white captions round the loupe: the simple layer, worn like plate markings. */
-export function decoratorsHTML(e: Element, collected: boolean): { topLeft: string; topRight: string; bottom: string; name: string } {
+export function decoratorsHTML(e: Element, collected: boolean): { topLeft: string; isoSummary: string; isoList: string; name: string } {
+  const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
   const key = keyIsotope(e);
-  const iso = e.stableIsotopes
-    ? `${e.stableIsotopes} stable isotope${e.stableIsotopes > 1 ? 's' : ''}`
-    : `no stable isotope<br>${e.symbol}-${key?.a ?? e.commonA} · ${formatHalfLife(key?.halfLife ?? null)}`;
+  const stable = e.isotopes.filter((i) => i.stable);
+  const isoSummary = stable.length
+    ? plural(stable.length, 'stable isotope')
+    : `no stable isotope`;
+  // Stable ones with their share of the natural element; otherwise the longest-lived few.
+  const rows = stable.length
+    ? stable.map((i) => `<li><span>${e.symbol}-${i.a}</span><b>${i.abundance == null ? 'trace' : `${Number(i.abundance.toPrecision(3))}%`}</b></li>`)
+    : [...e.isotopes].filter((i) => i.halfLife != null).sort((a, b) => b.halfLife! - a.halfLife!).slice(0, 4)
+      .map((i) => `<li><span>${e.symbol}-${i.a}</span><b>${formatHalfLife(i.halfLife)}</b></li>`);
+  const isoList = `<ul>${rows.join('')}</ul><p>${plural(e.isotopes.length, 'isotope')} known${stable.length ? '' : `, longest-lived ${e.symbol}-${key?.a ?? e.commonA}`}</p>`;
   return {
-    topLeft: `<span>${e.shells} shell${e.shells > 1 ? 's' : ''}</span><span>${e.subshells.length} layer${e.subshells.length > 1 ? 's' : ''}</span><span>${e.z} electron${e.z > 1 ? 's' : ''}</span><span>${e.vdw} pm${e.vdwEstimated ? ' ~' : ''}</span>`,
-    topRight: `<span>${iso}</span><span>${e.isotopes.length} known</span>${collected ? '' : '<span class="dim">not yet collected</span>'}`,
-    bottom: shortConfiguration(e),
+    topLeft: `<span class="dec-config">${shortConfiguration(e)}</span>`
+      + `<span>${plural(e.shells, 'shell')} · ${plural(e.subshells.length, 'layer')}</span>`
+      + `<span>${plural(e.z, 'electron')}</span>`
+      + `<span>${e.vdw} pm radius${e.vdwEstimated ? ', estimated' : ''}</span>`
+      + (collected ? '' : '<span class="dim">not yet collected</span>'),
+    isoSummary,
+    isoList,
     name: `<span class="dec-z">${e.z}</span><span class="dec-sym">${e.symbol}</span><span class="dec-name">${esc(e.name)}</span>`,
   };
 }
-
 
 export function layerPills(e: Element): string {
   return e.subshells.map((s) => s.core
