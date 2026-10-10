@@ -6,7 +6,7 @@
 
 import { elementAt as element } from './gallery/data';
 import { loadSave } from './core/save';
-import { PUZZLES, TIER_LABEL, TIER_NOTE, type PuzzleType, type Tier } from './puzzles/catalog';
+import { PUZZLES, puzzleIcon, TIER_LABEL, TIER_NOTE, type PuzzleType, type Tier } from './puzzles/catalog';
 import { PuzzleHost } from './puzzles/host';
 import { openRules } from './puzzles/rulesModal';
 import { showWin } from './puzzles/winPanel';
@@ -138,7 +138,7 @@ export class Playground {
     return `<button class="pg-card" data-id="${p.id}" type="button">
       <canvas class="pg-thumb" data-id="${p.id}" aria-hidden="true"></canvas>
       <span class="pg-card-text">
-        <span class="pg-card-top"><b class="pg-card-name">${p.name}</b>${status}</span>
+        <span class="pg-card-top"><span class="pg-card-icon" aria-hidden="true">${puzzleIcon(p.id, 20)}</span><b class="pg-card-name">${p.name}</b>${status}</span>
         <span class="pg-card-blurb">${p.blurb}</span>
         <span class="pg-card-use"><span class="pg-card-k">For</span> ${p.live ?? p.role}</span>
         ${p.live ? `<span class="pg-card-use pg-card-plan"><span class="pg-card-k">Plan</span> ${p.role}</span>` : ''}

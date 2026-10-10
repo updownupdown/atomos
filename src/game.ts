@@ -8,6 +8,7 @@ import {
 import { frontier, loadSave, writeSave, type SaveData, type StepId } from './core/save';
 import { atomProgress, isotopeCollected, segmentsOf, stepState, stepsOf, vaultIsotopes, type StepState } from './core/progress';
 import { Detail } from './gallery/detail';
+import { createAtomBar, type AtomBar } from './gallery/atombar';
 import { refreshModeProgress } from './ui/modebar';
 import { buildTracks, drawWitness, slowFactor } from './ui/witness';
 import { MERGE_UP_TO, mergeLevel, orbitalGridLevel, slidingLevel } from './puzzles/levels';
@@ -59,6 +60,8 @@ export class Game {
   /** The atom at the top of the Build page, drawn by the same view as the Atom screen's 3D tab. */
   private detail: Detail;
   private detailOn = false;
+  /** The navigator along the foot of the Build page, the same one View uses. */
+  private bar: AtomBar;
   private closeWin: () => void = () => {};
   private busy = false;
   private overlay = $<HTMLCanvasElement>('overlay');
@@ -72,6 +75,8 @@ export class Game {
     this.scene = new AtomScene($<HTMLCanvasElement>('atom'));
     this.detail = new Detail($<HTMLCanvasElement>('bh-atom'));
     this.detail.setRings(false);
+    this.bar = createAtomBar({ onChange: (z) => this.start(z) });
+    $('build-bar').append(this.bar.el);
     $('bh-sci').append(scienceButton());
     $('bh-paint').onclick = () => this.openPaint();
     this.applySettings();
@@ -133,6 +138,7 @@ export class Game {
     this.scene.setAtom(this.atom, this.neutrons, { pDiscovered: true });
     this.detail.show(elementAt(z), false);
     this.tintDetail();
+    this.bar.set(z);
     $('build-home').scrollTop = 0;
     this.enter('home');
   }
@@ -180,11 +186,11 @@ export class Game {
     if (on) this.detail.start(); else this.detail.stop();
   }
 
-  /** The player's paint on the 3D atom, once the gallery's view can take a tint. */
+  /** The 3D atom shows as collected once built, in the player's paint (or its orbital colors). */
   private tintDetail(): void {
-    const d = this.detail as Detail & { setTint?: (c: string | null) => void };
-    d.setCollected(Boolean(this.save.built[this.z]));
-    d.setTint?.(this.save.built[this.z]?.colour ?? null);
+    const b = this.save.built[this.z];
+    this.detail.setCollected(Boolean(b));
+    this.detail.setTint(b?.colour && b.colour.toLowerCase() !== SILVER ? b.colour : null);
   }
 
   private makePuzzle(stage: Exclude<Stage, 'home'>): PuzzleView {
@@ -452,12 +458,22 @@ export class Game {
     const range = pop.querySelector<HTMLInputElement>('.bh-hue')!;
     range.oninput = () => this.paint(hueToHex(Number(range.value)));
     pop.querySelector<HTMLButtonElement>('[data-silver]')!.onclick = () => this.paint(SILVER);
-    const away = (e: PointerEvent) => {
-      if (pop.contains(e.target as Node) || $('bh-paint').contains(e.target as Node)) return;
+    const close = () => {
       pop.remove();
       window.removeEventListener('pointerdown', away, true);
+      window.removeEventListener('keydown', esc, true);
+    };
+    const away = (e: PointerEvent) => {
+      if (!pop.contains(e.target as Node) && !$('bh-paint').contains(e.target as Node)) close();
+    };
+    const esc = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      e.stopPropagation();
+      close();
+      $('bh-paint').focus({ preventScroll: true });
     };
     window.addEventListener('pointerdown', away, true);
+    window.addEventListener('keydown', esc, true);
     range.focus({ preventScroll: true });
   }
 
