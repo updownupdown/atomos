@@ -2,6 +2,8 @@
 // the ends; in the middle one button with the number and chevron in cyan, the name in the
 // wordmark's tracked capitals and the symbol, which opens the element picker. View's loupe and
 // Build both mount one, so stepping through elements looks and works the same in each.
+// Long names (Rutherfordium on a 360px phone) never truncate: fit() steps the name down in size
+// and tracking until it fits, and as a last resort drops the symbol to give the name its room.
 //
 //   const bar = createAtomBar({ onChange: (z) => show(z), locked: (z) => !collected(z) });
 //   host.append(bar.el);
@@ -25,6 +27,8 @@ export interface AtomBar {
   readonly z: number;
 }
 
+const FIT_STEPS = 12;
+
 export function createAtomBar(o: AtomBarOptions): AtomBar {
   const el = document.createElement('footer');
   el.className = 'loupe-bar atom-bar';
@@ -43,7 +47,24 @@ export function createAtomBar(o: AtomBarOptions): AtomBar {
     next.disabled = z === MAX_Z;
     prev.title = z > 1 ? elementAt(z - 1).name : '';
     next.title = z < MAX_Z ? elementAt(z + 1).name : '';
+    fit();
   };
+  // Largest size first: 17px at 0.3em tracking, down to 11px at 0.12em.
+  const fit = () => {
+    const name = mid.querySelector<HTMLElement>('.bar-name');
+    if (!name || !mid.clientWidth) return; // hidden: the observer refits once it shows
+    el.classList.remove('atom-bar--compact');
+    for (const compact of [false, true]) {
+      el.classList.toggle('atom-bar--compact', compact);
+      for (let i = 0; i <= FIT_STEPS; i++) {
+        const t = i / FIT_STEPS;
+        name.style.fontSize = `${17 - 6 * t}px`;
+        name.style.setProperty('--track', `${(0.3 - 0.18 * t).toFixed(3)}em`);
+        if (name.scrollWidth <= name.clientWidth) return;
+      }
+    }
+  };
+  new ResizeObserver(fit).observe(mid);
   const go = (to: number) => {
     if (to < 1 || to > MAX_Z || to === z) return;
     set(to);
