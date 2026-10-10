@@ -12,7 +12,7 @@ import { Gallery } from './gallery';
 import { decoratorsHTML, tabHTML, VIEW_TABS, type ViewTab } from './info';
 import { guideHTML } from './guide';
 import { icon, type IconName } from '../ui/icons';
-import { createSegments, createTabs, type Tabs } from '../ui/components';
+import { createSegments, createTabs, type Segments, type Tabs } from '../ui/components';
 import { ISO_FILTERS, STRUCTURE_VIEWS } from './visuals';
 import { createAtomBar, type AtomBar } from './atombar';
 import { isLayoutId, LAYOUT_STORY, LAYOUTS, type LayoutId } from './layouts';
@@ -72,6 +72,7 @@ export class GalleryApp {
   private get covered(): boolean { return this.mode !== 'map'; }
   private list: ElementList | null = null;
   private collection: ElementList | null = null;
+  private modes: Segments | null = null;
   private rings = localStorage.getItem('atomos.gallery.rings') !== 'off';
   private tabs!: Tabs;
   private bar!: AtomBar;
@@ -111,8 +112,18 @@ export class GalleryApp {
     this.hiddenShapes = (Object.keys(SHAPE_AT) as OrbitalShape[]).filter((l) => !orbitalShapeUnlocked(l, save));
     this.detail.setHiddenShapes(this.hiddenShapes);
     this.paintShapeNote();
-    $('gal-count').textContent = `${got.length} of ${MAX_Z}`;
+    this.paintOverall();
     this.list?.refresh();
+  }
+
+  /** The whole collection's progress, beside the views: every atom's share built, averaged. */
+  private paintOverall(): void {
+    const save = this.save;
+    const n = Math.round((ELEMENTS.reduce((t, e) => t + atomProgress(e.z, save), 0) / MAX_Z) * 100);
+    $('gal-ring').classList.toggle('is-done', n >= 100);
+    $('gal-ring').innerHTML = `<svg viewBox="0 0 20 20"><circle class="mode-prog-track" cx="10" cy="10" r="7.5"/><circle class="mode-prog-arc" cx="10" cy="10" r="7.5" pathLength="100" stroke-dasharray="${n} 100"/></svg>`;
+    $('gal-pct').textContent = `${n}%`;
+    $('gal-prog').setAttribute('aria-label', `Collection ${n}% built`);
   }
 
   /** Whether this atom's row is still shut by its Inertia gate. It stays viewable; only Build waits. */
@@ -132,14 +143,17 @@ export class GalleryApp {
   private buildControls(): void {
     $('look-chip').innerHTML = `${icon('paint', { size: 18 })}<span>Color</span>`;
     $('look-chip').onclick = () => this.openLooks();
-    const seg = $('layout-switch');
-    // Three views; under Map, a second row picks the arrangement (the lenses).
-    seg.innerHTML = `<button data-id="collection">Collection</button><button data-id="map">Map</button><button data-id="details">Details</button>`;
-    seg.querySelectorAll<HTMLButtonElement>('button').forEach((b) => (b.onclick = () => {
-      const id = b.dataset.id as GalleryMode;
-      if (id === 'map') this.setLayout(this.layoutId);
-      else this.setMode(id);
-    }));
+    // Three views in the row under the header, styled like View/Build; under Map, a row at the
+    // bottom picks the arrangement (the lenses).
+    this.modes = createSegments([{ id: 'collection', label: 'Collection' }, { id: 'map', label: 'Map' }, { id: 'details', label: 'Details' }], {
+      label: 'Gallery view',
+      active: this.mode,
+      onChange: (id) => {
+        if (id === 'map') this.setLayout(this.layoutId);
+        else this.setMode(id as GalleryMode);
+      },
+    });
+    $('gal-mode-seg').append(this.modes.el);
     const lenses = $('lens-switch');
     lenses.innerHTML = LAYOUTS.map((l) => `<button data-id="${l.id}">${l.label}</button>`).join('');
     lenses.querySelectorAll<HTMLButtonElement>('button').forEach((b) => (b.onclick = () => this.setLayout(b.dataset.id as LayoutId)));
@@ -365,7 +379,7 @@ export class GalleryApp {
 
   /** The arrangement buttons, the note under them, and the panel that covers the map. */
   private paintDetails(): void {
-    $('layout-switch').querySelectorAll<HTMLButtonElement>('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.id === this.mode)));
+    this.modes?.select(this.mode);
     $('lens-switch').querySelectorAll<HTMLButtonElement>('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.id === this.layoutId)));
     $('lens-switch').hidden = this.mode !== 'map';
     $('layout-note').textContent = this.mode === 'details' ? 'Every element in one table: tap a heading to sort, a row to open it'
@@ -373,6 +387,7 @@ export class GalleryApp {
       : LAYOUTS.find((l) => l.id === this.layoutId)!.note;
     $('gallery-screen').classList.toggle('is-details', this.mode === 'details');
     $('gallery-screen').classList.toggle('is-collection', this.mode === 'collection');
+    $('gallery-screen').classList.toggle('is-map', this.mode === 'map');
     $('gal-details').hidden = this.mode !== 'details';
     $('gal-collection').hidden = this.mode !== 'collection';
     if (this.mode === 'details' && !this.list) {

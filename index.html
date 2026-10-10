@@ -34,13 +34,16 @@
     </div>
 
     <div id="gallery-screen">
+      <div class="mode-row gal-modes" id="gal-modes">
+        <div class="mode-seg" id="gal-mode-seg"></div>
+        <span class="gal-prog" id="gal-prog"><span class="mode-ring" id="gal-ring" aria-hidden="true"></span><b class="mode-pct" id="gal-pct"></b></span>
+      </div>
       <canvas id="gal" aria-label="Every element as an atom. Drag to move, pinch to zoom, tap one to look closer."></canvas>
       <div id="gal-labels" class="gal-labels" aria-hidden="true"></div>
       <div class="grain" aria-hidden="true"></div>
       <header class="gal-top">
         <div class="gal-title">
-          <span class="gal-sub"><span id="gal-count">0 of 118</span> collected</span>
-          <button class="tool-chip look-chip" id="look-chip" aria-label="Color the tiles by"></button>
+                    <button class="tool-chip look-chip" id="look-chip" aria-label="Color the tiles by"></button>
           <div class="look-legend" id="look-legend" hidden></div>
         </div>
       </header>
@@ -49,7 +52,6 @@
       <div class="gal-collection" id="gal-collection" hidden></div>
       <footer class="gal-bottom">
         <div class="seg layout-switch lens-switch" id="lens-switch" role="group" aria-label="Arrangement" hidden></div>
-        <div class="seg layout-switch" id="layout-switch" role="group" aria-label="View"></div>
         <p class="layout-note" id="layout-note"></p>
       </footer>
 

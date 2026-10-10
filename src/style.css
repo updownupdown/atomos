@@ -527,7 +527,6 @@ body.stage-nucleus #atom { opacity: 0.12; }
 @keyframes splash-swing { to { transform: rotate(0deg); } }
 @keyframes splash-fade { to { opacity: 1; } }
 @keyframes splash-accent { 0% { fill: var(--c-text); transform: scale(1); } 45% { fill: var(--c-accent); transform: scale(1.3); } 100% { fill: var(--c-accent); transform: scale(1); } }
-.gal-sub { font-family: var(--font); font-size: var(--fs-sm); color: var(--c-text-2); }
 .gal-hover { position: absolute; left: 50%; top: calc(56px + var(--top)); transform: translateX(-50%); z-index: 2; background: var(--label); color: var(--label-ink); font-family: var(--mono); font-size: 12px; padding: 3px 8px; border-radius: 2px; pointer-events: none; }
 .gal-hover[hidden] { display: none; }
 .gal-bottom { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 8px 12px calc(10px + var(--safe-bottom)); pointer-events: none; }
@@ -536,7 +535,7 @@ body.stage-nucleus #atom { opacity: 0.12; }
 .layout-switch button { flex: none; font-size: 12px; padding: 0 12px; min-height: 36px; }
 .lens-switch[hidden] { display: none; }
 /* Details: every element in the shared sortable table, filling the space between the count and the switch. */
-.gal-details { position: absolute; inset: 0; z-index: 1; display: flex; flex-direction: column; padding: calc(var(--top) + 40px) var(--sp-3) calc(var(--safe-bottom) + 84px); background: var(--c-bg); }
+.gal-details { position: absolute; inset: 0; z-index: 1; display: flex; flex-direction: column; padding: calc(var(--top) + var(--sp-3)) var(--sp-3) calc(var(--safe-bottom) + var(--sp-3)); background: var(--c-bg); }
 .gal-details[hidden] { display: none; }
 .gal-details .el-list { flex: 1; min-height: 0; }
 .gal-details .el-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
@@ -544,12 +543,19 @@ body.stage-nucleus #atom { opacity: 0.12; }
 #gallery-screen.is-details .gal-labels, #gallery-screen.is-details .gal-hover { display: none; }
 /* The Collection: every atom as a row with its progress, over the map. The list scrolls under
    its own search, pills and sort. */
-.gal-collection { position: absolute; inset: 0; z-index: 1; display: flex; flex-direction: column; padding: calc(var(--top) + 40px) var(--sp-3) 0; background: var(--c-bg); }
+.gal-collection { position: absolute; inset: 0; z-index: 1; display: flex; flex-direction: column; padding: var(--top) var(--sp-3) 0; background: var(--c-bg); }
 .gal-collection[hidden] { display: none; }
-.gal-collection .el-list { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-bottom: calc(var(--safe-bottom) + 112px); }
+.gal-collection .el-list { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-bottom: calc(var(--safe-bottom) + var(--sp-5)); }
 .gal-collection .el-tools { background: var(--c-bg); padding-top: var(--sp-2); }
-#gallery-screen.is-collection .gal-labels, #gallery-screen.is-collection .gal-hover, #gallery-screen.is-collection .look-chip, #gallery-screen.is-collection .look-legend { display: none; }
-#gallery-screen.is-collection .gal-bottom { background: linear-gradient(to top, var(--c-bg) 70%, transparent); padding-top: var(--sp-5); }
+#gallery-screen.is-collection .gal-labels, #gallery-screen.is-collection .gal-hover { display: none; }
+/* The color chip and the lens switch belong to the Map; the Collection and Details have neither. */
+#gallery-screen:not(.is-map) .look-chip, #gallery-screen:not(.is-map) .look-legend, #gallery-screen:not(.is-map) .gal-bottom { display: none; }
+/* The views row: Collection, Map, Details under the header, styled as the View/Build row, with
+   the whole collection's progress on the right. */
+body[data-screen='gallery'] { --top: calc(var(--nav-bottom) + var(--mode-h)); }
+.mode-row.gal-modes { top: var(--nav-bottom); }
+body:not([data-screen='gallery']) .gal-modes { display: none; }
+.gal-prog { flex: none; display: inline-flex; align-items: center; gap: 6px; color: var(--c-text); }
 .layout-note { margin: 0; font-family: var(--mono); font-size: 11px; color: var(--muted); text-align: center; }
 
 .loupe-screen { position: absolute; inset: 0; z-index: 3; background: var(--c-bg); opacity: 0; transform: scale(1.04); transition: opacity 0.22s, transform 0.22s; display: flex; flex-direction: column; }

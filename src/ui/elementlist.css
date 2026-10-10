@@ -31,9 +31,9 @@
 /* Stage pills: show every element, or only those not started, in progress or completed. */
 .el-stages { display: flex; gap: var(--sp-1); overflow-x: auto; scrollbar-width: none; }
 .el-stages::-webkit-scrollbar { display: none; }
-.el-stage { flex: none; min-height: 34px; padding: 0 var(--sp-3); border: 0; border-radius: var(--r-pill); background: var(--c-surface-2); color: var(--c-text-2); font-family: var(--font); font-size: var(--fs-sm); font-weight: var(--fw-semibold); white-space: nowrap; cursor: pointer; }
-.el-stage:hover { color: var(--c-text); }
-.el-stage[aria-checked='true'] { background: var(--c-pick); color: var(--c-accent); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--c-accent) 30%, transparent); }
+.el-stage { flex: none; min-height: 34px; padding: 0 var(--sp-3); border: 0; border-radius: var(--r-pill); background: var(--c-surface-3); color: var(--c-text); font-family: var(--font); font-size: var(--fs-sm); font-weight: var(--fw-semibold); white-space: nowrap; cursor: pointer; }
+.el-stage:hover { background: var(--c-pick); }
+.el-stage[aria-checked='true'] { background: var(--c-accent); color: var(--c-bg); }
 @media (max-width: 380px) { .el-stage { padding: 0 10px; font-size: 13px; } }
 
 /* The count on the left, the sort on the right: a direction button and a dropdown. */
@@ -77,21 +77,23 @@
 .el-row + .el-row { margin-top: 2px; }
 .el-row:hover, .el-row:focus-visible { background: var(--c-surface-2); box-shadow: none; outline: none; }
 .el-row:focus-visible { box-shadow: inset 0 0 0 2px var(--c-accent); }
-.el-row.is-current { background: var(--c-surface-2); box-shadow: inset 0 0 0 3px color-mix(in srgb, var(--c-accent) 45%, transparent); }
+.el-row.is-current { background: var(--c-surface-2); }
+.el-row.is-current .el-main b { color: var(--c-accent); }
 /* The tile: the block's color as a soft fill and a thick, faint outline all round. */
 .el-tile { position: relative; width: 56px; height: 56px; display: grid; place-items: center; border-radius: var(--r-sm); background: color-mix(in srgb, var(--c) 18%, var(--c-surface-2)); box-shadow: inset 0 0 0 3px color-mix(in srgb, var(--c) 38%, transparent); }
-.el-tile small { position: absolute; left: 7px; top: 5px; font-size: 15px; line-height: 1; font-weight: var(--fw-bold); font-variant-numeric: tabular-nums; color: var(--c-text-2); }
-.el-tile b { margin-top: 16px; font-size: 18px; font-weight: var(--fw-bold); line-height: 1; }
+.el-tile b { font-size: 20px; font-weight: var(--fw-bold); line-height: 1; }
 .el-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.el-main b { font-size: var(--fs-md); font-weight: var(--fw-semibold); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.el-main span { font-size: var(--fs-sm); color: var(--c-text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.el-main em { font-style: normal; color: var(--c-text-3); }
+.el-main b { display: flex; align-items: center; gap: 4px; min-width: 0; font-size: 17px; font-weight: var(--fw-semibold); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.el-main b > span { overflow: hidden; text-overflow: ellipsis; color: inherit; }
+.el-lockico { flex: none; display: inline-flex; color: var(--c-text-3); }
+.el-main .el-num { font-variant-numeric: tabular-nums; color: var(--c-text); font-weight: var(--fw-semibold); }
+.el-main > span { font-size: var(--fs-sm); color: var(--c-text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .el-prog { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; --p: var(--c-text-3); }
 .el-prog b { font-size: var(--fs-md); font-weight: var(--fw-semibold); font-variant-numeric: tabular-nums; line-height: 1; color: var(--p); }
 /* A thin bar that grows with the vault (8px a little per isotope, within limits); nucleus and
    electrons keep a minimum width, and a small gap sets off the steps, stable and unstable isotopes. */
 .el-segs { display: flex; gap: 2px; width: clamp(56px, calc(44px + var(--iso, 0) * 10px), 104px); }
-.el-segs i { flex: 1 1 0; min-width: 4px; height: 4px; border-radius: 2px; background: var(--c-surface-3); }
+.el-segs i { flex: 1 1 0; min-width: 4px; height: 4px; border-radius: 2px; background: var(--c-line-2); }
 .el-segs i.step { flex-basis: 12px; min-width: 12px; }
 .el-segs i.unstable { opacity: 0.75; }
 .el-segs i.gap { margin-left: 3px; }
@@ -102,7 +104,6 @@
 .el-prog--full { --p: var(--c-good); }
 .el-row.is-locked .el-tile { background: var(--c-surface-2); box-shadow: inset 0 0 0 3px var(--c-line); }
 .el-row.is-locked .el-tile b { color: var(--c-text-2); }
-.el-locked { display: inline-flex; align-items: center; gap: 3px; vertical-align: -3px; }
 .el-lock { display: inline-flex; margin-left: 6px; vertical-align: -2px; color: var(--c-text-3); }
 
 /* Table */
@@ -139,4 +140,3 @@ th[aria-sort='descending'] .el-arrow::after { content: '↓'; }
 .el-pic.on img { opacity: 1; }
 .el-pic.on .el-tile { background: transparent; box-shadow: none; }
 .el-pic.on .el-tile b { opacity: 0; }
-.el-pic.on .el-tile small { z-index: 1; text-shadow: 0 0 6px var(--c-bg); }

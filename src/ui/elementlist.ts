@@ -175,7 +175,7 @@ export function createElementList(opts: ElementListOptions = {}): ElementList {
     return stage === 'all' || variant === 'table' ? list : list.filter((e) => stageOf(pctOf(e.z)) === stage);
   };
 
-  const tile = (e: Element) => `<span class="el-tile" style="--c:${BLOCK_COLOUR[e.block]}"><small>${e.z}</small><b>${e.symbol}</b></span>`;
+  const tile = (e: Element) => `<span class="el-tile" style="--c:${BLOCK_COLOUR[e.block]}"><b>${e.symbol}</b></span>`;
 
   // How far each atom's Build has got: a thin bar of segments (nucleus, electrons, then each
   // isotope in the vault, stable ones before unstable), and the share done, colored by how far
@@ -205,11 +205,12 @@ export function createElementList(opts: ElementListOptions = {}): ElementList {
 
   const row = (e: Element, save: SaveData) => {
     const locked = opts.locked?.(e.z) ?? false;
+    // A locked atom: a lock before its name (Build waits for the row's gate; it can still be viewed).
     const cls = ['el-row', locked ? 'is-locked' : '', e.z === opts.current ? 'is-current' : ''].filter(Boolean).join(' ');
     const pic = thumbCache.get(e.z);
     return `<button type="button" role="option" class="${cls}" data-z="${e.z}" aria-selected="${e.z === opts.current}">
       ${opts.thumbs ? `<span class="el-pic${pic ? ' on' : ''}">${tile(e)}${pic ? `<img src="${pic}" alt="">` : ''}</span>` : tile(e)}
-      <span class="el-main"><b>${esc(e.name)}</b><span>${locked ? `<em class="el-locked">${icon('lock', { size: 16 })}Locked</em> · ` : ''}${esc(e.series)}</span></span>
+      <span class="el-main"><b>${locked ? `<i class="el-lockico" role="img" aria-label="Build locked">${icon('lock', { size: 16 })}</i>` : ''}<span>${esc(e.name)}</span></b><span><span class="el-num">${e.z}</span> · ${esc(e.series)}</span></span>
       ${progress(e, save)}
     </button>`;
   };
