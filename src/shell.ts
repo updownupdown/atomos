@@ -8,12 +8,11 @@
 import { GalleryApp } from './gallery';
 import type { Game } from './game';
 import type { Playground } from './playground';
-import { ELEMENTS } from './gallery/data';
 import { onSettingsChange, renderSettings } from './ui/settings';
 import { icon, type IconName } from './ui/icons';
 import { setScienceHandler } from './ui/science';
 import { markSvg } from './ui/mark';
-import { initModeBar, setModeDefault, showModeBar, type AtomMode } from './ui/modebar';
+import { initModeBar, refreshModeProgress, showModeBar, type AtomMode } from './ui/modebar';
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -50,8 +49,9 @@ export class AppShell {
       $(id).querySelector('.nav-ico')!.innerHTML = icon(ico);
       $(id).onclick = go;
     }
-    initModeBar((mode) => void this.go('atom', mode));
+    initModeBar((mode) => void this.go('atom', mode), () => this.z);
     onSettingsChange(() => {
+      refreshModeProgress();
       this.gallery.syncSettings();
       this.game?.reloadSettings();
     });
@@ -87,7 +87,6 @@ export class AppShell {
     if (!showGame) { this.game?.pause(); $('app').hidden = true; }
     if (!showPlay) this.playground?.hide();
     $('settings-screen').hidden = !showSettings;
-    if (screen === 'atom') setModeDefault(this.detail(), true);
 
     if (showGallery) {
       this.gallery.show();
@@ -108,14 +107,9 @@ export class AppShell {
 
   private setZ(z: number): void {
     this.z = z;
-    if (this.screen === 'atom') setModeDefault(this.detail());
+    if (this.screen === 'atom') refreshModeProgress();
   }
 
-  /** The mode row's default details: which atom this is. */
-  private detail(): string {
-    const e = ELEMENTS[this.z - 1];
-    return e ? `<span class="mode-z">${e.z}</span><span class="mode-name">${e.name}</span>` : '';
-  }
 
   private setNav(screen: Screen, mode: AtomMode): void {
     const on = (id: string, yes: boolean) => $(id).setAttribute('aria-current', yes ? 'page' : 'false');

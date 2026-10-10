@@ -836,16 +836,23 @@ body[data-screen^='atom'] { --top: calc(var(--safe-top) + var(--nav-h) + var(--m
   display: flex;
   align-items: center;
   gap: var(--sp-3);
-  padding: 0 var(--sp-2) 0 var(--sp-3);
+  padding: 0 var(--sp-3);
   background: var(--c-bg);
   box-shadow: inset 0 -1px 0 var(--c-line);
 }
 .mode-row[hidden] { display: none; }
-.mode-seg { flex: 0 1 240px; min-width: 0; }
-.mode-detail { flex: 1; min-width: 0; display: flex; align-items: baseline; justify-content: flex-end; gap: var(--sp-2); overflow: hidden; white-space: nowrap; color: var(--c-text-2); font-size: var(--fs-sm); }
-.mode-detail .mode-z { font-size: var(--fs-sm); font-variant-numeric: tabular-nums; color: var(--c-text-3); }
-.mode-detail .mode-name { font-size: var(--fs-md); font-weight: var(--fw-semibold); color: var(--c-text); overflow: hidden; text-overflow: ellipsis; }
-.mode-row .science-btn { flex: none; }
+.mode-seg { flex: 1; min-width: 0; }
+.mode-seg .ui-seg { width: 100%; }
+.mode-seg .ui-seg-opt { min-height: 42px; }
+/* Build's progress: a ring and a percentage, in the option's own color so it reads on both
+   the light (picked) and dark (not picked) option. */
+.mode-prog { display: inline-flex; align-items: center; gap: 5px; margin-left: var(--sp-1); font-variant-numeric: tabular-nums; }
+.mode-prog svg { width: 20px; height: 20px; transform: rotate(-90deg); }
+.mode-prog circle { fill: none; stroke-width: 2.5; }
+.mode-prog-track { stroke: currentColor; opacity: 0.22; }
+.mode-prog-arc { stroke: var(--c-accent); stroke-linecap: round; transition: stroke-dasharray var(--dur) var(--ease); }
+.ui-seg-opt[aria-checked='true'] .mode-prog-arc { stroke: var(--c-accent-ink); }
+.mode-prog b { font-size: var(--fs-sm); font-weight: var(--fw-semibold); }
 
 /* The microscope, wherever a screen puts it. Dimmed when there is nothing to open. */
 .science-btn[aria-expanded='true'] { background: var(--c-tile); color: var(--c-tile-ink); }
