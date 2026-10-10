@@ -1,5 +1,5 @@
 // Shared interface pieces: icon buttons, the modal close button, tabs, switch toggles, a range
-// slider, toasts, hold-to-confirm, the drawer, the Next and Play buttons and the confirm dialog. Every screen builds its controls from these so they look
+// slider, toasts, the drawer, the Next and Play buttons and the confirm dialog. Every screen builds its controls from these so they look
 // and behave the same everywhere. Styles live in components.css and read tokens.css.
 //
 // Each builder returns plain DOM, so it drops into code that renders with innerHTML too:
@@ -362,106 +362,6 @@ export function showToast(text: string, o: ToastOptions = {}): Toast {
     setTone: (tone) => { t.className = `ui-toast ui-toast--${tone}`; },
     close,
   };
-}
-
-// ---- Hold to confirm -----------------------------------------------------------------------
-
-export interface HoldOptions {
-  /** Shown in the toast while holding, e.g. "Hold to restart". */
-  label: string;
-  /** Shown once the hold completes, e.g. "Restarted"; omit to just close the toast. */
-  doneLabel?: string;
-  /** How long to hold, in milliseconds. */
-  holdMs?: number;
-  onConfirm: () => void;
-}
-
-/** Makes any button act only after being held. While pressed, a toast at the top of the screen
- *  fills its progress bar (the button itself is under the thumb); letting go early drains it
- *  and leaves the hint up briefly, so a plain tap teaches the rule. Enter or Space held down
- *  works too. Returns a function that unbinds it. */
-export function bindHold(b: HTMLElement, o: HoldOptions): () => void {
-  const holdMs = o.holdMs ?? 900;
-  let toast: Toast | null = null;
-  let progress = 0;
-  let holding = false;
-  let raf = 0;
-  let last = 0;
-
-  const tick = (now: number) => {
-    const dt = now - last;
-    last = now;
-    progress = holding ? Math.min(1, progress + dt / holdMs) : Math.max(0, progress - dt / 150);
-    toast?.setProgress(progress);
-    if (holding && progress >= 1) {
-      holding = false;
-      progress = 0;
-      b.classList.remove('is-holding');
-      if (o.doneLabel && toast) {
-        toast.setText(o.doneLabel);
-        toast.setTone('good');
-        toast.setProgress(1);
-        toast.close(900);
-      } else toast?.close();
-      toast = null;
-      o.onConfirm();
-      return;
-    }
-    if (holding || progress > 0) raf = requestAnimationFrame(tick);
-  };
-  const start = () => {
-    if (holding) return;
-    holding = true;
-    b.classList.add('is-holding');
-    if (!toast) toast = showToast(o.label, { progress: true, duration: 0 });
-    else { toast.close(60 * 60 * 1000); }
-    cancelAnimationFrame(raf);
-    last = performance.now();
-    raf = requestAnimationFrame(tick);
-  };
-  const stop = () => {
-    if (!holding) return;
-    holding = false;
-    b.classList.remove('is-holding');
-    const t = toast;
-    t?.close(holdMs);
-    setTimeout(() => { if (toast === t && !holding) toast = null; }, holdMs);
-  };
-  const down = (e: PointerEvent) => { if (e.button === 0) { b.setPointerCapture(e.pointerId); start(); } };
-  const key = (e: KeyboardEvent) => { if ((e.key === 'Enter' || e.key === ' ') && !e.repeat) { e.preventDefault(); start(); } };
-  const keyUp = (e: KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') stop(); };
-  const menu = (e: Event) => e.preventDefault();
-  b.addEventListener('pointerdown', down);
-  b.addEventListener('pointerup', stop);
-  b.addEventListener('pointercancel', stop);
-  b.addEventListener('lostpointercapture', stop);
-  b.addEventListener('keydown', key);
-  b.addEventListener('keyup', keyUp);
-  b.addEventListener('contextmenu', menu);
-  b.setAttribute('aria-label', o.label);
-  return () => {
-    for (const [ev, fn] of [['pointerdown', down], ['pointerup', stop], ['pointercancel', stop], ['lostpointercapture', stop], ['keydown', key], ['keyup', keyUp], ['contextmenu', menu]] as const) {
-      b.removeEventListener(ev, fn as EventListener);
-    }
-  };
-}
-
-export interface HoldButtonOptions {
-  icon: string;
-  /** What the hold does, e.g. "Restart"; the toast reads "Hold to restart". */
-  label: string;
-  /** Shown when the hold completes, e.g. "Restarted". */
-  doneLabel?: string;
-  holdMs?: number;
-  onConfirm: () => void;
-  className?: string;
-}
-
-/** An icon button wired with bindHold. */
-export function createHoldButton(o: HoldButtonOptions): HTMLButtonElement {
-  const b = iconButton({ icon: o.icon, label: `Hold to ${o.label.toLowerCase()}`, className: `ui-hold ${o.className ?? ''}`.trim() });
-  bindHold(b, { label: `Hold to ${o.label.toLowerCase()}`, doneLabel: o.doneLabel, holdMs: o.holdMs, onConfirm: o.onConfirm });
-  return b;
 }
 
 // ---- Next and Play ---------------------------------------------------------------------------
