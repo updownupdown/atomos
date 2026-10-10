@@ -89,26 +89,35 @@
 
     </div>
 
-    <section id="puzzles-screen" hidden aria-label="Puzzle playground">
-      <div class="pg-types" id="pg-types" role="tablist" aria-label="Puzzle type"></div>
-      <div class="pg-bar" id="pg-bar"></div>
-      <div class="pg-play" id="pg-play">
-        <canvas id="pg-canvas" aria-label="The puzzle."></canvas>
-        <div class="pg-done" id="pg-done" hidden>
-          <span class="pg-result" id="pg-result"></span>
-          <div class="actions">
-            <button class="primary" id="pg-again">New deal</button>
-            <button class="secondary" id="pg-nextel">Next element</button>
-          </div>
+    <section id="puzzles-screen" hidden aria-label="Puzzles">
+      <div class="pg-home" id="pg-home">
+        <div class="pg-home-in">
+          <h1 class="pg-home-title">Puzzles</h1>
+          <p class="pg-home-lede">Atoms are unlocked by puzzles. Here is every puzzle type, what it is for in the game, and whether the game uses it yet. Tap one to play it on any element.</p>
+          <div id="pg-list"></div>
         </div>
       </div>
-      <div class="pg-planned" id="pg-planned" hidden>
-        <p class="pg-result">Not built yet</p>
-        <p class="muted">On the progression map, with no board to play yet.</p>
-      </div>
-      <div class="pg-bottom" id="pg-bottom">
-        <div class="pg-status"><span class="pg-count" id="pg-count"></span><span class="pg-hint" id="pg-hint" role="status" aria-live="polite"></span></div>
-        <div class="pg-actions" id="pg-actions"></div>
+      <div class="pg-game" id="pg-game" hidden>
+        <div class="pg-head" id="pg-head"></div>
+        <div class="pg-bar" id="pg-bar"></div>
+        <div class="pg-play" id="pg-play">
+          <canvas id="pg-canvas" aria-label="The puzzle."></canvas>
+          <div class="pg-done" id="pg-done" hidden>
+            <span class="pg-result" id="pg-result"></span>
+            <div class="actions">
+              <button class="primary" id="pg-again">New deal</button>
+              <button class="secondary" id="pg-nextel">Next element</button>
+            </div>
+          </div>
+        </div>
+        <div class="pg-planned" id="pg-planned" hidden>
+          <p class="pg-result">Not built yet</p>
+          <p class="muted">On the progression map, with no board to play yet.</p>
+        </div>
+        <div class="pg-bottom" id="pg-bottom">
+          <div class="pg-status"><span class="pg-count" id="pg-count"></span><span class="pg-hint" id="pg-hint" role="status" aria-live="polite"></span></div>
+          <div class="pg-actions" id="pg-actions"></div>
+        </div>
       </div>
     </section>
 

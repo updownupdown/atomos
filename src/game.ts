@@ -16,7 +16,8 @@ import { type Area, type PuzzleView } from './puzzles/view';
 import { puzzleType } from './puzzles/catalogue';
 import { closeModal, modalOpen, openModal } from './ui/modal';
 import { createHoldButton, iconButton } from './ui/components';
-import { MICROSCOPE, icon } from './ui/icons';
+import { icon } from './ui/icons';
+import { setScienceHandler } from './ui/science';
 import { elementAt, shortConfiguration } from './gallery/data';
 import * as sfx from './audio';
 
@@ -84,6 +85,8 @@ export class Game {
 
   resume(): void {
     this.paused = false;
+    // The header microscope: the science behind the puzzle in play, or the finished atom's card.
+    setScienceHandler(() => (this.stage === 'done' ? this.showCard(this.z, false) : this.showWhy()), 'The science behind this build');
     window.dispatchEvent(new Event('resize'));
     this.resizeOverlay();
     this.ensureLoop();
@@ -284,8 +287,7 @@ export class Game {
     const restart = createHoldButton({ icon: icon('restart'), label: 'Restart', doneLabel: 'Restarted', onConfirm: () => this.restartPuzzle() });
     restart.id = 'btn-restart';
     const how = iconButton({ icon: icon('info'), label: 'Instructions', onClick: () => this.showHow() });
-    const why = iconButton({ icon: MICROSCOPE, label: 'The science behind this puzzle', onClick: () => this.showWhy() });
-    $('build-actions').append(undo, restart, how, why);
+    $('build-actions').append(undo, restart, how);
     $('badge').onclick = () => this.showCard(this.z, false);
     window.addEventListener('keydown', (e) => this.onKey(e));
     window.addEventListener('blur', () => this.onCancel());

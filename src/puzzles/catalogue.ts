@@ -28,6 +28,14 @@ import { SUBSHELL_COLOURS, type PuzzleView } from './view';
 
 export type Tier = 'every' | 'facet' | 'gate' | 'reserve';
 
+/** What each tier means, for the Puzzles home. */
+export const TIER_NOTE: Record<Tier, string> = {
+  every: 'Played for every atom you build.',
+  facet: 'Unlock extra layers of an atom: isotopes, orbital shapes, particles.',
+  gate: 'Open new parts of the game: periods, gallery lenses, the synthetic elements.',
+  reserve: 'Built to try out; no place in the game yet.',
+};
+
 export const TIER_LABEL: Record<Tier, string> = {
   every: 'Every atom',
   facet: 'Facets',
@@ -43,6 +51,8 @@ export interface PuzzleType {
   blurb: string;
   /** Where it sits in the progression. */
   role: string;
+  /** Where the game actually uses it today; absent while it lives only in the playground. Keep this true to the code. */
+  live?: string;
   /** Elements it makes sense for (inclusive). */
   zRange: [number, number];
   /** Present once the puzzle is built; planned types have none. */
@@ -74,6 +84,7 @@ export const PUZZLES: PuzzleType[] = [
     id: 'merge', name: 'Merge', tier: 'every',
     blurb: 'Swipe to slide the board; two clusters of the same size merge. Gather the clusters the nucleus wants.',
     role: 'Builds the nucleus of every element up to iron.',
+    live: 'Build mode: every nucleus from helium to iron.',
     instructions: MERGE_HOW,
     zRange: [2, 26],
     make: (z, deal, reduced) => new MergeView(newMerge({ z, a: element(z).commonA }, dealSeed('merge', z, deal)), reduced),
@@ -91,6 +102,7 @@ export const PUZZLES: PuzzleType[] = [
     id: 'orbitalGrid', name: 'Orbital Grid', tier: 'every',
     blurb: 'Fill the grid so every row, column and outlined block holds each orbital once.',
     role: 'Settles the electrons of every element, standing in for Shell Rings until a better electron puzzle is found.',
+    live: 'Build mode: the electrons of every element.',
     instructions: GRID_HOW,
     zRange: [1, 118],
     make: (z, deal, reduced) => new OrbitalGridView(newOrbitalGrid(z, dealSeed('orbitalGrid', z, deal)), reduced),
@@ -106,6 +118,7 @@ export const PUZZLES: PuzzleType[] = [
     id: 'sliding', name: 'Sliding Block', tier: 'every',
     blurb: 'Slide the bars and blocks out of the way so the red key bar can slide out.',
     role: 'Builds the nucleus of every element past iron, where fusion stops paying.',
+    live: 'Build mode: every nucleus from cobalt on.',
     instructions: SLIDING_HOW,
     zRange: [27, 118],
     make: (z, deal, reduced) => new SlidingView(newSliding(z, dealSeed('sliding', z, deal)), reduced),
