@@ -13,6 +13,8 @@
 import { ELEMENTS, BLOCK_COLOUR, type Element } from '../gallery/data';
 import { icon } from './icons';
 import { searchElements } from './search';
+import { segmentsOf } from '../core/progress';
+import { loadSave, type SaveData } from '../core/save';
 import './elementlist.css';
 
 export type SortKey = 'z' | 'name' | 'symbol' | 'weight' | 'group' | 'period' | 'block' | 'series' | 'density' | 'melt' | 'boil' | 'electronegativity' | 'radius' | 'discovered';
@@ -137,14 +139,26 @@ export function createElementList(opts: ElementListOptions = {}): ElementList {
 
   const tile = (e: Element) => `<span class="el-tile" style="--c:${BLOCK_COLOUR[e.block]}"><small>${e.z}</small><b>${e.symbol}</b></span>`;
 
-  const row = (e: Element) => {
+  // How far each atom's Build has got: one segment per thing to build, and the share done,
+  // colored by how far along it is (green once everything is built).
+  const progress = (e: Element, save: SaveData) => {
+    const segs = segmentsOf(e.z, save);
+    const done = segs.filter((s) => s.done).length;
+    const pct = segs.length ? Math.round((done / segs.length) * 100) : 0;
+    const tier = pct >= 100 ? 'full' : pct >= 50 ? 'most' : pct > 0 ? 'some' : 'none';
+    return `<span class="el-prog el-prog--${tier}" aria-label="${pct}% built">
+      <span class="el-segs" aria-hidden="true">${segs.map((s) => `<i${s.done ? ' class="on"' : ''}></i>`).join('')}</span>
+      <b>${pct}%</b>
+    </span>`;
+  };
+
+  const row = (e: Element, save: SaveData) => {
     const locked = opts.locked?.(e.z) ?? false;
     const cls = ['el-row', locked ? 'is-locked' : '', e.z === opts.current ? 'is-current' : ''].filter(Boolean).join(' ');
-    const where = e.group === null ? `${e.block} block · period ${e.period}` : `Group ${e.group} · period ${e.period}`;
     return `<button type="button" role="option" class="${cls}" data-z="${e.z}" aria-selected="${e.z === opts.current}">
       ${tile(e)}
       <span class="el-main"><b>${esc(e.name)}</b><span>${locked ? '<em>Not collected</em> · ' : ''}${esc(e.series)}</span></span>
-      <span class="el-side"><span>${where}</span><span>${num(e.weight, 3)} u</span></span>
+      ${progress(e, save)}
     </button>`;
   };
 
@@ -152,12 +166,13 @@ export function createElementList(opts: ElementListOptions = {}): ElementList {
     const section = query ? undefined : COL[sort].section;
     let last = '';
     const html: string[] = [];
+    const save = loadSave();
     for (const e of list) {
       if (section) {
         const s = section(e);
         if (s !== last) { html.push(`<h3 class="el-section">${esc(s)}</h3>`); last = s; }
       }
-      html.push(row(e));
+      html.push(row(e, save));
     }
     body.innerHTML = html.join('');
   };

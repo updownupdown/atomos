@@ -41,6 +41,9 @@
   --c-tile: #e4e8ea;
   --c-tile-ink: #101112;
   --c-scrim: rgba(5, 6, 7, 0.62);
+  /* Masks behind modals and drawers blur the page. Where backdrop-filter is missing the mask
+     is simply the dark scrim above, which already reads on its own. */
+  --blur-mask: blur(8px);
   --c-text: #e4e8ea;
   --c-text-2: #8a9296;
   --c-text-3: #50575b;
@@ -82,6 +85,8 @@
   /* Touch: the smallest comfortable target, and the chunkier one Card Table uses for tiles. */
   --hit: 44px;
   --hit-lg: 48px;
+  /* The strip of mask left showing under a drawer, to tap to close it. */
+  --drawer-gap: 56px;
 
   /* Elevation and motion. Flat by default: shadows only lift modals off the page. */
   --shadow-modal: 0 18px 48px rgba(0, 0, 0, 0.55);
