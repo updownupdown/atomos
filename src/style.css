@@ -502,9 +502,10 @@ body.stage-nucleus #atom { opacity: 0.12; }
 .splash.out { opacity: 0; pointer-events: none; }
 .splash .grain { position: absolute; }
 .splash-mark { width: min(46vw, 210px); height: auto; position: relative; }
-.splash-word { font-family: var(--font); font-weight: 700; font-size: 15px; letter-spacing: 0.32em; text-transform: uppercase; margin-top: 18px; padding-left: 0.32em; }
+.splash-word { font-family: var(--font); font-weight: 700; font-size: 19px; letter-spacing: 0.32em; text-transform: uppercase; margin-top: 18px; padding-left: 0.32em; }
 /* The mark's two electrons are cyan, in the header and on the splash; the rest stays white. */
 .nav-logo .electron, .splash-mark .electron { fill: var(--c-accent); }
+/* On the splash they turn cyan only once the shell has settled: a last pop of color. */
 
 /* Starting states, only while playing: everything hidden or wound back. */
 .splash.play .nucleon { transform-box: fill-box; transform-origin: center; transform: scale(0); animation: splash-pop 0.42s cubic-bezier(0.2, 1.4, 0.4, 1) forwards; }
@@ -515,7 +516,7 @@ body.stage-nucleus #atom { opacity: 0.12; }
 .splash.play .nucleon:nth-of-type(5) { animation-delay: 0.47s; }
 .splash.play .nucleon:nth-of-type(6) { animation-delay: 0.57s; }
 .splash.play .nucleon:nth-of-type(7) { animation-delay: 0.67s; }
-.splash.play .electron { transform-box: fill-box; transform-origin: center; transform: scale(0); animation: splash-pop 0.36s cubic-bezier(0.2, 1.4, 0.4, 1) 0.5s forwards; }
+.splash.play .electron { transform-box: fill-box; transform-origin: center; transform: scale(0); fill: var(--c-text); animation: splash-pop 0.36s cubic-bezier(0.2, 1.4, 0.4, 1) 0.5s forwards, splash-accent 0.5s cubic-bezier(0.2, 1.4, 0.4, 1) 1.85s forwards; }
 .splash.play .spin { transform-box: view-box; transform-origin: 50px 50px; transform: rotate(-200deg); animation: splash-swing 1.25s cubic-bezier(0.25, 0.8, 0.3, 1) 0.6s forwards; }
 .splash.play .shell { stroke-dasharray: 1; stroke-dashoffset: 1; animation: splash-draw 1.05s cubic-bezier(0.4, 0, 0.2, 1) 0.7s forwards; }
 .splash.play .splash-word { opacity: 0; animation: splash-fade 0.6s ease 1.35s forwards; }
@@ -523,6 +524,7 @@ body.stage-nucleus #atom { opacity: 0.12; }
 @keyframes splash-draw { to { stroke-dashoffset: 0; } }
 @keyframes splash-swing { to { transform: rotate(0deg); } }
 @keyframes splash-fade { to { opacity: 1; } }
+@keyframes splash-accent { 0% { fill: var(--c-text); transform: scale(1); } 45% { fill: var(--c-accent); transform: scale(1.3); } 100% { fill: var(--c-accent); transform: scale(1); } }
 .gal-sub { font-family: var(--font); font-size: var(--fs-sm); color: var(--c-text-2); }
 .gal-hover { position: absolute; left: 50%; top: calc(56px + var(--top)); transform: translateX(-50%); z-index: 2; background: var(--label); color: var(--label-ink); font-family: var(--mono); font-size: 12px; padding: 3px 8px; border-radius: 2px; pointer-events: none; }
 .gal-hover[hidden] { display: none; }
@@ -926,7 +928,11 @@ body.stage-nucleus #atom { opacity: 0.12; }
 .nav-ico svg { width: 22px; height: 22px; display: block; }
 .nav-lab { font-size: 11px; font-weight: var(--fw-semibold); line-height: 1.1; letter-spacing: 0.01em; }
 .nav-tabs button:hover { color: var(--c-text); }
-.nav-tabs button[aria-current='page'] { background: var(--c-pick); color: var(--c-accent); }
+.nav-tabs button[aria-current='page'] { color: var(--c-accent); }
+/* The icon of the section just opened gives a small lift and turn. */
+.nav-tabs button[aria-current='page'] .nav-ico svg { animation: nav-arrive 0.42s cubic-bezier(0.2, 1.4, 0.4, 1); }
+@keyframes nav-arrive { 0% { transform: scale(0.8) rotate(-12deg); } 60% { transform: scale(1.18) rotate(4deg); } 100% { transform: none; } }
+@media (prefers-reduced-motion: reduce) { .nav-tabs button[aria-current='page'] .nav-ico svg { animation: none; } }
 .nav-end { display: none; }
 .nav-logo:focus-visible, .nav-tabs button:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
 @media (max-width: 359px) {
@@ -957,8 +963,8 @@ body[data-screen^='atom'] .build-bar { top: var(--nav-bottom); }
 /* Inside a Build puzzle the atom bar steps away, so the row moves up under the header. */
 body[data-screen='atom-build']:not(.build-home) .mode-row { top: var(--nav-bottom); }
 .mode-seg { flex: 1; min-width: 0; }
-.mode-seg .ui-seg { width: 100%; padding: 0; background: transparent; }
-.mode-seg .ui-seg-opt { min-height: 42px; padding: 0 var(--sp-3); border-radius: var(--r-md); box-shadow: inset 0 0 0 2px var(--c-line-2); }
+.mode-seg .ui-seg { width: 100%; padding: 3px; border-radius: var(--r-pill); background: rgba(0, 0, 0, 0.32); }
+.mode-seg .ui-seg-opt { min-height: 40px; padding: 0 var(--sp-3); border-radius: var(--r-pill); }
 /* Build's progress: its background fills from the left as the atom is built. */
 .mode-seg .ui-seg-opt[data-id='build'] { background-image: linear-gradient(to right, color-mix(in srgb, var(--c-good) 22%, transparent) var(--p, 0%), transparent var(--p, 0%)); }
 

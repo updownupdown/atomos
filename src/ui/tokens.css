@@ -31,9 +31,9 @@
   /* Content sits on pure black; the navigation rows (header, atom bar, View/Build) on a
      slightly lighter graphite, so the chrome reads apart from the page without lines. */
   --c-bg: #000000;
-  --c-nav: #16181a;
+  --c-nav: #222529;
   /* The picked item in a navigation row: cyan on a dark gray chip. */
-  --c-pick: #272b2f;
+  --c-pick: #353a40;
   --c-plate: #131416;
   --c-surface: #17191b;
   --c-surface-2: #1f2225;

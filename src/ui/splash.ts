@@ -7,7 +7,7 @@
 
 import { markInner } from './mark';
 
-const HOLD_MS = 2150;        // when the fade starts, after the electrons have settled
+const HOLD_MS = 2450;        // when the fade starts, after the electrons have settled and turned cyan
 const REDUCED_HOLD_MS = 900;
 const FADE_MS = 450;
 
