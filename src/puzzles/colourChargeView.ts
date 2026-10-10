@@ -22,8 +22,8 @@ export const INSTRUCTIONS = `
 <p>Reserve puzzle, kept simple so it can be judged; a candidate for a quarks chapter.</p>
 <ul>
   <li>z 1-10: 3x3, three baryons. z 11-30: 4x3. z 31-54: 4x4 with two mesons. z 55-86: 4x5 with four mesons. z 87-118: 5x5 with five mesons.</li>
-  <li>Each level is dealt from a tiling into groups that work, so it can always be cleared; other clearances may exist and any one wins.</li>
-  <li>Par is the number of groups in a clearance. Every bind counts as a move and Undo does not refund it, so clean means never binding a group you had to take back.</li>
+  <li>Each grid is dealt from a tiling into groups that work, and kept only if that is its one and only clearance: every grid has exactly one answer.</li>
+  <li>Par is the number of groups in a clearance. Every bind counts as a move; Undo is free and takes the move back. Clean means clearing the grid within par.</li>
 </ul>
 <p>Science: colour charge is a name, not a colour, and quarks do not sit on a grid. That baryons are three quarks of all three colours and mesons a quark plus an antiquark, both colour-neutral, is real.</p>`;
 
@@ -69,7 +69,7 @@ export class ColourChargeView implements PuzzleView {
   undo(): boolean {
     const prev = this.history.pop();
     if (!prev) return false;
-    this.state = { ...prev, moves: this.state.moves };
+    this.state = { ...prev };
     this.sel = [];
     this.finishable = canFinish(this.state);
     return true;

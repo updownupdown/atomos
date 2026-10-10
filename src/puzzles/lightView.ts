@@ -18,7 +18,7 @@ export const INSTRUCTIONS = `
   <li><b>Splitters</b> are dashed panes on a raised tile: half-silvered glass. The beam goes straight through <i>and</i> bounces off, so one beam becomes two. Tap to flip them like mirrors.</li>
   <li><b>Colour filters</b> are tinted squares. White light leaves them tinted that colour. Light already of that colour passes; light of any other colour is absorbed and stops.</li>
   <li><b>Coloured rings</b> need light of their own colour; a plain red ring takes any light.</li>
-  <li><b>Dark sensors</b> (dark discs with a bar) must stay unlit. A lit one flares up and the puzzle is not solved.</li>
+  <li><b>Dark sensors</b> (dark discs with a bar) must stay unlit. A lit one flares amber and the puzzle is not solved.</li>
   <li>Grey blocks stop the beam.</li>
 </ul>
 <p>Keyboard: arrows move the cursor, Space or Enter flips under it, Tab jumps to the next turnable piece.</p>
@@ -266,17 +266,17 @@ export class LightView implements PuzzleView {
       ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
       ctx.fill();
       if (bad) {
-        if (!this.reduced) { ctx.shadowColor = C.bad; ctx.shadowBlur = c * 0.3; }
-        ctx.fillStyle = C.bad;
+        if (!this.reduced) { ctx.shadowColor = C.warn; ctx.shadowBlur = c * 0.3; }
+        ctx.fillStyle = C.warn;
         ctx.globalAlpha = 0.3 * pulse;
         ctx.fill();
         ctx.globalAlpha = 1;
       }
-      ctx.strokeStyle = bad ? C.bad : C.line3;
+      ctx.strokeStyle = bad ? C.warn : C.line3;
       ctx.lineWidth = Math.max(1.5, c * 0.04);
       ctx.stroke();
       ctx.shadowBlur = 0;
-      ctx.strokeStyle = bad ? C.bad : C.text3;
+      ctx.strokeStyle = bad ? C.warn : C.text3;
       ctx.lineWidth = Math.max(2, c * 0.05);
       ctx.beginPath();
       ctx.moveTo(p.x - r * 0.45, p.y);

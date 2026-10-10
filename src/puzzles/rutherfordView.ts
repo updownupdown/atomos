@@ -28,7 +28,7 @@ export const INSTRUCTIONS = `
 <ul>
   <li>The plate is 7x7 up to z 20, 8x8 to z 50, 9x9 to z 85 and 10x10 beyond, with nuclei on 15% of cells rising to 20%.</li>
   <li>Scatter cells are about 6% of empty cells at z 1 and 12% at z 118; quiet cells 4% rising to 10%.</li>
-  <li>No par: moves count probe taps. Clean means no direct hits. Undo takes back a probe or a mark but never a hit.</li>
+  <li>No par: moves count probe taps. Undo is free and takes back a probe or a mark, a direct hit included, but a hit still spoils a flawless run.</li>
   <li>Each plate is checked by a solver that only uses single clues, two overlapping clues and the nuclei count, so a careful player never has to guess.</li>
 </ul>
 <p>Science: Rutherford found the nucleus by firing alpha particles at gold foil and watching how they scattered; nobody probes atoms cell by cell. The method of mapping the unseen from what probes report is his.</p>`;
@@ -78,7 +78,8 @@ export class RutherfordView implements PuzzleView {
   undo(): boolean {
     const prev = this.history.pop();
     if (!prev) return false;
-    this.state = { ...cloneRutherford(prev), hits: this.state.hits, moves: this.state.moves };
+    // Undo is free (the probe count goes back too), but a direct hit stays on the record for a flawless run.
+    this.state = { ...cloneRutherford(prev), hits: this.state.hits };
     return true;
   }
 

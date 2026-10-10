@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bind, canBind, canFinish, groupKind, newColourCharge, solved, specFor, type Quark } from '../src/puzzles/colourCharge';
+import { bind, canBind, canFinish, countClearances, groupKind, newColourCharge, solved, specFor, type Quark } from '../src/puzzles/colourCharge';
 
 const SPREAD = [1, 10, 11, 30, 31, 54, 55, 86, 87, 118];
 
@@ -79,5 +79,16 @@ describe('binding', () => {
     expect(canFinish(other)).toBe(true);
     const strand = bind(board, [0, 1, 4])!; // r g b in an L, leaving 2, 3, 5 apart
     expect(canFinish(strand)).toBe(false);
+  });
+});
+
+describe('one answer', () => {
+  it('deals grids with exactly one clearance across the range', () => {
+    for (const z of SPREAD) {
+      for (let d = 0; d < 4; d++) {
+        const s = newColourCharge(z, 7000 + 31 * z + d);
+        expect(countClearances(s.tiles, s.cols, s.rows, 3)).toBe(1);
+      }
+    }
   });
 });

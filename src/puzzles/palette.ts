@@ -35,6 +35,11 @@ export const C = {
   p: '#2ea57a',
   d: '#c07f1e',
   f: '#a865d6',
+  /** Play pieces with no science meaning (Packing): muted clay tones, kept well away from the orbital colours. */
+  piece1: '#cfd6da',
+  piece2: '#d6c4a2',
+  piece3: '#c6a49c',
+  piece4: '#a39d94',
   /** Nucleons: protons warm, neutrons grey. */
   proton: '#d6963c',
   neutron: '#6d7478',

@@ -9,7 +9,8 @@
 // Levels are dealt by tiling the grid into connected triominoes (and, on
 // heavier levels, dominoes), then colouring each triomino red, green and blue
 // in random order and each domino as a colour plus its anticolour, so a full
-// clearance always exists. Other clearances may exist too; any one wins.
+// clearance always exists. Deals are kept only when that clearance is the only
+// one, so every grid has exactly one answer.
 //
 // Game rule, not physics: colour charge has nothing to do with visible colour,
 // and quarks do not sit on a grid. The rule that only colour-neutral
@@ -37,7 +38,7 @@ export interface ColourChargeState {
   groups: number[][];
   /** The tiling the level was dealt from: one clearance that works. */
   solution: number[][];
-  /** Groups bound so far, including ones later undone. */
+  /** Groups bound so far; undo takes them back. */
   moves: number;
   /** The number of groups in a full clearance. */
   par: number;
@@ -167,6 +168,27 @@ export function canFinish(s: ColourChargeState): boolean {
   return go();
 }
 
+/** How many full clearances the tiles allow, counting no further than `limit`. */
+export function countClearances(tiles: Quark[], cols: number, rows: number, limit = 2): number {
+  const used = Array(tiles.length).fill(false);
+  let found = 0;
+  const go = (): void => {
+    if (found >= limit) return;
+    const first = used.indexOf(false);
+    if (first < 0) { found++; return; }
+    for (const shape of [...TRIOMINOES, ...DOMINOES]) {
+      const cells = placeShape(cols, rows, (i) => used[i], first, shape);
+      if (!cells || !groupKind(tiles, cells) || !connected(cols, cells)) continue;
+      for (const i of cells) used[i] = true;
+      go();
+      for (const i of cells) used[i] = false;
+      if (found >= limit) return;
+    }
+  };
+  go();
+  return found;
+}
+
 // ---- generation ----------------------------------------------------------------------
 
 function shuffle<T>(rng: Rng, a: T[]): T[] {
@@ -204,26 +226,41 @@ export function tiling(rng: Rng, cols: number, rows: number, mesons: number): nu
   return go(0, 0) ? pieces : null;
 }
 
-export function newColourCharge(z: number, seed: number): ColourChargeState {
-  const rng = seeded(seed);
-  const spec = specFor(z);
-  let pieces: number[][] | null = null;
-  for (let attempt = 0; attempt < 20 && !pieces; attempt++) pieces = tiling(rng, spec.cols, spec.rows, spec.mesons);
-  if (!pieces) throw new Error('Colour Charge: no tiling');
-  const tiles: Quark[] = Array(spec.cols * spec.rows);
+function colour(rng: Rng, n: number, pieces: number[][]): Quark[] {
+  const tiles: Quark[] = Array(n);
   for (const p of pieces) {
     if (p.length === 3) {
       const order = shuffle(rng, [0, 1, 2] as Colour[]);
       p.forEach((i, k) => (tiles[i] = { colour: order[k], anti: false }));
     } else {
-      const colour = randInt(rng, 3) as Colour;
+      const c = randInt(rng, 3) as Colour;
       const flip = randInt(rng, 2);
-      p.forEach((i, k) => (tiles[i] = { colour, anti: k === flip }));
+      p.forEach((i, k) => (tiles[i] = { colour: c, anti: k === flip }));
     }
   }
+  return tiles;
+}
+
+export function newColourCharge(z: number, seed: number): ColourChargeState {
+  const rng = seeded(seed);
+  const spec = specFor(z);
+  const n = spec.cols * spec.rows;
+  // Deal tilings and colourings until one has a single clearance.
+  let best: { pieces: number[][]; tiles: Quark[] } | null = null;
+  for (let t = 0; t < 400; t++) {
+    const pieces = tiling(rng, spec.cols, spec.rows, spec.mesons);
+    if (!pieces) continue;
+    for (let c = 0; c < 8; c++) {
+      const tiles = colour(rng, n, pieces);
+      best ??= { pieces, tiles };
+      if (countClearances(tiles, spec.cols, spec.rows) === 1) { best = { pieces, tiles }; t = Infinity; break; }
+    }
+  }
+  if (!best) throw new Error('Colour Charge: no tiling');
+  const { pieces, tiles } = best;
   return {
     cols: spec.cols, rows: spec.rows, tiles,
-    bound: Array(tiles.length).fill(-1), groups: [],
+    bound: Array(n).fill(-1), groups: [],
     solution: pieces, moves: 0, par: pieces.length,
   };
 }
