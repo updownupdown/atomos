@@ -349,7 +349,7 @@ export function drawSocket(ctx: CanvasRenderingContext2D, cx: number, cy: number
   roundTile(ctx, cx - sr, cy - sr, sr * 2, sr * 2, sr * 2 * TILE_RADIUS, null, next ? C.text : C.line3, next ? 2.5 : 1.25);
   ctx.setLineDash([]);
   ctx.fillStyle = next ? C.text : C.text2;
-  ctx.font = font(sr * (String(v).length > 1 ? 0.75 : 0.9), 700);
+  ctx.font = font(Math.max(13, sr * (String(v).length > 1 ? 0.75 : 0.9)), 700);
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(String(v), cx, cy + 1);

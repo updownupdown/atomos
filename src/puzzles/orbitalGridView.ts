@@ -167,20 +167,22 @@ function drawStack(ctx: CanvasRenderingContext2D, x: number, y: number, k: numbe
   if (ring) tile(ctx, tx - 3.5, ty - 3.5, t + 7, t + 7, t / 2 + 3.5, null, C.silver, 2);
   ctx.save();
   ctx.textBaseline = 'middle';
-  const fs = Math.max(12, Math.min(17, countH * 0.85));
+  // Readable labels: at least 13 px, never dimmer than the second text color.
+  const fs = Math.max(13, Math.min(17, countH * 0.85));
   const label = symbolLabel(spin, sym), count = String(Math.max(0, left));
   ctx.font = font(fs, 600);
   const lw = ctx.measureText(label).width;
-  ctx.font = font(fs * 0.82, 500);
+  const cfs = Math.max(13, fs * 0.82);
+  ctx.font = font(cfs, 500);
   const cw = ctx.measureText(count).width;
   const gap = fs * 0.4, cx = x + k / 2, cy = y + k + countH / 2 + 1;
   const x0 = cx - (lw + gap + cw) / 2;
   ctx.textAlign = 'left';
   ctx.font = font(fs, 600);
-  ctx.fillStyle = done ? C.text3 : C.text;
+  ctx.fillStyle = done ? C.text2 : C.text;
   ctx.fillText(label, x0, cy);
-  ctx.font = font(fs * 0.82, 500);
-  ctx.fillStyle = done ? C.text3 : C.text2;
+  ctx.font = font(cfs, 500);
+  ctx.fillStyle = C.text2;
   ctx.fillText(count, x0 + lw + gap, cy + fs * 0.04);
   ctx.restore();
 }
