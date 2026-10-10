@@ -4,6 +4,7 @@
 import { ALL_SYMBOLS } from '../core/elements';
 import { cloneMerge, jammed, slide, wanted, won, type Dir, type MergeState, type Tile } from './merge';
 import { ease, MONO, type Area, type Point, type PuzzleView } from './view';
+import { C, font } from './palette';
 
 const SLIDE_MS = 150;
 const POP_MS = 260;
@@ -34,15 +35,11 @@ export class MergeView implements PuzzleView {
   get clean(): boolean { return this.state.spoils === 0; }
 
   hint(): string {
-    const t = this.state.target;
-    const name = `${sup(String(t.a))}${symbolOf(t.z)}`;
     const want = wanted(this.state);
-    if (this.won) return `That is ${name}: ${t.a} nucleons, all gathered.`;
-    if (this.stuck) return 'Jammed: nothing can move. Restart the board.';
-    if (this.state.moves === 0) return `<span class="hl">Swipe</span> to slide everything. Two clusters of the same size merge into one. Build a <span class="hl">${want}</span> and it joins the nucleus.`;
-    if (this.state.cells.some((c) => c?.spoiled)) return 'Too big for what is left: that one cracks. It crumbles on your next swipe.';
-    if (this.state.flown.length) return `A ${this.state.flown[0].tile.v} joins ${name}. Next: a <span class="hl">${want}</span>.`;
-    return `${name} needs a <span class="hl">${want}</span> next.`;
+    if (this.won) return 'Nucleus complete';
+    if (this.stuck) return 'Jammed: restart';
+    if (this.state.cells.some((c) => c?.spoiled)) return 'Cracked: it crumbles next swipe';
+    return want === null ? '' : `Next: a ${want}`;
   }
 
   restart(): void {
@@ -219,11 +216,9 @@ export class MergeView implements PuzzleView {
       ctx.shadowColor = 'rgba(224, 80, 58, 0.8)';
       ctx.shadowBlur = r * 0.8;
     }
-    const g = ctx.createRadialGradient(x - r * 0.3, y - r * 0.3, 0, x, y, r);
+    // Flat discs that warm from pewter to silver to pale gold as clusters grow.
     const tone = Math.min(1, Math.log2(tile.v) / 6);
-    if (tile.v === 1) { g.addColorStop(0, '#b3ab9c'); g.addColorStop(1, '#5f5a50'); }
-    else { g.addColorStop(0, '#fbf8f0'); g.addColorStop(0.75, `rgb(${211 + 30 * tone}, ${205 + 10 * tone}, ${191 - 60 * tone})`); g.addColorStop(1, `rgb(${143 + 40 * tone}, ${136}, ${121 - 50 * tone})`); }
-    ctx.fillStyle = g;
+    ctx.fillStyle = tile.v === 1 ? C.pewter : `rgb(${Math.round(243 - 10 * tone)}, ${Math.round(238 - 28 * tone)}, ${Math.round(226 - 90 * tone)})`;
     ctx.beginPath();
     ctx.arc(x, y, r, 0, Math.PI * 2);
     ctx.fill();
@@ -253,13 +248,13 @@ export class MergeView implements PuzzleView {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     if (tile.v > 1) {
-      ctx.fillStyle = 'rgba(251, 248, 240, 0.85)';
+      ctx.fillStyle = 'rgba(251, 248, 240, 0.9)';
       ctx.beginPath();
       ctx.ellipse(x, y, r * (label.length > 1 ? 0.56 : 0.42), r * 0.4, 0, 0, Math.PI * 2);
       ctx.fill();
     }
     ctx.fillStyle = '#1b1813';
-    ctx.font = `700 ${Math.round(r * (label.length > 1 ? 0.6 : 0.78))}px ${MONO}`;
+    ctx.font = font(r * (label.length > 1 ? 0.62 : 0.8), 700);
     ctx.fillText(label, x, y + 1);
     ctx.restore();
   }
@@ -285,3 +280,15 @@ const SUP: Record<string, string> = { '0': '⁰', '1': '¹', '2': '²', '3': '³
 export function sup(s: string): string {
   return s.split('').map((c) => SUP[c] ?? c).join('');
 }
+
+export const INSTRUCTIONS = `
+<h3>How to play</h3>
+<ul>
+  <li>Swipe (or use the arrow keys) to slide every cluster as far as it goes.</li>
+  <li>Two clusters of the <b>same size</b> that meet merge into one twice as big: 1 + 1 makes 2, 2 + 2 makes 4, and so on.</li>
+  <li>The nucleus at the top asks for clusters, largest first. Carbon-12 wants an 8, then a 4. The moment you make the size it wants, that cluster flies up into the nucleus.</li>
+  <li>Make something bigger than anything still wanted and it cracks; it crumbles away on your next swipe.</li>
+  <li>Fill every socket to finish. No cracks means a flawless build.</li>
+</ul>
+<h3>In the game</h3>
+<p class="meta">Builds the nucleus of every element from helium to iron (hydrogen has nothing to gather). The sockets are the mass number of the element's most common isotope written in powers of two, so the number of sockets and their sizes set the difficulty. Par is a nucleon budget (about 0.7 swipes per nucleon), still a first guess: light elements are easy enough that random swiping often beats it.</p>`;

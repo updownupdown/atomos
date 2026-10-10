@@ -15,6 +15,8 @@ import { SlidingView } from './puzzles/slidingView';
 import { type Area, type PuzzleView } from './puzzles/view';
 import { puzzleType } from './puzzles/catalogue';
 import { closeModal, modalOpen, openModal } from './ui/modal';
+import { createHoldButton, iconButton } from './ui/components';
+import { MICROSCOPE, icon } from './ui/icons';
 import { elementAt, shortConfiguration } from './gallery/data';
 import * as sfx from './audio';
 
@@ -155,7 +157,9 @@ export class Game {
 
   private sayHint(): void {
     const p = this.puzzle;
-    const text = p ? p.hint() : '';
+    // A short status only; how-to text lives behind the i.
+    const raw = p ? p.hint().replace(/<[^>]+>/g, '') : '';
+    const text = raw.length > 60 ? '' : raw;
     if (text === this.shownHint) return;
     this.shownHint = text;
     $('message').innerHTML = text;
@@ -275,9 +279,13 @@ export class Game {
     canvas.addEventListener('pointerup', (e) => this.onUp(e));
     canvas.addEventListener('pointercancel', () => this.onCancel());
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
-    $('btn-undo').onclick = () => this.undo();
-    $('btn-restart').onclick = () => this.restartPuzzle();
-    $('btn-why').onclick = () => this.showWhy();
+    const undo = iconButton({ icon: icon('undo'), label: 'Undo', onClick: () => this.undo() });
+    undo.id = 'btn-undo';
+    const restart = createHoldButton({ icon: icon('restart'), label: 'Restart', onConfirm: () => this.restartPuzzle() });
+    restart.id = 'btn-restart';
+    const how = iconButton({ icon: icon('info'), label: 'Instructions', onClick: () => this.showHow() });
+    const why = iconButton({ icon: MICROSCOPE, label: 'The science behind this puzzle', onClick: () => this.showWhy() });
+    $('build-actions').append(undo, restart, how, why);
     $('badge').onclick = () => this.showCard(this.z, false);
     window.addEventListener('keydown', (e) => this.onKey(e));
     window.addEventListener('blur', () => this.onCancel());
@@ -436,17 +444,26 @@ export class Game {
   private showIntro(): void {
     const sheet = this.openModal(`
       <h2>Atomos</h2>
-      <p class="muted">Prototype · hydrogen to neon</p>
-      <p>Every atom is two puzzles. <b>Merge</b> the nucleus: swipe to slide light nuclei together until they add up to the one you need. Then settle the <b>Shells</b>: turn the rings and hop electrons through the gate until every socket is lit.</p>
-      <p>No timers, no reading required. The microscope explains the science behind each puzzle, if you want it.</p>
+      <p class="muted">Prototype</p>
+      <p>Every atom is two puzzles: one gathers its <b>nucleus</b>, the other settles its <b>electrons</b>.</p>
+      <p>No timers. The <b>i</b> explains how a puzzle works, and the microscope the science behind it, whenever you want them.</p>
       <div class="actions"><button class="primary" id="intro-go">Build hydrogen</button></div>`);
     sheet.querySelector<HTMLButtonElement>('#intro-go')!.onclick = () => this.closeModal();
   }
 
+  /** The catalogue entry for the puzzle on screen. */
+  private stagePuzzle() {
+    return puzzleType(this.stage === 'nucleus' ? (this.z <= MERGE_UP_TO ? 'merge' : 'sliding') : 'orbitalGrid');
+  }
+
   private showWhy(): void {
-    const html = puzzleType(this.stage === 'nucleus' ? (this.z <= MERGE_UP_TO ? 'merge' : 'sliding') : 'rings').science!(this.z);
-    const sheet = this.openModal(`${html}<div class="actions"><button class="primary" id="why-close">Back to the puzzle</button></div>`);
-    sheet.querySelector<HTMLButtonElement>('#why-close')!.onclick = () => this.closeModal();
+    const t = this.stagePuzzle();
+    this.openModal(t.science?.(this.z) ?? `<h2>${t.name}</h2><p>${t.blurb}</p>`);
+  }
+
+  private showHow(): void {
+    const t = this.stagePuzzle();
+    this.openModal(`<div class="how"><h2>${t.name}</h2><p>${t.blurb}</p>${t.instructions ?? ''}</div>`);
   }
 
   private showCard(z: number, justBuilt: boolean): void {

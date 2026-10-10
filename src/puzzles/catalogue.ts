@@ -5,7 +5,7 @@
 import { elementAt as element } from '../gallery/data';
 import { applyPlacement, configuration, newAtom, resolvePlacement } from '../core/physics';
 import { newMerge } from './merge';
-import { MergeView, sup } from './mergeView';
+import { MergeView, sup, INSTRUCTIONS as MERGE_HOW } from './mergeView';
 import { newRings } from './rings';
 import { newSliding } from './sliding';
 import { SlidingView } from './slidingView';
@@ -19,8 +19,6 @@ import { newLight } from './light';
 import { LightView } from './lightView';
 import { newCodebreaker } from './codebreaker';
 import { CodebreakerView } from './codebreakerView';
-import { newDecay } from './decay';
-import { DecayView } from './decayView';
 import { newRutherford } from './rutherford';
 import { RutherfordView } from './rutherfordView';
 import { RingsView } from './ringsView';
@@ -47,6 +45,8 @@ export interface PuzzleType {
   zRange: [number, number];
   /** Present once the puzzle is built; planned types have none. */
   make?: (z: number, deal: number, reducedMotion: boolean) => PuzzleView;
+  /** How to play, and notes for playtesting, as sheet HTML for the Instructions modal. */
+  instructions?: string;
   /** The science behind it, as sheet HTML. */
   science?: (z: number) => string;
 }
@@ -72,6 +72,7 @@ export const PUZZLES: PuzzleType[] = [
     id: 'merge', name: 'Merge', tier: 'every',
     blurb: 'Swipe to slide the board; two clusters of the same size merge. Gather the clusters the nucleus wants.',
     role: 'Builds the nucleus of every element up to iron.',
+    instructions: MERGE_HOW,
     zRange: [2, 26],
     make: (z, deal, reduced) => new MergeView(newMerge({ z, a: element(z).commonA }, dealSeed('merge', z, deal)), reduced),
     science: (z) => {
@@ -139,17 +140,6 @@ export const PUZZLES: PuzzleType[] = [
         <p>The number of nodes is fixed by the quantum numbers: an orbital with principal number n has n − 1 of them in total, split between spherical shells and planes or cones through the nucleus.</p>
         <p class="muted">Game rule: the line that sorts colours into pockets is a playful stand-in for a nodal surface; the colours are the sub-shell palette, not real field lines.</p>`;
     },
-  },
-  {
-    id: 'decay', name: 'Decay Path', tier: 'facet',
-    blurb: 'Step a radioactive nucleus across the chart, one decay at a time, until it lands on a stable tile.',
-    role: 'Rare, visual and number-free; only for radioactive isotopes.',
-    zRange: [1, 118],
-    make: (z, deal, reduced) => new DecayView(newDecay(z, dealSeed('decay', z, deal)), reduced),
-    science: () => `<h2>Decay Path: the science</h2>
-      <p>Every known nucleus is a tile on the <b>chart of nuclides</b>: neutrons across, protons up. Most are unstable and decay. <b>α</b> emission sheds two protons and two neutrons; <b>β⁻</b> turns a neutron into a proton; <b>β⁺</b> (or electron capture) turns a proton into a neutron. Each step lands on a lighter or better balanced nucleus, until a stable one is reached.</p>
-      <p>Uranium-238 takes fourteen such steps to become lead-206, over four and a half billion years.</p>
-      <p class="muted">Game rule: a real nucleus has one dominant decay mode and no choice; here you pick the route. The shapes of the steps and the tiles themselves are real.</p>`,
   },
   {
     id: 'slideStop', name: 'Slide Until Stop', tier: 'gate',
