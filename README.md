@@ -17,7 +17,7 @@ npm run build:single # dist-single/index.html, one self-contained file for shari
 
 ## Deployment
 
-Every push to `main` builds the app and publishes it to GitHub Pages at https://updownupdown.github.io/atomos/ (`.github/workflows/pages.yml`). Pull requests run the typecheck, tests and build without deploying. Pages must be set to deploy from GitHub Actions in the repository settings.
+Every push to `main` builds the app and publishes it to GitHub Pages at https://buildatomos.app/ (`.github/workflows/pages.yml`); the old https://updownupdown.github.io/atomos/ address redirects there. The build uses relative paths, so it runs at a domain root or under a sub-path alike. `public/CNAME` records the domain, but with Actions deploys the custom domain itself is set in the repository's Pages settings. Pull requests run the typecheck, tests and build without deploying. Pages must be set to deploy from GitHub Actions in the repository settings.
 
 ## The gallery
 
