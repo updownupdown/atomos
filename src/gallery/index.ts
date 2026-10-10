@@ -10,7 +10,8 @@ import { Gallery } from './gallery';
 import { decoratorsHTML, tabHTML, VIEW_TABS, type ViewTab } from './info';
 import { guideHTML } from './guide';
 import { icon, type IconName } from '../ui/icons';
-import { createTabs, type Tabs } from '../ui/components';
+import { createSegments, createTabs, type Tabs } from '../ui/components';
+import { ISO_FILTERS } from './visuals';
 import { openElementPicker } from '../ui/picker';
 import { isLayoutId, LAYOUT_STORY, LAYOUTS, type LayoutId } from './layouts';
 import { setScienceHandler, setScienceOpen } from '../ui/science';
@@ -33,6 +34,7 @@ export class GalleryApp {
   private detail: Detail;
   private current: Element | null = null;
   private tab: ViewTab = 'model';
+  private isoFilter = 'all';
   private layoutId: LayoutId = (() => {
     const saved = localStorage.getItem('atomos.gallery.layout');
     return isLayoutId(saved) ? saved : 'spiral';
@@ -284,8 +286,31 @@ export class GalleryApp {
     panel.innerHTML = `<div class="atom-page">${tabHTML(this.current, this.tab, this.collected(this.current.z))}`
       + `<div class="page-guide"><button type="button" class="guide-btn" id="guide-btn">${icon('microscope')}<span><b>How to read this</b><small>A guide to the ${label} page, and more context</small></span></button></div></div>`;
     $('guide-btn').onclick = () => this.openGuide();
+    this.mountIsotopeFilter();
     panel.scrollTop = 0;
     panel.setAttribute('aria-label', VIEW_TABS.find((t) => t.id === this.tab)!.label);
+  }
+
+  /** The isotope page's filter: All, Stable, In nature, Radioactive; kept while stepping through elements. */
+  private mountIsotopeFilter(): void {
+    const slot = document.getElementById('iso-filter');
+    const table = document.getElementById('iso-table');
+    if (!slot || !table) return;
+    const counts = JSON.parse(slot.dataset.counts ?? '{}') as Record<string, number>;
+    const apply = (id: string) => {
+      this.isoFilter = id;
+      let shown = 0;
+      table.querySelectorAll<HTMLElement>('.it-row[data-kinds]').forEach((row) => {
+        const on = row.dataset.kinds!.split(' ').includes(id);
+        row.hidden = !on;
+        if (on) shown++;
+      });
+      table.classList.toggle('is-empty', shown === 0);
+    };
+    const seg = createSegments(ISO_FILTERS.map((f) => ({ id: f.id, label: `${f.label} ${counts[f.id] ?? 0}` })), { active: this.isoFilter, label: 'Show isotopes', onChange: apply });
+    slot.append(seg.el);
+    seg.select(this.isoFilter);
+    apply(this.isoFilter);
   }
 
   private key(ev: KeyboardEvent): void {

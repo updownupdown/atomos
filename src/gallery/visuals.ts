@@ -137,27 +137,87 @@ export function lifeMeter(halfLife: number | null): number {
   return Math.max(0.03, Math.min(1, (Math.log10(halfLife) + 9) / (17.6 + 9)));
 }
 
-export function isotopeAlbum(e: Element): string {
+/** Which filter rows an isotope matches: stable, found in nature, radioactive. */
+export function isotopeKinds(i: { stable: boolean; abundance: number | null }): string[] {
+  const k = ['all'];
+  if (i.stable) k.push('stable'); else k.push('radioactive');
+  if (i.abundance != null) k.push('natural');
+  return k;
+}
+
+export const ISO_FILTERS: { id: string; label: string }[] = [
+  { id: 'all', label: 'All' },
+  { id: 'stable', label: 'Stable' },
+  { id: 'natural', label: 'In nature' },
+  { id: 'radioactive', label: 'Radioactive' },
+];
+
+/** The neutron chart: one bar per isotope by neutron count, as tall as it lives (log scale),
+ *  stable ones full height in cyan, so the element's valley of stability shows as a ridge. */
+function isotopeChart(e: Element): string {
+  const isos = e.isotopes;
+  if (!isos.length) return '';
+  const W = 320, H = 92, base = H - 18, top = 6;
+  const n0 = isos[0].a - e.z, n1 = isos[isos.length - 1].a - e.z;
+  const span = Math.max(1, n1 - n0 + 1), bw = (W - 8) / span;
   const key = keyIsotope(e);
-  const stable = e.isotopes.filter((i) => i.stable).length;
-  const tiles = e.isotopes.map((i) => {
-    const cls = ['iso-tile', i.stable ? 'is-stable' : '', key && i.a === key.a ? 'is-key' : ''].filter(Boolean).join(' ');
-    const meter = i.stable ? (i.abundance ?? 0) / 100 : lifeMeter(i.halfLife);
-    const caption = i.stable
-      ? (i.abundance == null ? 'trace' : `${Number(i.abundance.toPrecision(3))}%`)
-      : i.halfLife == null ? '?' : formatHalfLife(i.halfLife);
-    return `<div class="${cls}" title="${e.symbol}-${i.a}: ${i.a - e.z} neutrons, ${i.stable ? 'stable' : 'half-life ' + caption}">
-      <span class="iso-a">${i.a}</span><span class="iso-sym">${e.symbol}</span>
-      <span class="iso-cap">${caption}</span><i class="iso-meter" style="--v:${meter.toFixed(3)}"></i></div>`;
+  const bars = isos.map((i) => {
+    const n = i.a - e.z;
+    const v = i.stable ? 1 : lifeMeter(i.halfLife);
+    const h = Math.max(2, v * (base - top));
+    const x = 4 + (n - n0) * bw;
+    const cls = `ic-bar${i.stable ? ' is-stable' : ''}${key && key.a === i.a ? ' is-key' : ''}`;
+    return `<rect class="${cls}" x="${f1(x + bw * 0.12)}" y="${f1(base - h)}" width="${f1(Math.max(1.5, bw * 0.76))}" height="${f1(h)}" rx="1" style="--v:${v.toFixed(3)}"><title>${e.symbol}-${i.a}: ${n} neutrons, ${i.stable ? 'stable' : formatHalfLife(i.halfLife)}</title></rect>`;
   }).join('');
+  const label = (n: number) => `<text x="${f1(4 + (n - n0 + 0.5) * bw)}" y="${H - 4}">${n}</text>`;
+  const marks = [n0, ...(key ? [key.a - e.z] : []), n1].filter((n, i, a) => a.indexOf(n) === i);
+  return `<figure class="ic">
+    <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Isotopes of ${esc(e.name.toLowerCase())} by neutron count; taller bars last longer, full cyan bars are stable.">
+      <path class="ic-base" d="M 4 ${base + 0.5} H ${W - 4}"/>${bars}${marks.map(label).join('')}
+    </svg>
+    <figcaption><span>fewer neutrons</span><span>Taller lasts longer · cyan is stable</span><span>more neutrons</span></figcaption>
+  </figure>`;
+}
+
+/** A small ring showing a share of 100%. */
+const shareRing = (pc: number) => {
+  const r = 9, c = 2 * Math.PI * r, d = Math.max(0.6, (pc / 100) * c);
+  return `<svg class="it-ring" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="${r}" class="it-ring-bg"/><circle cx="12" cy="12" r="${r}" class="it-ring-fg" stroke-dasharray="${f1(d)} ${f1(c)}" transform="rotate(-90 12 12)"/></svg>`;
+};
+
+/** The isotope table: one row each, with its lifetime on the shared log ruler and its share of
+ *  the natural element as a ring. Rows carry their kinds for the filter above. */
+function isotopeRows(e: Element): string {
+  const key = keyIsotope(e);
+  return e.isotopes.map((i) => {
+    const n = i.a - e.z;
+    const v = i.stable ? 1 : lifeMeter(i.halfLife);
+    const life = i.stable ? 'stable' : i.halfLife == null ? 'not known' : formatHalfLife(i.halfLife);
+    const share = i.abundance == null ? '' : `${shareRing(i.abundance)}<span>${Number(i.abundance.toPrecision(3))}%</span>`;
+    return `<div class="it-row${i.stable ? ' is-stable' : ''}${key && key.a === i.a ? ' is-key' : ''}" data-kinds="${isotopeKinds(i).join(' ')}">
+      <div class="it-name"><b><sup>${i.a}</sup>${e.symbol}</b><span>${n} neutron${n === 1 ? '' : 's'}</span></div>
+      <div class="it-life"><span class="it-track"><i style="--v:${v.toFixed(3)}"></i></span><span class="it-life-lab">${life}</span></div>
+      <div class="it-share">${share || '<span class="na">—</span>'}</div>
+    </div>`;
+  }).join('');
+}
+
+export function isotopeTable(e: Element): string {
+  const stable = e.isotopes.filter((i) => i.stable).length;
   const first = e.isotopes[0], last = e.isotopes[e.isotopes.length - 1];
+  const counts = Object.fromEntries(ISO_FILTERS.map((f) => [f.id, e.isotopes.filter((i) => isotopeKinds(i).includes(f.id)).length]));
   return `<div class="iso-head">
       <div><b>${e.isotopes.length}</b><span>isotopes known</span></div>
       <div><b>${stable}</b><span>stable</span></div>
       <div><b>${first ? first.a - e.z : 0}–${last ? last.a - e.z : 0}</b><span>neutrons</span></div>
     </div>
-    <p class="iso-intro">Every ${esc(e.name.toLowerCase())} atom has ${e.z} proton${e.z === 1 ? '' : 's'}; the neutrons vary. Bright tiles are stable, with their share of natural ${esc(e.name.toLowerCase())}; the others decay, and their bar shows how long they last.</p>
-    <div class="iso-album">${tiles}</div>`;
+    ${isotopeChart(e)}
+    <div class="it-filter" id="iso-filter" data-counts='${JSON.stringify(counts)}'></div>
+    <div class="it" id="iso-table" data-filter="all">
+      <div class="it-row it-headrow" aria-hidden="true"><div>Isotope</div><div>How long it lasts</div><div>In nature</div></div>
+      ${isotopeRows(e)}
+      <p class="it-empty">None of ${esc(e.name.toLowerCase())}'s isotopes fit this filter.</p>
+    </div>`;
 }
 
 // ---------- Properties: where this element sits among all of them ----------
