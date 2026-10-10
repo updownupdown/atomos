@@ -1,5 +1,8 @@
 // One modal sheet for the whole app: settings, element cards, the science
 // behind a puzzle. It lives outside every screen so any of them can open it.
+// Every sheet gets an X in its top-right corner; there is no need for a Close button.
+
+import { closeButton } from './components';
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -20,6 +23,7 @@ export function openModal(html: string, onClose: (() => void) | null = null): HT
   cleanup = onClose;
   const sheet = $('modal-sheet');
   sheet.innerHTML = html;
+  sheet.prepend(closeButton(closeModal));
   $('modal').hidden = false;
   sheet.scrollTop = 0;
   return sheet;

@@ -24,8 +24,10 @@ export interface PuzzleView {
   hint(): string;
 }
 
-export const MONO = "'Courier Prime', 'Courier New', monospace";
-export const SANS = "'Archivo Narrow', 'Arial Narrow', sans-serif";
+// Canvas text uses Outfit like the rest of the app (both names kept for existing callers).
+export const FONT = "'Outfit Variable', 'Outfit', system-ui, sans-serif";
+export const MONO = FONT;
+export const SANS = FONT;
 
 export const SUBSHELL_COLOURS = { s: '#5f8ae0', p: '#2ea57a', d: '#c07f1e', f: '#a865d6' } as const;
 
