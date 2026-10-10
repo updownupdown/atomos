@@ -663,13 +663,14 @@ body:not([data-screen='gallery']) .gal-modes { display: none; }
 .bar-btn:active { background: var(--c-surface-2); }
 .bar-btn:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
 .bar-btn:disabled { opacity: 0.3; cursor: default; background: var(--c-surface-3); }
-/* The element plate: number left, name centered, the three dots right. The side columns match so
-   the name sits in the true middle. */
-.bar-pick { flex: 1; min-width: 0; align-self: center; height: 44px; display: grid; grid-template-columns: 40px minmax(0, 1fr) 40px; align-items: center; padding: 0; border: 0; border-radius: var(--r-sm); background: var(--c-surface-3); color: var(--c-text); font-family: var(--font); cursor: pointer; }
+/* The element plate: number and symbol left, name centered, the three dots right. The side
+   columns match so the name sits in the true middle. */
+.bar-pick { flex: 1; min-width: 0; align-self: center; height: 44px; display: grid; grid-template-columns: 64px minmax(0, 1fr) 64px; align-items: center; padding: 0; border: 0; border-radius: var(--r-sm); background: var(--c-surface-3); color: var(--c-text); font-family: var(--font); cursor: pointer; }
 .bar-pick:hover { background: var(--c-pick); }
 .bar-pick:active { background: var(--c-surface-2); }
 .bar-pick:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
-.bar-z { justify-self: start; padding-left: var(--sp-3); font-size: var(--fs-sm); font-weight: var(--fw-semibold); color: var(--c-text-2); font-variant-numeric: tabular-nums; }
+.bar-z { justify-self: start; display: inline-flex; align-items: baseline; gap: 5px; white-space: nowrap; padding-left: var(--sp-3); font-size: var(--fs-sm); font-weight: var(--fw-semibold); color: var(--c-text-2); font-variant-numeric: tabular-nums; }
+.bar-z b { font-size: var(--fs-md); font-weight: var(--fw-bold); color: var(--c-text); }
 .bar-dots { justify-self: end; width: 40px; height: 40px; display: grid; place-items: center; color: var(--c-accent); }
 .bar-name { min-width: 0; overflow: hidden; white-space: nowrap; text-align: center; font-size: 15px; font-weight: var(--fw-bold); letter-spacing: var(--track, 0.24em); text-indent: var(--track, 0.24em); text-transform: uppercase; color: var(--c-text); }
 @media (max-width: 400px) { .atom-bar { gap: 6px; padding: 0 var(--sp-2); } .bar-btn { width: 36px; } }

@@ -1,6 +1,6 @@
 // The atom navigator: the bar across the top of the atom screens. The host places it (the
 // element is a plain flex row 60px tall). Previous on the far left, next on the far right, cyan
-// chevrons on small plates. Between them one gray plate is the element: its number on the left,
+// chevrons on small plates. Between them one gray plate is the element: number and symbol left,
 // its name centered in the wordmark's tracked capitals, the three dots always on the right;
 // tapping anywhere on it opens the element picker.
 // View's loupe and Build both mount one, so stepping through elements looks and works the
@@ -47,7 +47,7 @@ export function createAtomBar(o: AtomBarOptions): AtomBar {
     const e = elementAt(z);
     more.setAttribute('aria-label', `${e.name}, element ${e.z}. Choose another element`);
     name.textContent = e.name;
-    num.textContent = String(e.z);
+    num.innerHTML = `${e.z}<b>${e.symbol}</b>`;
     prev.disabled = z === 1;
     next.disabled = z === MAX_Z;
     prev.title = z > 1 ? elementAt(z - 1).name : '';
