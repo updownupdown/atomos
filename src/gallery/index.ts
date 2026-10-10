@@ -8,7 +8,7 @@ import { Detail } from './detail';
 import { Gallery } from './gallery';
 import { decoratorsHTML, TABS, tabHTML, type Tab } from './info';
 import { icon, type IconName } from '../ui/icons';
-import { closeButton, createTabs, type Tabs } from '../ui/components';
+import { closeButton, createTabs, showToast, type Tabs } from '../ui/components';
 import { isLayoutId, LAYOUT_STORY, LAYOUTS, type LayoutId } from './layouts';
 import { setScienceHandler, setScienceOpen } from '../ui/science';
 import { openModal } from '../ui/modal';
@@ -94,7 +94,7 @@ export class GalleryApp {
     $('loupe-next').innerHTML = icon('next', { size: 28 });
     $('loupe-prev').onclick = () => this.step(-1);
     $('loupe-next').onclick = () => this.step(1);
-    $('dec-name').onclick = () => this.toggleSheet();
+    $('bar-pick').onclick = () => this.openPicker();
     // Top right: the isotope summary opens a short list.
     $('dec-top-right').addEventListener('click', (ev) => {
       if ((ev.target as HTMLElement).closest('.iso-toggle')) this.setIsoOpen(!this.isoOpen);
@@ -103,10 +103,41 @@ export class GalleryApp {
     const card = $('sheet-card');
     card.prepend(closeButton(() => this.toggleSheet(false)));
     $('sheet').addEventListener('click', (ev) => { if (ev.target === $('sheet')) this.toggleSheet(false); });
-    $('sheet-build').onclick = () => { if (this.current) { this.toggleSheet(false); this.handlers.onBuild(this.current.z); } };
     this.tabs = createTabs(TABS.map((t) => ({ id: t.id, label: t.label })), { active: this.tab, label: 'About this element', onChange: (id) => this.setTab(id as Tab) });
     $('sheet-tabs').replaceWith(this.tabs.el);
     this.tabs.el.id = 'sheet-tabs';
+    this.bindTabSwipe();
+  }
+
+  /** The element picker opens from the number and symbol in the bar. */
+  private openPicker(): void {
+    // Stand-in until the shared drawer picker (openElementPicker) lands on main.
+    showToast('The element picker is coming next');
+  }
+
+  /** Swipe sideways in the science sheet to move between tabs; tables that scroll sideways keep the gesture. */
+  private bindTabSwipe(): void {
+    const body = $('sheet-body');
+    let start: { x: number; y: number; t: number } | null = null;
+    body.addEventListener('pointerdown', (ev) => {
+      start = null;
+      for (let n = ev.target as HTMLElement | null; n && n !== body; n = n.parentElement) {
+        if (n.scrollWidth > n.clientWidth + 2 && getComputedStyle(n).overflowX !== 'visible') return;
+      }
+      start = { x: ev.clientX, y: ev.clientY, t: performance.now() };
+    });
+    body.addEventListener('pointerup', (ev) => {
+      if (!start) return;
+      const dx = ev.clientX - start.x, dy = ev.clientY - start.y, dt = performance.now() - start.t;
+      start = null;
+      if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.6 || dt > 700) return;
+      const i = TABS.findIndex((t) => t.id === this.tab);
+      const next = TABS[i + (dx < 0 ? 1 : -1)];
+      if (!next) return;
+      this.tabs.select(next.id);
+      this.setTab(next.id);
+    });
+    body.addEventListener('pointercancel', () => { start = null; });
   }
 
   private setRings(on: boolean): void {
@@ -169,6 +200,7 @@ export class GalleryApp {
     $('dec-top-right').innerHTML = `<button class="iso-toggle" aria-expanded="false" aria-controls="iso-list">${dec.isoSummary}<span class="chev"></span></button><div class="iso-list" id="iso-list">${dec.isoList}</div>`;
     this.setIsoOpen(this.isoOpen);
     $('dec-name').innerHTML = dec.name;
+    $('bar-pick').innerHTML = `${dec.pick}<span class="bar-chev">${icon('chevron-up', { size: 18 })}</span>`;
     $<HTMLButtonElement>('loupe-prev').disabled = e.z === 1;
     $<HTMLButtonElement>('loupe-next').disabled = e.z === MAX_Z;
     $('loupe-prev').title = e.z > 1 ? elementAt(e.z - 1).name : '';
@@ -231,7 +263,6 @@ export class GalleryApp {
     this.sheetOpen = open;
     const sheet = $('sheet');
     sheet.hidden = !open;
-    $('dec-name').setAttribute('aria-expanded', String(open));
     setScienceOpen(open);
     if (open) {
       this.renderSheet();
@@ -242,13 +273,14 @@ export class GalleryApp {
   private setTab(tab: Tab): void {
     this.tab = tab;
     this.renderSheet();
+    $('sheet-body').scrollTop = 0;
+    this.tabs.el.querySelector<HTMLElement>('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
   }
 
   private renderSheet(): void {
     if (!this.current) return;
     const e = this.current;
     $('sheet-title').innerHTML = `<b>${e.symbol}</b> ${e.name} <span class="dim">${e.z}</span>`;
-    $('sheet-build').hidden = false;
     $('sheet-body').innerHTML = tabHTML(e, this.tab, this.collected(e.z));
     $('sheet-body').scrollTop = 0;
   }

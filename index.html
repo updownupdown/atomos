@@ -56,7 +56,10 @@
         </div>
         <footer class="loupe-bar">
           <button class="bar-arrow" id="loupe-prev" aria-label="Previous element"></button>
-          <button class="bar-name" id="dec-name" aria-label="Open the science of this element"></button>
+          <div class="bar-mid">
+            <button class="bar-pick" id="bar-pick" aria-haspopup="dialog" aria-label="Choose another element"></button>
+            <span class="bar-name" id="dec-name"></span>
+          </div>
           <button class="bar-arrow" id="loupe-next" aria-label="Next element"></button>
         </footer>
       </section>
@@ -144,7 +147,6 @@
       <div class="ui-modal-card atom-card" id="sheet-card">
         <div class="ui-modal-head atom-head">
           <h2 id="sheet-title"></h2>
-          <button class="text-btn" id="sheet-build">Build it</button>
         </div>
         <div id="sheet-tabs"></div>
         <div class="sheet-body" id="sheet-body"></div>

@@ -516,12 +516,13 @@ body.stage-nucleus #atom { opacity: 0.12; }
 .bar-arrow { flex: none; width: 64px; display: flex; align-items: center; justify-content: center; background: none; border: 0; color: var(--c-silver); cursor: pointer; }
 .bar-arrow:hover { background: var(--c-surface-2); }
 .bar-arrow:disabled { opacity: 0.2; cursor: default; background: none; }
-.bar-name { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center; gap: var(--sp-2); background: none; border: 0; border-left: 1px solid var(--c-line); border-right: 1px solid var(--c-line); color: var(--c-silver); font-family: var(--font); cursor: pointer; white-space: nowrap; overflow: hidden; }
-.bar-name:hover { background: var(--c-surface); }
+.bar-mid { position: relative; flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center; border-left: 1px solid var(--c-line); border-right: 1px solid var(--c-line); }
+.bar-pick { position: absolute; left: 0; top: 0; bottom: 0; display: flex; align-items: center; gap: var(--sp-2); padding: 0 var(--sp-3); background: none; border: 0; color: var(--c-silver); font-family: var(--font); cursor: pointer; }
+.bar-pick:hover { background: var(--c-surface); }
+.bar-chev { display: inline-flex; color: var(--c-text-2); margin-left: -2px; }
+.bar-name { font-family: var(--font); font-size: var(--fs-lg); color: var(--c-silver); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: calc(100% - 180px); }
 .dec-z { font-size: var(--fs-sm); color: var(--c-text-2); font-variant-numeric: tabular-nums; }
 .dec-sym { font-weight: var(--fw-semibold); font-size: var(--fs-2xl); line-height: 1; }
-.dec-name { font-weight: var(--fw-regular); font-size: var(--fs-lg); overflow: hidden; text-overflow: ellipsis; }
-.bar-science { display: inline-flex; color: var(--c-text-2); margin-left: var(--sp-1); }
 .pill { font-size: 10px; padding: 1px 5px; border-radius: 4px; color: var(--c-bg); font-weight: 700; }
 .pill.core { background: transparent; color: var(--label-muted); border: 1px dashed var(--c-text-3); font-weight: 400; }
 
@@ -533,7 +534,7 @@ body.stage-nucleus #atom { opacity: 0.12; }
 .atom-head h2 .dim { color: var(--c-text-2); font-size: var(--fs-md); font-weight: var(--fw-regular); }
 .atom-head .text-btn { font-family: var(--font); }
 .atom-card .ui-tabs { padding: 0 var(--sp-4); flex: none; }
-.sheet-body { flex: 1; min-height: 0; overflow-y: auto; padding: var(--sp-3) var(--sp-5) var(--sp-5); font-family: var(--font); font-size: var(--fs-sm); line-height: 1.5; }
+.sheet-body { flex: 1; min-height: 0; overflow-y: auto; touch-action: pan-y; padding: var(--sp-3) var(--sp-5) var(--sp-5); font-family: var(--font); font-size: var(--fs-sm); line-height: 1.5; }
 .sheet-body .lead { font-size: 14px; margin: 6px 0 14px; max-width: 64ch; }
 .sheet-body .kv { display: grid; grid-template-columns: minmax(120px, 38%) 1fr; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--line); }
 .sheet-body .kv span { color: var(--muted); }

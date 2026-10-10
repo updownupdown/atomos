@@ -20,7 +20,7 @@ const kelvin = (k: number | null) => (k == null ? '<span class="na">not known</s
 const row = (label: string, value: string) => `<div class="kv"><span>${label}</span><b>${value}</b></div>`;
 
 /** Small white captions round the loupe: the simple layer, worn like plate markings. */
-export function decoratorsHTML(e: Element, collected: boolean): { topLeft: string; isoSummary: string; isoList: string; name: string } {
+export function decoratorsHTML(e: Element, collected: boolean): { topLeft: string; isoSummary: string; isoList: string; name: string; pick: string } {
   const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
   const key = keyIsotope(e);
   const stable = e.isotopes.filter((i) => i.stable);
@@ -41,7 +41,8 @@ export function decoratorsHTML(e: Element, collected: boolean): { topLeft: strin
       + (collected ? '' : '<span class="dim">not yet collected</span>'),
     isoSummary,
     isoList,
-    name: `<span class="dec-z">${e.z}</span><span class="dec-sym">${e.symbol}</span><span class="dec-name">${esc(e.name)}</span>`,
+    name: esc(e.name),
+    pick: `<span class="dec-z">${e.z}</span><span class="dec-sym">${e.symbol}</span>`,
   };
 }
 
