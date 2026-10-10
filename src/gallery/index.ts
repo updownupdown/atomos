@@ -21,6 +21,7 @@ import { closeModal, openModal } from '../ui/modal';
 import { loadSave, writeSave, type SaveData } from '../core/save';
 import { atomBuilt, fleetingTotal, atomProgress, rowSpan, orbitalShapeUnlocked, rowOf, rowOpen, SHAPE_AT, stepState } from '../core/progress';
 import { createElementList, type ElementList } from '../ui/elementlist';
+import { nextLabel, nextStep, openAtom, openStep, type NextStep } from '../core/next';
 import { isUnlocked, unlockPuzzle, type UnlockId } from '../core/unlocks';
 import { PUZZLES } from '../puzzles/catalog';
 import { playUnlock } from '../puzzles/unlock';
@@ -40,11 +41,22 @@ export interface GalleryHandlers {
   onLoupe?: (z: number | null) => void;
 }
 
+/** What the next step asks for, under its label: "Tokamak · gather its nucleus". */
+function upNextWhat(step: NextStep): string {
+  const what: Record<NextStep['kind'], string> = {
+    resume: 'pick up where you left off', nucleus: 'gather its nucleus', electrons: 'place its electrons',
+    lasting: 'a lasting isotope', discovery: 'discover a new shape',
+  };
+  return `${step.gameName} · ${what[step.kind]}`;
+}
+
 export class GalleryApp {
   private save: SaveData = loadSave();
   private gallery: Gallery;
   private detail: Detail;
   private current: Element | null = null;
+  /** The Up next card above the Collection list. */
+  private upNext = Object.assign(document.createElement('div'), { className: 'up-next', hidden: true });
   private tab: ViewTab = 'model';
   private isoFilter = 'all';
   private structView = 'blueprint';
@@ -116,6 +128,8 @@ export class GalleryApp {
     this.detail.setHiddenShapes(this.hiddenShapes);
     this.paintShapeNote();
     this.paintOverall();
+    this.paintUpNext();
+    if (this.current && !$('loupe-screen').hidden) this.paintViewNext();
     this.list?.refresh();
     // The Isotopes page shows what is built and what has decayed.
     if (this.tab === 'isotopes') this.renderPanel();
@@ -419,8 +433,39 @@ export class GalleryApp {
         thumbs: (z) => atomThumb(z, this.litOf(z)),
         fleetingTotal: true,
       });
-      $('gal-collection').append(this.collection.el);
+      $('gal-collection').append(this.upNext, this.collection.el);
+      this.paintUpNext();
     }
+  }
+
+  /** The Up next card above the Collection: the one next thing to do (nextStep), with the Next
+   *  button. It doubles as Continue for a returning player: a half-done puzzle comes first. */
+  private paintUpNext(): void {
+    const step = nextStep(this.save);
+    const card = this.upNext;
+    card.hidden = !step;
+    if (!step) { card.replaceChildren(); return; }
+    const key = `${step.kind}/${step.z}/${step.stage}`;
+    if (card.dataset.key !== key) {
+      card.dataset.key = key;
+      const e = elementAt(step.z);
+      card.innerHTML = `<span class="up-pic"><span class="up-tile">${e.symbol}</span></span>
+        <span class="up-text"><small>${step.kind === 'resume' ? 'Continue' : 'Up next'}</small><b>${step.label}</b><span>${upNextWhat(step)}</span></span>`;
+      card.append(nextButton({ label: step.kind === 'resume' ? 'Resume' : 'Next', compact: true, landKey: 'gallery-upnext', onClick: () => openStep(step) }));
+      void atomThumb(step.z, this.litOf(step.z)).then((url) => {
+        if (!url || card.dataset.key !== key) return;
+        const img = document.createElement('img');
+        img.src = url;
+        img.alt = '';
+        card.querySelector('.up-pic')!.append(img);
+      });
+    }
+    this.setUpNextShown(true);
+  }
+
+  /** Only one Next button may show at once: the card stands aside under the atom view or a sheet. */
+  private setUpNextShown(on: boolean): void {
+    this.upNext.classList.toggle('is-away', !on || !$('loupe-screen').hidden);
   }
 
   /** Run the map's render loop, unless a panel covers it. */
@@ -458,8 +503,7 @@ export class GalleryApp {
    *  one opens View, and one whose period is shut says what opens it. */
   private pick(z: number): void {
     if (this.buildLocked(z)) { this.offerPeriod(z); return; }
-    if (atomBuilt(z, this.save)) this.open(elementAt(z));
-    else this.handlers.onBuild(z);
+    openAtom(z);
   }
 
   /** A locked atom: which period opens it, a way to the atom that helps, and a look at this one. */
@@ -468,15 +512,17 @@ export class GalleryApp {
     const [first, last] = rowSpan(rowOf(z) - 1);
     let target = first;
     for (let a = first; a <= last; a++) if (!atomBuilt(a, this.save)) { target = a; break; }
-    const t = elementAt(target);
+    const step = nextStep(this.save, target);
     const sheet = openModal(`<h2>${e.name}</h2>
       <div class="gate-sheet">
         <p class="gate-why">${icon('lock', { size: 20 })}<span>${periodSentence(z, this.save) ?? ''}</span></p>
         <div class="gate-next"></div>
         <button class="secondary gate-look">${icon('mode-view', { size: 20 })}<span>Look at ${e.name.toLowerCase()}</span></button>
-      </div>`);
-    const go = nextButton({ label: `Build ${t.name.toLowerCase()}`, landKey: 'period-sheet', onClick: () => { closeModal(); this.handlers.onBuild(target); } });
-    sheet.querySelector('.gate-next')!.append(go);
+      </div>`, () => this.setUpNextShown(true));
+    if (step) {
+      this.setUpNextShown(false);
+      sheet.querySelector('.gate-next')!.append(nextButton({ label: nextLabel(step), landKey: 'period-sheet', onClick: () => { closeModal(); openStep(step); } }));
+    }
     sheet.querySelector<HTMLButtonElement>('.gate-look')!.onclick = () => { closeModal(); this.open(e); };
   }
 
@@ -501,7 +547,20 @@ export class GalleryApp {
       requestAnimationFrame(() => { screen.classList.add('in'); this.tabs.select(this.tab); });
     }
     this.registerScience();
+    this.paintViewNext();
+    this.setUpNextShown(false);
     this.handlers.onLoupe?.(e.z);
+  }
+
+  /** On an atom still to build (in an open period), a Next button to build it. */
+  private paintViewNext(): void {
+    const slot = $('view-next');
+    const z = this.current?.z;
+    const step = z && !atomBuilt(z, this.save) && !this.buildLocked(z) ? nextStep(this.save, z) : null;
+    slot.replaceChildren();
+    slot.hidden = !step;
+    $('loupe-screen').classList.toggle('has-next', Boolean(step));
+    if (step) slot.append(nextButton({ label: step.kind === 'resume' ? step.label : `Build ${elementAt(step.z).name.toLowerCase()}`, compact: true, landKey: 'atom-view', onClick: () => openStep(step) }));
   }
 
   /** The microscope: the arrangement's story on the map. In the atom view each page has its own
@@ -540,7 +599,7 @@ export class GalleryApp {
     this.detail.stop();
     if (this.current) this.gallery.focus(this.current.z);
     this.startMap();
-    window.setTimeout(() => { screen.hidden = true; this.registerScience(); }, 220);
+    window.setTimeout(() => { screen.hidden = true; this.registerScience(); this.paintUpNext(); }, 220);
     this.handlers.onLoupe?.(null);
   }
 

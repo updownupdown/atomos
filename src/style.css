@@ -611,6 +611,26 @@ body:not([data-screen='gallery']) .gal-modes { display: none; }
 .dec-more { margin-top: 2px; }
 
 /* Above the bar: the scale legend on the left, the drawing style on the right. */
+/* An atom still to build: its Next button floats at the foot of the View page, above the
+   corner tools (which move up to make room) and over the text pages. */
+.view-next { position: absolute; left: 0; right: 0; bottom: calc(var(--sp-3) + var(--safe-bottom)); z-index: 5; display: flex; justify-content: center; pointer-events: none; }
+.view-next[hidden] { display: none; }
+.view-next > * { pointer-events: auto; }
+.loupe-screen.has-next .loupe-tools { bottom: calc(var(--sp-3) + var(--safe-bottom) + 60px); }
+.loupe-screen.has-next .atom-panel { padding-bottom: calc(var(--safe-bottom) + 76px); }
+/* The Up next card above the Collection list: the atom, what to do next, and the Next button. */
+.up-next { flex: none; display: grid; grid-template-columns: 64px minmax(0, 1fr) auto; align-items: center; gap: var(--sp-3); margin: var(--sp-2) 0 var(--sp-1); padding: var(--sp-2) var(--sp-3) var(--sp-2) var(--sp-2); border-radius: var(--r-md); background: var(--c-surface); }
+.up-next[hidden] { display: none; }
+.up-next.is-away .ui-next { display: none; }
+.up-pic { position: relative; width: 64px; height: 64px; display: grid; place-items: center; }
+.up-tile { width: 52px; height: 52px; display: grid; place-items: center; border-radius: var(--r-sm); background: var(--c-surface-2); font-size: 20px; font-weight: var(--fw-bold); transition: opacity 0.4s; }
+.up-pic img { position: absolute; inset: -10px; width: 84px; height: 84px; }
+.up-pic img + .up-tile, .up-pic:has(img) .up-tile { opacity: 0; }
+.up-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.up-text small { font-size: var(--fs-sm); color: var(--c-text-2); }
+.up-text b { font-size: 17px; font-weight: var(--fw-semibold); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.up-text span { font-size: var(--fs-sm); color: var(--c-text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
 .loupe-tools { position: absolute; left: 0; right: 0; bottom: calc(var(--sp-3) + var(--safe-bottom)); z-index: 2; display: flex; align-items: flex-end; justify-content: space-between; gap: var(--sp-2); padding: 0 var(--sp-3); pointer-events: none; }
 .loupe-tools > * { pointer-events: auto; }
 /* The two corner tools: a caption, then chips (icon and label). Left, the scale circles stacked
