@@ -35,10 +35,13 @@ const FIT_STEPS = 10;
 export function createAtomBar(o: AtomBarOptions): AtomBar {
   const el = document.createElement('footer');
   el.className = 'loupe-bar atom-bar';
-  el.innerHTML = `<button class="bar-mid" aria-haspopup="dialog"></button>`
+  // The card (three dots, symbol, number, weight) opens the picker; the name beside it is a label.
+  el.innerHTML = `<div class="bar-mid"><button class="bar-card" aria-haspopup="dialog"></button><span class="bar-name"></span></div>`
     + `<button class="bar-arrow" data-dir="-1" aria-label="Previous element">${icon('chevron-left', { size: 28 })}</button>`
     + `<button class="bar-arrow" data-dir="1" aria-label="Next element">${icon('chevron-right', { size: 28 })}</button>`;
-  const [mid, prev, next] = [...el.querySelectorAll<HTMLButtonElement>('button')];
+  const [card, prev, next] = [...el.querySelectorAll<HTMLButtonElement>('button')];
+  const mid = el.querySelector<HTMLElement>('.bar-mid')!;
+  const name = el.querySelector<HTMLElement>('.bar-name')!;
   let z = 1;
   const set = (to: number) => {
     z = Math.max(1, Math.min(MAX_Z, to));
@@ -46,10 +49,10 @@ export function createAtomBar(o: AtomBarOptions): AtomBar {
     // Standard atomic weight; for elements without one, the mass number of the longest-lived
     // isotope in brackets, as periodic tables print it.
     const weight = e.weight == null ? `[${e.commonA}]` : `${Number(e.weight.toPrecision(5))}`;
-    mid.innerHTML = `<span class="bar-cell"><span class="bar-sym">${e.symbol}</span><span class="bar-z">${e.z}</span><span class="bar-w">${weight}</span></span>`
-      + `<span class="bar-rule" aria-hidden="true"></span><span class="bar-name">${e.name}</span>`
-      + `<span class="bar-more">${icon('more-vertical', { size: 22 })}</span>`;
-    mid.setAttribute('aria-label', `${e.name}, element ${e.z}. Choose another element`);
+    card.innerHTML = `<span class="bar-more">${icon('more-vertical', { size: 22 })}</span>`
+      + `<span class="bar-cell"><span class="bar-sym">${e.symbol}</span><span class="bar-z">${e.z}</span><span class="bar-w">${weight}</span></span>`;
+    card.setAttribute('aria-label', `${e.name}, element ${e.z}. Choose another element`);
+    name.textContent = e.name;
     prev.disabled = z === 1;
     next.disabled = z === MAX_Z;
     prev.title = z > 1 ? elementAt(z - 1).name : '';
@@ -58,8 +61,7 @@ export function createAtomBar(o: AtomBarOptions): AtomBar {
   };
   // Largest size first: 15px at 0.24em tracking, down to 10px at 0.1em.
   const fit = () => {
-    const name = mid.querySelector<HTMLElement>('.bar-name');
-    if (!name || !mid.clientWidth) return; // hidden: the observer refits once it shows
+    if (!name.clientWidth) return; // hidden: the observer refits once it shows
     for (let i = 0; i <= FIT_STEPS; i++) {
       const t = i / FIT_STEPS;
       name.style.fontSize = `${15 - 5 * t}px`;
@@ -75,7 +77,7 @@ export function createAtomBar(o: AtomBarOptions): AtomBar {
   };
   prev.onclick = () => go(z - 1);
   next.onclick = () => go(z + 1);
-  mid.onclick = () => openElementPicker((p) => go(p), { current: z, locked: o.locked });
+  card.onclick = () => openElementPicker((p) => go(p), { current: z, locked: o.locked });
   set(z);
   return { el, set, get z() { return z; } };
 }

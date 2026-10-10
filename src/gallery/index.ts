@@ -126,9 +126,10 @@ export class GalleryApp {
     // plain label. Bottom right: how the atom is drawn.
     const styleIcon: Record<Style, IconName> = { cloud: 'view-cloud', shapes: 'view-shapes', hybrid: 'view-hybrid' };
     const styles = $('style-switch');
-    styles.innerHTML = `<div class="tool-group" id="draw-group"><span class="tool-cap">Draw as</span>`
-      + STYLES.map((s) => `<button class="tool-chip" data-id="${s.id}" aria-pressed="${s.id === this.style}">${icon(styleIcon[s.id], { size: 18 })}<span>${s.label}</span></button>`).join('')
-      + `<p class="tool-note" id="shape-note" hidden></p></div>`
+    styles.innerHTML = `<div class="tool-group" id="draw-group"><span class="tool-cap" id="draw-cap">Draw as</span>`
+      + `<div class="tool-seg" role="radiogroup" aria-labelledby="draw-cap">`
+      + STYLES.map((s) => `<button role="radio" data-id="${s.id}" aria-checked="${s.id === this.style}">${icon(styleIcon[s.id], { size: 18 })}<span>${s.label}</span></button>`).join('')
+      + `</div><p class="tool-note" id="shape-note" hidden></p></div>`
       // Below it, the nucleus up close (opened with Aurum) and back.
       + `<div class="tool-group"><span class="tool-cap">Zoom to</span><button class="tool-chip" id="nucleus-chip"></button><p class="tool-note" id="nucleus-note" hidden></p></div>`;
     styles.querySelectorAll<HTMLButtonElement>('button[data-id]').forEach((b) => (b.onclick = () => this.setStyle(b.dataset.id as Style)));
@@ -143,11 +144,20 @@ export class GalleryApp {
     const line = (style: string) => `<svg width="18" height="4" aria-hidden="true"><line x1="1" y1="2" x2="17" y2="2" stroke="currentColor" stroke-width="1.5"${style === 'dashed' ? ' stroke-dasharray="3 2.5"' : ''}/></svg>`;
     const legend = $('scale-legend');
     const rows = (sizes: { d: number; style: string }[], unit: string) => sizes.map((r, i) => `<li>${line(r.style)}<span>${r.d}${i === sizes.length - 1 ? ` ${unit}` : ''}</span></li>`).join('');
-    legend.innerHTML = `<span class="tool-cap">Scale circles</span>`
-      + `<ul id="rings-atom">${rows(CLOUD_RINGS.map((r) => ({ d: r.pm * 2, style: r.style })), 'pm')}</ul>`
+    legend.innerHTML = `<ul id="rings-atom">${rows(CLOUD_RINGS.map((r) => ({ d: r.pm * 2, style: r.style })), 'pm')}</ul>`
       + `<ul id="rings-nucleus" hidden>${rows(NUCLEUS_RINGS.map((r) => ({ d: r.fm * 2, style: r.style })), 'fm')}</ul>`
       + `<button class="tool-chip" id="rings-toggle" aria-pressed="${this.rings}"></button>`;
     $('rings-toggle').onclick = () => this.setRings(!this.rings);
+    // The corner notes are pale on purpose; a tap lights one up to read, and it fades back.
+    for (const id of ['dec-top-left', 'dec-top-right']) {
+      const dec = $(id);
+      let timer = 0;
+      dec.onclick = () => {
+        dec.classList.add('lit');
+        clearTimeout(timer);
+        timer = window.setTimeout(() => dec.classList.remove('lit'), 400);
+      };
+    }
     this.paintRingsToggle();
     // The bar: previous, the element (opens the picker), next.
     this.bar = createAtomBar({ onChange: (z) => this.open(elementAt(z)), locked: (z) => this.buildLocked(z) });
@@ -221,7 +231,7 @@ export class GalleryApp {
   private paintRingsToggle(): void {
     const b = $('rings-toggle');
     // The chip names what tapping it does, like the drawing chips name what they draw.
-    b.innerHTML = `${icon(this.rings ? 'scale-off' : 'scale', { size: 18 })}<span>${this.rings ? 'Hide' : 'Show'}</span>`;
+    b.innerHTML = `${icon(this.rings ? 'scale-off' : 'scale', { size: 18 })}<span>${this.rings ? 'Hide scale' : 'Show scale'}</span>`;
     b.setAttribute('aria-label', this.rings ? 'Hide the scale circles' : 'Show the scale circles');
     $('scale-legend').classList.toggle('off', !this.rings);
   }
@@ -352,7 +362,7 @@ export class GalleryApp {
   private setStyle(style: Style): void {
     this.style = style;
     localStorage.setItem('atomos.gallery.style', style);
-    $('style-switch').querySelectorAll<HTMLButtonElement>('button[data-id]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.id === style)));
+    $('style-switch').querySelectorAll<HTMLButtonElement>('button[data-id]').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.id === style)));
     this.detail.setStyle(style);
     this.paintShapeNote();
   }
@@ -472,7 +482,7 @@ export class GalleryApp {
     panel.setAttribute('aria-label', VIEW_TABS.find((t) => t.id === this.tab)!.label);
   }
 
-  /** The structure page's three ways to see the atom: the blueprint, the shells as they are, the orbital boxes. */
+  /** The structure page's ways to see the atom: the blueprint, the shells, the orbital boxes, the 2D shapes. */
   private mountStructureSwitch(): void {
     const slot = document.getElementById('struct-switch');
     if (!slot) return;
@@ -483,6 +493,21 @@ export class GalleryApp {
     };
     const seg = createSegments(STRUCTURE_VIEWS, { active: this.structView, label: 'How to see the structure', onChange: apply });
     slot.append(seg.el);
+    // The 2D shapes keep the same secret as 3D Shapes: a kind Flux has not found yet shows a "?".
+    const hidden = new Set<string>(this.hiddenShapes);
+    const kinds = new Set<string>();
+    document.querySelectorAll<HTMLElement>('.os-glyph[data-l]').forEach((g) => {
+      const off = hidden.has(g.dataset.l!);
+      g.classList.toggle('is-hidden', off);
+      if (off) kinds.add(g.dataset.l!);
+    });
+    const note = document.querySelector<HTMLElement>('.os-hidden-note');
+    if (note && kinds.size) {
+      const ls = [...kinds] as OrbitalShape[];
+      const and = (xs: string[]) => xs.length > 1 ? `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}` : xs[0];
+      note.hidden = false;
+      note.textContent = `The ${and(ls)} shapes are still undiscovered. Find them with Flux on ${and(ls.map((l) => elementAt(SHAPE_AT[l]).name.toLowerCase()))}.`;
+    }
     seg.select(this.structView);
     apply(this.structView);
   }
