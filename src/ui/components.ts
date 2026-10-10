@@ -488,21 +488,28 @@ let openDrawers = 0;
  *  a strip of the page above it in view. Unlike a modal it closes with a chevron, by tapping
  *  the page above it, by dragging the chevron down, or with Escape. */
 export function openDrawer(o: DrawerOptions): Drawer {
+  // The scrim covers the screen; the frame below the header holds the blurred mask and the
+  // panel, so the panel slides out from under the header and never over it. A strip of mask
+  // stays visible under the panel; tapping it, or the header area, closes the drawer.
   const scrim = el('div', 'ui-drawer-scrim');
+  const frame = el('div', 'ui-drawer-frame');
   const panel = el('section', 'ui-drawer');
   panel.setAttribute('role', 'dialog');
   panel.setAttribute('aria-modal', 'true');
   panel.setAttribute('aria-label', o.label);
   const head = el('div', 'ui-drawer-head');
-  const handle = el('button', 'ui-drawer-handle', icon('chevron-down'));
-  handle.type = 'button';
-  handle.setAttribute('aria-label', 'Close');
-  head.append(handle);
   if (o.title) head.append(el('h2', 'ui-drawer-title', esc(o.title)));
   const body = el('div', 'ui-drawer-body');
   if (o.content) body.append(o.content);
-  panel.append(head, body);
-  scrim.append(panel);
+  const foot = el('div', 'ui-drawer-foot');
+  const handle = el('button', 'ui-drawer-handle', icon('chevron-up'));
+  handle.type = 'button';
+  handle.setAttribute('aria-label', 'Close');
+  foot.append(handle);
+  if (o.title) panel.append(head);
+  panel.append(body, foot);
+  frame.append(panel);
+  scrim.append(frame);
   document.body.append(scrim);
   openDrawers++;
   const before = document.activeElement as HTMLElement | null;
@@ -522,33 +529,33 @@ export function openDrawer(o: DrawerOptions): Drawer {
   };
   const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.stopPropagation(); close(); } };
   window.addEventListener('keydown', onKey, true);
-  scrim.addEventListener('click', (e) => { if (e.target === scrim) close(); });
+  scrim.addEventListener('click', (e) => { if (e.target === scrim || e.target === frame) close(); });
 
-  // Drag the chevron (or the head) down to close; a short tap closes too.
+  // Drag the chevron up to close; a short tap closes too.
   let startY = 0;
   let dy = 0;
   let dragging = false;
-  head.addEventListener('pointerdown', (e) => {
+  foot.addEventListener('pointerdown', (e) => {
     dragging = true;
     startY = e.clientY;
     dy = 0;
-    head.setPointerCapture(e.pointerId);
+    foot.setPointerCapture(e.pointerId);
     panel.classList.add('is-dragging');
   });
-  head.addEventListener('pointermove', (e) => {
+  foot.addEventListener('pointermove', (e) => {
     if (!dragging) return;
-    dy = Math.max(0, e.clientY - startY);
+    dy = Math.min(0, e.clientY - startY);
     panel.style.transform = `translate(-50%, ${dy}px)`;
   });
   const end = () => {
     if (!dragging) return;
     dragging = false;
     panel.classList.remove('is-dragging');
-    if (dy > 80 || dy < 6) close();
+    if (dy < -80 || dy > -6) close();
     else panel.style.transform = '';
   };
-  head.addEventListener('pointerup', end);
-  head.addEventListener('pointercancel', () => { dragging = false; panel.classList.remove('is-dragging'); panel.style.transform = ''; });
+  foot.addEventListener('pointerup', end);
+  foot.addEventListener('pointercancel', () => { dragging = false; panel.classList.remove('is-dragging'); panel.style.transform = ''; });
   handle.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); close(); } });
   handle.focus({ preventScroll: true });
   return { el: panel, body, close };
