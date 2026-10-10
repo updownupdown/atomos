@@ -1,9 +1,9 @@
-// The vitrine: every element as a small live atom, arranged by the chosen
-// layout, with pan, pinch zoom and (for the helix) rotation. Tapping an atom
-// hands its element to the owner, which opens the loupe.
+// The vitrine: every element as a text tile (number and symbol), arranged by
+// the chosen layout, with pan and pinch zoom. Collected elements are solid
+// tiles; the rest are outlines with a bar for how far along their puzzles are.
+// Tapping a tile hands its element to the owner, which opens the atom view.
 
 import * as THREE from 'three';
-import { AtomView } from './atom';
 import { BLOCK_COLOUR, ELEMENTS, elementAt, type Element } from './data';
 import { layout, type LayoutId, type Placed, type Tone } from './layouts';
 import { token } from './tokens';
@@ -19,15 +19,17 @@ const TONE: Record<Tone, { color: string; opacity: number }> = {
 
 interface Node {
   e: Element;
-  view: AtomView;
+  pos: THREE.Vector3;
   from: THREE.Vector3;
   to: THREE.Vector3;
-  label: HTMLSpanElement;
-  phase: number;
+  tile: HTMLDivElement;
+  bar: HTMLElement;
 }
 
-/** Atoms keep their true relative sizes but are shrunk so even francium leaves a clear gap to its neighbours. */
-const ATOM_SCALE = 0.23;
+/** A tile's width as a share of the layout's unit spacing, and the pixel sizes where its text appears. */
+const TILE_SHARE = 0.84;
+const SHOW_SYMBOL = 15;
+const SHOW_NUMBER = 34;
 
 interface Pointer { id: number; x: number; y: number }
 
@@ -53,7 +55,6 @@ export class Gallery {
   private width = 1;
   private height = 1;
   private selected: number | null = null;
-  private ring: THREE.Line;
   private last = performance.now();
   private raf = 0;
   private collected = new Set<number>();
@@ -68,19 +69,13 @@ export class Gallery {
     this.scene.add(this.root);
     this.root.add(this.guides);
     for (const e of ELEMENTS) {
-      const view = new AtomView({ perSlot: 6, shapes: false, pointSize: 1 });
-      view.setElement(e, false);
-      this.root.add(view.group);
-      const label = document.createElement('span');
-      label.textContent = e.symbol;
-      labels.appendChild(label);
-      this.nodes.push({ e, view, from: new THREE.Vector3(), to: new THREE.Vector3(), label, phase: e.z * 0.37 });
+      const tile = document.createElement('div');
+      tile.className = 'gtile';
+      tile.style.setProperty('--b', BLOCK_COLOUR[e.block]);
+      tile.innerHTML = `<span class="gt-z">${e.z}</span><b class="gt-sym">${e.symbol}</b><i class="gt-bar"></i>`;
+      labels.appendChild(tile);
+      this.nodes.push({ e, pos: new THREE.Vector3(), from: new THREE.Vector3(), to: new THREE.Vector3(), tile, bar: tile.querySelector<HTMLElement>('.gt-bar')! });
     }
-    const pts: THREE.Vector3[] = [];
-    for (let i = 0; i <= 96; i++) pts.push(new THREE.Vector3(Math.cos((i / 96) * Math.PI * 2), Math.sin((i / 96) * Math.PI * 2), 0));
-    this.ring = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: token('--c-target', '#e0503a'), transparent: true, opacity: 0.9 }));
-    this.ring.visible = false;
-    this.root.add(this.ring);
     this.setLayout('spiral', false);
     this.bind();
     new ResizeObserver(() => this.resize()).observe(canvas);
@@ -89,12 +84,16 @@ export class Gallery {
 
   setReducedMotion(on: boolean): void { this.reducedMotion = on; }
 
-  setCollected(zs: Iterable<number>): void {
+  /** Which elements are collected, and how far along (0 to 1) the rest are. */
+  setCollected(zs: Iterable<number>, progress: (z: number) => number = () => 0): void {
     this.collected = new Set(zs);
     for (const n of this.nodes) {
       const got = this.collected.has(n.e.z);
-      n.view.setDim(got ? 1 : 0.5);
-      n.label.classList.toggle('locked', !got);
+      const p = got ? 1 : Math.max(0, Math.min(1, progress(n.e.z)));
+      n.tile.classList.toggle('is-got', got);
+      n.tile.classList.toggle('is-started', !got && p > 0);
+      n.bar.style.setProperty('--p', p.toFixed(3));
+      n.tile.setAttribute('aria-label', `${n.e.z} ${n.e.name}, ${got ? 'collected' : p > 0 ? `${Math.round(p * 100)}% of the way` : 'not collected yet'}`);
     }
   }
 
@@ -103,12 +102,12 @@ export class Gallery {
     const l = layout(id);
     const byZ = new Map<number, Placed>(l.atoms.map((a) => [a.z, a]));
     for (const n of this.nodes) {
-      n.from.copy(n.view.group.position);
+      n.from.copy(n.pos);
       const p = byZ.get(n.e.z)!;
       n.to.set(p.x, p.y, p.zz);
     }
     this.transition = animate && !this.reducedMotion ? 0 : 1;
-    if (this.transition >= 1) for (const n of this.nodes) n.view.group.position.copy(n.to);
+    if (this.transition >= 1) for (const n of this.nodes) n.pos.copy(n.to);
     this.spinTarget = 0;
     this.pan.set(0, 0);
     this.zoom = 1;
@@ -280,11 +279,11 @@ export class Gallery {
     let best: Node | null = null;
     let bd = Infinity;
     for (const n of this.nodes) {
-      const [px, py] = this.project(n.view.group.position);
+      const [px, py] = this.project(n.pos);
       const d = (px - x) ** 2 + (py - y) ** 2;
       if (d < bd) { bd = d; best = n; }
     }
-    const limit = Math.max(18, 0.5 / this.unitsPerPixel());
+    const limit = Math.max(18, (TILE_SHARE * 0.6) / this.unitsPerPixel());
     return bd < limit * limit ? best : null;
   }
 
@@ -295,7 +294,7 @@ export class Gallery {
     if (this.transition < 1) {
       this.transition = Math.min(1, this.transition + dt * 1.2);
       const k = this.transition < 0.5 ? 4 * this.transition ** 3 : 1 - (-2 * this.transition + 2) ** 3 / 2;
-      for (const n of this.nodes) n.view.group.position.lerpVectors(n.from, n.to, k);
+      for (const n of this.nodes) n.pos.lerpVectors(n.from, n.to, k);
       for (const m of this.guideMaterials) m.opacity = m.userData.base * k;
       for (const m of this.markers) m.style.visibility = k > 0.6 ? 'visible' : 'hidden';
     }
@@ -305,25 +304,6 @@ export class Gallery {
     const dist = this.fitDistance / this.zoom;
     this.camera.position.set(this.centre.x + this.pan.x, this.centre.y + this.pan.y, dist);
     this.camera.lookAt(this.centre.x + this.pan.x, this.centre.y + this.pan.y, 0);
-    const px = this.height * this.renderer.getPixelRatio();
-    // Fine, crisp dots so each atom keeps a readable edge instead of melting into its neighbours.
-    const size = px * 0.075;
-    for (const n of this.nodes) {
-      if (!this.reducedMotion) {
-        n.view.group.rotation.y += dt * 0.3;
-        n.view.group.rotation.x = 0.35 * Math.sin(now / 4000 + n.phase);
-      }
-      n.view.update(dt);
-      n.view.setPointSize(size);
-      n.view.group.scale.setScalar(ATOM_SCALE);
-    }
-    if (this.selected) {
-      const n = this.nodes[this.selected - 1];
-      this.ring.visible = true;
-      this.ring.position.copy(n.view.group.position);
-      this.ring.scale.setScalar((n.e.vdw / 100) * ATOM_SCALE * 1.3);
-      this.ring.lookAt(this.camera.position);
-    } else this.ring.visible = false;
     this.renderer.render(this.scene, this.camera);
     this.placeLabels();
     this.raf = requestAnimationFrame((t) => this.frame(t));
@@ -331,32 +311,22 @@ export class Gallery {
 
   private tmp = new THREE.Vector3();
   private placeLabels(): void {
-    const offset = 0.52;
-    // Labels that would collide with one already placed are hidden until the player zooms in.
-    // The selected element goes first so its label always shows.
-    const placed: [number, number][] = [];
-    const clear = (x: number, y: number) => placed.every(([px, py]) => Math.abs(px - x) > 17 || Math.abs(py - y) > 11);
-    const order = this.selected ? [this.nodes[this.selected - 1], ...this.nodes.filter((n) => n.e.z !== this.selected)] : this.nodes;
-    for (const m of this.markers) {
-      this.tmp.set(Number(m.dataset.x), Number(m.dataset.y), Number(m.dataset.z));
-      const [x, y] = this.project(this.tmp);
-      placed.push([x, y - 6]);
-    }
-    for (const n of order) {
-      this.tmp.copy(n.view.group.position);
-      this.tmp.y -= offset;
-      const [x, y, depth] = this.project(this.tmp);
-      const onScreen = depth < 1 && x > -40 && x < this.width + 40 && y > -20 && y < this.height + 20;
-      const visible = onScreen && (n.e.z === this.selected || clear(x, y));
-      if (visible) placed.push([x, y]);
-      n.label.style.transform = `translate(${x.toFixed(1)}px,${y.toFixed(1)}px) translateX(-50%)`;
-      n.label.style.opacity = visible ? '1' : '0';
-      n.label.classList.toggle('sel', n.e.z === this.selected);
+    // One tile size for the whole layout, from the current zoom; small tiles drop their text.
+    const size = Math.max(6, Math.min(72, TILE_SHARE / this.unitsPerPixel()));
+    this.labels.style.setProperty('--t', `${size.toFixed(1)}px`);
+    this.labels.classList.toggle('t-tiny', size < SHOW_SYMBOL);
+    this.labels.classList.toggle('t-big', size >= SHOW_NUMBER);
+    for (const n of this.nodes) {
+      const [x, y, depth] = this.project(n.pos);
+      const onScreen = depth < 1 && x > -size && x < this.width + size && y > -size && y < this.height + size;
+      n.tile.style.transform = `translate(${x.toFixed(1)}px,${y.toFixed(1)}px) translate(-50%,-50%)`;
+      n.tile.style.visibility = onScreen ? 'visible' : 'hidden';
+      n.tile.classList.toggle('sel', n.e.z === this.selected);
     }
     for (const m of this.markers) {
       this.tmp.set(Number(m.dataset.x), Number(m.dataset.y), Number(m.dataset.z));
       const [x, y] = this.project(this.tmp);
-      m.style.transform = `translate(${x.toFixed(1)}px,${y.toFixed(1)}px) translate(-50%,-50%)`;
+      m.style.transform = `translate(${x.toFixed(1)}px,${y.toFixed(1)}px) translate(${m.classList.contains('row') ? '-100%' : '-50%'},-50%)`;
     }
   }
 

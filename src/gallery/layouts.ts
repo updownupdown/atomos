@@ -59,7 +59,8 @@ export interface Marker {
   zz: number;
   text: string;
   /** axis: small numbers; title: spaced capitals; block: a block's name in its colour. */
-  kind: 'axis' | 'title' | 'block';
+  /** 'row' sits with its right edge at x, like a row heading. */
+  kind: 'axis' | 'title' | 'block' | 'row';
   tone?: Tone;
 }
 
@@ -170,7 +171,7 @@ function table(): Layout {
   // Where the f rows belong: they open between groups 2 and 3 of periods 6 and 7.
   for (const [row, label] of [[8.5, 'lanthanides'], [9.5, 'actinides']] as [number, string][]) {
     const [x, y] = tableXY(-0.1, row);
-    markers.push({ x: x + 0.2, y: y + 0.1, zz: 0, text: label, kind: 'title' });
+    markers.push({ x: x + 1.45, y: y + 0.1, zz: 0, text: label, kind: 'row' });
   }
   const [gx, gy6] = tableXY(2, 5);
   const [, gy7] = tableXY(2, 6);
@@ -269,8 +270,7 @@ function ribbon(): Layout {
     const foot = ribbonPoint(a < 0 ? ribbonU(3) + half : ribbonU(4) - half, outerRow);
     guides.push({ pts: [top, foot], tone: 'faint', dashed: true });
   }
-  markers.push({ x: 0, y: LOOP_CY + 0.3, zz: 0, text: 'lanthanides', kind: 'title' });
-  markers.push({ x: 0, y: LOOP_CY - 0.3, zz: 0, text: 'actinides outside', kind: 'title' });
+  markers.push({ x: 0, y: LOOP_CY, zz: 0, text: 'f block', kind: 'title' });
   const blockAt = (b: Block, g: number) => {
     const [x, y] = ribbonPoint(ribbonU(g), outerRow + 1.35);
     markers.push({ x, y, zz: 0, text: BLOCK_LABEL[b], kind: 'block', tone: b });
