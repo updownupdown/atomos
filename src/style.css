@@ -334,7 +334,7 @@ body.stage-nucleus #atom { opacity: 0.12; }
 
 /* Modal sheets: the frame itself is .ui-modal / .ui-modal-card in ui/components.css. */
 .sheet h2 { margin: 0 0 4px; font-size: 22px; font-family: var(--mono); font-weight: 700; }
-.sheet h3 { margin: 20px 0 8px; font-size: 12px; color: var(--muted); font-family: var(--mono); text-transform: lowercase; letter-spacing: 0.08em; font-weight: 400; border-bottom: 1px solid var(--line); padding-bottom: 4px; }
+.sheet h3 { margin: 20px 0 8px; font-size: 12px; color: var(--muted); font-family: var(--mono); text-transform: lowercase; letter-spacing: 0.08em; font-weight: 400; }
 .sheet p { margin: 6px 0; }
 .sheet .muted { color: var(--muted); font-family: var(--mono); font-size: 13px; }
 .sheet .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
@@ -397,7 +397,8 @@ body.stage-nucleus #atom { opacity: 0.12; }
 .iso .status.live { color: var(--accent); }
 .iso button { grid-row: 1 / span 2; grid-column: 2; }
 
-.toggle { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.toggle { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 12px var(--sp-4); border-radius: var(--r-md); background: var(--c-surface); }
+.toggle + .toggle { margin-top: var(--sp-2); }
 .toggle span small { display: block; color: var(--muted); font-size: 13px; }
 .toggle input { width: 22px; height: 22px; accent-color: var(--accent); flex: none; }
 
@@ -780,7 +781,6 @@ body.stage-nucleus #atom { opacity: 0.12; }
 
 .sheet h2 { font-weight: var(--fw-semibold); }
 .sheet h3 {
-  border-bottom: 0;
   text-transform: uppercase;
   letter-spacing: var(--tracking-caps);
   font-size: var(--fs-xs);
