@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ELEMENTS, elementAt } from '../src/gallery/data';
-import { TABS, elementFacts, tabHTML } from '../src/gallery/info';
+import { TABS, elementFacts, elementImage, tabHTML } from '../src/gallery/info';
 import { buildOrder, lifeMeter, orbitalFill, rankOf } from '../src/gallery/visuals';
 
 describe('science sheet visuals', () => {
@@ -34,5 +34,21 @@ describe('science sheet visuals', () => {
       expect(f?.h, e.symbol).toBeTruthy();
       expect(f!.f.length, e.symbol).toBeGreaterThan(1);
     }
+  });
+});
+
+describe('element photos', () => {
+  const OPEN = /^(CC BY(-SA)? [23]\.0( DE)?|FAL|Public domain|Free use with attribution \(LANL\))$/;
+  it('credit an author and an openly licensed, commercial-use licence', () => {
+    let n = 0;
+    for (const e of ELEMENTS) {
+      const img = elementImage(e.z);
+      if (!img) continue;
+      n++;
+      expect(img.author, e.symbol).toBeTruthy();
+      expect(img.licence, e.symbol).toMatch(OPEN);
+      expect(img.file, e.symbol).toMatch(/\.(jpe?g|png|gif|tiff?|svg)$/i);
+    }
+    expect(n).toBeGreaterThan(80);
   });
 });

@@ -85,7 +85,7 @@ function overview(e: Element, collected: boolean): string {
   const where = e.group ? `Group ${e.group} · period ${e.period}` : `Period ${e.period}`;
   const photo = img
     ? `<figure class="ov-photo"><img src="${commons(img.file, 640)}" alt="${esc(img.caption)}" loading="lazy" decoding="async" onerror="this.closest('figure').classList.add('is-missing')">
-        <figcaption><span>${esc(img.caption)}</span><a href="${commonsPage(img.file)}" target="_blank" rel="noopener">${esc(img.author)}, ${esc(img.licence)}</a></figcaption></figure>`
+        <figcaption><span>${esc(img.caption)}</span><span class="ov-credit">Photo <a href="${commonsPage(img.file)}" target="_blank" rel="noopener">${esc(img.author)}</a>, ${img.licenceUrl ? `<a href="${img.licenceUrl}" target="_blank" rel="noopener">${esc(img.licence)}</a>` : esc(img.licence)}, via Wikimedia Commons</span></figcaption></figure>`
     : '';
   const label = `<div class="ov-label">
       <div class="ov-tile" style="--b:${BLOCK_COLOUR[e.block]}"><span>${e.z}</span><b>${e.symbol}</b><em>${e.weight == null ? '' : Number(e.weight.toPrecision(5))}</em></div>
