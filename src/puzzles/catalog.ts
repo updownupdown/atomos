@@ -220,7 +220,7 @@ export const PUZZLES: PuzzleType[] = [
     id: 'rutherford', name: 'Rutherford Probe', tier: 'gate',
     use: 'Nucleus view',
     get rules() { return rulesOf(RutherfordV); },
-    blurb: 'Probe the plate cell by cell; each count says how many nuclei sit around it. Find them all without a direct hit.',
+    blurb: 'Probe the foil cell by cell and fire a few alpha beams from the rim; counts and beam tracks reveal where every nucleus sits. Find them all without a direct hit.',
     role: 'Played once; opens the nucleus view.',
     instructions: RUTHERFORD_HOW,
     zRange: [1, 118],
@@ -228,7 +228,7 @@ export const PUZZLES: PuzzleType[] = [
     science: () => `<h2>Rutherford Probe: the science</h2>
       <p>In 1909 Hans Geiger and Ernest Marsden fired alpha particles at a sheet of gold foil. Nearly all passed straight through, but about one in eight thousand bounced back, which Rutherford said was as surprising as a shell rebounding off tissue paper. The only explanation: almost all of the atom's mass and all its positive charge sit in a <b>nucleus</b> tens of thousands of times smaller than the atom.</p>
       <p>The lesson was that an atom is almost entirely empty: probe it at random and you nearly always pass straight through.</p>
-      <p class="muted">Game rule: the counts on the plate are a deduction game, not a measurement. Real scattering happens by the electric force at every angle, and a gold atom has one nucleus, not many. The method, inferring what you cannot see from what your probes report, is Rutherford's.</p>`,
+      <p class="muted">Game rule: the counts on the plate are a deduction game, not a measurement. Real scattering happens by the electric force at every angle, and a gold atom has one nucleus, not many. Here a beam only stops on a head-on hit; real alpha particles are pushed aside at every angle, and only a rare few come straight back. The method, inferring what you cannot see from what your probes report, is Rutherford's.</p>`,
   },
   {
     id: 'codebreaker', name: 'Codebreaker', tier: 'gate',

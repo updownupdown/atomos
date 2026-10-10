@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { chord, cross, deduce, neighbors, newRutherford, probe, remaining, scope, solved, specFor, toggleMark, type RutherfordState } from '../src/puzzles/rutherford';
+import { choosePort, chord, cross, deduce, fire, neighbors, newRutherford, portLine, probe, remaining, scope, solved, specFor, toggleMark, traceBeam, type RutherfordState } from '../src/puzzles/rutherford';
+import { RULES, INSTRUCTIONS, RutherfordView } from '../src/puzzles/rutherfordView';
 
 const SPREAD = [1, 6, 20, 21, 50, 51, 79, 85, 86, 92, 118];
 
@@ -12,8 +13,8 @@ function plate(size: number, nuclei: number[], kinds: Record<number, 'scatter' |
   return {
     size, nuclei: nuc, kind,
     clue: nuc.map((_, i) => scope(base, i).filter((j) => nuc[j]).length),
-    probed: Array(n).fill(false), marked: Array(n).fill(false),
-    hits: 0, moves: 0, total: nuclei.length,
+    probed: Array(n).fill(false), marked: Array(n).fill(false), found: Array(n).fill(false), fired: Array(4 * size).fill(false),
+    hits: 0, beams: 0, beamPar: 1, moves: 0, total: nuclei.length,
   };
 }
 
@@ -67,6 +68,79 @@ describe('probing', () => {
   });
 });
 
+describe('alpha beams', () => {
+  it('numbers the ports clockwise from the top, each firing away from its side', () => {
+    expect(portLine(4, 1).cells).toEqual([1, 5, 9, 13]); // top, column 1, downward
+    expect(portLine(4, 4 + 2).cells).toEqual([11, 10, 9, 8]); // right, row 2, leftward
+    expect(portLine(4, 8 + 0).cells).toEqual([12, 8, 4, 0]); // bottom, column 0, upward
+    expect(portLine(4, 12 + 3).cells).toEqual([12, 13, 14, 15]); // left, row 3, rightward
+  });
+
+  it('passes straight through an empty line, opening every cell', () => {
+    const s = plate(4, [5]);
+    expect(traceBeam(s, 12 + 3)).toEqual({ path: [12, 13, 14, 15], stop: null });
+    const t = fire(s, 12 + 3)!;
+    expect([12, 13, 14, 15].every((i) => t.probed[i])).toBe(true);
+    expect(t.beams).toBe(1);
+    expect(t.moves).toBe(1);
+    expect(t.hits).toBe(0);
+    expect(fire(t, 12 + 3)).toBeNull();
+  });
+
+  it('bounces off the first nucleus in its way and reveals it, never as a hit', () => {
+    const s = plate(4, [6, 7]);
+    // Left port of row 1: crosses 4 and 5, stops at 6; 7 stays hidden behind it.
+    const { path, stop } = traceBeam(s, 12 + 1);
+    expect(path).toEqual([4, 5]);
+    expect(stop).toBe(6);
+    const m = toggleMark(toggleMark(s, 5)!, 6)!;
+    const t = fire(m, 12 + 1)!;
+    expect(t.probed[4] && t.probed[5]).toBe(true);
+    expect(t.marked[5]).toBe(false); // a wrong mark on the track is cleared
+    expect(t.found[6]).toBe(true);
+    expect(t.probed[6]).toBe(false);
+    expect(t.found[7]).toBe(false);
+    expect(t.hits).toBe(0);
+    expect(remaining(t)).toBe(1);
+    // A found nucleus can be neither probed nor marked, and counts toward a clear-around.
+    expect(probe(t, 6)).toBeNull();
+    expect(toggleMark(t, 6)).toBeNull();
+  });
+
+  it('lets a found nucleus satisfy a clear-around', () => {
+    const s = plate(3, [2]);
+    const t = fire(s, 3 + 0)!; // right port, row 0: stops at once on cell 2
+    expect(t.found[2]).toBe(true);
+    const p = probe(t, 4)!;
+    expect(solved(chord(p, 4)!)).toBe(true);
+  });
+
+  it('chooses beams only from what a player can see', () => {
+    for (const seed of [3, 9, 14]) {
+      const s = newRutherford(60, seed);
+      const known = s.nuclei.map(() => false);
+      const pick = choosePort(s, known);
+      expect(pick).toBeGreaterThanOrEqual(0);
+      // Move every hidden nucleus somewhere else hidden: the choice must not change.
+      const hidden = s.nuclei.map((_, i) => i).filter((i) => !s.probed[i]);
+      const moved = { ...s, nuclei: s.nuclei.map((x, i) => (s.probed[i] ? x : false)) };
+      hidden.slice().reverse().slice(0, s.total).forEach((i) => { moved.nuclei[i] = true; });
+      expect(choosePort(moved, known)).toBe(pick);
+    }
+  });
+
+  it('turns a coin-flip into a deduction', () => {
+    // Two cells, one nucleus, no clue tells them apart: the solver stalls without a beam.
+    const s = plate(2, [1]);
+    s.probed[2] = s.probed[3] = true;
+    expect(solved(deduce(s).state)).toBe(false);
+    const run = deduce(s, { beams: true });
+    expect(solved(run.state)).toBe(true);
+    expect(run.beams).toBe(1);
+    expect(run.state.hits).toBe(0);
+  });
+});
+
 describe('levels', () => {
   it('is the same plate for the same seed', () => {
     expect(newRutherford(30, 4)).toEqual(newRutherford(30, 4));
@@ -85,20 +159,43 @@ describe('levels', () => {
     }
   });
 
-  it('opens with a safe region and can be finished without guessing', () => {
+  it('opens with a small safe region and can be finished without guessing, using par beams', () => {
+    let openSum = 0, plates = 0;
     for (const z of SPREAD) {
       for (let seed = 1; seed <= 8; seed++) {
         const s = newRutherford(z, seed);
         expect(s.nuclei.filter(Boolean)).toHaveLength(s.total);
         expect(s.hits).toBe(0);
+        expect(s.beams).toBe(0);
+        expect(s.fired).toHaveLength(4 * s.size);
         expect(s.probed.some(Boolean)).toBe(true);
         expect(s.probed.every((p, i) => !p || !s.nuclei[i])).toBe(true);
+        const opened = s.probed.filter(Boolean).length / s.nuclei.length;
+        expect(opened).toBeLessThan(0.7);
+        openSum += opened;
+        plates++;
         expect(solved(s)).toBe(false);
-        const end = deduce(s).state;
-        expect(solved(end)).toBe(true);
-        expect(end.hits).toBe(0);
+        // Beams are needed: deduction alone stalls...
+        expect(solved(deduce(s).state)).toBe(false);
+        // ...and with them the solver finishes in exactly the par it set.
+        const run = deduce(s, { beams: true });
+        expect(solved(run.state)).toBe(true);
+        expect(run.state.hits).toBe(0);
+        expect(run.beams).toBe(s.beamPar);
+        expect(s.beamPar).toBeGreaterThanOrEqual(1);
+        expect(s.beamPar).toBeLessThanOrEqual(specFor(z).maxBeams);
       }
     }
+    // On average the opening is about a sixth of the plate.
+    expect(openSum / plates).toBeLessThan(0.25);
+  });
+
+  it('aims for 2 beams on small plates and 3 on large ones', () => {
+    expect(specFor(1).beams).toBe(2);
+    expect(specFor(118).beams).toBe(3);
+    let onAim = 0, all = 0;
+    for (const z of SPREAD) for (let seed = 1; seed <= 6; seed++, all++) if (newRutherford(z, seed).beamPar === specFor(z).beams) onAim++;
+    expect(onAim / all).toBeGreaterThan(0.8);
   });
 
   it('has both twists on the plate', () => {
@@ -118,5 +215,66 @@ describe('levels', () => {
       newRutherford(z, z * 7 + 3);
       expect(performance.now() - t).toBeLessThan(150);
     }
+  });
+});
+
+describe('view', () => {
+  it('has a rule card with a demo for every symbol and action', () => {
+    const titles = RULES.map((r) => r.title);
+    expect(titles).toEqual(['Probe', 'Counts', 'Marks', 'Clear around', 'Scatter cells', 'Quiet cells', 'Alpha beams', 'Bounce back', 'Beam par', 'Direct hit', 'Nuclei left']);
+    for (const r of RULES) {
+      expect(r.demo).toBeTypeOf('function');
+      expect(r.text).not.toMatch(/<|>/);
+      expect(r.text.split(/[.!](\s|$)/).filter((x) => x && x.trim()).length).toBeLessThanOrEqual(2);
+    }
+    expect(INSTRUCTIONS).toMatch(/^\s*<h3>In the game<\/h3>\s*<p class="meta">[^<]+<\/p>\s*$/);
+  });
+
+  it('never calls the hidden objects anything but nuclei', () => {
+    const text = [INSTRUCTIONS, ...RULES.map((r) => `${r.title} ${r.text}`)].join(' ');
+    // The banned words are spelled in pieces so they appear nowhere, not even here.
+    expect(text).not.toMatch(new RegExp(['\\bmi', 'ne|swe', 'ep'].join(''), 'i'));
+  });
+
+  it('keeps the hint short', () => {
+    const v = new RutherfordView(newRutherford(118, 2), true);
+    expect(v.hint().length).toBeLessThanOrEqual(40);
+  });
+
+  it('undo refunds a beam move but not its place in the beam count', () => {
+    const s = newRutherford(30, 5);
+    const v = new RutherfordView(s, true);
+    const port = s.fired.findIndex((f, p) => !f && traceBeam(s, p).path.some((i) => !s.probed[i]));
+    // Fire twice through the private path the pointer uses: aim, then fire.
+    (v as unknown as { tapPort(p: number): void }).tapPort(port);
+    expect(v.moves).toBe(0);
+    (v as unknown as { tapPort(p: number): void }).tapPort(port);
+    expect(v.moves).toBe(1);
+    expect(v.beamsUsed).toBe(1);
+    expect(v.undo()).toBe(true);
+    expect(v.moves).toBe(0);
+    expect(v.beamsUsed).toBe(1);
+    // Firing the same port again costs nothing more.
+    (v as unknown as { tapPort(p: number): void }).tapPort(port);
+    (v as unknown as { tapPort(p: number): void }).tapPort(port);
+    expect(v.beamsUsed).toBe(1);
+    v.restart();
+    expect(v.beamsUsed).toBe(0);
+  });
+
+  it('a hit spoils flawless even after undo, and more beams than par do too', () => {
+    const s = newRutherford(10, 3);
+    const v = new RutherfordView(s, true);
+    const nucleus = s.nuclei.findIndex((x, i) => x && !s.probed[i]);
+    (v as unknown as { act(i: number, m: boolean): void }).act(nucleus, false);
+    expect(v.clean).toBe(false);
+    v.undo();
+    expect(v.clean).toBe(false);
+    const w = new RutherfordView(s, true);
+    const fireAt = (p: number) => { (w as unknown as { tapPort(p: number): void }).tapPort(p); (w as unknown as { tapPort(p: number): void }).tapPort(p); };
+    for (let p = 0; p < s.beamPar; p++) fireAt(p);
+    expect(w.clean).toBe(true);
+    fireAt(s.beamPar);
+    expect(w.clean).toBe(false);
   });
 });
