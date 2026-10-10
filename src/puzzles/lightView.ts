@@ -317,7 +317,7 @@ export class LightView implements PuzzleView {
     if (this.bump && bumpT > 0) nudge(ctx, this.center(this.bump.cell), c, bumpT, !this.reduced);
 
     // One small counter under the grid, then the tray.
-    ctx.font = font(12);
+    ctx.font = font(13);
     ctx.fillStyle = C.text2;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
