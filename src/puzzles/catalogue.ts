@@ -12,11 +12,11 @@ import { SlidingView } from './slidingView';
 import { newPacking } from './packing';
 import { PackingView } from './packingView';
 import { newLines } from './lines';
-import { LinesView } from './linesView';
+import { LinesView, INSTRUCTIONS as LINES_HOW } from './linesView';
 import { newSlideStop } from './slideStop';
 import { SlideStopView } from './slideStopView';
 import { newLight } from './light';
-import { LightView } from './lightView';
+import { LightView, INSTRUCTIONS as LIGHT_HOW } from './lightView';
 import { newCodebreaker } from './codebreaker';
 import { CodebreakerView } from './codebreakerView';
 import { newRutherford } from './rutherford';
@@ -129,8 +129,9 @@ export const PUZZLES: PuzzleType[] = [
   },
   {
     id: 'lines', name: 'Field Lines', tier: 'facet',
-    blurb: 'Draw one line from the circle to the tail: cover every dot and keep each colour in its own pocket.',
+    blurb: 'Draw one line from a start to an end that keeps every mark on the board happy.',
     role: 'Discovers each new orbital shape (19) and a chapter per particle (17).',
+    instructions: LINES_HOW,
     zRange: [1, 118],
     make: (z, deal, reduced) => new LinesView(newLines(z, dealSeed('lines', z, deal)), reduced),
     science: (z) => {
@@ -154,13 +155,15 @@ export const PUZZLES: PuzzleType[] = [
   },
   {
     id: 'light', name: 'Light Routing', tier: 'gate',
-    blurb: 'Tap the mirrors to flip them until the beam lights every ring.',
+    blurb: 'Flip the mirrors and splitters until light reaches every ring and none touches a dark sensor.',
     role: 'Opens each new lens (arrangement) of the gallery.',
+    instructions: LIGHT_HOW,
     zRange: [1, 118],
     make: (z, deal, reduced) => new LightView(newLight(z, dealSeed('light', z, deal)), reduced),
     science: () => `<h2>Light Routing: the science</h2>
       <p>Light reflects from a mirror at the angle it arrived, and its path runs the same backwards: ray optics. Everything we know about atoms began with light: the sharp coloured lines in an element's spectrum are photons released as electrons drop between energy levels, and each element has its own set.</p>
       <p>A spectrometer is exactly this puzzle made serious: slits, mirrors and a prism or grating steering light onto a detector.</p>
+      <p>A coloured filter works by absorption: it passes its own colour and swallows the rest, which is why light already tinted one colour cannot get through a filter of another.</p>
       <p class="muted">Game rule: no atom contains mirrors.</p>`,
   },
   {
