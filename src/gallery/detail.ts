@@ -22,6 +22,10 @@ export class Detail {
   /** The nucleus up close, drawn at the same screen size as the atom: 8 fm maps to the 300 pm ring. */
   private nucleus = new NucleusView(3 / 8);
   private nucleusRings = new THREE.Group();
+  /** Scale circles a power of ten apart, shown only during a dive (no legend): each grows out of
+   *  the middle and off the edge in turn, so the hundred-thousandfold zoom reads as steady steps. */
+  private diveRings: { line: THREE.Line; r: number; base: number }[] = [];
+  private diveRingGroup = new THREE.Group();
   private nucleusOn = false;
   /** Where the dive between atom and nucleus stands: 0 the whole atom, 1 the nucleus close-up. */
   private dive = 0;
@@ -38,6 +42,8 @@ export class Detail {
   /** Pinch or wheel zoom (1 = the fixed scale every element shares); drifts home after a pause. */
   private zoom = 1;
   private zoomedAt = 0;
+  /** The glide home after a zoom: from this zoom, `t` from 0 to 1. Null when not gliding. */
+  private zoomBack: { from: number; t: number } | null = null;
   private baseDist = 14;
   private raf = 0;
   private last = performance.now();
@@ -69,6 +75,13 @@ export class Detail {
     this.scene.add(this.rings);
     for (const r of NUCLEUS_RINGS) this.nucleusRings.add(ring((r.fm * 3) / 8, r.style));
     this.scene.add(this.nucleusRings);
+    for (const d of DIVE_RING_PM) {
+      const line = ring(1, d.style);
+      this.diveRingGroup.add(line);
+      this.diveRings.push({ line, r: d.pm / 100, base: (line.material as THREE.LineBasicMaterial).opacity });
+    }
+    this.diveRingGroup.visible = false;
+    this.scene.add(this.diveRingGroup);
     this.spin.add(this.nucleus.group);
     this.paintMode();
     this.bind();
@@ -122,8 +135,28 @@ export class Detail {
     this.view.setDim(fade);
     this.view.group.visible = fade > 0;
     this.nucleus.group.visible = this.dive > 0;
-    this.rings.visible = this.ringsOn && fade > 0;
-    this.nucleusRings.visible = this.ringsOn && this.dive > 0.5;
+    // Mid-dive the fixed circles give way to the dive's own, whether or not the scale is shown.
+    const diving = this.diveT < 1;
+    this.rings.visible = this.ringsOn && fade > 0 && !diving;
+    this.nucleusRings.visible = this.ringsOn && this.dive > 0.5 && !diving;
+    this.paintDiveRings(k);
+  }
+
+  /** Place the dive's circles at magnification `k`: each fades in as it grows out of the middle
+   *  and out as it nears the edge of the view, and all of them fade at the two ends of the dive. */
+  private paintDiveRings(k: number): void {
+    const on = this.diveT < 1 ? Math.min(1, this.diveT / 0.12, (1 - this.diveT) / 0.12) : 0;
+    this.diveRingGroup.visible = on > 0;
+    if (!on) return;
+    const half = VIEW_PM / 200;
+    for (const d of this.diveRings) {
+      const r = d.r * k;
+      const u = r / half;
+      d.line.scale.setScalar(r);
+      const a = on * step(0.04, 0.16, u) * (1 - step(0.75, 1.25, u));
+      d.line.visible = a > 0.01;
+      (d.line.material as THREE.LineBasicMaterial).opacity = d.base * a;
+    }
   }
 
   private paintMode(): void {
@@ -201,6 +234,7 @@ export class Detail {
     };
     c.addEventListener('pointerdown', (ev) => {
       c.setPointerCapture(ev.pointerId);
+      this.touched();
       this.touches.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
       if (this.touches.size === 2) {
         // A second finger: pinch to zoom; the turn stops and this is no longer a tap.
@@ -220,6 +254,7 @@ export class Detail {
       const dx = ev.clientX - this.drag.x, dy = ev.clientY - this.drag.y;
       if (Math.hypot(dx, dy) > 5) this.drag.moved = true;
       if (!this.drag.moved) return;
+      this.touched();
       this.spin.rotation.y += (ev.movementX || 0) * 0.008;
       this.spin.rotation.x = clamp(this.spin.rotation.x + (ev.movementY || 0) * 0.008, -1.2, 1.2);
     });
@@ -251,8 +286,14 @@ export class Detail {
 
   private setZoom(z: number): void {
     this.zoom = clamp(z, ZOOM_MIN, ZOOM_MAX);
-    this.zoomedAt = performance.now();
+    this.touched();
     this.camera.position.z = this.baseDist / this.zoom;
+  }
+
+  /** The player is handling the atom: hold a zoom where it is, and start the wait to glide home again. */
+  private touched(): void {
+    this.zoomedAt = performance.now();
+    this.zoomBack = null;
   }
 
   private frame(now: number): void {
@@ -260,10 +301,13 @@ export class Detail {
     const dt = Math.min(0.05, (now - this.last) / 1000);
     this.last = now;
     if (this.autoSpin && !this.drag && !this.reducedMotion) this.spin.rotation.y += dt * 0.2;
-    // After a couple of seconds without a pinch, ease back to the shared scale.
-    if (this.zoom !== 1 && !this.pinch && now - this.zoomedAt > ZOOM_REST_MS) {
-      this.zoom += (1 - this.zoom) * (1 - Math.exp(-dt * 1.6));
-      if (Math.abs(this.zoom - 1) < 0.002) this.zoom = 1;
+    // A few seconds after the last touch, glide back to the shared scale: easing in and out, and
+    // even in powers of the zoom, so going home from 4x feels like coming home from 0.7x.
+    if (this.zoom !== 1 && this.touches.size === 0 && now - this.zoomedAt > ZOOM_REST_MS) {
+      this.zoomBack ??= { from: this.zoom, t: 0 };
+      this.zoomBack.t = Math.min(1, this.zoomBack.t + dt / ZOOM_BACK_S);
+      this.zoom = this.zoomBack.t >= 1 ? 1 : Math.pow(this.zoomBack.from, 1 - easeInOut(this.zoomBack.t));
+      if (this.zoom === 1) this.zoomBack = null;
       this.camera.position.z = this.baseDist / this.zoom;
     }
     if (this.diveT < 1) {
@@ -313,7 +357,17 @@ function across(k: number): string {
 }
 
 const smooth = (t: number) => t * t * (3 - 2 * t);
+const step = (a: number, b: number, x: number) => smooth(clamp((x - a) / (b - a), 0, 1));
+/** The dive's circles, by radius: every power of ten from 1 nm down to 1 fm, solid, with a dashed
+ *  one at three times each between, so about one new circle appears per half step of ten. */
+const DIVE_RING_PM: { pm: number; style: 'solid' | 'dashed' }[] = [];
+for (let e = 3; e >= -3; e--) {
+  DIVE_RING_PM.push({ pm: 10 ** e, style: 'solid' });
+  if (e > -3) DIVE_RING_PM.push({ pm: 3 * 10 ** (e - 1), style: 'dashed' });
+}
 const ZOOM_MAX = 4;
-const ZOOM_REST_MS = 2200;
+const ZOOM_REST_MS = 3000;
+const ZOOM_BACK_S = 1.6;
+const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 
 function clamp(v: number, lo: number, hi: number): number { return Math.min(hi, Math.max(lo, v)); }

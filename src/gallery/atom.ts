@@ -31,11 +31,12 @@ const pointGeometries = new Map<string, THREE.BufferGeometry>();
  * back at its other position, so the set of electrons on screen never settles,
  * the way a probability cloud is meant to be read.
  */
-function pointGeometry(n: number, block: Block, perSlot: number): THREE.BufferGeometry {
-  const key = `${n}${block}/${perSlot}`;
+function pointGeometry(n: number, block: Block, perSlot: number, body = false): THREE.BufferGeometry {
+  const key = `${n}${block}/${perSlot}${body ? 'b' : ''}`;
   let g = pointGeometries.get(key);
   if (!g) {
-    const c = sampleSubshell(n, block, perSlot * 2);
+    // The body under the sparks keeps to the lobes: sharper angles, and nothing past the drawn edge.
+    const c = body ? sampleSubshell(n, block, perSlot * 2, BODY_SHARPEN, BODY_WITHIN) : sampleSubshell(n, block, perSlot * 2);
     const total = c.slot.length / 2;
     const a = new Float32Array(total * 3), b = new Float32Array(total * 3);
     const slot = new Float32Array(total), orbital = new Float32Array(total), sign = new Float32Array(total), seed = new Float32Array(total);
@@ -82,7 +83,7 @@ function surfaceGeometry(block: Block, oi: number): THREE.BufferGeometry {
 
 const POINT_VERT = `
 attribute float slot; attribute float orbital; attribute float sign; attribute float seed; attribute vec3 position2;
-uniform float uScale, uFrom, uTo, uT, uSize, uOrbitals, uDim, uSizeMul, uTime, uLive;
+uniform float uScale, uFrom, uTo, uT, uSize, uOrbitals, uDim, uSizeMul, uTime, uLive, uTone;
 uniform vec3 uColor;
 varying vec3 vColor; varying float vAlpha;
 float hash(float x) { return fract(sin(x) * 43758.5453); }
@@ -108,6 +109,8 @@ void main() {
   float flash = changing * sin(uT * 3.14159);
   float tint = uOrbitals > 1.0 ? (orbital / (uOrbitals - 1.0) - 0.5) * 0.55 : 0.0;
   vec3 c = tint > 0.0 ? uColor + (1.0 - uColor) * tint : uColor * (1.0 + tint);
+  // Two-tone by the sign of the wavefunction, as the shapes are shaded, so neighboring lobes part.
+  c *= mix(1.0 - uTone, 1.0 + uTone * 0.4, sign);
   vec3 flashColor = uTo > uFrom ? vec3(1.0) : vec3(1.0, 0.32, 0.22);
   vColor = mix(c, flashColor, flash * 0.9);
   vAlpha = a * uDim * (1.0 + flash * 0.8) * lit;
@@ -176,10 +179,22 @@ export interface AtomViewOptions {
   haze?: boolean;
 }
 
-/** Points per electron in the haze, and how much larger and fainter they draw than the sparks. */
-const HAZE_PER_SLOT = 260;
-const HAZE_SIZE = 8;
-const HAZE_ALPHA = 0.085;
+/** Points per electron in the haze, and how much larger and fainter they draw than the sparks.
+ *  The haze is the cloud's body: dense enough to fill each lobe, so the orbitals read as solid
+ *  forms the way the shapes do, with the sparks living on top. */
+const HAZE_PER_SLOT = 600;
+/** A round s layer needs far fewer to read as a smooth shell. */
+const HAZE_PER_SLOT_S = 260;
+const HAZE_SIZE = 7;
+const HAZE_ALPHA = 0.06;
+/** The haze of a layer with lobes, and of an s layer drawn as glass over them, against a lone s layer. */
+const HAZE_LOBES = 2.2;
+const HAZE_GLASS = 0.75;
+/** How far the haze's two lobe signs part in brightness. */
+const HAZE_TONE = 0.3;
+/** The haze's sampling: angles sharpened more than the sparks, radii kept inside the drawn edge. */
+const BODY_SHARPEN = 3;
+const BODY_WITHIN = 0.85;
 /** How strongly an undiscovered orbital shape still shows, as a ghost over its cloud. */
 const GHOST = 0.12;
 /** A part not built yet: pale gray, and a little fainter than when it is in color. */
@@ -249,6 +264,7 @@ export class AtomView {
         uScale: { value: 1 }, uFrom: { value: 0 }, uTo: { value: 0 }, uT: { value: 1 },
         uSize: { value: this.opts.pointSize }, uOrbitals: { value: 1 }, uDim: { value: 1 }, uAlpha: { value: 1 }, uSizeMul: { value: 1 },
         uColor: { value: new THREE.Vector3(...glow) },
+        uTone: { value: 0 },
         uTime: { value: 0 }, uLive: { value: this.live && !soft ? 1 : 0 }, uSharp: { value: this.opts.sharp === false || soft ? 0 : 1 },
       },
       vertexShader: POINT_VERT, fragmentShader: POINT_FRAG,
@@ -265,7 +281,8 @@ export class AtomView {
       hazeMaterial = this.makeMaterial(this.glow(sub.l), true);
       hazeMaterial.uniforms.uOrbitals.value = sub.capacity / 2;
       hazeMaterial.uniforms.uSize.value = this.opts.pointSize * HAZE_SIZE;
-      haze = new THREE.Points(pointGeometry(sub.n, sub.l, HAZE_PER_SLOT), hazeMaterial);
+      hazeMaterial.uniforms.uTone.value = HAZE_TONE;
+      haze = new THREE.Points(pointGeometry(sub.n, sub.l, sub.l === 's' ? HAZE_PER_SLOT_S : HAZE_PER_SLOT, true), hazeMaterial);
       haze.frustumCulled = false;
       this.group.add(haze);
     }
@@ -477,8 +494,11 @@ export class AtomView {
   private apply(): void {
     const cloudAlpha = this.style === 'shapes' ? 0 : 1;
     const shapeAlpha = this.style === 'shapes' ? 1 : this.style === 'hybrid' ? 0.35 : 0;
-    let outer = 0;
-    for (const layer of this.layers.values()) outer = Math.max(outer, this.currentScale(layer) * layer.edge);
+    let outer = 0, lobes = false;
+    for (const layer of this.layers.values()) {
+      outer = Math.max(outer, this.currentScale(layer) * layer.edge);
+      if (layer.sub.l !== 's' && layer.to > 0) lobes = true;
+    }
     for (const layer of this.layers.values()) {
       const hidden = this.hidden.has(layer.sub.l);
       const u = layer.material.uniforms;
@@ -494,7 +514,10 @@ export class AtomView {
       u.uScale.value = this.currentScale(layer);
       // Inner layers pack the same points into a far smaller volume, so they draw fainter and finer.
       const rel = Math.min(1, (u.uScale.value * layer.edge) / Math.max(1e-6, outer));
-      u.uDim.value = (layer.sub.core ? 0.5 : 1) * (layer.sub.l === 's' && !layer.sub.core ? 1.5 : 1) * Math.max(0.05, Math.pow(rel, 1.4));
+      // A round s layer would wash over the lobes inside it, so where there are lobes to see it
+      // draws as thin glass, as the shapes draw it; alone (hydrogen to beryllium) it is the atom.
+      const glass = layer.sub.l === 's' && lobes;
+      u.uDim.value = (layer.sub.core ? 0.5 : 1) * (layer.sub.l === 's' && !layer.sub.core ? (glass ? 1 : 1.5) : 1) * Math.max(0.05, Math.pow(rel, 1.4));
       u.uSizeMul.value = 0.4 + 0.6 * rel;
       u.uAlpha.value = (hidden ? 1 : cloudAlpha) * this.dim * pale;
       const count = this.currentCount(layer);
@@ -505,7 +528,7 @@ export class AtomView {
         // Inner layers are small and dense: their haze shrinks with them. Many electrons in one
         // layer overlap into a bright mass, so each one's share of glow falls as the layer fills.
         h.uSizeMul.value = 0.25 + 0.75 * rel;
-        h.uAlpha.value = (this.style === 'shapes' && !hidden ? 0.35 : 1) * this.dim * pale * HAZE_ALPHA / Math.sqrt(Math.max(1, count));
+        h.uAlpha.value = (this.style === 'shapes' && !hidden ? 0.35 : 1) * (glass ? HAZE_GLASS : layer.sub.l === 's' ? 1 : HAZE_LOBES) * this.dim * pale * HAZE_ALPHA / Math.sqrt(Math.max(1, count));
       }
       const lo = Math.min(layer.from, layer.to), hi = Math.max(layer.from, layer.to);
       layer.shapes.forEach((mesh, oi) => {
