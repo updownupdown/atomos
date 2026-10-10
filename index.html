@@ -69,16 +69,20 @@
       <div class="vignette" aria-hidden="true"></div>
       <div class="edge" id="edge" aria-hidden="true">ATOMOS 400 &#9656; PLATE 0001</div>
 
+      <div class="build-bar" id="build-bar"></div>
       <section class="build-home" id="build-home" aria-label="Build this atom">
-        <div class="bh-stage" id="bh-stage">
-          <canvas id="bh-atom" aria-label="The atom you are building. Drag to turn it."></canvas>
-          <button class="bh-paint" id="bh-paint" aria-haspopup="dialog"></button>
-          <span class="bh-sci" id="bh-sci"></span>
-          <div class="bh-progress" id="bh-progress"></div>
+        <div class="bh-top" id="bh-top">
+          <div class="bh-stage" id="bh-stage">
+            <canvas id="bh-atom" aria-label="The atom you are building. Drag to turn it."></canvas>
+            <span class="bh-sci" id="bh-sci"></span>
+          </div>
+          <div class="bh-meter">
+            <button class="bh-paint" id="bh-paint" aria-haspopup="dialog"></button>
+            <div class="bh-progress" id="bh-progress"></div>
+          </div>
         </div>
         <div class="bh-in" id="bh-in"></div>
       </section>
-      <div class="build-bar" id="build-bar"></div>
       <div class="pg-head build-head" id="build-head" hidden></div>
 
       <div class="stage" id="stage" aria-live="polite"></div>
