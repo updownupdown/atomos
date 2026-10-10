@@ -79,7 +79,7 @@ export interface ElementListOptions {
   onPick?: (z: number) => void;
   /** The element on screen now; marked and scrolled to. */
   current?: number;
-  /** Elements to mark as not collected yet. They can still be picked. */
+  /** Elements whose Build is still locked, marked with a lock. They can still be picked and viewed. */
   locked?: (z: number) => boolean;
   /** Starting sort. Defaults to the last one used, then atomic number. */
   sort?: SortKey;
@@ -157,7 +157,7 @@ export function createElementList(opts: ElementListOptions = {}): ElementList {
     const cls = ['el-row', locked ? 'is-locked' : '', e.z === opts.current ? 'is-current' : ''].filter(Boolean).join(' ');
     return `<button type="button" role="option" class="${cls}" data-z="${e.z}" aria-selected="${e.z === opts.current}">
       ${tile(e)}
-      <span class="el-main"><b>${esc(e.name)}</b><span>${locked ? '<em>Not collected</em> · ' : ''}${esc(e.series)}</span></span>
+      <span class="el-main"><b>${esc(e.name)}</b><span>${locked ? `<em class="el-locked">${icon('lock', { size: 16 })}Locked</em> · ` : ''}${esc(e.series)}</span></span>
       ${progress(e, save)}
     </button>`;
   };
@@ -189,7 +189,7 @@ export function createElementList(opts: ElementListOptions = {}): ElementList {
       const cells = TABLE_COLUMNS.map((k) => {
         const c = COL[k];
         if (k === 'symbol') return `<td><span class="el-sym" style="--c:${BLOCK_COLOUR[e.block]}">${e.symbol}</span></td>`;
-        if (k === 'name') return `<th scope="row">${esc(e.name)}</th>`;
+        if (k === 'name') return `<th scope="row">${esc(e.name)}${locked ? `<span class="el-lock" aria-label="Build locked">${icon('lock', { size: 16 })}</span>` : ''}</th>`;
         return `<td class="${c.numeric ? 'n' : ''}">${esc(c.text(e))}</td>`;
       }).join('');
       return `<tr class="${locked ? 'is-locked' : ''}${e.z === opts.current ? ' is-current' : ''}" data-z="${e.z}" tabindex="0">${cells}</tr>`;

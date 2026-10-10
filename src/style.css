@@ -442,6 +442,12 @@ body.stage-nucleus #atom { opacity: 0.12; }
 .gtile.is-started .gt-bar { display: block; }
 .gtile.is-got { background: var(--c-tile); border-color: var(--c-tile); color: var(--c-tile-ink); }
 .gtile.is-got::before { opacity: 1; }
+.gtile .gt-lock { display: none; position: absolute; right: 5%; top: 9%; width: calc(var(--t, 30px) * 0.3); height: calc(var(--t, 30px) * 0.3); color: var(--c-text-2); }
+.gtile .gt-lock svg { width: 100%; height: 100%; }
+/* A row still shut by its gate: dashed outline at any size, and a lock once the tile is big enough. */
+.gtile.is-locked:not(.is-got) { border-style: dashed; }
+.t-big .gtile.is-locked .gt-lock { display: block; }
+.gtile.is-locked.is-got .gt-lock { color: var(--c-tile-ink); opacity: 0.6; }
 .gtile.sel { box-shadow: 0 0 0 2px var(--c-target); }
 .t-big .gtile .gt-z { display: block; }
 .t-tiny .gtile .gt-sym, .t-tiny .gtile .gt-bar { display: none; }
@@ -500,6 +506,7 @@ body.stage-nucleus #atom { opacity: 0.12; }
 .layout-switch button { font-size: 12px; padding: 0 10px; min-height: 36px; }
 /* Details: every element in the shared sortable table, filling the space between the count and the switch. */
 .gal-details { position: absolute; inset: 0; z-index: 1; display: flex; flex-direction: column; padding: calc(var(--top) + 40px) var(--sp-3) calc(var(--safe-bottom) + 84px); background: var(--c-bg); }
+.gal-details[hidden] { display: none; }
 .gal-details .el-list { flex: 1; min-height: 0; }
 .gal-details .el-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .gal-details .el-scroll { flex: 0 1 auto; min-height: 0; }
