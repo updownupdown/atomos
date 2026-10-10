@@ -8,6 +8,7 @@ import { BLOCK_COLOUR, ELEMENTS, elementAt, type Element } from './data';
 import { layout, type LayoutId, type Placed, type Tone } from './layouts';
 import { token } from './tokens';
 import { icon } from '../ui/icons';
+import type { LookValue } from './looks';
 
 const TONE: Record<Tone, { color: string; opacity: number }> = {
   rule: { color: token('--c-text-2', '#8a9296'), opacity: 0.7 },
@@ -95,6 +96,20 @@ export class Gallery {
       n.tile.classList.toggle('is-started', !got && p > 0);
       n.bar.style.setProperty('--p', p.toFixed(3));
       n.tile.setAttribute('aria-label', `${n.e.z} ${n.e.name}, ${got ? 'collected' : p > 0 ? `${Math.round(p * 100)}% of the way` : 'not collected yet'}`);
+    }
+  }
+
+  /** Color the tiles by a look (see looks.ts), or null for the plain block strip. */
+  setLook(value: ((e: Element) => LookValue) | null): void {
+    this.labels.classList.toggle('has-look', Boolean(value));
+    for (const n of this.nodes) {
+      const r = value ? value(n.e) : null;
+      n.tile.classList.remove('lk-v', 'lk-hi', 'lk-na', 'lk-solid', 'lk-liquid', 'lk-gas');
+      n.tile.style.removeProperty('--v');
+      if (!value) continue;
+      if (!r) n.tile.classList.add('lk-na');
+      else if ('v' in r) { n.tile.classList.add('lk-v'); n.tile.classList.toggle('lk-hi', r.v > 0.55); n.tile.style.setProperty('--v', r.v.toFixed(3)); }
+      else n.tile.classList.add(`lk-${r.cat}`);
     }
   }
 
