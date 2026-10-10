@@ -105,7 +105,7 @@ export class MergeView implements PuzzleView {
     this.drawGoal(ctx, x0, y0 - goalH + 10, side, r);
 
     // The board: a faint ruled grid.
-    ctx.strokeStyle = 'rgba(226, 220, 207, 0.16)';
+    ctx.strokeStyle = C.line2;
     ctx.lineWidth = 1;
     ctx.setLineDash([3, 5]);
     for (let i = 0; i < n * n; i++) {
@@ -171,15 +171,15 @@ export class MergeView implements PuzzleView {
     const t = s.target;
     const sr = Math.min(r * 0.7, 26);
     ctx.font = `13px ${MONO}`;
-    ctx.fillStyle = 'rgba(226, 220, 207, 0.7)';
+    ctx.fillStyle = C.text2;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
     const label = `${sup(String(t.a))}${symbolOf(t.z)}`;
     ctx.font = `700 22px ${MONO}`;
-    ctx.fillStyle = this.won ? '#e0503a' : 'rgba(226, 220, 207, 0.9)';
+    ctx.fillStyle = this.won ? C.accent : C.text;
     ctx.fillText(label, x + 4, y + 22);
     ctx.font = `12px ${MONO}`;
-    ctx.fillStyle = 'rgba(226, 220, 207, 0.55)';
+    ctx.fillStyle = C.text2;
     ctx.fillText(`${t.a} nucleons · ${t.z} p · ${t.a - t.z} n`, x + 4, y + 46);
     // Sockets, right-aligned, largest first.
     const gap = sr * 2 + 14;
@@ -193,14 +193,14 @@ export class MergeView implements PuzzleView {
       const next = i === s.filled;
       if (filled) this.drawTile(ctx, { id: 0, v, spoiled: false }, cx, cy, sr, 1, false);
       else {
-        ctx.strokeStyle = next ? '#e0503a' : 'rgba(226, 220, 207, 0.35)';
+        ctx.strokeStyle = next ? C.target : C.line2;
         ctx.lineWidth = next ? 2 : 1;
         ctx.setLineDash(next ? [] : [3, 4]);
         ctx.beginPath();
         ctx.arc(cx, cy, sr, 0, Math.PI * 2);
         ctx.stroke();
         ctx.setLineDash([]);
-        ctx.fillStyle = next ? '#e0503a' : 'rgba(226, 220, 207, 0.5)';
+        ctx.fillStyle = next ? C.target : C.text3;
         ctx.font = `700 ${Math.round(sr * 0.8)}px ${MONO}`;
         ctx.textAlign = 'center';
         ctx.fillText(String(v), cx, cy + 1);
@@ -213,19 +213,18 @@ export class MergeView implements PuzzleView {
     ctx.save();
     ctx.globalAlpha = alpha * (tile.spoiled ? 0.55 : 1);
     if (lit) {
-      ctx.shadowColor = 'rgba(224, 80, 58, 0.8)';
+      ctx.shadowColor = C.target;
       ctx.shadowBlur = r * 0.8;
     }
-    // Flat discs that warm from pewter to silver to pale gold as clusters grow.
-    const tone = Math.min(1, Math.log2(tile.v) / 6);
-    ctx.fillStyle = tile.v === 1 ? C.pewter : `rgb(${Math.round(243 - 10 * tone)}, ${Math.round(238 - 28 * tone)}, ${Math.round(226 - 90 * tone)})`;
+    // Flat card-table discs: a lone nucleon is grey, clusters are light tiles.
+    ctx.fillStyle = tile.v === 1 ? C.pewter : tile.v === 2 ? C.silverDim : C.tile;
     ctx.beginPath();
     ctx.arc(x, y, r, 0, Math.PI * 2);
     ctx.fill();
     ctx.shadowBlur = 0;
     if (tile.v > 1) this.drawNucleons(ctx, tile, x, y, r);
     if (tile.spoiled) {
-      ctx.strokeStyle = 'rgba(224, 80, 58, 0.95)';
+      ctx.strokeStyle = C.bad;
       ctx.lineWidth = Math.max(1.5, r * 0.08);
       ctx.beginPath();
       ctx.moveTo(x - r * 0.7, y - r * 0.5);
@@ -238,7 +237,7 @@ export class MergeView implements PuzzleView {
       ctx.stroke();
     }
     if (lit) {
-      ctx.strokeStyle = '#e0503a';
+      ctx.strokeStyle = C.target;
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.arc(x, y, r + 4, 0, Math.PI * 2);
@@ -248,12 +247,12 @@ export class MergeView implements PuzzleView {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     if (tile.v > 1) {
-      ctx.fillStyle = 'rgba(251, 248, 240, 0.9)';
+      ctx.fillStyle = C.tile;
       ctx.beginPath();
       ctx.ellipse(x, y, r * (label.length > 1 ? 0.56 : 0.42), r * 0.4, 0, 0, Math.PI * 2);
       ctx.fill();
     }
-    ctx.fillStyle = '#1b1813';
+    ctx.fillStyle = C.tileInk;
     ctx.font = font(r * (label.length > 1 ? 0.62 : 0.8), 700);
     ctx.fillText(label, x, y + 1);
     ctx.restore();
@@ -268,7 +267,7 @@ export class MergeView implements PuzzleView {
       const k = (i + 0.5) / count;
       const rr = Math.sqrt(k) * (r - dot - 1);
       const a = i * golden;
-      ctx.fillStyle = i % 2 ? 'rgba(120, 114, 104, 0.9)' : 'rgba(214, 150, 60, 0.9)';
+      ctx.fillStyle = i % 2 ? C.neutron : C.proton;
       ctx.beginPath();
       ctx.arc(x + Math.cos(a) * rr, y + Math.sin(a) * rr, dot, 0, Math.PI * 2);
       ctx.fill();

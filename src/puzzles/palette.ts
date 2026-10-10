@@ -6,22 +6,30 @@
 export const FONT = "'Outfit Variable', 'Outfit', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif";
 
 export const C = {
-  bg: '#0c0b0a',
-  plate: '#16140f',
-  surface: '#17150f',
-  surface2: '#201d17',
-  text: '#e2dccf',
-  text2: '#9a9284',
-  text3: '#6d665a',
-  line: 'rgba(226, 220, 207, 0.16)',
-  line2: 'rgba(226, 220, 207, 0.28)',
-  line3: 'rgba(226, 220, 207, 0.55)',
-  silver: '#f3eee2',
-  silverDim: '#cfc8b8',
-  pewter: '#8f887a',
-  accent: '#e0503a',
-  good: '#9fc98a',
-  warn: '#e0a24a',
+  bg: '#101112',
+  plate: '#131416',
+  surface: '#17191b',
+  surface2: '#1f2225',
+  surface3: '#2a2e32',
+  text: '#e4e8ea',
+  text2: '#8a9296',
+  text3: '#50575b',
+  line: 'rgba(228, 232, 234, 0.12)',
+  line2: 'rgba(228, 232, 234, 0.26)',
+  line3: 'rgba(228, 232, 234, 0.5)',
+  /** Pieces: the light card-table tile and the ink drawn on it. */
+  tile: '#e4e8ea',
+  tileInk: '#101112',
+  silver: '#eef1f2',
+  silverDim: '#b9c0c3',
+  pewter: '#7d868a',
+  /** The interface accent: selection, focus, what you can act on. */
+  accent: '#6fd0e6',
+  /** Red, kept for the one thing being aimed at right now. */
+  target: '#e0503a',
+  good: '#8fd19e',
+  warn: '#e8b45c',
+  bad: '#ef6a55',
   /** Orbital colours: the same in every atom and every puzzle. */
   s: '#5f8ae0',
   p: '#2ea57a',
@@ -29,15 +37,16 @@ export const C = {
   f: '#a865d6',
   /** Nucleons: protons warm, neutrons grey. */
   proton: '#d6963c',
-  neutron: '#7a7468',
+  neutron: '#6d7478',
 };
 
 /** Which design token each palette colour follows. */
 const TOKENS: Partial<Record<keyof typeof C, string>> = {
-  bg: '--c-bg', plate: '--c-plate', surface: '--c-surface', surface2: '--c-surface-2',
+  bg: '--c-bg', plate: '--c-plate', surface: '--c-surface', surface2: '--c-surface-2', surface3: '--c-surface-3',
   text: '--c-text', text2: '--c-text-2', text3: '--c-text-3',
   line: '--c-line', line2: '--c-line-2', line3: '--c-line-3',
-  silver: '--c-silver', accent: '--c-accent', good: '--c-good', warn: '--c-warn',
+  tile: '--c-tile', tileInk: '--c-tile-ink', silver: '--c-silver',
+  accent: '--c-accent', target: '--c-target', good: '--c-good', warn: '--c-warn', bad: '--c-bad',
   s: '--c-orb-s', p: '--c-orb-p', d: '--c-orb-d', f: '--c-orb-f',
 };
 
