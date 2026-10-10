@@ -57,6 +57,11 @@ export class SlidingView implements PuzzleView {
   get par(): number | null { return this.state.par; }
   get clean(): boolean { return this.state.moves <= this.state.par; }
 
+  /** The game bar's Progress column: pieces and walls still between the key bar and the exit. */
+  stats(): { progress: { label: string; value: string } } {
+    return { progress: { label: 'In the way', value: this.won ? 'Out' : String(this.blockers()) } };
+  }
+
   hint(): string {
     if (this.won) return 'The key bar is out';
     const n = this.blockers();

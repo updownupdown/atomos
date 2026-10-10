@@ -67,9 +67,14 @@ export function drawFrame(ctx: CanvasRenderingContext2D, box: { x: number; y: nu
   ctx.lineWidth = lw;
   ctx.lineCap = 'round';
   const gaps = opts.gaps ?? [];
-  if (gaps.length) ctx.setLineDash(dashFor(box, r, lw, gaps));
+  if (gaps.length) {
+    const { dash, offset } = dashFor(box, r, lw, gaps);
+    ctx.setLineDash(dash);
+    ctx.lineDashOffset = offset;
+  }
   ctx.stroke();
   ctx.setLineDash([]);
+  ctx.lineDashOffset = 0;
   for (const g of gaps) {
     if (!g.dot) continue;
     const [gx, gy] = gapPoint(box, g);
@@ -92,17 +97,19 @@ export function gapPoint(box: { x: number; y: number; w: number; h: number }, g:
 }
 
 /**
- * The dash pattern that leaves the gaps open. roundRect's path starts at (x + r, y) and runs
- * clockwise: top edge, top-right corner, right edge, and so on. Each gap becomes an interval of
- * that path (widened by the line width, which the round caps take back), and the dash pattern
- * is the stretches between them.
+ * The dash pattern that leaves the gaps open, and the offset to draw it at. roundRect's path
+ * starts at (x + r, y) and runs clockwise: top edge, top-right corner, right edge, and so on.
+ * Each gap becomes an interval of that path (widened by the line width, which the round caps
+ * take back); intervals that cross the path's start wrap round it, and overlapping ones merge.
+ * The pattern starts where the first gap ends, so it never opens with a zero-length dash (which
+ * round caps would draw as a dot), and `offset` lines that start up with the path.
  */
-export function dashFor(box: { x: number; y: number; w: number; h: number }, r: number, lw: number, gaps: FrameGap[]): number[] {
+export function dashFor(box: { x: number; y: number; w: number; h: number }, r: number, lw: number, gaps: FrameGap[]): { dash: number[]; offset: number } {
   const { x, y, w, h } = box;
   const sw = w - 2 * r, sh = h - 2 * r, q = (Math.PI * r) / 2;
   const total = 2 * sw + 2 * sh + 4 * q;
-  // Where each side's straight run starts along the path, and its start coordinate.
-  const start: Record<Side, number> = { top: 0, right: sw + q, bottom: 2 * sw + sh + 2 * q, left: 2 * sw + 2 * sh + 3 * q };
+  // Where each side's straight run starts along the path.
+  const start: Record<Side, number> = { top: 0, right: sw + q, bottom: sw + sh + 2 * q, left: 2 * sw + sh + 3 * q };
   const along = (g: FrameGap): number => {
     switch (g.side) {
       case 'top': return start.top + (g.at - (x + r));
@@ -111,20 +118,38 @@ export function dashFor(box: { x: number; y: number; w: number; h: number }, r: 
       default: return start.left + (y + h - r - g.at);
     }
   };
-  const cuts = gaps
-    .map((g) => {
-      const c = along(g), half = g.size / 2 + lw / 2;
-      return [Math.max(0, c - half), Math.min(total, c + half)] as [number, number];
-    })
-    .filter(([a, b]) => b > a)
-    .sort((a, b) => a[0] - b[0]);
-  const dash: number[] = [];
-  let pos = 0;
-  for (const [a, b] of cuts) {
-    if (a < pos) { pos = Math.max(pos, b); continue; }
-    dash.push(a - pos, b - a);
-    pos = b;
+  const raw: [number, number][] = [];
+  for (const g of gaps) {
+    const c = along(g), half = g.size / 2 + lw / 2;
+    if (!(half > 0)) continue;
+    if (half * 2 >= total) return { dash: [0, total], offset: 0 };
+    const a = ((c - half) % total + total) % total, b = a + half * 2;
+    if (b <= total) raw.push([a, b]);
+    else raw.push([a, total], [0, b - total]);
   }
-  dash.push(Math.max(0, total - pos), 0);
-  return dash;
+  if (!raw.length) return { dash: [total, 0], offset: 0 };
+  raw.sort((p, q2) => p[0] - q2[0]);
+  const cuts: [number, number][] = [];
+  for (const [a, b] of raw) {
+    const last = cuts[cuts.length - 1];
+    if (last && a <= last[1]) last[1] = Math.max(last[1], b);
+    else cuts.push([a, b]);
+  }
+  // A cut ending at the path's end and one starting at its start are one gap across the start.
+  if (cuts.length > 1 && cuts[cuts.length - 1][1] >= total && cuts[0][0] <= 0) {
+    const tail = cuts.pop()!;
+    cuts[0] = [tail[0] - total, cuts[0][1]];
+  }
+  if (cuts.length === 1 && cuts[0][1] - cuts[0][0] >= total) return { dash: [0, total], offset: 0 };
+  // From the end of the first cut: stroke to the next cut, skip it, and so on round to the first.
+  const dash: number[] = [];
+  const from = cuts[0][1];
+  for (let i = 0; i < cuts.length; i++) {
+    const next = cuts[(i + 1) % cuts.length];
+    const nextA = i + 1 < cuts.length ? next[0] : next[0] + total;
+    const end = i === 0 ? from : cuts[i][1];
+    dash.push(nextA - end, (i + 1 < cuts.length ? next[1] : next[1] + total) - nextA);
+  }
+  // Pattern position 0 sits at path position `from`, so the path's start is total - from into it.
+  return { dash, offset: ((total - from) % total + total) % total };
 }
