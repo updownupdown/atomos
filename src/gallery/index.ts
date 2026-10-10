@@ -8,7 +8,8 @@ import { Detail } from './detail';
 import { Gallery } from './gallery';
 import { decoratorsHTML, TABS, tabHTML, type Tab } from './info';
 import { icon, type IconName } from '../ui/icons';
-import { closeButton, createTabs, showToast, type Tabs } from '../ui/components';
+import { closeButton, createTabs, type Tabs } from '../ui/components';
+import { openElementPicker } from '../ui/picker';
 import { isLayoutId, LAYOUT_STORY, LAYOUTS, type LayoutId } from './layouts';
 import { setScienceHandler, setScienceOpen } from '../ui/science';
 import { openModal } from '../ui/modal';
@@ -111,8 +112,7 @@ export class GalleryApp {
 
   /** The element picker opens from the number and symbol in the bar. */
   private openPicker(): void {
-    // Stand-in until the shared drawer picker (openElementPicker) lands on main.
-    showToast('The element picker is coming next');
+    openElementPicker((z) => this.open(elementAt(z)), { current: this.current?.z, locked: (z) => !this.collected(z) });
   }
 
   /** Swipe sideways in the science sheet to move between tabs; tables that scroll sideways keep the gesture. */
