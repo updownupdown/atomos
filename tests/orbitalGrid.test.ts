@@ -261,17 +261,33 @@ describe('orbital grid view', () => {
     expect(state(v).cells[i]).toBe(0);
   });
 
-  it('has rule cards with demos that stay in their box, and only the game meta in INSTRUCTIONS', () => {
+  it('has rule cards with good (and where it can go wrong, bad) pictures whose every frame stays in the box', () => {
     expect(RULES.length).toBeGreaterThanOrEqual(6);
     for (const r of RULES) {
       expect(r.title.length).toBeGreaterThan(0);
       expect(r.text).not.toMatch(/<|>/);
-      for (const [w, h] of [[120, 96], [220, 160]]) for (let t = 0; t < 7; t += 0.13) {
-        const { ctx, pts } = mockCtx();
-        r.demo!(ctx, w, h, t);
-        inside(pts, { x: 0, y: 0, w, h }, 1);
+      expect(r.demo).toBeUndefined();
+      expect(r.good).toBeDefined();
+      for (const ill of [r.good, r.bad]) {
+        if (!ill) continue;
+        expect(ill.duration).toBeGreaterThanOrEqual(1.5);
+        expect(ill.duration).toBeLessThanOrEqual(4);
+        expect(ill.caption?.length ?? 0).toBeGreaterThan(0);
+        expect(ill.caption!.length).toBeLessThanOrEqual(24);
+        for (const [w, h] of [[140, 104], [120, 90]]) {
+          const ts = [...Array.from({ length: Math.ceil(ill.duration / 0.1) }, (_, i) => i * 0.1), ill.duration];
+          for (const t of ts) {
+            const { ctx, pts } = mockCtx();
+            ill.draw(ctx, w, h, t);
+            inside(pts, { x: 0, y: 0, w, h }, 1);
+          }
+        }
       }
     }
+    // The rules that can be broken show it broken: a clash in a block, a clash in a row.
+    const bad = (title: string) => RULES.find((r) => r.title === title)?.bad;
+    expect(bad('Once each')).toBeDefined();
+    expect(bad('Clashes')).toBeDefined();
     expect(INSTRUCTIONS).toMatch(/<h3>In the game<\/h3>/);
     expect(INSTRUCTIONS).not.toMatch(/How to play/);
   });

@@ -548,68 +548,124 @@ const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 /** A 4x4 solution for the demos. */
 const DEMO_GRID = [0, 1, 2, 3, 2, 3, 0, 1, 1, 0, 3, 2, 3, 2, 1, 0];
 
+/** A unit outline in the demos: a row, a column or a block of cells, in cyan or amber. */
+function demoUnit(ctx: CanvasRenderingContext2D, x0: number, y0: number, c: number, col: number, row: number, cols: number, rows: number, color: string, alpha = 1): void {
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  tile(ctx, x0 + col * c - 1, y0 + row * c - 1, cols * c + 2, rows * c + 2, c * 0.22, null, color, 2);
+  ctx.restore();
+}
+
+/** The demo 4x4 board: block plates, then the cells. */
+function demoGrid(ctx: CanvasRenderingContext2D, x: number, y: number, c: number, cells: number[], givens: boolean[]): void {
+  for (let br = 0; br < 4; br += 2) for (let bc = 0; bc < 4; bc += 2) tile(ctx, x + bc * c + 0.5, y + br * c + 0.5, 2 * c - 1, 2 * c - 1, c * 0.18, C.plate, C.line3, 1);
+  demoCells(ctx, x, y, c, 4, false, cells, givens);
+}
+
+/** A tile settling into a cell: it fades and grows in over the first 40% of m. */
+function demoArrive(ctx: CanvasRenderingContext2D, b: { x: number; y: number; w: number }, spin: boolean, sym: number, m: number): void {
+  const k = smooth(Math.min(1, Math.max(0, m)));
+  if (k <= 0) return;
+  const w = b.w * (0.8 + 0.2 * k);
+  drawSymbolTile(ctx, b.x + (b.w - w) / 2, b.y + (b.w - w) / 2, w, spin, sym, 'placed', k);
+}
+
+/** Cell 10's place in DEMO_GRID: the one the player fills in "Once each". */
+const DEMO_HOLE = 10;
+/** Every DEMO_GRID cell dealt except the hole. */
+const DEMO_GIVENS = DEMO_GRID.map((_, i) => i !== DEMO_HOLE);
+
+/** A row of four cells across the demo box: its cell size and origin. */
+function demoRow(w: number, h: number, rows = 1): { c: number; x: number; y: number } {
+  const c = Math.min(w / 4.5, h / (rows + 0.6));
+  return { c, x: (w - 4 * c) / 2, y: (h - rows * c) / 2 };
+}
+
+/**
+ * Pictures for the Instructions modal. Each still is its last frame (t = duration); Play runs
+ * good, then bad. Captions are a few words.
+ */
 export const RULES: RuleCard[] = [
   {
     title: 'Once each',
     text: 'Fill the grid so every row, every column and every outlined block holds each symbol exactly once.',
-    demo: (ctx, w, h, t) => {
-      const { c, x, y } = demoBoard(w, h, 4, 4, 0.92);
-      for (let br = 0; br < 4; br += 2) for (let bc = 0; bc < 4; bc += 2) tile(ctx, x + bc * c + 0.5, y + br * c + 0.5, 2 * c - 1, 2 * c - 1, c * 0.18, C.plate, C.line3, 1);
-      demoCells(ctx, x, y, c, 4, false, DEMO_GRID, DEMO_GRID.map(() => true));
-      // Sweep a row, then a column, then a block.
-      const phase = Math.floor((t % 4.5) / 1.5);
-      ctx.save();
-      ctx.strokeStyle = C.accent;
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      if (phase === 0) ctx.roundRect(x - 1, y + c - 1, 4 * c + 2, c + 2, c * 0.2);
-      else if (phase === 1) ctx.roundRect(x + 2 * c - 1, y - 1, c + 2, 4 * c + 2, c * 0.2);
-      else ctx.roundRect(x + 2 * c - 1, y + 2 * c - 1, 2 * c + 2, 2 * c + 2, c * 0.2);
-      ctx.stroke();
-      ctx.restore();
+    good: {
+      duration: 3,
+      caption: 'One of each per row',
+      draw: (ctx, w, h, t) => {
+        const { c, x, y } = demoBoard(w, h, 4, 4, 0.94);
+        const cells = DEMO_GRID.map((v, i) => (i === DEMO_HOLE ? EMPTY : v));
+        demoGrid(ctx, x, y, c, cells, DEMO_GIVENS);
+        demoArrive(ctx, cellBox(x, y, c, 4, DEMO_HOLE), false, DEMO_GRID[DEMO_HOLE], (t - 0.2) / 0.6);
+        // Its column, its block, then its row: f once in each.
+        if (t > 1 && t < 1.7) demoUnit(ctx, x, y, c, 2, 0, 1, 4, C.accent);
+        else if (t >= 1.7 && t < 2.4) demoUnit(ctx, x, y, c, 2, 2, 2, 2, C.accent);
+        else if (t >= 2.4) demoUnit(ctx, x, y, c, 0, 2, 4, 1, C.accent);
+      },
+    },
+    bad: {
+      duration: 2.4,
+      caption: 'Two p in one block',
+      draw: (ctx, w, h, t) => {
+        const { c, x, y } = demoBoard(w, h, 4, 4, 0.94);
+        const cells = DEMO_GRID.map((v, i) => (i === DEMO_HOLE ? EMPTY : v));
+        demoGrid(ctx, x, y, c, cells, DEMO_GIVENS);
+        const b = cellBox(x, y, c, 4, DEMO_HOLE);
+        demoArrive(ctx, b, false, 1, (t - 0.2) / 0.6);
+        if (t > 1.1) {
+          // The block already has its p (bottom left of it): the new one clashes.
+          demoUnit(ctx, x, y, c, 2, 2, 2, 2, C.warn, 0.8);
+          drawClash(ctx, b.x, b.y, b.w, b.w * RADIUS.placed);
+        }
+      },
     },
   },
   {
     title: 'The orbitals',
     text: 'Each symbol is an orbital with its own color, its letter and one dot for each lobe of the real orbital: s one, p two, d four, f six.',
-    demo: (ctx, w, h, t) => {
-      const size = Math.min((w * 0.9) / 4.4, h * 0.6);
-      const gap = size * 0.13, x0 = (w - 4 * size - 3 * gap) / 2, y0 = (h - size) / 2;
-      const on = Math.floor((t % 4) / 1);
-      for (let k = 0; k < 4; k++) {
-        const lift = k === on ? size * 0.08 : 0;
-        drawSymbolTile(ctx, x0 + k * (size + gap), y0 - lift, size, false, k, 'placed');
-      }
+    good: {
+      duration: 2,
+      caption: 's p d f: 1, 2, 4, 6 dots',
+      draw: (ctx, w, h, t) => {
+        const size = Math.min((w * 0.92) / 4.45, h * 0.62);
+        const gap = size * 0.15, x0 = (w - 4 * size - 3 * gap) / 2, y0 = (h - size) / 2;
+        for (let k = 0; k < 4; k++) demoArrive(ctx, { x: x0 + k * (size + gap), y: y0, w: size }, false, k, (t - k * 0.4) / 0.5);
+      },
     },
   },
   {
     title: 'Spin up, spin down',
     text: 'On the bigger grids each orbital comes twice: spin up is a solid tile, spin down its hollow twin, dark inside a ring of the same color. They count as different symbols.',
-    demo: (ctx, w, h, t) => {
-      const size = Math.min((w * 0.86) / 2.3, h * 0.7);
-      const gap = size * 0.3, x0 = (w - 2 * size - gap) / 2, y0 = (h - size) / 2;
-      // Each orbital's pair in turn.
-      const o = Math.floor((t % 6) / 1.5);
-      drawSymbolTile(ctx, x0, y0, size, true, o * 2, 'placed');
-      drawSymbolTile(ctx, x0 + size + gap, y0, size, true, o * 2 + 1, 'placed');
+    good: {
+      duration: 2.4,
+      caption: 'Solid up, hollow down',
+      draw: (ctx, w, h, t) => {
+        const size = Math.min((w * 0.9) / 4.45, (h * 0.9) / 2.15);
+        const gap = size * 0.15, x0 = (w - 4 * size - 3 * gap) / 2, y0 = (h - 2 * size - gap) / 2;
+        for (let k = 0; k < 8; k++) {
+          const col = k >> 1, row = k & 1;
+          demoArrive(ctx, { x: x0 + col * (size + gap), y: y0 + row * (size + gap), w: size }, true, k, (t - row * 1 - col * 0.2) / 0.5);
+        }
+      },
     },
   },
   {
     title: 'Drag from a stack',
     text: 'Drag a symbol from its stack onto a cell. Stacks never run out, and the cell lights up where it will land.',
-    demo: (ctx, w, h, t) => {
-      const T = t % 3.2;
-      const c = Math.min(w / 4.6, h / 2.6);
-      const x0 = (w - 4 * c) / 2, y0 = h * 0.06;
-      const row = [1, EMPTY, 3, 0];
-      const placed = T > 2.1;
-      demoCells(ctx, x0, y0, c, 4, false, placed ? [1, 2, 3, 0] : row, [true, false, true, true]);
-      const k = c * 0.95, countH = Math.max(11, c * 0.3);
-      const kx = w / 2 - k / 2, ky = y0 + c + h * 0.08;
-      drawStack(ctx, kx, ky, k, countH, false, 2, placed ? 3 : 4, false);
-      const target = cellBox(x0, y0, c, 4, 1);
-      if (T > 0.4 && T < 2.1) {
-        const m = smooth(Math.min(1, (T - 0.6) / 1.2));
+    good: {
+      duration: 2.4,
+      caption: 'Stack to empty cell',
+      draw: (ctx, w, h, t) => {
+        const c = Math.min(w / 4.6, h / 2.6);
+        const x0 = (w - 4 * c) / 2, y0 = h * 0.06;
+        const placed = t >= 2;
+        demoCells(ctx, x0, y0, c, 4, false, placed ? [1, 2, 3, 0] : [1, EMPTY, 3, 0], [true, false, true, true]);
+        const k = c * 0.95, countH = Math.max(11, c * 0.3);
+        const kx = w / 2 - k / 2, ky = y0 + c + h * 0.08;
+        drawStack(ctx, kx, ky, k, countH, false, 2, placed ? 3 : 4, false);
+        const target = cellBox(x0, y0, c, 4, 1);
+        if (placed) return;
+        const m = smooth(Math.min(1, Math.max(0, (t - 0.3) / 1.3)));
         const fx = lerp(kx + k / 2, target.x + target.w / 2, m), fy = lerp(ky + k / 2 + c * 0.6, target.y + target.w / 2 + c * 0.7, m);
         if (m > 0.75) {
           ctx.save();
@@ -618,101 +674,119 @@ export const RULES: RuleCard[] = [
           ctx.restore();
           tile(ctx, target.x - 2, target.y - 2, target.w + 4, target.w + 4, target.w * 0.3, null, C.accent, 2);
         }
-        const gs = c * 0.84;
-        drawSymbolTile(ctx, fx - gs / 2, fy - c * 0.7 - gs / 2, gs, false, 2, 'placed', 0.95);
-        finger(ctx, fx, fy, c * 0.28, true);
-      } else if (T <= 0.4) finger(ctx, kx + k / 2, ky + k / 2 + c * 0.6, c * 0.28, false);
+        if (t > 0.3) {
+          const gs = c * 0.84;
+          drawSymbolTile(ctx, fx - gs / 2, fy - c * 0.7 - gs / 2, gs, false, 2, 'placed', 0.95);
+        }
+        finger(ctx, fx, fy, c * 0.28, t > 0.3);
+      },
     },
   },
   {
     title: 'Or tap',
     text: 'Tap a cell to choose it, then tap a stack. Tap the cell again to step it through the symbols.',
-    demo: (ctx, w, h, t) => {
-      const T = t % 3.6;
-      const c = Math.min(w / 4.6, h / 2.6);
-      const x0 = (w - 4 * c) / 2, y0 = h * 0.06;
-      const sym = T < 1.6 ? EMPTY : T < 2.6 ? 1 : 2;
-      demoCells(ctx, x0, y0, c, 4, false, [0, sym, 3, EMPTY], [true, false, true, false]);
-      const cell = cellBox(x0, y0, c, 4, 1);
-      if (T > 0.5) tile(ctx, cell.x - 2, cell.y - 2, cell.w + 4, cell.w + 4, cell.w * 0.3, null, C.accent, 2);
-      const k = c * 0.85, countH = Math.max(11, c * 0.3);
-      const sx = (w - 4 * (k + c * 0.15)) / 2, ky = y0 + c + h * 0.08;
-      for (let s = 0; s < 4; s++) drawStack(ctx, sx + s * (k + c * 0.15), ky, k, countH, false, s, 2, sym === s);
-      // Tap the cell, tap the p stack, then tap the cell again.
-      const taps: [number, number, number][] = [[0.3, cell.x + cell.w / 2, cell.y + cell.w / 2], [1.3, sx + 1 * (k + c * 0.15) + k / 2, ky + k / 2], [2.3, cell.x + cell.w / 2, cell.y + cell.w / 2]];
-      for (const [at, fx, fy] of taps) if (T > at && T < at + 0.45) finger(ctx, fx, fy, c * 0.26, T < at + 0.25);
+    good: {
+      duration: 2.6,
+      caption: 'Cell, then stack',
+      draw: (ctx, w, h, t) => {
+        const c = Math.min(w / 4.6, h / 2.6);
+        const x0 = (w - 4 * c) / 2, y0 = h * 0.06;
+        const sym = t < 1.5 ? EMPTY : t < 2.3 ? 1 : 2;
+        demoCells(ctx, x0, y0, c, 4, false, [0, sym, 3, EMPTY], [true, false, true, false]);
+        const cell = cellBox(x0, y0, c, 4, 1);
+        if (t > 0.5) tile(ctx, cell.x - 2, cell.y - 2, cell.w + 4, cell.w + 4, cell.w * 0.3, null, C.accent, 2);
+        // A tall count row, so the ring round the chosen stack clears its number.
+        const k = c * 0.85, countH = Math.max(14, c * 0.45);
+        const sx = (w - 4 * (k + c * 0.15)) / 2, ky = y0 + c + h * 0.08;
+        for (let s = 0; s < 4; s++) drawStack(ctx, sx + s * (k + c * 0.15), ky, k, countH, false, s, 2, sym === s);
+        // Tap the cell, tap the p stack, then tap the cell again to step p to d.
+        const taps: [number, number, number][] = [[0.3, cell.x + cell.w / 2, cell.y + cell.w / 2], [1.2, sx + 1 * (k + c * 0.15) + k / 2, ky + k / 2], [2, cell.x + cell.w / 2, cell.y + cell.w / 2]];
+        for (const [at, fx, fy] of taps) if (t > at && t < at + 0.45) finger(ctx, fx, fy, c * 0.26, t < at + 0.25);
+      },
     },
   },
   {
     title: 'Counts',
     text: 'The number under each stack is how many more of that symbol the grid needs. At 0 the stack dims: that symbol is done.',
-    demo: (ctx, w, h, t) => {
-      const T = t % 4;
-      const left = T < 1 ? 2 : T < 2 ? 1 : 0;
-      const k = Math.min(w * 0.36, h * 0.62), countH = Math.max(12, k * 0.3);
-      const x = w * 0.18, y = (h - k - countH) / 2;
-      drawStack(ctx, x, y, k, countH, false, 1, left, false);
-      // The tiles already out on the board, beside the stack.
-      const c = k * 0.5, bx = w * 0.62, by = y + 2;
-      for (let i = 0; i < 4; i++) {
-        const yy = by + (i % 2) * c * 1.1, xx = bx + Math.floor(i / 2) * c * 1.1;
-        if (i < 4 - left) drawSymbolTile(ctx, xx, yy, c, false, 1, i < 2 ? 'given' : 'placed');
-        else drawEmpty(ctx, xx, yy, c, c * EMPTY_RADIUS);
-      }
+    good: {
+      duration: 2.4,
+      caption: 'At 0, p is done',
+      draw: (ctx, w, h, t) => {
+        const left = t < 0.8 ? 2 : t < 1.6 ? 1 : 0;
+        const k = Math.min(w * 0.36, h * 0.62), countH = Math.max(12, k * 0.3);
+        const x = w * 0.18, y = (h - k - countH) / 2;
+        drawStack(ctx, x, y, k, countH, false, 1, left, false);
+        // The tiles already out on the board, beside the stack.
+        const c = k * 0.5, bx = w * 0.62, by = y + 2;
+        for (let i = 0; i < 4; i++) {
+          const yy = by + (i % 2) * c * 1.1, xx = bx + Math.floor(i / 2) * c * 1.1;
+          if (i < 4 - left) drawSymbolTile(ctx, xx, yy, c, false, 1, i < 2 ? 'given' : 'placed');
+          else drawEmpty(ctx, xx, yy, c, c * EMPTY_RADIUS);
+        }
+      },
     },
   },
   {
     title: 'Dealt tiles',
     text: 'Square tiles were dealt and never change. Your tiles are round: drag one to move it, or off the board to clear it.',
-    demo: (ctx, w, h, t) => {
-      const T = t % 3.4;
-      const c = Math.min(w / 3.6, h / 1.9);
-      const x0 = (w - 3 * c) / 2, y0 = h * 0.12;
-      const gone = T > 2.2;
-      demoCells(ctx, x0, y0, c, 3, false, [3, gone ? EMPTY : 0, 1], [true, false, true]);
-      const cell = cellBox(x0, y0, c, 3, 1);
-      if (T > 0.6 && T <= 2.2) {
-        // Lift the placed tile and carry it off the board.
-        drawEmpty(ctx, cell.x, cell.y, cell.w, cell.w * EMPTY_RADIUS);
-        const m = smooth(Math.min(1, (T - 0.7) / 1.3));
-        const fx = cell.x + cell.w / 2 + m * c * 0.2, fy = cell.y + cell.w / 2 + c * 0.7 + m * (h - cell.y - cell.w / 2 - c);
-        ctx.save();
-        ctx.globalAlpha = 1 - m * 0.8;
-        drawSymbolTile(ctx, fx - cell.w / 2, fy - c * 0.7 - cell.w / 2, cell.w, false, 0, 'placed');
-        ctx.restore();
-        finger(ctx, fx, fy, c * 0.24, true);
-      }
+    good: {
+      duration: 2.6,
+      caption: 'Round tiles are yours',
+      draw: (ctx, w, h, t) => {
+        const c = Math.min(w / 4.5, h / 1.9);
+        const x0 = (w - 4 * c) / 2, y0 = (h - c) / 2 - c * 0.15;
+        const moved = t >= 2;
+        demoCells(ctx, x0, y0, c, 4, false, [3, moved ? EMPTY : 0, 1, moved ? 0 : EMPTY], [true, false, true, false]);
+        if (t <= 0.4 || moved) return;
+        // Lift your tile and carry it past the dealt one to the free cell.
+        const from = cellBox(x0, y0, c, 4, 1), to = cellBox(x0, y0, c, 4, 3);
+        drawEmpty(ctx, from.x, from.y, from.w, from.w * EMPTY_RADIUS);
+        const m = smooth(Math.min(1, (t - 0.5) / 1.3));
+        const tx = lerp(from.x, to.x, m), ty = from.y - Math.sin(m * Math.PI) * c * 0.35;
+        drawSymbolTile(ctx, tx, ty, from.w, false, 0, 'placed', 0.95);
+        finger(ctx, tx + from.w / 2, ty + from.w / 2 + c * 0.55, c * 0.24, true);
+      },
     },
   },
   {
     title: 'Keyboard',
     text: 'Arrow keys move the cyan cursor; 1-8 or s p d f place a symbol (press a letter twice for spin down), and Backspace clears.',
-    demo: (ctx, w, h, t) => {
-      const T = t % 4;
-      const c = Math.min(w / 4.4, h / 1.5);
-      const x0 = (w - 4 * c) / 2, y0 = (h - c) / 2;
-      // The cursor steps right, then p, then p again for spin down.
-      const at = T < 0.8 ? 0 : 1;
-      const v = T < 1.6 || at === 0 ? EMPTY : T < 2.6 ? 2 : 3;
-      demoCells(ctx, x0, y0, c, 4, true, [EMPTY, v, 0, 5], [false, false, true, true]);
-      const b = cellBox(x0, y0, c, 4, at);
-      tile(ctx, b.x - 2, b.y - 2, b.w + 4, b.w + 4, b.w * 0.3, null, C.accent, 2);
+    good: {
+      duration: 2.4,
+      caption: 'Right, then p, p again',
+      draw: (ctx, w, h, t) => {
+        const { c, x, y } = demoRow(w, h);
+        // The cursor steps right, then p, then p again for spin down.
+        const at = t < 0.6 ? 0 : 1;
+        const v = t < 1.2 || at === 0 ? EMPTY : t < 1.9 ? 2 : 3;
+        demoCells(ctx, x, y, c, 4, true, [EMPTY, v, 0, 5], [false, false, true, true]);
+        const b = cellBox(x, y, c, 4, at);
+        tile(ctx, b.x - 2, b.y - 2, b.w + 4, b.w + 4, b.w * 0.3, null, C.accent, 2);
+      },
     },
   },
   {
     title: 'Clashes',
     text: 'A tile whose symbol already sits in its row, column or block gets an amber ring. Move it or change it.',
-    demo: (ctx, w, h, t) => {
-      const T = t % 4;
-      const c = Math.min(w / 4.4, h / 1.5);
-      const x0 = (w - 4 * c) / 2, y0 = (h - c) / 2;
-      // First a clashing p↑, then the right p↓.
-      const v = T < 0.6 ? EMPTY : T < 2.8 ? 2 : 3;
-      demoCells(ctx, x0, y0, c, 4, true, [2, 0, v, 1], [true, true, false, true]);
-      if (v === 2) {
-        const a = cellBox(x0, y0, c, 4, 2);
-        drawClash(ctx, a.x, a.y, a.w, a.w * RADIUS.placed);
-      }
+    good: {
+      duration: 1.6,
+      caption: 'p down: no clash',
+      draw: (ctx, w, h, t) => {
+        const { c, x, y } = demoRow(w, h);
+        demoCells(ctx, x, y, c, 4, true, [2, 0, EMPTY, 1], [true, true, false, true]);
+        demoArrive(ctx, cellBox(x, y, c, 4, 2), true, 3, (t - 0.3) / 0.6);
+      },
+    },
+    bad: {
+      duration: 2,
+      caption: 'Two p up: amber',
+      draw: (ctx, w, h, t) => {
+        const { c, x, y } = demoRow(w, h);
+        demoCells(ctx, x, y, c, 4, true, [2, 0, EMPTY, 1], [true, true, false, true]);
+        const a = cellBox(x, y, c, 4, 2);
+        demoArrive(ctx, a, true, 2, (t - 0.3) / 0.6);
+        if (t > 1.1) drawClash(ctx, a.x, a.y, a.w, a.w * RADIUS.placed);
+      },
     },
   },
 ];
