@@ -8,7 +8,7 @@
 
 import * as THREE from 'three';
 import { AtomView, type Style } from './atom';
-import { CLOUD_RINGS, type Element } from './data';
+import { CLOUD_RINGS, type Block, type Element } from './data';
 import { token } from './tokens';
 
 export class Detail {
@@ -68,6 +68,11 @@ export class Detail {
   setStyle(style: Style): void {
     this.style = style;
     this.view.setStyle(style);
+  }
+
+  /** Orbital kinds whose shapes are still undiscovered (see AtomView.setHiddenShapes). */
+  setHiddenShapes(kinds: Iterable<Block>): void {
+    this.view.setHiddenShapes(kinds);
   }
 
   show(e: Element, animate: boolean): void {
