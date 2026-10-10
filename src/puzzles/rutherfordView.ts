@@ -12,7 +12,8 @@ import { C, font, tile } from './palette';
 import { drawHelpMark, type Area, type Help, type Point, type PuzzleView, type RuleCard, type Stat } from './view';
 
 const LONG_MS = 380;
-const BAR_H = 48;
+/** The Probe / Mark bar and counters under the plate: its height. */
+const BAR_H = 58;
 /** The port band on each side of the foil, in cells. */
 const BAND = 0.62;
 /** Animation pace, ms. */
@@ -341,8 +342,8 @@ export class RutherfordView implements PuzzleView {
     const { availH, cell } = fit(room);
     const band = cell * BAND, fw = cell * unit;
     const fx = area.x + (area.w - fw) / 2, fy = area.y + 8 + room + (availH - fw) / 2;
-    const w = Math.min(area.w - 16, Math.max(fw, 300));
-    const seg = Math.min(100, (w - 130) / 2);
+    const w = Math.min(area.w - 16, Math.max(fw, 320));
+    const seg = Math.min(120, (w - 156) / 2);
     return {
       cell, band, x: fx + band, y: fy + band,
       frame: { x: fx, y: fy, w: fw },
@@ -457,14 +458,14 @@ export class RutherfordView implements PuzzleView {
     segs.forEach(([label, on], k) => {
       const sx = b.x + k * b.seg;
       tile(ctx, sx + 2, b.y + 2, b.seg - 4, b.h - 4, (b.h - 4) * 0.3, on ? C.surface2 : null, on ? C.line3 : C.line, 1);
-      const ix = sx + Math.min(26, b.seg * 0.26), iy = b.y + b.h / 2;
-      if (k === 0) alphaGlyph(ctx, ix, iy, 5, on ? 1 : 0.45);
-      else reticle(ctx, ix, iy, 7, on ? 1 : 0.45);
+      const ix = sx + Math.min(31, b.seg * 0.26), iy = b.y + b.h / 2;
+      if (k === 0) alphaGlyph(ctx, ix, iy, 6, on ? 1 : 0.45);
+      else reticle(ctx, ix, iy, 8.4, on ? 1 : 0.45);
       ctx.fillStyle = on ? C.text : C.text2;
-      ctx.font = font(14, 500);
+      ctx.font = font(17, 500);
       ctx.textAlign = 'left';
       ctx.textBaseline = 'middle';
-      ctx.fillText(label, ix + 12, iy + 1);
+      ctx.fillText(label, ix + 14, iy + 1);
     });
     counters(ctx, b.x + b.w - 4, b.y + b.h / 2, won ? 0 : remaining(s), this.beamsUsed, s.beamPar);
   }
@@ -835,24 +836,24 @@ function beamFx(ctx: CanvasRenderingContext2D, x: number, y: number, dx: number,
 /** The counters under the plate, right-aligned at x: beams used of par, then nuclei left. Returns the left edge. */
 function counters(ctx: CanvasRenderingContext2D, x: number, y: number, left: number, used: number, par: number, draw = true): number {
   ctx.save();
-  ctx.font = font(13, 500);
+  ctx.font = font(16, 500);
   ctx.textAlign = 'right';
   ctx.textBaseline = 'middle';
   ctx.fillStyle = C.text2;
   const nt = String(left);
   const bt = `${used}/${par}`;
-  const cx = x - ctx.measureText(nt).width - 12;
-  const bx = cx - 22, ax = bx - ctx.measureText(bt).width - 10;
+  const cx = x - ctx.measureText(nt).width - 14;
+  const bx = cx - 26, ax = bx - ctx.measureText(bt).width - 12;
   if (draw) {
     ctx.fillText(nt, x, y + 1);
-    nucleusGlyph(ctx, cx, y, 7, 1);
+    nucleusGlyph(ctx, cx, y, 8.4, 1);
     ctx.fillStyle = used > par ? C.warn : C.text2;
     ctx.fillText(bt, bx, y + 1);
-    streak(ctx, ax - 3, y, 1, 0, 9, 1);
-    alphaGlyph(ctx, ax, y, 5, 1);
+    streak(ctx, ax - 3.5, y, 1, 0, 11, 1);
+    alphaGlyph(ctx, ax, y, 6, 1);
   }
   ctx.restore();
-  return ax - 14;
+  return ax - 17;
 }
 
 // ---- rule cards -----------------------------------------------------------------------
@@ -913,9 +914,10 @@ function inBox(ctx: CanvasRenderingContext2D, w: number, h: number, draw: () => 
   ctx.restore();
 }
 
-/** The counters under the plate, scaled up and centered in a demo box. */
+/** The counters under the plate, scaled up and centered in a demo box (to the same size as before
+ *  the board's counters grew by a fifth). */
 function demoCounters(ctx: CanvasRenderingContext2D, w: number, h: number, left: number, used: number, par: number): void {
-  const k = Math.min(1.5, w / 110);
+  const k = Math.min(1.5, w / 110) / 1.2;
   const span = -counters(ctx, 0, 0, left, 3, par, false);
   ctx.save();
   ctx.translate(w / 2 + (span * k) / 2, h / 2);
