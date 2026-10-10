@@ -514,51 +514,58 @@ body.stage-nucleus #atom { opacity: 0.12; }
 /* White captions round the atom. */
 .dec { position: absolute; z-index: 2; font-family: var(--font); font-size: var(--fs-sm); line-height: 1.5; color: var(--c-silver); display: flex; flex-direction: column; }
 .dec .dim { color: var(--c-text-2); }
-.dec-tl { left: var(--sp-4); top: calc(var(--sp-4) + var(--chrome)); align-items: flex-start; pointer-events: none; }
-.dec-config { font-size: var(--fs-md); font-weight: var(--fw-medium); margin-bottom: 2px; }
-.dec-tr { right: var(--sp-3); top: calc(var(--sp-3) + var(--chrome)); align-items: flex-end; text-align: right; max-width: 52%; }
-.iso-toggle { display: inline-flex; align-items: center; gap: 2px; min-height: var(--hit); padding: 0 0 0 var(--sp-2); background: none; border: 0; color: var(--c-silver); font: inherit; cursor: pointer; }
-.iso-toggle .chev { display: inline-flex; color: var(--c-text-2); }
-.iso-list { display: none; padding-right: var(--sp-1); }
-.dec-tr.open .iso-list { display: block; }
-.iso-list ul { list-style: none; margin: 0; padding: 0; }
-.iso-list li { display: flex; justify-content: flex-end; gap: var(--sp-3); font-variant-numeric: tabular-nums; }
-.iso-list li b { font-weight: var(--fw-regular); color: var(--c-text-2); min-width: 7ch; }
-.iso-list p { margin: var(--sp-1) 0 0; color: var(--c-text-2); font-size: var(--fs-xs); }
+/* Decorators round the 3D atom: pale plate markings. The configuration large and light, the
+   counts and isotopes in small tracked capitals with their numbers a step brighter. */
+.dec-tl { left: var(--sp-4); top: calc(var(--sp-4) + var(--chrome)); align-items: flex-start; gap: 3px; pointer-events: none; }
+.dec-config { margin-bottom: 4px; font-size: 21px; font-weight: var(--fw-light); letter-spacing: 0.01em; color: var(--c-silver); }
+.dec-line, .dec-cap, .dec-more { font-size: 10px; font-weight: var(--fw-medium); letter-spacing: 0.14em; text-transform: uppercase; color: var(--c-text-3); }
+.dec-line b { font-size: 12px; font-weight: var(--fw-semibold); letter-spacing: 0.04em; color: var(--c-text-2); }
+.dec-tr { right: var(--sp-4); top: calc(var(--sp-4) + var(--chrome)); align-items: flex-end; text-align: right; gap: 3px; pointer-events: none; }
+.dec-cap { margin-bottom: 2px; }
+.dec-iso { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 1px; }
+.dec-iso li { display: flex; justify-content: flex-end; gap: var(--sp-3); font-size: var(--fs-xs); font-variant-numeric: tabular-nums; color: var(--c-text-3); }
+.dec-iso li span { color: var(--c-text-2); }
+.dec-iso li b { min-width: 6ch; font-weight: var(--fw-regular); }
+.dec-iso li.is-stable span { color: var(--c-silver); font-weight: var(--fw-semibold); }
+.dec-iso li.is-stable b { color: var(--c-text-2); }
+.dec-more { margin-top: 2px; }
 
 /* Above the bar: the scale legend on the left, the drawing style on the right. */
-.loupe-tools { position: absolute; left: 0; right: 0; bottom: calc(var(--sp-2) + var(--safe-bottom)); z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); padding: 0 var(--sp-2); }
-.scale-legend { display: flex; align-items: center; gap: var(--sp-1); min-width: 0; color: var(--c-text-2); font-size: var(--fs-xs); font-variant-numeric: tabular-nums; }
-.scale-legend ul { display: flex; gap: var(--sp-2); list-style: none; margin: 0; padding: 0; transition: opacity var(--dur); }
-.scale-legend li { display: flex; align-items: center; gap: 4px; color: var(--c-silver); }
-.scale-legend i { display: block; width: 14px; height: 0; border-top: 1.5px solid var(--c-text-2); }
-.scale-legend i.dashed { border-top-style: dashed; }
-.scale-legend .unit { margin-left: 2px; white-space: nowrap; }
-.scale-legend.off ul, .scale-legend.off .unit { opacity: 0.35; }
-.scale-toggle { width: 36px; height: 36px; color: var(--c-text-2); }
-.style-switch { display: flex; gap: 2px; }
-.style-switch .ui-icon-btn { width: 40px; height: 40px; }
+.loupe-tools { position: absolute; left: 0; right: 0; bottom: calc(var(--sp-3) + var(--safe-bottom)); z-index: 2; display: flex; align-items: flex-end; justify-content: space-between; gap: var(--sp-2); padding: 0 var(--sp-3); pointer-events: none; }
+.loupe-tools > * { pointer-events: auto; }
+/* The two corner tools: a caption, then chips (icon and label). Left, the scale circles stacked
+   with their diameters; right, the three ways to draw the atom. */
+.scale-legend, .style-switch { display: flex; flex-direction: column; gap: var(--sp-1); font-variant-numeric: tabular-nums; }
+.scale-legend { align-items: flex-start; }
+.style-switch { align-items: flex-end; }
+.tool-cap { margin-bottom: 2px; font-size: 10px; font-weight: var(--fw-semibold); letter-spacing: 0.14em; text-transform: uppercase; color: var(--c-text-3); }
+.scale-legend ul { display: flex; flex-direction: column; gap: 3px; list-style: none; margin: 0 0 var(--sp-1); padding: 0; transition: opacity var(--dur); }
+.scale-legend li { display: flex; align-items: center; gap: 6px; font-size: var(--fs-xs); color: var(--c-text-2); }
+.scale-legend.off ul { opacity: 0.3; }
+.tool-chip { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px 0 8px; border: 1px solid var(--c-line); border-radius: var(--r-pill, 999px); background: var(--c-plate); color: var(--c-text-2); font: inherit; font-size: var(--fs-xs); font-weight: var(--fw-semibold); cursor: pointer; }
+.tool-chip:hover { color: var(--c-text); }
+.style-switch .tool-chip[aria-pressed='true'] { color: var(--c-accent); border-color: color-mix(in srgb, var(--c-accent) 45%, transparent); background: var(--c-pick); }
 
-/* The bar: full width; the element button fills the left, previous and next sit together on the right. */
-/* The bar sits at the top of the atom screens, under the View/Build row; the host places it. */
+/* The bar sits at the top of the atom screens; the host places it. A navigation row: set apart
+   by the navigation color, never by a one-sided rule. */
 .atom-bar { display: flex; align-items: stretch; height: var(--bar-h, 60px); background: var(--c-nav); }
 .loupe-screen > .atom-bar { position: absolute; left: 0; right: 0; top: var(--top); z-index: 4; }
-.bar-arrow { flex: none; width: 52px; display: flex; align-items: center; justify-content: center; background: none; border: 0; border-left: 1px solid var(--c-line); color: var(--c-silver); cursor: pointer; }
+.bar-arrow { flex: none; width: 48px; display: flex; align-items: center; justify-content: center; background: none; border: 0; color: var(--c-accent); cursor: pointer; }
 .bar-arrow:hover { background: var(--c-surface-2); }
-.bar-arrow:disabled { opacity: 0.2; cursor: default; background: none; }
-/* The element button, read like a periodic-table cell on its side: number large with the weight
-   small beneath, the symbol, the name in the wordmark's tracked capitals, then a cyan Select. */
-.bar-mid { flex: 1; min-width: 0; display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto; align-items: center; gap: var(--sp-3); padding: 0 var(--sp-3) 0 var(--sp-4); background: none; border: 0; color: var(--c-text); font-family: var(--font); text-align: left; cursor: pointer; }
+.bar-arrow:disabled { opacity: 0.25; cursor: default; background: none; }
+/* The element button: a small periodic-table cell, a thin rule, the name centered, then the
+   three-dot mark that opens the picker. */
+.bar-mid { flex: 1; min-width: 0; display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto; align-items: center; gap: var(--sp-3); padding: 0 var(--sp-1) 0 var(--sp-4); background: none; border: 0; color: var(--c-text); font-family: var(--font); text-align: left; cursor: pointer; }
 .bar-mid:hover { background: var(--c-surface-2); }
 .bar-mid:focus-visible { outline: 2px solid var(--c-accent); outline-offset: -2px; }
-.bar-cell { display: grid; justify-items: center; min-width: 40px; line-height: 1; }
-.bar-z { font-size: 26px; font-weight: var(--fw-semibold); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
-.bar-w { margin-top: 3px; font-size: 10px; font-weight: var(--fw-medium); color: var(--c-text-2); font-variant-numeric: tabular-nums; }
-.bar-sym { padding-left: var(--sp-3); border-left: 1px solid var(--c-line-2); font-size: var(--fs-xl); font-weight: var(--fw-semibold); line-height: 1.6; color: var(--c-silver); }
-.bar-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; font-weight: var(--fw-bold); letter-spacing: var(--track, 0.24em); text-transform: uppercase; color: var(--c-text); }
-.bar-select { font-size: var(--fs-md); font-weight: var(--fw-semibold); color: var(--c-accent); }
-.bar-mid:hover .bar-select { text-decoration: underline; text-underline-offset: 4px; }
-@media (max-width: 400px) { .bar-arrow { width: 44px; } .bar-mid { padding: 0 var(--sp-2) 0 var(--sp-3); gap: var(--sp-2); } .bar-sym { padding-left: var(--sp-2); } }
+.bar-cell { display: grid; grid-template-columns: auto auto; grid-template-rows: auto auto; column-gap: var(--sp-2); align-items: center; line-height: 1; }
+.bar-sym { grid-row: 1 / 3; font-size: 28px; font-weight: var(--fw-semibold); letter-spacing: -0.01em; color: var(--c-text); }
+.bar-z { align-self: end; font-size: var(--fs-sm); font-weight: var(--fw-semibold); color: var(--c-text); font-variant-numeric: tabular-nums; }
+.bar-w { align-self: start; margin-top: 3px; font-size: 10px; font-weight: var(--fw-medium); color: var(--c-text-2); font-variant-numeric: tabular-nums; }
+.bar-rule { width: 1px; height: 30px; background: var(--c-line-2); }
+.bar-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center; font-size: 15px; font-weight: var(--fw-bold); letter-spacing: var(--track, 0.24em); text-indent: var(--track, 0.24em); text-transform: uppercase; color: var(--c-text); }
+.bar-more { display: flex; align-items: center; justify-content: center; width: 32px; height: 40px; color: var(--c-accent); }
+@media (max-width: 400px) { .bar-arrow { width: 42px; } .bar-mid { padding: 0 0 0 var(--sp-3); gap: var(--sp-2); } }
 .dec-z { font-size: var(--fs-sm); color: var(--c-text-2); font-variant-numeric: tabular-nums; }
 .dec-sym { font-weight: var(--fw-semibold); font-size: var(--fs-2xl); line-height: 1; }
 .pill { font-size: 10px; padding: 1px 5px; border-radius: 4px; color: var(--c-bg); font-weight: 700; }
@@ -571,9 +578,10 @@ body.stage-nucleus #atom { opacity: 0.12; }
 .atom-panel { position: absolute; left: 0; right: 0; top: var(--chrome); bottom: 0; padding-bottom: var(--safe-bottom); z-index: 2; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; background: var(--c-bg); }
 .atom-panel[hidden] { display: none; }
 .loupe-screen.on-page #loupe, .loupe-screen.on-page .dec, .loupe-screen.on-page .loupe-tools { visibility: hidden; }
-.atom-page { max-width: 720px; margin: 0 auto; padding: var(--sp-4) var(--sp-5) var(--sp-6); font-family: var(--font); font-size: var(--fs-sm); line-height: 1.5; }
+.atom-page { max-width: 720px; margin: 0 auto; padding: var(--sp-4) var(--sp-5) var(--sp-6); font-family: var(--font); font-size: var(--fs-md); line-height: 1.55; }
 .atom-page .lead { font-size: 14px; margin: 6px 0 14px; max-width: 64ch; }
-.atom-page .kv { display: grid; grid-template-columns: minmax(120px, 38%) 1fr; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--line); }
+/* Label and value rows: a stack of soft rounded rows, never ruled lines. */
+.atom-page .kv { display: grid; grid-template-columns: minmax(120px, 38%) 1fr; gap: 10px; margin: 3px 0; padding: 9px 12px; border-radius: var(--r-sm); background: var(--c-plate); font-size: var(--fs-sm); }
 .atom-page .kv span { color: var(--muted); }
 .atom-page .kv b { font-weight: 400; min-width: 0; overflow-wrap: anywhere; }
 .atom-page .na { color: var(--muted); font-style: italic; }
@@ -586,7 +594,8 @@ body.stage-nucleus #atom { opacity: 0.12; }
 .atom-page .shell b { font-family: var(--sans); font-size: 16px; color: var(--text); }
 .atom-page .tablewrap { overflow-x: auto; margin: 10px 0; border: 1px solid var(--line); border-radius: 2px; }
 .atom-page table { border-collapse: collapse; width: 100%; font-size: 12px; font-variant-numeric: tabular-nums; }
-.atom-page th, .atom-page td { padding: 5px 8px; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--line); }
+.atom-page th, .atom-page td { padding: 7px 8px; text-align: right; white-space: nowrap; }
+.atom-page tbody tr:nth-child(odd) td { background: var(--c-plate); }
 .atom-page th { font-family: var(--sans); font-weight: 500; color: var(--muted); letter-spacing: 0.04em; }
 .atom-page th.l, .atom-page td.l { text-align: left; }
 .atom-page td:first-child, .atom-page th:first-child { text-align: left; }
@@ -715,9 +724,6 @@ body.stage-nucleus #atom { opacity: 0.12; }
 .secondary.danger { border-color: var(--accent); color: var(--accent); }
 .reset-row { align-items: center; }
 /* In the loupe, a chosen icon is lit rather than filled, so the atom stays the brightest thing. */
-.loupe-tools .ui-icon-btn { color: var(--c-text-3); }
-.loupe-tools .ui-icon-btn:hover { color: var(--c-text); }
-.loupe-tools .ui-icon-btn[aria-pressed='true'] { background: var(--c-surface-2); color: var(--c-silver); border-color: var(--c-line-2); }
 
 /* ---- Direction: Card Table shapes in Instrument colours (James, 2026-10-10) ----------------
    Restyles the shared chrome every screen uses. Screen-specific rules stay with their owners;
@@ -997,9 +1003,9 @@ body[data-screen^='atom'].build-home .science-fab, body[data-screen='atom-view']
 .it-filter .ui-seg-dot { display: none; }
 .it-filter .ui-seg-opt { padding: 0 var(--sp-3); font-size: var(--fs-sm); }
 .it { display: flex; flex-direction: column; }
-.it-row { display: grid; grid-template-columns: minmax(78px, 0.8fr) minmax(0, 1.6fr) minmax(64px, 0.7fr); gap: var(--sp-3); align-items: center; padding: var(--sp-3) var(--sp-2); border-bottom: 1px solid var(--c-line); }
+.it-row { display: grid; grid-template-columns: minmax(78px, 0.8fr) minmax(0, 1.6fr) minmax(64px, 0.7fr); gap: var(--sp-3); align-items: center; margin-top: 3px; padding: var(--sp-3) var(--sp-3); border-radius: var(--r-sm); background: var(--c-plate); }
 .it-row[hidden] { display: none; }
-.it-headrow { padding-top: var(--sp-2); padding-bottom: var(--sp-2); font-size: var(--fs-xs); color: var(--c-text-3); text-transform: uppercase; letter-spacing: var(--tracking-caps); }
+.it-headrow { background: none; padding-top: var(--sp-2); padding-bottom: var(--sp-2); font-size: var(--fs-xs); color: var(--c-text-3); text-transform: uppercase; letter-spacing: var(--tracking-caps); }
 .it-row.is-key { background: var(--c-surface); border-radius: var(--r-sm); }
 .it-name { display: flex; flex-direction: column; gap: 1px; }
 .it-name b { font-size: var(--fs-lg); font-weight: var(--fw-semibold); color: var(--c-text-2); line-height: 1.1; }
@@ -1026,8 +1032,8 @@ body[data-screen^='atom'].build-home .science-fab, body[data-screen='atom-view']
 .pr-legend span { display: inline-flex; align-items: center; gap: 4px; margin: 0 2px; color: var(--c-text); font-weight: var(--fw-semibold); }
 .pr-legend i { width: 9px; height: 9px; border-radius: 50%; }
 .prs { display: flex; flex-direction: column; }
-.pr { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.25fr); gap: var(--sp-4); align-items: center; padding: var(--sp-5) 0; border-top: 1px solid var(--c-line); }
-.pr:first-child { border-top: 0; padding-top: var(--sp-2); }
+.prs { gap: var(--sp-3); }
+.pr { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.25fr); gap: var(--sp-4); align-items: center; padding: var(--sp-4); border-radius: var(--r-md); background: var(--c-plate); }
 .pr-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .pr-label { font-size: var(--fs-md); font-weight: var(--fw-semibold); color: var(--c-text); line-height: 1.25; }
 .pr-value { font-size: var(--fs-md); font-weight: var(--fw-regular); color: var(--c-silver); font-variant-numeric: tabular-nums; }
@@ -1057,8 +1063,18 @@ body[data-screen^='atom'].build-home .science-fab, body[data-screen='atom-view']
 .tl-dot { fill: var(--c-text-3); }
 .tl-dot.is-mine { fill: var(--c-accent); }
 .tl figcaption { color: var(--c-text-2); margin-top: 4px; }
-.story-name { margin: var(--sp-3) 0; padding: var(--sp-3) var(--sp-4); border-left: 2px solid var(--c-accent); font-size: var(--fs-lg); line-height: 1.4; color: var(--c-text); }
+.story-name { margin: var(--sp-2) 0 var(--sp-4); padding: var(--sp-4) var(--sp-4) var(--sp-5); border-radius: var(--r-md); background: var(--c-plate); font-size: var(--fs-xl); line-height: 1.35; color: var(--c-text); }
 .story-name span { display: block; font-size: var(--fs-2xs); letter-spacing: 0.14em; text-transform: uppercase; color: var(--c-accent); margin-bottom: 4px; }
+/* Story: the name first, then the discovery set large, the timeline, then Origins and Uses as lists. */
+.story-disc { display: flex; flex-direction: column; gap: 2px; margin: 0 0 var(--sp-3); padding: var(--sp-4); border-radius: var(--r-md); background: var(--c-plate); }
+.story-cap { font-size: var(--fs-2xs); letter-spacing: 0.14em; text-transform: uppercase; color: var(--c-accent); }
+.story-year { font-size: var(--fs-3xl); font-weight: var(--fw-semibold); line-height: 1.1; color: var(--c-text); font-variant-numeric: tabular-nums; }
+.story-who { margin: 4px 0 0 !important; font-size: var(--fs-lg); line-height: 1.35; color: var(--c-text); }
+.story-where { margin: 0 !important; font-size: var(--fs-md); color: var(--c-text-2); }
+.atom-page .story-h { margin: var(--sp-5) 0 var(--sp-2); font-size: var(--fs-lg); font-weight: var(--fw-semibold); color: var(--c-text); }
+.story-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--sp-2); }
+.story-list li { position: relative; padding-left: 18px; color: var(--c-text); }
+.story-list li::before { content: ''; position: absolute; left: 2px; top: 0.62em; width: 6px; height: 6px; border-radius: 50%; background: var(--c-accent); }
 
 /* Overview: a photo, a museum label, the headline fact, more facts, then the collection. */
 .ov-photo { position: relative; margin: var(--sp-2) 0 var(--sp-3); border-radius: var(--r-md); overflow: hidden; background: var(--c-plate); border: 1px solid var(--c-line); }
@@ -1068,27 +1084,31 @@ body[data-screen^='atom'].build-home .science-fab, body[data-screen='atom-view']
 .ov-photo figcaption a { color: inherit; text-decoration: underline; text-decoration-color: var(--c-line-2); }
 .ov-photo figcaption a:hover { color: var(--c-accent); }
 .ov-photo.is-missing { display: none; }
-.ov-label { display: flex; gap: var(--sp-3); align-items: center; margin: var(--sp-2) 0 var(--sp-3); }
-.ov-tile { flex: none; width: 76px; height: 84px; display: flex; flex-direction: column; justify-content: space-between; padding: 6px 8px; border-radius: var(--r-sm); background: var(--c-tile); color: var(--c-tile-ink); border-top: 4px solid var(--b); }
-.ov-tile span { font-size: var(--fs-xs); font-variant-numeric: tabular-nums; }
-.ov-tile b { font-size: 30px; line-height: 1; font-weight: var(--fw-semibold); }
-.ov-tile em { font-style: normal; font-size: 10px; opacity: 0.7; font-variant-numeric: tabular-nums; }
-.ov-meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; color: var(--c-text-2); }
-.ov-meta b { color: var(--c-text); font-weight: var(--fw-semibold); text-transform: capitalize; }
+/* Overview's hero: the element as a periodic-table card, beside its category, four small
+   stats and its configuration. The block color edges the card all round and names the category. */
+.ov-hero { display: flex; gap: var(--sp-4); align-items: stretch; margin: var(--sp-2) 0 var(--sp-4); }
+.ov-tile { flex: none; width: 112px; display: flex; flex-direction: column; padding: 10px 12px 10px; border-radius: var(--r-md); background: color-mix(in srgb, var(--b) 12%, var(--c-plate)); border: 1.5px solid var(--b); color: var(--c-text); }
+.ov-z { font-size: var(--fs-md); font-weight: var(--fw-semibold); color: var(--b); font-variant-numeric: tabular-nums; }
+.ov-tile b { margin-top: 2px; font-size: 44px; line-height: 1; font-weight: var(--fw-semibold); letter-spacing: -0.01em; }
+.ov-n { margin-top: auto; padding-top: 6px; font-size: var(--fs-sm); font-weight: var(--fw-medium); }
+.ov-tile em { font-style: normal; font-size: var(--fs-xs); color: var(--c-text-2); font-variant-numeric: tabular-nums; }
+.ov-meta { flex: 1; display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; }
+.ov-series { font-size: var(--fs-xs); font-weight: var(--fw-bold); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
+.ov-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; }
+.ov-stats div { display: flex; flex-direction: column; gap: 1px; padding: 6px 10px; border-radius: var(--r-sm); background: var(--c-plate); }
+.ov-stats b { font-size: var(--fs-lg); font-weight: var(--fw-semibold); color: var(--c-text); line-height: 1.15; }
+.ov-stats span { font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--c-text-3); }
+.ov-conf { font-size: var(--fs-md); color: var(--c-silver); }
 .ov-headline { font-size: var(--fs-xl); line-height: 1.35; color: var(--c-text); margin: var(--sp-3) 0 !important; max-width: 40ch; }
 .ov-facts { margin: 0 0 var(--sp-3); padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--sp-2); }
 .ov-facts li { position: relative; padding-left: 18px; color: var(--c-text); }
 .ov-facts li::before { content: ''; position: absolute; left: 2px; top: 0.6em; width: 6px; height: 6px; border-radius: 50%; background: var(--c-accent); }
-.ov-collection { margin-top: var(--sp-5); padding: var(--sp-3) var(--sp-4); border: 1px dashed var(--c-line-3); border-radius: var(--r-md); }
-.ov-collection h4 { margin: 0 0 4px !important; }
-.ov-collection p { color: var(--c-text-2); }
-.ov-collection.is-in { border-style: solid; border-color: var(--c-accent); }
 .mode-detail .mode-progress { font-size: var(--fs-sm); color: var(--c-text-2); }
 .pg-home-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
 
 /* View pages: each page ends with its own guide button. */
 .page-guide { margin: var(--sp-6) 0 var(--sp-2); display: flex; justify-content: center; }
-.guide-btn { display: flex; align-items: center; gap: var(--sp-3); width: 100%; max-width: 420px; min-height: 64px; padding: var(--sp-3) var(--sp-4); border: 1px solid var(--c-line-2); border-radius: var(--r-md); background: var(--c-surface); color: var(--c-text); font-family: var(--font); text-align: left; cursor: pointer; transition: background-color var(--dur-fast), transform var(--dur-fast) var(--ease); }
+.guide-btn { display: flex; align-items: center; gap: var(--sp-3); width: 100%; min-height: 64px; padding: var(--sp-3) var(--sp-4); border: 1px solid var(--c-line-2); border-radius: var(--r-md); background: var(--c-surface); color: var(--c-text); font-family: var(--font); text-align: left; cursor: pointer; transition: background-color var(--dur-fast), transform var(--dur-fast) var(--ease); }
 .guide-btn:hover { background: var(--c-surface-2); }
 .guide-btn:active { transform: scale(0.985); }
 .guide-btn:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }

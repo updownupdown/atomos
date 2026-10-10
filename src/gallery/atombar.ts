@@ -1,10 +1,10 @@
-// The atom navigator: the bar across the top of the atom screens, under the View/Build row. The
-// host places it (the element is a plain flex row 60px tall). On the left, one button that
-// reads like a periodic-table cell laid on its side: the atomic number large with the atomic
-// weight small beneath it, then the symbol, then the name in the wordmark's tracked capitals,
-// and a cyan "Select" that says the whole button opens the element picker. Previous and next
-// sit together on the right. View's loupe and Build both mount one, so stepping through
-// elements looks and works the same in each.
+// The atom navigator: the bar across the top of the atom screens. The host places it (the
+// element is a plain flex row 60px tall). On the left, one button: the element as a small
+// periodic-table cell (symbol large, number and atomic weight stacked beside it), a thin rule,
+// the name centered in the wordmark's tracked capitals, and a cyan three-dot mark saying the
+// whole button opens the element picker. Previous and next, cyan chevrons, sit on the right.
+// View's loupe and Build both mount one, so stepping through elements looks and works the
+// same in each.
 // Long names (Rutherfordium on a 360px phone) never truncate: fit() steps the name down in size
 // and tracking until it fits.
 //
@@ -36,8 +36,8 @@ export function createAtomBar(o: AtomBarOptions): AtomBar {
   const el = document.createElement('footer');
   el.className = 'loupe-bar atom-bar';
   el.innerHTML = `<button class="bar-mid" aria-haspopup="dialog"></button>`
-    + `<button class="bar-arrow" data-dir="-1" aria-label="Previous element">${icon('step-prev', { size: 26 })}</button>`
-    + `<button class="bar-arrow" data-dir="1" aria-label="Next element">${icon('step-next', { size: 26 })}</button>`;
+    + `<button class="bar-arrow" data-dir="-1" aria-label="Previous element">${icon('chevron-left', { size: 28 })}</button>`
+    + `<button class="bar-arrow" data-dir="1" aria-label="Next element">${icon('chevron-right', { size: 28 })}</button>`;
   const [mid, prev, next] = [...el.querySelectorAll<HTMLButtonElement>('button')];
   let z = 1;
   const set = (to: number) => {
@@ -46,9 +46,9 @@ export function createAtomBar(o: AtomBarOptions): AtomBar {
     // Standard atomic weight; for elements without one, the mass number of the longest-lived
     // isotope in brackets, as periodic tables print it.
     const weight = e.weight == null ? `[${e.commonA}]` : `${Number(e.weight.toPrecision(5))}`;
-    mid.innerHTML = `<span class="bar-cell"><span class="bar-z">${e.z}</span><span class="bar-w">${weight}</span></span>`
-      + `<span class="bar-sym">${e.symbol}</span><span class="bar-name">${e.name}</span>`
-      + `<span class="bar-select">Select</span>`;
+    mid.innerHTML = `<span class="bar-cell"><span class="bar-sym">${e.symbol}</span><span class="bar-z">${e.z}</span><span class="bar-w">${weight}</span></span>`
+      + `<span class="bar-rule" aria-hidden="true"></span><span class="bar-name">${e.name}</span>`
+      + `<span class="bar-more">${icon('more-vertical', { size: 22 })}</span>`;
     mid.setAttribute('aria-label', `${e.name}, element ${e.z}. Choose another element`);
     prev.disabled = z === 1;
     next.disabled = z === MAX_Z;

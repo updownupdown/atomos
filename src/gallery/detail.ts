@@ -1,6 +1,6 @@
 // The loupe: one atom, large, at a fixed scale with its reference circles, so
 // stepping from element to element compares them fairly. Drag to turn it in
-// 3D; the arrows step to the neighbouring element and the same atom stays in
+// 3D, pinch to zoom (it drifts back to the shared scale after a pause); the arrows step to the neighbouring element and the same atom stays in
 // place while its layers morph. Three looks: the probability cloud (bright sparks over a soft
 // nebula of the same orbitals, round a warm glowing nucleus), the
 // idealised orbital surfaces, or both. The cloud is live: electrons blink in
@@ -21,6 +21,13 @@ export class Detail {
   private width = 1;
   private height = 1;
   private drag: { x: number; y: number; moved: boolean } | null = null;
+  /** Fingers down on the canvas, for pinching. */
+  private touches = new Map<number, { x: number; y: number }>();
+  private pinch: { dist: number; zoom: number } | null = null;
+  /** Pinch or wheel zoom (1 = the fixed scale every element shares); drifts home after a pause. */
+  private zoom = 1;
+  private zoomedAt = 0;
+  private baseDist = 14;
   private raf = 0;
   private last = performance.now();
   private running = false;
@@ -98,7 +105,8 @@ export class Detail {
     const half = 3.7;
     const vfov = (this.camera.fov * Math.PI) / 360;
     const dist = half / Math.tan(vfov) / Math.min(1, this.camera.aspect);
-    this.camera.position.set(0, 0, dist);
+    this.baseDist = dist;
+    this.camera.position.set(0, 0, dist / this.zoom);
     this.camera.lookAt(0, 0, 0);
     this.camera.updateProjectionMatrix();
     // Small, crisp electrons: a pixel or two on a phone, whatever the element.
@@ -108,11 +116,27 @@ export class Detail {
   private bind(): void {
     const c = this.canvas;
     c.style.touchAction = 'none';
+    const spread = () => {
+      const [a, b] = [...this.touches.values()];
+      return Math.hypot(a.x - b.x, a.y - b.y);
+    };
     c.addEventListener('pointerdown', (ev) => {
       c.setPointerCapture(ev.pointerId);
+      this.touches.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+      if (this.touches.size === 2) {
+        // A second finger: pinch to zoom; the turn stops and this is no longer a tap.
+        this.pinch = { dist: Math.max(1, spread()), zoom: this.zoom };
+        if (this.drag) this.drag.moved = true;
+        return;
+      }
       this.drag = { x: ev.clientX, y: ev.clientY, moved: false };
     });
     c.addEventListener('pointermove', (ev) => {
+      if (this.touches.has(ev.pointerId)) this.touches.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+      if (this.pinch && this.touches.size >= 2) {
+        this.setZoom(this.pinch.zoom * (spread() / this.pinch.dist));
+        return;
+      }
       if (!this.drag) return;
       const dx = ev.clientX - this.drag.x, dy = ev.clientY - this.drag.y;
       if (Math.hypot(dx, dy) > 5) this.drag.moved = true;
@@ -120,14 +144,27 @@ export class Detail {
       this.spin.rotation.y += (ev.movementX || 0) * 0.008;
       this.spin.rotation.x = clamp(this.spin.rotation.x + (ev.movementY || 0) * 0.008, -1.2, 1.2);
     });
-    const up = () => {
-      if (!this.drag) return;
+    const up = (ev: PointerEvent) => {
+      this.touches.delete(ev.pointerId);
+      if (this.touches.size < 2) this.pinch = null;
+      if (!this.drag || this.touches.size > 0) return;
       const d = this.drag;
       this.drag = null;
       if (!d.moved) this.onTap?.();
     };
     c.addEventListener('pointerup', up);
     c.addEventListener('pointercancel', up);
+    // A mouse wheel or trackpad pinch zooms the same way.
+    c.addEventListener('wheel', (ev) => {
+      ev.preventDefault();
+      this.setZoom(this.zoom * Math.exp(-ev.deltaY * 0.0015));
+    }, { passive: false });
+  }
+
+  private setZoom(z: number): void {
+    this.zoom = clamp(z, ZOOM_MIN, ZOOM_MAX);
+    this.zoomedAt = performance.now();
+    this.camera.position.z = this.baseDist / this.zoom;
   }
 
   private frame(now: number): void {
@@ -135,6 +172,12 @@ export class Detail {
     const dt = Math.min(0.05, (now - this.last) / 1000);
     this.last = now;
     if (this.autoSpin && !this.drag && !this.reducedMotion) this.spin.rotation.y += dt * 0.2;
+    // After a couple of seconds without a pinch, ease back to the shared scale.
+    if (this.zoom !== 1 && !this.pinch && now - this.zoomedAt > ZOOM_REST_MS) {
+      this.zoom += (1 - this.zoom) * (1 - Math.exp(-dt * 1.6));
+      if (Math.abs(this.zoom - 1) < 0.002) this.zoom = 1;
+      this.camera.position.z = this.baseDist / this.zoom;
+    }
     this.view.update(dt);
     this.renderer.render(this.scene, this.camera);
     this.raf = requestAnimationFrame((t) => this.frame(t));
@@ -157,5 +200,9 @@ function ring(r: number, style: 'solid' | 'dashed'): THREE.Line {
   if (style === 'dashed') line.computeLineDistances();
   return line;
 }
+
+const ZOOM_MIN = 0.7;
+const ZOOM_MAX = 4;
+const ZOOM_REST_MS = 2200;
 
 function clamp(v: number, lo: number, hi: number): number { return Math.min(hi, Math.max(lo, v)); }

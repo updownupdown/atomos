@@ -5,6 +5,7 @@
 import { BLOCK_COLOUR, formatHalfLife, keyIsotope, shortConfiguration, sup, type Element } from './data';
 import { ORBITAL_NAMES } from './orbital';
 import FACTS from '../data/element-facts.json';
+import STORY from '../data/element-story.json';
 import IMAGES from '../data/element-images.json';
 import { disclosureHTML } from '../ui/components';
 import { blueprint, discoveryTimeline, isotopeTable, orbitalBoxes, propertyAxes, shellPlot } from './visuals';
@@ -26,32 +27,31 @@ const esc = (s: string | null | undefined) => (s ?? '').replace(/[&<>"]/g, (c) =
 const num = (v: number | null, unit = '', digits = 3) => (v == null ? '<span class="na">not known</span>' : `${Number(v.toPrecision(digits))}${unit}`);
 const row = (label: string, value: string) => `<div class="kv"><span>${label}</span><b>${value}</b></div>`;
 
-/** Small white captions round the loupe: the simple layer, worn like plate markings. */
-export function decoratorsHTML(e: Element, collected: boolean): { topLeft: string; isoSummary: string; isoList: string; name: string; pick: string } {
-  const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
-  const key = keyIsotope(e);
-  const stable = e.isotopes.filter((i) => i.stable);
-  const isoSummary = stable.length
-    ? plural(stable.length, 'stable isotope')
-    : `no stable isotope`;
-  // Stable ones with their share of the natural element; otherwise the longest-lived few.
-  const rows = stable.length
-    ? stable.map((i) => `<li><span>${e.symbol}-${i.a}</span><b>${i.abundance == null ? 'trace' : `${Number(i.abundance.toPrecision(3))}%`}</b></li>`)
-    : [...e.isotopes].filter((i) => i.halfLife != null).sort((a, b) => b.halfLife! - a.halfLife!).slice(0, 4)
-      .map((i) => `<li><span>${e.symbol}-${i.a}</span><b>${formatHalfLife(i.halfLife)}</b></li>`);
-  const isoList = `<ul>${rows.join('')}</ul><p>${plural(e.isotopes.length, 'isotope')} known${stable.length ? '' : `, longest-lived ${e.symbol}-${key?.a ?? e.commonA}`}</p>`;
+/** The captions round the 3D atom: decorators, worn like plate markings. Top left, the electron
+ *  configuration large with its counts in small tracked capitals; top right, the isotopes, every
+ *  one when they fit, else the first eight (stable ones by share, then the longest-lived) and
+ *  how many more of each kind. */
+export function decoratorsHTML(e: Element): { topLeft: string; topRight: string } {
+  const plural = (n: number, word: string) => `<b>${n}</b> ${word}${n === 1 ? '' : 's'}`;
+  const stable = e.isotopes.filter((i) => i.stable).sort((a, b) => (b.abundance ?? 0) - (a.abundance ?? 0));
+  const unstable = e.isotopes.filter((i) => !i.stable).sort((a, b) => (b.halfLife ?? 0) - (a.halfLife ?? 0));
+  const shown = [...stable, ...unstable].slice(0, ISO_SHOWN);
+  const moreStable = stable.length - shown.filter((i) => i.stable).length;
+  const moreUnstable = unstable.length - shown.filter((i) => !i.stable).length;
+  const rows = shown.map((i) => `<li class="${i.stable ? 'is-stable' : ''}"><span>${e.symbol}-${i.a}</span><b>${i.stable
+    ? (i.abundance == null ? 'trace' : `${Number(i.abundance.toPrecision(3))}%`)
+    : formatHalfLife(i.halfLife)}</b></li>`).join('');
+  const more = [moreStable ? `+${moreStable} stable` : '', moreUnstable ? `+${moreUnstable} unstable` : ''].filter(Boolean);
   return {
     topLeft: `<span class="dec-config">${shortConfiguration(e)}</span>`
-      + `<span>${plural(e.shells, 'shell')} · ${plural(e.subshells.length, 'layer')}</span>`
-      + `<span>${plural(e.z, 'electron')}</span>`
-      + `<span>${e.vdw} pm radius${e.vdwEstimated ? ', estimated' : ''}</span>`
-      + (collected ? '' : '<span class="dim">not yet collected</span>'),
-    isoSummary,
-    isoList,
-    name: esc(e.name),
-    pick: `<span class="dec-z">${e.z}</span><span class="dec-sym">${e.symbol}</span>`,
+      + `<span class="dec-line">${plural(e.shells, 'shell')} · ${plural(e.subshells.length, 'layer')}</span>`
+      + `<span class="dec-line">${plural(e.z, 'electron')}</span>`
+      + `<span class="dec-line"><b>${e.vdw}</b> pm radius${e.vdwEstimated ? ' (est.)' : ''}</span>`,
+    topRight: `<span class="dec-cap">Isotopes</span><ul class="dec-iso">${rows}</ul>`
+      + (more.length ? `<span class="dec-more">${more.join(' · ')}</span>` : ''),
   };
 }
+const ISO_SHOWN = 8;
 
 export function layerPills(e: Element): string {
   return e.subshells.map((s) => s.core
@@ -86,25 +86,27 @@ export function elementFacts(z: number): { h: string; f: string[] } | null {
 function overview(e: Element, collected: boolean): string {
   const img = elementImage(e.z);
   const facts = elementFacts(e.z);
-  const where = e.group ? `Group ${e.group} · period ${e.period}` : `Period ${e.period}`;
   const photo = img
     ? `<figure class="ov-photo"><img src="${commons(img.file, 640)}" alt="${esc(img.caption)}" loading="lazy" decoding="async" onerror="this.closest('figure').classList.add('is-missing')">
         <figcaption><span>${esc(img.caption)}</span><span class="ov-credit">Photo <a href="${commonsPage(img.file)}" target="_blank" rel="noopener">${esc(img.author)}</a>, ${img.licenceUrl ? `<a href="${img.licenceUrl}" target="_blank" rel="noopener">${esc(img.licence)}</a>` : esc(img.licence)}, via Wikimedia Commons</span></figcaption></figure>`
     : '';
-  const label = `<div class="ov-label">
-      <div class="ov-tile" style="--b:${BLOCK_COLOUR[e.block]}"><span>${e.z}</span><b>${e.symbol}</b><em>${e.weight == null ? '' : Number(e.weight.toPrecision(5))}</em></div>
-      <div class="ov-meta"><b>${esc(e.series)}</b><span>${where} · ${e.block} block</span><span>${e.z} electrons · ${shortConfiguration(e)}</span></div>
-    </div>`;
+  // The element's card and where it sits, then its headline fact, then the photo and the rest.
+  const stat = (v: string | number, label: string) => `<div><b>${v}</b><span>${label}</span></div>`;
+  const hero = `<header class="ov-hero" style="--b:${BLOCK_COLOUR[e.block]}">
+      <div class="ov-tile"><span class="ov-z">${e.z}</span><b>${e.symbol}</b><span class="ov-n">${esc(e.name)}</span><em>${e.weight == null ? `[${e.commonA}]` : Number(e.weight.toPrecision(5))}</em></div>
+      <div class="ov-meta">
+        <span class="ov-series">${esc(e.series)}</span>
+        <div class="ov-stats">${stat(e.group ?? '–', 'Group')}${stat(e.period, 'Period')}${stat(e.block, 'Block')}${stat(e.z, 'Electrons')}</div>
+        <span class="ov-conf">${shortConfiguration(e)}</span>
+      </div>
+    </header>`;
+  void collected; // the Build button carries collection progress now
   return `
-    ${photo}
-    ${label}
+    ${hero}
     <p class="ov-headline">${facts ? esc(facts.h) : esc(e.description) || `${esc(e.name)} is element ${e.z}.`}</p>
+    ${photo}
     ${facts ? `<ul class="ov-facts">${facts.f.map((f) => `<li>${esc(f)}</li>`).join('')}</ul>` : ''}
-    ${e.z >= 104 ? '<p class="note">Elements from rutherfordium on have only been made a few atoms at a time; their electron arrangements are predictions, not measurements.</p>' : ''}
-    <section class="ov-collection ${collected ? 'is-in' : ''}">
-      <h4>In your collection</h4>
-      <p>${collected ? `${esc(e.name)} is in your collection.` : `Not collected yet. Solve puzzles to bring ${esc(e.name.toLowerCase())} into your collection.`}</p>
-    </section>`;
+    ${e.z >= 104 ? '<p class="note">Elements from rutherfordium on have only been made a few atoms at a time; their electron arrangements are predictions, not measurements.</p>' : ''}`;
 }
 
 function structure(e: Element): string {
@@ -160,12 +162,30 @@ function properties(e: Element): string {
     ${row('Atomic weight', num(e.weight, '', 6))}` })}`;
 }
 
+/** Origins and uses as short bullet lists (src/data/element-story.json, American spelling);
+ *  the dataset's prose, split into sentences, if an element has none. */
+function storyLists(e: Element): { origins: string[]; uses: string[] } {
+  const own = (STORY as { z: number; origins: string[]; uses: string[] }[])[e.z - 1];
+  if (own && own.z === e.z) return own;
+  const split = (t: string | null) => (t ?? '').split(/(?<=\.)\s+/).map((x) => x.trim()).filter(Boolean);
+  return { origins: split(e.sources), uses: split(e.uses) };
+}
+
 function story(e: Element): string {
+  const { origins, uses } = storyLists(e);
+  const list = (items: string[]) => items.length
+    ? `<ul class="story-list">${items.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>`
+    : '<p class="na">Not recorded.</p>';
+  const ancient = !e.discoveryYear;
   return `
-    ${discoveryTimeline(e)}
     ${e.nameOrigin ? `<blockquote class="story-name"><span>The name</span>${esc(e.nameOrigin)}</blockquote>` : ''}
-    ${row('Discovery', e.discoveryYear ? `${e.discoveryYear}${e.discoveryPlace ? ', ' + esc(e.discoveryPlace) : ''}` : 'known since antiquity')}
-    ${row('Discovered by', e.discoverers ? esc(e.discoverers) : '<span class="na">not recorded</span>')}
-    <h4>Where it comes from</h4><p>${esc(e.sources) || '<span class="na">Not recorded.</span>'}</p>
-    <h4>What it is used for</h4><p>${esc(e.uses) || '<span class="na">Not recorded.</span>'}</p>`;
+    <section class="story-disc">
+      <span class="story-cap">Discovered</span>
+      <b class="story-year">${ancient ? 'In antiquity' : e.discoveryYear}</b>
+      ${e.discoverers ? `<p class="story-who">${esc(e.discoverers)}</p>` : ancient ? '<p class="story-who">Known since ancient times; no one discoverer is recorded.</p>' : ''}
+      ${e.discoveryPlace ? `<p class="story-where">${esc(e.discoveryPlace)}</p>` : ''}
+    </section>
+    ${discoveryTimeline(e)}
+    <h3 class="story-h">Origins</h3>${list(origins)}
+    <h3 class="story-h">Uses</h3>${list(uses)}`;
 }
