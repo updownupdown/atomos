@@ -24,6 +24,9 @@ import { createElementList, type ElementList } from '../ui/elementlist';
 import { isUnlocked, type UnlockId } from '../core/unlocks';
 import { playUnlock } from '../puzzles/unlock';
 import { isLookId, lensUnlock, lookOf, lookUnlock, LOOKS, type LookId } from './looks';
+import { atomThumb } from './thumbs';
+
+type GalleryMode = 'collection' | 'map' | 'details';
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -59,9 +62,16 @@ export class GalleryApp {
     const saved = localStorage.getItem('atomos.gallery.style');
     return STYLES.some((s) => s.id === saved) ? (saved as Style) : 'cloud';
   })();
-  /** The gallery shows the atoms on a map, or every element in a sortable Details table. */
-  private details = localStorage.getItem('atomos.gallery.view') === 'details';
+  /** The gallery shows the Collection (every atom with its progress, the default), the atoms
+   *  on a map, or every element in a sortable Details table. */
+  private mode: GalleryMode = (() => {
+    const saved = localStorage.getItem('atomos.gallery.mode');
+    return saved === 'map' || saved === 'details' ? saved : 'collection';
+  })();
+  /** True when a panel covers the map, so its render loop can rest. */
+  private get covered(): boolean { return this.mode !== 'map'; }
   private list: ElementList | null = null;
+  private collection: ElementList | null = null;
   private rings = localStorage.getItem('atomos.gallery.rings') !== 'off';
   private tabs!: Tabs;
   private bar!: AtomBar;
@@ -93,6 +103,7 @@ export class GalleryApp {
     const save = this.save;
     this.gallery.setCollected(got, (z) => atomProgress(z, save));
     this.gallery.setLocked((z) => this.buildLocked(z));
+    this.collection?.refresh();
     this.paintGates();
     // A part solved while away lights up when the atom is next on screen.
     if (this.current) this.detail.setLit(this.litOf(this.current.z), true);
@@ -122,11 +133,13 @@ export class GalleryApp {
     $('look-chip').innerHTML = `${icon('paint', { size: 18 })}<span>Color</span>`;
     $('look-chip').onclick = () => this.openLooks();
     const seg = $('layout-switch');
-    seg.innerHTML = LAYOUTS.map((l) => `<button data-id="${l.id}">${l.label}</button>`).join('')
+    seg.innerHTML = `<button data-id="collection">Collection</button>`
+      + LAYOUTS.map((l) => `<button data-id="${l.id}">${l.label}</button>`).join('')
       + `<button data-id="details">Details</button>`;
     seg.querySelectorAll<HTMLButtonElement>('button').forEach((b) => (b.onclick = () => {
-      if (b.dataset.id === 'details') this.setDetails(true);
-      else this.setLayout(b.dataset.id as LayoutId);
+      const id = b.dataset.id!;
+      if (id === 'details' || id === 'collection') this.setMode(id);
+      else this.setLayout(id as LayoutId);
     }));
     // The two corner tools speak the same way: a small caption, then chips with an icon and a
     // plain label. Bottom right: how the atom is drawn.
@@ -256,11 +269,11 @@ export class GalleryApp {
       this.offerUnlock(gate, `The ${l.label} lens`, l.note, 'Lumen', () => this.setLayout(id));
       return;
     }
-    const animate = !this.details && !this.save.settings.reducedMotion;
+    const animate = !this.covered && !this.save.settings.reducedMotion;
     this.layoutId = id;
     localStorage.setItem('atomos.gallery.layout', id);
     this.gallery.setLayout(id, animate);
-    this.setDetails(false);
+    this.setMode('map');
   }
 
   private opened(id: UnlockId | null): boolean {
@@ -285,8 +298,8 @@ export class GalleryApp {
   /** Locks on the lens buttons and the look chip, re-read after any puzzle is solved. */
   private paintGates(): void {
     $('layout-switch').querySelectorAll<HTMLButtonElement>('button').forEach((b) => {
-      const id = b.dataset.id as LayoutId | 'details';
-      const locked = id !== 'details' && !this.opened(lensUnlock(id));
+      const id = b.dataset.id as LayoutId | GalleryMode;
+      const locked = id !== 'details' && id !== 'collection' && id !== 'map' && !this.opened(lensUnlock(id));
       b.classList.toggle('is-locked', locked);
       b.querySelector('.seg-lock')?.remove();
       if (locked) b.insertAdjacentHTML('beforeend', `<span class="seg-lock" aria-label=", locked">${icon('lock', { size: 14 })}</span>`);
@@ -336,27 +349,31 @@ export class GalleryApp {
     }));
   }
 
-  /** Switch between the map and the Details table. */
-  private setDetails(on: boolean): void {
-    const was = this.details;
-    this.details = on;
-    try { localStorage.setItem('atomos.gallery.view', on ? 'details' : 'map'); } catch { /* storage off: the choice just resets */ }
+  /** Switch between the Collection, the map and the Details table. */
+  private setMode(mode: GalleryMode): void {
+    const was = this.covered;
+    this.mode = mode;
+    try { localStorage.setItem('atomos.gallery.mode', mode); } catch { /* storage off: the choice just resets */ }
     this.paintDetails();
     if (!$('gallery-screen').hidden && $('loupe-screen').hidden) {
-      if (on) this.gallery.stop();
+      if (this.covered) this.gallery.stop();
       else if (was) this.gallery.start();
     }
     this.registerScience();
   }
 
-  /** The arrangement buttons, the note under them, and the table when Details is on. */
+  /** The arrangement buttons, the note under them, and the panel that covers the map. */
   private paintDetails(): void {
-    const id = this.details ? 'details' : this.layoutId;
+    const id = this.mode === 'map' ? this.layoutId : this.mode;
     $('layout-switch').querySelectorAll<HTMLButtonElement>('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.id === id)));
-    $('layout-note').textContent = this.details ? 'Every element in one table: tap a heading to sort, a row to open it' : LAYOUTS.find((l) => l.id === this.layoutId)!.note;
-    $('gallery-screen').classList.toggle('is-details', this.details);
-    $('gal-details').hidden = !this.details;
-    if (this.details && !this.list) {
+    $('layout-note').textContent = this.mode === 'details' ? 'Every element in one table: tap a heading to sort, a row to open it'
+      : this.mode === 'collection' ? 'Every atom and how far it is built: tap one to open it'
+      : LAYOUTS.find((l) => l.id === this.layoutId)!.note;
+    $('gallery-screen').classList.toggle('is-details', this.mode === 'details');
+    $('gallery-screen').classList.toggle('is-collection', this.mode === 'collection');
+    $('gal-details').hidden = this.mode !== 'details';
+    $('gal-collection').hidden = this.mode !== 'collection';
+    if (this.mode === 'details' && !this.list) {
       this.list = createElementList({
         variant: 'table',
         onPick: (z) => this.open(elementAt(z)),
@@ -365,11 +382,20 @@ export class GalleryApp {
       });
       $('gal-details').append(this.list.el);
     }
+    if (this.mode === 'collection' && !this.collection) {
+      this.collection = createElementList({
+        onPick: (z) => this.open(elementAt(z)),
+        locked: (z) => this.buildLocked(z),
+        storageKey: 'atomos.collection.sort',
+        thumbs: (z) => atomThumb(z, this.litOf(z)),
+      });
+      $('gal-collection').append(this.collection.el);
+    }
   }
 
-  /** Run the map's render loop, unless the Details table covers it. */
+  /** Run the map's render loop, unless a panel covers it. */
   private startMap(): void {
-    if (!this.details) this.gallery.start();
+    if (!this.covered) this.gallery.start();
   }
 
   private setStyle(style: Style): void {
@@ -426,7 +452,7 @@ export class GalleryApp {
    *  guide button at its foot instead, so the row's microscope stands down there. */
   private registerScience(): void {
     if ($('gallery-screen').hidden) return;
-    if ((!$('loupe-screen').hidden && this.current) || this.details) setScienceHandler(null);
+    if ((!$('loupe-screen').hidden && this.current) || this.covered) setScienceHandler(null);
     else setScienceHandler(() => this.openLayoutStory(), 'Why the atoms are arranged this way');
   }
 

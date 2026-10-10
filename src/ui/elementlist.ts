@@ -8,12 +8,15 @@
 //   const table = createElementList({ variant: 'table', onPick: (z) => openAtom(z) });
 //
 // Rows are grouped under small headings that follow the sort (periods, groups, blocks,
-// categories or first letters). Tapping a row, or Enter on it, calls onPick.
+// categories, first letters or how far each atom is built). Pills filter the rows by stage
+// (not started, in progress, completed); a dropdown picks the sort. Tapping a row, or Enter on
+// it, calls onPick. With `thumbs`, a row that stays on screen a moment swaps its tile for a
+// picture of the atom (the gallery's Collection).
 
 import { ELEMENTS, BLOCK_COLOUR, type Element } from '../gallery/data';
 import { icon } from './icons';
 import { searchElements } from './search';
-import { segmentsOf } from '../core/progress';
+import { segmentsOf, vaultIsotopes } from '../core/progress';
 import { loadSave, type SaveData } from '../core/save';
 import './elementlist.css';
 
@@ -55,8 +58,18 @@ export const COLUMNS: Column[] = [
 ];
 const COL = Object.fromEntries(COLUMNS.map((c) => [c.key, c])) as Record<SortKey, Column>;
 
-/** The sorts offered as pills above the rows. The table sorts by any column header. */
-const LIST_SORTS: SortKey[] = ['z', 'name', 'group', 'period', 'block', 'series'];
+/** The sorts in the rows' dropdown ('progress' reads the save); the table sorts by any column header. */
+type ListSort = SortKey | 'progress';
+const LIST_SORTS: ListSort[] = ['z', 'name', 'progress', 'group', 'period', 'block', 'series'];
+const sortLabel = (k: ListSort) => (k === 'progress' ? 'Progress' : COL[k].label);
+
+/** How far an atom is built, for the stage pills. */
+export type Stage = 'new' | 'started' | 'done';
+export const STAGES: { id: Stage | 'all'; label: string }[] = [
+  { id: 'all', label: 'All' }, { id: 'new', label: 'Not started' }, { id: 'started', label: 'In progress' }, { id: 'done', label: 'Completed' },
+];
+const STAGE_HEADING: Record<Stage, string> = { new: 'Not started', started: 'In progress', done: 'Completed' };
+export const stageOf = (pct: number): Stage => (pct >= 100 ? 'done' : pct > 0 ? 'started' : 'new');
 const TABLE_COLUMNS: SortKey[] = ['symbol', 'name', 'z', 'weight', 'group', 'period', 'block', 'series', 'density', 'melt', 'boil', 'electronegativity', 'radius', 'discovered'];
 
 /** Elements in order for a sort. Missing values go last whichever way the sort runs; ties
@@ -85,6 +98,8 @@ export interface ElementListOptions {
   sort?: SortKey;
   /** Remembers the sort under this name between visits. */
   storageKey?: string;
+  /** A picture of each atom (a data URL), asked for once its row has been on screen a moment. */
+  thumbs?: (z: number) => Promise<string | null>;
 }
 
 export interface ElementList {
@@ -95,13 +110,16 @@ export interface ElementList {
   refresh(): void;
 }
 
+/** How long a row stays on screen before its picture is asked for. */
+const DWELL_MS = 600;
+
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 
-const recall = (k?: string): { key: SortKey; desc: boolean } | null => {
+const recall = (k?: string): { key: ListSort; desc: boolean; stage?: Stage | 'all' } | null => {
   if (!k) return null;
-  try { const v = JSON.parse(localStorage.getItem(k) ?? 'null'); return v && COL[v.key as SortKey] ? v : null; } catch { return null; }
+  try { const v = JSON.parse(localStorage.getItem(k) ?? 'null'); return v && (COL[v.key as SortKey] || v.key === 'progress') ? v : null; } catch { return null; }
 };
-const remember = (k: string | undefined, v: { key: SortKey; desc: boolean }) => {
+const remember = (k: string | undefined, v: { key: ListSort; desc: boolean; stage: Stage | 'all' }) => {
   if (!k) return;
   try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* storage off: the sort just resets */ }
 };
@@ -109,9 +127,17 @@ const remember = (k: string | undefined, v: { key: SortKey; desc: boolean }) => 
 export function createElementList(opts: ElementListOptions = {}): ElementList {
   const variant = opts.variant ?? 'rows';
   const saved = recall(opts.storageKey);
-  let sort: SortKey = opts.sort ?? saved?.key ?? 'z';
+  let sort: ListSort = opts.sort ?? saved?.key ?? 'z';
+  if (variant === 'table' && sort === 'progress') sort = 'z';
   let desc = opts.sort ? false : saved?.desc ?? false;
+  let stage: Stage | 'all' = saved?.stage ?? 'all';
   let query = '';
+  let save = loadSave();
+  /** Each atom's share built (0 to 100), read from the save on every redraw. */
+  const pctOf = (z: number) => {
+    const segs = segmentsOf(z, save);
+    return segs.length ? Math.round((segs.filter((x) => x.done).length / segs.length) * 100) : 0;
+  };
 
   const root = document.createElement('div');
   root.className = `el-list el-list--${variant}`;
@@ -122,7 +148,14 @@ export function createElementList(opts: ElementListOptions = {}): ElementList {
         <input type="search" placeholder="Search by name, symbol or number" aria-label="Search elements" autocomplete="off" spellcheck="false" enterkeyhint="go">
         <button type="button" class="el-clear" aria-label="Clear search" hidden>${icon('clear', { size: 26 })}</button>
       </label>
-      ${variant === 'rows' ? `<div class="el-sorts" role="radiogroup" aria-label="Sort by">${LIST_SORTS.map((k) => `<button type="button" role="radio" class="el-sort" data-key="${k}">${COL[k].label}</button>`).join('')}</div>` : ''}
+      ${variant === 'rows' ? `<div class="el-stages" role="radiogroup" aria-label="Show">${STAGES.map((st) => `<button type="button" role="radio" class="el-stage" data-stage="${st.id}">${st.label}</button>`).join('')}</div>
+      <div class="el-bar"><span class="el-count" aria-live="polite"></span>
+        <div class="el-sortbox">
+          <button type="button" class="el-dir" aria-label="Reverse the order"></button>
+          <button type="button" class="el-sortbtn" aria-haspopup="menu" aria-expanded="false"></button>
+          <div class="el-menu" role="menu" hidden>${LIST_SORTS.map((k) => `<button type="button" role="menuitemradio" class="el-opt" data-key="${k}"><span>${sortLabel(k)}</span>${icon('check', { size: 20 })}</button>`).join('')}</div>
+        </div>
+      </div>` : ''}
     </div>
     <div class="el-body" role="${variant === 'rows' ? 'listbox' : 'grid'}" aria-label="Elements"></div>
     <p class="el-none" hidden>No element matches that.</p>`;
@@ -131,42 +164,60 @@ export function createElementList(opts: ElementListOptions = {}): ElementList {
   const body = root.querySelector<HTMLElement>('.el-body')!;
   const none = root.querySelector<HTMLElement>('.el-none')!;
 
+  const sorted = (): Element[] => {
+    if (sort !== 'progress') return sortElements(ELEMENTS, sort, desc);
+    const pct = new Map(ELEMENTS.map((e) => [e.z, pctOf(e.z)]));
+    return [...ELEMENTS].sort((a, b) => (desc ? pct.get(b.z)! - pct.get(a.z)! : pct.get(a.z)! - pct.get(b.z)!) || a.z - b.z);
+  };
   const visible = (): Element[] => {
-    if (!query) return sortElements(ELEMENTS, sort, desc);
     // While searching, best matches first, whatever the sort.
-    return searchElements(query);
+    const list = query ? searchElements(query) : sorted();
+    return stage === 'all' || variant === 'table' ? list : list.filter((e) => stageOf(pctOf(e.z)) === stage);
   };
 
   const tile = (e: Element) => `<span class="el-tile" style="--c:${BLOCK_COLOUR[e.block]}"><small>${e.z}</small><b>${e.symbol}</b></span>`;
 
-  // How far each atom's Build has got: one segment per thing to build, and the share done,
-  // colored by how far along it is (green once everything is built).
+  // How far each atom's Build has got: a thin bar of segments (nucleus, electrons, then each
+  // isotope in the vault, stable ones before unstable), and the share done, colored by how far
+  // along it is (green once everything is built). The bar grows with the number of isotopes,
+  // roughly, so an atom with a big vault reads as more to collect.
   const progress = (e: Element, save: SaveData) => {
     const segs = segmentsOf(e.z, save);
     const done = segs.filter((s) => s.done).length;
     const pct = segs.length ? Math.round((done / segs.length) * 100) : 0;
     const tier = pct >= 100 ? 'full' : pct >= 50 ? 'most' : pct > 0 ? 'some' : 'none';
-    return `<span class="el-prog el-prog--${tier}" aria-label="${pct}% built">
-      <span class="el-segs" aria-hidden="true">${segs.map((s) => `<i${s.done ? ' class="on"' : ''}></i>`).join('')}</span>
+    const stable = new Set(vaultIsotopes(e.z).filter((i) => i.stable).map((i) => String(i.a)));
+    const kind = (s: (typeof segs)[number]) => (s.kind === 'step' ? 'step' : stable.has(s.id) ? 'stable' : 'unstable');
+    let last = '';
+    const parts = segs.map((s) => {
+      const k = kind(s);
+      const gap = last && k !== last ? ' gap' : '';
+      last = k;
+      return `<i class="${k}${s.done ? ' on' : ''}${gap}"></i>`;
+    });
+    const isotopes = segs.length - stepsCount(segs);
+    return `<span class="el-prog el-prog--${tier}" style="--iso:${isotopes}" aria-label="${pct}% built">
       <b>${pct}%</b>
+      <span class="el-segs" aria-hidden="true">${parts.join('')}</span>
     </span>`;
   };
+  const stepsCount = (segs: { kind: string }[]) => segs.filter((s) => s.kind === 'step').length;
 
   const row = (e: Element, save: SaveData) => {
     const locked = opts.locked?.(e.z) ?? false;
     const cls = ['el-row', locked ? 'is-locked' : '', e.z === opts.current ? 'is-current' : ''].filter(Boolean).join(' ');
+    const pic = thumbCache.get(e.z);
     return `<button type="button" role="option" class="${cls}" data-z="${e.z}" aria-selected="${e.z === opts.current}">
-      ${tile(e)}
+      ${opts.thumbs ? `<span class="el-pic${pic ? ' on' : ''}">${tile(e)}${pic ? `<img src="${pic}" alt="">` : ''}</span>` : tile(e)}
       <span class="el-main"><b>${esc(e.name)}</b><span>${locked ? `<em class="el-locked">${icon('lock', { size: 16 })}Locked</em> · ` : ''}${esc(e.series)}</span></span>
       ${progress(e, save)}
     </button>`;
   };
 
   const drawRows = (list: Element[]) => {
-    const section = query ? undefined : COL[sort].section;
+    const section = query ? undefined : sort === 'progress' ? (e: Element) => STAGE_HEADING[stageOf(pctOf(e.z))] : COL[sort].section;
     let last = '';
     const html: string[] = [];
-    const save = loadSave();
     for (const e of list) {
       if (section) {
         const s = section(e);
@@ -175,6 +226,7 @@ export function createElementList(opts: ElementListOptions = {}): ElementList {
       html.push(row(e, save));
     }
     body.innerHTML = html.join('');
+    watchRows();
   };
 
   const drawTable = (list: Element[]) => {
@@ -198,35 +250,109 @@ export function createElementList(opts: ElementListOptions = {}): ElementList {
   };
 
   const paintSorts = () => {
-    root.querySelectorAll<HTMLButtonElement>('.el-sort').forEach((b) => {
-      const on = b.dataset.key === sort;
-      b.setAttribute('aria-checked', String(on));
-      b.classList.toggle('is-desc', on && desc);
-    });
+    if (variant !== 'rows') return;
+    root.querySelectorAll<HTMLButtonElement>('.el-opt').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.key === sort)));
+    root.querySelectorAll<HTMLButtonElement>('.el-stage').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.stage === stage)));
+    const btn = root.querySelector<HTMLButtonElement>('.el-sortbtn')!;
+    btn.innerHTML = `<span>${sortLabel(sort)}</span>${icon('chevron-down', { size: 18 })}`;
+    btn.setAttribute('aria-label', `Sort by ${sortLabel(sort)}`);
+    const dir = root.querySelector<HTMLButtonElement>('.el-dir')!;
+    dir.innerHTML = icon(desc ? 'chevron-down' : 'chevron-up', { size: 18 });
+    dir.setAttribute('aria-label', desc ? 'Descending: tap for ascending' : 'Ascending: tap for descending');
+  };
+
+  const paintCount = (n: number) => {
+    const c = root.querySelector<HTMLElement>('.el-count');
+    if (!c) return;
+    const what = stage === 'all' ? '' : ` ${STAGE_HEADING[stage].toLowerCase()}`;
+    c.textContent = `${n} element${n === 1 ? '' : 's'}${what}`;
+  };
+
+  // Pictures for the rows that stay on screen a moment (DWELL_MS), fetched one at a time.
+  const thumbCache = new Map<number, string>();
+  const timers = new Map<HTMLElement, number>();
+  const io = opts.thumbs && typeof IntersectionObserver !== 'undefined' ? new IntersectionObserver((entries) => {
+    for (const en of entries) {
+      const rowEl = en.target as HTMLElement;
+      const z = Number(rowEl.dataset.z);
+      if (en.isIntersecting) {
+        if (timers.has(rowEl) || thumbCache.has(z)) continue;
+        timers.set(rowEl, window.setTimeout(() => {
+          timers.delete(rowEl);
+          void opts.thumbs!(z).then((url) => {
+            if (!url) return;
+            thumbCache.set(z, url);
+            const pic = rowEl.isConnected ? rowEl.querySelector<HTMLElement>('.el-pic') : null;
+            if (!pic || pic.querySelector('img')) return;
+            const img = new Image();
+            img.alt = '';
+            img.src = url;
+            pic.append(img);
+            requestAnimationFrame(() => pic.classList.add('on'));
+          });
+        }, DWELL_MS));
+      } else {
+        const t = timers.get(rowEl);
+        if (t) { clearTimeout(t); timers.delete(rowEl); }
+      }
+    }
+  }, { threshold: 0.6 }) : null;
+  const watchRows = () => {
+    if (!io) return;
+    io.disconnect();
+    for (const t of timers.values()) clearTimeout(t);
+    timers.clear();
+    body.querySelectorAll<HTMLElement>('.el-row').forEach((r) => io.observe(r));
   };
 
   const render = () => {
+    save = loadSave();
     const list = visible();
+    paintCount(list.length);
     none.hidden = list.length > 0;
     if (variant === 'rows') drawRows(list);
     else drawTable(list);
     paintSorts();
   };
 
-  const setSort = (key: SortKey) => {
-    // Picking the active sort again flips its direction.
-    desc = key === sort ? !desc : false;
-    sort = key;
-    remember(opts.storageKey, { key: sort, desc });
-    render();
-    // Back to the top of whatever scrolls: the table's own frame, or the drawer around the rows.
-    (root.querySelector('.el-scroll') ?? root.closest('.ui-drawer-body'))?.scrollTo({ top: 0 });
+  const toTop = () => {
+    // Back to the top of whatever scrolls: the table's own frame, or the panel around the rows.
+    (root.querySelector('.el-scroll') ?? root.closest('.ui-drawer-body') ?? root).scrollTo({ top: 0 });
   };
+  const setSort = (key: ListSort, flip = true) => {
+    // In the table, picking the active column again flips its direction; a new sort starts
+    // ascending, except progress, which starts with the furthest along.
+    desc = key === sort ? (flip ? !desc : desc) : key === 'progress';
+    sort = key;
+    remember(opts.storageKey, { key: sort, desc, stage });
+    render();
+    toTop();
+  };
+  const menu = root.querySelector<HTMLElement>('.el-menu');
+  const sortBtn = root.querySelector<HTMLButtonElement>('.el-sortbtn');
+  const openMenu = (on: boolean) => {
+    if (!menu || !sortBtn) return;
+    menu.hidden = !on;
+    sortBtn.setAttribute('aria-expanded', String(on));
+    if (on) menu.querySelector<HTMLElement>('[aria-checked="true"]')?.focus();
+  };
+  const away = (e: Event) => {
+    if (!root.isConnected) { document.removeEventListener('pointerdown', away, true); return; }
+    if (menu && !menu.hidden && !(e.target as HTMLElement).closest('.el-sortbox')) openMenu(false);
+  };
+  document.addEventListener('pointerdown', away, true);
+  root.addEventListener('keydown', (e) => { if (e.key === 'Escape' && menu && !menu.hidden) { e.stopPropagation(); openMenu(false); sortBtn?.focus(); } });
 
   root.addEventListener('click', (e) => {
     const t = e.target as HTMLElement;
-    const sortBtn = t.closest<HTMLElement>('.el-sort, th button');
-    if (sortBtn?.dataset.key) { setSort(sortBtn.dataset.key as SortKey); return; }
+    if (t.closest('.el-sortbtn')) { openMenu(menu?.hidden === true); return; }
+    if (t.closest('.el-dir')) { desc = !desc; remember(opts.storageKey, { key: sort, desc, stage }); render(); toTop(); return; }
+    const opt = t.closest<HTMLElement>('.el-opt');
+    if (opt?.dataset.key) { openMenu(false); setSort(opt.dataset.key as ListSort, false); return; }
+    const pill = t.closest<HTMLElement>('.el-stage');
+    if (pill?.dataset.stage) { stage = pill.dataset.stage as Stage | 'all'; remember(opts.storageKey, { key: sort, desc, stage }); render(); toTop(); return; }
+    const th = t.closest<HTMLElement>('th button');
+    if (th?.dataset.key) { setSort(th.dataset.key as SortKey); return; }
     const hit = t.closest<HTMLElement>('[data-z]');
     if (hit && body.contains(hit)) opts.onPick?.(Number(hit.dataset.z));
   });

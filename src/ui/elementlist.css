@@ -28,14 +28,31 @@
 .el-clear:hover { color: var(--c-text-2); }
 .el-clear[hidden] { display: none; }
 
-.el-sorts { display: flex; gap: var(--sp-1); overflow-x: auto; scrollbar-width: none; }
-.el-sorts::-webkit-scrollbar { display: none; }
-.el-sort { flex: none; display: inline-flex; align-items: center; gap: 4px; min-height: 34px; padding: 0 var(--sp-3); border: 0; border-radius: var(--r-pill); background: var(--c-surface-2); color: var(--c-text-2); font-family: var(--font); font-size: var(--fs-sm); font-weight: var(--fw-semibold); white-space: nowrap; }
-.el-sort:hover { color: var(--c-text); }
-.el-sort[aria-checked='true'] { background: var(--c-pick); color: var(--c-accent); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--c-accent) 30%, transparent); }
-.el-sort[aria-checked='true']::after { content: '↑'; font-size: 12px; }
-.el-sort.is-desc::after { content: '↓'; }
-.is-searching .el-sorts { opacity: 0.4; }
+/* Stage pills: show every element, or only those not started, in progress or completed. */
+.el-stages { display: flex; gap: var(--sp-1); overflow-x: auto; scrollbar-width: none; }
+.el-stages::-webkit-scrollbar { display: none; }
+.el-stage { flex: none; min-height: 34px; padding: 0 var(--sp-3); border: 0; border-radius: var(--r-pill); background: var(--c-surface-2); color: var(--c-text-2); font-family: var(--font); font-size: var(--fs-sm); font-weight: var(--fw-semibold); white-space: nowrap; cursor: pointer; }
+.el-stage:hover { color: var(--c-text); }
+.el-stage[aria-checked='true'] { background: var(--c-pick); color: var(--c-accent); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--c-accent) 30%, transparent); }
+@media (max-width: 380px) { .el-stage { padding: 0 10px; font-size: 13px; } }
+
+/* The count on the left, the sort on the right: a direction button and a dropdown. */
+.el-bar { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); margin-top: calc(var(--sp-2) - var(--sp-4)); }
+.el-count { font-size: var(--fs-sm); color: var(--c-text-2); font-variant-numeric: tabular-nums; }
+.el-sortbox { position: relative; display: flex; gap: var(--sp-1); }
+.el-dir, .el-sortbtn { display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-height: 36px; padding: 0 var(--sp-3); border: 0; border-radius: var(--r-sm); background: var(--c-surface-2); color: var(--c-text); font-family: var(--font); font-size: var(--fs-sm); font-weight: var(--fw-semibold); cursor: pointer; }
+.el-dir { width: 36px; padding: 0; color: var(--c-accent); }
+.el-sortbtn { padding-right: var(--sp-2); }
+.el-sortbtn svg { color: var(--c-accent); }
+.el-dir:hover, .el-sortbtn:hover, .el-sortbtn[aria-expanded='true'] { background: var(--c-surface-3); }
+.el-menu { position: absolute; right: 0; top: calc(100% + 6px); z-index: 5; min-width: 200px; display: flex; flex-direction: column; padding: var(--sp-1); border-radius: var(--r-md); background: var(--c-surface-3); box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55); }
+.el-menu[hidden] { display: none; }
+.el-opt { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); min-height: 44px; padding: 0 var(--sp-3); border: 0; border-radius: var(--r-sm); background: transparent; color: var(--c-text); font-family: var(--font); font-size: var(--fs-md); text-align: left; cursor: pointer; }
+.el-opt:hover, .el-opt:focus-visible { background: var(--c-pick); outline: none; }
+.el-opt svg { color: var(--c-accent); visibility: hidden; }
+.el-opt[aria-checked='true'] { color: var(--c-accent); font-weight: var(--fw-semibold); }
+.el-opt[aria-checked='true'] svg { visibility: visible; }
+.is-searching .el-sortbox { opacity: 0.4; }
 .el-none { margin: var(--sp-3) 0; color: var(--c-text-2); }
 .el-none[hidden] { display: none; }
 
@@ -69,10 +86,15 @@
 .el-main b { font-size: var(--fs-md); font-weight: var(--fw-semibold); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .el-main span { font-size: var(--fs-sm); color: var(--c-text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .el-main em { font-style: normal; color: var(--c-text-3); }
-.el-prog { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; width: 84px; --p: var(--c-text-3); }
-.el-prog b { font-size: var(--fs-md); font-weight: var(--fw-semibold); font-variant-numeric: tabular-nums; color: var(--p); }
-.el-segs { display: flex; gap: 3px; width: 100%; }
-.el-segs i { flex: 1; height: 6px; border-radius: 3px; background: var(--c-surface-3); }
+.el-prog { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; --p: var(--c-text-3); }
+.el-prog b { font-size: var(--fs-md); font-weight: var(--fw-semibold); font-variant-numeric: tabular-nums; line-height: 1; color: var(--p); }
+/* A thin bar that grows with the vault (8px a little per isotope, within limits); nucleus and
+   electrons keep a minimum width, and a small gap sets off the steps, stable and unstable isotopes. */
+.el-segs { display: flex; gap: 2px; width: clamp(56px, calc(44px + var(--iso, 0) * 10px), 104px); }
+.el-segs i { flex: 1 1 0; min-width: 4px; height: 4px; border-radius: 2px; background: var(--c-surface-3); }
+.el-segs i.step { flex-basis: 12px; min-width: 12px; }
+.el-segs i.unstable { opacity: 0.75; }
+.el-segs i.gap { margin-left: 3px; }
 .el-segs i.on { background: var(--p); }
 .el-prog--none b { color: var(--c-text-3); }
 .el-prog--some { --p: var(--c-warn); }
@@ -82,7 +104,6 @@
 .el-row.is-locked .el-tile b { color: var(--c-text-2); }
 .el-locked { display: inline-flex; align-items: center; gap: 3px; vertical-align: -3px; }
 .el-lock { display: inline-flex; margin-left: 6px; vertical-align: -2px; color: var(--c-text-3); }
-@media (max-width: 359px) { .el-prog { width: 64px; } }
 
 /* Table */
 .el-scroll { overflow: auto; overscroll-behavior: contain; max-height: 100%; border: 1px solid var(--c-line); border-radius: var(--r-md); }
@@ -110,3 +131,12 @@ th[aria-sort='descending'] .el-arrow::after { content: '↓'; }
 .el-scroll tbody tr:focus-visible { outline: 2px solid var(--c-accent); outline-offset: -2px; }
 .el-scroll tbody tr.is-current th { color: var(--c-accent); }
 .el-scroll tbody tr.is-locked .el-sym { background: var(--c-surface-2); box-shadow: inset 0 0 0 1px var(--c-line-2); color: var(--c-text-2); }
+
+/* Collection: the tile gives way to a picture of the atom once its row has been on screen a moment. */
+.el-pic { position: relative; width: 56px; height: 56px; display: block; }
+.el-pic img { position: absolute; inset: -14px; width: 84px; height: 84px; opacity: 0; transition: opacity 0.6s ease; pointer-events: none; }
+.el-pic .el-tile { transition: background 0.6s ease, box-shadow 0.6s ease; }
+.el-pic.on img { opacity: 1; }
+.el-pic.on .el-tile { background: transparent; box-shadow: none; }
+.el-pic.on .el-tile b { opacity: 0; }
+.el-pic.on .el-tile small { z-index: 1; text-shadow: 0 0 6px var(--c-bg); }
