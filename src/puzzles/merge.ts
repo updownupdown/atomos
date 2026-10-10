@@ -68,8 +68,20 @@ export function wanted(s: MergeState): number | null {
   return s.filled < s.sockets.length ? s.sockets[s.filled] : null;
 }
 
-/** What the board deals out: mostly single nucleons, some pairs, a few fours for big nuclei. */
+/** The smallest cluster the board deals for a nucleus of mass number a: single nucleons up to
+ *  iron, and past it the power of two that keeps a run about as long as iron's (a / unit at most
+ *  56). Every cluster still shows its real nucleon count. */
+export function clusterUnit(a: number): number {
+  let u = 1;
+  while (a / u > 56) u *= 2;
+  return u;
+}
+
+/** What the board deals out: mostly single nucleons, some pairs, a few fours for big nuclei.
+ *  Past iron the same mix is dealt in bigger clusters (see clusterUnit). */
 export function spawnMix(target: Nucleus): { kinds: number[]; weights: number[] } {
+  const u = clusterUnit(target.a);
+  if (u > 1) return { kinds: [u, 2 * u, 4 * u], weights: [6, 3, 2] };
   const kinds = [1, 2];
   const weights = [6, 3];
   if (target.a >= 16) {
@@ -79,10 +91,21 @@ export function spawnMix(target: Nucleus): { kinds: number[]; weights: number[] 
   return { kinds, weights };
 }
 
+/** About how many swipes a steady player needs. Up to iron, 0.7 per nucleon. Past it, fitted to
+ *  a greedy player's runs on every heavy nucleus (about 0.6 per dealt cluster, plus the small
+ *  clusters the low bits ask for), with iron's margin over that player, capped at 45. */
+export function mergePar(a: number): number {
+  const u = clusterUnit(a);
+  if (u === 1) return Math.ceil(a * 0.7) + 1;
+  const low = a % u;
+  const bits = low.toString(2).split('1').length - 1;
+  return Math.min(45, Math.ceil(1.14 * (0.6 * ((a - low) / u) + 1.6 * bits + 6.1)));
+}
+
 export function newMerge(target: Nucleus, seed: number, size = 4): MergeState {
   const s: MergeState = {
     size, cells: Array(size * size).fill(null), target, sockets: socketsFor(target.a), filled: 0,
-    moves: 0, spoils: 0, par: Math.ceil(target.a * 0.7) + 1, nextId: 1, rng: seeded(seed), last: [], spawned: [], flown: [],
+    moves: 0, spoils: 0, par: mergePar(target.a), nextId: 1, rng: seeded(seed), last: [], spawned: [], flown: [],
   };
   for (let i = 0; i < 3; i++) spawn(s);
   s.spawned = [];
@@ -99,9 +122,14 @@ function spawn(s: MergeState): void {
   const at = empty[randInt(s.rng, empty.length)];
   const mix = spawnMix(s.target);
   let v = mix.kinds[weighted(s.rng, mix.weights)];
-  // Never deal a cluster already too big to be wanted.
+  // Never deal a cluster already too big to be wanted. Light nuclei fall back to a single
+  // nucleon; past iron, to the biggest cluster that still fits, down to the singles and pairs a
+  // heavy nucleus's low bits ask for.
   const want = wanted(s);
-  if (want !== null && v > want) v = 1;
+  if (want !== null && v > want) {
+    const fits = mix.kinds.filter((k) => k <= want);
+    v = clusterUnit(s.target.a) === 1 ? 1 : fits.length ? fits[fits.length - 1] : want >= 2 && weighted(s.rng, [6, 3]) === 1 ? 2 : 1;
+  }
   const tile: Tile = { id: s.nextId++, v, spoiled: false };
   s.cells[at] = tile;
   s.spawned.push(tile.id);

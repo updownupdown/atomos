@@ -8,19 +8,18 @@ import {
 import { frontier, loadSave, writeSave, type OrbitalShape, type SaveData, type StepId } from './core/save';
 // The gallery's gate puzzles (lenses, nucleus view, looks); loaded here so they are ready.
 import './puzzles/unlock';
-import { atomProgress, isotopeCollected, rowOf, rowOpen, rowSpan, segmentsOf, shapeAt, stepState, stepsOf, vaultIsotopes, type StepState } from './core/progress';
+import { atomProgress, fleetingCount, fleetingDealZ, fleetingIsotopes, isotopeCollected, isotopeGame, ISOTOPE_GAMES_LIST, lastingIsotopes, rowNeed, rowOf, rowOpen, rowSpan, segmentsOf, shapeAt, stepState, stepsOf, type IsotopeGame, type StepState } from './core/progress';
+import { SHAPE_GLYPH_Z } from './core/unlocks';
 import { tableColour } from './core/paint';
 import { Detail } from './gallery/detail';
 import type { AtomLit } from './gallery/atom';
 import { createAtomBar, type AtomBar } from './gallery/atombar';
 import { refreshModeProgress } from './ui/modebar';
 import { buildTracks, drawWitness, slowFactor } from './ui/witness';
-import { MERGE_UP_TO, mergeLevel, orbitalGridLevel, slidingLevel } from './puzzles/levels';
+import { mergeLevel, orbitalGridLevel } from './puzzles/levels';
 import { MergeView } from './puzzles/mergeView';
 import { OrbitalGridView } from './puzzles/orbitalGridView';
-import { SlidingView } from './puzzles/slidingView';
-import { PackingView } from './puzzles/packingView';
-import { newPacking, solvedState, type PackingState } from './puzzles/packing';
+import { solvedState, type PackingState } from './puzzles/packing';
 import { type Area, type PuzzleView } from './puzzles/view';
 import { dealSeed, puzzleIcon, puzzleType, type PuzzleType } from './puzzles/catalog';
 import { difficulty, difficultyWord } from './puzzles/difficulty';
@@ -36,13 +35,19 @@ import * as sfx from './audio';
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
 /** Droplet silver: the default electron colour until the player tints an element. */
-/** 'home' is the atom's Build page; the others are its puzzles: the nucleus, the electrons, and
- *  one Tessera board per isotope in its vault ('iso-7' builds the isotope with mass number 7). */
+/** 'home' is the atom's Build page; the others are its puzzles: the nucleus, the electrons, the
+ *  orbital shape discovered on this atom, a lasting isotope with its fixed puzzle ('iso-7' builds
+ *  the isotope with mass number 7), or a fleeting isotope with the puzzle the player picked
+ *  ('fl-8-packing' builds the isotope with mass number 8 with Tessera). */
 type IsoStage = `iso-${number}`;
-type Stage = 'home' | StepId | 'shape' | 'row' | IsoStage;
+type FleetStage = `fl-${number}-${IsotopeGame}`;
+type Stage = 'home' | StepId | 'shape' | IsoStage | FleetStage;
 
 const isIso = (s: Stage): s is IsoStage => s.startsWith('iso-');
 const isoA = (s: IsoStage): number => Number(s.slice(4));
+const isFleet = (s: Stage): s is FleetStage => s.startsWith('fl-');
+const fleetA = (s: FleetStage): number => Number(s.split('-')[1]);
+const fleetGame = (s: FleetStage): IsotopeGame => s.split('-')[2] as IsotopeGame;
 
 const STEP_LABEL: Record<StepId, string> = { nucleus: 'Nucleus', shells: 'Electrons' };
 
@@ -187,12 +192,27 @@ export class Game {
   /** The 3D atom in the orbital colors, the same as in View: dimmed until it is built. */
   private makePuzzle(stage: Exclude<Stage, 'home'>): PuzzleView {
     const reduced = this.save.settings.reducedMotion;
-    if (isIso(stage)) return new PackingView(newPacking(this.z, dealSeed('isotope', this.z, isoA(stage))), reduced);
-    if (stage === 'shape') return puzzleType('lines').make!(this.z, 0, reduced);
-    // A row's gate is the same maze from whichever of its atoms it is played.
-    if (stage === 'row') return puzzleType('slideStop').make!(rowSpan(rowOf(this.z))[0], 0, reduced);
-    if (stage === 'shells') return new OrbitalGridView(orbitalGridLevel(this.z), reduced);
-    return this.z <= MERGE_UP_TO ? new MergeView(mergeLevel(this.z), reduced) : new SlidingView(slidingLevel(this.z), reduced);
+    const z = this.z;
+    if (isIso(stage)) {
+      const a = isoA(stage);
+      const game = isotopeGame(z, a) ?? 'packing';
+      return puzzleType(game).deal!(z, dealSeed(`isotope:${game}`, z, a), reduced, a);
+    }
+    if (isFleet(stage)) {
+      const a = fleetA(stage);
+      const game = fleetGame(stage);
+      const dz = game === 'merge' ? z : this.fleetDealZ(a);
+      return puzzleType(game).deal!(dz, dealSeed(`fleeting:${game}`, z, a), reduced, a);
+    }
+    if (stage === 'shape') return puzzleType('codebreaker').make!(SHAPE_GLYPH_Z[shapeAt(z)!], 0, reduced);
+    if (stage === 'shells') return new OrbitalGridView(orbitalGridLevel(z), reduced);
+    return new MergeView(mergeLevel(z), reduced);
+  }
+
+  /** The element a fleeting isotope's board is dealt for: harder the shorter it lives. */
+  private fleetDealZ(a: number): number {
+    const iso = fleetingIsotopes(this.z).find((i) => i.a === a);
+    return iso ? fleetingDealZ(this.z, iso) : this.z;
   }
 
   /** Back to the Build page, keeping a puzzle that is under way. */
@@ -263,29 +283,28 @@ export class Game {
   /** What a puzzle builds, for the header: "Nucleus", "Electrons" or "Isotope · Li-6". */
   private stageLabel(stage: Exclude<Stage, 'home'>): string {
     if (isIso(stage)) return `Isotope · ${element(this.z).symbol}-${isoA(stage)}`;
+    if (isFleet(stage)) return `Fleeting isotope · ${element(this.z).symbol}-${fleetA(stage)}`;
     if (stage === 'shape') return `Discovery · ${shapeAt(this.z)} orbitals`;
-    if (stage === 'row') return `Gate · Row ${rowOf(this.z)}`;
     return stage === 'nucleus' ? 'Nucleus' : 'Electrons';
   }
 
   /** The catalog entry for a puzzle on this atom. */
   private stagePuzzle(stage: Exclude<Stage, 'home'>, z = this.z): PuzzleType {
-    if (isIso(stage)) return puzzleType('packing');
-    if (stage === 'shape') return puzzleType('lines');
-    if (stage === 'row') return puzzleType('slideStop');
-    return puzzleType(stage === 'nucleus' ? (z <= MERGE_UP_TO ? 'merge' : 'sliding') : 'orbitalGrid');
+    if (isIso(stage)) return puzzleType(isotopeGame(z, isoA(stage)) ?? 'packing');
+    if (isFleet(stage)) return puzzleType(fleetGame(stage));
+    if (stage === 'shape') return puzzleType('codebreaker');
+    return puzzleType(stage === 'nucleus' ? 'merge' : 'orbitalGrid');
   }
 
   /** What a puzzle adds to this atom, in a sentence. */
   private contribution(stage: Exclude<Stage, 'home'>): string {
     const el = element(this.z);
     const name = el.name.toLowerCase();
-    if (isIso(stage)) {
-      const a = isoA(stage);
+    if (isIso(stage) || isFleet(stage)) {
+      const a = isIso(stage) ? isoA(stage) : fleetA(stage);
       return `Builds ${name}-${a}: ${el.z} proton${el.z === 1 ? '' : 's'} with ${a - el.z} neutron${a - el.z === 1 ? '' : 's'}.`;
     }
     if (stage === 'shape') return `Discovers the shape of ${shapeAt(this.z)} orbitals, so the 3D Shapes view can draw them in every atom.`;
-    if (stage === 'row') return `Opens row ${rowOf(this.z)} of the table, ${this.rowRange(rowOf(this.z))}, for building.`;
     if (stage === 'shells') return `Settles ${el.z} electron${el.z === 1 ? '' : 's'} into ${name}'s orbitals: ${shortConfiguration(elementAt(this.z))}.`;
     if (this.z === 1) return 'Hydrogen\'s nucleus is a single proton, so there is nothing to gather.';
     return `Gathers ${el.z} protons and ${this.neutrons} neutrons into ${name}'s nucleus.`;
@@ -305,13 +324,16 @@ export class Game {
 
     const row = rowOf(z);
     const open = rowOpen(row, this.save);
+    const need = rowNeed(row, this.save);
+    const more = need.need - need.built;
+    const shut = `Build ${more} more atom${more === 1 ? '' : 's'} in row ${row - 1}`;
     const step = (id: StepId) => {
       const st = this.stepState(z, id);
-      return this.card({ stage: id, text: this.adds(id), done: st.done, flawless: st.flawless, best: st.best, locked: open ? undefined : `Opens with row ${row}'s gate` });
+      return this.card({ stage: id, text: this.adds(id), done: st.done, flawless: st.flawless, best: st.best, locked: open ? undefined : shut });
     };
 
-    const vault = vaultIsotopes(z);
-    const isoCard = (iso: (typeof vault)[number]) => {
+    const lasting = lastingIsotopes(z);
+    const isoCard = (iso: (typeof lasting)[number]) => {
       const life = iso.stable ? `stable${iso.abundance ? `, ${formatPercent(iso.abundance)} on Earth` : ''}` : `half-life ${formatDuration(iso.halfLife ?? 0)}`;
       const n = iso.a - el.z;
       return this.card({
@@ -323,13 +345,15 @@ export class Game {
         locked: built ? undefined : `Opens once ${name} is built`,
       });
     };
-    const stable = vault.filter((i) => i.stable);
-    const unstable = vault.filter((i) => !i.stable);
-    const got = (list: typeof vault) => list.filter((i) => isotopeCollected(this.save, z, i.a)).length;
+    const stable = lasting.filter((i) => i.stable);
+    const longLived = lasting.filter((i) => !i.stable);
+    const got = (list: typeof lasting) => list.filter((i) => isotopeCollected(this.save, z, i.a)).length;
     const live = this.save.specimens.some((sp) => sp.z === z);
     const later = built ? '' : ` They open once ${name} is built.`;
+    const fleeting = fleetingIsotopes(z);
+    const fc = fleetingCount(z, this.save);
 
-    // Where an orbital shape first appears, Flux discovers it: until then it is a locked extra.
+    // Where an orbital shape first appears, Glyph discovers it: until then it is a locked extra.
     const shape = shapeAt(z);
     const shapeCard = shape ? this.card({
       stage: 'shape',
@@ -337,37 +361,80 @@ export class Game {
       done: Boolean(this.save.shapes[shape]),
       flawless: false,
       best: this.save.shapes[shape]?.best,
-      gate: `${el.name} is the first atom with ${shape} orbitals. Trace their field to see their shape.`,
-    }) : '';
-
-    // Each row of the table after the first opens with Inertia. While it is shut, the gate leads
-    // the page on every atom of the row; once open, it stays on the row's first atom to replay.
-    const [first] = rowSpan(row);
-    const gateCard = row > 1 && (!open || z === first) ? this.card({
-      stage: 'row',
-      text: `Opens row ${row}: ${this.rowRange(row)}`,
-      done: open,
-      flawless: false,
-      best: this.save.rows[row]?.best,
-      gate: `Each row of the table is a new electron shell. Solve Inertia once to open all ${rowSpan(row)[1] - first + 1} of row ${row}'s atoms.`,
+      gate: `${el.name} is the first atom with ${shape} orbitals. Crack the code to see their shape.`,
     }) : '';
 
     const steps = stepsOf(z);
     $('bh-in').innerHTML = [
-      gateCard && !open ? this.section('lock', `Row ${row}`, '', gateCard) : '',
+      open ? '' : this.section('lock', `Row ${row} is locked`, `${need.built} of ${need.need}`, '',
+        `Row ${row} opens once you've built ${need.need} of the ${this.rowSize(row - 1)} atoms in row ${row - 1}. ${shut} to open it.`),
       this.section('nucleus', STEP_LABEL.nucleus, '', z === 1 ? this.hydrogenNucleus() : step('nucleus')),
       steps.includes('shells') ? this.section('electrons', STEP_LABEL.shells, '', step('shells')) : '',
       stable.length ? this.section('isotope-stable', 'Stable isotopes', `${got(stable)} of ${stable.length}`, stable.map(isoCard).join(''),
         `${el.name} with other numbers of neutrons that never decay.${later}`) : '',
-      unstable.length ? this.section('isotope-unstable', 'Unstable isotopes', `${got(unstable)} of ${unstable.length}`, unstable.map(isoCard).join(''),
-        `Ones that decay, each with its half-life.${later}`,
+      longLived.length ? this.section('isotope-unstable', 'Long-lived isotopes', `${got(longLived)} of ${longLived.length}`, longLived.map(isoCard).join(''),
+        `Ones that decay, but slowly: a year or more.${later}`,
         live ? `<button class="text-btn bh-bench" id="bh-bench">Watch your unstable isotopes</button>` : '') : '',
-      shapeCard || (gateCard && open) ? this.section('unlock', 'Discoveries', '', `${open ? gateCard : ''}${shapeCard}`) : '',
+      fleeting.length ? this.section('isotope-fleeting', 'Fleeting isotopes', `${fc.built} of ${fc.total}`, '',
+        `Gone in under a year. Pick any isotope puzzle for each: the shorter it lives, the harder the board. They don't count toward ${name}'s 100%.${later}`,
+        this.fleetingGrid(fleeting, Boolean(built))) : '',
+      shapeCard ? this.section('unlock', 'Discoveries', '', shapeCard) : '',
     ].join('');
 
     const root = $('bh-in');
     root.querySelectorAll<HTMLButtonElement>('[data-stage]').forEach((b) => (b.onclick = () => this.enter(b.dataset.stage as Stage)));
     root.querySelector<HTMLButtonElement>('#bh-bench')?.addEventListener('click', () => this.showBench(z));
+    root.querySelectorAll<HTMLButtonElement>('[data-fleet]').forEach((b) => (b.onclick = () => this.pickFleeting(Number(b.dataset.fleet))));
+  }
+
+  /** How many atoms a row of the table holds. */
+  private rowSize(row: number): number {
+    const [first, last] = rowSpan(row);
+    return last - first + 1;
+  }
+
+  /** The fleeting isotopes as a grid of tiles: name and half-life, and once built a decayed
+   *  mark. A tile opens the choice of puzzle. */
+  private fleetingGrid(list: ReturnType<typeof fleetingIsotopes>, open: boolean): string {
+    const el = element(this.z);
+    return `<ul class="bh-fleet" aria-label="${el.name}'s fleeting isotopes">${list.map((i) => {
+      const done = isotopeCollected(this.save, this.z, i.a);
+      const life = i.halfLife === null ? 'half-life unknown' : formatDuration(i.halfLife);
+      return `<li><button class="bh-fleet-tile${done ? ' is-decayed' : ''}" data-fleet="${i.a}" ${open ? '' : 'disabled'} aria-label="${el.symbol}-${i.a}, ${life}${done ? ', built, decayed' : ''}">
+        <b>${el.symbol}-${i.a}</b><span>${life}</span>${done ? `<i class="bh-fleet-mark">${icon('check', { size: 12 })}Decayed</i>` : ''}
+      </button></li>`;
+    }).join('')}</ul>`;
+  }
+
+  /** A fleeting isotope's sheet: what it is, and the puzzles it can be built with, each at the
+   *  difficulty its half-life deals. */
+  private pickFleeting(a: number): void {
+    const el = element(this.z);
+    const iso = fleetingIsotopes(this.z).find((i) => i.a === a);
+    if (!iso) return;
+    const n = a - el.z;
+    const done = isotopeCollected(this.save, this.z, a);
+    const used = this.save.isotopes[isotopeKey(this.z, a)]?.game;
+    const life = iso.halfLife === null ? 'Its half-life has never been measured' : `Half-life ${formatDuration(iso.halfLife)}`;
+    const dz = fleetingDealZ(this.z, iso);
+    const rows = ISOTOPE_GAMES_LIST.map((g) => {
+      const t = puzzleType(g);
+      const rating = difficulty(g, g === 'merge' ? this.z : dz);
+      return `<li><button class="bh-pick" data-game="${g}">
+        <span class="bh-mark" aria-hidden="true">${puzzleIcon(g, 32)}</span>
+        <span class="bh-pick-body"><b>${t.name}</b><span>${difficultyWord(rating)}</span></span>
+        ${icon('play', { size: 18 })}
+      </button></li>`;
+    }).join('');
+    const sheet = this.openModal(`
+      <h2>${el.name}-${a}</h2>
+      <p>${n} neutron${n === 1 ? '' : 's'}. ${life}.${done ? ` Built${used ? ` with ${puzzleType(used).name}` : ''}; it has long since decayed, but stays in your collection.` : ''}</p>
+      <p class="muted">Pick a puzzle to build it${done ? ' again' : ''}. The shorter an isotope lives, the harder its board.</p>
+      <ul class="bh-picks">${rows}</ul>`);
+    sheet.querySelectorAll<HTMLButtonElement>('[data-game]').forEach((b) => (b.onclick = () => {
+      this.closeModal();
+      this.enter(`fl-${a}-${b.dataset.game as IsotopeGame}`);
+    }));
   }
 
   /** One part of the Build page under a full-width heading: icon, name, how far it has got on
@@ -381,15 +448,9 @@ export class Game {
           ${count ? `<span class="bh-sec-count">${count}</span>` : ''}
         </div>
         ${blurb ? `<p class="bh-sec-blurb">${blurb}</p>` : ''}
-        <ol class="bh-steps">${cards}</ol>
+        ${cards ? `<ol class="bh-steps">${cards}</ol>` : ''}
         ${after}
       </section>`;
-  }
-
-  /** A row's atoms, first to last: "lithium to neon". */
-  private rowRange(row: number): string {
-    const [first, last] = rowSpan(row);
-    return `${element(first).name.toLowerCase()} to ${element(last).name.toLowerCase()}`;
   }
 
   /** What a step adds, in a few words: the heading above says which part it builds. */
@@ -401,7 +462,8 @@ export class Game {
 
   /** The element a stage's board is dealt for, which sets how hard it is. */
   private dealtFor(stage: Exclude<Stage, 'home'>): number {
-    return stage === 'row' ? rowSpan(rowOf(this.z))[0] : this.z;
+    if (isFleet(stage)) return fleetGame(stage) === 'merge' ? this.z : this.fleetDealZ(fleetA(stage));
+    return stage === 'shape' ? SHAPE_GLYPH_Z[shapeAt(this.z)!] : this.z;
   }
 
   /** One puzzle card: the puzzle's icon, its name (or, for an isotope, the isotope's), a rough
@@ -411,7 +473,7 @@ export class Game {
     const paused = this.suspended[o.stage];
     const gated = Boolean(o.gate) && !o.done;
     const cls = o.locked ? 'is-locked' : gated ? 'is-gate is-next' : o.done ? (o.flawless ? 'is-flawless' : 'is-done') : 'is-next';
-    const state = o.locked || (gated && !paused) ? 'Locked' : paused ? 'In progress' : o.done ? (o.gate ? (o.stage === 'row' ? 'Opened' : 'Discovered') : o.flawless && !isIso(o.stage) ? 'Flawless' : 'Built') : 'Not built';
+    const state = o.locked || (gated && !paused) ? 'Locked' : paused ? 'In progress' : o.done ? (o.gate ? 'Discovered' : o.flawless && !isIso(o.stage) ? 'Flawless' : 'Built') : 'Not built';
     const note = o.locked ? o.locked
       : gated && !paused ? o.gate
       : paused ? `${paused.moves} move${paused.moves === 1 ? '' : 's'} so far`
@@ -467,7 +529,7 @@ export class Game {
     const pct = Math.round(atomProgress(z, this.save) * 100);
     const built = this.save.built[z];
     const el = elementAt(z);
-    const stableA = new Set(vaultIsotopes(z).filter((i) => i.stable).map((i) => String(i.a)));
+    const stableA = new Set(lastingIsotopes(z).filter((i) => i.stable).map((i) => String(i.a)));
     const known = { stable: el.isotopes.filter((i) => i.stable).length, unstable: el.isotopes.filter((i) => !i.stable).length };
     const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
     const groups = [
@@ -563,15 +625,12 @@ export class Game {
       this.discoverShape(p);
       return;
     }
-    if (stage === 'row') {
-      this.openRow(p);
-      return;
-    }
-    if (isIso(stage)) {
-      this.collectIsotope(isoA(stage));
+    if (isIso(stage) || isFleet(stage)) {
+      const a = isIso(stage) ? isoA(stage) : fleetA(stage);
+      this.collectIsotope(a, isFleet(stage) ? fleetGame(stage) : undefined);
       sfx.harmonySound();
       this.busy = false;
-      this.isotopeWon(isoA(stage), p);
+      this.isotopeWon(a, p, isFleet(stage));
       return;
     }
     const wasBuilt = Boolean(this.save.built[this.z]);
@@ -620,7 +679,7 @@ export class Game {
     await wait(reduced ? 100 : 400);
   }
 
-  /** Flux solved on the atom where an orbital shape first appears: the shape is discovered, and
+  /** Glyph solved on the atom where an orbital shape first appears: the shape is discovered, and
    *  the 3D Shapes view draws it in every atom from now on. */
   private discoverShape(p: PuzzleView): void {
     const l = shapeAt(this.z)!;
@@ -636,26 +695,6 @@ export class Game {
       flawless: false,
       stats: this.winStats(p),
       note: prev ? `Your best is ${best} move${best === 1 ? '' : 's'}.` : `The Shapes view in 3D now draws ${l} orbitals in every atom that has them.`,
-      actions: [this.backAction()],
-    }, this.save.settings.reducedMotion);
-  }
-
-  /** Inertia solved at a row's gate: every atom in the row can be built, in any order. */
-  private openRow(p: PuzzleView): void {
-    const row = rowOf(this.z);
-    const prev = this.save.rows[row];
-    const best = prev?.best === undefined ? p.moves : Math.min(prev.best, p.moves);
-    this.save.rows[row] = { at: prev?.at ?? Date.now(), best };
-    this.saveProgress();
-    sfx.completeSound();
-    this.busy = false;
-    const range = this.rowRange(row);
-    this.closeWin = showWin($('app'), {
-      kicker: prev ? 'Solved again' : `Row ${row} open`,
-      title: range.charAt(0).toUpperCase() + range.slice(1),
-      flawless: p.clean,
-      stats: this.winStats(p),
-      note: prev ? `Your best is ${best} move${best === 1 ? '' : 's'}.` : `Every atom in row ${row} can now be built, in any order.`,
       actions: [this.backAction()],
     }, this.save.settings.reducedMotion);
   }
@@ -712,10 +751,12 @@ export class Game {
     this.scene.celebrate();
     sfx.completeSound();
     this.say('');
-    const vault = vaultIsotopes(this.z).length;
+    const lasting = lastingIsotopes(this.z).length;
+    const fleeting = fleetingIsotopes(this.z).length;
+    const opened = [lasting ? `${lasting} lasting` : '', fleeting ? `${fleeting} fleeting` : ''].filter(Boolean).join(' and ');
     const note = wasBuilt
       ? `${el.name} rebuilt.${flawless && !prev?.flawless ? ' Flawless at last.' : ''}`
-      : `${el.name} joins your collection, with ${el.name.toLowerCase()}-${el.commonA}, its most common isotope.${vault ? ` Its isotope vault is open: ${vault} more to build.` : ''}`;
+      : `${el.name} joins your collection, with ${el.name.toLowerCase()}-${el.commonA}, its most common isotope.${opened ? ` Its other isotopes are open: ${opened}.` : ''}`;
     window.setTimeout(() => {
       this.closeWin = showWin($('app'), {
         kicker: wasBuilt ? (flawless ? 'Flawless' : 'Rebuilt') : flawless ? 'Built, flawless' : 'Built',
@@ -731,12 +772,13 @@ export class Game {
     }, this.save.settings.reducedMotion ? 200 : 900);
   }
 
-  /** An isotope's Tessera board solved: it joins the collection. A known unstable isotope also
-   *  starts its own life on the bench, decaying in real time. */
-  private collectIsotope(a: number): void {
+  /** An isotope's board solved: it joins the collection (a fleeting one with the puzzle it was
+   *  built with, for display). A known unstable isotope also starts its own life on the bench,
+   *  decaying in real time. */
+  private collectIsotope(a: number, game?: IsotopeGame): void {
     const z = this.z;
     const key = isotopeKey(z, a);
-    this.save.isotopes[key] = { ...this.save.isotopes[key], collected: true };
+    this.save.isotopes[key] = { ...this.save.isotopes[key], collected: true, ...(game ? { game } : {}) };
     const known = findIsotope(z, a);
     if (known && !isStable(known) && !isFleeting(known) && !this.save.specimens.some((sp) => sp.z === z && sp.a === a)) {
       const now = Date.now();
@@ -745,15 +787,30 @@ export class Game {
     this.saveProgress();
   }
 
-  private isotopeWon(a: number, p: PuzzleView): void {
+  private isotopeWon(a: number, p: PuzzleView, fleeting = false): void {
     const el = element(this.z);
-    const next = vaultIsotopes(this.z).find((i) => i.a !== a && !isotopeCollected(this.save, this.z, i.a));
+    const parts = `${el.z} proton${el.z === 1 ? '' : 's'} and ${a - el.z} neutron${a - el.z === 1 ? '' : 's'}`;
+    if (fleeting) {
+      const iso = fleetingIsotopes(this.z).find((i) => i.a === a);
+      const life = iso?.halfLife ? ` Half of it would be gone in ${formatDuration(iso.halfLife)};` : ' It decays almost at once;';
+      const c = fleetingCount(this.z, this.save);
+      this.closeWin = showWin($('app'), {
+        kicker: 'Fleeting isotope built',
+        title: `${el.name}-${a}`,
+        flawless: false,
+        stats: this.winStats(p),
+        note: `${parts}.${life} it stays in your collection, marked decayed. ${c.built} of ${c.total} of ${el.name.toLowerCase()}'s fleeting isotopes built.`,
+        actions: [this.backAction()],
+      }, this.save.settings.reducedMotion);
+      return;
+    }
+    const next = lastingIsotopes(this.z).find((i) => i.a !== a && !isotopeCollected(this.save, this.z, i.a));
     this.closeWin = showWin($('app'), {
       kicker: 'Isotope built',
       title: `${el.name}-${a}`,
       flawless: false,
       stats: this.winStats(p),
-      note: `${el.z} proton${el.z === 1 ? '' : 's'} and ${a - el.z} neutron${a - el.z === 1 ? '' : 's'}, now in your collection.`,
+      note: `${parts}, now in your collection.`,
       actions: [
         this.backAction(),
         ...(next ? [{ label: `Next isotope: ${el.symbol}-${next.a}`, onClick: () => this.enter(`iso-${next.a}`) }] : []),
@@ -953,7 +1010,9 @@ export class Game {
     const z = this.z;
     const el = element(z);
     const n = this.neutrons;
-    const vault = vaultIsotopes(z);
+    const vault = lastingIsotopes(z);
+    const fleet = fleetingIsotopes(z);
+    const games = [...new Set(vault.map((i) => isotopeGame(z, i.a) ?? 'packing'))];
     const word = (k: number, w: string) => (k === 1 ? w : `${w}s`);
     const stat = (value: string, label: string) => `<div class="bs-stat"><b>${value}</b><span>${label}</span></div>`;
     const more = (id: string) => { const t = puzzleType(id); return `<button class="secondary bs-more" data-sci="${id}">${puzzleIcon(id, 20)}<span>The science of ${t.name}</span></button>`; };
@@ -970,10 +1029,10 @@ export class Game {
         <div class="bs-stats">${stat(shortConfiguration(elementAt(z)), `${z} ${word(z, 'electron')}`)}</div>
         <p>They fill orbitals from the lowest energy up.</p>
         ${more('orbitalGrid')}` },
-      ...(vault.length ? [{ id: 'isotopes', label: 'Isotopes', html: () => `
-        <div class="bs-stats">${stat(String(vault.length), vault.length === 1 ? 'isotope to build' : 'isotopes to build')}</div>
-        <p>The same protons with a different number of neutrons.</p>
-        ${more('packing')}` }] : []),
+      ...(vault.length || fleet.length ? [{ id: 'isotopes', label: 'Isotopes', html: () => `
+        <div class="bs-stats">${stat(String(vault.length), 'lasting')}${stat(String(fleet.length), 'fleeting')}</div>
+        <p>The same protons with a different number of neutrons. Lasting ones are stable or live over a year; fleeting ones are gone sooner.</p>
+        ${games.map(more).join('')}` }] : []),
     ];
     const sheet = this.openModal(`<h2>How ${el.name.toLowerCase()} is built</h2><div class="bs-tabs"></div><div class="bs-body"></div>`);
     const body = sheet.querySelector<HTMLElement>('.bs-body')!;
@@ -1116,24 +1175,17 @@ export class Game {
   /** Solves the current puzzle outright, for testing the flow from the console. */
   skipPuzzle(): void {
     if (!this.puzzle || this.busy) return;
-    const p = this.puzzle as unknown as { state: unknown };
-    if (isIso(this.stage)) {
-      p.state = solvedState(p.state as PackingState);
-    } else if (this.stage === 'shape') {
-      const s = p.state as { path: unknown[]; solution: unknown[]; won: boolean };
-      s.path = [...s.solution];
-      s.won = true;
-    } else if (this.stage === 'row') {
-      const s = p.state as { pos: number; goal: number; got: number; sparks: number[] };
-      s.pos = s.goal;
-      s.got = (1 << s.sparks.length) - 1;
-    } else if (this.stage === 'nucleus') {
-      const s = p.state as { sockets?: number[]; filled?: number; blocks?: { x: number; len: number }[]; w?: number };
-      if (s.sockets) s.filled = s.sockets.length;
-      else if (s.blocks) s.blocks[0] = { ...s.blocks[0], x: s.w! - s.blocks[0].len };
+    const p = this.puzzle as unknown as { state: Record<string, unknown> };
+    const st = p.state;
+    if (this.puzzle instanceof MergeView) {
+      st.filled = (st.sockets as number[]).length;
+    } else if (this.stage === 'shells') {
+      st.cells = [...(st.solution as number[])];
+    } else if ('pieces' in st && 'outline' in st) {
+      p.state = solvedState(st as unknown as PackingState) as unknown as Record<string, unknown>;
     } else {
-      const s = p.state as { cells: number[]; solution: number[] };
-      s.cells = [...s.solution];
+      // Any other board: count it as won, for testing the flow.
+      Object.defineProperty(this.puzzle, 'won', { get: () => true, configurable: true });
     }
     this.ensureLoop();
   }
