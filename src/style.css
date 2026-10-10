@@ -149,23 +149,43 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .build-head[hidden] { display: none; }
 body.build-home #app .bottom { display: none; }
 
-/* The bar at the top of every game (src/puzzles/gamebar.ts): tools, then four equal stat
-   columns, then one message line. The same in Build, Practice and the gate puzzles. */
-.gbar { position: relative; display: flex; flex-direction: column; gap: var(--sp-2); width: 100%; max-width: 560px; margin: 0 auto; padding: 0 var(--sp-3) var(--sp-1); box-sizing: border-box; font-family: var(--font); }
-.gbar-tools { display: flex; justify-content: space-between; align-items: center; gap: var(--sp-1); }
-.gbar .gbar-tools > * { margin: 0; flex: none; }
-.gbar-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--sp-1); }
+/* The header of every game (src/puzzles/gamebar.ts), on the gray header fill: the name and what
+   the play is for on the left, the tools on the right; the stats in four equal columns; one
+   message line. The same in Build, Practice and the gate puzzles. */
+.gbar { position: relative; width: 100%; padding: var(--sp-2) 0 var(--sp-2); background: var(--c-nav); font-family: var(--font); }
+.gbar > * { max-width: 560px; margin-inline: auto; padding-inline: var(--sp-3); box-sizing: border-box; }
+.gbar-top { display: flex; align-items: center; gap: var(--sp-2); }
+.gbar-name { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.2; }
+.gbar-title { margin: 0; font-size: var(--fs-lg); font-weight: var(--fw-semibold); color: var(--c-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gbar-ctx { font-size: var(--fs-sm); color: var(--c-text); opacity: 0.8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gbar-ctx[hidden] { display: none; }
+.gbar-tools { flex: none; display: flex; align-items: center; gap: 4px; }
+.gbar .gbar-tools > * { margin: 0; flex: none; width: 40px; height: 40px; }
+.gbar-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: var(--sp-2); padding-block: 6px; }
 .gbar-stat { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 0; }
-.gbar-k { font-size: var(--fs-xs); color: var(--c-text-3); white-space: nowrap; }
+.gbar-k { font-size: var(--fs-sm); color: var(--c-text-2); white-space: nowrap; }
 .gbar-v { font-size: var(--fs-md); font-weight: var(--fw-semibold); color: var(--c-text); font-variant-numeric: tabular-nums; white-space: nowrap; line-height: 1.3; min-height: 1.3em; }
 .gbar-pips { display: inline-flex; align-items: center; gap: 4px; }
-.gbar-pips i { width: 7px; height: 7px; border-radius: 50%; background: var(--c-surface-3); }
-.gbar-pips i.on { background: var(--c-text-2); }
-.gbar-msg { margin: 0; min-height: 1.45em; text-align: center; font-size: var(--fs-sm); line-height: 1.45; color: var(--c-text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.gbar .nu-line.gbar-nu { position: absolute; top: 100%; left: var(--sp-3); right: var(--sp-3); z-index: 5; margin: var(--sp-2) 0 0; flex-wrap: wrap; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6); }
-.nu-acts { display: flex; gap: var(--sp-2); width: 100%; justify-content: flex-end; }
-.nu-act { min-height: 36px; padding: 0 var(--sp-4); border-radius: var(--r-pill); font: inherit; font-size: var(--fs-sm); font-weight: var(--fw-medium); cursor: pointer; }
-.nu-act-quiet { background: transparent; border: 0; color: var(--c-text-2); }
+.gbar-pips i { width: 8px; height: 8px; border-radius: 50%; background: var(--c-surface-3); }
+.gbar-pips i.on { background: var(--c-text); }
+.gbar-msg { margin: 2px auto 0; min-height: 1.45em; text-align: center; font-size: var(--fs-md); line-height: 1.45; color: var(--c-text); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; text-wrap: balance; }
+
+/* Under a game: Back at the bottom left, on the same gray. */
+.gfoot { flex: none; display: flex; align-items: center; padding: var(--sp-2) var(--sp-3) calc(var(--safe-bottom) + var(--sp-2)); background: var(--c-nav); }
+.gfoot-back { min-height: var(--hit); font-size: var(--fs-md); }
+#build-foot { left: 0; right: 0; bottom: 0; gap: 0; }
+
+/* Nu's first-time offer of a game's rules: at the bottom, above Back, ringed in Nu's pink. */
+.gbar .nu-line.gbar-nu { position: fixed; left: var(--sp-3); right: var(--sp-3); bottom: calc(var(--safe-bottom) + 76px); z-index: 30; max-width: 536px; margin: 0 auto; flex-wrap: wrap; padding: var(--sp-4); background: var(--c-surface); font-size: var(--fs-md); box-shadow: 0 0 0 2px var(--c-go), 0 0 22px var(--c-go-ring), 0 10px 30px rgba(0, 0, 0, 0.7); }
+.nu-acts { display: flex; gap: var(--sp-2); width: 100%; justify-content: flex-end; margin-top: var(--sp-2); }
+.nu-act { min-height: 44px; padding: 0 var(--sp-5); border: 0; border-radius: var(--r-pill); font: inherit; font-size: var(--fs-md); font-weight: var(--fw-semibold); cursor: pointer; }
+.nu-act.secondary { background: var(--c-text); color: var(--c-bg); }
+.nu-act-quiet { background: var(--c-surface-3); color: var(--c-text); }
+
+/* While a Build puzzle is open the View / Build row steps away: the game header sits right under
+   the app header. */
+body.puzzling #mode-row { display: none; }
+body[data-screen^='atom'].puzzling { --top: var(--nav-bottom); }
 #app > .win { top: var(--top); }
 
 /* The Build page of one atom: its puzzles, how far each has got, and what is still to come. */
@@ -761,15 +781,14 @@ body:not([data-screen='gallery']) .gal-modes { display: none; }
 /* Inside a puzzle: Back, then its name. */
 .pg-game { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .pg-bar { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3); flex: none; min-width: 0; background: var(--c-nav); }
-.pg-el { font-size: var(--fs-md); white-space: nowrap; text-align: center; min-width: 0; flex: 0 1 11em; overflow: hidden; text-overflow: ellipsis; }
+.pg-el { font-size: var(--fs-lg); white-space: nowrap; text-align: center; min-width: 3.6em; flex: none; }
 .pg-bar > .ui-icon-btn, .pg-bar .pg-deal { flex: none; }
-@media (max-width: 400px) { .pg-el small { display: none; } }
 .pg-el b { font-weight: var(--fw-semibold); margin-right: 6px; }
 .pg-el span { color: var(--c-text-2); }
-.pg-el small { color: var(--c-text-3); margin-right: 6px; font-size: var(--fs-xs); }
-.pg-bar .ui-slider { flex: 1 1 80px; min-width: 60px; }
+.pg-el small { color: var(--c-text); margin-right: 6px; font-size: var(--fs-md); font-variant-numeric: tabular-nums; }
+.pg-bar .ui-slider { flex: 1 1 auto; min-width: 100px; }
 .pg-deal { display: flex; align-items: center; gap: 2px; flex: none; }
-.pg-dealno { font-size: var(--fs-xs); color: var(--c-text-3); min-width: 3.2em; }
+.pg-dealno { font-size: var(--fs-md); color: var(--c-text); min-width: 2.6em; font-variant-numeric: tabular-nums; }
 .pg-play { position: relative; flex: 1; min-height: 0; }
 .pg-play[hidden] { display: none; }
 #pg-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
@@ -791,25 +810,27 @@ body:not([data-screen='gallery']) .gal-modes { display: none; }
 .pg-use { justify-self: end; text-align: right; font-size: var(--fs-xs); color: var(--c-text-2); line-height: 1.25; max-width: 12em; }
 @media (max-width: 380px) { .pg-title { font-size: var(--fs-md); } .pg-use { font-size: var(--fs-2xs); } }
 
-/* Instructions: one card per rule, with its symbol and a small looping example. */
+/* Instructions: one card per rule, each a clear panel with its title, a line of text and its
+   pictures side by side, as large as the sheet allows. Tapping a picture plays it. */
+.how { padding-inline: var(--sp-2); }
 .how-goal { font-size: var(--fs-md); color: var(--c-text); line-height: var(--lh); }
-.how .rules { list-style: none; padding: 0; margin: var(--sp-3) 0 0; display: flex; flex-direction: column; gap: var(--sp-2); }
-.how .rule { margin: 0; padding: var(--sp-3); border-radius: var(--r-md); background: var(--c-surface-2); }
+.how .rules { list-style: none; padding: 0; margin: var(--sp-4) 0 0; display: flex; flex-direction: column; gap: var(--sp-4); }
+.how .rule { margin: 0; padding: var(--sp-4); border-radius: var(--r-md); background: var(--c-surface-3); }
 .rule-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
-.rule-head b { font-size: var(--fs-md); font-weight: var(--fw-semibold); }
-.how .rule > p { margin: 2px 0 0; font-size: var(--fs-md); color: var(--c-text-2); line-height: var(--lh); }
-.rule-play { flex: none; display: inline-flex; align-items: center; gap: 4px; min-height: 36px; padding: 0 var(--sp-3) 0 var(--sp-2); border: 0; border-radius: var(--r-pill); background: var(--c-surface-3); color: var(--c-text); font: inherit; font-size: var(--fs-sm); font-weight: var(--fw-semibold); cursor: pointer; }
+.rule-head b { font-size: var(--fs-lg); font-weight: var(--fw-semibold); color: var(--c-text); }
+.how .rule > p { margin: var(--sp-1) 0 0; font-size: var(--fs-md); color: var(--c-text); opacity: 0.85; line-height: var(--lh); }
+.rule-play { flex: none; display: inline-flex; align-items: center; gap: 4px; min-height: 36px; padding: 0 var(--sp-3) 0 var(--sp-2); border: 0; border-radius: var(--r-pill); background: var(--c-surface); color: var(--c-text); font: inherit; font-size: var(--fs-sm); font-weight: var(--fw-semibold); cursor: pointer; }
 .rule-play:hover { color: var(--c-accent); }
 .rule-play.is-playing { background: var(--c-accent); color: var(--c-accent-ink); }
 .rule-play:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
-.rule-pics { display: grid; grid-template-columns: minmax(0, 140px); gap: var(--sp-2); margin-top: var(--sp-2); }
-.rule-pics--pair { grid-template-columns: repeat(2, minmax(0, 140px)); }
-.rule-pic { margin: 0; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-.rule-demo { width: 100%; height: auto; aspect-ratio: 140 / 104; border-radius: var(--r-sm); background: var(--c-bg); box-shadow: inset 0 0 0 1px var(--c-line); transition: box-shadow var(--dur-fast) var(--ease); }
-.rule-demo.is-live { box-shadow: inset 0 0 0 2px var(--c-accent); }
-.rule-pic figcaption { display: flex; align-items: center; gap: 4px; font-size: var(--fs-xs); color: var(--c-text-2); }
+.rule-pics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-3); margin-top: var(--sp-3); max-width: 520px; }
+.rule-pic { margin: 0; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.rule-demo { width: 100%; height: auto; aspect-ratio: 140 / 104; border-radius: var(--r-sm); background: var(--c-bg); cursor: pointer; transition: box-shadow var(--dur-fast) var(--ease); }
+.rule-demo.is-live { box-shadow: 0 0 0 2px var(--c-accent); }
+.rule-pic figcaption { display: flex; align-items: center; gap: 4px; font-size: var(--fs-sm); font-weight: var(--fw-medium); color: var(--c-text-2); }
 .rule-pic--good figcaption { color: var(--c-good); }
-.rule-pic--bad figcaption { color: var(--c-warn); }
+.rule-pic--bad figcaption { color: var(--c-bad); }
+.how h3 { font-size: var(--fs-lg); }
 
 /* The win panel: a burst of light, what was won, the numbers, and what next. */
 .win { position: absolute; inset: 0; z-index: 5; display: flex; align-items: center; justify-content: center; padding: var(--sp-4); background: var(--c-scrim); -webkit-backdrop-filter: var(--blur-mask); backdrop-filter: var(--blur-mask); animation: win-in var(--dur) var(--ease); }

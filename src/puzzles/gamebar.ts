@@ -1,8 +1,11 @@
-// The bar at the top of every game, the same in Build, Practice and the gate puzzles: one row of
-// tools (Undo, Restart, Hint, Info, the microscope), one row of stats in four equal columns
-// (Difficulty, Moves, Par, and how far the board has got), and one message line under them for
-// the goal, the Hint button's line and the game's own status.
+// The header of every game, the same in Build, Practice and the gate puzzles, on the gray header
+// fill: the game's name with what it is for ("Building lithium") on the left and its tools on the
+// right (Undo, Restart, Hint, Info, the microscope); under them the stats in four equal columns
+// (Difficulty, Moves, Par, and how far the board has got); then one message line for the goal,
+// the Hint button's line and the game's own status. Back sits in a footer at the bottom left
+// (gameFooter).
 
+import { icon } from '../ui/icons';
 import { firstTimeLine } from '../ui/nu';
 import { difficultyWord } from './difficulty';
 import type { PuzzleView, Stat } from './view';
@@ -11,6 +14,8 @@ export interface GameBar {
   readonly el: HTMLElement;
   /** The message line; first-time lines are placed just above it. */
   readonly msg: HTMLElement;
+  /** The game's name, and a few words on what this play is for ("Building lithium"). */
+  setTitle(name: string, context?: string): void;
   /** Sets the rating shown as five pips (1 to 10, two per pip). */
   setDifficulty(rating: number): void;
   /** Refreshes the stats and the message from the view; cheap enough to call every frame. */
@@ -36,7 +41,10 @@ export function createGameBar(tools: HTMLElement[], msg?: HTMLElement): GameBar 
   const el = document.createElement('div');
   el.className = 'gbar';
   el.innerHTML = `
-    <div class="gbar-tools"></div>
+    <div class="gbar-top">
+      <div class="gbar-name"><h2 class="gbar-title"></h2><span class="gbar-ctx"></span></div>
+      <div class="gbar-tools"></div>
+    </div>
     <div class="gbar-stats">
       <div class="gbar-stat"><span class="gbar-k">Difficulty</span><span class="gbar-v gbar-pips" data-v="diff"></span></div>
       <div class="gbar-stat"><span class="gbar-k">Moves</span><span class="gbar-v" data-v="moves">0</span></div>
@@ -60,9 +68,15 @@ export function createGameBar(tools: HTMLElement[], msg?: HTMLElement): GameBar 
   };
   const set = (e: HTMLElement, text: string) => { if (e.textContent !== text) e.textContent = text; };
 
+  const title = get('.gbar-title'), ctx = get('.gbar-ctx');
   return {
     el,
     msg: line,
+    setTitle(name, context = '') {
+      set(title, name);
+      set(ctx, context);
+      ctx.hidden = !context;
+    },
     setDifficulty(rating) {
       const on = Math.ceil(rating / 2);
       cells.diff.innerHTML = Array.from({ length: 5 }, (_, i) => `<i class="${i < on ? 'on' : ''}"></i>`).join('');
@@ -109,4 +123,26 @@ export function offerRules(bar: GameBar, game: { id: string; name: string }, ope
  *  back the next time instead. */
 export function clearOffers(bar: GameBar): void {
   bar.el.querySelectorAll('.gbar-nu').forEach((e) => e.remove());
+}
+
+export interface GameFooter {
+  readonly el: HTMLElement;
+  readonly back: HTMLButtonElement;
+  setLabel(label: string): void;
+}
+
+/** The strip under a game: Back at the bottom left, named for where it goes ("Back to lithium",
+ *  "Back to Practice"). */
+export function gameFooter(label: string, onClick: () => void): GameFooter {
+  const el = document.createElement('div');
+  el.className = 'gfoot';
+  const back = document.createElement('button');
+  back.type = 'button';
+  back.className = 'back-plate gfoot-back';
+  back.innerHTML = `${icon('chevron-left', { size: 20 })}<span></span>`;
+  back.onclick = onClick;
+  el.append(back);
+  const setLabel = (l: string) => { back.querySelector('span')!.textContent = l; back.setAttribute('aria-label', l); };
+  setLabel(label);
+  return { el, back, setLabel };
 }

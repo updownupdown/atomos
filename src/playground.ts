@@ -12,7 +12,7 @@ import { showWin } from './puzzles/winPanel';
 import type { Area } from './puzzles/view';
 import { createSlider, iconButton, type Slider } from './ui/components';
 import { countPlay, GOAL_PLAYS } from './core/plays';
-import { clearOffers, createGameBar, offerRules, type GameBar } from './puzzles/gamebar';
+import { clearOffers, createGameBar, gameFooter, offerRules, type GameBar } from './puzzles/gamebar';
 import { difficulty } from './puzzles/difficulty';
 import { askRestart, confirming, restartButton } from './puzzles/restart';
 import { icon } from './ui/icons';
@@ -44,12 +44,11 @@ export class Playground {
     this.host.onFrame = () => this.tick(this.host.status());
     this.host.onWon = (v) => this.won(v.moves, v.par, v.clean);
     this.renderHome();
-    this.renderHead();
 
     // The element row: previous, the element, next, a slider across the range, a new deal.
     const bar = $('pg-bar');
-    this.prev = iconButton({ icon: icon('prev'), label: 'Previous element', className: 'ui-icon-btn--ghost', onClick: () => this.setZ(this.z - 1) });
-    this.next = iconButton({ icon: icon('next'), label: 'Next element', className: 'ui-icon-btn--ghost', onClick: () => this.setZ(this.z + 1) });
+    this.prev = iconButton({ icon: icon('chevron-left'), label: 'Previous element', className: 'ui-icon-btn--ghost', onClick: () => this.setZ(this.z - 1) });
+    this.next = iconButton({ icon: icon('chevron-right'), label: 'Next element', className: 'ui-icon-btn--ghost', onClick: () => this.setZ(this.z + 1) });
     const label = document.createElement('span');
     label.className = 'pg-el';
     label.id = 'pg-el';
@@ -75,6 +74,7 @@ export class Playground {
       scienceButton('ui-icon-btn science-btn'),
     ]);
     $('pg-gbar').append(this.gbar.el);
+    $('pg-foot').append(gameFooter('Back to Practice', () => this.back()).el);
     $('pg-home-head').append(scienceButton());
 
     window.addEventListener('keydown', (e) => this.key(e));
@@ -108,7 +108,7 @@ export class Playground {
     this.host.wake();
     this.registerScience();
     window.dispatchEvent(new Event('resize'));
-    $('pg-back').focus({ preventScroll: true });
+    $('pg-foot').querySelector<HTMLElement>('.gfoot-back')?.focus({ preventScroll: true });
   }
 
   /** Back to the list of puzzles. */
@@ -156,25 +156,9 @@ export class Playground {
     </button>`;
   }
 
-  private renderHead(): void {
-    const head = $('pg-head');
-    // A clear Back plate on the left, the puzzle's name in the middle, what it is for on the right.
-    const back = document.createElement('button');
-    back.type = 'button';
-    back.className = 'back-plate';
-    back.id = 'pg-back';
-    back.innerHTML = `${icon('chevron-left', { size: 20 })}<span>Back</span>`;
-    back.setAttribute('aria-label', 'Back to all puzzles');
-    back.onclick = () => this.back();
-    const title = document.createElement('h2');
-    title.className = 'pg-title';
-    title.id = 'pg-name';
-    head.append(back, title, document.createElement('span'));
-  }
-
   private select(id: string): void {
     this.type = PUZZLES.find((p) => p.id === id) ?? PUZZLES[0];
-    $('pg-name').textContent = this.type.name;
+    this.gbar.setTitle(this.type.name, 'Practice');
     const [lo, hi] = this.type.zRange;
     this.z = Math.min(hi, Math.max(lo, this.z));
     this.rebuildSlider();
@@ -205,7 +189,8 @@ export class Playground {
     this.closeWin();
     const el = element(this.z);
     const [lo, hi] = this.type.zRange;
-    $('pg-el').innerHTML = `<small>${el.z}</small><b>${el.symbol}</b><span>${el.name}</span>`;
+    $('pg-el').innerHTML = `<small>${el.z}</small><b>${el.symbol}</b>`;
+    $('pg-el').title = el.name;
     this.slider.set(this.z);
     this.prev.disabled = this.z <= lo;
     this.next.disabled = this.z >= hi;
