@@ -554,6 +554,9 @@ body.stage-nucleus #atom { opacity: 0.12; }
 .dec-line, .dec-cap, .dec-more { font-size: 10px; font-weight: var(--fw-medium); letter-spacing: 0.14em; text-transform: uppercase; color: var(--c-text-3); }
 .dec-line b { font-size: 12px; font-weight: var(--fw-semibold); letter-spacing: 0.04em; color: var(--c-text-2); }
 .dec-tr { right: var(--sp-4); top: calc(var(--sp-4) + var(--chrome)); align-items: flex-end; text-align: right; gap: 3px; }
+/* The true width of the view while diving between the atom and its nucleus. */
+.dive-readout { position: absolute; z-index: 2; left: 0; right: 0; top: calc(var(--chrome) + (100% - var(--chrome)) * 0.7); text-align: center; pointer-events: none; font-family: var(--font); font-size: var(--fs-lg); font-weight: var(--fw-medium); letter-spacing: 0.04em; color: var(--c-silver); font-variant-numeric: tabular-nums; opacity: 0; transition: opacity 0.4s; }
+.dive-readout.on { opacity: 0.85; transition-duration: 0.15s; }
 /* Tap a corner to read it: its text lights to near-white at once, then fades back over ten seconds. */
 .dec, .dec * { transition: color 10s ease-out; }
 .loupe-screen .dec.lit, .loupe-screen .dec.lit * { color: var(--c-silver); transition: color 0.15s ease-out; }

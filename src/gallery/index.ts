@@ -139,6 +139,13 @@ export class GalleryApp {
       // Below it, the nucleus up close (opened with Aurum) and back.
       + `<div class="tool-group"><span class="tool-cap">Zoom to</span><button class="tool-chip" id="nucleus-chip"></button><p class="tool-note" id="nucleus-note" hidden></p></div>`;
     styles.querySelectorAll<HTMLButtonElement>('button[data-id]').forEach((b) => (b.onclick = () => this.setStyle(b.dataset.id as Style)));
+    // Double-tap the atom to dive to its nucleus and back, as the chip does.
+    this.detail.onDoubleTap = () => $('nucleus-chip').click();
+    this.detail.onDive = (text) => {
+      const r = $('dive-readout');
+      r.classList.toggle('on', Boolean(text));
+      if (text) r.textContent = text;
+    };
     $('nucleus-chip').onclick = () => {
       if (!this.opened('nucleus-view')) {
         this.offerUnlock('nucleus-view', 'The nucleus view', 'Zoom a hundred thousand times closer, past the electrons, to every proton and neutron packed in the middle of the atom.', 'Aurum', () => this.setNucleus(true));
@@ -210,7 +217,7 @@ export class GalleryApp {
   /** Swap the 3D view between the whole atom and its nucleus up close. */
   private setNucleus(on: boolean): void {
     this.nucleusOn = on;
-    this.detail.setNucleus(on);
+    this.detail.setNucleus(on, true);
     this.paintNucleus();
   }
 
