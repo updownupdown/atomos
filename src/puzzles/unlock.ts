@@ -4,7 +4,8 @@
 
 import { loadSave, writeSave } from '../core/save';
 import { unlockPuzzle, unlockZ, type UnlockId } from '../core/unlocks';
-import { createHoldButton, iconButton } from '../ui/components';
+import { iconButton } from '../ui/components';
+import { askRestart, restartButton } from './restart';
 import { icon } from '../ui/icons';
 import { modalOpen } from '../ui/modal';
 import { puzzleType } from './catalog';
@@ -67,11 +68,17 @@ function run(id: UnlockId, info: UnlockInfo): Promise<boolean> {
     const host = new PuzzleHost(canvas, area);
     let closeWin = () => {};
     let shown = '';
+    const restartOpts = {
+      canRestart: () => (host.current?.moves ?? 0) > 0,
+      sweepOver: () => canvas,
+      restart: () => { closeWin(); host.restart(); },
+    };
+    host.onRestartKey = () => void askRestart(restartOpts);
 
     const undo = iconButton({ icon: icon('undo'), label: 'Undo', onClick: () => host.undo() });
     root.querySelector('.pg-actions')!.append(
       undo,
-      createHoldButton({ icon: icon('restart'), label: 'Restart', doneLabel: 'Restarted', onConfirm: () => { closeWin(); host.restart(); } }),
+      restartButton(restartOpts),
       iconButton({ icon: icon('info'), label: 'Instructions', onClick: () => openRules(t, { reducedMotion: reduced }) }),
     );
 

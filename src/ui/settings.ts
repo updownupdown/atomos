@@ -2,15 +2,12 @@
 // storage; screens that keep their own copy re-read it through the listeners
 // registered here. It renders afresh each time the screen opens.
 
-import { ISOTOPES, isotopeKey } from '../core/isotopes';
 import { MAX_Z } from '../core/elements';
+import { atomBuilt, fleetingTotal, lastingTotal } from '../core/progress';
 import { clearSave, loadSave, writeSave, type Settings } from '../core/save';
 import { MICROSCOPE } from './icons';
-import { createSegments, switchHtml } from './components';
+import { confirmDialog, createSegments, switchHtml } from './components';
 import { applyProgressPreset, currentPreset, PROGRESS_PRESETS, type ProgressPreset } from '../core/testing';
-
-/** Taps needed after the first to erase everything. */
-const RESET_TAPS = 3;
 
 const listeners = new Set<() => void>();
 
@@ -24,7 +21,11 @@ export function renderSettings(sheet: HTMLElement): void {
   const save = loadSave();
   const s = save.settings;
   const toggle = (key: keyof Settings, title: string, help: string) => switchHtml({ label: title, help, checked: s[key], key });
-  const found = ISOTOPES.filter((i) => save.isotopes[isotopeKey(i.z, i.a)]?.collected || save.isotopes[isotopeKey(i.z, i.a)]?.witnessed?.length).length;
+  let atoms = 0;
+  for (let z = 1; z <= MAX_Z; z++) if (atomBuilt(z, save)) atoms++;
+  const lasting = lastingTotal(save);
+  const fleeting = fleetingTotal(save);
+  const n = (v: number) => v.toLocaleString('en-US');
   sheet.innerHTML = `
     <h1 class="settings-title">Settings</h1>
     ${toggle('reducedMotion', 'Reduce motion', 'Calmer clouds, shorter animations, no auto-rotation.')}
@@ -38,8 +39,8 @@ export function renderSettings(sheet: HTMLElement): void {
     <p class="muted">Set the whole game to a share of done, to see how screens look. This replaces your progress.</p>
     <div id="set-preset"></div>
     <h3>Progress</h3>
-    <p class="muted">${Object.keys(save.built).length} of ${MAX_Z} elements built · ${found} of ${ISOTOPES.length} isotopes found</p>
-    <div class="actions reset-row"><button class="secondary" id="set-reset">Reset all progress</button><button class="secondary" id="set-cancel" hidden>Cancel</button></div>
+    <p class="muted">${atoms} of ${MAX_Z} atoms built · ${n(lasting.built)} of ${n(lasting.total)} lasting isotopes · ${n(fleeting.built)} of ${n(fleeting.total)} fleeting isotopes</p>
+    <div class="actions reset-row"><button class="secondary" id="set-reset">Reset all progress</button></div>
     <h3>Design</h3>
     <div class="actions"><a class="secondary settings-link" href="#icons">Icon library</a></div>`;
   sheet.querySelectorAll<HTMLInputElement>('input[data-key]').forEach((inp) => (inp.onchange = () => {
@@ -56,22 +57,19 @@ export function renderSettings(sheet: HTMLElement): void {
     },
   });
   sheet.querySelector('#set-preset')!.append(preset.el);
-  const reset = sheet.querySelector<HTMLButtonElement>('#set-reset')!;
-  const cancel = sheet.querySelector<HTMLButtonElement>('#set-cancel')!;
-  let left = -1;
-  const paint = () => {
-    cancel.hidden = left < 0;
-    reset.classList.toggle('danger', left >= 0);
-    reset.textContent = left < 0 ? 'Reset all progress' : `Tap ${left} more time${left === 1 ? '' : 's'} to reset`;
+  // Asks first; on yes Nu sweeps the screen, then everything goes back to locked.
+  sheet.querySelector<HTMLButtonElement>('#set-reset')!.onclick = async () => {
+    const ok = await confirmDialog({
+      title: 'Reset everything?',
+      body: "Every atom, isotope and discovery goes back to locked. This can't be undone.",
+      confirmLabel: 'Reset everything',
+      tone: 'problem',
+      nu: 'reset',
+    });
+    if (!ok) return;
+    clearSave();
+    // Forget the screen too, so the app starts over the way a new player's does.
+    try { localStorage.removeItem('atomos.place'); } catch { /* storage off */ }
+    location.reload();
   };
-  reset.onclick = () => {
-    left = left < 0 ? RESET_TAPS : left - 1;
-    if (left === 0) {
-      clearSave();
-      location.reload();
-      return;
-    }
-    paint();
-  };
-  cancel.onclick = () => { left = -1; paint(); };
 }

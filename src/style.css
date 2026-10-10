@@ -221,8 +221,7 @@ body:not(.build-home) .build-bar { display: none; }
 .bh-side { display: flex; flex-direction: column; align-items: center; gap: var(--sp-2); min-width: 64px; }
 .bh-state { font-size: var(--fs-2xs); font-weight: var(--fw-semibold); letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--c-text-2); white-space: nowrap; text-align: center; }
 .is-done .bh-state, .is-flawless .bh-state { color: var(--c-good); }
-.bh-step .bh-play { display: grid; place-items: center; width: 60px; height: 36px; min-height: 0; padding: 0; border-radius: var(--r-sm); }
-.bh-step .bh-play.primary { background: var(--c-accent); color: var(--c-accent-ink); }
+.bh-step .bh-play { display: grid; place-items: center; width: 36px; height: 36px; min-height: 0; padding: 0; border-radius: var(--r-pill); }
 .bh-lock { display: grid; place-items: center; width: 60px; height: 36px; border-radius: var(--r-sm); background: var(--c-surface-2); color: var(--c-text-3); }
 .bh-bench { align-self: flex-start; }
 /* Fleeting isotopes: a grid of small tiles, name over half-life; a built one is faded and marked
@@ -725,13 +724,7 @@ body:not([data-screen='gallery']) .gal-modes { display: none; }
 .pg-card-top { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
 .pg-card-name { font-size: var(--fs-md); font-weight: var(--fw-semibold); }
 .pg-card-blurb { font-size: var(--fs-md); color: var(--c-text-2); line-height: var(--lh); }
-.pg-card-use { font-size: var(--fs-md); color: var(--c-text); line-height: var(--lh); }
-.pg-card-plan { color: var(--c-text-2); }
-.pg-card-k { font-size: var(--fs-2xs); letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--c-text-3); margin-right: 4px; }
 .pg-card-range { font-size: var(--fs-xs); color: var(--c-text-3); }
-.pg-chip { font-size: var(--fs-2xs); letter-spacing: 0.04em; padding: 3px 8px; border-radius: var(--r-pill); background: var(--c-surface-3); color: var(--c-text-2); white-space: nowrap; }
-.pg-chip--live { background: color-mix(in srgb, var(--c-accent) 16%, transparent); color: var(--c-accent); }
-.pg-chip--planned { background: transparent; color: var(--c-text-3); }
 
 /* Inside a puzzle: Back, then its name. */
 .pg-game { flex: 1; min-height: 0; display: flex; flex-direction: column; }
@@ -802,6 +795,7 @@ body:not([data-screen='gallery']) .gal-modes { display: none; }
 .win-note { position: relative; margin: 0 0 var(--sp-4); font-size: var(--fs-md); color: var(--c-text-2); line-height: var(--lh); }
 .win-actions { position: relative; display: flex; flex-direction: column; gap: var(--sp-2); }
 .win-actions button { width: 100%; min-height: var(--hit); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.win-actions .ui-next { overflow: visible; }
 .win--still, .win--still .win-card { animation: none; }
 @keyframes win-in { from { opacity: 0; } }
 @keyframes win-pop { from { opacity: 0; transform: scale(0.92) translateY(8px); } }

@@ -2,6 +2,7 @@
 // undo and restart. The build screen and the playground both sit on this.
 
 import { syncPalette } from './palette';
+import { confirming } from './restart';
 import type { Area, Point, PuzzleView } from './view';
 
 export class PuzzleHost {
@@ -14,6 +15,8 @@ export class PuzzleHost {
   /** Called once when the view reports a win. */
   onWon: ((view: PuzzleView) => void) | null = null;
   private wonReported = false;
+  /** The R key: asks before restarting when set (see askRestart); restarts at once otherwise. */
+  onRestartKey: (() => void) | null = null;
 
   constructor(private canvas: HTMLCanvasElement, private area: () => Area) {
     syncPalette(); // the stylesheet is certainly applied by now
@@ -60,9 +63,9 @@ export class PuzzleHost {
 
   /** Feeds a key to the view; true when it was used. */
   key(e: KeyboardEvent): boolean {
-    if (!this.view || this.paused) return false;
+    if (!this.view || this.paused || confirming()) return false;
     if (e.key === 'u' || (e.key === 'z' && (e.ctrlKey || e.metaKey))) { this.undo(); return true; }
-    if (e.key === 'r' && !e.ctrlKey && !e.metaKey) { this.restart(); return true; }
+    if (e.key === 'r' && !e.ctrlKey && !e.metaKey) { if (this.onRestartKey) this.onRestartKey(); else this.restart(); return true; }
     if (this.view.key(e)) { this.wake(); return true; }
     return false;
   }

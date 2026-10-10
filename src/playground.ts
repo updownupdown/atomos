@@ -1,7 +1,6 @@
-// The Puzzles screen: a home that lists every puzzle type, what it is for and
-// whether the game uses it yet, and each puzzle on its own (any element, any
-// deal) behind it, with Back to return. For playtesting and tuning; the game
-// proper reaches puzzles through each atom's Build mode. How-to text lives in
+// The Practice screen: a home that lists every puzzle type and what it builds in the game, and
+// each puzzle on its own (any element, any deal) behind it, with Back to return. Practice never
+// builds atoms; the game proper reaches puzzles through each atom's Build mode. How-to text lives in
 // the Instructions sheet behind the "i"; the header microscope opens the science.
 
 import { elementAt as element } from './gallery/data';
@@ -11,7 +10,8 @@ import { PuzzleHost } from './puzzles/host';
 import { openRules } from './puzzles/rulesModal';
 import { showWin } from './puzzles/winPanel';
 import type { Area } from './puzzles/view';
-import { createHoldButton, createSlider, iconButton, type Slider } from './ui/components';
+import { createSlider, iconButton, type Slider } from './ui/components';
+import { askRestart, confirming, restartButton } from './puzzles/restart';
 import { icon } from './ui/icons';
 import { scienceButton, setScienceHandler } from './ui/science';
 import { modalOpen, openModal } from './ui/modal';
@@ -59,7 +59,8 @@ export class Playground {
 
     // The bottom row: undo, hold to restart, instructions, the science.
     this.undoBtn = iconButton({ icon: icon('undo'), label: 'Undo', onClick: () => this.host.undo() });
-    this.restartBtn = createHoldButton({ icon: icon('restart'), label: 'Restart', doneLabel: 'Restarted', onConfirm: () => { this.host.restart(); this.solved = false; this.closeWin(); } });
+    this.restartBtn = restartButton(this.restartOptions());
+    this.host.onRestartKey = () => void askRestart(this.restartOptions());
     $('pg-actions').append(
       this.undoBtn,
       this.restartBtn,
@@ -111,7 +112,7 @@ export class Playground {
   /** The header microscope: the science behind the open puzzle, or how puzzles fit the game. */
   private registerScience(): void {
     if (this.inPuzzle) setScienceHandler(() => this.science(), `The science behind ${this.type.name}`);
-    else setScienceHandler(() => this.aboutPuzzles(), 'How puzzles fit the game');
+    else setScienceHandler(() => this.aboutPuzzles(), 'How practice fits the game');
   }
 
   private renderHome(): void {
@@ -132,16 +133,11 @@ export class Playground {
   private card(p: PuzzleType): string {
     const [lo, hi] = p.zRange;
     const range = lo === hi ? `Element ${lo}, ${element(lo).name}` : `Elements ${lo} to ${hi} · ${element(lo).symbol} to ${element(hi).symbol}`;
-    const status = p.live
-      ? `<span class="pg-chip pg-chip--live">In the game</span>`
-      : p.make ? `<span class="pg-chip">Playground only</span>` : `<span class="pg-chip pg-chip--planned">Not built</span>`;
     return `<button class="pg-card" data-id="${p.id}" type="button">
       <canvas class="pg-thumb" data-id="${p.id}" aria-hidden="true"></canvas>
       <span class="pg-card-text">
-        <span class="pg-card-top"><span class="pg-card-icon" aria-hidden="true">${puzzleIcon(p.id, 20)}</span><b class="pg-card-name">${p.name}</b>${status}</span>
+        <span class="pg-card-top"><span class="pg-card-icon" aria-hidden="true">${puzzleIcon(p.id, 20)}</span><b class="pg-card-name">${p.name}</b></span>
         <span class="pg-card-blurb">${p.blurb}</span>
-        <span class="pg-card-use"><span class="pg-card-k">For</span> ${p.live ?? p.role}</span>
-        ${p.live ? `<span class="pg-card-use pg-card-plan"><span class="pg-card-k">Plan</span> ${p.role}</span>` : ''}
         <span class="pg-card-range">${range}</span>
       </span>
     </button>`;
@@ -170,7 +166,6 @@ export class Playground {
     this.type = PUZZLES.find((p) => p.id === id) ?? PUZZLES[0];
     $('pg-name').textContent = this.type.name;
     $('pg-use').textContent = this.type.use;
-    $('pg-use').title = this.type.live ?? this.type.role;
     const [lo, hi] = this.type.zRange;
     this.z = Math.min(hi, Math.max(lo, this.z));
     this.rebuildSlider();
@@ -269,9 +264,9 @@ export class Playground {
   }
 
   private aboutPuzzles(): void {
-    openModal(`<h2>Puzzles and atoms</h2><div class="how">
-      <p>Every atom in the collection is won by solving puzzles. Building an atom takes two, in any order: one gathers its nucleus, the other places its electrons. Then its isotope vault opens, one Tessera board per isotope. That is <b>Build</b> mode, and it uses Tokamak (helium to iron), Nova (cobalt on) and Quanta (every element).</p>
-      <p><b>Facets</b> will unlock deeper layers of an atom you own, such as its isotopes or the shapes of its orbitals. <b>Gates</b> will open new parts of the game. <b>Reserve</b> puzzles are built to try out, without a place yet.</p>
+    openModal(`<h2>Practice and atoms</h2><div class="how">
+      <p>Atoms are built on their own Build pages. Each takes two puzzles, in any order: Tokamak gathers its nucleus and Quanta settles its electrons. Once it is built, its isotopes open: each lasting one has its own puzzle, and for a fleeting one you pick any isotope puzzle. Glyph opens new ways to see the collection.</p>
+      <p>Practice lets you play any of them on any atom, as often as you like. Nothing here builds an atom.</p>
       <p class="meta">Each puzzle is a game first. Where a mechanic bends the science for fun, its labels stay true, and the microscope above each puzzle says what is real and what is only a game rule.</p></div>`);
   }
 
@@ -282,8 +277,17 @@ export class Playground {
     return { x: (w - colW) / 2, y: 6, w: colW, h: Math.max(200, r.height - 12) };
   }
 
+  /** Restart asks first; Nu streaks across the board as it clears. */
+  private restartOptions() {
+    return {
+      canRestart: () => (this.host.current?.moves ?? 0) > 0,
+      sweepOver: () => $('pg-canvas'),
+      restart: () => { this.host.restart(); this.solved = false; this.closeWin(); },
+    };
+  }
+
   private key(e: KeyboardEvent): void {
-    if ($('puzzles-screen').hidden || modalOpen() || !this.inPuzzle) return;
+    if ($('puzzles-screen').hidden || modalOpen() || confirming() || !this.inPuzzle) return;
     if (e.key === 'Escape') { this.back(); e.preventDefault(); return; }
     const t = e.target as HTMLElement | null;
     if (t?.tagName === 'INPUT' || t?.closest?.('.ui-slider')) return;

@@ -1,7 +1,7 @@
 // The app shell: one header on every screen, and the hierarchy beneath it.
 //   Gallery  — the maps of all 118 atoms.
 //   Atom     — one atom, in View mode (the loupe) or Build mode (its puzzles).
-//   Puzzles  — every puzzle type on its own, for playtesting. Temporary.
+//   Practice — every puzzle type on its own, on any atom; it never builds atoms.
 //   Settings — its own screen, the fourth section.
 // On Atom screens a mode row sits under the header: View or Build, quick details, the microscope.
 
@@ -18,6 +18,9 @@ import { initModeBar, refreshModeProgress, showModeBar, type AtomMode } from './
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
 import { readPlace, type Screen } from './core/place';
+import { setNavigator } from './core/next';
+import { atomBuilt } from './core/progress';
+import { loadSave } from './core/save';
 export type { Screen };
 export type { AtomMode };
 
@@ -63,14 +66,26 @@ export class AppShell {
       this.game?.reloadSettings();
     });
     this.setNav('gallery', 'view');
+    // The Next button anywhere opens its step; an atom opens in Build until it is built, then View.
+    setNavigator({
+      openStep: (step) => { this.z = step.z; void this.go('atom', 'build').then(() => this.game?.play(step.z, step.stage)); },
+      openAtom: (z) => { this.z = z; void this.go('atom', atomBuilt(z) ? 'view' : 'build'); },
+    });
     const route = () => { if (location.hash === '#icons') void this.go('icons'); };
     window.addEventListener('hashchange', route);
     if (location.hash === '#icons') route();
     else this.restore(saved);
   }
 
-  /** Reopen the screen the player left, or stay on the gallery if that is not possible. */
+  /** Reopen the screen the player left, or stay on the gallery if that is not possible. A new
+   *  player starts on hydrogen's Build page. */
   private restore(raw: string | null): void {
+    const save = loadSave();
+    if (raw === null && !Object.keys(save.built).length && !Object.keys(save.steps).length) {
+      this.z = 1;
+      this.go('atom', 'build').catch(() => void this.go('gallery'));
+      return;
+    }
     const place = readPlace(raw);
     this.z = place.z;
     this.mode = place.mode;
