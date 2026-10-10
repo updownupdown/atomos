@@ -1,6 +1,8 @@
 // The splash: the lithium-ion mark assembling itself on the plate while the app boots.
-// Nucleons pop into the honeycomb, the shell draws itself, and the two electrons swing
-// round the ring into their gaps. Then the plate lifts and the gallery is underneath.
+// Nucleons pop into the honeycomb, the two electrons appear, and the shell swings round
+// with them, drawing itself as it turns. The electrons and their gaps turn together, so an
+// electron never crosses a shell line (James's rule: the shell and the dots never overlap).
+// Then the plate lifts and the gallery is underneath.
 // With reduced motion the finished mark simply shows for a moment and fades.
 
 import { markInner } from './mark';
@@ -13,9 +15,12 @@ export function showSplash(): void {
   const el = document.createElement('div');
   el.className = 'splash';
   el.setAttribute('aria-hidden', 'true');
+  // The core stays put; the shell arcs and electrons turn as one group.
+  const inner = markInner();
+  const cut = inner.indexOf('<path class="shell"');
   el.innerHTML = `
     <div class="grain"></div>
-    <svg class="splash-mark" viewBox="0 0 100 100">${markInner()}</svg>
+    <svg class="splash-mark" viewBox="0 0 100 100">${inner.slice(0, cut)}<g class="spin">${inner.slice(cut)}</g></svg>
     <div class="splash-word">Atomos</div>
     <div class="splash-sub">every atom, up close</div>`;
   document.body.appendChild(el);
