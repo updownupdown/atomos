@@ -595,24 +595,20 @@ body.stage-nucleus #atom { opacity: 0.12; }
    by the navigation color, never by a one-sided rule. */
 .atom-bar { display: flex; align-items: stretch; height: var(--bar-h, 60px); background: var(--c-nav); }
 .loupe-screen > .atom-bar { position: absolute; left: 0; right: 0; top: var(--top); z-index: 4; }
-.bar-arrow { flex: none; width: 48px; display: flex; align-items: center; justify-content: center; background: none; border: 0; color: var(--c-accent); cursor: pointer; }
-.bar-arrow:hover { background: var(--c-surface-2); }
-.bar-arrow:disabled { opacity: 0.25; cursor: default; background: none; }
-/* The element button: a small periodic-table cell, a thin rule, the name centered, then the
-   three-dot mark that opens the picker. */
-.bar-mid { flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--sp-2); padding: 0 0 0 var(--sp-3); }
-/* The card is the button: three dots, then the symbol, number and weight, on a raised plate. */
-.bar-card { flex: none; display: flex; align-items: center; gap: 2px; height: 46px; padding: 0 var(--sp-3) 0 2px; border: 1px solid var(--c-line-2); border-radius: var(--r-md); background: var(--c-surface-2); color: var(--c-text); font-family: var(--font); cursor: pointer; }
-.bar-card:hover { background: var(--c-surface-3); border-color: var(--c-line-3); }
-.bar-card:active { background: var(--c-pick); }
-.bar-card:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
-.bar-cell { display: grid; grid-template-columns: auto auto; grid-template-rows: auto auto; column-gap: var(--sp-2); align-items: center; line-height: 1; }
-.bar-sym { grid-row: 1 / 3; font-size: 26px; font-weight: var(--fw-semibold); letter-spacing: -0.01em; color: var(--c-text); }
+.bar-btn { flex: none; align-self: center; width: 40px; height: 40px; margin: 0 var(--sp-1); display: flex; align-items: center; justify-content: center; padding: 0; border: 0; border-radius: var(--r-sm); background: var(--c-surface-3); color: var(--c-accent); cursor: pointer; }
+.bar-btn:hover { background: var(--c-pick); }
+.bar-btn:active { background: var(--c-surface-2); }
+.bar-btn:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
+.bar-btn:disabled { opacity: 0.3; cursor: default; background: var(--c-surface-3); }
+.atom-bar > .bar-btn:first-child { margin-left: var(--sp-3); }
+.atom-bar > .bar-btn:last-child { margin-right: var(--sp-3); }
+.bar-mid { flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--sp-3); padding: 0 var(--sp-2) 0 var(--sp-3); }
+.bar-cell { flex: none; display: grid; grid-template-columns: auto auto; grid-template-rows: auto auto; column-gap: 6px; align-items: center; line-height: 1; }
+.bar-sym { grid-row: 1 / 3; font-size: 28px; font-weight: var(--fw-semibold); letter-spacing: -0.01em; color: var(--c-text); }
 .bar-z { align-self: end; font-size: var(--fs-sm); font-weight: var(--fw-semibold); color: var(--c-text); font-variant-numeric: tabular-nums; }
 .bar-w { align-self: start; margin-top: 3px; font-size: 10px; font-weight: var(--fw-medium); color: var(--c-text-2); font-variant-numeric: tabular-nums; }
 .bar-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center; font-size: 15px; font-weight: var(--fw-bold); letter-spacing: var(--track, 0.24em); text-indent: var(--track, 0.24em); text-transform: uppercase; color: var(--c-text); }
-.bar-more { display: flex; align-items: center; justify-content: center; width: 24px; height: 40px; color: var(--c-accent); }
-@media (max-width: 400px) { .bar-arrow { width: 42px; } .bar-mid { padding-left: var(--sp-2); } }
+@media (max-width: 400px) { .bar-btn { width: 36px; margin: 0 2px; } .atom-bar > .bar-btn:first-child { margin-left: var(--sp-2); } .atom-bar > .bar-btn:last-child { margin-right: var(--sp-2); } .bar-mid { padding-left: var(--sp-2); gap: var(--sp-2); } }
 .dec-z { font-size: var(--fs-sm); color: var(--c-text-2); font-variant-numeric: tabular-nums; }
 .dec-sym { font-weight: var(--fw-semibold); font-size: var(--fs-2xl); line-height: 1; }
 .pill { font-size: 10px; padding: 1px 5px; border-radius: 4px; color: var(--c-bg); font-weight: 700; }
