@@ -23,13 +23,12 @@
 }
 .ui-icon-btn svg { width: 24px; height: 24px; display: block; }
 .ui-icon-btn:hover { background: var(--c-surface-3); }
-.ui-icon-btn:active, .ui-icon-btn.is-holding { transform: scale(0.94); }
+.ui-icon-btn:active { transform: scale(0.94); }
 .ui-icon-btn:disabled { opacity: 0.35; cursor: default; transform: none; }
 .ui-icon-btn[aria-pressed='true'] { background: var(--c-tile); color: var(--c-tile-ink); }
 .ui-icon-btn--ghost { background: transparent; }
 .ui-icon-btn--ghost:hover { background: var(--c-surface-2); }
 .ui-icon-btn:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
-.ui-hold.is-holding { background: var(--c-surface-3); color: var(--c-accent); }
 
 /* The X in a modal or panel corner. */
 .ui-close { position: absolute; top: var(--sp-3); right: var(--sp-3); z-index: 1; background: var(--c-surface-2); border-radius: 50%; color: var(--c-text); }
