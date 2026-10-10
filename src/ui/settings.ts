@@ -1,11 +1,10 @@
-// The global settings sheet, reachable from the header on every screen. It
-// edits the save in storage; screens that keep their own copy re-read it
-// through the listeners registered here.
+// The Settings screen, the fourth section in the header. It edits the save in
+// storage; screens that keep their own copy re-read it through the listeners
+// registered here. It renders afresh each time the screen opens.
 
 import { ISOTOPES, isotopeKey } from '../core/isotopes';
 import { MAX_Z } from '../core/elements';
 import { clearSave, loadSave, writeSave, type Settings } from '../core/save';
-import { openModal } from './modal';
 import { MICROSCOPE } from './icons';
 import { switchHtml } from './components';
 
@@ -19,13 +18,14 @@ export function onSettingsChange(fn: () => void): void {
   listeners.add(fn);
 }
 
-export function openSettings(): void {
+/** Fill the Settings screen (or any container) with the current settings. */
+export function renderSettings(sheet: HTMLElement): void {
   const save = loadSave();
   const s = save.settings;
   const toggle = (key: keyof Settings, title: string, help: string) => switchHtml({ label: title, help, checked: s[key], key });
   const found = ISOTOPES.filter((i) => save.isotopes[isotopeKey(i.z, i.a)]?.collected || save.isotopes[isotopeKey(i.z, i.a)]?.witnessed?.length).length;
-  const sheet = openModal(`
-    <h2>Settings</h2>
+  sheet.innerHTML = `
+    <h1 class="settings-title">Settings</h1>
     ${toggle('reducedMotion', 'Reduce motion', 'Calmer clouds, shorter animations, no auto-rotation.')}
     ${toggle('sound', 'Sound', 'Tones for fusions, hops and finished atoms.')}
     ${toggle('haptics', 'Vibration', 'Taps on supported phones.')}
@@ -37,7 +37,7 @@ export function openSettings(): void {
     ${toggle('unlockAll', 'Unlock every element', 'Every atom counts as collected and can be built in any order.')}
     <h3>Progress</h3>
     <p class="muted">${Object.keys(save.built).length} of ${MAX_Z} elements built · ${found} of ${ISOTOPES.length} isotopes found</p>
-    <div class="actions reset-row"><button class="secondary" id="set-reset">Reset all progress</button><button class="secondary" id="set-cancel" hidden>Cancel</button></div>`);
+    <div class="actions reset-row"><button class="secondary" id="set-reset">Reset all progress</button><button class="secondary" id="set-cancel" hidden>Cancel</button></div>`;
   sheet.querySelectorAll<HTMLInputElement>('input[data-key]').forEach((inp) => (inp.onchange = () => {
     (s as unknown as Record<string, boolean>)[inp.dataset.key!] = inp.checked;
     writeSave(save);
