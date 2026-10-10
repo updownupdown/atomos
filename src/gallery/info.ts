@@ -8,7 +8,7 @@ import FACTS from '../data/element-facts.json';
 import STORY from '../data/element-story.json';
 import IMAGES from '../data/element-images.json';
 import { disclosureHTML } from '../ui/components';
-import { blueprint, discoveryTimeline, isotopeTable, orbitalBoxes, propertyAxes, shellPlot } from './visuals';
+import { blueprint, discoveryTimeline, isotopeTable, orbitalBoxes, orbitalShapes, propertyAxes, shellPlot } from './visuals';
 
 export type Tab = 'overview' | 'structure' | 'isotopes' | 'properties' | 'story';
 export const TABS: { id: Tab; label: string }[] = [
@@ -40,11 +40,12 @@ export function decoratorsHTML(e: Element): { topLeft: string; topRight: string 
   const moreUnstable = unstable.length - shown.filter((i) => !i.stable).length;
   const rows = shown.map((i) => `<li class="${i.stable ? 'is-stable' : ''}"><span>${e.symbol}-${i.a}</span><b>${i.stable
     ? (i.abundance == null ? 'trace' : `${Number(i.abundance.toPrecision(3))}%`)
-    : i.halfLife == null ? 'unknown' : formatHalfLife(i.halfLife)}</b></li>`).join('');
+    : i.halfLife == null ? 'unknown' : formatHalfLife(i.halfLife, true)}</b></li>`).join('');
   const more = [moreStable ? `+${moreStable} stable` : '', moreUnstable ? `+${moreUnstable} unstable` : ''].filter(Boolean);
   return {
     topLeft: `<span class="dec-config">${shortConfiguration(e)}</span>`
-      + `<span class="dec-line">${plural(e.shells, 'shell')} · ${plural(e.subshells.length, 'layer')}</span>`
+      + `<span class="dec-line">${plural(e.shells, 'shell')}</span>`
+      + `<span class="dec-line">${plural(e.subshells.length, 'layer')}</span>`
       + `<span class="dec-line">${plural(e.z, 'electron')}</span>`
       + `<span class="dec-line"><b>${e.vdw}</b> pm radius${e.vdwEstimated ? ' (est.)' : ''}</span>`,
     topRight: `<span class="dec-cap">Isotopes</span><ul class="dec-iso">${rows}</ul>`
@@ -124,6 +125,7 @@ function structure(e: Element): string {
     <div class="st-view" data-view="blueprint">${blueprint(e)}</div>
     <div class="st-view" data-view="shells" hidden>${shellPlot(e)}</div>
     <div class="st-view" data-view="boxes" hidden>${orbitalBoxes(e)}</div>
+    <div class="st-view" data-view="shapes2d" hidden>${orbitalShapes(e)}</div>
     ${disclosureHTML({ title: 'All the numbers', hint: `${e.subshells.length} layers`, body: `
     ${row('Configuration', `${e.configuration.split(' ').map((s) => s.slice(0, 2) + sup(s.slice(2))).join(' ')}`)}
     ${row('Short form', shortConfiguration(e))}
@@ -180,10 +182,11 @@ function story(e: Element): string {
   return `
     ${e.nameOrigin ? `<blockquote class="story-name"><span>The name</span>${esc(e.nameOrigin)}</blockquote>` : ''}
     <section class="story-disc">
-      <span class="story-cap">Discovered</span>
-      <b class="story-year">${ancient ? 'In antiquity' : e.discoveryYear}</b>
-      ${e.discoverers ? `<p class="story-who">${esc(e.discoverers)}</p>` : ancient ? '<p class="story-who">Known since ancient times; no one discoverer is recorded.</p>' : ''}
-      ${e.discoveryPlace ? `<p class="story-where">${esc(e.discoveryPlace)}</p>` : ''}
+      <div class="story-when"><span class="story-cap">Discovered</span><b class="story-year">${ancient ? 'In antiquity' : e.discoveryYear}</b></div>
+      <div class="story-by">
+        ${e.discoverers ? `<p class="story-who">${esc(e.discoverers)}</p>` : ancient ? '<p class="story-who">No one discoverer is recorded</p>' : ''}
+        ${e.discoveryPlace ? `<p class="story-where">${esc(e.discoveryPlace)}</p>` : ''}
+      </div>
     </section>
     ${discoveryTimeline(e)}
     <h3 class="story-h">Origins</h3>${list(origins)}

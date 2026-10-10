@@ -4,7 +4,7 @@
 // coloured through the design tokens in style.css.
 
 import { BLOCK_COLOUR, ELEMENTS, L_OF, formatHalfLife, keyIsotope, sup, type Element, type Subshell } from './data';
-import { radial, radialTable } from './orbital';
+import { harmonic, M_ORDER, ORBITAL_NAMES, radial, radialTable } from './orbital';
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 const f1 = (v: number) => Math.round(v * 10) / 10;
@@ -227,10 +227,77 @@ export function orbitalBoxes(e: Element): string {
     <p class="note">Each box is one orbital and holds two electrons of opposite spin. ${lone ? `${esc(e.name)} has ${lone} lone electron${lone === 1 ? '' : 's'}, lit in cyan.` : `Every electron in ${esc(e.name.toLowerCase())} is paired.`} The outermost shell is at the top; the noble-gas core is dimmed.</p>`;
 }
 
+/** The plane each real orbital is drawn in, face on: two unit vectors (across, up). Most lie in a
+ *  coordinate plane; fxyz has nodes in all three, so it is cut along the x = y diagonal. */
+const PLANES: Record<string, [number[], number[]]> = {
+  xz: [[1, 0, 0], [0, 0, 1]], yz: [[0, 1, 0], [0, 0, 1]], xy: [[1, 0, 0], [0, 1, 0]],
+  diag: [[Math.SQRT1_2, Math.SQRT1_2, 0], [0, 0, 1]],
+};
+const PLANE_OF: Record<number, Record<number, string>> = {
+  1: { 0: 'xz', 1: 'xz', [-1]: 'yz' },
+  2: { 0: 'xz', 1: 'xz', [-1]: 'yz', 2: 'xy', [-2]: 'xy' },
+  3: { 0: 'xz', 1: 'xz', [-1]: 'yz', 2: 'xz', [-2]: 'diag', 3: 'xy', [-3]: 'xy' },
+};
+
+/** One orbital's 2D shape: a polar plot of its angular probability (|Y|²) in its plane, one path
+ *  per lobe, with the lobe's sign (the wavefunction's phase) so the two tones can alternate. */
+export function orbitalOutline(l: number, m: number, steps = 360): { d: string; plus: boolean }[] {
+  if (l === 0) return [{ d: 'M 0.86 0 A 0.86 0.86 0 1 1 -0.86 0 A 0.86 0.86 0 1 1 0.86 0 Z', plus: true }];
+  const [u, v] = PLANES[PLANE_OF[l][m]];
+  const samples = Array.from({ length: steps }, (_, i) => {
+    const t = (i / steps) * Math.PI * 2;
+    const dir = [0, 1, 2].map((k) => Math.cos(t) * u[k] + Math.sin(t) * v[k]);
+    const y = harmonic(l, m, dir[0], dir[1], dir[2]);
+    return { t, y };
+  });
+  const max = Math.max(...samples.map((p) => p.y * p.y)) || 1;
+  // Split the turn into runs of one sign: each run is a lobe, closed through the nucleus.
+  const start = samples.findIndex((p, i) => Math.sign(p.y) !== Math.sign(samples[(i + steps - 1) % steps].y));
+  const lobes: { d: string; plus: boolean }[] = [];
+  let run: { t: number; y: number }[] = [];
+  for (let k = 0; k <= steps; k++) {
+    const p = samples[(Math.max(0, start) + k) % steps];
+    if (run.length && (Math.sign(p.y) !== Math.sign(run[0].y) || k === steps)) {
+      const r = (q: { t: number; y: number }) => (0.94 * (q.y * q.y)) / max;
+      if (Math.max(...run.map(r)) > 0.02) {
+        const pts = run.map((q) => `${(Math.cos(q.t) * r(q)).toFixed(3)} ${(-Math.sin(q.t) * r(q)).toFixed(3)}`);
+        lobes.push({ d: `M 0 0 L ${pts.join(' L ')} Z`, plus: run[0].y > 0 });
+      }
+      run = [];
+    }
+    run.push(p);
+  }
+  return lobes;
+}
+
+/** The outer layers' orbitals drawn as their 2D shapes, filled as far as electrons fill them. */
+export function orbitalShapes(e: Element): string {
+  const outer = buildOrder(e).filter((s) => !s.core).reverse();
+  const rows = outer.map((s) => {
+    const fill = orbitalFill(s.count, s.capacity);
+    const l = L_OF[s.l];
+    const glyphs = fill.map((k, oi) => {
+      const lobes = orbitalOutline(l, M_ORDER[oi]);
+      const paths = lobes.map((b) => `<path class="os-lobe ${b.plus ? 'is-plus' : 'is-minus'}" d="${b.d}"/>`).join('');
+      return `<figure class="os-glyph os-fill-${k}" data-l="${s.l}">
+        <svg viewBox="-1 -1 2 2" aria-hidden="true"><path class="os-axis" d="M -0.95 0 H 0.95 M 0 -0.95 V 0.95"/>${paths}</svg>
+        <span class="os-unknown" aria-hidden="true">?</span>
+        <figcaption>${ORBITAL_NAMES[s.l][oi]}<b>${k === 2 ? '↑↓' : k === 1 ? '↑' : ''}</b></figcaption>
+      </figure>`;
+    }).join('');
+    return `<div class="os-row" style="--b:${BLOCK_COLOUR[s.l]}"><span class="os-key">${s.key}<small>${s.count}/${s.capacity}</small></span><div class="os-glyphs">${glyphs}</div></div>`;
+  }).join('');
+  const core = e.core ? `<p class="os-core">Inside them sits the ${CORE_NAME[e.core] ?? e.core} core, every orbital full.</p>` : '';
+  return `<div class="os">${rows}</div>${core}
+    <p class="note os-hidden-note" hidden></p>
+    <p class="note">Each shape is one orbital cut through the middle, as a textbook draws it: how likely the electron is in each direction. The two tones are the wave's two phases. Full orbitals are solid, half-full ones paler, empty ones only outlined.</p>`;
+}
+
 export const STRUCTURE_VIEWS: { id: string; label: string }[] = [
   { id: 'blueprint', label: 'Blueprint' },
   { id: 'shells', label: 'Shells' },
   { id: 'boxes', label: 'Orbitals' },
+  { id: 'shapes2d', label: 'Shapes' },
 ];
 
 // ---------- Isotopes: an album of tiles ----------

@@ -176,10 +176,13 @@ export function shortConfiguration(e: Element): string {
   return e.core ? `[${e.core}] ${outer}` : outer;
 }
 
-export function formatHalfLife(s: number | null): string {
+/** A half-life in the handiest unit. `short` writes long spans as ky, My, Gy and Ty (thousand,
+ *  million, billion and trillion years) where space is tight. */
+export function formatHalfLife(s: number | null, short = false): string {
   if (s == null) return 'stable';
   const y = 3.156e7;
-  const f = (v: number, u: string) => `${Number(v.toPrecision(3))} ${u}`;
+  const SHORT: Record<string, string> = { 'thousand y': 'ky', 'million y': 'My', 'billion y': 'Gy', 'trillion y': 'Ty' };
+  const f = (v: number, u: string) => `${Number(v.toPrecision(3))} ${short ? SHORT[u] ?? u : u}`;
   if (s < 1e-15) return f(s * 1e18, 'as');
   if (s < 1e-12) return f(s * 1e15, 'fs');
   if (s < 1e-9) return f(s * 1e12, 'ps');

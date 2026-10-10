@@ -559,11 +559,15 @@ body.stage-nucleus #atom { opacity: 0.12; }
 .dec .dim { color: var(--c-text-2); }
 /* Decorators round the 3D atom: pale plate markings. The configuration large and light, the
    counts and isotopes in small tracked capitals with their numbers a step brighter. */
-.dec-tl { left: var(--sp-4); top: calc(var(--sp-4) + var(--chrome)); align-items: flex-start; gap: 3px; pointer-events: none; }
-.dec-config { margin-bottom: 4px; font-size: 21px; font-weight: var(--fw-light); letter-spacing: 0.01em; color: var(--c-silver); }
+.dec-tl { left: var(--sp-4); top: calc(var(--sp-4) + var(--chrome)); align-items: flex-start; gap: 3px; }
+.dec-config { margin-bottom: 4px; font-size: 17px; font-weight: var(--fw-light); letter-spacing: 0.01em; color: var(--c-silver); }
 .dec-line, .dec-cap, .dec-more { font-size: 10px; font-weight: var(--fw-medium); letter-spacing: 0.14em; text-transform: uppercase; color: var(--c-text-3); }
 .dec-line b { font-size: 12px; font-weight: var(--fw-semibold); letter-spacing: 0.04em; color: var(--c-text-2); }
-.dec-tr { right: var(--sp-4); top: calc(var(--sp-4) + var(--chrome)); align-items: flex-end; text-align: right; gap: 3px; pointer-events: none; }
+.dec-tr { right: var(--sp-4); top: calc(var(--sp-4) + var(--chrome)); align-items: flex-end; text-align: right; gap: 3px; }
+/* Tap a corner to read it: its text lights to near-white at once, then fades back over ten seconds. */
+.dec, .dec * { transition: color 10s ease-out; }
+.loupe-screen .dec.lit, .loupe-screen .dec.lit * { color: var(--c-silver); transition: color 0.15s ease-out; }
+.dec-tl, .dec-tr { cursor: pointer; -webkit-tap-highlight-color: transparent; user-select: none; }
 .dec-cap { margin-bottom: 2px; }
 .dec-iso { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 1px; }
 .dec-iso li { display: flex; justify-content: flex-end; gap: var(--sp-3); font-size: var(--fs-xs); font-variant-numeric: tabular-nums; color: var(--c-text-3); }
@@ -581,12 +585,17 @@ body.stage-nucleus #atom { opacity: 0.12; }
 .scale-legend, .style-switch { display: flex; flex-direction: column; gap: var(--sp-1); font-variant-numeric: tabular-nums; }
 .scale-legend { align-items: flex-start; }
 .style-switch { align-items: flex-end; gap: var(--sp-3); }
+/* Draw as: one segmented control, stacked, every option the same width. */
+.tool-seg { display: grid; grid-auto-rows: 32px; padding: 3px; gap: 2px; border: 1px solid var(--c-line); border-radius: 18px; background: var(--c-plate); }
+.tool-seg button { display: flex; align-items: center; gap: 6px; padding: 0 12px 0 8px; border: 0; border-radius: 14px; background: none; color: var(--c-text-2); font: inherit; font-size: var(--fs-xs); font-weight: var(--fw-semibold); cursor: pointer; }
+.tool-seg button:hover { color: var(--c-text); }
+.tool-seg button[aria-checked='true'] { background: var(--c-pick); color: var(--c-accent); }
 .tool-group { display: flex; flex-direction: column; align-items: flex-end; gap: var(--sp-1); }
 .tool-group[hidden], .scale-legend ul[hidden] { display: none; }
 .tool-cap { margin-bottom: 2px; font-size: 10px; font-weight: var(--fw-semibold); letter-spacing: 0.14em; text-transform: uppercase; color: var(--c-text-3); }
 .scale-legend ul { display: flex; flex-direction: column; gap: 3px; list-style: none; margin: 0 0 var(--sp-1); padding: 0; transition: opacity var(--dur); }
 .scale-legend li { display: flex; align-items: center; gap: 6px; font-size: var(--fs-xs); color: var(--c-text-2); }
-.scale-legend.off ul { opacity: 0.3; }
+.scale-legend.off ul { display: none; }
 .tool-chip { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px 0 8px; border: 1px solid var(--c-line); border-radius: var(--r-pill, 999px); background: var(--c-plate); color: var(--c-text-2); font: inherit; font-size: var(--fs-xs); font-weight: var(--fw-semibold); cursor: pointer; }
 .tool-chip:hover { color: var(--c-text); }
 .tool-note { max-width: 230px; margin: 2px 0 0; font-size: var(--fs-xs); line-height: 1.4; text-align: right; color: var(--c-text-3); }
@@ -601,17 +610,19 @@ body.stage-nucleus #atom { opacity: 0.12; }
 .bar-arrow:disabled { opacity: 0.25; cursor: default; background: none; }
 /* The element button: a small periodic-table cell, a thin rule, the name centered, then the
    three-dot mark that opens the picker. */
-.bar-mid { flex: 1; min-width: 0; display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto; align-items: center; gap: var(--sp-3); padding: 0 var(--sp-1) 0 var(--sp-4); background: none; border: 0; color: var(--c-text); font-family: var(--font); text-align: left; cursor: pointer; }
-.bar-mid:hover { background: var(--c-surface-2); }
-.bar-mid:focus-visible { outline: 2px solid var(--c-accent); outline-offset: -2px; }
+.bar-mid { flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--sp-2); padding: 0 0 0 var(--sp-3); }
+/* The card is the button: three dots, then the symbol, number and weight, on a raised plate. */
+.bar-card { flex: none; display: flex; align-items: center; gap: 2px; height: 46px; padding: 0 var(--sp-3) 0 2px; border: 1px solid var(--c-line-2); border-radius: var(--r-md); background: var(--c-surface-2); color: var(--c-text); font-family: var(--font); cursor: pointer; }
+.bar-card:hover { background: var(--c-surface-3); border-color: var(--c-line-3); }
+.bar-card:active { background: var(--c-pick); }
+.bar-card:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
 .bar-cell { display: grid; grid-template-columns: auto auto; grid-template-rows: auto auto; column-gap: var(--sp-2); align-items: center; line-height: 1; }
-.bar-sym { grid-row: 1 / 3; font-size: 28px; font-weight: var(--fw-semibold); letter-spacing: -0.01em; color: var(--c-text); }
+.bar-sym { grid-row: 1 / 3; font-size: 26px; font-weight: var(--fw-semibold); letter-spacing: -0.01em; color: var(--c-text); }
 .bar-z { align-self: end; font-size: var(--fs-sm); font-weight: var(--fw-semibold); color: var(--c-text); font-variant-numeric: tabular-nums; }
 .bar-w { align-self: start; margin-top: 3px; font-size: 10px; font-weight: var(--fw-medium); color: var(--c-text-2); font-variant-numeric: tabular-nums; }
-.bar-rule { width: 1px; height: 30px; background: var(--c-line-2); }
-.bar-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center; font-size: 15px; font-weight: var(--fw-bold); letter-spacing: var(--track, 0.24em); text-indent: var(--track, 0.24em); text-transform: uppercase; color: var(--c-text); }
-.bar-more { display: flex; align-items: center; justify-content: center; width: 32px; height: 40px; color: var(--c-accent); }
-@media (max-width: 400px) { .bar-arrow { width: 42px; } .bar-mid { padding: 0 0 0 var(--sp-3); gap: var(--sp-2); } }
+.bar-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center; font-size: 15px; font-weight: var(--fw-bold); letter-spacing: var(--track, 0.24em); text-indent: var(--track, 0.24em); text-transform: uppercase; color: var(--c-text); }
+.bar-more { display: flex; align-items: center; justify-content: center; width: 24px; height: 40px; color: var(--c-accent); }
+@media (max-width: 400px) { .bar-arrow { width: 42px; } .bar-mid { padding-left: var(--sp-2); } }
 .dec-z { font-size: var(--fs-sm); color: var(--c-text-2); font-variant-numeric: tabular-nums; }
 .dec-sym { font-weight: var(--fw-semibold); font-size: var(--fs-2xl); line-height: 1; }
 .pill { font-size: 10px; padding: 1px 5px; border-radius: 4px; color: var(--c-bg); font-weight: 700; }
@@ -1106,15 +1117,19 @@ body[data-screen^='atom'].build-home .science-fab, body[data-screen='atom-view']
 .tl-base, .tl-tick { stroke: var(--c-line-3); stroke-width: 1; fill: none; }
 .tl-lab { fill: var(--c-text-3); font-size: 8.5px; text-anchor: middle; }
 .tl-dot { fill: var(--c-text-3); }
-.tl-dot.is-mine { fill: var(--c-accent); }
+.tl-dot.is-mine { fill: var(--c-accent); filter: drop-shadow(0 0 2px var(--c-accent)) drop-shadow(0 0 6px var(--c-accent)); animation: tl-glow 2.6s ease-in-out infinite alternate; }
+@keyframes tl-glow { from { filter: drop-shadow(0 0 2px var(--c-accent)) drop-shadow(0 0 4px var(--c-accent)); } to { filter: drop-shadow(0 0 3px var(--c-accent)) drop-shadow(0 0 9px var(--c-accent)); } }
+@media (prefers-reduced-motion: reduce) { .tl-dot.is-mine { animation: none; } }
 .tl figcaption { color: var(--c-text-2); margin-top: 4px; }
 .story-name { margin: var(--sp-2) 0 var(--sp-4); padding: var(--sp-4) var(--sp-4) var(--sp-5); border-radius: var(--r-md); background: var(--c-plate); font-size: var(--fs-xl); line-height: 1.35; color: var(--c-text); }
 .story-name span { display: block; font-size: var(--fs-2xs); letter-spacing: 0.14em; text-transform: uppercase; color: var(--c-accent); margin-bottom: 4px; }
 /* Story: the name first, then the discovery set large, the timeline, then Origins and Uses as lists. */
-.story-disc { display: flex; flex-direction: column; gap: 2px; margin: 0 0 var(--sp-3); padding: var(--sp-4); border-radius: var(--r-md); background: var(--c-plate); }
+.story-disc { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: var(--sp-4); margin: 0 0 var(--sp-3); padding: var(--sp-4); border-radius: var(--r-md); background: var(--c-plate); }
+.story-when { display: flex; flex-direction: column; gap: 2px; }
+.story-by { display: flex; flex-direction: column; gap: 2px; text-align: right; }
 .story-cap { font-size: var(--fs-2xs); letter-spacing: 0.14em; text-transform: uppercase; color: var(--c-accent); }
 .story-year { font-size: var(--fs-3xl); font-weight: var(--fw-semibold); line-height: 1.1; color: var(--c-text); font-variant-numeric: tabular-nums; }
-.story-who { margin: 4px 0 0 !important; font-size: var(--fs-lg); line-height: 1.35; color: var(--c-text); }
+.story-who { margin: 0 !important; font-size: var(--fs-lg); line-height: 1.35; color: var(--c-text); }
 .story-where { margin: 0 !important; font-size: var(--fs-md); color: var(--c-text-2); }
 .atom-page .story-h { margin: var(--sp-5) 0 var(--sp-2); font-size: var(--fs-lg); font-weight: var(--fw-semibold); color: var(--c-text); }
 .story-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--sp-2); }
@@ -1218,6 +1233,27 @@ body[data-screen^='atom'].build-home .science-fab, body[data-screen='atom-view']
 .ob-box b { font-size: 13px; line-height: 1; font-weight: 700; }
 .ob-box.is-lone b { color: var(--c-accent); }
 .ob-group.is-core { opacity: 0.45; }
+/* Structure, Shapes: each outer layer's orbitals as 2D cuts, filled as electrons fill them. */
+.os { display: flex; flex-direction: column; gap: var(--sp-3); margin: var(--sp-2) 0 var(--sp-3); }
+.os-row { display: grid; grid-template-columns: 36px 1fr; gap: var(--sp-2); align-items: start; }
+.os-key { display: flex; flex-direction: column; padding-top: 14px; font-weight: var(--fw-bold); color: var(--b); }
+.os-key small { font-size: var(--fs-2xs); font-weight: var(--fw-medium); color: var(--c-text-2); font-variant-numeric: tabular-nums; }
+.os-glyphs { display: flex; flex-wrap: wrap; gap: 6px; }
+.os-glyph { position: relative; margin: 0; width: 64px; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 0 6px; border-radius: var(--r-md); background: var(--c-plate); }
+.os-glyph svg { width: 54px; height: 54px; overflow: visible; }
+.os-axis { stroke: var(--c-line); stroke-width: 0.015; fill: none; }
+.os-lobe { stroke: var(--b); stroke-width: 0.035; stroke-linejoin: round; }
+.os-lobe.is-plus { fill: var(--b); }
+.os-lobe.is-minus { fill: color-mix(in srgb, var(--b) 45%, var(--c-bg)); }
+.os-fill-1 .os-lobe { fill-opacity: 0.4; }
+.os-fill-0 .os-lobe { fill: none; stroke-dasharray: 0.06 0.05; stroke-opacity: 0.7; }
+.os-glyph figcaption { display: flex; flex-direction: column; align-items: center; white-space: nowrap; letter-spacing: -0.02em; font-size: 10px; color: var(--c-text-2); line-height: 1.25; }
+.os-glyph figcaption b { min-height: 1.2em; font-size: var(--fs-xs); color: var(--c-text); }
+.os-unknown { display: none; position: absolute; top: 4px; left: 0; right: 0; height: 54px; align-items: center; justify-content: center; font-size: 24px; font-weight: var(--fw-semibold); color: var(--c-text-3); }
+.os-glyph.is-hidden svg { visibility: hidden; }
+.os-glyph.is-hidden .os-unknown { display: flex; }
+.os-core { margin: 0; color: var(--c-text-2); }
+@media (max-width: 420px) { .os-glyph { width: 52px; } .os-glyph svg { width: 44px; height: 44px; } .os-unknown { height: 44px; } }
 @media (max-width: 420px) { .ob-box { width: 25px; height: 26px; } .ob-box b { font-size: 12px; } }
 .pg-card-icon { display: inline-grid; place-items: center; color: var(--c-accent); margin-right: 2px; }
 
