@@ -38,7 +38,7 @@ export class Detail {
     const rim = new THREE.DirectionalLight(0xbcd0ff, 0.5);
     rim.position.set(-4, -2, -5);
     this.scene.add(rim);
-    this.view = new AtomView({ perSlot: 300, shapes: true, pointSize: 1, live: true });
+    this.view = new AtomView({ perSlot: 480, shapes: true, pointSize: 1, live: true });
     this.spin.add(this.view.group);
     this.spin.rotation.x = 0.3;
     this.scene.add(this.spin);
@@ -96,7 +96,7 @@ export class Detail {
     this.camera.lookAt(0, 0, 0);
     this.camera.updateProjectionMatrix();
     // Small, crisp electrons: a pixel or two on a phone, whatever the element.
-    this.view.setPointSize(this.height * this.renderer.getPixelRatio() * 0.075 * (dist / 14));
+    this.view.setPointSize(this.height * this.renderer.getPixelRatio() * 0.06 * (dist / 14));
   }
 
   private bind(): void {

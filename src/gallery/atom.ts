@@ -87,18 +87,20 @@ uniform vec3 uColor;
 varying vec3 vColor; varying float vAlpha;
 float hash(float x) { return fract(sin(x) * 43758.5453); }
 void main() {
-  // Live cloud: each point lives for a moment, blinks out, and reappears at its other sample,
-  // jittering slightly while it is lit. Rates vary per point so nothing pulses in step.
-  float rate = 0.55 + seed * 0.7;
+  // Live cloud, like fireflies: each point glows up and fades away over several seconds,
+  // then reappears at its other sample while dark, drifting gently while it is lit.
+  // Rates vary per point so nothing pulses in step.
+  float rate = 0.08 + seed * 0.14;
   float cyc = uTime * rate + seed * 17.0;
   float k = fract(cyc);
   float other = mod(floor(cyc), 2.0);
   vec3 home = mix(position, position2, other * uLive);
-  float life = smoothstep(0.0, 0.08, k) * (1.0 - smoothstep(0.5, 0.72, k));
+  float glow = sin(k * 3.14159);
+  float life = glow * glow;
   float lit = mix(1.0, life, uLive);
-  float tick = floor(uTime * 18.0);
-  vec3 j = vec3(hash(seed * 91.7 + tick), hash(seed * 37.3 + tick * 1.3), hash(seed * 53.1 + tick * 0.7)) - 0.5;
-  home += j * (0.035 * length(home) + 0.03) * uLive;
+  float ph = seed * 61.0;
+  vec3 drift = vec3(sin(uTime * 0.41 + ph), sin(uTime * 0.33 + ph * 1.7), sin(uTime * 0.27 + ph * 2.3));
+  home += drift * (0.025 * length(home) + 0.02) * uLive;
   float shown = mix(uFrom, uTo, uT);
   float a = clamp(shown - slot, 0.0, 1.0);
   float lo = min(uFrom, uTo), hi = max(uFrom, uTo);
@@ -111,18 +113,20 @@ void main() {
   vAlpha = a * uDim * (1.0 + flash * 0.8) * lit;
   vec4 mv = modelViewMatrix * vec4(home * uScale, 1.0);
   gl_Position = a > 0.0 && lit > 0.002 ? projectionMatrix * mv : vec4(2.0, 2.0, 2.0, 1.0);
-  gl_PointSize = max(1.0, uSize * uSizeMul * (1.0 + flash * 0.5) / -mv.z);
+  gl_PointSize = max(1.0, uSize * uSizeMul * (1.0 + flash * 0.5) * mix(1.0, 0.55 + 0.45 * life, uLive) / -mv.z);
 }`;
 const POINT_FRAG = `
 varying vec3 vColor; varying float vAlpha;
-uniform float uAlpha, uSharp;
+uniform float uAlpha, uSharp, uLive;
 void main() {
   vec2 c = gl_PointCoord - 0.5;
   float d = dot(c, c);
   if (d > 0.25) discard;
-  // Soft glow for the small gallery atoms; a crisp dot with a one-pixel edge under the loupe.
+  // Soft glow or a crisp dot for the small gallery atoms; under the loupe a bright core with a faint halo.
   float soft = exp(-d * 14.0);
-  float crisp = 1.0 - smoothstep(0.16, 0.25, d);
+  float edge = 1.0 - smoothstep(0.16, 0.25, d);
+  float jewel = min(1.0, (1.0 - smoothstep(0.05, 0.12, d)) + exp(-d * 22.0) * 0.45);
+  float crisp = mix(edge, jewel, uLive);
   gl_FragColor = vec4(vColor, mix(soft, crisp, uSharp) * vAlpha * uAlpha);
 }`;
 
