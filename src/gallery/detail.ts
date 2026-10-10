@@ -10,6 +10,7 @@ import * as THREE from 'three';
 import { AtomView, type Style } from './atom';
 import { CLOUD_RINGS, type Block, type Element } from './data';
 import { token } from './tokens';
+import { NUCLEUS_RINGS, NucleusView } from './nucleus';
 
 export class Detail {
   private renderer: THREE.WebGLRenderer;
@@ -18,6 +19,12 @@ export class Detail {
   private spin = new THREE.Group();
   private rings = new THREE.Group();
   view: AtomView;
+  /** The nucleus up close, drawn at the same screen size as the atom: 8 fm maps to the 300 pm ring. */
+  private nucleus = new NucleusView(3 / 8);
+  private nucleusRings = new THREE.Group();
+  private nucleusOn = false;
+  private element: Element | null = null;
+  private ringsOn = true;
   private width = 1;
   private height = 1;
   private drag: { x: number; y: number; moved: boolean } | null = null;
@@ -52,6 +59,10 @@ export class Detail {
     this.scene.add(this.spin);
     for (const r of CLOUD_RINGS) this.rings.add(ring(r.pm / 100, r.style));
     this.scene.add(this.rings);
+    for (const r of NUCLEUS_RINGS) this.nucleusRings.add(ring((r.fm * 3) / 8, r.style));
+    this.scene.add(this.nucleusRings);
+    this.spin.add(this.nucleus.group);
+    this.paintMode();
     this.bind();
     new ResizeObserver(() => this.resize()).observe(canvas);
     this.resize();
@@ -63,7 +74,24 @@ export class Detail {
   }
 
   /** Show or hide the reference circles drawn round the atom. */
-  setRings(on: boolean): void { this.rings.visible = on; }
+  setRings(on: boolean): void {
+    this.ringsOn = on;
+    this.paintMode();
+  }
+
+  /** Swap the whole atom for its nucleus up close, or back. */
+  setNucleus(on: boolean): void {
+    this.nucleusOn = on;
+    if (on && this.element) this.nucleus.show(this.element);
+    this.paintMode();
+  }
+
+  private paintMode(): void {
+    this.view.group.visible = !this.nucleusOn;
+    this.nucleus.group.visible = this.nucleusOn;
+    this.rings.visible = this.ringsOn && !this.nucleusOn;
+    this.nucleusRings.visible = this.ringsOn && this.nucleusOn;
+  }
 
   setStyle(style: Style): void {
     this.style = style;
@@ -76,7 +104,9 @@ export class Detail {
   }
 
   show(e: Element, animate: boolean): void {
+    this.element = e;
     this.view.setElement(e, animate && !this.reducedMotion);
+    if (this.nucleusOn) this.nucleus.show(e);
   }
 
   /** Paint the electrons one color (a CSS color), or null for the orbital block colors. */
