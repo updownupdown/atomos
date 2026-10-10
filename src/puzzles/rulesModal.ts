@@ -18,8 +18,8 @@ export function openRules(t: PuzzleType, opts: { reducedMotion?: boolean; footer
       ${r.demo ? `<canvas class="rule-demo" data-i="${i}" width="${DEMO_W}" height="${DEMO_H}" aria-hidden="true"></canvas>` : '<span class="rule-demo rule-demo--none" aria-hidden="true"></span>'}
       <div class="rule-text"><b>${escape(r.title)}</b><p>${escape(r.text)}</p></div>
     </li>`).join('');
-  const sheet = openModal(`<div class="how">
-      <h2>${escape(t.name)}</h2>
+  // The name comes first so the modal pins it beside the X while the rules scroll.
+  const sheet = openModal(`<h2>${escape(t.name)}</h2><div class="how">
       <p class="how-goal">${t.blurb}</p>
       ${rules.length ? `<ul class="rules">${cards}</ul>` : ''}
       ${t.instructions ?? ''}

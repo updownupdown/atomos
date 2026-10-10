@@ -2,20 +2,23 @@
 //   Gallery  — the maps of all 118 atoms.
 //   Atom     — one atom, in View mode (the loupe) or Build mode (its puzzles).
 //   Puzzles  — every puzzle type on its own, for playtesting. Temporary.
-//   Settings — a sheet that opens over whatever is on screen.
+//   Settings — its own screen, the fourth section.
+// On Atom screens a mode row sits under the header: View or Build, quick details, the microscope.
 
 import { GalleryApp } from './gallery';
 import type { Game } from './game';
 import type { Playground } from './playground';
-import { onSettingsChange, openSettings } from './ui/settings';
-import { icon } from './ui/icons';
+import { ELEMENTS } from './gallery/data';
+import { onSettingsChange, renderSettings } from './ui/settings';
+import { icon, type IconName } from './ui/icons';
 import { setScienceHandler } from './ui/science';
 import { markSvg } from './ui/mark';
+import { initModeBar, setModeDefault, showModeBar, type AtomMode } from './ui/modebar';
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
-export type Screen = 'gallery' | 'atom' | 'puzzles';
-export type AtomMode = 'view' | 'build';
+export type Screen = 'gallery' | 'atom' | 'puzzles' | 'settings';
+export type { AtomMode };
 
 export class AppShell {
   private screen: Screen = 'gallery';
@@ -30,25 +33,24 @@ export class AppShell {
     this.gallery = new GalleryApp({
       onBuild: (z) => { this.z = z; void this.go('atom', 'build'); },
       onLoupe: (z) => {
-        if (z !== null) this.z = z;
+        if (z !== null) this.setZ(z);
         if (this.screen === 'gallery' || this.screen === 'atom') this.setNav(z === null ? 'gallery' : 'atom', 'view');
       },
     });
-    // Header: the mark (home) on the left, the three sections as icons in the middle, the
-    // microscope and Settings on the right.
+    // Header: the mark (home) on the left, then the four sections, each an icon over its name.
     $('nav-logo').innerHTML = `${markSvg()}<span class="nav-word">Atomos</span>`;
     $('nav-logo').onclick = () => void this.go('gallery');
-    $('nav-gallery').innerHTML = icon('gallery');
-    $('nav-atom').innerHTML = icon('atom');
-    $('nav-puzzles').innerHTML = icon('puzzles');
-    $('nav-science').innerHTML = icon('microscope');
-    $('nav-gallery').onclick = () => void this.go('gallery');
-    $('nav-atom').onclick = () => void this.go('atom', this.mode);
-    $('nav-puzzles').onclick = () => void this.go('puzzles');
-    $('nav-settings').innerHTML = icon('settings');
-    $('nav-settings').onclick = () => openSettings();
-    $('mode-view').onclick = () => void this.go('atom', 'view');
-    $('mode-build').onclick = () => void this.go('atom', 'build');
+    const sections: [string, IconName, () => void][] = [
+      ['nav-gallery', 'gallery', () => void this.go('gallery')],
+      ['nav-atom', 'atom', () => void this.go('atom', this.mode)],
+      ['nav-puzzles', 'puzzles', () => void this.go('puzzles')],
+      ['nav-settings', 'settings', () => void this.go('settings')],
+    ];
+    for (const [id, ico, go] of sections) {
+      $(id).querySelector('.nav-ico')!.innerHTML = icon(ico);
+      $(id).onclick = go;
+    }
+    initModeBar((mode) => void this.go('atom', mode));
     onSettingsChange(() => {
       this.gallery.syncSettings();
       this.game?.reloadSettings();
@@ -68,7 +70,7 @@ export class AppShell {
     if (screen === 'atom' && mode === 'build' && !this.game) {
       const { Game } = await import('./game');
       const want = this.z;
-      this.game = new Game({ onElement: (z) => { this.z = z; }, onView: (z) => { this.z = z; void this.go('atom', 'view'); } });
+      this.game = new Game({ onElement: (z) => this.setZ(z), onView: (z) => { this.setZ(z); void this.go('atom', 'view'); } });
       this.z = want;
     }
     this.screen = screen;
@@ -80,9 +82,12 @@ export class AppShell {
     const showGallery = screen === 'gallery' || (screen === 'atom' && mode === 'view');
     const showGame = screen === 'atom' && mode === 'build';
     const showPlay = screen === 'puzzles';
+    const showSettings = screen === 'settings';
     if (!showGallery) this.gallery.hide();
     if (!showGame) { this.game?.pause(); $('app').hidden = true; }
     if (!showPlay) this.playground?.hide();
+    $('settings-screen').hidden = !showSettings;
+    if (screen === 'atom') setModeDefault(this.detail(), true);
 
     if (showGallery) {
       this.gallery.show();
@@ -95,7 +100,21 @@ export class AppShell {
       this.game!.resume();
     } else if (showPlay) {
       this.playground!.show();
+    } else if (showSettings) {
+      renderSettings($('settings-page'));
+      $('settings-screen').scrollTop = 0;
     }
+  }
+
+  private setZ(z: number): void {
+    this.z = z;
+    if (this.screen === 'atom') setModeDefault(this.detail());
+  }
+
+  /** The mode row's default details: which atom this is. */
+  private detail(): string {
+    const e = ELEMENTS[this.z - 1];
+    return e ? `<span class="mode-z">${e.z}</span><span class="mode-name">${e.name}</span>` : '';
   }
 
   private setNav(screen: Screen, mode: AtomMode): void {
@@ -103,9 +122,8 @@ export class AppShell {
     on('nav-gallery', screen === 'gallery');
     on('nav-atom', screen === 'atom');
     on('nav-puzzles', screen === 'puzzles');
-    $('nav-mode').hidden = screen !== 'atom';
-    $('mode-view').setAttribute('aria-pressed', String(mode === 'view'));
-    $('mode-build').setAttribute('aria-pressed', String(mode === 'build'));
+    on('nav-settings', screen === 'settings');
+    showModeBar(screen === 'atom', mode);
     document.body.dataset.screen = screen === 'atom' ? `atom-${mode}` : screen;
   }
 }

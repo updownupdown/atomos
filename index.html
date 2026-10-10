@@ -19,19 +19,20 @@
     <header class="nav" id="nav" aria-label="Main">
       <button class="nav-logo" id="nav-logo" aria-label="Atomos: back to the gallery" title="Atomos"></button>
       <nav class="nav-tabs" aria-label="Sections">
-        <button id="nav-gallery" aria-current="page" aria-label="Gallery" title="Gallery"></button>
-        <button id="nav-atom" aria-current="false" aria-label="Atom" title="Atom"></button>
-        <button id="nav-puzzles" aria-current="false" aria-label="Puzzles" title="Puzzles"></button>
+        <button id="nav-gallery" aria-current="page"><span class="nav-ico"></span><span class="nav-lab">Gallery</span></button>
+        <button id="nav-atom" aria-current="false"><span class="nav-ico"></span><span class="nav-lab">Atom</span></button>
+        <button id="nav-puzzles" aria-current="false"><span class="nav-ico"></span><span class="nav-lab">Puzzles</span></button>
+        <button id="nav-settings" aria-current="false"><span class="nav-ico"></span><span class="nav-lab">Settings</span></button>
       </nav>
-      <div class="nav-end">
-        <div class="nav-mode" id="nav-mode" role="group" aria-label="Atom mode" hidden>
-          <button id="mode-view" aria-pressed="true">View</button>
-          <button id="mode-build" aria-pressed="false">Build</button>
-        </div>
-        <button class="nav-icon" id="nav-science" aria-label="More about what is on screen" aria-expanded="false" disabled></button>
-        <button class="nav-icon" id="nav-settings" aria-label="Settings" title="Settings"></button>
-      </div>
+      <div class="nav-end" aria-hidden="true"></div>
     </header>
+
+    <!-- Atom screens: pick View or Build for this atom; the right side holds quick details for
+         the mode, and the microscope. See src/ui/modebar.ts. -->
+    <div class="mode-row" id="mode-row" hidden>
+      <div class="mode-seg" id="mode-seg"></div>
+      <div class="mode-detail" id="mode-detail"></div>
+    </div>
 
     <div id="gallery-screen">
       <canvas id="gal" aria-label="Every element as an atom. Drag to move, pinch to zoom, tap one to look closer."></canvas>
@@ -49,6 +50,8 @@
       </footer>
 
       <section id="loupe-screen" class="loupe-screen" hidden aria-label="One atom, up close">
+        <div class="atom-tabs" id="atom-tabs"></div>
+        <div class="atom-panel" id="atom-panel" role="tabpanel" hidden></div>
         <canvas id="loupe" aria-label="The selected atom. Drag to turn it; the arrows below step to the neighboring elements."></canvas>
         <div class="dec dec-tl" id="dec-top-left" aria-label="Electron configuration, shells, layers, electrons and size"></div>
         <div class="dec dec-tr" id="dec-top-right" aria-label="Isotopes"></div>
@@ -91,7 +94,7 @@
     <section id="puzzles-screen" hidden aria-label="Puzzles">
       <div class="pg-home" id="pg-home">
         <div class="pg-home-in">
-          <h1 class="pg-home-title">Puzzles</h1>
+          <div class="pg-home-head" id="pg-home-head"><h1 class="pg-home-title">Puzzles</h1></div>
           <p class="pg-home-lede">Atoms are unlocked by puzzles. Here is every puzzle type, what it is for in the game, and whether the game uses it yet. Tap one to play it on any element.</p>
           <div id="pg-list"></div>
         </div>
@@ -113,19 +116,14 @@
       </div>
     </section>
 
+    <section id="settings-screen" class="settings-screen" hidden aria-label="Settings">
+      <div class="sheet settings-page" id="settings-page"></div>
+    </section>
+
     <div class="modal ui-modal" id="modal" hidden>
       <div class="sheet ui-modal-card" id="modal-sheet" role="dialog" aria-modal="true"></div>
     </div>
     <div class="toasts" id="toasts" aria-live="polite"></div>
     <script type="module" src="/src/main.ts"></script>
-    <div class="ui-modal atom-modal" id="sheet" hidden role="dialog" aria-modal="true" aria-labelledby="sheet-title">
-      <div class="ui-modal-card atom-card" id="sheet-card">
-        <div class="ui-modal-head atom-head">
-          <h2 id="sheet-title"></h2>
-        </div>
-        <div id="sheet-tabs"></div>
-        <div class="sheet-body" id="sheet-body"></div>
-      </div>
-    </div>
   </body>
 </html>

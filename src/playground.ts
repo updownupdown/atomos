@@ -13,7 +13,7 @@ import { showWin } from './puzzles/winPanel';
 import type { Area } from './puzzles/view';
 import { createHoldButton, createSlider, iconButton, type Slider } from './ui/components';
 import { icon } from './ui/icons';
-import { setScienceHandler } from './ui/science';
+import { scienceButton, setScienceHandler } from './ui/science';
 import { modalOpen, openModal } from './ui/modal';
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -64,7 +64,9 @@ export class Playground {
       this.undoBtn,
       this.restartBtn,
       iconButton({ icon: icon('info'), label: 'Instructions', onClick: () => this.instructions() }),
+      scienceButton('ui-icon-btn science-btn'),
     );
+    $('pg-home-head').append(scienceButton());
 
     window.addEventListener('keydown', (e) => this.key(e));
   }
@@ -267,7 +269,7 @@ export class Playground {
   }
 
   private aboutPuzzles(): void {
-    openModal(`<div class="how"><h2>Puzzles and atoms</h2>
+    openModal(`<h2>Puzzles and atoms</h2><div class="how">
       <p>Every atom in the collection is won by solving puzzles. Building an atom takes two: one gathers its nucleus, the next places its electrons. That is <b>Build</b> mode, and it uses Merge (helium to iron), Sliding Block (cobalt on) and Orbital Grid (every element).</p>
       <p><b>Facets</b> will unlock deeper layers of an atom you own, such as its isotopes or the shapes of its orbitals. <b>Gates</b> will open new parts of the game. <b>Reserve</b> puzzles are built to try out, without a place yet.</p>
       <p class="meta">Each puzzle is a game first. Where a mechanic bends the science for fun, its labels stay true, and the microscope above each puzzle says what is real and what is only a game rule.</p></div>`);

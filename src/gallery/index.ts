@@ -1,14 +1,16 @@
 // The gallery screen: the vitrine of all 118 atoms and the loupe over one of
-// them, wired to the page. The top layer is visual, with a few white captions
-// round the atom; every number lives in the modal behind the microscope.
+// them, wired to the page. The atom screen's View has tabs: the 3D model, with
+// a few white captions round the atom, then the element's science as pages.
+// The header microscope explains whichever tab is open.
 
 import { STYLES, type Style } from './atom';
 import { CLOUD_RINGS, ELEMENTS, MAX_Z, elementAt, type Element } from './data';
 import { Detail } from './detail';
 import { Gallery } from './gallery';
-import { decoratorsHTML, TABS, tabHTML, type Tab } from './info';
+import { decoratorsHTML, tabHTML, VIEW_TABS, type ViewTab } from './info';
+import { guideHTML } from './guide';
 import { icon, type IconName } from '../ui/icons';
-import { closeButton, createTabs, type Tabs } from '../ui/components';
+import { createTabs, type Tabs } from '../ui/components';
 import { openElementPicker } from '../ui/picker';
 import { isLayoutId, LAYOUT_STORY, LAYOUTS, type LayoutId } from './layouts';
 import { setScienceHandler, setScienceOpen } from '../ui/science';
@@ -29,8 +31,7 @@ export class GalleryApp {
   private gallery: Gallery;
   private detail: Detail;
   private current: Element | null = null;
-  private tab: Tab = 'overview';
-  private sheetOpen = false;
+  private tab: ViewTab = 'model';
   private layoutId: LayoutId = (() => {
     const saved = localStorage.getItem('atomos.gallery.layout');
     return isLayoutId(saved) ? saved : 'spiral';
@@ -55,7 +56,6 @@ export class GalleryApp {
     this.detail.setRings(this.rings);
     this.gallery.onPick = (e) => this.open(e);
     this.gallery.onHover = (e) => this.hover(e);
-    this.detail.onTap = () => this.toggleSheet(false);
     window.addEventListener('keydown', (ev) => this.key(ev));
     this.gallery.start();
     this.registerScience();
@@ -100,13 +100,10 @@ export class GalleryApp {
     $('dec-top-right').addEventListener('click', (ev) => {
       if ((ev.target as HTMLElement).closest('.iso-toggle')) this.setIsoOpen(!this.isoOpen);
     });
-    // The science modal: floating card, tabs, an X; tapping the dimmed page behind closes it.
-    const card = $('sheet-card');
-    card.prepend(closeButton(() => this.toggleSheet(false)));
-    $('sheet').addEventListener('click', (ev) => { if (ev.target === $('sheet')) this.toggleSheet(false); });
-    this.tabs = createTabs(TABS.map((t) => ({ id: t.id, label: t.label })), { active: this.tab, label: 'About this element', onChange: (id) => this.setTab(id as Tab) });
-    $('sheet-tabs').replaceWith(this.tabs.el);
-    this.tabs.el.id = 'sheet-tabs';
+    // View's tabs: the model, then the element's science as pages.
+    this.tabs = createTabs(VIEW_TABS, { active: this.tab, label: 'About this element', onChange: (id) => this.setTab(id as ViewTab) });
+    this.tabs.el.setAttribute('aria-controls', 'atom-panel');
+    $('atom-tabs').append(this.tabs.el);
     this.bindTabSwipe();
   }
 
@@ -115,9 +112,9 @@ export class GalleryApp {
     openElementPicker((z) => this.open(elementAt(z)), { current: this.current?.z, locked: (z) => !this.collected(z) });
   }
 
-  /** Swipe sideways in the science sheet to move between tabs; tables that scroll sideways keep the gesture. */
+  /** Swipe sideways on a page to move between tabs; tables that scroll sideways keep the gesture. The model turns instead. */
   private bindTabSwipe(): void {
-    const body = $('sheet-body');
+    const body = $('atom-panel');
     let start: { x: number; y: number; t: number } | null = null;
     body.addEventListener('pointerdown', (ev) => {
       start = null;
@@ -131,8 +128,8 @@ export class GalleryApp {
       const dx = ev.clientX - start.x, dy = ev.clientY - start.y, dt = performance.now() - start.t;
       start = null;
       if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.6 || dt > 700) return;
-      const i = TABS.findIndex((t) => t.id === this.tab);
-      const next = TABS[i + (dx < 0 ? 1 : -1)];
+      const i = VIEW_TABS.findIndex((t) => t.id === this.tab);
+      const next = VIEW_TABS[i + (dx < 0 ? 1 : -1)];
       if (!next) return;
       this.tabs.select(next.id);
       this.setTab(next.id);
@@ -205,23 +202,28 @@ export class GalleryApp {
     $<HTMLButtonElement>('loupe-next').disabled = e.z === MAX_Z;
     $('loupe-prev').title = e.z > 1 ? elementAt(e.z - 1).name : '';
     $('loupe-next').title = e.z < MAX_Z ? elementAt(e.z + 1).name : '';
-    if (this.sheetOpen) this.renderSheet();
+    this.renderPanel();
     const screen = $('loupe-screen');
     if (screen.hidden) {
       screen.hidden = false;
       this.gallery.stop();
-      this.detail.start();
-      requestAnimationFrame(() => screen.classList.add('in'));
+      if (this.tab === 'model') this.detail.start();
+      requestAnimationFrame(() => { screen.classList.add('in'); this.tabs.select(this.tab); });
     }
     this.registerScience();
     this.handlers.onLoupe?.(e.z);
   }
 
-  /** The header microscope: the element's science in the atom view, the arrangement's story on the map. */
+  /** The header microscope: how to read the open tab in the atom view, the arrangement's story on the map. */
   private registerScience(): void {
     if ($('gallery-screen').hidden) return;
-    if (!$('loupe-screen').hidden && this.current) setScienceHandler(() => this.toggleSheet(), `The science of ${this.current.name}`);
+    if (!$('loupe-screen').hidden && this.current) setScienceHandler(() => this.openGuide(), 'How to read this');
     else setScienceHandler(() => this.openLayoutStory(), 'Why the atoms are arranged this way');
+  }
+
+  private openGuide(): void {
+    setScienceOpen(true);
+    openModal(guideHTML(this.tab), () => setScienceOpen(false));
   }
 
   private openLayoutStory(): void {
@@ -244,7 +246,6 @@ export class GalleryApp {
   private close(): void {
     const screen = $('loupe-screen');
     screen.classList.remove('in');
-    this.toggleSheet(false);
     this.detail.stop();
     if (this.current) this.gallery.focus(this.current.z);
     this.gallery.start();
@@ -259,38 +260,35 @@ export class GalleryApp {
     this.open(elementAt(z));
   }
 
-  private toggleSheet(open = !this.sheetOpen): void {
-    this.sheetOpen = open;
-    const sheet = $('sheet');
-    sheet.hidden = !open;
-    setScienceOpen(open);
-    if (open) {
-      this.renderSheet();
-      this.tabs.select(this.tab);
-    }
-  }
-
-  private setTab(tab: Tab): void {
+  private setTab(tab: ViewTab): void {
     this.tab = tab;
-    this.renderSheet();
-    $('sheet-body').scrollTop = 0;
-    this.tabs.el.querySelector<HTMLElement>('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+    const model = tab === 'model';
+    $('loupe-screen').classList.toggle('on-page', !model);
+    $('atom-panel').hidden = model;
+    if (!$('loupe-screen').hidden && !$('gallery-screen').hidden) {
+      if (model) this.detail.start(); else this.detail.stop();
+    }
+    this.renderPanel();
+    $('atom-panel').scrollTop = 0;
   }
 
-  private renderSheet(): void {
-    if (!this.current) return;
-    const e = this.current;
-    $('sheet-title').innerHTML = `<b>${e.symbol}</b> ${e.name} <span class="dim">${e.z}</span>`;
-    $('sheet-body').innerHTML = tabHTML(e, this.tab, this.collected(e.z));
-    $('sheet-body').scrollTop = 0;
+  /** The open page, for the current element; the model needs no page. */
+  private renderPanel(): void {
+    if (!this.current || this.tab === 'model') return;
+    const panel = $('atom-panel');
+    panel.innerHTML = `<div class="atom-page">${tabHTML(this.current, this.tab, this.collected(this.current.z))}</div>`;
+    panel.scrollTop = 0;
+    panel.setAttribute('aria-label', VIEW_TABS.find((t) => t.id === this.tab)!.label);
   }
 
   private key(ev: KeyboardEvent): void {
     if ($('gallery-screen').hidden || $('loupe-screen').hidden) return;
-    if (this.sheetOpen && ev.key !== 'Escape') return;
+    if (!$('modal').hidden || document.querySelector('.ui-drawer')) return;
+    // Arrow keys on the tab strip move between tabs; elsewhere they step through the elements.
+    if ((ev.target as HTMLElement).closest?.('.ui-tabs')) return;
     if (ev.key === 'ArrowRight') this.step(1);
     else if (ev.key === 'ArrowLeft') this.step(-1);
-    else if (ev.key === 'Escape') { if (this.sheetOpen) this.toggleSheet(false); else this.close(); }
+    else if (ev.key === 'Escape') this.close();
   }
 
   /** Show the gallery screen (after the game hands back). */
@@ -298,12 +296,11 @@ export class GalleryApp {
     $('gallery-screen').hidden = false;
     this.refreshCollected();
     this.registerScience();
-    if ($('loupe-screen').hidden) this.gallery.start(); else this.detail.start();
+    if ($('loupe-screen').hidden) this.gallery.start(); else if (this.tab === 'model') this.detail.start();
   }
 
   hide(): void {
     $('gallery-screen').hidden = true;
-    this.toggleSheet(false);
     this.gallery.stop();
     this.detail.stop();
   }

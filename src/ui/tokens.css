@@ -46,6 +46,8 @@
   --c-accent: #6fd0e6;
   --c-accent-ink: #06232a;
   --c-target: #e0503a;
+  /* The bar under the active tab: a deeper blue beside the cyan label. */
+  --c-tab-line: #3a8fe0;
   --c-good: #8fd19e;
   --c-warn: #e8b45c;
   --c-bad: #ef6a55;

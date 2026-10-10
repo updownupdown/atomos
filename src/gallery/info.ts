@@ -1,5 +1,5 @@
 // The data layer under each atom: everything the dataset knows about an
-// element, as HTML for the sheet. The top layer stays visual; this is the text
+// element, as HTML for the View tabs. The top layer stays visual; this is the text
 // and tables the player opens on purpose.
 
 import { BLOCK_COLOUR, formatHalfLife, keyIsotope, shortConfiguration, sup, type Element } from './data';
@@ -16,6 +16,10 @@ export const TABS: { id: Tab; label: string }[] = [
   { id: 'properties', label: 'Properties' },
   { id: 'story', label: 'Story' },
 ];
+
+/** The atom screen's View tabs: the 3D model first, then the text tabs. */
+export type ViewTab = 'model' | Tab;
+export const VIEW_TABS: { id: ViewTab; label: string }[] = [{ id: 'model', label: 'Model' }, ...TABS];
 
 const esc = (s: string | null | undefined) => (s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 const num = (v: number | null, unit = '', digits = 3) => (v == null ? '<span class="na">not known</span>' : `${Number(v.toPrecision(digits))}${unit}`);
@@ -128,7 +132,7 @@ function structure(e: Element): string {
     ${row('Covalent radius', num(e.covalent, ' pm'))}
     ${row('Nucleus', `${key ? `${e.z} protons, ${key.a - e.z} neutrons (${e.symbol}-${key.a})` : `${e.z} protons`}, radius about ${e.nucleusRadius.toFixed(1)} fm`)}
     ${row('Cloud to nucleus', `about ${Math.round((e.vdw * 1e3) / e.nucleusRadius / 1000)},000 to 1`)}
-    <p class="note">The atom view scales its outer layer to the van der Waals radius; spacing between layers follows hydrogen-like orbitals with Slater's effective charges. Lobes are sharpened a little for legibility.</p>`;
+    <p class="note">The Model tab scales its outer layer to the van der Waals radius; spacing between layers follows hydrogen-like orbitals with Slater's effective charges. Lobes are sharpened a little for legibility.</p>`;
 }
 
 function isotopes(e: Element): string {

@@ -6,6 +6,8 @@ import {
   isotopeKey, isotopesOf, sampleLifetime, type Isotope,
 } from './core/isotopes';
 import { frontier, loadSave, writeSave, type SaveData, type StepId } from './core/save';
+import { stepState, stepsOf, type StepState } from './core/progress';
+import { setModeDetail } from './ui/modebar';
 import { buildTracks, drawWitness, slowFactor } from './ui/witness';
 import { MERGE_UP_TO, mergeLevel, orbitalGridLevel, slidingLevel } from './puzzles/levels';
 import { MergeView } from './puzzles/mergeView';
@@ -90,6 +92,7 @@ export class Game {
   resume(): void {
     this.paused = false;
     this.registerScience();
+    this.setDetail();
     window.dispatchEvent(new Event('resize'));
     this.resizeOverlay();
     this.ensureLoop();
@@ -147,6 +150,7 @@ export class Game {
       this.renderHead();
     }
     this.registerScience();
+    this.setDetail();
     this.refresh();
     this.ensureLoop();
   }
@@ -171,13 +175,8 @@ export class Game {
     else setScienceHandler(() => this.showWhy(), 'The science behind this puzzle');
   }
 
-  /** Where a Build step stands. Hydrogen's nucleus is a lone proton, so it is done from the start. */
-  private stepState(z: number, id: StepId): { done: boolean; flawless: boolean; best?: number } {
-    if (id === 'nucleus' && z === 1) return { done: true, flawless: true };
-    const r = this.save.steps[z]?.[id];
-    if (r) return { done: true, ...r };
-    const b = this.save.built[z];
-    return b ? { done: true, flawless: b.flawless } : { done: false, flawless: false };
+  private stepState(z: number, id: StepId): StepState {
+    return stepState(this.save, z, id);
   }
 
   private recordStep(id: StepId, p: PuzzleView): void {
@@ -185,6 +184,7 @@ export class Game {
     const prev = steps[id];
     steps[id] = { flawless: (prev?.flawless ?? false) || p.clean, best: Math.min(prev?.best ?? Infinity, p.moves) };
     writeSave(this.save);
+    this.setDetail();
   }
 
   private colourFor(z: number): string {
@@ -242,10 +242,7 @@ export class Game {
     const colour = this.colourFor(z);
     const steps: StepId[] = ['nucleus', 'shells'];
     const state = steps.map((id) => this.stepState(z, id));
-    // Hydrogen's nucleus needs no puzzle, so it has one step to count.
-    const counted = z === 1 ? state.slice(1) : state;
-    const doneCount = counted.filter((s) => s.done).length;
-    const status = built ? (built.flawless ? 'Built, flawless' : 'Built') : doneCount ? `${doneCount} of ${counted.length} steps done` : 'Not built yet';
+    const status = this.statusText();
 
     const cards = steps.map((id, i) => {
       const st = state[i];
@@ -317,6 +314,22 @@ export class Game {
     root.querySelectorAll<HTMLButtonElement>('[data-c]').forEach((b) => (b.onclick = () => this.paint(b.dataset.c!)));
     root.querySelector<HTMLButtonElement>('#bh-iso')?.addEventListener('click', () => this.showBench(z));
     root.querySelector<HTMLButtonElement>('#bh-next')?.addEventListener('click', () => this.start(z + 1));
+  }
+
+  /** One line on how far this atom's Build has got, for the page and the mode row. */
+  private statusText(z = this.z): string {
+    const built = this.save.built[z];
+    if (built) return built.flawless ? 'Built, flawless' : 'Built';
+    const steps = stepsOf(z);
+    const done = steps.filter((id) => this.stepState(z, id).done).length;
+    return done ? `${done} of ${steps.length} steps done` : 'Not built yet';
+  }
+
+  /** The mode row's details while Build shows: the atom and how far its Build has got. */
+  private setDetail(): void {
+    if (this.paused) return;
+    const el = element(this.z);
+    setModeDetail(`<span class="mode-z">${el.z}</span><span class="mode-name">${el.name}</span><span class="mode-progress">${this.statusText()}</span>`);
   }
 
   /** Puzzles on the progression map for this atom that the game does not have yet. */
@@ -479,6 +492,7 @@ export class Game {
     const key = isotopeKey(this.z, el.commonA);
     this.save.isotopes[key] = { ...this.save.isotopes[key], collected: true };
     writeSave(this.save);
+    this.setDetail();
     this.scene.celebrate();
     sfx.completeSound();
     this.say('');
