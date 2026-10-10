@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { cellSides, check, clearPath, edgeKey, extend, INTRO, newLines, normalise, pathEdges, regions, retract, rulesFor, satisfies, sizeFor, solved, tiles, verdict, type LinesState, type Mark, type Pt } from '../src/puzzles/lines';
+import { cellSides, check, clearPath, edgeKey, extend, INTRO, newLines, normalize, pathEdges, regions, retract, rulesFor, satisfies, sizeFor, solved, tiles, verdict, type LinesState, type Mark, type Pt } from '../src/puzzles/lines';
 import { seeded } from '../src/puzzles/rng';
+import { INSTRUCTIONS, LinesView, RULES } from '../src/puzzles/linesView';
+import { C } from '../src/puzzles/palette';
+import type { RuleCard } from '../src/puzzles/view';
 
 const SPREAD = [1, 6, 12, 18, 26, 36, 44, 50, 60, 64, 80, 92, 118];
 
@@ -40,23 +43,23 @@ describe('edges and regions', () => {
   });
 
   it('fits shapes into a pocket only the right way up', () => {
-    const L = normalise(P(0, 0, 0, 1, 1, 1)); // an L of three
+    const L = normalize(P(0, 0, 0, 1, 1, 1)); // an L of three
     expect(tiles(3, 3, [0, 3, 4], [L])).toBe(true);
     expect(tiles(3, 3, [0, 1, 3], [L])).toBe(false); // same cells rotated
-    const bar = normalise(P(0, 0, 1, 0));
+    const bar = normalize(P(0, 0, 1, 0));
     expect(tiles(3, 3, [0, 1, 3, 4], [bar, bar])).toBe(true);
     expect(tiles(3, 3, [0, 1, 3, 4], [bar])).toBe(false); // too few cells
-    const col = normalise(P(0, 0, 0, 1));
-    expect(tiles(3, 3, [0, 1, 2, 3, 4, 5], [L, normalise(P(0, 0, 1, 0, 1, 1))])).toBe(true);
-    expect(tiles(3, 3, [0, 1, 2], [col, normalise(P(0, 0))])).toBe(false);
+    const col = normalize(P(0, 0, 0, 1));
+    expect(tiles(3, 3, [0, 1, 2, 3, 4, 5], [L, normalize(P(0, 0, 1, 0, 1, 1))])).toBe(true);
+    expect(tiles(3, 3, [0, 1, 2], [col, normalize(P(0, 0))])).toBe(false);
   });
 });
 
 describe('rules', () => {
-  it('colours: two colours in one pocket fail', () => {
-    const ok = board({ 0: { type: 'colour', c: 's' }, 4: { type: 'colour', c: 'p' } });
+  it('colors: two colors in one pocket fail', () => {
+    const ok = board({ 0: { type: 'color', c: 's' }, 4: { type: 'color', c: 'p' } });
     expect(verdict(ok, HOOK).ok).toBe(true);
-    const bad = board({ 0: { type: 'colour', c: 's' }, 3: { type: 'colour', c: 'p' } });
+    const bad = board({ 0: { type: 'color', c: 's' }, 3: { type: 'color', c: 'p' } });
     expect(verdict(bad, HOOK).failed).toEqual([0, 3]);
   });
 
@@ -85,28 +88,28 @@ describe('rules', () => {
     expect(verdict(bad, HOOK).failed).toEqual([3, 8]);
   });
 
-  it('pairs: exactly two of the ring colour in its pocket, tiles included', () => {
+  it('pairs: exactly two of the ring color in its pocket, tiles included', () => {
     const two = board({ 1: { type: 'pair', c: 'd' }, 8: { type: 'pair', c: 'd' } });
     expect(verdict(two, HOOK).ok).toBe(true);
-    const withTile = board({ 1: { type: 'pair', c: 'd' }, 8: { type: 'colour', c: 'd' } });
+    const withTile = board({ 1: { type: 'pair', c: 'd' }, 8: { type: 'color', c: 'd' } });
     expect(verdict(withTile, HOOK).ok).toBe(true);
     const lonely = board({ 1: { type: 'pair', c: 'd' }, 0: { type: 'pair', c: 'd' } });
     expect(verdict(lonely, HOOK).failed).toEqual([0, 1]);
-    const three = board({ 1: { type: 'pair', c: 'd' }, 2: { type: 'pair', c: 'd' }, 5: { type: 'colour', c: 'd' } });
+    const three = board({ 1: { type: 'pair', c: 'd' }, 2: { type: 'pair', c: 'd' }, 5: { type: 'color', c: 'd' } });
     expect(verdict(three, HOOK).failed).toEqual([1, 2]);
-    const otherColour = board({ 1: { type: 'pair', c: 'd' }, 2: { type: 'pair', c: 'd' }, 5: { type: 'colour', c: 's' } });
-    expect(verdict(otherColour, HOOK).ok).toBe(true);
+    const otherColor = board({ 1: { type: 'pair', c: 'd' }, 2: { type: 'pair', c: 'd' }, 5: { type: 'color', c: 's' } });
+    expect(verdict(otherColor, HOOK).ok).toBe(true);
   });
 
   it('shapes: the pocket must be exactly the shape', () => {
-    const col3 = normalise(P(0, 0, 0, 1, 0, 2));
+    const col3 = normalize(P(0, 0, 0, 1, 0, 2));
     expect(verdict(board({ 3: { type: 'shape', cells: col3 } }), HOOK).ok).toBe(true);
-    const row3 = normalise(P(0, 0, 1, 0, 2, 0));
+    const row3 = normalize(P(0, 0, 1, 0, 2, 0));
     expect(verdict(board({ 3: { type: 'shape', cells: row3 } }), HOOK).failed).toEqual([3]);
     // The big pocket (six cells) is not a three-shape.
     expect(verdict(board({ 4: { type: 'shape', cells: col3 } }), HOOK).failed).toEqual([4]);
     // But two shapes that tile it together pass.
-    const six = { 4: { type: 'shape', cells: normalise(P(0, 0, 1, 0, 1, 1)) }, 5: { type: 'shape', cells: normalise(P(0, 0, 0, 1, 1, 1)) } } as Record<number, Mark>;
+    const six = { 4: { type: 'shape', cells: normalize(P(0, 0, 1, 0, 1, 1)) }, 5: { type: 'shape', cells: normalize(P(0, 0, 0, 1, 1, 1)) } } as Record<number, Mark>;
     expect(verdict(board(six), HOOK).ok).toBe(true);
   });
 
@@ -144,7 +147,7 @@ describe('levels', () => {
       // Every rule it names is on the board.
       if (s.rules.includes('dots')) expect(s.dots.length).toBeGreaterThan(0);
       if (s.rules.includes('gaps')) expect(s.gaps.length).toBeGreaterThan(0);
-      for (const r of ['colour', 'count', 'pair', 'shape'] as const) {
+      for (const r of ['color', 'count', 'pair', 'shape'] as const) {
         const want = s.rules.includes(`${r}s` as never);
         expect(s.marks.some((m) => m?.type === r)).toBe(want);
       }
@@ -160,7 +163,7 @@ describe('levels', () => {
 
   it('introduces rules gradually', () => {
     const seen = (z: number) => { const out = new Set<string>(); for (let d = 0; d < 30; d++) newLines(z, d).rules.forEach((r) => out.add(r)); return out; };
-    expect([...seen(5)].sort()).toEqual(['colours', 'dots']);
+    expect([...seen(5)].sort()).toEqual(['colors', 'dots']);
     expect(seen(INTRO.counts)).toContain('counts');
     expect(seen(INTRO.counts).has('gaps')).toBe(false);
     expect(seen(INTRO.gaps)).toContain('gaps');
@@ -191,7 +194,7 @@ describe('levels', () => {
 });
 
 describe('drawing', () => {
-  it('starts only at a start node, extends to neighbours, retracts over the previous node', () => {
+  it('starts only at a start node, extends to neighbors, retracts over the previous node', () => {
     const s0 = board({});
     expect(extend(s0, { x: 3, y: 3 })).toBeNull();
     const s1 = extend(s0, s0.starts[0])!;
@@ -235,3 +238,74 @@ describe('drawing', () => {
     }
   });
 });
+
+describe('view and rule cards', () => {
+  it('draws boards inside the area, solved or not', () => {
+    for (const z of [1, 40, 118]) for (const a of AREAS_ALL) {
+      let s = newLines(z, 3);
+      for (const p of s.solution) s = extend(s, p) ?? s;
+      const v = new LinesView(s, false);
+      const { ctx, pts } = recCtx();
+      v.draw(ctx, a, 0);
+      expect(inside(pts, a)).toBe(true);
+      expect(v.hint().length).toBeLessThanOrEqual(40);
+    }
+  });
+
+  it('has a card with a demo for every mark, drawn inside its box', () => {
+    checkRules(RULES);
+    expect(INSTRUCTIONS).toMatch(/^\s*<h3>In the game<\/h3>\s*<p class="meta">/);
+    expect(INSTRUCTIONS).not.toMatch(/How to play/);
+    expect(RULES.map((r) => r.title)).toEqual(['Start', 'End', 'Pockets', 'Beads', 'Gaps', 'Orbitals', 'Bars', 'Pairs', 'Shapes', 'Two starts or ends']);
+  });
+});
+
+/** A canvas stand-in that records every coordinate drawn and every color set. */
+function recCtx(): { ctx: CanvasRenderingContext2D; pts: [number, number][]; colors: Set<unknown> } {
+  const pts: [number, number][] = [];
+  const colors = new Set<unknown>();
+  const rec = (x: number, y: number) => pts.push([x, y]);
+  const store: Record<string | symbol, unknown> = {};
+  const ctx = new Proxy(store, {
+    get(t, k) {
+      if (k in t) return t[k];
+      if (k === 'moveTo' || k === 'lineTo') return rec;
+      if (k === 'arc') return (x: number, y: number, r: number) => { rec(x - r, y - r); rec(x + r, y + r); };
+      if (k === 'ellipse') return (x: number, y: number, rx: number, ry: number) => { const r = Math.max(rx, ry); rec(x - r, y - r); rec(x + r, y + r); };
+      if (k === 'roundRect' || k === 'rect' || k === 'fillRect' || k === 'strokeRect') return (x: number, y: number, w: number, h: number) => { rec(x, y); rec(x + w, y + h); };
+      if (k === 'fillText') return (s: string, x: number, y: number) => { rec(x, y - 12); rec(x + s.length * 7, y); };
+      return () => {};
+    },
+    set(t, k, v) {
+      if (k === 'strokeStyle' || k === 'fillStyle') colors.add(v);
+      t[k] = v;
+      return true;
+    },
+  }) as unknown as CanvasRenderingContext2D;
+  return { ctx, pts, colors };
+}
+
+function inside(pts: [number, number][], a: { x: number; y: number; w: number; h: number }): boolean {
+  return pts.every(([x, y]) => x >= a.x - 0.5 && x <= a.x + a.w + 0.5 && y >= a.y - 0.5 && y <= a.y + a.h + 0.5);
+}
+
+const AREAS_ALL = [{ x: 0, y: 0, w: 340, h: 430 }, { x: 10, y: 8, w: 1200, h: 700 }, { x: 0, y: 0, w: 600, h: 300 }];
+
+function checkRules(rules: RuleCard[]): void {
+  expect(rules.length).toBeGreaterThan(3);
+  for (const r of rules) {
+    expect(r.title.length, r.title).toBeLessThanOrEqual(24);
+    expect(r.text, r.title).not.toMatch(/[<>]/);
+    expect(r.text.split(/[.!?](\s|$)/).filter((x) => x && x.trim()).length, r.title).toBeLessThanOrEqual(2);
+    expect(r.demo, r.title).toBeTypeOf('function');
+    for (const [w, h] of [[120, 96], [240, 192]]) for (let t = 0; t < 7; t += 0.13) {
+      const { ctx, pts } = recCtx();
+      r.demo!(ctx, w, h, t);
+      expect(inside(pts, { x: 0, y: 0, w, h }), `${r.title} at ${t.toFixed(2)}s`).toBe(true);
+    }
+    // The still frame shown under reduced motion is the passing case: nothing flagged red.
+    const { ctx, colors } = recCtx();
+    r.demo!(ctx, 120, 96, 2.5);
+    expect(colors.has(C.bad), r.title).toBe(false);
+  }
+}

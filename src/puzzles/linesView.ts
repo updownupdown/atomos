@@ -1,10 +1,14 @@
-// Drawing and touch for Field Lines: press a start bead and drag along the
-// channels between the tiles; let go on an end to check the line. Arrows draw
-// from the keyboard, Enter checks, Backspace steps back, Escape clears.
+// Drawing and touch for Field Lines: press a + charge and drag along the
+// channels between the tiles; let go on a − charge at the rim to check the
+// line. Arrows draw from the keyboard, Enter checks, Backspace steps back,
+// Escape clears.
+//
+// The board is painted by `paintLines`, which the rule cards' demos share, so
+// every symbol in the Instructions modal is drawn exactly as on the board.
 
-import { adjacent, check, clearPath, cloneLines, edgeKey, edgeOf, extend, isEnd, isStart, pathEdges, retract, same, solved, verdict, type LinesState, type Mark, type Pt } from './lines';
+import { adjacent, check, clearPath, cloneLines, edgeKey, edgeOf, extend, isEnd, isStart, pathEdges, regions, retract, same, solved, verdict, type Kind, type LinesState, type Mark, type Pt } from './lines';
 import { bead, C, fitGrid, tile } from './palette';
-import { ease, type Area, type Point, type PuzzleView } from './view';
+import { ease, type Area, type Point, type PuzzleView, type RuleCard } from './view';
 
 const FLASH_MS = 700;
 const GRAB = 0.45;
@@ -18,23 +22,328 @@ interface Failure {
 }
 
 export const INSTRUCTIONS = `
-<h3>How to play</h3>
-<p>Press a <b>start bead</b> and drag one unbroken line along the channels between the tiles. Let go on a red <b>end tail</b> at the rim and the line is checked against every mark on the board. The line can never touch itself.</p>
-<p>Your line cuts the board into <b>pockets</b>: groups of tiles it walls off from each other (the rim counts as a wall). Most marks are about pockets.</p>
-<ul>
-  <li><b>Beads on a channel</b>: the line must run over every one.</li>
-  <li><b>Broken channels</b>: the line cannot cross the break.</li>
-  <li><b>Coloured tiles</b>: no pocket may hold tiles of two colours. Wall the colours apart.</li>
-  <li><b>Droplets</b> (one to three): the line runs along exactly that many of that tile's four sides.</li>
-  <li><b>Coloured rings</b>: a ring's pocket holds exactly two marks of its colour, counting rings and coloured tiles alike. Two blue rings together are happy; a blue ring with a blue tile is happy; a blue ring alone, or with two other blue marks, is not.</li>
-  <li><b>Bead shapes</b>: the pocket holding a shape must be exactly that shape, the same way up, no rotating. Two shapes in one pocket must fit together to fill it exactly.</li>
-</ul>
-<p>Some boards have two starts or two ends; use whichever you like. Broken marks flash red after a check, and the line stays so you can fix it: drag back along it to retract, or press any point on it to carry on from there.</p>
-<p>Keyboard: arrows draw from a start (Tab picks between two starts), Backspace steps back, Escape clears, Enter checks once the line reaches an end.</p>
 <h3>In the game</h3>
-<p>A facet puzzle. Grids grow from 4×4 tiles (H to K, z 1–19) to 5×5 (Ca to Cs, 20–55) and 6×6 (from Ba, 56). Rules arrive in bands so each one gets introduced on its own terms: beads and colours from H; droplets from Mg (12); breaks from Cr (24); rings from Kr (36); shapes from Sn (50). From Gd (64) every level draws one of the heavier rules (droplets, rings, shapes) plus one or two partners, with three-rule levels growing more common toward the end of the table; from Hg (80) about half the boards get a second start or a second end. Mark counts rise gently with the element.</p>
-<p>Every level is read off a hidden random walk, so it always has an answer; any line that meets every mark wins, not only the hidden one. Par is one check: a line that wins the first time it is checked counts as clean. Each release on an end is one check (one move).</p>
+<p class="meta">A facet puzzle. Grids grow from 4×4 tiles (H to K, z 1–19) to 5×5 (Ca to Cs, 20–55) and 6×6 (from Ba, 56). Marks arrive in bands so each one is introduced on its own terms: beads and orbitals from H; bars from Mg (12); gaps from Cr (24); pairs from Kr (36); shapes from Sn (50). From Gd (64) every level draws one of the heavier marks (bars, pairs, shapes) plus one or two partners, with three-mark levels growing more common toward the end of the table; from Hg (80) about half the boards get a second + charge or a second − charge. Mark counts rise gently with the element.</p>
+<p class="meta">Every level is read off a hidden line, so it always has an answer; any line that meets every mark wins, not only the hidden one. Par is one check: a line that wins the first time it is checked counts as clean. Each release on a − charge is one check (one move).</p>
 `;
+
+// ---- the shared painter ----------------------------------------------------------------
+
+/** Where the board sits: node (0, 0) in pixels and the cell size. */
+interface Grid { x: number; y: number; c: number }
+
+/** Everything about one frame of the board apart from the level itself. */
+interface Paint {
+  path: Pt[];
+  /** The live end of the line while it is being drawn, in pixels. */
+  tip: Point | null;
+  /** Marks broken at the last check, how bright their flash is (0 to 1), and whether the line shows red. */
+  failed: ReadonlySet<number>;
+  missed: ReadonlySet<string>;
+  pulse: number;
+  red: boolean;
+  won: boolean;
+  /** How far the win glow has grown, 0 to 1. */
+  wonT: number;
+  /** A refused step at the pen tip, 1 fresh to 0 gone. */
+  bump: number;
+  /** The start picked by Tab, or -1. */
+  picked: number;
+  /** Soft glows on (off under reduced motion). */
+  glow: boolean;
+  /** A fill per tile, for the pockets demo; null for the board's own. */
+  tint?: (i: number) => string | null;
+}
+
+const px = (g: Grid, p: Pt): Point => ({ x: g.x + p.x * g.c, y: g.y + p.y * g.c });
+
+/** The way an end's terminal points out of the board. */
+function tailDir(s: LinesState, end: Pt): Pt {
+  if (end.x === 0) return { x: -1, y: 0 };
+  if (end.x === s.cols) return { x: 1, y: 0 };
+  if (end.y === 0) return { x: 0, y: -1 };
+  if (end.y === s.rows) return { x: 0, y: 1 };
+  return { x: 0, y: -1 };
+}
+
+/** The − terminal of an end: its center and radius. */
+function terminal(g: Grid, node: Point, td: Pt): { x: number; y: number; r: number } {
+  const r = Math.max(5, g.c * 0.12);
+  return { x: node.x + td.x * g.c * 0.3, y: node.y + td.y * g.c * 0.3, r };
+}
+
+function paintLines(ctx: CanvasRenderingContext2D, s: LinesState, g: Grid, o: Paint): void {
+  const { c } = g;
+  const path = o.path;
+  const covered = pathEdges(path);
+  const lw = Math.max(4, c * 0.12);
+  const last = path[path.length - 1];
+
+  ctx.save();
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  // Tiles, with channels between them where the line runs.
+  const inset = c * 0.1;
+  for (let i = 0; i < s.cols * s.rows; i++) {
+    const q = px(g, { x: i % s.cols, y: Math.floor(i / s.cols) });
+    tile(ctx, q.x + inset, q.y + inset, c - inset * 2, c - inset * 2, c * 0.18, o.tint?.(i) ?? C.surface, null);
+  }
+
+  // Channels, broken where there is a gap.
+  const gaps = new Set(s.gaps);
+  ctx.strokeStyle = C.line2;
+  ctx.lineWidth = Math.max(1.5, c * 0.045);
+  ctx.beginPath();
+  const channel = (a: Pt, b: Pt) => {
+    const p = px(g, a), q = px(g, b);
+    if (gaps.has(edgeKey(a, b))) {
+      const f = 0.3; // the middle 40% is missing
+      ctx.moveTo(p.x, p.y); ctx.lineTo(p.x + (q.x - p.x) * f, p.y + (q.y - p.y) * f);
+      ctx.moveTo(q.x, q.y); ctx.lineTo(q.x + (p.x - q.x) * f, q.y + (p.y - q.y) * f);
+    } else {
+      ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y);
+    }
+  };
+  for (let y = 0; y <= s.rows; y++) for (let x = 0; x <= s.cols; x++) {
+    if (x < s.cols) channel({ x, y }, { x: x + 1, y });
+    if (y < s.rows) channel({ x, y }, { x, y: y + 1 });
+  }
+  ctx.stroke();
+  // Gap ends get small caps so the break reads as deliberate.
+  ctx.fillStyle = C.line3;
+  for (const k of s.gaps) {
+    const [a, b] = edgeOf(k).map((p) => px(g, p));
+    for (const [p, q] of [[a, b], [b, a]]) {
+      ctx.beginPath();
+      ctx.arc(p.x + (q.x - p.x) * 0.3, p.y + (q.y - p.y) * 0.3, Math.max(2, c * 0.045), 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // Cell marks.
+  const markGlow = o.won && o.glow;
+  for (let i = 0; i < s.marks.length; i++) {
+    const m = s.marks[i];
+    if (!m) continue;
+    const q = px(g, { x: i % s.cols + 0.5, y: Math.floor(i / s.cols) + 0.5 });
+    if (o.failed.has(i)) {
+      ctx.save();
+      ctx.globalAlpha = o.pulse;
+      tile(ctx, q.x - c * 0.36, q.y - c * 0.36, c * 0.72, c * 0.72, c * 0.16, null, C.bad, Math.max(1.5, c * 0.035));
+      ctx.restore();
+    }
+    drawMark(ctx, m, q.x, q.y, c, markGlow);
+  }
+
+  // Edge beads.
+  for (const k of s.dots) {
+    const [a, b] = edgeOf(k).map((p) => px(g, p));
+    const on = covered.has(k);
+    const r = Math.max(4, c * 0.09);
+    const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+    if (o.missed.has(k)) bead(ctx, mx, my, r * 1.15, C.bad, { alpha: 0.5 + 0.5 * o.pulse, glow: o.glow ? C.bad : undefined });
+    else bead(ctx, mx, my, r, on ? C.silver : C.silverDim, { rim: on ? undefined : C.pewter, glow: on && o.glow ? C.silver : undefined });
+  }
+
+  // The line: a soft halo under a bright core, running into the − terminal once it arrives.
+  const reached = !!last && isEnd(s, last) && path.length > 1;
+  if (path.length) {
+    const pts = path.map((p) => px(g, p));
+    const trace = () => {
+      ctx.beginPath();
+      ctx.moveTo(pts[0].x, pts[0].y);
+      for (const q of pts.slice(1)) ctx.lineTo(q.x, q.y);
+      if (o.tip) ctx.lineTo(o.tip.x, o.tip.y);
+      if (reached && !o.tip) {
+        const td = tailDir(s, last);
+        const q = pts[pts.length - 1];
+        const t = terminal(g, q, td);
+        ctx.lineTo(t.x - td.x * t.r, t.y - td.y * t.r);
+      }
+    };
+    ctx.save();
+    ctx.strokeStyle = o.red ? C.bad : C.silver;
+    ctx.globalAlpha = o.red ? 0.22 : 0.12 + 0.18 * o.wonT;
+    ctx.lineWidth = c * (0.28 + 0.1 * o.wonT);
+    trace();
+    ctx.stroke();
+    ctx.restore();
+    ctx.save();
+    if (o.won && o.glow) { ctx.shadowColor = C.silver; ctx.shadowBlur = c * 0.25 * o.wonT; }
+    ctx.strokeStyle = o.red ? C.bad : C.silver;
+    ctx.globalAlpha = o.red ? 0.55 + 0.45 * o.pulse : 1;
+    ctx.lineWidth = lw;
+    trace();
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // − charges at the rim: where a line may finish, in the target red.
+  for (const end of s.ends) {
+    const node = px(g, end);
+    const arrived = reached && same(last, end) && !o.tip;
+    endCharge(ctx, g, node, tailDir(s, end), arrived, o.won && o.glow);
+  }
+
+  // + charges: where a line may begin, drawn over the line it sends out.
+  s.starts.forEach((st, k) => {
+    const q = px(g, st);
+    const begun = path.length > 0 && same(path[0], st);
+    startCharge(ctx, q.x, q.y, c, begun, k === o.picked, o.glow);
+  });
+
+  // A nudge at the pen tip when a step was refused.
+  if (o.bump > 0 && path.length) {
+    const q = o.tip ?? px(g, path[path.length - 1]);
+    ctx.strokeStyle = C.bad;
+    ctx.globalAlpha = 0.8 * o.bump;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(q.x, q.y, c * (0.2 + 0.1 * (1 - o.bump)), 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+  ctx.restore();
+}
+
+/** A + charge: a warm proton-colored bead with a plus, where a line begins. */
+function startCharge(ctx: CanvasRenderingContext2D, x: number, y: number, c: number, begun: boolean, picked: boolean, glow: boolean): void {
+  const r = Math.max(7, c * 0.16);
+  bead(ctx, x, y, r, C.proton, { rim: begun ? C.silver : undefined, glow: begun && glow ? C.proton : undefined });
+  ctx.save();
+  ctx.strokeStyle = C.tileInk;
+  ctx.lineWidth = Math.max(1.5, r * 0.22);
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(x - r * 0.5, y); ctx.lineTo(x + r * 0.5, y);
+  ctx.moveTo(x, y - r * 0.5); ctx.lineTo(x, y + r * 0.5);
+  ctx.stroke();
+  if (picked) {
+    // Keyboard pick between two starts.
+    ctx.strokeStyle = C.accent;
+    ctx.lineWidth = Math.max(1.5, c * 0.035);
+    ctx.beginPath();
+    ctx.arc(x, y, r + Math.max(3, c * 0.06), 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+/** A − charge just outside the rim: a red ring with a minus, tied to its node by a short stub. */
+function endCharge(ctx: CanvasRenderingContext2D, g: Grid, node: Point, td: Pt, arrived: boolean, glow: boolean): void {
+  const t = terminal(g, node, td);
+  ctx.save();
+  ctx.strokeStyle = C.target;
+  ctx.lineCap = 'round';
+  ctx.lineWidth = Math.max(1.5, g.c * 0.04);
+  ctx.globalAlpha = 0.7;
+  ctx.beginPath();
+  ctx.moveTo(node.x, node.y);
+  ctx.lineTo(t.x - td.x * t.r, t.y - td.y * t.r);
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = C.bg;
+  ctx.beginPath();
+  ctx.arc(t.x, t.y, t.r, 0, Math.PI * 2);
+  ctx.fill();
+  if (arrived) {
+    if (glow) { ctx.shadowColor = C.target; ctx.shadowBlur = t.r * 1.5; }
+    ctx.fillStyle = C.target;
+    ctx.globalAlpha = 0.45;
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.shadowBlur = 0;
+  }
+  ctx.lineWidth = Math.max(1.5, g.c * 0.045);
+  ctx.stroke();
+  ctx.strokeStyle = arrived ? C.silver : C.target;
+  ctx.lineWidth = Math.max(1.5, t.r * 0.28);
+  ctx.beginPath();
+  ctx.moveTo(t.x - t.r * 0.48, t.y);
+  ctx.lineTo(t.x + t.r * 0.48, t.y);
+  ctx.stroke();
+  ctx.restore();
+}
+
+/**
+ * An orbital's outline in miniature, in its sub-shell color: s round, p two
+ * lobes, d four, f six. Filled for an orbital mark, hollow for a pair.
+ */
+function orbital(ctx: CanvasRenderingContext2D, k: Kind, x: number, y: number, r: number, hollow: boolean, lw: number): void {
+  const col = C[k];
+  ctx.fillStyle = col;
+  ctx.strokeStyle = col;
+  ctx.lineWidth = lw;
+  const paint = () => { if (hollow) ctx.stroke(); else ctx.fill(); };
+  if (k === 's') {
+    ctx.beginPath();
+    ctx.arc(x, y, r * (hollow ? 0.6 : 0.62), 0, Math.PI * 2);
+    paint();
+    return;
+  }
+  const n = k === 'p' ? 2 : k === 'd' ? 4 : 6;
+  // p leans on a diagonal so its hollow outline never reads as an 8.
+  const a0 = k === 'f' ? -Math.PI / 2 : -Math.PI / 4;
+  const half = k === 'p' ? 0.36 : k === 'd' ? 0.28 : 0.2;
+  for (let i = 0; i < n; i++) {
+    const a = a0 + (i / n) * Math.PI * 2;
+    const len = r * (hollow ? 0.94 : 1);
+    ctx.beginPath();
+    ctx.ellipse(x + Math.cos(a) * len * 0.5, y + Math.sin(a) * len * 0.5, len * 0.5, r * half, a, 0, Math.PI * 2);
+    paint();
+  }
+}
+
+/** One cell symbol, centered on (x, y). */
+function drawMark(ctx: CanvasRenderingContext2D, m: Mark, x: number, y: number, c: number, glow: boolean): void {
+  ctx.save();
+  switch (m.type) {
+    case 'color':
+    case 'pair': {
+      if (glow) { ctx.shadowColor = C[m.c]; ctx.shadowBlur = c * 0.2; }
+      orbital(ctx, m.c, x, y, c * 0.24, m.type === 'pair', Math.max(1.5, c * 0.045));
+      break;
+    }
+    case 'count': {
+      // Bars: one to three upright strokes, a tally of the sides the line runs along.
+      const h = c * 0.28;
+      const gap = c * 0.11;
+      if (glow) { ctx.shadowColor = C.silver; ctx.shadowBlur = c * 0.15; }
+      ctx.strokeStyle = C.silver;
+      ctx.lineWidth = Math.max(2, c * 0.055);
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      for (let k = 0; k < m.n; k++) {
+        const bx = x + (k - (m.n - 1) / 2) * gap;
+        ctx.moveTo(bx, y - h / 2);
+        ctx.lineTo(bx, y + h / 2);
+      }
+      ctx.stroke();
+      break;
+    }
+    case 'shape': {
+      // Beads joined by bonds, the shape's own outline in miniature.
+      const w = Math.max(...m.cells.map((p) => p.x)) + 1, h = Math.max(...m.cells.map((p) => p.y)) + 1;
+      const pitch = Math.min(c * 0.2, (c * 0.62) / Math.max(w, h));
+      const ox = x - ((w - 1) * pitch) / 2, oy = y - ((h - 1) * pitch) / 2;
+      const has = new Set(m.cells.map((p) => `${p.x},${p.y}`));
+      ctx.strokeStyle = C.pewter;
+      ctx.lineWidth = Math.max(1.5, pitch * 0.22);
+      ctx.beginPath();
+      for (const p of m.cells) {
+        if (has.has(`${p.x + 1},${p.y}`)) { ctx.moveTo(ox + p.x * pitch, oy + p.y * pitch); ctx.lineTo(ox + (p.x + 1) * pitch, oy + p.y * pitch); }
+        if (has.has(`${p.x},${p.y + 1}`)) { ctx.moveTo(ox + p.x * pitch, oy + p.y * pitch); ctx.lineTo(ox + p.x * pitch, oy + (p.y + 1) * pitch); }
+      }
+      ctx.stroke();
+      for (const p of m.cells) bead(ctx, ox + p.x * pitch, oy + p.y * pitch, Math.max(2, pitch * 0.32), C.silverDim, { glow: glow ? C.silver : undefined });
+      break;
+    }
+  }
+  ctx.restore();
+}
+
+// ---- the view ------------------------------------------------------------------------
 
 export class LinesView implements PuzzleView {
   private state: LinesState;
@@ -45,7 +354,7 @@ export class LinesView implements PuzzleView {
   private wonAt = 0;
   private bumpAt = 0;
   private startPick = 0;
-  private grid = { x: 0, y: 0, c: 40 };
+  private grid: Grid = { x: 0, y: 0, c: 40 };
   private reduced: boolean;
 
   constructor(private readonly initial: LinesState, reducedMotion: boolean) {
@@ -109,15 +418,11 @@ export class LinesView implements PuzzleView {
   // ---- geometry ---------------------------------------------------------------------
 
   private layout(area: Area): void {
-    const s = this.state;
-    // Room for the end tails and start beads round the rim: about 0.45 of a cell each side.
-    const fit = fitGrid(area, s.cols + 0.9, s.rows + 0.9, { margin: 8, maxCell: 72 });
-    const c = fit.cell;
-    this.grid = { x: fit.x + 0.45 * c, y: fit.y + 0.45 * c, c };
+    this.grid = boardGrid(area, this.state, 8, 72);
   }
 
   private px(p: Pt): Point {
-    return { x: this.grid.x + p.x * this.grid.c, y: this.grid.y + p.y * this.grid.c };
+    return px(this.grid, p);
   }
 
   /** The node under a point, when close enough to grab. */
@@ -127,15 +432,6 @@ export class LinesView implements PuzzleView {
     if (n.x < 0 || n.y < 0 || n.x > this.state.cols || n.y > this.state.rows) return null;
     const q = this.px(n);
     return Math.hypot(p.x - q.x, p.y - q.y) <= c * GRAB ? n : null;
-  }
-
-  private tailDir(end: Pt): Pt {
-    const { cols, rows } = this.state;
-    if (end.x === 0) return { x: -1, y: 0 };
-    if (end.x === cols) return { x: 1, y: 0 };
-    if (end.y === 0) return { x: 0, y: -1 };
-    if (end.y === rows) return { x: 0, y: 1 };
-    return { x: 0, y: -1 };
   }
 
   // ---- input ----------------------------------------------------------------------
@@ -245,217 +541,23 @@ export class LinesView implements PuzzleView {
   draw(ctx: CanvasRenderingContext2D, area: Area, now: number): void {
     this.layout(area);
     const s = this.state;
-    const { c } = this.grid;
     const won = this.won;
-    const path = s.path;
-    const covered = pathEdges(path);
     const fail = this.liveFailure();
-    // Broken marks flash, then settle to a steady red until the line changes.
-    const pulse = fail ? (this.reduced ? 1 : 0.55 + 0.45 * Math.max(0, 1 - (now - fail.at) / FLASH_MS) * (0.5 + 0.5 * Math.cos(((now - fail.at) / 120) * Math.PI))) : 0;
-    const failed = new Set(fail?.failed ?? []);
-    const missed = new Set(fail?.missed ?? []);
-    const wonT = won ? (this.reduced ? 1 : ease((now - this.wonAt) / 500)) : 0;
-    const lw = Math.max(4, c * 0.12);
-
-    ctx.save();
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-
-    // Tiles, with channels between them where the line runs.
-    const inset = c * 0.1;
-    for (let i = 0; i < s.cols * s.rows; i++) {
-      const q = this.px({ x: i % s.cols, y: Math.floor(i / s.cols) });
-      tile(ctx, q.x + inset, q.y + inset, c - inset * 2, c - inset * 2, c * 0.18, C.surface, null);
-    }
-
-    // Channels, broken where there is a gap.
-    const gaps = new Set(s.gaps);
-    ctx.strokeStyle = C.line2;
-    ctx.lineWidth = Math.max(1.5, c * 0.045);
-    ctx.beginPath();
-    const channel = (a: Pt, b: Pt) => {
-      const p = this.px(a), q = this.px(b);
-      if (gaps.has(edgeKey(a, b))) {
-        const f = 0.3; // the middle 40% is missing
-        ctx.moveTo(p.x, p.y); ctx.lineTo(p.x + (q.x - p.x) * f, p.y + (q.y - p.y) * f);
-        ctx.moveTo(q.x, q.y); ctx.lineTo(q.x + (p.x - q.x) * f, q.y + (p.y - q.y) * f);
-      } else {
-        ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y);
-      }
-    };
-    for (let y = 0; y <= s.rows; y++) for (let x = 0; x <= s.cols; x++) {
-      if (x < s.cols) channel({ x, y }, { x: x + 1, y });
-      if (y < s.rows) channel({ x, y }, { x, y: y + 1 });
-    }
-    ctx.stroke();
-    // Gap ends get small caps so the break reads as deliberate.
-    ctx.fillStyle = C.line3;
-    for (const k of s.gaps) {
-      const [a, b] = edgeOf(k).map((p) => this.px(p));
-      for (const [p, q] of [[a, b], [b, a]]) {
-        ctx.beginPath();
-        ctx.arc(p.x + (q.x - p.x) * 0.3, p.y + (q.y - p.y) * 0.3, Math.max(2, c * 0.045), 0, Math.PI * 2);
-        ctx.fill();
-      }
-    }
-
-    // Cell marks.
-    for (let i = 0; i < s.marks.length; i++) {
-      const m = s.marks[i];
-      if (!m) continue;
-      const q = this.px({ x: i % s.cols + 0.5, y: Math.floor(i / s.cols) + 0.5 });
-      if (failed.has(i)) {
-        ctx.save();
-        ctx.globalAlpha = pulse;
-        tile(ctx, q.x - c * 0.36, q.y - c * 0.36, c * 0.72, c * 0.72, c * 0.16, null, C.bad, Math.max(1.5, c * 0.035));
-        ctx.restore();
-      }
-      this.mark(ctx, m, q.x, q.y, c, won);
-    }
-
-    // Edge beads.
-    for (const k of s.dots) {
-      const [a, b] = edgeOf(k).map((p) => this.px(p));
-      const on = covered.has(k);
-      const r = Math.max(4, c * 0.09);
-      const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
-      if (missed.has(k)) bead(ctx, mx, my, r * 1.15, C.bad, { alpha: 0.5 + 0.5 * pulse, glow: this.reduced ? undefined : C.bad });
-      else bead(ctx, mx, my, r, on ? C.silver : C.silverDim, { rim: on ? undefined : C.pewter, glow: on && !this.reduced ? C.silver : undefined });
-    }
-
-    // End tails: the goal, in the target red.
-    const last = path[path.length - 1];
-    for (const end of s.ends) {
-      const en = this.px(end);
-      const td = this.tailDir(end);
-      const reached = !!last && same(last, end);
-      ctx.strokeStyle = reached ? C.silver : C.target;
-      ctx.globalAlpha = reached || won ? 1 : 0.85;
-      ctx.lineWidth = lw;
-      ctx.beginPath();
-      ctx.moveTo(en.x, en.y);
-      ctx.lineTo(en.x + td.x * c * 0.32, en.y + td.y * c * 0.32);
-      ctx.stroke();
-      ctx.globalAlpha = 1;
-    }
-
-    // Start beads.
-    s.starts.forEach((st, k) => {
-      const q = this.px(st);
-      const begun = path.length > 0 && same(path[0], st);
-      const picked = !path.length && s.starts.length > 1 && k === this.startPick % s.starts.length;
-      bead(ctx, q.x, q.y, Math.max(8, c * 0.17), begun ? C.silver : C.silverDim, { rim: C.pewter, glow: begun && !this.reduced ? C.silver : undefined });
-      // A halo ring marks it as a start, apart from the smaller beads on the channels.
-      ctx.strokeStyle = picked ? C.accent : C.line3;
-      ctx.lineWidth = Math.max(1, c * 0.025);
-      ctx.beginPath();
-      ctx.arc(q.x, q.y, Math.max(8, c * 0.17) + Math.max(3, c * 0.06), 0, Math.PI * 2);
-      ctx.stroke();
+    const path = s.path;
+    const tip = this.drawing && this.pointer && path.length ? this.tipPoint(this.px(path[path.length - 1]), path[path.length - 1]) : null;
+    paintLines(ctx, s, this.grid, {
+      path,
+      tip,
+      failed: new Set(fail?.failed ?? []),
+      missed: new Set(fail?.missed ?? []),
+      pulse: fail ? (this.reduced ? 1 : flash(now - fail.at)) : 0,
+      red: !!fail,
+      won,
+      wonT: won ? (this.reduced ? 1 : ease((now - this.wonAt) / 500)) : 0,
+      bump: this.reduced ? 0 : Math.max(0, 1 - (now - this.bumpAt) / 300),
+      picked: !path.length && s.starts.length > 1 ? this.startPick % s.starts.length : -1,
+      glow: !this.reduced,
     });
-
-    // The line: a soft halo under a bright core.
-    if (path.length) {
-      const pts = path.map((p) => this.px(p));
-      const tip = this.drawing && this.pointer ? this.tipPoint(pts[pts.length - 1], path[path.length - 1]) : null;
-      const reached = !!last && isEnd(s, last) && path.length > 1;
-      const trace = () => {
-        ctx.beginPath();
-        ctx.moveTo(pts[0].x, pts[0].y);
-        for (const q of pts.slice(1)) ctx.lineTo(q.x, q.y);
-        if (tip) ctx.lineTo(tip.x, tip.y);
-        if (reached && !tip) {
-          const td = this.tailDir(last);
-          const q = pts[pts.length - 1];
-          ctx.lineTo(q.x + td.x * c * 0.32, q.y + td.y * c * 0.32);
-        }
-      };
-      const red = !!fail;
-      ctx.save();
-      ctx.strokeStyle = red ? C.bad : C.silver;
-      ctx.globalAlpha = red ? 0.22 : 0.12 + 0.18 * wonT;
-      ctx.lineWidth = c * (0.28 + 0.1 * wonT);
-      trace();
-      ctx.stroke();
-      ctx.restore();
-      ctx.save();
-      if (won && !this.reduced) { ctx.shadowColor = C.silver; ctx.shadowBlur = c * 0.25 * wonT; }
-      ctx.strokeStyle = red ? C.bad : C.silver;
-      ctx.globalAlpha = red ? 0.55 + 0.45 * pulse : 1;
-      ctx.lineWidth = lw;
-      trace();
-      ctx.stroke();
-      ctx.restore();
-      // A nudge at the pen tip when a keyboard step was refused.
-      const bump = this.reduced ? 0 : Math.max(0, 1 - (now - this.bumpAt) / 300);
-      if (bump > 0) {
-        const q = pts[pts.length - 1];
-        ctx.strokeStyle = C.bad;
-        ctx.globalAlpha = 0.8 * bump;
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(q.x, q.y, c * (0.2 + 0.1 * (1 - bump)), 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.globalAlpha = 1;
-      }
-    }
-    ctx.restore();
-  }
-
-  /** One cell symbol, centred on (x, y). */
-  private mark(ctx: CanvasRenderingContext2D, m: Mark, x: number, y: number, c: number, won: boolean): void {
-    const glow = won && !this.reduced;
-    ctx.save();
-    switch (m.type) {
-      case 'colour': {
-        const side = c * 0.3;
-        if (glow) { ctx.shadowColor = C[m.c]; ctx.shadowBlur = c * 0.2; }
-        tile(ctx, x - side / 2, y - side / 2, side, side, side * 0.28, C[m.c]);
-        break;
-      }
-      case 'pair': {
-        if (glow) { ctx.shadowColor = C[m.c]; ctx.shadowBlur = c * 0.2; }
-        ctx.strokeStyle = C[m.c];
-        ctx.lineWidth = Math.max(2, c * 0.06);
-        ctx.beginPath();
-        ctx.arc(x, y, c * 0.13, 0, Math.PI * 2);
-        ctx.stroke();
-        break;
-      }
-      case 'count': {
-        // Droplets: a bead with a drawn-up tip, in a row.
-        const r = Math.max(2.5, c * 0.055);
-        const gap = r * 2.9;
-        for (let k = 0; k < m.n; k++) {
-          const dx = x + (k - (m.n - 1) / 2) * gap, dy = y + r * 0.45;
-          ctx.fillStyle = C.silver;
-          ctx.beginPath();
-          ctx.moveTo(dx, dy - r * 2.3);
-          ctx.quadraticCurveTo(dx + r * 1.1, dy - r * 0.9, dx + r, dy);
-          ctx.arc(dx, dy, r, 0, Math.PI);
-          ctx.quadraticCurveTo(dx - r * 1.1, dy - r * 0.9, dx, dy - r * 2.3);
-          ctx.fill();
-        }
-        break;
-      }
-      case 'shape': {
-        // Beads joined by bonds, the shape's own outline in miniature.
-        const w = Math.max(...m.cells.map((p) => p.x)) + 1, h = Math.max(...m.cells.map((p) => p.y)) + 1;
-        const pitch = Math.min(c * 0.2, (c * 0.62) / Math.max(w, h));
-        const ox = x - ((w - 1) * pitch) / 2, oy = y - ((h - 1) * pitch) / 2;
-        const has = new Set(m.cells.map((p) => `${p.x},${p.y}`));
-        ctx.strokeStyle = C.pewter;
-        ctx.lineWidth = Math.max(1.5, pitch * 0.22);
-        ctx.beginPath();
-        for (const p of m.cells) {
-          if (has.has(`${p.x + 1},${p.y}`)) { ctx.moveTo(ox + p.x * pitch, oy + p.y * pitch); ctx.lineTo(ox + (p.x + 1) * pitch, oy + p.y * pitch); }
-          if (has.has(`${p.x},${p.y + 1}`)) { ctx.moveTo(ox + p.x * pitch, oy + p.y * pitch); ctx.lineTo(ox + p.x * pitch, oy + (p.y + 1) * pitch); }
-        }
-        ctx.stroke();
-        for (const p of m.cells) bead(ctx, ox + p.x * pitch, oy + p.y * pitch, Math.max(2, pitch * 0.32), C.silverDim, { glow: glow ? C.silver : undefined });
-        break;
-      }
-    }
-    ctx.restore();
   }
 
   /** Where the live segment from the pen's last node should end: toward the pointer, along one axis. */
@@ -470,3 +572,201 @@ export class LinesView implements PuzzleView {
     return horizontal ? { x: last.x + Math.sign(dx) * len, y: last.y } : { x: last.x, y: last.y + Math.sign(dy) * len };
   }
 }
+
+/** Broken marks flash, then settle to a steady red until the line changes. */
+function flash(ms: number): number {
+  return 0.55 + 0.45 * Math.max(0, 1 - ms / FLASH_MS) * (0.5 + 0.5 * Math.cos((ms / 120) * Math.PI));
+}
+
+/** Fits a board, with room round the rim for the − terminals: about 0.45 of a cell each side. */
+function boardGrid(area: Area, s: { cols: number; rows: number }, margin: number, maxCell: number): Grid {
+  const fit = fitGrid(area, s.cols + 0.9, s.rows + 0.9, { margin, maxCell });
+  const c = fit.cell;
+  return { x: fit.x + 0.45 * c, y: fit.y + 0.45 * c, c };
+}
+
+// ---- rule cards ------------------------------------------------------------------------
+
+/** One stroke in a demo: a line drawn in, then judged (or refused at a gap). */
+interface Try { path: Pt[]; bump?: boolean }
+
+const P = (...xy: number[]): Pt[] => {
+  const out: Pt[] = [];
+  for (let i = 0; i < xy.length; i += 2) out.push({ x: xy[i], y: xy[i + 1] });
+  return out;
+};
+
+/** A small demo board, 3 tiles by 2 unless told otherwise. */
+function mini(o: Partial<LinesState> & { at?: Record<number, Mark> }): LinesState {
+  const cols = o.cols ?? 3, rows = o.rows ?? 2;
+  const marks: (Mark | null)[] = Array(cols * rows).fill(null);
+  for (const [i, m] of Object.entries(o.at ?? {})) marks[Number(i)] = m;
+  return { cols, rows, starts: o.starts ?? P(0, 2), ends: o.ends ?? P(3, 0), dots: o.dots ?? [], gaps: o.gaps ?? [], marks, rules: [], path: [], moves: 0, par: 1, won: false, solution: [] };
+}
+
+const PRESS = 0.18;
+const STEP = 0.11;
+const HOLD_FAIL = 0.95;
+const HOLD_BUMP = 0.6;
+const HOLD_WIN = 1.5;
+
+/**
+ * A looping demo: each try presses its start, draws its line in a node at a
+ * time, then shows the verdict as the board would: broken marks flashing red,
+ * or the whole line glowing. The last try holds longest.
+ */
+function scene(s: LinesState, tries: Try[], opts: { emph?: 'end'; pockets?: boolean } = {}): (ctx: CanvasRenderingContext2D, w: number, h: number, t: number) => void {
+  const judged = tries.map((tr, k) => {
+    const v = verdict(s, tr.path);
+    const draw = PRESS + STEP * (tr.path.length - 1);
+    const hold = tr.bump ? HOLD_BUMP : !v.ok ? HOLD_FAIL : k < tries.length - 1 ? HOLD_WIN * 0.6 : HOLD_WIN;
+    return { ...tr, ok: v.ok, failed: new Set(v.failed), missed: new Set(v.missed), draw, len: draw + hold };
+  });
+  // At least 3.4 s, so the still frame shown under reduced motion (2.5 s) has the last line finished.
+  const last = judged[judged.length - 1];
+  last.len += Math.max(0, 3.4 - judged.reduce((a, j) => a + j.len, 0));
+  const loop = judged.reduce((a, j) => a + j.len, 0);
+  const none = new Set<never>();
+  const pocketOf = opts.pockets ? regions(s.cols, s.rows, last.path) : null;
+  return (ctx, w, h, t) => {
+    const g = boardGrid({ x: 0, y: 0, w, h }, s, 5, 999);
+    let u = ((t % loop) + loop) % loop;
+    let k = 0;
+    while (k < judged.length - 1 && u >= judged[k].len) u -= judged[k++].len;
+    const j = judged[k];
+    // How far the line has come: whole nodes, then a fraction toward the next.
+    const f = Math.max(0, (u - PRESS) / STEP);
+    const whole = Math.min(j.path.length - 1, Math.floor(f));
+    const path = j.path.slice(0, whole + 1);
+    let tip: Point | null = null;
+    if (whole < j.path.length - 1) {
+      const a = px(g, j.path[whole]), b = px(g, j.path[whole + 1]), r = f - whole;
+      tip = { x: a.x + (b.x - a.x) * r, y: a.y + (b.y - a.y) * r };
+    }
+    const done = u >= j.draw;
+    const since = (u - j.draw) * 1000;
+    const failNow = done && !j.ok && !j.bump;
+    const winNow = done && j.ok && !j.bump;
+    const tintOn = pocketOf && winNow;
+    paintLines(ctx, s, g, {
+      path: u < PRESS ? [] : path,
+      tip,
+      failed: failNow ? j.failed : none,
+      missed: failNow ? j.missed : none,
+      pulse: failNow ? flash(since) : 0,
+      red: failNow,
+      won: winNow,
+      wonT: winNow ? ease(since / 500) : 0,
+      bump: done && j.bump && since < 600 ? 1 - (since % 300) / 300 : 0,
+      picked: -1,
+      glow: true,
+      tint: tintOn ? (i) => (pocketOf![i] === pocketOf![0] ? C.surface3 : C.surface2) : undefined,
+    });
+    // A press: an accent ripple on the + charge as the finger lands.
+    if (u < PRESS + 0.25) press(ctx, px(g, j.path[0]), g.c, u / (PRESS + 0.25));
+    if (opts.emph === 'end' && !done) {
+      const end = s.ends[0];
+      const tm = terminal(g, px(g, end), tailDir(s, end));
+      ctx.save();
+      ctx.strokeStyle = C.accent;
+      ctx.globalAlpha = 0.35 + 0.35 * Math.sin(t * 6);
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(tm.x, tm.y, tm.r + 2, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+  };
+}
+
+/** An accent ripple spreading from a press. */
+function press(ctx: CanvasRenderingContext2D, p: Point, c: number, k: number): void {
+  ctx.save();
+  ctx.strokeStyle = C.accent;
+  ctx.globalAlpha = Math.max(0, 1 - k) * 0.9;
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.arc(p.x, p.y, c * (0.2 + 0.25 * k), 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
+}
+
+// Two pockets of three: an L on the left and its mirror on the right.
+const SPLIT = P(1, 0, 1, 1, 2, 1, 2, 2);
+// Straight down the middle: a pocket of two on the left, four on the right.
+const SPLIT_WIDE = P(1, 0, 1, 1, 1, 2, 2, 2);
+const SPLIT_ENDS = { starts: P(1, 0), ends: P(2, 2) };
+
+export const RULES: RuleCard[] = [
+  {
+    title: 'Start',
+    text: 'Press a + charge and drag one line along the channels between the tiles. A line never crosses itself.',
+    demo: scene(mini({}), [{ path: P(0, 2, 1, 2, 1, 1, 2, 1, 2, 0, 3, 0) }]),
+  },
+  {
+    title: 'End',
+    text: 'Let go on a − charge at the rim and the line is checked against every mark on the board.',
+    demo: scene(mini({ starts: P(0, 0), ends: P(3, 2) }), [{ path: P(0, 0, 1, 0, 1, 1, 2, 1, 3, 1, 3, 2) }], { emph: 'end' }),
+  },
+  {
+    title: 'Pockets',
+    text: 'The line walls the tiles into pockets, and the rim is a wall too. Most marks are about the pocket they sit in.',
+    demo: scene(mini(SPLIT_ENDS), [{ path: SPLIT }], { pockets: true }),
+  },
+  {
+    title: 'Beads',
+    text: 'The line must run over every bead on a channel.',
+    demo: scene(mini({ dots: [edgeKey({ x: 1, y: 2 }, { x: 2, y: 2 })] }), [
+      { path: P(0, 2, 0, 1, 1, 1, 2, 1, 3, 1, 3, 0) },
+      { path: P(0, 2, 1, 2, 2, 2, 2, 1, 3, 1, 3, 0) },
+    ]),
+  },
+  {
+    title: 'Gaps',
+    text: 'The line cannot cross a broken channel.',
+    demo: scene(mini({ gaps: [edgeKey({ x: 1, y: 1 }, { x: 2, y: 1 })] }), [
+      { path: P(0, 2, 0, 1, 1, 1), bump: true },
+      { path: P(0, 2, 0, 1, 1, 1, 1, 0, 2, 0, 3, 0) },
+    ]),
+  },
+  {
+    title: 'Orbitals',
+    text: 'No pocket may hold two kinds of orbital. Wall the different shapes apart.',
+    demo: scene(mini({ ...SPLIT_ENDS, at: { 0: { type: 'color', c: 's' }, 4: { type: 'color', c: 's' }, 2: { type: 'color', c: 'p' } } }), [
+      { path: SPLIT_WIDE },
+      { path: SPLIT },
+    ]),
+  },
+  {
+    title: 'Bars',
+    text: 'The line runs along exactly as many of the tile\'s four sides as it has bars: one, two or three.',
+    demo: scene(mini({ at: { 1: { type: 'count', n: 2 } } }), [
+      { path: P(0, 2, 0, 1, 1, 1, 2, 1, 3, 1, 3, 0) },
+      { path: P(0, 2, 0, 1, 1, 1, 1, 0, 2, 0, 3, 0) },
+    ]),
+  },
+  {
+    title: 'Pairs',
+    text: 'A hollow orbital\'s pocket holds exactly two orbitals of its kind, hollow or filled, itself included.',
+    demo: scene(mini({ ...SPLIT_ENDS, at: { 0: { type: 'pair', c: 'd' }, 4: { type: 'pair', c: 'd' }, 2: { type: 'pair', c: 'd' }, 5: { type: 'color', c: 'd' } } }), [
+      { path: SPLIT_WIDE },
+      { path: SPLIT },
+    ]),
+  },
+  {
+    title: 'Shapes',
+    text: 'The pocket holding a shape must be exactly that shape, the same way up. Two shapes in one pocket fit together to fill it.',
+    demo: scene(mini({ ...SPLIT_ENDS, at: { 3: { type: 'shape', cells: P(0, 0, 0, 1, 1, 1) } } }), [
+      { path: SPLIT_WIDE },
+      { path: SPLIT },
+    ]),
+  },
+  {
+    title: 'Two starts or ends',
+    text: 'Some boards have two + charges or two − charges. Use whichever you like.',
+    demo: scene(mini({ starts: P(0, 2, 3, 2), ends: P(1, 0, 3, 0) }), [
+      { path: P(0, 2, 0, 1, 1, 1, 1, 0) },
+      { path: P(3, 2, 2, 2, 2, 1, 3, 1, 3, 0) },
+    ]),
+  },
+];

@@ -22,9 +22,22 @@ import { newRutherford } from './rutherford';
 import { RutherfordView, INSTRUCTIONS as RUTHERFORD_HOW } from './rutherfordView';
 import { newOrbitalGrid } from './orbitalGrid';
 import { OrbitalGridView, INSTRUCTIONS as GRID_HOW } from './orbitalGridView';
-import { newColourCharge } from './colourCharge';
-import { ColourChargeView, INSTRUCTIONS as CHARGE_HOW } from './colourChargeView';
-import { SUBSHELL_COLOURS, type PuzzleView } from './view';
+import { newColorCharge } from './colorCharge';
+import { ColorChargeView, INSTRUCTIONS as CHARGE_HOW } from './colorChargeView';
+import * as MergeV from './mergeView';
+import * as SlidingV from './slidingView';
+import * as PackingV from './packingView';
+import * as LinesV from './linesView';
+import * as SlideStopV from './slideStopView';
+import * as LightV from './lightView';
+import * as CodeV from './codebreakerView';
+import * as RutherfordV from './rutherfordView';
+import * as GridV from './orbitalGridView';
+import * as ChargeV from './colorChargeView';
+import { SUBSHELL_COLORS, type PuzzleView, type RuleCard } from './view';
+
+/** A view module's rule cards, once it exports them. */
+const rulesOf = (m: object): RuleCard[] | undefined => (m as { RULES?: RuleCard[] }).RULES;
 
 export type Tier = 'every' | 'facet' | 'gate' | 'reserve';
 
@@ -53,6 +66,10 @@ export interface PuzzleType {
   role: string;
   /** Where the game actually uses it today; absent while it lives only in the playground. Keep this true to the code. */
   live?: string;
+  /** What it is for, in two or three words, for the puzzle header. */
+  use: string;
+  /** One card per rule and symbol, with a small animated example, for the Instructions modal. */
+  rules?: RuleCard[];
   /** Elements it makes sense for (inclusive). */
   zRange: [number, number];
   /** Present once the puzzle is built; planned types have none. */
@@ -82,6 +99,8 @@ function groundConfiguration(z: number): string {
 export const PUZZLES: PuzzleType[] = [
   {
     id: 'merge', name: 'Merge', tier: 'every',
+    use: 'Nucleus · He to Fe',
+    get rules() { return rulesOf(MergeV); },
     blurb: 'Swipe to slide the board; two clusters of the same size merge. Gather the clusters the nucleus wants.',
     role: 'Builds the nucleus of every element up to iron.',
     live: 'Build mode: every nucleus from helium to iron.',
@@ -100,7 +119,9 @@ export const PUZZLES: PuzzleType[] = [
   },
   {
     id: 'orbitalGrid', name: 'Orbital Grid', tier: 'every',
-    blurb: 'Fill the grid so every row, column and outlined block holds each orbital once.',
+    use: 'Electrons · every atom',
+    get rules() { return rulesOf(GridV); },
+    blurb: 'Fill the grid so every row, column and outlined block holds each orbital once. Drag symbols from the stacks under the grid.',
     role: 'Settles the electrons of every element, standing in for Shell Rings until a better electron puzzle is found.',
     live: 'Build mode: the electrons of every element.',
     instructions: GRID_HOW,
@@ -109,13 +130,15 @@ export const PUZZLES: PuzzleType[] = [
     science: (z) => {
       const el = element(z);
       return `<h2>Orbital Grid: the science</h2>
-        <p>Electrons in an atom sit in <b>orbitals</b>, grouped into sub-shells named <span style="color:${SUBSHELL_COLOURS.s}">s</span>, <span style="color:${SUBSHELL_COLOURS.p}">p</span>, <span style="color:${SUBSHELL_COLOURS.d}">d</span> and <span style="color:${SUBSHELL_COLOURS.f}">f</span>. Each orbital holds at most two electrons, and those two must spin opposite ways, up and down: the <b>Pauli exclusion principle</b>, which says no two electrons in an atom may share every quantum number.</p>
+        <p>Electrons in an atom sit in <b>orbitals</b>, grouped into sub-shells named <span style="color:${SUBSHELL_COLORS.s}">s</span>, <span style="color:${SUBSHELL_COLORS.p}">p</span>, <span style="color:${SUBSHELL_COLORS.d}">d</span> and <span style="color:${SUBSHELL_COLORS.f}">f</span>. Each orbital holds at most two electrons, and those two must spin opposite ways, up and down: the <b>Pauli exclusion principle</b>, which says no two electrons in an atom may share every quantum number.</p>
         <p>That rule of "never the same twice" is what this grid plays with. Fill ${el.name}'s orbitals lowest energy first and you get ${groundConfiguration(z)}.</p>
         <p class="muted">Game rule: the grid is a logic puzzle using orbital labels as symbols. The cells are not places in the atom, and real orbitals are not arranged in rows.</p>`;
     },
   },
   {
     id: 'sliding', name: 'Sliding Block', tier: 'every',
+    use: 'Nucleus · Co onward',
+    get rules() { return rulesOf(SlidingV); },
     blurb: 'Slide the bars and blocks out of the way so the red key bar can slide out.',
     role: 'Builds the nucleus of every element past iron, where fusion stops paying.',
     live: 'Build mode: every nucleus from cobalt on.',
@@ -132,6 +155,8 @@ export const PUZZLES: PuzzleType[] = [
   },
   {
     id: 'packing', name: 'Packing', tier: 'facet',
+    use: 'Isotope vaults',
+    get rules() { return rulesOf(PackingV); },
     blurb: 'Drag the pieces into the outline until it is filled exactly; tap a piece to turn it.',
     role: 'Opens an element\'s isotope vault; later isotopes rotate Packing, Merge and Sliding Block.',
     instructions: PACKING_HOW,
@@ -147,7 +172,9 @@ export const PUZZLES: PuzzleType[] = [
   },
   {
     id: 'lines', name: 'Field Lines', tier: 'facet',
-    blurb: 'Draw one line from a start to an end that keeps every mark on the board happy.',
+    use: 'Orbital shapes',
+    get rules() { return rulesOf(LinesV); },
+    blurb: 'Draw one line from a + charge to a − charge that keeps every mark on the board happy.',
     role: 'Discovers each new orbital shape (19) and a chapter per particle (17).',
     instructions: LINES_HOW,
     zRange: [1, 118],
@@ -157,37 +184,43 @@ export const PUZZLES: PuzzleType[] = [
       return `<h2>Field Lines: the science</h2>
         <p>An electron in an atom is a standing wave, and a standing wave has <b>nodes</b>: surfaces where it is exactly zero. The nodes divide space into lobes, and the sign of the wave flips from one lobe to the next. That is what gives the p orbital its two lobes, the d orbital its four, and so on. ${el.name}'s outermost electrons sit in ${el.subshells[el.subshells.length - 1].key} orbitals.</p>
         <p>The number of nodes is fixed by the quantum numbers: an orbital with principal number n has n − 1 of them in total, split between spherical shells and planes or cones through the nucleus.</p>
-        <p class="muted">Game rule: the line that sorts colours into pockets is a playful stand-in for a nodal surface; the colours are the sub-shell palette, not real field lines.</p>`;
+        <p class="muted">Game rule: the line that sorts colors into pockets is a playful stand-in for a nodal surface; the colors are the sub-shell palette, not real field lines.</p>`;
     },
   },
   {
     id: 'slideStop', name: 'Slide Until Stop', tier: 'gate',
-    blurb: 'Swipe to skate: the droplet slides until something stops it. Collect every spark, then stop on the red ring.',
+    use: 'Period gates',
+    get rules() { return rulesOf(SlideStopV); },
+    blurb: 'Swipe and the electron slides until something stops it. Absorb every photon, then stop on the red ring.',
     role: 'Opens each new period of the table.',
     instructions: SLIDESTOP_HOW,
     zRange: [1, 118],
     make: (z, deal, reduced) => new SlideStopView(newSlideStop(z, dealSeed('slideStop', z, deal)), reduced),
     science: () => `<h2>Slide Until Stop: the science</h2>
-      <p>A thing in motion keeps moving until a force acts on it: Newton's first law. On the ice board the rocks are the only forces, so the droplet slides until one stops it.</p>
+      <p>A thing in motion keeps moving until a force acts on it: Newton's first law. On the lattice the nuclei are the only obstacles, so the electron slides until one stops it.</p>
       <p>Electrons in a metal behave a little like this. They move freely through the lattice and are scattered only by defects and vibrations; the colder and purer the metal, the further they travel between collisions, which is why resistance falls with temperature.</p>
-      <p class="muted">Game rule: the maze is a maze. Real electrons do not skate from rock to rock.</p>`,
+      <p class="muted">Game rule: the maze is a maze. Real electrons do not skate from nucleus to nucleus.</p>`,
   },
   {
     id: 'light', name: 'Light Routing', tier: 'gate',
+    use: 'Gallery lenses',
+    get rules() { return rulesOf(LightV); },
     blurb: 'Flip the mirrors and splitters until light reaches every ring and none touches a dark sensor.',
     role: 'Opens each new lens (arrangement) of the gallery.',
     instructions: LIGHT_HOW,
     zRange: [1, 118],
     make: (z, deal, reduced) => new LightView(newLight(z, dealSeed('light', z, deal)), reduced),
     science: () => `<h2>Light Routing: the science</h2>
-      <p>Light reflects from a mirror at the angle it arrived, and its path runs the same backwards: ray optics. Everything we know about atoms began with light: the sharp coloured lines in an element's spectrum are photons released as electrons drop between energy levels, and each element has its own set.</p>
+      <p>Light reflects from a mirror at the angle it arrived, and its path runs the same backwards: ray optics. Everything we know about atoms began with light: the sharp colored lines in an element's spectrum are photons released as electrons drop between energy levels, and each element has its own set.</p>
       <p>A spectrometer is exactly this puzzle made serious: slits, mirrors and a prism or grating steering light onto a detector.</p>
-      <p>A coloured filter works by absorption: it passes its own colour and swallows the rest, which is why light already tinted one colour cannot get through a filter of another.</p>
+      <p>A colored filter works by absorption: it passes its own color and swallows the rest, which is why light already tinted one color cannot get through a filter of another.</p>
       <p class="muted">Game rule: no atom contains mirrors.</p>`,
   },
   {
     id: 'rutherford', name: 'Rutherford Probe', tier: 'gate',
-    blurb: 'Probe the plate cell by cell; each count says how many nuclei sit around it. Find them all without a direct hit.',
+    use: 'Nucleus view',
+    get rules() { return rulesOf(RutherfordV); },
+    blurb: 'Probe the foil cell by cell and fire a few alpha beams from the rim; counts and beam tracks reveal where every nucleus sits. Find them all without a direct hit.',
     role: 'Played once; opens the nucleus view.',
     instructions: RUTHERFORD_HOW,
     zRange: [1, 118],
@@ -195,12 +228,14 @@ export const PUZZLES: PuzzleType[] = [
     science: () => `<h2>Rutherford Probe: the science</h2>
       <p>In 1909 Hans Geiger and Ernest Marsden fired alpha particles at a sheet of gold foil. Nearly all passed straight through, but about one in eight thousand bounced back, which Rutherford said was as surprising as a shell rebounding off tissue paper. The only explanation: almost all of the atom's mass and all its positive charge sit in a <b>nucleus</b> tens of thousands of times smaller than the atom.</p>
       <p>The lesson was that an atom is almost entirely empty: probe it at random and you nearly always pass straight through.</p>
-      <p class="muted">Game rule: the counts on the plate are a deduction game, not a measurement. Real scattering happens by the electric force at every angle, and a gold atom has one nucleus, not many. The method, inferring what you cannot see from what your probes report, is Rutherford's.</p>`,
+      <p class="muted">Game rule: the counts on the plate are a deduction game, not a measurement. Real scattering happens by the electric force at every angle, and a gold atom has one nucleus, not many. Here a beam only stops on a head-on hit; real alpha particles are pushed aside at every angle, and only a rare few come straight back. The method, inferring what you cannot see from what your probes report, is Rutherford's.</p>`,
   },
   {
     id: 'codebreaker', name: 'Codebreaker', tier: 'gate',
+    use: 'Atom looks · 6 times',
+    get rules() { return rulesOf(CodeV); },
     blurb: 'Guess the sealed sequence of four; each guess earns clues about what was right.',
-    role: 'Guards the 15 synthetic elements.',
+    role: 'Played six times in all, never more: each solve opens a new way to draw the atoms (a look or an overlay in the gallery).',
     instructions: CODE_HOW,
     zRange: [104, 118],
     make: (z, deal, reduced) => new CodebreakerView(newCodebreaker(z, dealSeed('codebreaker', z, deal)), reduced),
@@ -213,16 +248,19 @@ export const PUZZLES: PuzzleType[] = [
     },
   },
   {
-    id: 'colourCharge', name: 'Colour Charge', tier: 'reserve',
-    blurb: 'Bind the quarks into colour-neutral groups until the grid is clear.',
-    role: 'In reserve for the quark chapter of the particles, if it earns a place.',
+    id: 'colorCharge', name: 'Color Charge', tier: 'reserve',
+    use: 'Quark chapters (planned)',
+    get rules() { return rulesOf(ChargeV); },
+    blurb: 'Bind the quarks into color-neutral groups until the grid is clear; on heavier elements a gluon can swap two colors.',
+    role: 'Planned for the quark and gluon chapters of the particles (up, down, gluon, strange, charm, bottom, top): each brings in its own mechanic.',
     instructions: CHARGE_HOW,
     zRange: [1, 118],
-    make: (z, deal, reduced) => new ColourChargeView(newColourCharge(z, dealSeed('colourCharge', z, deal)), reduced),
-    science: () => `<h2>Colour Charge: the science</h2>
-      <p>Protons and neutrons are each made of three <b>quarks</b>, held by the strong force. Quarks carry a kind of charge physicists call <b>colour</b>, with three values nicknamed red, green and blue. A quark is never found alone: quarks only exist in groups whose colours cancel to "white".</p>
-      <p>There are two ways to cancel. Three quarks, one of each colour, make a <b>baryon</b> such as the proton. A quark and an antiquark carrying the matching anticolour make a <b>meson</b>, such as the pion.</p>
-      <p class="muted">Game rule: colour charge has nothing to do with real colour, and quarks do not sit on a grid; the shapes on the board are only for play.</p>`,
+    make: (z, deal, reduced) => new ColorChargeView(newColorCharge(z, dealSeed('colorCharge', z, deal)), reduced),
+    science: () => `<h2>Color Charge: the science</h2>
+      <p>Protons and neutrons are each made of three <b>quarks</b>, held by the strong force. Quarks carry a kind of charge physicists call <b>color</b>, with three values nicknamed red, green and blue. A quark is never found alone: quarks only exist in groups whose colors cancel to "white".</p>
+      <p>There are two ways to cancel. Three quarks, one of each color, make a <b>baryon</b> such as the proton. A quark and an antiquark carrying the matching anticolor make a <b>meson</b>, such as the pion. Three antiquarks make an <b>antibaryon</b>, such as the antiproton.</p>
+      <p><b>Gluons</b> carry the strong force and carry color themselves, so exchanging one changes the colors of both quarks; in the game that is the swap.</p>
+      <p class="muted">Game rule: color charge has nothing to do with real color, and quarks do not sit on a grid; the shapes on the board are only for play.</p>`,
   },
 ];
 

@@ -11,7 +11,7 @@
 // board is never stuck.
 //
 // Game rule, not physics: the pieces are neutral clusters and the outline a
-// neutral socket; nothing here is labelled as a nucleus or an orbital.
+// neutral socket; nothing here is labeled as a nucleus or an orbital.
 
 import { pick, rand, randInt, seeded, weighted, type Rng } from './rng';
 
@@ -20,7 +20,7 @@ export type Rot = 0 | 1 | 2 | 3;
 
 export interface Piece {
   id: number;
-  /** The shape at rotation 0, unflipped, normalised so its minimum x and y are 0. */
+  /** The shape at rotation 0, unflipped, normalized so its minimum x and y are 0. */
   shape: Cell[];
   rot: Rot;
   /** Mirrored left to right before turning. */
@@ -61,22 +61,22 @@ export type PackingMove =
 const key = (c: Cell) => `${c.x},${c.y}`;
 
 /** Shifts cells so the minimum x and y are 0 and orders them row by row. */
-export function normalise(cells: Cell[]): Cell[] {
+export function normalize(cells: Cell[]): Cell[] {
   const mx = Math.min(...cells.map((c) => c.x));
   const my = Math.min(...cells.map((c) => c.y));
   return cells.map((c) => ({ x: c.x - mx, y: c.y - my })).sort((a, b) => a.y - b.y || a.x - b.x);
 }
 
-/** The shape turned a quarter turn clockwise `rot` times, normalised. */
+/** The shape turned a quarter turn clockwise `rot` times, normalized. */
 export function rotated(shape: Cell[], rot: Rot): Cell[] {
   let cells = shape;
   for (let i = 0; i < rot; i++) cells = cells.map((c) => ({ x: -c.y, y: c.x }));
-  return normalise(cells);
+  return normalize(cells);
 }
 
-/** The shape mirrored left to right, normalised. */
+/** The shape mirrored left to right, normalized. */
 export function mirrored(shape: Cell[]): Cell[] {
-  return normalise(shape.map((c) => ({ x: -c.x, y: c.y })));
+  return normalize(shape.map((c) => ({ x: -c.x, y: c.y })));
 }
 
 /** The shape in a given orientation. */
@@ -165,7 +165,7 @@ export function applyMove(s: PackingState, m: PackingMove): PackingState | null 
     return next;
   }
   if (m.kind === 'flip' && !s.flips) return null;
-  // Turn or flip in place about the bounding box centre; a piece that no longer fits drops back to the tray.
+  // Turn or flip in place about the bounding box center; a piece that no longer fits drops back to the tray.
   const before = bounds(cellsOf(p));
   if (m.kind === 'rotate') p.rot = ((p.rot + 1) % 4) as Rot;
   else {
@@ -183,7 +183,7 @@ export function applyMove(s: PackingState, m: PackingMove): PackingState | null 
 
 // ---- generation ------------------------------------------------------------------
 
-function neighbours(c: Cell): Cell[] {
+function neighbors(c: Cell): Cell[] {
   return [{ x: c.x + 1, y: c.y }, { x: c.x - 1, y: c.y }, { x: c.x, y: c.y + 1 }, { x: c.x, y: c.y - 1 }];
 }
 
@@ -225,16 +225,16 @@ function grow(rng: Rng, w: number, h: number, n: number, style: OutlineStyle): b
     const frontier = new Map<string, Cell>();
     for (let i = 0; i < on.length; i++) {
       if (!on[i]) continue;
-      for (const nb of neighbours({ x: i % w, y: Math.floor(i / w) })) if (inside(nb) && !on[idx(nb)]) frontier.set(key(nb), nb);
+      for (const nb of neighbors({ x: i % w, y: Math.floor(i / w) })) if (inside(nb) && !on[idx(nb)]) frontier.set(key(nb), nb);
     }
     let cells = [...frontier.values()];
     if (style === 'mirror') {
-      // Cells added in mirror pairs; a lone centre cell only when one is needed to land on n.
+      // Cells added in mirror pairs; a lone center cell only when one is needed to land on n.
       cells = cells.filter((c) => (mirror(c).x === c.x ? true : n - count >= 2));
     }
     if (!cells.length) return null;
     const weights = cells.map((c) => {
-      const k = neighbours(c).filter((nb) => inside(nb) && on[idx(nb)]).length;
+      const k = neighbors(c).filter((nb) => inside(nb) && on[idx(nb)]).length;
       return style === 'arms' ? (k === 1 ? 3 : 1) : k * k;
     });
     const c = cells[weighted(rng, weights)];
@@ -252,7 +252,7 @@ function ring(rng: Rng, w: number, h: number, n: number): boolean[] | null {
   if (!on) return null;
   const interior = (i: number) => {
     const x = i % w, y = Math.floor(i / w);
-    return on[i] && neighbours({ x, y }).every((nb) => nb.x >= 0 && nb.y >= 0 && nb.x < w && nb.y < h && on[nb.y * w + nb.x]);
+    return on[i] && neighbors({ x, y }).every((nb) => nb.x >= 0 && nb.y >= 0 && nb.x < w && nb.y < h && on[nb.y * w + nb.x]);
   };
   for (let k = 0; k < holes; k++) {
     const options = on.map((_, i) => i).filter(interior);
@@ -280,15 +280,15 @@ function carve(rng: Rng, w: number, open: boolean[], big: boolean): Cell[][] | n
     owner[idx(seed)] = pieces.length;
     while (piece.length < target) {
       const frontier = new Map<string, Cell>();
-      for (const c of piece) for (const nb of neighbours(c)) if (free(nb)) frontier.set(key(nb), nb);
+      for (const c of piece) for (const nb of neighbors(c)) if (free(nb)) frontier.set(key(nb), nb);
       if (!frontier.size) break;
       const c = pick(rng, [...frontier.values()]);
       owner[idx(c)] = pieces.length;
       piece.push(c);
     }
     if (piece.length === 1) {
-      // An orphan joins a small neighbour, or the cut is thrown away.
-      const hosts = neighbours(seed).filter((nb) => valid(nb) && owner[idx(nb)] >= 0 && pieces[owner[idx(nb)]].length < 5);
+      // An orphan joins a small neighbor, or the cut is thrown away.
+      const hosts = neighbors(seed).filter((nb) => valid(nb) && owner[idx(nb)] >= 0 && pieces[owner[idx(nb)]].length < 5);
       if (!hosts.length) return null;
       const host = owner[idx(pick(rng, hosts))];
       owner[idx(seed)] = host;
@@ -306,10 +306,10 @@ function decoyShape(rng: Rng, size: number, avoid: Set<string>): Cell[] | null {
     const cells: Cell[] = [{ x: 0, y: 0 }];
     while (cells.length < size) {
       const has = new Set(cells.map(key));
-      const options = cells.flatMap(neighbours).filter((c) => !has.has(key(c)));
+      const options = cells.flatMap(neighbors).filter((c) => !has.has(key(c)));
       cells.push(pick(rng, options));
     }
-    const shape = normalise(cells);
+    const shape = normalize(cells);
     if (!avoid.has(canonical(shape))) return shape;
   }
   return null;
@@ -330,15 +330,15 @@ export function newPacking(z: number, seed: number): PackingState {
     const style = chooseStyle(rng, z);
     const outline = style === 'ring' ? ring(rng, w, h, n) : grow(rng, w, h, n, style);
     if (!outline) continue;
-    // Blocks go on cells with at least two outline neighbours, so they read as part of the shape.
+    // Blocks go on cells with at least two outline neighbors, so they read as part of the shape.
     const blocked: boolean[] = Array(w * h).fill(false);
-    const inner = outline.map((on, i) => i).filter((i) => outline[i] && neighbours({ x: i % w, y: Math.floor(i / w) }).filter((c) => c.x >= 0 && c.y >= 0 && c.x < w && c.y < h && outline[c.y * w + c.x]).length >= 2);
+    const inner = outline.map((on, i) => i).filter((i) => outline[i] && neighbors({ x: i % w, y: Math.floor(i / w) }).filter((c) => c.x >= 0 && c.y >= 0 && c.x < w && c.y < h && outline[c.y * w + c.x]).length >= 2);
     for (let k = 0; k < plan.blocked && inner.length; k++) blocked[inner.splice(randInt(rng, inner.length), 1)[0]] = true;
     const open = outline.map((on, i) => on && !blocked[i]);
     let cut: Cell[][] | null = null;
     for (let t = 0; t < 12 && !cut; t++) cut = carve(rng, w, open, n >= 22);
     if (!cut) continue;
-    const shapes = cut.map(normalise);
+    const shapes = cut.map(normalize);
     let extra: Cell[] | null = null;
     if (plan.decoys) {
       extra = decoyShape(rng, 3 + randInt(rng, 3), new Set(shapes.map(canonical)));
@@ -354,7 +354,7 @@ export function newPacking(z: number, seed: number): PackingState {
     const pieces: Piece[] = order.map((src, id) => {
       const cells = all[src];
       solution[id] = src < cut!.length ? { x: Math.min(...cells.map((c) => c.x)), y: Math.min(...cells.map((c) => c.y)) } : null;
-      return { id, shape: normalise(cells), rot: randInt(rng, 4) as Rot, flip: plan.flips && rand(rng) < 0.5, at: null };
+      return { id, shape: normalize(cells), rot: randInt(rng, 4) as Rot, flip: plan.flips && rand(rng) < 0.5, at: null };
     });
     return crop({ w, h, outline, blocked, pieces, flips: plan.flips, decoys: extra ? 1 : 0, style, moves: 0, par: cut.length, solution });
   }

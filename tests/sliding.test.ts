@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { applySlide, newSliding, reach, slidingPlan, solveSliding, solved, type SlidingState } from '../src/puzzles/sliding';
-import { SlidingView } from '../src/puzzles/slidingView';
+import { INSTRUCTIONS, RULES, SlidingView } from '../src/puzzles/slidingView';
 import type { Area } from '../src/puzzles/view';
 
 const ZS = [27, 40, 44, 45, 59, 60, 74, 75, 91, 92, 105, 106, 118];
@@ -164,5 +164,43 @@ describe('sliding block view', () => {
     expect(v.clean).toBe(true);
     expect(v.undo()).toBe(true);
     expect(v.won).toBe(false);
+  });
+});
+
+/** Records every coordinate a rule demo draws. */
+function demoPoints(draw: (ctx: CanvasRenderingContext2D) => void): [number, number][] {
+  const pts: [number, number][] = [];
+  const rec = (x: number, y: number) => pts.push([x, y]);
+  const store: Record<string | symbol, unknown> = {};
+  const ctx = new Proxy(store, {
+    get(o, k) {
+      if (k in o) return o[k];
+      if (k === 'moveTo' || k === 'lineTo') return rec;
+      if (k === 'arc') return (x: number, y: number, r: number) => { rec(x - r, y - r); rec(x + r, y + r); };
+      if (k === 'rect' || k === 'roundRect' || k === 'fillRect' || k === 'strokeRect') return (x: number, y: number, w: number, h: number) => { rec(x, y); rec(x + w, y + h); };
+      return () => {};
+    },
+    set(o, k, v) { o[k] = v; return true; },
+  }) as unknown as CanvasRenderingContext2D;
+  draw(ctx);
+  return pts;
+}
+
+describe('rule cards', () => {
+  it('have plain text and demos that stay in their box, and INSTRUCTIONS keeps only the game meta', () => {
+    expect(RULES.length).toBeGreaterThanOrEqual(5);
+    for (const r of RULES) {
+      expect(r.text).not.toMatch(/<|>/);
+      for (const [w, h] of [[120, 96], [220, 160]]) for (let s = 0; s < 7; s += 0.1) {
+        for (const [x, y] of demoPoints((ctx) => r.demo!(ctx, w, h, s))) {
+          expect(x).toBeGreaterThanOrEqual(-1);
+          expect(x).toBeLessThanOrEqual(w + 1);
+          expect(y).toBeGreaterThanOrEqual(-1);
+          expect(y).toBeLessThanOrEqual(h + 1);
+        }
+      }
+    }
+    expect(INSTRUCTIONS).toMatch(/<h3>In the game<\/h3>/);
+    expect(INSTRUCTIONS).not.toMatch(/How to play/);
   });
 });

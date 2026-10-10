@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyMove, bounds, canonical, canPlace, cellsLeft, cellsOf, mirrored, newPacking, normalise, occupancy, rotated, sizeFor, solved, solvedState, type PackingState } from '../src/puzzles/packing';
+import { applyMove, bounds, canonical, canPlace, cellsLeft, cellsOf, mirrored, newPacking, normalize, occupancy, rotated, sizeFor, solved, solvedState, type PackingState } from '../src/puzzles/packing';
 import { PackingView } from '../src/puzzles/packingView';
 import type { Area } from '../src/puzzles/view';
 
@@ -34,8 +34,8 @@ const AREAS: Area[] = [
 ];
 
 describe('shapes', () => {
-  it('normalises, rotates and mirrors', () => {
-    const l = normalise([{ x: 2, y: 1 }, { x: 2, y: 2 }, { x: 2, y: 3 }, { x: 3, y: 3 }]);
+  it('normalizes, rotates and mirrors', () => {
+    const l = normalize([{ x: 2, y: 1 }, { x: 2, y: 2 }, { x: 2, y: 3 }, { x: 3, y: 3 }]);
     expect(l[0]).toEqual({ x: 0, y: 0 });
     expect(bounds(l)).toEqual({ w: 2, h: 3 });
     expect(bounds(rotated(l, 1))).toEqual({ w: 3, h: 2 });
@@ -213,21 +213,21 @@ describe('view', () => {
         const home = level.solution[p.id];
         if (!home) continue;
         const slot = lay.slots.find((sl: { id: number }) => sl.id === p.id);
-        const centreOf = () => {
+        const centerOf = () => {
           const q = st().pieces[p.id];
           const b = bounds(cellsOf(q));
           const c = cellsOf(q)[0];
           return { x: slot.x + (slot.side - b.w * lay.tc) / 2 + (c.x + 0.5) * lay.tc, y: slot.y + (slot.side - b.h * lay.tc) / 2 + (c.y + 0.5) * lay.tc, c };
         };
         if (st().pieces[p.id].flip) {
-          const t = centreOf();
+          const t = centerOf();
           v.down(t); v.up(t); // select (turns it too)
           const f = lay.flip;
           v.down({ x: f.x + 5, y: f.y + 5 }); v.up({ x: f.x + 5, y: f.y + 5 });
         }
-        while (st().pieces[p.id].rot !== 0) { const t = centreOf(); v.down(t); v.up(t); }
+        while (st().pieces[p.id].rot !== 0) { const t = centerOf(); v.down(t); v.up(t); }
         expect(st().pieces[p.id].flip).toBe(false);
-        const from = centreOf();
+        const from = centerOf();
         const to = { x: lay.board.x + (home.x + from.c.x + 0.5) * lay.board.cell, y: lay.board.y + (home.y + from.c.y + 0.5) * lay.board.cell };
         v.down(from);
         v.move({ x: (from.x + to.x) / 2, y: (from.y + to.y) / 2 });

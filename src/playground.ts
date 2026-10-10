@@ -6,12 +6,14 @@
 
 import { elementAt as element } from './gallery/data';
 import { loadSave } from './core/save';
-import { PUZZLES, TIER_LABEL, TIER_NOTE, type PuzzleType, type Tier } from './puzzles/catalogue';
+import { PUZZLES, TIER_LABEL, TIER_NOTE, type PuzzleType, type Tier } from './puzzles/catalog';
 import { PuzzleHost } from './puzzles/host';
+import { openRules } from './puzzles/rulesModal';
+import { showWin } from './puzzles/winPanel';
 import type { Area } from './puzzles/view';
 import { createHoldButton, createSlider, iconButton, type Slider } from './ui/components';
 import { icon } from './ui/icons';
-import { setScienceHandler } from './ui/science';
+import { scienceButton, setScienceHandler } from './ui/science';
 import { modalOpen, openModal } from './ui/modal';
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -57,15 +59,15 @@ export class Playground {
 
     // The bottom row: undo, hold to restart, instructions, the science.
     this.undoBtn = iconButton({ icon: icon('undo'), label: 'Undo', onClick: () => this.host.undo() });
-    this.restartBtn = createHoldButton({ icon: icon('restart'), label: 'Restart', doneLabel: 'Restarted', onConfirm: () => { this.host.restart(); this.solved = false; $('pg-done').hidden = true; } });
+    this.restartBtn = createHoldButton({ icon: icon('restart'), label: 'Restart', doneLabel: 'Restarted', onConfirm: () => { this.host.restart(); this.solved = false; this.closeWin(); } });
     $('pg-actions').append(
       this.undoBtn,
       this.restartBtn,
       iconButton({ icon: icon('info'), label: 'Instructions', onClick: () => this.instructions() }),
+      scienceButton('ui-icon-btn science-btn'),
     );
+    $('pg-home-head').append(scienceButton());
 
-    $('pg-again').onclick = () => this.load(this.deal + 1);
-    $('pg-nextel').onclick = () => this.setZ(this.z + 1);
     window.addEventListener('keydown', (e) => this.key(e));
   }
 
@@ -98,6 +100,7 @@ export class Playground {
 
   /** Back to the list of puzzles. */
   back(): void {
+    this.closeWin();
     this.host.pause();
     $('pg-game').hidden = true;
     $('pg-home').hidden = false;
@@ -146,18 +149,28 @@ export class Playground {
 
   private renderHead(): void {
     const head = $('pg-head');
-    const back = iconButton({ icon: icon('chevron-left'), label: 'Back to all puzzles', className: 'ui-icon-btn--ghost', onClick: () => this.back() });
+    // A clear Back plate on the left, the puzzle's name in the middle, what it is for on the right.
+    const back = document.createElement('button');
+    back.type = 'button';
+    back.className = 'back-plate';
     back.id = 'pg-back';
-    const title = document.createElement('div');
+    back.innerHTML = `${icon('chevron-left', { size: 20 })}<span>Back</span>`;
+    back.setAttribute('aria-label', 'Back to all puzzles');
+    back.onclick = () => this.back();
+    const title = document.createElement('h2');
     title.className = 'pg-title';
-    title.innerHTML = '<b id="pg-name"></b><span id="pg-tier"></span>';
-    head.append(back, title);
+    title.id = 'pg-name';
+    const use = document.createElement('span');
+    use.className = 'pg-use';
+    use.id = 'pg-use';
+    head.append(back, title, use);
   }
 
   private select(id: string): void {
     this.type = PUZZLES.find((p) => p.id === id) ?? PUZZLES[0];
     $('pg-name').textContent = this.type.name;
-    $('pg-tier').textContent = TIER_LABEL[this.type.tier];
+    $('pg-use').textContent = this.type.use;
+    $('pg-use').title = this.type.live ?? this.type.role;
     const [lo, hi] = this.type.zRange;
     this.z = Math.min(hi, Math.max(lo, this.z));
     this.rebuildSlider();
@@ -185,14 +198,13 @@ export class Playground {
   private load(deal: number): void {
     this.deal = deal;
     this.solved = false;
-    $('pg-done').hidden = true;
+    this.closeWin();
     const el = element(this.z);
     const [lo, hi] = this.type.zRange;
     $('pg-el').innerHTML = `<small>${el.z}</small><b>${el.symbol}</b><span>${el.name}</span>`;
     this.slider.set(this.z);
     this.prev.disabled = this.z <= lo;
     this.next.disabled = this.z >= hi;
-    $<HTMLButtonElement>('pg-nextel').disabled = this.z >= hi;
     $('pg-dealno').textContent = `#${deal + 1}`;
     this.shownHint = '';
     $('pg-hint').textContent = '';
@@ -217,16 +229,38 @@ export class Playground {
     }
   }
 
+  private closeWin: () => void = () => {};
+
   private won(moves: number, par: number | null, clean: boolean): void {
     this.solved = true;
-    const under = par === null ? '' : moves <= par ? ' · at par or under' : ` · ${moves - par} over par`;
-    $('pg-result').textContent = `Solved in ${moves} move${moves === 1 ? '' : 's'}${under}${clean ? '' : ' · not flawless'}`;
-    $('pg-done').hidden = false;
+    const t = this.type;
+    const el = element(this.z);
+    const [, hi] = t.zRange;
+    const flawless = clean && (par === null || moves <= par);
+    const parText = par === null ? 'none' : moves <= par ? `${par} ✓` : `${par}`;
+    this.closeWin = showWin($('pg-play'), {
+      kicker: flawless ? 'Flawless' : 'Solved',
+      title: `${t.name} · ${el.name}`,
+      flawless,
+      stats: [
+        { label: 'Moves', value: String(moves) },
+        { label: 'Par', value: parText },
+        { label: 'Deal', value: `#${this.deal + 1}` },
+      ],
+      note: flawless
+        ? (par === null ? 'Not a single slip.' : moves < par ? `${par - moves} under par. Beautifully done.` : 'Right on par, with nothing spoiled.')
+        : (!clean ? 'Solved, with a slip along the way. A clean run earns flawless.' : `${moves - (par ?? moves)} over par. Try for par on this deal or a new one.`),
+      actions: [
+        ...(this.z < hi ? [{ label: `Next: ${element(this.z + 1).name}`, primary: true, onClick: () => this.setZ(this.z + 1) }] : []),
+        { label: 'New deal', primary: this.z >= hi, onClick: () => this.load(this.deal + 1) },
+        { label: 'All puzzles', onClick: () => this.back() },
+      ],
+    }, loadSave().settings.reducedMotion);
   }
 
   private instructions(): void {
     const t = this.type;
-    openModal(`<div class="how"><h2>${t.name}</h2><p>${t.blurb}</p>${t.instructions ?? ''}<h3>Where it sits</h3><p class="meta">${t.role}</p></div>`);
+    openRules(t, { reducedMotion: loadSave().settings.reducedMotion, footer: `<h3>Where it sits</h3><p class="meta">${t.live ?? t.role}</p>` });
   }
 
   private science(): void {
@@ -235,7 +269,7 @@ export class Playground {
   }
 
   private aboutPuzzles(): void {
-    openModal(`<div class="how"><h2>Puzzles and atoms</h2>
+    openModal(`<h2>Puzzles and atoms</h2><div class="how">
       <p>Every atom in the collection is won by solving puzzles. Building an atom takes two: one gathers its nucleus, the next places its electrons. That is <b>Build</b> mode, and it uses Merge (helium to iron), Sliding Block (cobalt on) and Orbital Grid (every element).</p>
       <p><b>Facets</b> will unlock deeper layers of an atom you own, such as its isotopes or the shapes of its orbitals. <b>Gates</b> will open new parts of the game. <b>Reserve</b> puzzles are built to try out, without a place yet.</p>
       <p class="meta">Each puzzle is a game first. Where a mechanic bends the science for fun, its labels stay true, and the microscope above each puzzle says what is real and what is only a game rule.</p></div>`);

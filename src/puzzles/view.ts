@@ -24,12 +24,30 @@ export interface PuzzleView {
   hint(): string;
 }
 
+/**
+ * One rule of a puzzle for its Instructions modal: the symbol, what it means,
+ * and a small looping example. Views export `RULES: RuleCard[]`, basics first;
+ * the modal shows each card's demo beside its text.
+ */
+export interface RuleCard {
+  /** The symbol's or rule's short name, e.g. "Sparks". */
+  title: string;
+  /** One or two plain sentences, no markup. */
+  text: string;
+  /**
+   * Draws the symbol and a looping example into a w x h box (CSS pixels, the
+   * context is already scaled). t is seconds since the modal opened. Pure
+   * drawing: no shared state, no allocation-heavy work, loop length 2-6 s.
+   */
+  demo?: (ctx: CanvasRenderingContext2D, w: number, h: number, t: number) => void;
+}
+
 // Canvas text uses Outfit like the rest of the app (both names kept for existing callers).
 export const FONT = "'Outfit Variable', 'Outfit', system-ui, sans-serif";
 export const MONO = FONT;
 export const SANS = FONT;
 
-export const SUBSHELL_COLOURS = { s: '#5f8ae0', p: '#2ea57a', d: '#c07f1e', f: '#a865d6' } as const;
+export const SUBSHELL_COLORS = { s: '#5f8ae0', p: '#2ea57a', d: '#c07f1e', f: '#a865d6' } as const;
 
 export const ease = (t: number): number => 1 - Math.pow(1 - Math.max(0, Math.min(1, t)), 3);
 

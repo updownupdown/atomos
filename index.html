@@ -77,16 +77,10 @@
       <div class="vignette" aria-hidden="true"></div>
       <div class="edge" id="edge" aria-hidden="true">ATOMOS 400 &#9656; PLATE 0001</div>
 
-      <header class="top">
-        <button class="badge" id="badge" aria-label="Open this element's card">
-          <span class="badge-z" id="badge-z">1</span>
-          <span class="badge-sym" id="badge-sym">H</span>
-          <span class="badge-text">
-            <span class="badge-name" id="badge-name">Hydrogen</span>
-            <span class="badge-config" id="badge-config">bare nucleus</span>
-          </span>
-        </button>
-      </header>
+      <section class="build-home" id="build-home" aria-label="Build this atom">
+        <div class="bh-in" id="bh-in"></div>
+      </section>
+      <div class="pg-head build-head" id="build-head" hidden></div>
 
       <div class="stage" id="stage" aria-live="polite"></div>
 
@@ -100,7 +94,7 @@
     <section id="puzzles-screen" hidden aria-label="Puzzles">
       <div class="pg-home" id="pg-home">
         <div class="pg-home-in">
-          <h1 class="pg-home-title">Puzzles</h1>
+          <div class="pg-home-head" id="pg-home-head"><h1 class="pg-home-title">Puzzles</h1></div>
           <p class="pg-home-lede">Atoms are unlocked by puzzles. Here is every puzzle type, what it is for in the game, and whether the game uses it yet. Tap one to play it on any element.</p>
           <div id="pg-list"></div>
         </div>
@@ -110,13 +104,6 @@
         <div class="pg-bar" id="pg-bar"></div>
         <div class="pg-play" id="pg-play">
           <canvas id="pg-canvas" aria-label="The puzzle."></canvas>
-          <div class="pg-done" id="pg-done" hidden>
-            <span class="pg-result" id="pg-result"></span>
-            <div class="actions">
-              <button class="primary" id="pg-again">New deal</button>
-              <button class="secondary" id="pg-nextel">Next element</button>
-            </div>
-          </div>
         </div>
         <div class="pg-planned" id="pg-planned" hidden>
           <p class="pg-result">Not built yet</p>

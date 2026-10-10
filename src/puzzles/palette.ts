@@ -1,5 +1,5 @@
 // The puzzles' shared look, for canvas drawing. Flat fills and fine lines, no
-// radial gradients, in Outfit. Colours come from the design tokens in
+// radial gradients, in Outfit. Colors come from the design tokens in
 // src/ui/tokens.css (read at start-up by syncPalette), so a palette change
 // there reaches every puzzle; the values below are only the fallbacks.
 
@@ -30,22 +30,22 @@ export const C = {
   good: '#8fd19e',
   warn: '#e8b45c',
   bad: '#ef6a55',
-  /** Orbital colours: the same in every atom and every puzzle. */
+  /** Orbital colors: the same in every atom and every puzzle. */
   s: '#5f8ae0',
   p: '#2ea57a',
   d: '#c07f1e',
   f: '#a865d6',
-  /** Play pieces with no science meaning (Packing): muted clay tones, kept well away from the orbital colours. */
+  /** Play pieces with no science meaning (Packing): muted clay tones, kept well away from the orbital colors. */
   piece1: '#cfd6da',
   piece2: '#d6c4a2',
   piece3: '#c6a49c',
   piece4: '#a39d94',
-  /** Nucleons: protons warm, neutrons grey. */
+  /** Nucleons: protons warm, neutrons gray. */
   proton: '#d6963c',
   neutron: '#6d7478',
 };
 
-/** Which design token each palette colour follows. */
+/** Which design token each palette color follows. */
 const TOKENS: Partial<Record<keyof typeof C, string>> = {
   bg: '--c-bg', plate: '--c-plate', surface: '--c-surface', surface2: '--c-surface-2', surface3: '--c-surface-3',
   text: '--c-text', text2: '--c-text-2', text3: '--c-text-3',
@@ -108,15 +108,15 @@ export function tile(ctx: CanvasRenderingContext2D, x: number, y: number, w: num
 }
 
 /** A dotted socket: where something belongs. */
-export function socket(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, radius: number, colour: string = C.line2): void {
+export function socket(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, radius: number, color: string = C.line2): void {
   ctx.save();
   ctx.setLineDash([3, 4]);
-  tile(ctx, x, y, w, h, radius, null, colour, 1);
+  tile(ctx, x, y, w, h, radius, null, color, 1);
   ctx.restore();
 }
 
 /**
- * Fits a board of cols x rows square cells into an area, centred, with a margin,
+ * Fits a board of cols x rows square cells into an area, centerd, with a margin,
  * leaving `top` pixels free above it. Returns the cell size and the board origin.
  */
 export function fitGrid(area: { x: number; y: number; w: number; h: number }, cols: number, rows: number, opts: { margin?: number; top?: number; bottom?: number; maxCell?: number } = {}): { cell: number; x: number; y: number; w: number; h: number } {

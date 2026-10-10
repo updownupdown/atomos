@@ -1,24 +1,30 @@
 // Field Lines: draw one path through the grid that obeys every mark on it.
 //
 // The path runs along the edges of a small grid from a start node to an end
-// node, and cuts the grid's cells into pockets. Marks constrain it:
+// node, and cuts the grid's cells into pockets. Marks constrain it (the names
+// in brackets are what players see; linesView draws them):
 //
-//   dots     beads on edges the path must run over;
-//   gaps     broken edges the path cannot cross;
-//   colours  coloured tiles: no pocket may hold two colours of tile;
-//   counts   1 to 3 droplets in a cell: the path runs along exactly that many
-//            of the cell's four sides;
-//   pairs    coloured rings: a pocket holding a ring holds exactly two marks of
-//            the ring's colour (rings and tiles alike);
-//   shapes   tiny bead polyominoes: a pocket holding shapes is exactly those
-//            shapes fitted together, unrotated.
+//   dots     [beads] on edges the path must run over;
+//   gaps     [gaps] broken edges the path cannot cross;
+//   colors   [orbitals] filled orbital shapes: no pocket may hold two kinds;
+//   counts   [bars] 1 to 3 bars in a cell: the path runs along exactly that
+//            many of the cell's four sides;
+//   pairs    [pairs] hollow orbital shapes: a pocket holding one holds exactly
+//            two marks of its kind (hollow and filled alike);
+//   shapes   [shapes] tiny bead polyominoes: a pocket holding shapes is
+//            exactly those shapes fitted together, unrotated.
+//
+// The path runs from a + charge (start) to a − charge at the rim (end), as an
+// electric field line runs from positive to negative charge and never crosses
+// itself.
 //
 // A level is built from a random self-avoiding walk, and every mark is read off
 // that walk, so an answer always exists; any path meeting the marks counts.
 // Rules arrive a band of elements at a time, two or three kinds per level.
 //
-// Game rule, not physics: the colours borrow the sub-shell palette for mood,
-// nothing here is labelled as a field line or an orbital.
+// Game rule, not physics: the orbital marks are drawn in their real shapes and
+// sub-shell colors (s round, p two lobes, d four, f six), but sorting them into
+// pockets is only a puzzle rule.
 
 import { rand, randInt, seeded, type Rng } from './rng';
 
@@ -26,14 +32,14 @@ export type Kind = 's' | 'p' | 'd' | 'f';
 
 export interface Pt { x: number; y: number }
 
-export type Rule = 'dots' | 'colours' | 'counts' | 'gaps' | 'pairs' | 'shapes';
+export type Rule = 'dots' | 'colors' | 'counts' | 'gaps' | 'pairs' | 'shapes';
 
 /** A symbol sitting in a cell. */
 export type Mark =
-  | { type: 'colour'; c: Kind }
+  | { type: 'color'; c: Kind }
   | { type: 'pair'; c: Kind }
   | { type: 'count'; n: number }
-  /** Cells of the shape, normalised to start at (0, 0) and sorted row by row. */
+  /** Cells of the shape, normalized to start at (0, 0) and sorted row by row. */
   | { type: 'shape'; cells: Pt[] };
 
 export interface LinesState {
@@ -63,13 +69,13 @@ export interface LinesState {
   solution: Pt[];
 }
 
-export const RULE_ORDER: Rule[] = ['dots', 'colours', 'counts', 'gaps', 'pairs', 'shapes'];
+export const RULE_ORDER: Rule[] = ['dots', 'colors', 'counts', 'gaps', 'pairs', 'shapes'];
 
 export const same = (a: Pt, b: Pt): boolean => a.x === b.x && a.y === b.y;
 
 export const adjacent = (a: Pt, b: Pt): boolean => Math.abs(a.x - b.x) + Math.abs(a.y - b.y) === 1;
 
-/** A direction-free name for the edge between two neighbouring nodes. */
+/** A direction-free name for the edge between two neighboring nodes. */
 export function edgeKey(a: Pt, b: Pt): string {
   const first = a.y < b.y || (a.y === b.y && a.x < b.x);
   const [p, q] = first ? [a, b] : [b, a];
@@ -144,7 +150,7 @@ export function regions(cols: number, rows: number, path: Pt[]): number[] {
 // ---- shapes ----------------------------------------------------------------------
 
 /** Moves a set of cells to start at (0, 0), sorted row by row. */
-export function normalise(cells: Pt[]): Pt[] {
+export function normalize(cells: Pt[]): Pt[] {
   const minX = Math.min(...cells.map((p) => p.x)), minY = Math.min(...cells.map((p) => p.y));
   return cells.map((p) => ({ x: p.x - minX, y: p.y - minY })).sort((a, b) => a.y - b.y || a.x - b.x);
 }
@@ -227,14 +233,14 @@ export function verdict(s: LinesState, path: Pt[]): Verdict {
   reg.forEach((r, i) => (pockets.get(r) ?? pockets.set(r, []).get(r)!).push(i));
   const failed = new Set<number>();
   for (const cells of pockets.values()) {
-    // Colours: one colour of tile per pocket.
-    const tilesIn = cells.filter((i) => s.marks[i]?.type === 'colour');
+    // Colors: one color of tile per pocket.
+    const tilesIn = cells.filter((i) => s.marks[i]?.type === 'color');
     if (new Set(tilesIn.map((i) => (s.marks[i] as { c: Kind }).c)).size > 1) tilesIn.forEach((i) => failed.add(i));
-    // Pairs: each ring's colour appears exactly twice in its pocket.
+    // Pairs: each ring's color appears exactly twice in its pocket.
     for (const i of cells) {
       const m = s.marks[i];
       if (m?.type !== 'pair') continue;
-      const n = cells.filter((j) => { const o = s.marks[j]; return (o?.type === 'pair' || o?.type === 'colour') && o.c === m.c; }).length;
+      const n = cells.filter((j) => { const o = s.marks[j]; return (o?.type === 'pair' || o?.type === 'color') && o.c === m.c; }).length;
       if (n !== 2) failed.add(i);
     }
     // Shapes: the pocket is exactly its shapes fitted together.
@@ -264,7 +270,7 @@ export const isStart = (s: LinesState, p: Pt): boolean => s.starts.some((q) => s
 export const isEnd = (s: LinesState, p: Pt): boolean => s.ends.some((q) => same(q, p));
 
 /**
- * Moves the pen to a node: onto a start to begin, onto a free neighbour of the
+ * Moves the pen to a node: onto a start to begin, onto a free neighbor of the
  * pen across an unbroken edge to extend, or back onto the previous node to
  * retract. Null when the node is not reachable in one step.
  */
@@ -401,7 +407,7 @@ export function sizeFor(z: number): { cols: number; rows: number } {
 }
 
 /** The element at which each rule first appears. */
-export const INTRO: Record<Rule, number> = { dots: 1, colours: 1, counts: 12, gaps: 24, pairs: 36, shapes: 50 };
+export const INTRO: Record<Rule, number> = { dots: 1, colors: 1, counts: 12, gaps: 24, pairs: 36, shapes: 50 };
 
 /**
  * Which rule kinds a level uses: the newest kind for its band plus one or two
@@ -411,11 +417,11 @@ export function rulesFor(z: number, rng: Rng): { rules: Rule[]; extraStart: bool
   const t = clampZ(z);
   const pickOne = <T>(items: T[]): T => items[randInt(rng, items.length)];
   let rules: Rule[];
-  if (t < INTRO.counts) rules = ['dots', 'colours'];
-  else if (t < INTRO.gaps) rules = ['counts', pickOne<Rule>(['dots', 'colours'])];
-  else if (t < INTRO.pairs) rules = ['gaps', pickOne<Rule>(['counts', 'colours']), ...(rand(rng) < 0.3 ? ['dots' as Rule] : [])];
-  else if (t < INTRO.shapes) rules = ['pairs', pickOne<Rule>(['colours', 'colours', 'gaps', 'counts'])];
-  else if (t < 64) rules = ['shapes', pickOne<Rule>(['dots', 'gaps', 'colours'])];
+  if (t < INTRO.counts) rules = ['dots', 'colors'];
+  else if (t < INTRO.gaps) rules = ['counts', pickOne<Rule>(['dots', 'colors'])];
+  else if (t < INTRO.pairs) rules = ['gaps', pickOne<Rule>(['counts', 'colors']), ...(rand(rng) < 0.3 ? ['dots' as Rule] : [])];
+  else if (t < INTRO.shapes) rules = ['pairs', pickOne<Rule>(['colors', 'colors', 'gaps', 'counts'])];
+  else if (t < 64) rules = ['shapes', pickOne<Rule>(['dots', 'gaps', 'colors'])];
   else {
     // The full mix: one of the heavier kinds, then one or two partners.
     const heavy = pickOne<Rule>(['counts', 'pairs', 'shapes', 'pairs', 'shapes']);
@@ -435,13 +441,13 @@ function shapePieces(rng: Rng, cols: number, cells: number[]): Pt[][] | null {
   const toPts = (ids: number[]) => ids.map((i) => ({ x: i % cols, y: Math.floor(i / cols) }));
   const fits = (ids: number[]) => {
     if (ids.length < 2 || ids.length > 5) return false;
-    const n = normalise(toPts(ids));
+    const n = normalize(toPts(ids));
     return Math.max(...n.map((p) => p.x)) < 4 && Math.max(...n.map((p) => p.y)) < 4;
   };
-  if (cells.length <= 5) return fits(cells) ? [normalise(toPts(cells))] : null;
+  if (cells.length <= 5) return fits(cells) ? [normalize(toPts(cells))] : null;
   if (cells.length > 9) return null;
   const inSet = new Set(cells);
-  const neighbours = (i: number) => {
+  const neighbors = (i: number) => {
     const x = i % cols;
     return [i - cols, i + cols, x > 0 ? i - 1 : -1, x < cols - 1 ? i + 1 : -1].filter((j) => j >= 0 && inSet.has(j));
   };
@@ -449,7 +455,7 @@ function shapePieces(rng: Rng, cols: number, cells: number[]): Pt[][] | null {
     const set = new Set(ids);
     const seen = new Set([ids[0]]);
     const stack = [ids[0]];
-    while (stack.length) for (const j of neighbours(stack.pop()!)) if (set.has(j) && !seen.has(j)) { seen.add(j); stack.push(j); }
+    while (stack.length) for (const j of neighbors(stack.pop()!)) if (set.has(j) && !seen.has(j)) { seen.add(j); stack.push(j); }
     return seen.size === ids.length;
   };
   for (let attempt = 0; attempt < 24; attempt++) {
@@ -457,7 +463,7 @@ function shapePieces(rng: Rng, cols: number, cells: number[]): Pt[][] | null {
     const piece = [cells[randInt(rng, cells.length)]];
     const inPiece = new Set(piece);
     while (piece.length < size) {
-      const frontier = [...new Set(piece.flatMap(neighbours))].filter((j) => !inPiece.has(j));
+      const frontier = [...new Set(piece.flatMap(neighbors))].filter((j) => !inPiece.has(j));
       if (!frontier.length) break;
       const j = frontier[randInt(rng, frontier.length)];
       piece.push(j);
@@ -465,7 +471,7 @@ function shapePieces(rng: Rng, cols: number, cells: number[]): Pt[][] | null {
     }
     const rest = cells.filter((j) => !inPiece.has(j));
     if (!fits(piece) || !fits(rest) || !connected(rest)) continue;
-    return [normalise(toPts(piece)), normalise(toPts(rest))];
+    return [normalize(toPts(piece)), normalize(toPts(rest))];
   }
   return null;
 }
@@ -501,34 +507,34 @@ function marksFor(rng: Rng, plan: Plan, z: number, path: Pt[]): Pick<LinesState,
     if (!placed) return null;
   }
 
-  // Colours: every pocket takes one colour, shown on a few of its cells.
+  // Colors: every pocket takes one color, shown on a few of its cells.
   const kinds = shuffled(rng, ['s', 'p', 'd', 'f'] as Kind[]).slice(0, z < 40 ? 2 : 3);
-  if (has('colours')) {
+  if (has('colors')) {
     const perRegion = z < 56 ? 1 : 2;
     const regionKind = pockets.map(() => kinds[randInt(rng, kinds.length)]);
     if (regionKind.every((k) => k === regionKind[0])) regionKind[randInt(rng, regionCount)] = kinds.find((k) => k !== regionKind[0])!;
     pockets.forEach((_, r) => {
       const free = freeIn(r);
       const n = Math.min(free.length, perRegion + (free.length > 4 && rand(rng) < 0.5 ? 1 : 0));
-      for (const i of shuffled(rng, free).slice(0, n)) marks[i] = { type: 'colour', c: regionKind[r] };
+      for (const i of shuffled(rng, free).slice(0, n)) marks[i] = { type: 'color', c: regionKind[r] };
     });
-    const shown = new Set(marks.filter((m) => m?.type === 'colour').map((m) => (m as { c: Kind }).c));
+    const shown = new Set(marks.filter((m) => m?.type === 'color').map((m) => (m as { c: Kind }).c));
     if (shown.size < 2) return null;
   }
 
-  // Pairs: a ring of a colour sits with exactly one other mark of that colour.
+  // Pairs: a ring of a color sits with exactly one other mark of that color.
   if (has('pairs')) {
     const want = heavy ? 1 + randInt(rng, 2) : 2 + (z >= 70 ? 1 : 0);
     let placed = 0;
     for (const r of shuffled(rng, pockets.map((_, r) => r))) {
       if (placed >= want) break;
       const free = shuffled(rng, freeIn(r));
-      const tilesIn = pockets[r].filter((i) => marks[i]?.type === 'colour');
+      const tilesIn = pockets[r].filter((i) => marks[i]?.type === 'color');
       const tileKind = tilesIn.length ? (marks[tilesIn[0]] as { c: Kind }).c : null;
       if (tilesIn.length === 1 && free.length >= 1 && rand(rng) < 0.6) {
         marks[free[0]] = { type: 'pair', c: tileKind! };
       } else if (free.length >= 2) {
-        const options = kinds.filter((k) => k !== tileKind && !pockets[r].some((i) => { const m = marks[i]; return (m?.type === 'pair' || m?.type === 'colour') && m.c === k; }));
+        const options = kinds.filter((k) => k !== tileKind && !pockets[r].some((i) => { const m = marks[i]; return (m?.type === 'pair' || m?.type === 'color') && m.c === k; }));
         if (!options.length) continue;
         const c = options[randInt(rng, options.length)];
         marks[free[0]] = { type: 'pair', c };
@@ -584,8 +590,8 @@ export function newLines(z: number, seed: number): LinesState {
   const corners: Pt[] = [{ x: 0, y: rows }, { x: 0, y: 0 }, { x: cols, y: rows }, { x: cols, y: 0 }];
   const nodes = (cols + 1) * (rows + 1);
   for (let attempt = 0; attempt < 80; attempt++) {
-    // A rule that will not take after many walks gives way to colours, so a level always comes out.
-    if (attempt === 60 && plan.rules.includes('shapes')) plan.rules = RULE_ORDER.filter((r) => r === 'colours' || (r !== 'shapes' && plan.rules.includes(r)));
+    // A rule that will not take after many walks gives way to colors, so a level always comes out.
+    if (attempt === 60 && plan.rules.includes('shapes')) plan.rules = RULE_ORDER.filter((r) => r === 'colors' || (r !== 'shapes' && plan.rules.includes(r)));
     const interior = t >= 30 && rand(rng) < 0.35;
     const start = interior ? { x: 1 + randInt(rng, cols - 1), y: 1 + randInt(rng, rows - 1) } : corners[randInt(rng, 4)];
     const ends = borderNodes(cols, rows).filter((p) => Math.abs(p.x - start.x) + Math.abs(p.y - start.y) >= Math.max(3, cols - (interior ? 1 : 0)));
@@ -614,7 +620,7 @@ export function newLines(z: number, seed: number): LinesState {
   for (let y = rows; y >= 0; y--) path.push({ x: 1, y });
   for (let x = 2; x <= cols; x++) path.push({ x, y: 0 });
   const marks: (Mark | null)[] = Array(cols * rows).fill(null);
-  marks[cols * (rows - 1)] = { type: 'colour', c: 's' };
-  marks[cols * rows - 1] = { type: 'colour', c: 'p' };
-  return { cols, rows, starts: [path[0]], ends: [path[path.length - 1]], dots: [edgeKey(path[1], path[2])], gaps: [], marks, rules: ['dots', 'colours'], path: [], moves: 0, par: 1, won: false, solution: path };
+  marks[cols * (rows - 1)] = { type: 'color', c: 's' };
+  marks[cols * rows - 1] = { type: 'color', c: 'p' };
+  return { cols, rows, starts: [path[0]], ends: [path[path.length - 1]], dots: [edgeKey(path[1], path[2])], gaps: [], marks, rules: ['dots', 'colors'], path: [], moves: 0, par: 1, won: false, solution: path };
 }

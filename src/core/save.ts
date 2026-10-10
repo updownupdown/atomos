@@ -29,9 +29,21 @@ export interface Built {
   colour?: string;
 }
 
+/** One Build step of one atom: its nucleus puzzle or its electrons puzzle. */
+export interface StepRecord {
+  /** Solved without a spoiled move: no fusion past the target, or at or under par. */
+  flawless: boolean;
+  /** Fewest moves it has been solved in. */
+  best?: number;
+}
+
+export type StepId = 'nucleus' | 'shells';
+
 export interface SaveData {
   version: 1;
   built: Record<number, Built>;
+  /** Build steps solved so far, per atom. An atom in `built` has both, even if not listed here. */
+  steps: Record<number, Partial<Record<StepId, StepRecord>>>;
   isotopes: Record<string, { collected?: boolean; witnessed?: WitnessRecord[] }>;
   specimens: Specimen[];
   log: { at: number; text: string }[];
@@ -45,6 +57,7 @@ export function defaultSave(): SaveData {
   return {
     version: 1,
     built: {},
+    steps: {},
     isotopes: {},
     specimens: [],
     log: [],
@@ -64,7 +77,17 @@ export function loadSave(): SaveData {
     }
     const built: Record<number, Built> = {};
     for (const [z, b] of Object.entries(data.built ?? {})) built[Number(z)] = { flawless: Boolean(b?.flawless), colour: b?.colour };
-    return { ...base, built, isotopes: data.isotopes ?? {}, specimens: data.specimens ?? [], log: data.log ?? [], settings };
+    const steps: SaveData['steps'] = {};
+    for (const [z, rec] of Object.entries(data.steps ?? {})) {
+      const out: Partial<Record<StepId, StepRecord>> = {};
+      for (const id of ['nucleus', 'shells'] as StepId[]) {
+        const r = rec?.[id];
+        if (!r) continue;
+        out[id] = { flawless: Boolean(r.flawless), ...(Number.isFinite(r.best) ? { best: r.best } : {}) };
+      }
+      if (Object.keys(out).length) steps[Number(z)] = out;
+    }
+    return { ...base, built, steps, isotopes: data.isotopes ?? {}, specimens: data.specimens ?? [], log: data.log ?? [], settings };
   } catch {
     return defaultSave();
   }

@@ -1,19 +1,22 @@
 import { AtomScene, type ScreenPoint } from './render/scene';
 import { applyPlacement, configuration, electronCount, newAtom, resolvePlacement, type Atom } from './core/physics';
-import { FAMILY_COLOURS, FAMILY_NAMES, MAX_Z, element } from './core/elements';
+import { FAMILY_COLOURS, MAX_Z, element } from './core/elements';
 import {
   MODE_LABEL, decayProducts, findIsotope, formatDuration, isFleeting, isStable,
   isotopeKey, isotopesOf, sampleLifetime, type Isotope,
 } from './core/isotopes';
-import { frontier, loadSave, writeSave, type SaveData } from './core/save';
-import { wavelengthToHex } from './render/colour';
+import { frontier, loadSave, writeSave, type SaveData, type StepId } from './core/save';
+import { stepState, stepsOf, type StepState } from './core/progress';
+import { setModeDetail } from './ui/modebar';
 import { buildTracks, drawWitness, slowFactor } from './ui/witness';
 import { MERGE_UP_TO, mergeLevel, orbitalGridLevel, slidingLevel } from './puzzles/levels';
 import { MergeView } from './puzzles/mergeView';
 import { OrbitalGridView } from './puzzles/orbitalGridView';
 import { SlidingView } from './puzzles/slidingView';
 import { type Area, type PuzzleView } from './puzzles/view';
-import { puzzleType } from './puzzles/catalogue';
+import { puzzleType, type PuzzleType } from './puzzles/catalog';
+import { openRules } from './puzzles/rulesModal';
+import { showWin } from './puzzles/winPanel';
 import { closeModal, modalOpen, openModal } from './ui/modal';
 import { createHoldButton, iconButton } from './ui/components';
 import { icon } from './ui/icons';
@@ -28,12 +31,15 @@ const SILVER = '#e8e2d4';
 /** Paint choices for a built atom. */
 const PAINTS = [SILVER, '#ffffff', '#9fd0ff', '#5f8ae0', '#2ea57a', '#9fc98a', '#e6b04a', '#e0503a', '#d68ad8', '#a865d6'];
 
-type Stage = 'nucleus' | 'shells' | 'done';
+/** 'home' is the atom's Build page; the other two are its puzzles. */
+type Stage = 'home' | StepId;
 
-const STAGES: { id: Stage; label: string }[] = [
-  { id: 'nucleus', label: 'Nucleus' },
-  { id: 'shells', label: 'Electrons' },
-];
+const STEP_LABEL: Record<StepId, string> = { nucleus: 'Nucleus', shells: 'Electrons' };
+
+/** Where an atom first meets a new orbital shape: Field Lines will discover it there. */
+const NEW_SHAPE: Record<number, string> = { 5: 'p', 21: 'd', 58: 'f' };
+/** The first element of each period after the first: Slide Until Stop will open it. */
+const PERIOD_START: Record<number, number> = { 3: 2, 11: 3, 19: 4, 37: 5, 55: 6, 87: 7 };
 
 export class Game {
   private save: SaveData = loadSave();
@@ -41,20 +47,20 @@ export class Game {
   private z = 1;
   private atom: Atom = newAtom(1);
   private neutrons = 0;
-  private stage: Stage = 'nucleus';
+  private stage: Stage = 'home';
   private puzzle: PuzzleView | null = null;
+  /** A puzzle left part-way through for the Build page, to pick up again. */
+  private suspended: Partial<Record<StepId, PuzzleView>> = {};
+  private closeWin: () => void = () => {};
   private busy = false;
   private overlay = $<HTMLCanvasElement>('overlay');
   private modalCleanup: (() => void) | null = null;
   private loopRaf = 0;
   private pointerId: number | null = null;
-  /** Whether the nucleus puzzle was solved without a spoiled fusion. */
-  private nucleusClean = true;
-  private shellsClean = true;
   private shownHint = '';
   private paused = false;
 
-  constructor(private hooks: { onElement?: (z: number) => void } = {}) {
+  constructor(private hooks: { onElement?: (z: number) => void; onView?: (z: number) => void } = {}) {
     this.scene = new AtomScene($<HTMLCanvasElement>('atom'));
     this.applySettings();
     this.bindInput();
@@ -85,8 +91,8 @@ export class Game {
 
   resume(): void {
     this.paused = false;
-    // The header microscope: the science behind the puzzle in play, or the finished atom's card.
-    setScienceHandler(() => (this.stage === 'done' ? this.showCard(this.z, false) : this.showWhy()), 'The science behind this build');
+    this.registerScience();
+    this.setDetail();
     window.dispatchEvent(new Event('resize'));
     this.resizeOverlay();
     this.ensureLoop();
@@ -100,32 +106,85 @@ export class Game {
 
 
   private start(z: number): void {
+    this.closeWin();
     this.z = z;
-    this.atom = newAtom(z);
     this.neutrons = element(z).commonA - z;
+    // A built atom shows with all its electrons; one still to build, as a bare nucleus.
+    this.atom = this.save.built[z] ? fullAtom(z) : newAtom(z);
     this.busy = false;
-    this.nucleusClean = true;
-    this.shellsClean = true;
+    this.suspended = {};
     this.hooks.onElement?.(z);
     const colour = this.colourFor(z);
     this.scene.setColour(colour);
     document.documentElement.style.setProperty('--el', colour);
     this.scene.setAtom(this.atom, this.neutrons, { pDiscovered: true });
-    // A lone proton has nothing to fuse: hydrogen starts at its shells.
-    this.enter(z === 1 ? 'shells' : 'nucleus');
+    this.enter('home');
   }
 
+  /** Shows the Build page or one of the atom's puzzles. A puzzle left part-way picks up where it was. */
   private enter(stage: Stage): void {
+    this.closeWin();
     this.stage = stage;
     this.shownHint = '';
-    const reduced = this.save.settings.reducedMotion;
-    if (stage === 'nucleus') this.puzzle = this.z <= MERGE_UP_TO ? new MergeView(mergeLevel(this.z), reduced) : new SlidingView(slidingLevel(this.z), reduced);
-    else if (stage === 'shells') this.puzzle = new OrbitalGridView(orbitalGridLevel(this.z), reduced);
-    else this.puzzle = null;
-    document.body.classList.toggle('puzzling', this.puzzle !== null);
+    if (stage === 'home') {
+      this.puzzle = null;
+    } else {
+      this.puzzle = this.suspended[stage] ?? this.makePuzzle(stage);
+      delete this.suspended[stage];
+      if (stage === 'shells' && !this.suspended.shells) {
+        // The electrons go on fresh each time they are played.
+        this.atom = newAtom(this.z);
+        this.scene.setAtom(this.atom, this.neutrons, { pDiscovered: true });
+      }
+    }
+    const home = stage === 'home';
+    document.body.classList.toggle('puzzling', !home);
     document.body.classList.toggle('stage-nucleus', stage === 'nucleus');
+    document.body.classList.toggle('build-home', home);
+    $('build-home').hidden = !home;
+    $('build-head').hidden = home;
+    if (home) {
+      this.clearOverlay();
+      this.renderHome();
+    } else {
+      this.renderHead();
+    }
+    this.registerScience();
+    this.setDetail();
     this.refresh();
     this.ensureLoop();
+  }
+
+  private makePuzzle(step: StepId): PuzzleView {
+    const reduced = this.save.settings.reducedMotion;
+    if (step === 'shells') return new OrbitalGridView(orbitalGridLevel(this.z), reduced);
+    return this.z <= MERGE_UP_TO ? new MergeView(mergeLevel(this.z), reduced) : new SlidingView(slidingLevel(this.z), reduced);
+  }
+
+  /** Back to the Build page, keeping a puzzle that is under way. */
+  private toHome(): void {
+    if (this.busy) return;
+    if (this.stage !== 'home' && this.puzzle && this.puzzle.moves > 0 && !this.puzzle.won) this.suspended[this.stage] = this.puzzle;
+    this.enter('home');
+  }
+
+  /** The header microscope: how building works on the Build page, the science of a puzzle inside it. */
+  private registerScience(): void {
+    if (this.paused) return;
+    if (this.stage === 'home') setScienceHandler(() => this.showBuildScience(), `How ${element(this.z).name} is built`);
+    else setScienceHandler(() => this.showWhy(), 'The science behind this puzzle');
+  }
+
+  private stepState(z: number, id: StepId): StepState {
+    return stepState(this.save, z, id);
+  }
+
+  private recordStep(id: StepId, p: PuzzleView): void {
+    const steps = (this.save.steps[this.z] ??= {});
+    const prev = steps[id];
+    steps[id] = { flawless: (prev?.flawless ?? false) || p.clean, best: Math.min(prev?.best ?? Infinity, p.moves) };
+    writeSave(this.save);
+    this.setDetail();
   }
 
   private colourFor(z: number): string {
@@ -134,10 +193,6 @@ export class Game {
 
   private refresh(): void {
     const el = element(this.z);
-    $('badge-z').textContent = String(el.z);
-    $('badge-sym').textContent = el.symbol;
-    $('badge-name').textContent = el.name;
-    $('badge-config').textContent = this.stage === 'nucleus' ? `${el.z} p · ${this.neutrons} n` : this.stage === 'done' ? shortConfiguration(elementAt(this.z)) : configuration(this.atom);
     $('edge').textContent = `ATOMOS 400 ▸ ${el.symbol.toUpperCase()} ${el.z} ▸ PLATE ${String(el.z).padStart(4, '0')}`;
     this.renderStage();
     ($('btn-undo') as HTMLButtonElement).disabled = !this.puzzle?.canUndo() || this.busy;
@@ -146,16 +201,164 @@ export class Game {
   }
 
   private renderStage(): void {
-    const box = $('stage');
     const p = this.puzzle;
-    const pips = STAGES.map((s, i) => {
-      const done = this.stage === 'done' || i < STAGES.findIndex((x) => x.id === this.stage);
-      const on = s.id === this.stage;
-      return `<span class="pip ${done ? 'done' : on ? 'on' : ''}" title="${s.label}"></span>`;
+    const text = p ? `${p.moves} move${p.moves === 1 ? '' : 's'}${p.par !== null ? ` · par ${p.par}` : ''}` : '';
+    const box = $('stage');
+    if (box.textContent !== text) box.textContent = text;
+  }
+
+  /** The header inside a puzzle: Back to the Build page, the puzzle's name, and which step it is. */
+  private renderHead(): void {
+    const step = this.stage as StepId;
+    const t = this.stepPuzzle(step);
+    const head = $('build-head');
+    head.innerHTML = `
+      <button class="back-plate" id="build-back" aria-label="Back to ${element(this.z).name}">${icon('chevron-left', { size: 20 })}<span>Back</span></button>
+      <h2 class="pg-title">${t.name}</h2>
+      <span class="pg-use">Step ${step === 'nucleus' ? 1 : 2} of 2 · ${STEP_LABEL[step]}</span>`;
+    head.querySelector<HTMLButtonElement>('#build-back')!.onclick = () => this.toHome();
+  }
+
+  /** The catalog entry for a Build step's puzzle on this atom. */
+  private stepPuzzle(step: StepId, z = this.z): PuzzleType {
+    return puzzleType(step === 'nucleus' ? (z <= MERGE_UP_TO ? 'merge' : 'sliding') : 'orbitalGrid');
+  }
+
+  /** What a Build step adds to this atom, in a sentence. */
+  private stepContribution(step: StepId): string {
+    const el = element(this.z);
+    if (step === 'shells') return `Settles ${el.z} electron${el.z === 1 ? '' : 's'} into ${el.name.toLowerCase()}'s orbitals: ${shortConfiguration(elementAt(this.z))}.`;
+    if (this.z === 1) return 'Hydrogen\'s nucleus is a single proton, so there is nothing to gather.';
+    return `Gathers ${el.z} protons and ${this.neutrons} neutrons into ${el.name.toLowerCase()}'s nucleus.`;
+  }
+
+  // ---- the Build page ---------------------------------------------------------------
+
+  /** The atom's Build page: its two puzzles, how far each has got, and what is still to come. */
+  private renderHome(): void {
+    const z = this.z;
+    const el = element(z);
+    const built = this.save.built[z];
+    const colour = this.colourFor(z);
+    const steps: StepId[] = ['nucleus', 'shells'];
+    const state = steps.map((id) => this.stepState(z, id));
+    const status = this.statusText();
+
+    const cards = steps.map((id, i) => {
+      const st = state[i];
+      const t = this.stepPuzzle(id);
+      const nothing = id === 'nucleus' && z === 1;
+      const locked = id === 'shells' && !state[0].done;
+      const paused = this.suspended[id];
+      const cls = nothing ? 'is-done' : st.done ? (st.flawless ? 'is-flawless' : 'is-done') : locked ? 'is-locked' : 'is-next';
+      const mark = nothing ? icon('check', { size: 20 }) : st.done ? icon(st.flawless ? 'star' : 'check', { size: 20 }) : String(i + 1);
+      const best = st.best !== undefined ? ` · best ${st.best} move${st.best === 1 ? '' : 's'}` : '';
+      const where = nothing ? 'Ready from the start' : paused ? `In progress · ${paused.moves} move${paused.moves === 1 ? '' : 's'}`
+        : st.done ? `${st.flawless ? 'Flawless' : 'Done'}${best}`
+        : locked ? 'Opens once the nucleus is done' : 'Not played yet';
+      const play = nothing || locked ? ''
+        : `<button class="${st.done && !paused ? 'secondary' : 'primary'} bh-play" data-step="${id}">${paused ? 'Resume' : st.done ? 'Replay' : 'Play'}</button>`;
+      return `
+        <li class="bh-step ${cls}">
+          <span class="bh-mark" aria-hidden="true">${mark}</span>
+          <div class="bh-step-body">
+            <p class="bh-kicker">Step ${i + 1} · ${STEP_LABEL[id]}</p>
+            <h2 class="bh-step-name">${nothing ? 'A lone proton' : t.name}${nothing ? '' : `<button class="bh-info" data-rules="${t.id}" aria-label="How ${t.name} works">${icon('info', { size: 18 })}</button>`}</h2>
+            <p class="bh-adds">${this.stepContribution(id)}</p>
+            <p class="bh-where">${where}</p>
+          </div>
+          ${play}
+        </li>`;
     }).join('');
-    const label = this.stage === 'done' ? 'Built' : STAGES.find((s) => s.id === this.stage)!.label;
-    const count = p ? `${p.moves} move${p.moves === 1 ? '' : 's'}${p.par !== null ? ` · par ${p.par}` : ''}` : '';
-    box.innerHTML = `${pips}<span class="stage-name">${label}</span><span class="stage-count">${count}</span>`;
+
+    const stable = isotopesOf(z).filter(isStable);
+    const stableHave = stable.filter((iso) => this.save.isotopes[isotopeKey(z, iso.a)]?.collected).length;
+    const next = z < MAX_Z ? element(z + 1) : null;
+    const builtBlock = built ? `
+      <section class="bh-section">
+        <h3>Paint</h3>
+        <p class="muted">Atoms have no color at this scale, so choose how yours glows.</p>
+        <div class="palette">${PAINTS.map((c) => `<button style="--c:${c}" data-c="${c}" aria-label="Color ${c}" aria-pressed="${c.toLowerCase() === colour.toLowerCase()}"></button>`).join('')}</div>
+      </section>
+      <section class="bh-section">
+        <h3>Isotopes</h3>
+        <p class="muted">${stable.length ? `${stableHave} of ${stable.length} stable isotope${stable.length === 1 ? '' : 's'} collected.` : `${el.name} has no stable isotope; its atoms decay in real time.`} The same element with different numbers of neutrons.</p>
+        <button class="secondary" id="bh-iso">Open the isotope bench</button>
+      </section>` : '';
+
+    const later = this.laterFor(z);
+    const laterBlock = later.length ? `
+      <section class="bh-section bh-later">
+        <h3>Coming later</h3>
+        <p class="muted">Planned for ${el.name.toLowerCase()}, not in the game yet.</p>
+        <ul>${later.map((l) => `<li><b>${l.what}</b><span class="bh-later-by">${l.by}</span><span class="bh-later-text">${l.text}</span></li>`).join('')}</ul>
+      </section>` : '';
+
+    $('bh-in').innerHTML = `
+      <div class="bh-hero">
+        <div class="bh-sym" style="--el:${colour}"><small>${z}</small>${el.symbol}</div>
+        <div class="bh-id">
+          <h1>${el.name}</h1>
+          <p class="bh-status${built ? ' is-built' : ''}">${status}</p>
+        </div>
+      </div>
+      <p class="bh-lede">${z === 1 ? 'Hydrogen takes one puzzle: its nucleus is a lone proton, so you only settle its electron. Solve it to add hydrogen to your collection.' : `Two puzzles build ${el.name.toLowerCase()}: the first gathers its nucleus, the second settles its electrons around it. Solve both to add it to your collection.`}</p>
+      <ol class="bh-steps">${cards}</ol>
+      ${builtBlock}
+      ${built && next ? `<button class="primary bh-next" id="bh-next">${this.save.built[next.z] ? 'Rebuild' : 'Build'} ${next.name}</button>` : ''}
+      ${laterBlock}`;
+
+    const root = $('bh-in');
+    root.querySelectorAll<HTMLButtonElement>('[data-step]').forEach((b) => (b.onclick = () => this.enter(b.dataset.step as StepId)));
+    root.querySelectorAll<HTMLButtonElement>('[data-rules]').forEach((b) => (b.onclick = () => this.openRulesFor(puzzleType(b.dataset.rules!))));
+    root.querySelectorAll<HTMLButtonElement>('[data-c]').forEach((b) => (b.onclick = () => this.paint(b.dataset.c!)));
+    root.querySelector<HTMLButtonElement>('#bh-iso')?.addEventListener('click', () => this.showBench(z));
+    root.querySelector<HTMLButtonElement>('#bh-next')?.addEventListener('click', () => this.start(z + 1));
+  }
+
+  /** One line on how far this atom's Build has got, for the page and the mode row. */
+  private statusText(z = this.z): string {
+    const built = this.save.built[z];
+    if (built) return built.flawless ? 'Built, flawless' : 'Built';
+    const steps = stepsOf(z);
+    const done = steps.filter((id) => this.stepState(z, id).done).length;
+    return done ? `${done} of ${steps.length} steps done` : 'Not built yet';
+  }
+
+  /** The mode row's details while Build shows: the atom and how far its Build has got. */
+  private setDetail(): void {
+    if (this.paused) return;
+    // Short, to fit beside View and Build on a phone: the symbol, then built or steps done.
+    const el = element(this.z);
+    const built = this.save.built[this.z];
+    const steps = stepsOf(this.z);
+    const done = steps.filter((id) => this.stepState(this.z, id).done).length;
+    const progress = built ? (built.flawless ? 'Flawless' : 'Built') : `${done} of ${steps.length}`;
+    setModeDetail(`<span class="mode-name" title="${el.name}">${el.symbol}</span><span class="mode-progress" title="${this.statusText()}">${progress}</span>`);
+  }
+
+  /** Puzzles on the progression map for this atom that the game does not have yet. */
+  private laterFor(z: number): { what: string; by: string; text: string }[] {
+    const el = element(z);
+    const out: { what: string; by: string; text: string }[] = [];
+    if (isotopesOf(z).length > 1) out.push({ what: 'Isotope vault', by: 'Packing', text: `Builds ${el.name.toLowerCase()}'s other isotopes, one board each.` });
+    if (NEW_SHAPE[z]) out.push({ what: `The ${NEW_SHAPE[z]} orbital shape`, by: 'Field Lines', text: `${el.name} is the first atom with an electron in a ${NEW_SHAPE[z]} orbital; this puzzle discovers its shape.` });
+    if (PERIOD_START[z]) out.push({ what: `Period ${PERIOD_START[z]}`, by: 'Slide Until Stop', text: `${el.name} starts a new row of the table; this puzzle opens it.` });
+    return out;
+  }
+
+  private paint(c: string): void {
+    const built = this.save.built[this.z];
+    if (!built) return;
+    built.colour = c;
+    writeSave(this.save);
+    this.scene.setColour(c);
+    document.documentElement.style.setProperty('--el', c);
+    this.renderHome();
+  }
+
+  private openRulesFor(t: PuzzleType): void {
+    openRules(t, { reducedMotion: this.save.settings.reducedMotion });
   }
 
   private sayHint(): void {
@@ -225,19 +428,17 @@ export class Game {
       requestAnimationFrame(tick);
     });
     if (this.stage === 'nucleus') {
-      this.nucleusClean = p.clean;
+      this.recordStep('nucleus', p);
       sfx.harmonySound();
       this.puzzle = null;
       document.body.classList.remove('puzzling', 'stage-nucleus');
       this.clearOverlay();
       this.scene.setAtom(this.atom, this.neutrons, { pDiscovered: true });
-      this.say(`<span class="hl">${element(this.z).name}'s nucleus:</span> ${this.z} proton${this.z === 1 ? '' : 's'} and ${this.neutrons} neutron${this.neutrons === 1 ? '' : 's'}. Now its electrons.`);
-      await wait(reduced ? 400 : 1600);
       this.busy = false;
-      this.enter('shells');
+      this.stepWon('nucleus', p);
       return;
     }
-    this.shellsClean = p.clean;
+    this.recordStep('shells', p);
     this.puzzle = null;
     document.body.classList.remove('puzzling');
     this.clearOverlay();
@@ -248,29 +449,80 @@ export class Game {
       this.atom = applyPlacement(this.atom, r.orbital, r.spin);
       this.scene.setAtom(this.atom, this.neutrons, { pDiscovered: true });
       sfx.captureSound();
-      $('badge-config').textContent = electronCount(this.atom) >= this.z ? shortConfiguration(elementAt(this.z)) : configuration(this.atom);
+      this.say(electronCount(this.atom) >= this.z ? shortConfiguration(elementAt(this.z)) : configuration(this.atom));
       await wait(reduced ? 60 : 220);
     }
     this.busy = false;
-    this.finish();
+    if (this.stepState(this.z, 'nucleus').done) this.finish(p);
+    else this.stepWon('shells', p);
   }
 
-  private finish(): void {
-    this.stage = 'done';
+  /** Moves and par for the win panel. */
+  private winStats(p: PuzzleView, step: StepId): { label: string; value: string }[] {
+    const best = this.save.steps[this.z]?.[step]?.best;
+    return [
+      { label: 'Moves', value: String(p.moves) },
+      ...(p.par !== null ? [{ label: 'Par', value: p.moves <= p.par ? `${p.par} ✓` : String(p.par) }] : []),
+      ...(best !== undefined && best < p.moves ? [{ label: 'Best', value: String(best) }] : []),
+    ];
+  }
+
+  /** One step solved, the atom not yet whole: say what it added and offer the other step. */
+  private stepWon(step: StepId, p: PuzzleView): void {
+    const el = element(this.z);
+    const other: StepId = step === 'nucleus' ? 'shells' : 'nucleus';
+    const otherDone = this.stepState(this.z, other).done;
+    const note = step === 'nucleus'
+      ? `${el.z} protons and ${this.neutrons} neutrons, held together. ${otherDone ? 'Its electrons are already in place.' : 'Next, its electrons.'}`
+      : `${el.z} electrons in their orbitals. ${el.name} still needs its nucleus.`;
+    this.closeWin = showWin($('app'), {
+      kicker: p.clean ? 'Flawless' : `Step ${step === 'nucleus' ? 1 : 2} done`,
+      title: `${el.name}'s ${step === 'nucleus' ? 'nucleus' : 'electrons'}`,
+      flawless: p.clean,
+      stats: this.winStats(p, step),
+      note,
+      actions: [
+        ...(!otherDone ? [{ label: `Next: ${STEP_LABEL[other].toLowerCase()}`, primary: true, onClick: () => this.enter(other) }] : []),
+        { label: `Back to ${el.name.toLowerCase()}`, primary: otherDone, onClick: () => this.enter('home') },
+      ],
+    }, this.save.settings.reducedMotion);
+  }
+
+  /** Both steps done: the atom joins the collection. */
+  private finish(p: PuzzleView): void {
     const prev = this.save.built[this.z];
-    const flawless = this.nucleusClean && this.shellsClean;
+    const flawless = this.stepState(this.z, 'nucleus').flawless && this.stepState(this.z, 'shells').flawless;
     this.save.built[this.z] = { flawless: (prev?.flawless ?? false) || flawless, colour: prev?.colour };
-    const key = isotopeKey(this.z, element(this.z).commonA);
+    const el = element(this.z);
+    const key = isotopeKey(this.z, el.commonA);
     this.save.isotopes[key] = { ...this.save.isotopes[key], collected: true };
     writeSave(this.save);
+    this.setDetail();
     this.scene.celebrate();
     sfx.completeSound();
-    this.refresh();
-    const name = element(this.z).name;
-    this.say(flawless
-      ? `<span class="hl">${name}, flawless:</span> nothing spoiled, electrons placed at par.`
-      : `<span class="hl">${name} complete.</span> ${!this.nucleusClean ? 'A fusion overshot along the way' : 'The electrons took more placements than par'}; rebuild for a flawless one.`);
-    window.setTimeout(() => this.showCard(this.z, true), this.save.settings.reducedMotion ? 300 : 1200);
+    this.say('');
+    const next = this.z < MAX_Z ? element(this.z + 1) : null;
+    const nucleus = this.stepState(this.z, 'nucleus');
+    const note = prev
+      ? `${el.name} rebuilt.${flawless && !prev.flawless ? ' Flawless at last: nothing spoiled, electrons at par.' : ''}`
+      : `${el.name} joins your collection, with ${el.name.toLowerCase()}-${el.commonA}, its most common isotope. Paint it or build its isotopes from its Build page.`;
+    window.setTimeout(() => {
+      this.closeWin = showWin($('app'), {
+        kicker: flawless ? 'Flawless' : 'Built',
+        title: `${el.name} is built`,
+        flawless,
+        stats: [
+          ...this.winStats(p, 'shells'),
+          ...(this.z > 1 ? [{ label: 'Nucleus', value: nucleus.flawless ? 'Flawless' : 'Done' }] : []),
+        ],
+        note: flawless ? note : `${note} For a flawless one: no fusion past the target, and the electrons in par or fewer moves.`,
+        actions: [
+          ...(next ? [{ label: `${this.save.built[next.z] ? 'Rebuild' : 'Build'} ${next.name.toLowerCase()}`, primary: true, onClick: () => this.start(next.z) }] : []),
+          ...(this.hooks.onView ? [{ label: `Look at ${el.name.toLowerCase()}`, onClick: () => { this.enter('home'); this.hooks.onView!(this.z); } }] : []),
+          { label: `Back to ${el.name.toLowerCase()}`, onClick: () => this.enter('home') },
+        ],
+      }, this.save.settings.reducedMotion);
+    }, this.save.settings.reducedMotion ? 200 : 900);
   }
 
   // ---- input -----------------------------------------------------------------
@@ -288,7 +540,6 @@ export class Game {
     restart.id = 'btn-restart';
     const how = iconButton({ icon: icon('info'), label: 'Instructions', onClick: () => this.showHow() });
     $('build-actions').append(undo, restart, how);
-    $('badge').onclick = () => this.showCard(this.z, false);
     window.addEventListener('keydown', (e) => this.onKey(e));
     window.addEventListener('blur', () => this.onCancel());
   }
@@ -323,7 +574,8 @@ export class Game {
   }
 
   private onKey(e: KeyboardEvent): void {
-    if (this.paused || $('app').hidden || modalOpen()) return;
+    if (this.paused || $('app').hidden || modalOpen() || $('app').querySelector('.win')) return;
+    if (e.key === 'Escape' && this.stage !== 'home') { this.toHome(); e.preventDefault(); return; }
     if (e.key === 'u' || (e.key === 'z' && (e.ctrlKey || e.metaKey))) return this.undo();
     if (e.key === 'r' && !e.ctrlKey && !e.metaKey) return this.restartPuzzle();
     if (this.puzzle && !this.busy && this.puzzle.key(e)) {
@@ -447,74 +699,41 @@ export class Game {
     const sheet = this.openModal(`
       <h2>Atomos</h2>
       <p class="muted">Prototype</p>
-      <p>Every atom is two puzzles: one gathers its <b>nucleus</b>, the other settles its <b>electrons</b>.</p>
+      <p>Every atom is built from puzzles: one gathers its <b>nucleus</b>, the other settles its <b>electrons</b>. Each atom's Build page shows its puzzles, what each one adds, and how far you have got.</p>
       <p>No timers. The <b>i</b> explains how a puzzle works, and the microscope the science behind it, whenever you want them.</p>
-      <div class="actions"><button class="primary" id="intro-go">Build hydrogen</button></div>`);
+      <div class="actions"><button class="primary" id="intro-go">Start with hydrogen</button></div>`);
     sheet.querySelector<HTMLButtonElement>('#intro-go')!.onclick = () => this.closeModal();
   }
 
-  /** The catalogue entry for the puzzle on screen. */
-  private stagePuzzle() {
-    return puzzleType(this.stage === 'nucleus' ? (this.z <= MERGE_UP_TO ? 'merge' : 'sliding') : 'orbitalGrid');
-  }
-
   private showWhy(): void {
-    const t = this.stagePuzzle();
+    const t = this.stepPuzzle(this.stage === 'home' ? 'nucleus' : this.stage);
     this.openModal(t.science?.(this.z) ?? `<h2>${t.name}</h2><p>${t.blurb}</p>`);
   }
 
-  private showHow(): void {
-    const t = this.stagePuzzle();
-    this.openModal(`<div class="how"><h2>${t.name}</h2><p>${t.blurb}</p>${t.instructions ?? ''}</div>`);
+  /** The microscope on the Build page: what each step stands for in a real atom. */
+  private showBuildScience(): void {
+    const el = element(this.z);
+    const nucleus = this.stepPuzzle('nucleus');
+    const sheet = this.openModal(`
+      <h2>How ${el.name.toLowerCase()} is built</h2>
+      <p>An atom is a tiny, dense <b>nucleus</b> of protons and neutrons, wrapped in a far larger cloud of <b>electrons</b>. ${el.name} has ${el.z} proton${el.z === 1 ? '' : 's'}, ${this.neutrons} neutron${this.neutrons === 1 ? '' : 's'} in its most common form, and ${el.z} electron${el.z === 1 ? '' : 's'}.</p>
+      <p>The number of protons decides which element it is. The electrons decide how it behaves: how it bonds, its color in a flame, whether it conducts.</p>
+      <div class="actions">
+        ${this.z > 1 ? `<button class="secondary" id="sci-nucleus">The science of ${nucleus.name}</button>` : ''}
+        <button class="secondary" id="sci-shells">The science of Orbital Grid</button>
+      </div>`);
+    const open = (step: StepId) => { const t = this.stepPuzzle(step); this.openModal(t.science?.(this.z) ?? `<h2>${t.name}</h2><p>${t.blurb}</p>`); };
+    sheet.querySelector<HTMLButtonElement>('#sci-nucleus')?.addEventListener('click', () => open('nucleus'));
+    sheet.querySelector<HTMLButtonElement>('#sci-shells')!.onclick = () => open('shells');
   }
 
-  private showCard(z: number, justBuilt: boolean): void {
-    const el = element(z);
-    const built = this.save.built[z];
-    const colour = this.colourFor(z);
-    const stable = isotopesOf(z).filter(isStable);
-    const stableHave = stable.filter((i) => this.save.isotopes[isotopeKey(z, i.a)]?.collected).length;
-    const next = z < MAX_Z ? element(z + 1) : null;
-    const sheet = this.openModal(`
-      <div class="card-head" style="--el:${colour}">
-        <div class="card-sym"><small>${z}</small>${el.symbol}</div>
-        <div>
-          <h2>${el.name}</h2>
-          <div class="muted">${FAMILY_NAMES[el.family]} · ${shortConfiguration(elementAt(z))}</div>
-        </div>
-      </div>
-      <div class="tiers">
-        <span class="tier ${built ? 'on' : ''}">Built</span>
-        <span class="tier ${built?.flawless ? 'on' : ''}">Flawless</span>
-        <span class="tier ${stableHave === stable.length && stable.length ? 'on' : ''}">Stable isotopes ${stableHave}/${stable.length}</span>
-      </div>
-      ${justBuilt && built && !built.flawless ? '<p class="muted">Flawless: no fusion past the target, and the electrons placed in par or fewer moves.</p>' : ''}
-      <h3>Facts</h3>
-      <ul class="facts">${el.facts.map((f) => `<li>${f}</li>`).join('')}</ul>
-      ${el.famousLine ? `<h3>Signature light</h3><div class="line-row"><span class="swatch" style="background:${wavelengthToHex(el.famousLine.nm)};color:${wavelengthToHex(el.famousLine.nm)}"></span><span>${el.famousLine.nm} nm · ${el.famousLine.label}</span></div>` : ''}
-      <h3>Colour</h3>
-      <p class="muted">Atoms have no colour at this scale, so paint yours.</p>
-      <div class="palette">${PAINTS.map((c) => `<button style="--c:${c}" data-c="${c}" aria-label="Colour ${c}" aria-pressed="${c.toLowerCase() === colour.toLowerCase()}"></button>`).join('')}</div>
-      <div class="actions">
-        ${built && next && next.z <= MAX_Z ? `<button class="primary" id="card-next">${this.save.built[next.z] ? 'Rebuild' : 'Build'} ${next.name}</button>` : ''}
-        ${built ? `<button class="secondary" id="card-iso">Isotopes</button>` : ''}
-        ${built ? `<button class="secondary" id="card-rebuild">Rebuild ${el.name}</button>` : ''}
-        <button class="secondary" id="card-close">Close</button>
-      </div>`);
-    sheet.querySelectorAll<HTMLButtonElement>('[data-c]').forEach((b) => (b.onclick = () => {
-      if (!this.save.built[z]) return;
-      this.save.built[z].colour = b.dataset.c;
-      writeSave(this.save);
-      if (z === this.z) {
-        this.scene.setColour(b.dataset.c!);
-        document.documentElement.style.setProperty('--el', b.dataset.c!);
-      }
-      this.showCard(z, false);
-    }));
-    sheet.querySelector<HTMLButtonElement>('#card-next')?.addEventListener('click', () => { this.closeModal(); this.start(z + 1); });
-    sheet.querySelector<HTMLButtonElement>('#card-rebuild')?.addEventListener('click', () => { this.closeModal(); this.start(z); });
-    sheet.querySelector<HTMLButtonElement>('#card-iso')?.addEventListener('click', () => this.showBench(z));
-    sheet.querySelector<HTMLButtonElement>('#card-close')!.onclick = () => this.closeModal();
+  private showHow(): void {
+    if (this.stage === 'home') return;
+    const t = this.stepPuzzle(this.stage);
+    openRules(t, {
+      reducedMotion: this.save.settings.reducedMotion,
+      footer: `<h3>What it adds</h3><p class="meta">${this.stepContribution(this.stage)}</p>`,
+    });
   }
 
   private showBench(z: number): void {
@@ -548,9 +767,9 @@ export class Game {
       <p class="muted">Same element, different numbers of neutrons. Unstable ones decay in real time: each atom you build has its own random lifetime, and the half-life is only the odds.</p>
       <div class="iso-list">${rows}</div>
       <p class="muted">In this prototype, isotopes build with one tap. Their own puzzles come next.</p>
-      <div class="actions"><button class="secondary" id="bench-back">Back to ${el.name}</button></div>`);
+      <div class="actions"><button class="secondary" id="bench-back">Back to ${el.name.toLowerCase()}</button></div>`);
     sheet.querySelectorAll<HTMLButtonElement>('[data-build]').forEach((b) => (b.onclick = () => this.buildIsotope(findIsotope(z, Number(b.dataset.build))!)));
-    sheet.querySelector<HTMLButtonElement>('#bench-back')!.onclick = () => { this.benchZ = null; this.showCard(z, false); };
+    sheet.querySelector<HTMLButtonElement>('#bench-back')!.onclick = () => { this.benchZ = null; this.closeModal(); if (this.stage === 'home') this.renderHome(); };
   }
 
   private showWitness(iso: Isotope): void {
@@ -656,6 +875,17 @@ function isoName(z: number, a: number): string {
 function superscriptNum(n: number): string {
   const map: Record<string, string> = { '-': '⁻', '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴', '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹' };
   return String(Math.round(n)).split('').map((c) => map[c] ?? c).join('');
+}
+
+/** An atom with every electron in place, as a finished build shows it. */
+function fullAtom(z: number): Atom {
+  let atom = newAtom(z);
+  for (let i = 0; i < z; i++) {
+    const r = resolvePlacement(atom);
+    if (r?.kind !== 'placed') break;
+    atom = applyPlacement(atom, r.orbital, r.spin);
+  }
+  return atom;
 }
 
 const wait = (ms: number) => new Promise((r) => window.setTimeout(r, ms));
