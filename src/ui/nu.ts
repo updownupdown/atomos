@@ -70,38 +70,53 @@ export function nuOrbit(iconName: 'restart' | 'atom'): { el: HTMLElement; settle
   return { el, settle };
 }
 
-/** Nu streaks across `over` (or the screen) from left to right with a fading trail, like a track
- *  in a cloud chamber. `onSweep(p)` runs every frame with p from 0 to 1, so the caller can fade
- *  what lies behind the trail. Resolves when Nu has crossed. Under Reduce motion it calls
- *  onSweep(1) once and resolves. */
-export function nuStreak(over?: Element | null, onSweep?: (p: number) => void, ms = 560): Promise<void> {
+/** Nu streaks across `over` (or the screen) from left to right, like a track in a cloud chamber:
+ *  it gathers at the left edge, races across with a trail and a rose wake the height of the
+ *  board, and bursts in a ring as it leaves. `onSweep(p)` runs every frame of the crossing with
+ *  p from 0 to 1, so the caller can fade what lies behind the wake. Resolves when Nu has
+ *  crossed. Under Reduce motion it calls onSweep(1) once and resolves. */
+export function nuStreak(over?: Element | null, onSweep?: (p: number) => void, ms = 620): Promise<void> {
   if (reducedMotion()) {
     onSweep?.(1);
     return Promise.resolve();
   }
-  const r = over?.getBoundingClientRect() ?? new DOMRect(0, window.innerHeight * 0.4, window.innerWidth, window.innerHeight * 0.2);
+  const r = over?.getBoundingClientRect() ?? new DOMRect(0, window.innerHeight * 0.25, window.innerWidth, window.innerHeight * 0.5);
   const layer = document.createElement('div');
   layer.className = 'nu-streak';
-  layer.style.cssText = `left:${r.left}px;top:${r.top + r.height / 2}px;width:${r.width}px`;
-  layer.innerHTML = '<i class="nu-streak-trail"></i><i class="nu-streak-dot"></i>';
+  layer.style.cssText = `left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px`;
+  layer.innerHTML = '<i class="nu-streak-wake"></i><i class="nu-streak-trail"></i><i class="nu-streak-dot"></i><i class="nu-streak-ring"></i>';
   document.body.append(layer);
   const dot = layer.querySelector<HTMLElement>('.nu-streak-dot')!;
   const trail = layer.querySelector<HTMLElement>('.nu-streak-trail')!;
+  const wake = layer.querySelector<HTMLElement>('.nu-streak-wake')!;
+  const ring = layer.querySelector<HTMLElement>('.nu-streak-ring')!;
+  const GATHER = 180;
   return new Promise((done) => {
     const t0 = performance.now();
     const frame = (now: number) => {
-      const t = Math.min(1, (now - t0) / ms);
-      const p = t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2; // ease in and out
-      dot.style.transform = `translateX(${p * r.width}px)`;
-      trail.style.width = `${p * r.width}px`;
-      trail.style.opacity = String(1 - t * 0.6);
-      onSweep?.(p);
-      if (t < 1) requestAnimationFrame(frame);
-      else {
-        layer.animate?.([{ opacity: 1 }, { opacity: 0 }], { duration: 200 }).finished.finally(() => layer.remove());
-        if (!layer.animate) layer.remove();
-        done();
+      const el = now - t0;
+      if (el < GATHER) {
+        // Gathering: the dot swells out of nothing at the left edge.
+        const g = el / GATHER;
+        dot.style.transform = `translateX(0) scale(${(g < 0.7 ? g / 0.7 * 1.9 : 1.9 - (g - 0.7) / 0.3 * 0.9).toFixed(3)})`;
+        requestAnimationFrame(frame);
+        return;
       }
+      const t = Math.min(1, (el - GATHER) / ms);
+      const p = t * t * (3 - 2 * t); // smoothstep: a quick launch, a clean exit
+      const x = p * r.width;
+      dot.style.transform = `translateX(${x}px)`;
+      trail.style.width = `${x}px`;
+      wake.style.width = `${x}px`;
+      wake.style.opacity = String(1 - t * 0.5);
+      onSweep?.(p);
+      if (t < 1) { requestAnimationFrame(frame); return; }
+      ring.style.left = `${r.width}px`;
+      ring.classList.add('is-on');
+      if (!layer.animate) { layer.remove(); done(); return; }
+      dot.animate([{ opacity: 1, transform: `translateX(${x}px) scale(1)` }, { opacity: 0, transform: `translateX(${x}px) scale(2.4)` }], { duration: 260, fill: 'forwards' });
+      layer.animate([{ opacity: 1 }, { opacity: 1, offset: 0.5 }, { opacity: 0 }], { duration: 520 }).finished.finally(() => layer.remove());
+      done();
     };
     requestAnimationFrame(frame);
   });

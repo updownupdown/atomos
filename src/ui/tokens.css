@@ -23,6 +23,12 @@
   --fs-xl: 22px;
   --fs-2xl: 28px;
   --fs-3xl: 36px;
+  /* Size floor for readable text: sentences, values and labels at --fs-min or larger; tracked
+     capitals (short semibold labels over a value) at --fs-caps-min or larger. Anything smaller
+     is decoration. Buttons that carry a choice use --fs-btn. */
+  --fs-min: 13px;
+  --fs-caps-min: 11px;
+  --fs-btn: 17px;
   --lh-tight: 1.15;
   --lh: 1.45;
   --tracking-caps: 0.14em;
@@ -45,8 +51,14 @@
   /* Masks behind modals and drawers blur the page. Where backdrop-filter is missing the mask
      is simply the dark scrim above, which already reads on its own. */
   --blur-mask: blur(8px);
+  /* Contrast floor (James, 2026-10-10): text anyone needs to read meets WCAG AA, 4.5:1, on
+     every surface we use, up to --c-pick. --c-text is 9:1 or better everywhere; --c-text-2 is
+     4.9:1 on --c-pick and 6.6:1 on --c-nav. --c-text-min names that floor: no readable text
+     dimmer than it. --c-text-3 (2:1) is for decoration only: lines, icons at rest, disabled
+     marks, scale ticks; never for words or numbers a player reads. */
   --c-text: #e4e8ea;
-  --c-text-2: #8a9296;
+  --c-text-2: #a3abaf;
+  --c-text-min: var(--c-text-2);
   --c-text-3: #50575b;
   --c-line: rgba(228, 232, 234, 0.12);
   --c-line-2: rgba(228, 232, 234, 0.26);

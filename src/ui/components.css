@@ -31,8 +31,8 @@
 .ui-icon-btn:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
 
 /* The X in a modal or panel corner. */
-.ui-close { position: absolute; top: var(--sp-3); right: var(--sp-3); z-index: 1; background: var(--c-surface-2); border-radius: 50%; color: var(--c-text); }
-.ui-close:hover { background: var(--c-surface-3); }
+.ui-close { position: absolute; top: var(--sp-3); right: var(--sp-3); z-index: 1; background: none; border-radius: 50%; color: var(--c-text); }
+.ui-close:hover { background: var(--c-surface-2); }
 
 /* ---- Modal frame: the card floats with the page visible all round it ---- */
 .ui-modal {
@@ -404,7 +404,7 @@
 .ui-disclosure-head:active { transform: scale(0.985); }
 .ui-disclosure-head:focus-visible { outline: 2px solid var(--c-accent); outline-offset: -2px; border-radius: inherit; }
 .ui-disclosure-title { flex: 1; min-width: 0; font-family: var(--font); font-size: var(--fs-md); font-weight: var(--fw-semibold); color: var(--c-text); }
-.ui-disclosure-hint { font-size: var(--fs-sm); color: var(--c-text-3); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ui-disclosure-hint { font-size: var(--fs-min); color: var(--c-text-min); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .ui-disclosure-chev {
   flex: none;
   display: grid;
@@ -437,8 +437,8 @@
   border: 0;
   border-radius: var(--r-pill);
   font-family: var(--font);
-  font-size: var(--fs-md);
-  font-weight: var(--fw-semibold);
+  font-size: var(--fs-btn);
+  font-weight: var(--fw-bold);
   white-space: nowrap;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
@@ -490,9 +490,16 @@
 @keyframes nu-orbit { to { transform: rotate(360deg); } }
 
 /* Nu streaking across a board: the dot and its fading trail, above everything, untouchable. */
-.nu-streak { position: fixed; z-index: 45; height: 0; pointer-events: none; }
-.nu-streak-dot { position: absolute; left: -5px; top: -5px; width: 10px; height: 10px; border-radius: 50%; background: var(--c-go); box-shadow: 0 0 14px 4px var(--c-go-ring); }
-.nu-streak-trail { position: absolute; left: 0; top: -1.5px; height: 3px; width: 0; border-radius: 2px; background: linear-gradient(90deg, rgba(255, 90, 168, 0), var(--c-go)); }
+.nu-streak { position: fixed; z-index: 45; pointer-events: none; }
+.nu-streak-wake { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: linear-gradient(90deg, rgba(255, 90, 168, 0), rgba(255, 90, 168, 0.1) 70%, rgba(255, 90, 168, 0.28)); }
+.nu-streak-dot { position: absolute; left: -7px; top: calc(50% - 7px); width: 14px; height: 14px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 3px var(--c-go), 0 0 22px 8px var(--c-go-ring), 0 0 60px 18px rgba(255, 90, 168, 0.25); }
+.nu-streak-trail { position: absolute; left: 0; top: calc(50% - 2px); height: 4px; width: 0; border-radius: 2px; background: linear-gradient(90deg, rgba(255, 90, 168, 0), var(--c-go)); }
+.nu-streak-ring { position: absolute; top: 50%; width: 24px; height: 24px; margin: -12px 0 0 -12px; border: 3px solid var(--c-go); border-radius: 50%; opacity: 0; }
+.nu-streak-ring.is-on { animation: nu-burst 480ms cubic-bezier(0.2, 0.7, 0.2, 1) forwards; }
+@keyframes nu-burst {
+  0% { opacity: 1; transform: scale(0.3); }
+  100% { opacity: 0; transform: scale(5); border-width: 1px; }
+}
 
 .ui-next.is-live.is-still::after { animation: none; box-shadow: 0 0 0 4px var(--c-go-ring); }
 .nu-orbit.is-still .nu-orbit-arm { animation: none; }
