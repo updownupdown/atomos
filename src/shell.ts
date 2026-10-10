@@ -9,6 +9,7 @@ import { GalleryApp } from './gallery';
 import type { Game } from './game';
 import type { Playground } from './playground';
 import { onSettingsChange, renderSettings } from './ui/settings';
+import { renderIconPage } from './ui/iconpage';
 import { icon, type IconName } from './ui/icons';
 import { setScienceHandler } from './ui/science';
 import { markSvg } from './ui/mark';
@@ -16,7 +17,7 @@ import { initModeBar, refreshModeProgress, showModeBar, type AtomMode } from './
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
-export type Screen = 'gallery' | 'atom' | 'puzzles' | 'settings';
+export type Screen = 'gallery' | 'atom' | 'puzzles' | 'settings' | 'icons';
 export type { AtomMode };
 
 export class AppShell {
@@ -56,6 +57,9 @@ export class AppShell {
       this.game?.reloadSettings();
     });
     this.setNav('gallery', 'view');
+    const route = () => { if (location.hash === '#icons') void this.go('icons'); };
+    window.addEventListener('hashchange', route);
+    route();
   }
 
   get atomZ(): number { return this.z; }
@@ -83,10 +87,14 @@ export class AppShell {
     const showGame = screen === 'atom' && mode === 'build';
     const showPlay = screen === 'puzzles';
     const showSettings = screen === 'settings';
+    const showIcons = screen === 'icons';
     if (!showGallery) this.gallery.hide();
     if (!showGame) { this.game?.pause(); $('app').hidden = true; }
     if (!showPlay) this.playground?.hide();
     $('settings-screen').hidden = !showSettings;
+    $('icons-screen').hidden = !showIcons;
+    // The icon page is the one screen with an address, so it can be linked and reloaded.
+    if (!showIcons && location.hash === '#icons') history.replaceState(null, '', location.pathname + location.search);
 
     if (showGallery) {
       this.gallery.show();
@@ -99,6 +107,9 @@ export class AppShell {
       this.game!.resume();
     } else if (showPlay) {
       this.playground!.show();
+    } else if (showIcons) {
+      renderIconPage($('icon-page'), () => void this.go('gallery'));
+      $('icons-screen').scrollTop = 0;
     } else if (showSettings) {
       renderSettings($('settings-page'));
       $('settings-screen').scrollTop = 0;
