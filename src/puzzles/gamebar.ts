@@ -125,6 +125,15 @@ export function clearOffers(bar: GameBar): void {
   bar.el.querySelectorAll('.gbar-nu').forEach((e) => e.remove());
 }
 
+/** The lowest the board may reach (in viewport pixels) so an offer at the bottom never covers it:
+ *  `bottom` itself when no offer is showing. */
+export function aboveOffers(scope: ParentNode, bottom: number): number {
+  const offer = scope.querySelector<HTMLElement>('.gbar-nu');
+  if (!offer?.isConnected) return bottom;
+  const r = offer.getBoundingClientRect();
+  return r.height > 0 ? Math.min(bottom, r.top - 8) : bottom;
+}
+
 export interface GameFooter {
   readonly el: HTMLElement;
   readonly back: HTMLButtonElement;
