@@ -8,6 +8,10 @@ import FACTS from '../data/element-facts.json';
 import STORY from '../data/element-story.json';
 import IMAGES from '../data/element-images.json';
 import { disclosureHTML } from '../ui/components';
+import { fleetingCount, isDecayed, isotopeCollected, isotopeGame, lastingIsotopes, fleetingIsotopes } from '../core/progress';
+import { loadSave, type SaveData } from '../core/save';
+import { PUZZLES, puzzleIcon } from '../puzzles/catalog';
+import { icon } from '../ui/icons';
 import { blueprint, discoveryTimeline, isotopeTable, orbitalBoxes, orbitalShapes, propertyAxes, shellPlot } from './visuals';
 
 export type Tab = 'overview' | 'structure' | 'isotopes' | 'properties' | 'story';
@@ -60,11 +64,11 @@ export function layerPills(e: Element): string {
     : `<span class="pill" style="background:${BLOCK_COLOUR[s.l]}">${s.key}${sup(s.count)}</span>`).join('');
 }
 
-export function tabHTML(e: Element, tab: Tab, collected: boolean): string {
+export function tabHTML(e: Element, tab: Tab, collected: boolean, save: SaveData = loadSave()): string {
   switch (tab) {
     case 'overview': return overview(e, collected);
     case 'structure': return structure(e);
-    case 'isotopes': return isotopes(e);
+    case 'isotopes': return isotopes(e, save);
     case 'properties': return properties(e);
     case 'story': return story(e);
   }
@@ -141,11 +145,49 @@ function structure(e: Element): string {
     ${row('Cloud to nucleus', `about ${Math.round((e.vdw * 1e3) / e.nucleusRadius / 1000)},000 to 1`)}` })}`;
 }
 
-function isotopes(e: Element): string {
+/** What the player has built of this atom's isotopes. Lasting ones (stable, or over a year)
+ *  each have a fixed puzzle and count toward the atom's 100%; fleeting ones have their own
+ *  count, and once built they stay in the collection but show as decayed, with their half-life. */
+function collection(e: Element, save: SaveData): string {
+  const lasting = lastingIsotopes(e.z);
+  const fleeting = fleetingIsotopes(e.z);
+  if (!lasting.length && !fleeting.length) return '';
+  const lastingBuilt = lasting.filter((i) => isotopeCollected(save, e.z, i.a)).length;
+  const f = fleetingCount(e.z, save);
+  const name = (a: number) => `<b><sup>${a}</sup>${e.symbol}</b>`;
+  const lastingTiles = lasting.map((i) => {
+    const built = isotopeCollected(save, e.z, i.a);
+    const game = isotopeGame(e.z, i.a);
+    const g = PUZZLES.find((p) => p.id === game);
+    return `<div class="icl-tile${built ? ' is-built' : ''}">
+      ${name(i.a)}
+      <span class="icl-game">${g ? `${puzzleIcon(g.id, 18)}<span>${esc(g.name)}</span>` : ''}</span>
+      <span class="icl-state">${built ? `${icon('check', { size: 16 })}Built` : i.stable ? 'Stable' : formatHalfLife(i.halfLife!)}</span>
+    </div>`;
+  }).join('');
+  const fleetingTiles = fleeting.map((i) => {
+    const decayed = isDecayed(e.z, i, save);
+    const life = i.halfLife == null ? 'not measured' : formatHalfLife(i.halfLife);
+    return `<div class="icl-tile icl-fleet${decayed ? ' is-decayed' : ''}">
+      ${name(i.a)}
+      <span class="icl-life">${life}</span>
+      ${decayed ? '<span class="icl-chip">decayed</span>' : ''}
+    </div>`;
+  }).join('');
+  return `<section class="icl">
+    <div class="icl-head"><h3>Your collection</h3><span>${lasting.length ? `Lasting ${lastingBuilt} of ${lasting.length}` : 'No lasting isotopes'}${fleeting.length ? ` · Fleeting ${f.built} of ${f.total}` : ''}</span></div>
+    ${lasting.length ? `<h4 class="icl-sub">${icon('isotope-stable', { size: 18 })}Lasting<span>stable or over a year; they count toward ${esc(e.name.toLowerCase())}'s 100%</span></h4>
+    <div class="icl-grid">${lastingTiles}</div>` : ''}
+    ${fleeting.length ? disclosureHTML({ title: 'Fleeting', hint: `${f.built} of ${f.total} built`, open: f.built > 0, className: 'icl-fleeting', body: `<p class="icl-note">Every other known isotope. Build any of them with a puzzle you pick; once built it stays yours but has decayed, the way it would in a lab.</p><div class="icl-grid icl-grid--fleet">${fleetingTiles}</div>` }) : ''}
+  </section>`;
+}
+
+function isotopes(e: Element, save: SaveData): string {
   const rows = e.isotopes.map((i) => `<tr class="${i.stable ? 'stable' : ''}">
     <td>${e.symbol}-${i.a}</td><td>${i.a - e.z}</td><td>${i.mass == null ? '' : i.mass.toFixed(3)}</td>
     <td>${i.abundance == null ? '' : i.abundance + '%'}</td><td>${i.stable ? 'stable' : i.halfLife == null ? '<span class="na">not known</span>' : formatHalfLife(i.halfLife)}</td><td>${i.spin ?? ''}</td></tr>`).join('');
   return `
+    ${collection(e, save)}
     ${isotopeTable(e)}
     ${disclosureHTML({ title: 'All the numbers', hint: `${e.isotopes.length} isotopes`, body: `<div class="tablewrap"><table>
       <thead><tr><th>Isotope</th><th>Neutrons</th><th>Mass</th><th>Abundance</th><th>Half-life</th><th>Spin</th></tr></thead>

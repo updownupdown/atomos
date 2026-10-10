@@ -21,10 +21,12 @@ import { closeModal, openModal } from '../ui/modal';
 import { loadSave, writeSave, type SaveData } from '../core/save';
 import { atomProgress, orbitalShapeUnlocked, rowOf, rowOpen, SHAPE_AT, stepState } from '../core/progress';
 import { createElementList, type ElementList } from '../ui/elementlist';
-import { isUnlocked, type UnlockId } from '../core/unlocks';
+import { isUnlocked, unlockPuzzle, type UnlockId } from '../core/unlocks';
+import { PUZZLES } from '../puzzles/catalog';
 import { playUnlock } from '../puzzles/unlock';
 import { isLookId, lensUnlock, lookOf, lookUnlock, LOOKS, type LookId } from './looks';
 import { atomThumb } from './thumbs';
+import { rowLockNote } from './locks';
 
 type GalleryMode = 'collection' | 'map' | 'details';
 
@@ -54,9 +56,9 @@ export class GalleryApp {
     const saved = localStorage.getItem('atomos.gallery.look');
     return isLookId(saved) ? saved : 'block';
   })();
-  /** The 3D tab shows the nucleus up close instead of the whole atom (once Aurum opens it). */
+  /** The 3D tab shows the nucleus up close instead of the whole atom (once Glyph opens it). */
   private nucleusOn = false;
-  /** Orbital kinds whose shapes Flux has not discovered yet. */
+  /** Orbital kinds whose shapes Glyph has not discovered yet. */
   private hiddenShapes: OrbitalShape[] = [];
   private style: Style = (() => {
     const saved = localStorage.getItem('atomos.gallery.style');
@@ -103,17 +105,19 @@ export class GalleryApp {
     const got = this.save.settings.unlockAll ? ELEMENTS.map((e) => e.z) : Object.keys(this.save.built).map(Number);
     const save = this.save;
     this.gallery.setCollected(got, (z) => atomProgress(z, save));
-    this.gallery.setLocked((z) => this.buildLocked(z));
+    this.gallery.setLocked((z) => rowLockNote(z, this.save));
     this.collection?.refresh();
     this.paintGates();
     // A part solved while away lights up when the atom is next on screen.
     if (this.current) this.detail.setLit(this.litOf(this.current.z), true);
-    // Flux discovers the p, d and f shapes; until then Shapes and Hybrid draw those layers as cloud.
+    // Glyph discovers the p, d and f shapes (on the Build pages of B, Sc and Ce); until then Shapes and Hybrid draw those layers as cloud.
     this.hiddenShapes = (Object.keys(SHAPE_AT) as OrbitalShape[]).filter((l) => !orbitalShapeUnlocked(l, save));
     this.detail.setHiddenShapes(this.hiddenShapes);
     this.paintShapeNote();
     this.paintOverall();
     this.list?.refresh();
+    // The Isotopes page shows what is built and what has decayed.
+    if (this.tab === 'isotopes') this.renderPanel();
   }
 
   /** The whole collection's progress, beside the views: every atom's share built, averaged. */
@@ -126,7 +130,8 @@ export class GalleryApp {
     $('gal-prog').setAttribute('aria-label', `Collection ${n}% built`);
   }
 
-  /** Whether this atom's row is still shut by its Inertia gate. It stays viewable; only Build waits. */
+  /** Whether this atom's row is not open yet (two thirds of the row above unbuilt). It stays
+   *  viewable; only Build waits. */
   private buildLocked(z: number): boolean {
     return !rowOpen(rowOf(z), this.save);
   }
@@ -165,7 +170,7 @@ export class GalleryApp {
       + `<div class="tool-seg" role="radiogroup" aria-labelledby="draw-cap">`
       + STYLES.map((s) => `<button role="radio" data-id="${s.id}" aria-checked="${s.id === this.style}">${icon(styleIcon[s.id], { size: 18 })}<span>${s.label}</span></button>`).join('')
       + `</div><p class="tool-note" id="shape-note" hidden></p></div>`
-      // Below it, the nucleus up close (opened with Aurum) and back.
+      // Below it, the nucleus up close (opened with Glyph) and back.
       + `<div class="tool-group"><span class="tool-cap">Zoom to</span><button class="tool-chip" id="nucleus-chip"></button><p class="tool-note" id="nucleus-note" hidden></p></div>`;
     styles.querySelectorAll<HTMLButtonElement>('button[data-id]').forEach((b) => (b.onclick = () => this.setStyle(b.dataset.id as Style)));
     // Double-tap the atom to dive to its nucleus and back, as the chip does.
@@ -177,7 +182,7 @@ export class GalleryApp {
     };
     $('nucleus-chip').onclick = () => {
       if (!this.opened('nucleus-view')) {
-        this.offerUnlock('nucleus-view', 'The nucleus view', 'Zoom a hundred thousand times closer, past the electrons, to every proton and neutron packed in the middle of the atom.', 'Aurum', () => this.setNucleus(true));
+        this.offerUnlock('nucleus-view', 'The nucleus view', 'Zoom a hundred thousand times closer, past the electrons, to every proton and neutron packed in the middle of the atom.', () => this.setNucleus(true));
         return;
       }
       this.setNucleus(!this.nucleusOn);
@@ -282,7 +287,7 @@ export class GalleryApp {
     const gate = lensUnlock(id);
     if (gate && !this.opened(gate)) {
       const l = LAYOUTS.find((x) => x.id === id)!;
-      this.offerUnlock(gate, `The ${l.label} lens`, l.note, 'Lumen', () => this.setLayout(id));
+      this.offerUnlock(gate, `The ${l.label} lens`, l.note, () => this.setLayout(id));
       return;
     }
     const animate = !this.covered && !this.save.settings.reducedMotion;
@@ -297,7 +302,8 @@ export class GalleryApp {
   }
 
   /** A locked lens or look: what it is, which puzzle opens it, and an Unlock button. */
-  private offerUnlock(id: UnlockId, title: string, what: string, game: string, then: () => void): void {
+  private offerUnlock(id: UnlockId, title: string, what: string, then: () => void): void {
+    const game = PUZZLES.find((p) => p.id === unlockPuzzle(id))?.name ?? 'Glyph';
     const sheet = openModal(`<h2>${title}</h2>
       <div class="gate-sheet">
         <p class="gate-what">${what}</p>
@@ -358,7 +364,7 @@ export class GalleryApp {
     sheet.querySelectorAll<HTMLButtonElement>('.look-row').forEach((b) => (b.onclick = () => {
       const l = lookOf(b.dataset.id as LookId);
       const gate = lookUnlock(l.id);
-      if (gate && !this.opened(gate)) { this.offerUnlock(gate, `The ${l.label} look`, l.blurb, 'Glyph', () => this.setLook(l.id)); return; }
+      if (gate && !this.opened(gate)) { this.offerUnlock(gate, `The ${l.label} look`, l.blurb, () => this.setLook(l.id)); return; }
       closeModal();
       this.setLook(l.id);
     }));
@@ -405,6 +411,7 @@ export class GalleryApp {
         locked: (z) => this.buildLocked(z),
         storageKey: 'atomos.collection.sort',
         thumbs: (z) => atomThumb(z, this.litOf(z)),
+        fleetingTotal: true,
       });
       $('gal-collection').append(this.collection.el);
     }
@@ -432,7 +439,7 @@ export class GalleryApp {
     note.hidden = !kinds.length;
     if (!kinds.length) return;
     const and = (xs: string[]) => xs.length > 1 ? `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}` : xs[0];
-    note.textContent = `The ${and(kinds)} shapes are still undiscovered. Find them with Flux on ${and(kinds.map((l) => elementAt(SHAPE_AT[l]).name.toLowerCase()))}.`;
+    note.textContent = `The ${and(kinds)} shapes are still undiscovered. Find them with Glyph on ${and(kinds.map((l) => elementAt(SHAPE_AT[l]).name.toLowerCase()))}.`;
   }
 
   private hover(e: Element | null): void {
@@ -529,7 +536,7 @@ export class GalleryApp {
     if (!this.current || this.tab === 'model') return;
     const panel = $('atom-panel');
     const label = VIEW_TABS.find((t) => t.id === this.tab)!.label.toLowerCase();
-    panel.innerHTML = `<div class="atom-page">${tabHTML(this.current, this.tab, this.collected(this.current.z))}`
+    panel.innerHTML = `<div class="atom-page">${tabHTML(this.current, this.tab, this.collected(this.current.z), this.save)}`
       + `<div class="page-guide"><button type="button" class="guide-btn" id="guide-btn">${icon('microscope')}<span><b>How to read this</b><small>A guide to the ${label} page, and more context</small></span></button></div></div>`;
     $('guide-btn').onclick = () => this.openGuide();
     this.mountIsotopeFilter();
@@ -549,7 +556,7 @@ export class GalleryApp {
     };
     const seg = createSegments(STRUCTURE_VIEWS, { active: this.structView, label: 'How to see the structure', onChange: apply });
     slot.append(seg.el);
-    // The 2D shapes keep the same secret as 3D Shapes: a kind Flux has not found yet shows a "?".
+    // The 2D shapes keep the same secret as 3D Shapes: a kind Glyph has not found yet shows a "?".
     const hidden = new Set<string>(this.hiddenShapes);
     const kinds = new Set<string>();
     document.querySelectorAll<HTMLElement>('.os-glyph[data-l]').forEach((g) => {
@@ -562,7 +569,7 @@ export class GalleryApp {
       const ls = [...kinds] as OrbitalShape[];
       const and = (xs: string[]) => xs.length > 1 ? `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}` : xs[0];
       note.hidden = false;
-      note.textContent = `The ${and(ls)} shapes are still undiscovered. Find them with Flux on ${and(ls.map((l) => elementAt(SHAPE_AT[l]).name.toLowerCase()))}.`;
+      note.textContent = `The ${and(ls)} shapes are still undiscovered. Find them with Glyph on ${and(ls.map((l) => elementAt(SHAPE_AT[l]).name.toLowerCase()))}.`;
     }
     seg.select(this.structView);
     apply(this.structView);

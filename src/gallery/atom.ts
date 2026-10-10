@@ -200,7 +200,7 @@ export class AtomView {
   private halo: THREE.Points | null = null;
   private haloMaterial: THREE.ShaderMaterial | null = null;
   private style: Style = 'cloud';
-  /** Orbital kinds whose shapes the player has not discovered yet (Flux). */
+  /** Orbital kinds whose shapes the player has not discovered yet (Glyph). */
   private hidden = new Set<Block>();
   private dim = 1;
   /** What is lit; layers made later take their color from here. Infinity lights every electron. */

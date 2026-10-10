@@ -1,4 +1,4 @@
-// The nucleus up close (opened once with Aurum): every proton and neutron of the atom's most
+// The nucleus up close (opened once with Glyph): every proton and neutron of the atom's most
 // common isotope as a small ball, packed into a ball of radius 1.2 fm x A^(1/3). Drawn at one
 // fixed scale for all elements, with reference circles of 2, 4, 6 and 8 fm, so hydrogen's lone
 // proton and oganesson's 294 nucleons compare fairly. The packing is a picture of size and count,
