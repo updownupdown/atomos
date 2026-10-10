@@ -57,6 +57,8 @@ export interface SaveData {
   isotopes: Record<string, { collected?: boolean; witnessed?: WitnessRecord[] }>;
   /** Orbital shapes discovered with Flux; the 3D Shapes view draws only these (and s). */
   shapes: Partial<Record<OrbitalShape, ShapeRecord>>;
+  /** Rows of the table opened with Inertia, by row number (2 to 7); row 1 is open from the start. */
+  rows: Partial<Record<number, ShapeRecord>>;
   specimens: Specimen[];
   log: { at: number; text: string }[];
   settings: Settings;
@@ -72,6 +74,7 @@ export function defaultSave(): SaveData {
     steps: {},
     isotopes: {},
     shapes: {},
+    rows: {},
     specimens: [],
     log: [],
     settings: { unlockAll: false, reducedMotion: reduced, sound: true, haptics: true },
@@ -105,7 +108,12 @@ export function loadSave(): SaveData {
       const r = data.shapes?.[l];
       if (r && Number.isFinite(r.at)) shapes[l] = { at: r.at, ...(Number.isFinite(r.best) ? { best: r.best } : {}) };
     }
-    return { ...base, built, steps, shapes, isotopes: data.isotopes ?? {}, specimens: data.specimens ?? [], log: data.log ?? [], settings };
+    const rows: SaveData['rows'] = {};
+    for (let n = 2; n <= 7; n++) {
+      const r = data.rows?.[n];
+      if (r && Number.isFinite(r.at)) rows[n] = { at: r.at, ...(Number.isFinite(r.best) ? { best: r.best } : {}) };
+    }
+    return { ...base, built, steps, shapes, rows, isotopes: data.isotopes ?? {}, specimens: data.specimens ?? [], log: data.log ?? [], settings };
   } catch {
     return defaultSave();
   }

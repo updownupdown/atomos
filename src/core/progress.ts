@@ -84,3 +84,28 @@ export function shapeAt(z: number): OrbitalShape | undefined {
 export function orbitalShapeUnlocked(l: 's' | OrbitalShape, save: SaveData = loadSave()): boolean {
   return l === 's' || save.settings.unlockAll || Boolean(save.shapes[l]);
 }
+
+/** The first atom of each row of the table, row 1 first. Each later row is opened with Inertia. */
+export const ROW_START = [1, 3, 11, 19, 37, 55, 87];
+
+/** The row (period) of the table an atom sits in, 1 to 7. */
+export function rowOf(z: number): number {
+  let row = 1;
+  ROW_START.forEach((start, i) => { if (z >= start) row = i + 1; });
+  return row;
+}
+
+/** The first and last atom of a row. */
+export function rowSpan(row: number): [number, number] {
+  return [ROW_START[row - 1], row < ROW_START.length ? ROW_START[row] - 1 : 118];
+}
+
+/** Whether a row's atoms can be built. Row 1 always can; a later row once its Inertia gate is
+ *  solved. A row where something was built before rows were gated stays open, so no save loses
+ *  an atom it could build. */
+export function rowOpen(row: number, save: SaveData = loadSave()): boolean {
+  if (row <= 1 || save.settings.unlockAll || save.rows[row]) return true;
+  const [first, last] = rowSpan(row);
+  for (let z = first; z <= last; z++) if (save.built[z] || save.steps[z]) return true;
+  return false;
+}
