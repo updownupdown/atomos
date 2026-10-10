@@ -4,7 +4,7 @@
 
 import { cloneLight, DELTA, filterHue, flip, isSplitter, slant, status, targetLit, trace, turnable, type Cell, type Dir, type Hue, type LightState, type Target } from './light';
 import { bead, C, fitGrid, font, tile } from './palette';
-import { type Area, type Point, type PuzzleView, type RuleCard } from './view';
+import { type Area, type Illustration, type Point, type PuzzleView, type RuleCard } from './view';
 
 /** Milliseconds for the light to cross one cell as it grows after a flip. */
 const STEP_MS = 40;
@@ -409,12 +409,12 @@ function piece(ctx: CanvasRenderingContext2D, cell: Cell, p: Point, c: number, l
   ctx.restore();
 }
 
-// ---- rule cards ------------------------------------------------------------------------
+// ---- rule pictures ---------------------------------------------------------------------
 
 /**
- * A demo board three cells wide and two high: rows of cells as written, a lamp
- * on cell (x, y) shining `dir`, and its sensors. A hidden third row pads the
- * grid square so the real beam tracing runs unchanged.
+ * A picture board three cells wide and two high: rows of cells as written, a
+ * lamp on cell (x, y) shining `dir`, and its sensors. A hidden third row pads
+ * the grid square so the real beam tracing runs unchanged.
  */
 function board(cells: Cell[][], lamp: [number, number, Dir], targets: [number, number, Hue][] = [], darks: [number, number][] = []): LightState {
   const n = 3;
@@ -427,91 +427,113 @@ function board(cells: Cell[][], lamp: [number, number, Dir], targets: [number, n
   };
 }
 
-const FIRST_TAP = 1.3;
-const TAP_GAP = 1.5;
+/** Seconds: the beam's first growth, a tap (if any) and the beam regrowing, the verdict coming in, a last rest. */
+const GROW = 0.75;
+const TAP = 0.25;
+const VERDICT = 0.4;
+const REST = 0.45;
+/** Cells the beam grows per second in a picture. */
+const SPEED = 10;
 
 /**
- * A looping demo: the beam grows from the lamp, then each tap (an accent
- * ripple) flips its piece and the beam regrows, as on the board. A tap on a
- * piece that does not turn gets the board's nudge instead.
+ * One rule picture: the beam grows out from the lamp as on the board; then,
+ * if there is a tap, an accent ripple lands on that piece and it flips (or,
+ * for a piece that does not turn, gets the board's nudge) and the beam
+ * regrows. When the light has settled, the cell `flag` names is flagged in
+ * amber. The last frame is that finished state.
  */
-function scene(s0: LightState, taps: [number, number][] = []): (ctx: CanvasRenderingContext2D, w: number, h: number, t: number) => void {
-  const states = [s0];
-  for (const [x, y] of taps) {
-    const prev = states[states.length - 1];
-    states.push(flip(prev, y * prev.size + x) ?? prev);
-  }
-  const loop = Math.max(3.4, FIRST_TAP + taps.length * TAP_GAP + 0.6);
-  return (ctx, w, h, t) => {
-    const u = ((t % loop) + loop) % loop;
-    const k = Math.max(0, Math.min(taps.length, Math.floor((u - FIRST_TAP) / TAP_GAP) + 1));
-    const at = k ? FIRST_TAP + (k - 1) * TAP_GAP : 0;
-    const fit = fitGrid({ x: 0, y: 0, w, h }, 3 + 1.1, 2 + 1.1, { margin: 2, maxCell: 999 });
-    const c = fit.cell;
-    const g = { x: fit.x + 0.55 * c, y: fit.y + 0.55 * c, c, rows: 2 };
-    const s = states[k];
-    // A refused tap leaves the board as it was, so the beam does not regrow.
-    const changed = k > 0 && s !== states[k - 1];
-    const since = k && !changed ? u : u - at;
-    paintLight(ctx, s, g, since * 1000 / STEP_MS / 2.5, u * 1000, true);
-    if (k > 0) {
-      const [x, y] = taps[k - 1];
-      const p = { x: g.x + (x + 0.5) * c, y: g.y + (y + 0.5) * c };
-      const d = u - at;
-      if (!changed && d < 0.35) nudge(ctx, p, c, 1 - d / 0.35, true);
-      if (d < 0.5) {
+function picture(s0: LightState, caption: string, o: { tap?: [number, number]; flag?: [number, number] } = {}): Illustration {
+  const tapAt = o.tap ? GROW : -1;
+  const s1 = o.tap ? flip(s0, o.tap[1] * s0.size + o.tap[0]) : null;
+  const changed = !!s1;
+  const settle = o.tap ? GROW + TAP + (changed ? GROW : 0.2) : GROW;
+  const duration = Math.min(4, Math.max(1.5, settle + (o.flag ? VERDICT : 0) + REST));
+  const flag = o.flag ? o.flag[1] * s0.size + o.flag[0] : -1;
+  return {
+    caption,
+    duration,
+    draw: (ctx, w, h, t) => {
+      const fit = fitGrid({ x: 0, y: 0, w, h }, 3 + 1.1, 2 + 1.1, { margin: 2, maxCell: 999 });
+      const c = fit.cell;
+      const g = { x: fit.x + 0.55 * c, y: fit.y + 0.55 * c, c, rows: 2 };
+      const flipped = changed && t >= tapAt + TAP;
+      const s = flipped ? s1! : s0;
+      const since = flipped ? t - tapAt - TAP : t;
+      paintLight(ctx, s, g, since * SPEED, t * 1000, true);
+      if (o.tap && t >= tapAt) {
+        const p = { x: g.x + (o.tap[0] + 0.5) * c, y: g.y + (o.tap[1] + 0.5) * c };
+        const d = t - tapAt;
+        if (!changed && d < 0.4) nudge(ctx, p, c, 1 - d / 0.4, true);
+        if (d < 0.5) {
+          ctx.save();
+          ctx.strokeStyle = C.accent;
+          ctx.globalAlpha = 1 - d / 0.5;
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, c * (0.25 + 0.3 * d / 0.5), 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.restore();
+        }
+      }
+      if (flag >= 0 && t > settle) {
+        const k = Math.min(1, (t - settle) / VERDICT);
+        const p = { x: g.x + ((flag % s0.size) + 0.5) * c, y: g.y + (Math.floor(flag / s0.size) + 0.5) * c };
         ctx.save();
-        ctx.strokeStyle = C.accent;
-        ctx.globalAlpha = 1 - d / 0.5;
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, c * (0.25 + 0.3 * d / 0.5), 0, Math.PI * 2);
-        ctx.stroke();
+        ctx.globalAlpha = 1 - (1 - k) ** 3;
+        tile(ctx, p.x - c * 0.45, p.y - c * 0.45, c * 0.9, c * 0.9, c * 0.18, null, C.warn, Math.max(2, c * 0.06));
         ctx.restore();
       }
-    }
+    },
   };
 }
+
+const RINGS = board([['.', '.', '/'], ['.', '.', '.']], [0, 0, 'right'], [[1, 0, 'w'], [2, 1, 'w']]);
+const DARKS = board([['.', '.', '.'], ['.', '\\', '.']], [1, 0, 'down'], [[0, 1, 'w']], [[2, 1]]);
 
 export const RULES: RuleCard[] = [
   {
     title: 'Mirrors',
     text: 'Tap a mirror to flip it between / and \\. It turns the beam through a right angle.',
-    demo: scene(board([['.', '.', '.'], ['.', '\\', '.']], [0, 1, 'right'], [[1, 0, 'w']]), [[1, 1]]),
+    good: picture(board([['.', '.', '.'], ['.', '\\', '.']], [0, 1, 'right'], [[1, 0, 'w']]), 'Tap to flip it', { tap: [1, 1] }),
   },
   {
     title: 'Rings',
     text: 'Light every red ring to win. A red ring takes light of any color.',
-    demo: scene(board([['.', '.', '/'], ['.', '.', '.']], [0, 0, 'right'], [[1, 0, 'w'], [2, 1, 'w']]), [[2, 0]]),
+    good: picture(RINGS, 'Every ring lit', { tap: [2, 0] }),
+    bad: picture(RINGS, 'A ring left dark', { flag: [2, 1] }),
   },
   {
     title: 'Fixed mirrors',
     text: 'Darker, hatched on the back and flat on the board. They turn the beam too, but never flip.',
-    demo: scene(board([['.', '.', 'F\\'], ['.', '.', '.']], [0, 0, 'right'], [[2, 1, 'w']]), [[2, 0]]),
+    good: picture(board([['.', '.', 'F\\'], ['.', '.', '.']], [0, 0, 'right'], [[2, 1, 'w']]), 'Turns the beam'),
+    bad: picture(board([['.', '.', 'F/'], ['.', '.', '.']], [0, 0, 'right'], [[2, 1, 'w']]), 'A tap does nothing', { tap: [2, 0], flag: [2, 0] }),
   },
   {
     title: 'Splitters',
     text: 'Half-silvered glass, dashed: the beam goes straight through and also turns, so one beam becomes two. Tap to flip.',
-    demo: scene(board([['.', '.', '.'], ['.', 'H\\', '.']], [0, 1, 'right'], [[1, 0, 'w'], [2, 1, 'w']]), [[1, 1]]),
+    good: picture(board([['.', '.', '.'], ['.', 'H\\', '.']], [0, 1, 'right'], [[1, 0, 'w'], [2, 1, 'w']]), 'One beam becomes two', { tap: [1, 1] }),
   },
   {
     title: 'Filters',
     text: 'White light leaves a filter tinted its color. Light of that color passes; any other color is absorbed.',
-    demo: scene(board([['.', 'Cs', 'F\\'], ['.', '.', 'Cp']], [0, 0, 'right'])),
+    good: picture(board([['Cs', 'Cs', 'F\\'], ['.', '.', '.']], [0, 0, 'right'], [[2, 1, 's']]), 'Same color passes'),
+    bad: picture(board([['Cs', 'Cp', 'F\\'], ['.', '.', '.']], [0, 0, 'right'], [[2, 1, 's']]), 'Other color stops', { flag: [1, 0] }),
   },
   {
     title: 'Colored rings',
     text: 'A colored ring, with a small red heart, needs light of its own color.',
-    demo: scene(board([['.', 'Cp', '/'], ['.', '.', '.']], [0, 0, 'right'], [[2, 1, 'p']]), [[2, 0]]),
+    good: picture(board([['.', 'Cp', '\\'], ['.', '.', '.']], [0, 0, 'right'], [[2, 1, 'p']]), 'Its own color'),
+    bad: picture(board([['.', 'Cs', '\\'], ['.', '.', '.']], [0, 0, 'right'], [[2, 1, 'p']]), 'Wrong color: unlit', { flag: [2, 1] }),
   },
   {
     title: 'Dark sensors',
     text: 'Dark discs with a bar must stay unlit. A lit one flares amber and the puzzle is not solved.',
-    demo: scene(board([['.', '.', '.'], ['.', '\\', '.']], [1, 0, 'down'], [[0, 1, 'w']], [[2, 1]]), [[1, 1]]),
+    good: picture(DARKS, 'Sensor stays dark', { tap: [1, 1] }),
+    bad: picture(DARKS, 'A sensor is lit', { flag: [2, 1] }),
   },
   {
     title: 'Blockers',
     text: 'Gray blocks stop the beam.',
-    demo: scene(board([['.', '.', '.'], ['.', '#', '.']], [0, 1, 'right'], [[2, 1, 'w']])),
+    good: picture(board([['.', '.', '.'], ['.', '#', '.']], [0, 1, 'right']), 'Stops the beam'),
   },
 ];

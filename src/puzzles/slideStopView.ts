@@ -4,22 +4,23 @@
 // nuclei it leaves decay into fixed ones, both shown as the electron actually
 // passes them.
 //
-// The board is painted by `paintSlide`, which the rule cards' demos share, so
-// every tile in the Instructions modal is drawn exactly as on the board.
+// The board is painted by `paintSlide`, which the rule cards' pictures share,
+// so every tile in the Instructions modal is drawn exactly as on the board.
+// Fixed nuclei are plain wall blocks, so a board full of them reads calmly.
 //
 // Names, used the same in RULES, hint() and INSTRUCTIONS:
 //   electron         the silver bead that slides;
 //   lattice          the plate it slides on;
-//   nucleus          a fixed blocker (model: '#' rock);
+//   nucleus          a fixed blocker, drawn as a plain wall block (model: '#' rock);
 //   photon           a pickup the electron must absorb (model: spark);
 //   potential well   stops the electron on entry (model: '~' sticky);
-//   unstable nucleus crossable once, decays into a nucleus (model: '%' crack);
+//   unstable nucleus crossable once, decays into a nucleus; a dashed block (model: '%' crack);
 //   drift arrows     one-way cells (model: '^' 'v' '<' '>');
 //   red ring         the goal.
 
 import { allSparks, cellX, cellY, cloneSlideStop, cracksOf, isRock, slide, slideRun, solve, solved, type Dir, type SlideStopState, type Tile } from './slideStop';
 import { bead, C, fitGrid, font, tile } from './palette';
-import { ease, type Area, type Point, type PuzzleView, type RuleCard } from './view';
+import { ease, type Area, type Illustration, type Point, type PuzzleView, type RuleCard } from './view';
 
 const SWIPE = 22;
 const MS_PER_CELL = 55;
@@ -45,8 +46,10 @@ interface Paint {
   bumped: boolean;
   /** Small ticks at the electron's sides for the ways it can move, once it rests. */
   ticks: boolean;
-  /** A cell outlined in flashing red (demos: what went wrong), with its brightness. */
+  /** A cell flagged in amber (rule pictures: what went wrong), with its strength, 0 to 1. */
   flash?: { cell: number; k: number };
+  /** Rule pictures: the cells the electron has rested on so far, traced faintly up to where it is now. */
+  route?: number[];
 }
 
 const centerOf = (s: SlideStopState, g: Geo, i: number): Point => ({ x: g.x + ((i % s.size) + 0.5) * g.c, y: g.y + (Math.floor(i / s.size) + 0.5) * g.c });
@@ -83,13 +86,13 @@ function paintSlide(ctx: CanvasRenderingContext2D, s: SlideStopState, g: Geo, no
   for (let i = 0; i < cells; i++) {
     const t0 = s.tiles[i];
     const p = at(i);
-    if (t0 === '#') nucleus(ctx, p.x, p.y, c * 0.38, i * 7 + s.size);
+    if (t0 === '#') nucleus(ctx, p.x, p.y, c);
     else if (t0 === '~') well(ctx, p.x, p.y, c);
     else if (t0 === '%') {
       const decayedNow = isRock(s, i);
       const decayedBefore = gl ? (gl.prev.broken >> cracks.indexOf(i) & 1) === 1 : decayedNow;
-      if (decayedNow && (decayedBefore || passed(i))) nucleus(ctx, p.x, p.y, c * 0.38, i * 7 + s.size);
-      else unstable(ctx, p.x, p.y, c, i * 7 + s.size, o.motion ? now : 0);
+      if (decayedNow && (decayedBefore || passed(i))) nucleus(ctx, p.x, p.y, c);
+      else unstable(ctx, p.x, p.y, c, i, o.motion ? now : 0);
     } else if (t0 !== '.') drift(ctx, p.x, p.y, c, t0);
   }
 
@@ -129,6 +132,29 @@ function paintSlide(ctx: CanvasRenderingContext2D, s: SlideStopState, g: Geo, no
       ctx.restore();
     }
   }
+  if (o.route?.length) {
+    // The way the electron came, faint, with a small dot at each stop.
+    ctx.save();
+    ctx.strokeStyle = C.silver;
+    ctx.fillStyle = C.silver;
+    ctx.globalAlpha = 0.4;
+    ctx.lineWidth = Math.max(1, c * 0.04);
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.setLineDash([c * 0.08, c * 0.1]);
+    ctx.beginPath();
+    o.route.forEach((cell, k) => { const q = at(cell); if (k) ctx.lineTo(q.x, q.y); else ctx.moveTo(q.x, q.y); });
+    ctx.lineTo(p.x, p.y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    for (const cell of o.route) {
+      const q = at(cell);
+      ctx.beginPath();
+      ctx.arc(q.x, q.y, Math.max(1.5, c * 0.06), 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
   electron(ctx, p.x, p.y, r, o.won && o.motion);
 
   // Which ways can move, as small ticks at the electron's sides, once settled.
@@ -147,7 +173,7 @@ function paintSlide(ctx: CanvasRenderingContext2D, s: SlideStopState, g: Geo, no
     const q = at(o.flash.cell);
     ctx.save();
     ctx.globalAlpha = o.flash.k;
-    tile(ctx, q.x - c * 0.46, q.y - c * 0.46, c * 0.92, c * 0.92, c * 0.16, null, C.bad, Math.max(1.5, c * 0.05));
+    tile(ctx, q.x - c * 0.47, q.y - c * 0.47, c * 0.94, c * 0.94, c * 0.18, null, C.warn, Math.max(2, c * 0.06));
     ctx.restore();
   }
   return t;
@@ -286,12 +312,6 @@ function popcount(v: number): number {
 
 // ---- tiles ---------------------------------------------------------------------------
 
-/** A tiny repeatable hash in [0, 1), so each nucleus packs its own way. */
-const hash = (salt: number, k: number): number => {
-  const t = Math.sin(salt * 12.9898 + k * 78.233) * 43758.5453;
-  return t - Math.floor(t);
-};
-
 /** The calm lattice plate: a flat panel with a fine dot at each lattice point. */
 function lattice(ctx: CanvasRenderingContext2D, x: number, y: number, cols: number, rows: number, c: number, bumped: boolean): void {
   const w = c * cols, h = c * rows;
@@ -306,64 +326,52 @@ function lattice(ctx: CanvasRenderingContext2D, x: number, y: number, cols: numb
   tile(ctx, x, y, w, h, c * 0.18, null, bumped ? C.bad : C.line2, 1);
 }
 
-/** Protons and neutrons packed tight: one in the middle and six round it, each set apart by a fine rim. */
-function nucleons(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, salt: number, alpha: number, tremble: number): void {
-  const b = r * 0.31;
-  const turn = hash(salt, 0) * Math.PI * 2;
-  const beads: [number, number, boolean][] = [];
-  for (let k = 0; k < 6; k++) {
-    const a = turn + (k / 6) * Math.PI * 2;
-    beads.push([x + Math.cos(a) * b * 1.85, y + Math.sin(a) * b * 1.85, hash(salt, k + 1) < 0.5]);
-  }
-  beads.sort((p, q) => p[1] - q[1]);
-  beads.push([x, y, hash(salt, 9) < 0.5]);
-  // Never all one kind.
-  if (beads.every((q) => q[2] === beads[0][2])) beads[2][2] = !beads[0][2];
-  ctx.save();
-  ctx.globalAlpha = alpha;
-  ctx.strokeStyle = C.surface3;
-  ctx.lineWidth = Math.max(0.8, b * 0.2);
-  beads.forEach(([bx, by, proton], k) => {
-    const jx = tremble ? Math.sin(tremble / 90 + k * 2.1) * b * 0.12 : 0;
-    const jy = tremble ? Math.cos(tremble / 110 + k * 1.7) * b * 0.12 : 0;
-    ctx.fillStyle = proton ? C.proton : C.neutron;
-    ctx.beginPath();
-    ctx.arc(bx + jx, by + jy, b, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-  });
-  ctx.restore();
-}
+/** A wall block's size and corner, as fractions of a cell. */
+const BLOCK = 0.8;
+const BLOCK_R = 0.16;
 
-/** A fixed nucleus: a cluster of protons and neutrons on a dark disc. It blocks the electron. */
-export function nucleus(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, salt: number): void {
+/**
+ * A fixed nucleus: a plain wall block, flat and muted, with one small dot. It
+ * blocks the electron. Kept calm on purpose: a board can hold many of them.
+ */
+export function nucleus(ctx: CanvasRenderingContext2D, x: number, y: number, c: number): void {
+  const side = c * BLOCK;
   ctx.save();
-  ctx.fillStyle = C.surface3;
-  ctx.strokeStyle = C.line2;
-  ctx.lineWidth = 1;
+  ctx.globalAlpha = 0.17;
+  tile(ctx, x - side / 2, y - side / 2, side, side, c * BLOCK_R, C.tile, null);
+  ctx.globalAlpha = 0.35;
+  ctx.fillStyle = C.tile;
   ctx.beginPath();
-  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.arc(x, y, Math.max(1.5, c * 0.055), 0, Math.PI * 2);
   ctx.fill();
-  ctx.stroke();
   ctx.restore();
-  nucleons(ctx, x, y, r * 0.92, salt, 1, 0);
 }
 
 /** Kept for older callers: the blocker is a nucleus now. */
 export const pebble = nucleus;
 
-/** An unstable nucleus: a faint, trembling cluster in a dashed ring. Crossable until it decays. */
+/**
+ * An unstable nucleus: the same block, hollow and dashed, with a small ring
+ * that trembles faintly. Crossable until it decays into a fixed one.
+ */
 function unstable(ctx: CanvasRenderingContext2D, x: number, y: number, c: number, salt: number, now: number): void {
-  const r = c * 0.38;
+  const side = c * BLOCK;
+  const jx = now ? Math.sin(now / 70 + salt * 1.7) * c * 0.018 : 0;
+  const jy = now ? Math.cos(now / 90 + salt * 2.3) * c * 0.018 : 0;
   ctx.save();
-  ctx.strokeStyle = C.line3;
+  ctx.globalAlpha = 0.06;
+  tile(ctx, x - side / 2, y - side / 2, side, side, c * BLOCK_R, C.tile, null);
+  ctx.globalAlpha = 1;
+  ctx.setLineDash([c * 0.08, c * 0.065]);
+  tile(ctx, x - side / 2, y - side / 2, side, side, c * BLOCK_R, null, C.line3, Math.max(1, c * 0.03));
+  ctx.setLineDash([]);
+  ctx.strokeStyle = C.tile;
+  ctx.globalAlpha = 0.4;
   ctx.lineWidth = Math.max(1, c * 0.03);
-  ctx.setLineDash([c * 0.07, c * 0.06]);
   ctx.beginPath();
-  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.arc(x + jx, y + jy, Math.max(2, c * 0.08), 0, Math.PI * 2);
   ctx.stroke();
   ctx.restore();
-  nucleons(ctx, x, y, r * 0.8, salt, 0.55, now);
 }
 
 /** A potential well: concentric contour rings, brightening toward the middle. */
@@ -457,10 +465,10 @@ function electron(ctx: CanvasRenderingContext2D, x: number, y: number, r: number
   bead(ctx, x, y, r, C.silver, { rim: C.pewter, glow: glow ? C.silver : undefined });
 }
 
-// ---- rule cards ------------------------------------------------------------------------
+// ---- rule pictures ---------------------------------------------------------------------
 
 /**
- * A small demo board: `rows` lines of text, one character per cell ('.'
+ * A small picture board: `rows` lines of text, one character per cell ('.'
  * lattice, '#' nucleus, '~' well, '%' unstable nucleus, arrows, plus 'e' the
  * electron, '*' a photon, 'o' the ring). Hidden rows of nuclei pad it square,
  * so the real slide rules run on it unchanged.
@@ -482,64 +490,68 @@ function board(rows: string[]): { s: SlideStopState; rows: number } {
   return { s: { size, tiles, sparks, got: 0, broken: 0, start, goal, pos: start, moves: 0, par: 0 }, rows: rows.length };
 }
 
-/** Seconds before the first slide; photons and unstable nuclei wait longer so the still frame shows them. */
-const WAIT = 0.45;
-const CELL_S = 0.09;
-const REST = 0.2;
-const HOLD_FAIL = 0.75;
-const HOLD_WIN = 1.3;
+/** Seconds: a beat before the first slide, per cell slid (with a floor), a rest after each, the verdict coming in, a last rest. */
+const LEAD = 0.35;
+const CELL_S = 0.1;
+const MIN_SLIDE = 0.22;
+const PAUSE = 0.25;
+const VERDICT = 0.4;
+const REST = 0.45;
 
 /**
- * A looping demo: each attempt starts from the board as dealt and plays its
- * slides one after another with the board's own glide. A failed attempt
- * flashes its culprit cell red; the last one ends on the ring.
+ * One rule picture: the electron starts where dealt (or at `from`) and plays
+ * its slides with the board's own glide, leaving a faint trace of its route.
+ * A slide the rules refuse leaves it where it is. When it has settled, the
+ * real outcome shows: the ring filled on a win, or the cell `flag` names
+ * flagged in amber. The last frame is that finished state.
  */
-function scene(rows: string[], attempts: { moves: Dir[]; flash?: [number, number]; from?: [number, number] }[], lead = WAIT): (ctx: CanvasRenderingContext2D, w: number, h: number, t: number) => void {
+function picture(rows: string[], moves: Dir[], caption: string, o: { from?: [number, number]; flag?: [number, number] } = {}): Illustration {
   const { s: s0, rows: n } = board(rows);
-  const plays = attempts.map((a, k) => {
-    const first = a.from ? { ...s0, pos: a.from[1] * s0.size + a.from[0] } : s0;
-    let cur = first;
-    let clock = k ? WAIT * 0.5 : lead;
-    const steps = a.moves.map((d) => {
-      const run = slideRun(cur, d);
-      const next = slide(cur, d) ?? cur;
-      const ms = Math.max(200, CELL_S * 1000 * run.path.length);
-      const step = { prev: cur, next, from: cur.pos, to: next.pos, path: run.path, at: clock, ms };
-      clock += ms / 1000 + REST;
-      cur = next;
-      return step;
-    });
-    const won = solved(cur);
-    return { first, steps, end: cur, won, flash: a.flash ? a.flash[1] * s0.size + a.flash[0] : -1, settle: clock, len: clock + (won ? HOLD_WIN : HOLD_FAIL) };
-  });
-  // At least 3.4 s, so the still frame shown under reduced motion (2.5 s) has the last attempt at rest
-  // (or, with a long lead, the board as dealt, for tiles the win would use up).
-  const last = plays[plays.length - 1];
-  last.len += Math.max(0, 3.4 - plays.reduce((a, p) => a + p.len, 0));
-  const loop = plays.reduce((a, p) => a + p.len, 0);
-  return (ctx, w, h, t) => {
-    let u = ((t % loop) + loop) % loop;
-    let k = 0;
-    while (k < plays.length - 1 && u >= plays[k].len) u -= plays[k++].len;
-    const play = plays[k];
-    // The latest slide that has begun, kept as a glide so its streak fades as on the board.
-    let st = play.first;
-    let gl: Glide | null = null;
-    for (const step of play.steps) {
-      if (u < step.at) break;
-      st = step.next;
-      gl = { from: step.from, to: step.to, path: step.path, prev: step.prev, at: step.at * 1000, ms: step.ms };
-    }
-    const fit = fitGrid({ x: 0, y: 0, w, h }, s0.size, n, { margin: 3, maxCell: 999 });
-    const since = u - play.settle;
-    const flashK = play.flash >= 0 && since > 0 ? 0.55 + 0.45 * Math.cos(since * Math.PI * 5) * Math.max(0, 1 - since / 0.7) : 0;
-    paintSlide(ctx, st, { x: fit.x, y: fit.y, c: fit.cell, rows: n }, u * 1000, gl, {
-      won: solved(st),
-      motion: true,
-      bumped: false,
-      ticks: true,
-      flash: play.flash >= 0 ? { cell: play.flash, k: flashK } : undefined,
-    });
+  const first = o.from ? { ...s0, pos: o.from[1] * s0.size + o.from[0] } : s0;
+  let cur = first;
+  let clock = LEAD;
+  const steps: { prev: SlideStopState; next: SlideStopState; path: number[]; at: number; ms: number }[] = [];
+  for (const d of moves) {
+    const next = slide(cur, d);
+    if (!next) { clock += PAUSE; continue; }
+    const run = slideRun(cur, d);
+    const ms = Math.max(MIN_SLIDE, CELL_S * run.path.length) * 1000;
+    steps.push({ prev: cur, next, path: run.path, at: clock, ms });
+    clock += ms / 1000 + PAUSE;
+    cur = next;
+  }
+  const settle = clock;
+  const raw = settle + VERDICT + REST;
+  // Long routes play a little faster so every picture stays within 4 s.
+  const duration = Math.min(4, Math.max(1.5, raw));
+  const pace = raw / duration;
+  const flag = o.flag ? o.flag[1] * s0.size + o.flag[0] : -1;
+  return {
+    caption,
+    duration,
+    draw: (ctx, w, h, t) => {
+      const u = t * pace;
+      // The latest slide that has begun, kept as a glide so its streak fades as on the board.
+      let st = first;
+      let gl: Glide | null = null;
+      const route: number[] = [];
+      for (const step of steps) {
+        if (u < step.at) break;
+        route.push(step.prev.pos);
+        st = step.next;
+        gl = { from: step.prev.pos, to: step.next.pos, path: step.path, prev: step.prev, at: step.at * 1000, ms: step.ms };
+      }
+      const fit = fitGrid({ x: 0, y: 0, w, h }, s0.size, n, { margin: 3, maxCell: 999 });
+      const k = flag >= 0 && u > settle ? ease((u - settle) / VERDICT) : 0;
+      paintSlide(ctx, st, { x: fit.x, y: fit.y, c: fit.cell, rows: n }, u * 1000, gl, {
+        won: solved(st),
+        motion: true,
+        bumped: false,
+        ticks: false,
+        flash: flag >= 0 ? { cell: flag, k } : undefined,
+        route,
+      });
+    },
   };
 }
 
@@ -547,36 +559,40 @@ export const RULES: RuleCard[] = [
   {
     title: 'Slide',
     text: 'Swipe and the electron slides until something stops it: a nucleus or the rim. It cannot stop halfway.',
-    demo: scene(['....', 'e...', '#o..'], [{ moves: ['right', 'down', 'left'] }]),
+    good: picture(['....', 'e...', '#o..'], ['right', 'down', 'left'], 'Slides until stopped'),
   },
   {
     title: 'Red ring',
     text: 'Bring the electron to rest on the red ring. Sliding over it does not count.',
-    demo: scene(['....', 'e.o.', '..#.'], [{ moves: ['right'], flash: [2, 1] }, { moves: ['down'], from: [2, 0] }]),
+    good: picture(['....', '..o.', '..#.'], ['down'], 'Comes to rest on it', { from: [2, 0] }),
+    bad: picture(['....', 'e.o.', '..#.'], ['right'], 'Slides over it', { flag: [2, 1] }),
   },
   {
     title: 'Nuclei',
-    text: 'Fixed nuclei block the way. The electron stops in the cell just before one.',
-    demo: scene(['e..#', '....', '#o..'], [{ moves: ['right', 'down', 'left'] }]),
+    text: 'Fixed nuclei, the plain gray blocks, are walls. The electron stops in the cell just before one.',
+    good: picture(['e..#', '....', '#o..'], ['right', 'down', 'left'], 'Stops just before one'),
   },
   {
     title: 'Photons',
     text: 'Absorb every photon by sliding over it or stopping on it. Until then the ring stays dashed.',
-    demo: scene(['e.*.', '....', '#o..'], [{ moves: ['right', 'down', 'left'] }], 2.7),
+    good: picture(['e.*.', '....', '#o..'], ['right', 'down', 'left'], 'Photon, then ring'),
+    bad: picture(['e.*.', '....', '#o..'], ['down', 'right', 'down', 'left'], 'A photon is left', { flag: [2, 0] }),
   },
   {
     title: 'Potential wells',
     text: 'A well catches the electron: it stops on one as soon as it slides in.',
-    demo: scene(['....', 'e.~.', '..o.'], [{ moves: ['right', 'down'] }]),
+    good: picture(['....', 'e.~.', '..o.'], ['right', 'down'], 'Caught by the well'),
   },
   {
     title: 'Unstable nuclei',
-    text: 'The electron can cross one, but as soon as it leaves, the nucleus decays into a fixed one that blocks.',
-    demo: scene(['....', 'e%o.', '....'], [{ moves: ['right', 'left'] }], 2.7),
+    text: 'The dashed blocks can be crossed once. As soon as the electron leaves one, it decays into a fixed nucleus that blocks.',
+    good: picture(['....', 'e%o.', '....'], ['right', 'left'], 'Crossed, then a wall'),
+    bad: picture(['....', 'oe%.', '....'], ['right', 'left'], 'Cannot cross back', { flag: [2, 1] }),
   },
   {
     title: 'Drift arrows',
     text: 'The electron can enter only moving the way the arrows point. From any other side they block it; leaving is free.',
-    demo: scene(['.o..', '.^.e', '....'], [{ moves: ['left'], flash: [1, 1] }, { moves: ['up'], from: [1, 2] }]),
+    good: picture(['.o..', '.^..', '....'], ['up'], 'Goes the arrows\' way', { from: [1, 2] }),
+    bad: picture(['.o..', '.^.e', '....'], ['left'], 'Blocked from the side', { flag: [1, 1] }),
   },
 ];
