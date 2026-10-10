@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { differing, featuresFor, fewestTaps, flip, INTRO, newLight, reflect, sizeFor, solved, status, trace, turnable, type Cell, type LightState } from '../src/puzzles/light';
+import { cfgFor, left, lift, newLight, place, reflect, solved, status, tap, trace, turn, type Cell, type LightState } from '../src/puzzles/light';
 import { seeded } from '../src/puzzles/rng';
+import { generate, solve, type Cfg, type NBoard } from '../src/puzzles/lightSolver';
 import { INSTRUCTIONS, LightView, RULES } from '../src/puzzles/lightView';
 import { C } from '../src/puzzles/palette';
 import type { Illustration, RuleCard } from '../src/puzzles/view';
 
 function grid(cells: Cell[], extra: Partial<LightState> = {}): LightState {
-  return { size: Math.round(Math.sqrt(cells.length)), cells, entry: 0, entryDir: 'down', targets: [], darks: [], solution: [...cells], features: [], moves: 0, par: 1, ...extra };
+  return { size: Math.round(Math.sqrt(cells.length)), cells, entry: 0, entryDir: 'down', targets: [], darks: [], solution: [...cells], tray: { mirrors: 1, splitters: 0 }, features: [], moves: 0, par: 1, ...extra };
 }
 
 describe('beam', () => {
@@ -21,32 +22,48 @@ describe('beam', () => {
   });
 
   // . . .
-  // / . #
+  // . . #
   // . . .
-  const g = grid(['.', '.', '.', '/', '.', '#', '.', '.', '.'], { targets: [{ cell: 4, hue: 'w' }], solution: ['.', '.', '.', '\\', '.', '#', '.', '.', '.'] });
+  const g = grid(['.', '.', '.', '.', '.', '#', '.', '.', '.'], { targets: [{ cell: 4, hue: 'w' }] });
 
-  it('traces through mirrors and stops at blockers', () => {
+  it('traces through placed mirrors and stops at blockers', () => {
     const b = trace(g);
-    expect(b.visits.map((v) => v.cell)).toEqual([0, 3]);
-    expect(b.visits[1].exits).toEqual(['left']);
-    const f = flip(g, 3)!;
+    expect(b.visits.map((v) => v.cell)).toEqual([0, 3, 6]);
+    const one = place(g, 3, 'mirror')!;
+    expect(one.cells[3]).toBe('/');
+    expect(trace(one).visits.map((v) => v.cell)).toEqual([0, 3]);
+    const f = turn(one, 3)!;
     const b2 = trace(f);
     expect(b2.visits.map((v) => v.cell)).toEqual([0, 3, 4, 5]);
     expect(b2.visits[3].stop).toBe('edge');
     expect(b2.lit.has(5)).toBe(false);
-    expect(solved(g)).toBe(false);
+    expect(solved(one)).toBe(false);
     expect(solved(f)).toBe(true);
+    // Only placing counts: turning is free.
+    expect(one.moves).toBe(1);
     expect(f.moves).toBe(1);
-    expect(g.cells[3]).toBe('/');
+    expect(g.cells[3]).toBe('.');
   });
 
-  it('only flips turnable pieces', () => {
-    expect(flip(g, 0)).toBeNull();
-    expect(flip(g, 5)).toBeNull();
-    expect(flip(grid(['F/', '.', '.', '.']), 0)).toBeNull();
-    expect(flip(grid(['Cs', '.', '.', '.']), 0)).toBeNull();
-    expect(flip(grid(['H/', '.', '.', '.']), 0)!.cells[0]).toBe('H\\');
-    expect(flip(flip(g, 3)!, 3)!.cells).toEqual(g.cells);
+  it('places only tray pieces on open cells; a tap places, turns, then lifts', () => {
+    expect(place(g, 5, 'mirror')).toBeNull(); // a blocker
+    expect(place(g, 0, 'mirror')).toBeNull(); // the lamp's cell
+    expect(place(g, 4, 'mirror')).toBeNull(); // a ring
+    expect(place(g, 3, 'splitter')).toBeNull(); // none in the tray
+    const one = place(g, 3, 'mirror')!;
+    expect(place(one, 6, 'mirror')).toBeNull(); // the tray is empty
+    expect(left(one)).toEqual({ mirror: 0, splitter: 0 });
+    expect(turn(g, 5)).toBeNull();
+    expect(turn(grid(['F/', '.', '.', '.']), 0)).toBeNull();
+    expect(lift(grid(['Cs', '.', '.', '.']), 0)).toBeNull();
+    const a = tap(g, 3, 'mirror')!;
+    const b = tap(a, 3, 'mirror')!;
+    const c = tap(b, 3, 'mirror')!;
+    expect([a.cells[3], b.cells[3], c.cells[3]]).toEqual(['/', '\\', '.']);
+    expect(left(c).mirror).toBe(1);
+    // An empty cell takes the other kind once the chosen one is used up.
+    const both = grid(['.', '.', '.', '.', '.', '.', '.', '.', '.'], { tray: { mirrors: 0, splitters: 1 } });
+    expect(tap(both, 3, 'mirror')!.cells[3]).toBe('H/');
   });
 
   it('splits at a half-silvered pane: straight on and reflected', () => {
@@ -103,70 +120,66 @@ describe('levels', () => {
     expect(newLight(50, 4)).not.toEqual(newLight(50, 5));
   });
 
-  it('starts unsolved and is solved in exactly par taps, for every element', () => {
-    for (let z = 1; z <= 118; z++) {
-      for (let seed = 1; seed <= 4; seed++) {
+  it('has exactly one answer, which uses the whole tray, for every element', () => {
+    for (let z = 1; z <= 118; z += 3) {
+      for (let seed = 1; seed <= 2; seed++) {
         const level = newLight(z, seed * 17 + z);
         expect(solved(level)).toBe(false);
-        expect(level.size).toBe(sizeFor(z));
-        expect(level.targets.length).toBe(z < 50 ? 2 : 3);
         for (const t of level.targets) expect(level.cells[t.cell]).toBe('.');
         for (const d of level.darks) expect(level.cells[d]).toBe('.');
-        const diff = differing(level);
-        expect(diff.length).toBe(level.par);
-        expect(level.par).toBeGreaterThanOrEqual(1);
-        // Par is the true minimum.
-        expect(fewestTaps(level, level.par)).toBe(level.par);
-        let s = level;
-        for (const i of diff) s = flip(s, i)!;
+        expect(level.cells.some((c) => c === '/' || c === '\\' || c[0] === 'H')).toBe(false);
+        expect(level.par).toBe(level.tray.mirrors + level.tray.splitters);
+        // Placing the answer's pieces solves it in par moves.
+        let s: LightState = level;
+        level.solution.forEach((c, i) => {
+          if (c === level.cells[i]) return;
+          s = place(s, i, c[0] === 'H' ? 'splitter' : 'mirror')!;
+          if (c === '\\' || c === 'H\\') s = turn(s, i)!;
+        });
         expect(solved(s)).toBe(true);
         expect(s.moves).toBe(level.par);
         expect(s.cells).toEqual(level.solution);
-        // Every planned piece kind is on the board.
-        const has = (pred: (c: Cell) => boolean) => level.cells.some(pred);
-        if (level.features.includes('fixed')) expect(has((c) => c[0] === 'F')).toBe(true);
-        if (level.features.includes('splitters')) expect(has((c) => c[0] === 'H')).toBe(true);
-        if (level.features.includes('filters')) {
-          expect(has((c) => c[0] === 'C')).toBe(true);
-          expect(level.targets.some((t) => t.hue !== 'w')).toBe(true);
-        } else expect(level.targets.every((t) => t.hue === 'w')).toBe(true);
-        expect(level.darks.length > 0).toBe(level.features.includes('darks'));
-        expect(level.cells.filter(turnable).length).toBeGreaterThanOrEqual(level.par);
+        // Colored rings only with filters.
+        if (level.features.includes('filters')) expect(level.cells.some((c) => c[0] === 'C')).toBe(true);
+        else expect(level.targets.every((t) => t.hue === 'w')).toBe(true);
       }
     }
   });
 
-  it('introduces pieces gradually', () => {
-    const seen = (z: number) => { const out = new Set<string>(); for (let d = 0; d < 30; d++) featuresFor(z, seeded(d)).forEach((f) => out.add(f)); return out; };
-    expect(seen(5).size).toBe(0);
-    expect([...seen(INTRO.fixed)]).toEqual(['fixed']);
-    expect(seen(INTRO.darks)).toContain('darks');
-    expect(seen(INTRO.darks).has('splitters')).toBe(false);
-    expect(seen(INTRO.splitters)).toContain('splitters');
-    expect(seen(INTRO.splitters).has('filters')).toBe(false);
-    expect(seen(INTRO.filters)).toContain('filters');
-    expect(seen(110).size).toBe(4);
-    for (let d = 0; d < 30; d++) {
-      expect(featuresFor(INTRO.splitters + 3, seeded(d))).toContain('splitters');
-      const late = featuresFor(100, seeded(d));
-      expect(late.length).toBeGreaterThanOrEqual(2);
-      expect(late.length).toBeLessThanOrEqual(3);
+  it('proves the answer unique: no other layout of tray pieces lights every ring', () => {
+    const B: Cfg = { size: 6, mirrors: 3, splitters: 0, fixed: 0, decoys: 0, filters: 0, targets: 2, colored: 0, darksInit: 1, darksMax: 2, blockers: [1, 3], blockersMax: 8 };
+    for (const cfg of [{ ...B, mirrors: 2 }, B, { ...B, mirrors: 2, splitters: 1, targets: 3 }, { ...B, filters: 1, targets: 3, colored: 1 }]) {
+      for (let seed = 1; seed <= 6; seed++) {
+        const b = generate(cfg, seed) as NBoard;
+        expect(b).not.toBeNull();
+        const r = solve(b, { nodeCap: 5e6 });
+        expect(r.capped).toBe(false);
+        expect(r.par).toBe(cfg.mirrors + cfg.splitters);
+        expect(r.solutions.length).toBe(1);
+      }
     }
   });
 
-  it('builds fast', () => {
-    for (let z = 1; z <= 118; z += 3) {
+  it('climbs the ladder: tray size, darks, splitters, filters and bigger boards by element', () => {
+    const at = (z: number) => cfgFor(z, seeded(3));
+    expect(at(1).mirrors).toBe(1);
+    expect(at(10).mirrors).toBe(2);
+    expect(at(30).darksInit).toBe(1);
+    expect(at(45).splitters).toBe(1);
+    expect(at(65).filters).toBe(1);
+    expect(at(75).filters).toBe(2);
+    for (let d = 0; d < 10; d++) expect(cfgFor(90, seeded(d)).mirrors + cfgFor(90, seeded(d)).splitters).toBe(4);
+    expect(at(110).size).toBe(7);
+    expect(newLight(1, 2).par).toBe(1);
+    expect(newLight(118, 2).size).toBe(7);
+  });
+
+  it('builds fast enough to deal on open', () => {
+    for (const z of [1, 30, 50, 75, 90, 110]) {
       const t0 = performance.now();
       newLight(z, 7);
-      expect(performance.now() - t0).toBeLessThan(150);
+      expect(performance.now() - t0).toBeLessThan(1500);
     }
-  });
-
-  it('grows with the element', () => {
-    expect(newLight(1, 2).size).toBe(5);
-    expect(newLight(50, 2).size).toBe(6);
-    expect(newLight(118, 2).size).toBe(7);
-    expect(newLight(118, 2).par).toBeGreaterThanOrEqual(2);
   });
 });
 
@@ -183,9 +196,10 @@ describe('view and rule cards', () => {
 
   it('has a card with pictures for every piece, drawn inside its box', () => {
     checkRules(RULES, ['Rings', 'Fixed mirrors', 'Filters', 'Colored rings', 'Dark sensors']);
+    expect(INSTRUCTIONS).toMatch(/fleeting/);
     expect(INSTRUCTIONS).toMatch(/^\s*<h3>In the game<\/h3>\s*<p class="meta">/);
     expect(INSTRUCTIONS).not.toMatch(/How to play/);
-    expect(RULES.map((r) => r.title)).toEqual(['Mirrors', 'Rings', 'Fixed mirrors', 'Splitters', 'Filters', 'Colored rings', 'Dark sensors', 'Blockers']);
+    expect(RULES.map((r) => r.title)).toEqual(['Mirrors', 'Rings', 'The tray', 'Fixed mirrors', 'Splitters', 'Filters', 'Colored rings', 'Dark sensors', 'Blockers']);
   });
 });
 

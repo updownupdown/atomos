@@ -87,7 +87,7 @@ describe('every game has one job', () => {
 
   it('the catalog says so', () => {
     const tier = Object.fromEntries(PUZZLES.map((p) => [p.name, p.tier]));
-    expect(tier).toMatchObject({ Tokamak: 'every', Quanta: 'every', Tessera: 'facet', Chroma: 'facet', Flux: 'facet', Nova: 'facet', Inertia: 'facet', Aurum: 'facet', Glyph: 'gate', Lumen: 'reserve' });
+    expect(tier).toMatchObject({ Tokamak: 'every', Quanta: 'every', Tessera: 'facet', Chroma: 'facet', Flux: 'facet', Nova: 'facet', Inertia: 'facet', Aurum: 'facet', Glyph: 'gate', Lumen: 'facet' });
     expect(PUZZLES.find((p) => p.name === 'Tokamak')!.zRange).toEqual([2, 118]);
   });
 

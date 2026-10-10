@@ -58,8 +58,8 @@ export const vaultIsotopes = lastingIsotopes;
 
 /** The puzzles that build isotopes. A lasting isotope has one of the first six, fixed in
  *  src/data/isotope-games.json so retuning never reshuffles a board; a fleeting one can be
- *  built with any of them, Tokamak included. */
-export const ISOTOPE_GAMES_LIST = ['packing', 'colorCharge', 'lines', 'sliding', 'slideStop', 'rutherford', 'merge'] as const;
+ *  built with any of them, Lumen and Tokamak included. */
+export const ISOTOPE_GAMES_LIST = ['packing', 'colorCharge', 'lines', 'sliding', 'slideStop', 'rutherford', 'light', 'merge'] as const;
 export type IsotopeGame = (typeof ISOTOPE_GAMES_LIST)[number];
 
 const GAME_OF = ISOTOPE_GAMES as Record<string, IsotopeGame>;
