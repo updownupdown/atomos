@@ -74,7 +74,6 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   align-items: center;
   gap: 10px;
   background: rgba(12, 11, 10, 0.86);
-  border-bottom: 1px solid var(--line);
   backdrop-filter: blur(6px);
 }
 
@@ -131,7 +130,6 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .icon-btn, .text-btn {
   background: transparent;
   border: 0;
-  border-bottom: 1px solid var(--line-strong);
   border-radius: 0;
   padding: 10px 6px;
   min-height: 44px;
@@ -141,7 +139,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   color: var(--text);
 }
 
-.icon-btn:hover, .text-btn:hover { border-bottom-color: var(--text); }
+.icon-btn:hover, .text-btn:hover { color: var(--text); }
 
 .text-btn { padding: 8px 4px; min-height: 40px; color: var(--muted); }
 .text-btn:disabled { opacity: 0.4; cursor: default; }
@@ -336,7 +334,7 @@ body.stage-nucleus #atom { opacity: 0.12; }
 
 /* Modal sheets: the frame itself is .ui-modal / .ui-modal-card in ui/components.css. */
 .sheet h2 { margin: 0 0 4px; font-size: 22px; font-family: var(--mono); font-weight: 700; }
-.sheet h3 { margin: 20px 0 8px; font-size: 12px; color: var(--muted); font-family: var(--mono); text-transform: lowercase; letter-spacing: 0.08em; font-weight: 400; border-bottom: 1px solid var(--line); padding-bottom: 4px; }
+.sheet h3 { margin: 20px 0 8px; font-size: 12px; color: var(--muted); font-family: var(--mono); text-transform: lowercase; letter-spacing: 0.08em; font-weight: 400; }
 .sheet p { margin: 6px 0; }
 .sheet .muted { color: var(--muted); font-family: var(--mono); font-size: 13px; }
 .sheet .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
@@ -399,7 +397,8 @@ body.stage-nucleus #atom { opacity: 0.12; }
 .iso .status.live { color: var(--accent); }
 .iso button { grid-row: 1 / span 2; grid-column: 2; }
 
-.toggle { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.toggle { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 12px var(--sp-4); border-radius: var(--r-md); background: var(--c-surface); }
+.toggle + .toggle { margin-top: var(--sp-2); }
 .toggle span small { display: block; color: var(--muted); font-size: 13px; }
 .toggle input { width: 22px; height: 22px; accent-color: var(--accent); flex: none; }
 
@@ -542,7 +541,7 @@ body.stage-nucleus #atom { opacity: 0.12; }
 
 /* The bar: full width; the element button fills the left, previous and next sit together on the right. */
 /* The bar sits at the top of the atom screens, under the View/Build row; the host places it. */
-.atom-bar { display: flex; align-items: stretch; height: var(--bar-h, 60px); background: var(--c-plate); border-bottom: 1px solid var(--c-line); }
+.atom-bar { display: flex; align-items: stretch; height: var(--bar-h, 60px); background: var(--c-nav); }
 .loupe-screen > .atom-bar { position: absolute; left: 0; right: 0; top: var(--top); z-index: 4; }
 .bar-arrow { flex: none; width: 52px; display: flex; align-items: center; justify-content: center; background: none; border: 0; border-left: 1px solid var(--c-line); color: var(--c-silver); cursor: pointer; }
 .bar-arrow:hover { background: var(--c-surface-2); }
@@ -550,7 +549,7 @@ body.stage-nucleus #atom { opacity: 0.12; }
 /* The element button, read like a periodic-table cell on its side: number large with the weight
    small beneath, the symbol, the name in the wordmark's tracked capitals, then a cyan Select. */
 .bar-mid { flex: 1; min-width: 0; display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto; align-items: center; gap: var(--sp-3); padding: 0 var(--sp-3) 0 var(--sp-4); background: none; border: 0; color: var(--c-text); font-family: var(--font); text-align: left; cursor: pointer; }
-.bar-mid:hover { background: var(--c-surface); }
+.bar-mid:hover { background: var(--c-surface-2); }
 .bar-mid:focus-visible { outline: 2px solid var(--c-accent); outline-offset: -2px; }
 .bar-cell { display: grid; justify-items: center; min-width: 40px; line-height: 1; }
 .bar-z { font-size: 26px; font-weight: var(--fw-semibold); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
@@ -782,7 +781,6 @@ body.stage-nucleus #atom { opacity: 0.12; }
 
 .sheet h2 { font-weight: var(--fw-semibold); }
 .sheet h3 {
-  border-bottom: 0;
   text-transform: uppercase;
   letter-spacing: var(--tracking-caps);
   font-size: var(--fs-xs);
@@ -827,7 +825,7 @@ body.stage-nucleus #atom { opacity: 0.12; }
   gap: var(--sp-2);
   height: calc(var(--safe-top) + var(--nav-h));
   padding: var(--safe-top) var(--sp-3) 0;
-  background: var(--c-bg);
+  background: var(--c-nav);
   border-bottom: 0;
 }
 .nav-logo {
@@ -849,7 +847,7 @@ body.stage-nucleus #atom { opacity: 0.12; }
 /* The wordmark gives way when the header is short of room. */
 @media (max-width: 539px) { .nav-word { display: none; } }
 .nav-logo:hover { background: var(--c-surface-2); }
-.nav-tabs { flex: none; display: flex; gap: 2px; padding: 3px; border-radius: var(--r-lg); background: var(--c-surface); }
+.nav-tabs { flex: none; display: flex; gap: 2px; }
 .nav-tabs button {
   /* 64 px on a phone, growing with the screen up to 104 px. */
   width: clamp(64px, 22vw - 24px, 104px);
@@ -861,7 +859,7 @@ body.stage-nucleus #atom { opacity: 0.12; }
   gap: 1px;
   padding: 0;
   border: 0;
-  border-radius: calc(var(--r-lg) - 3px);
+  border-radius: var(--r-md);
   background: transparent;
   color: var(--c-text-2);
   font-family: var(--font);
@@ -870,7 +868,7 @@ body.stage-nucleus #atom { opacity: 0.12; }
 .nav-ico svg { width: 22px; height: 22px; display: block; }
 .nav-lab { font-size: 11px; font-weight: var(--fw-semibold); line-height: 1.1; letter-spacing: 0.01em; }
 .nav-tabs button:hover { color: var(--c-text); }
-.nav-tabs button[aria-current='page'] { background: var(--c-tile); color: var(--c-tile-ink); }
+.nav-tabs button[aria-current='page'] { background: var(--c-pick); color: var(--c-accent); }
 .nav-end { justify-self: end; }
 .nav-logo:focus-visible, .nav-tabs button:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
 @media (max-width: 359px) {
@@ -878,35 +876,39 @@ body.stage-nucleus #atom { opacity: 0.12; }
   .nav-tabs button { width: 58px; }
 }
 
-/* Atom screens: the View / Build row under the header. Everything below it moves down. */
-body[data-screen^='atom'] { --top: calc(var(--safe-top) + var(--nav-h) + var(--mode-h)); }
+/* Atom screens, top down: the header, the atom bar (View and Build each mount their own in the
+   same place, so it reads as one), then the View / Build row. --top is the bottom of the header
+   plus the mode row; screens add the bar's height (60 px) themselves, as they always have. */
+:root { --nav-bottom: calc(var(--safe-top) + var(--nav-h)); --atom-bar-h: 60px; }
+body[data-screen^='atom'] { --top: calc(var(--nav-bottom) + var(--mode-h)); }
+body[data-screen^='atom'] .loupe-screen > .atom-bar,
+body[data-screen^='atom'] .build-bar { top: var(--nav-bottom); }
 .mode-row {
   position: fixed;
   left: 0;
   right: 0;
-  top: calc(var(--safe-top) + var(--nav-h));
+  top: calc(var(--nav-bottom) + var(--atom-bar-h));
   height: var(--mode-h);
   z-index: 14;
   display: flex;
   align-items: center;
   gap: var(--sp-3);
   padding: 0 var(--sp-3);
-  background: var(--c-bg);
-  box-shadow: inset 0 -1px 0 var(--c-line);
+  background: var(--c-nav);
 }
 .mode-row[hidden] { display: none; }
+/* Inside a Build puzzle the atom bar steps away, so the row moves up under the header. */
+body[data-screen='atom-build']:not(.build-home) .mode-row { top: var(--nav-bottom); }
 .mode-seg { flex: 1; min-width: 0; }
-.mode-seg .ui-seg { width: 100%; }
-.mode-seg .ui-seg-opt { min-height: 42px; }
-/* Build's progress: a ring and a percentage, in the option's own color so it reads on both
-   the light (picked) and dark (not picked) option. */
-.mode-prog { display: inline-flex; align-items: center; gap: 5px; margin-left: var(--sp-1); font-variant-numeric: tabular-nums; }
-.mode-prog svg { width: 20px; height: 20px; transform: rotate(-90deg); }
-.mode-prog circle { fill: none; stroke-width: 2.5; }
+.mode-seg .ui-seg { width: 100%; padding: 0; background: transparent; }
+.mode-seg .ui-seg-opt { min-height: 42px; padding: 0 var(--sp-3); border-radius: var(--r-md); }
+/* Build's progress: a ring on the left of the word and the percentage on its right. */
+.mode-ring { display: inline-grid; place-items: center; }
+.mode-ring svg { width: 20px; height: 20px; transform: rotate(-90deg); }
+.mode-ring circle { fill: none; stroke-width: 2.5; }
 .mode-prog-track { stroke: currentColor; opacity: 0.22; }
 .mode-prog-arc { stroke: var(--c-accent); stroke-linecap: round; transition: stroke-dasharray var(--dur) var(--ease); }
-.ui-seg-opt[aria-checked='true'] .mode-prog-arc { stroke: var(--c-accent-ink); }
-.mode-prog b { font-size: var(--fs-sm); font-weight: var(--fw-semibold); }
+.mode-pct { font-size: var(--fs-sm); font-weight: var(--fw-semibold); font-variant-numeric: tabular-nums; }
 
 /* The microscope, wherever a screen puts it. Dimmed when there is nothing to open. */
 .science-btn[aria-expanded='true'] { background: var(--c-tile); color: var(--c-tile-ink); }
@@ -926,6 +928,7 @@ body[data-screen^='atom'] { --top: calc(var(--safe-top) + var(--nav-h) + var(--m
   color: var(--c-text);
 }
 .science-fab[hidden] { display: none; }
+body[data-screen^='atom'].build-home .science-fab, body[data-screen='atom-view'] .science-fab { top: calc(var(--top) + var(--atom-bar-h) + var(--sp-2)); }
 .science-fab svg { width: 24px; height: 24px; }
 .science-fab:hover { background: var(--c-surface-3); }
 .science-fab[aria-expanded='true'] { background: var(--c-tile); color: var(--c-tile-ink); }
@@ -1154,7 +1157,7 @@ body[data-screen^='atom'] { --top: calc(var(--safe-top) + var(--nav-h) + var(--m
 .pg-card-icon { display: inline-grid; place-items: center; color: var(--c-accent); margin-right: 2px; }
 
 /* Settings' last line: quiet links to the pages behind it. */
-.settings-foot { margin: var(--sp-6) 0 0; padding-top: var(--sp-3); border-top: 1px solid var(--c-line); font-size: var(--fs-sm); }
+.settings-foot { margin: var(--sp-6) 0 0; font-size: var(--fs-sm); }
 .settings-foot a { color: var(--c-accent); text-decoration: none; font-weight: var(--fw-semibold); }
 .settings-foot a:hover { text-decoration: underline; }
 

@@ -57,7 +57,7 @@
   text-align: left;
   font-family: var(--font);
 }
-.el-row + .el-row { box-shadow: 0 -1px 0 var(--c-line); }
+.el-row + .el-row { margin-top: 2px; }
 .el-row:hover, .el-row:focus-visible { background: var(--c-surface-2); box-shadow: none; outline: none; }
 .el-row:focus-visible { box-shadow: inset 0 0 0 2px var(--c-accent); }
 .el-row.is-current { background: var(--c-surface-2); box-shadow: inset 0 0 0 1.5px var(--c-accent); }
@@ -76,7 +76,7 @@
 /* Table */
 .el-scroll { overflow: auto; overscroll-behavior: contain; max-height: 100%; border: 1px solid var(--c-line); border-radius: var(--r-md); }
 .el-scroll table { border-collapse: separate; border-spacing: 0; width: 100%; font-size: var(--fs-sm); font-variant-numeric: tabular-nums; }
-.el-scroll thead th { position: sticky; top: 0; z-index: 2; background: var(--c-surface); border-bottom: 1px solid var(--c-line-2); padding: 0; text-align: left; white-space: nowrap; }
+.el-scroll thead th { position: sticky; top: 0; z-index: 2; background: var(--c-surface-3); padding: 0; text-align: left; white-space: nowrap; }
 .el-scroll thead th.n { text-align: right; }
 .el-scroll thead button { display: inline-flex; align-items: center; gap: 4px; width: 100%; min-height: var(--hit); padding: 0 var(--sp-3); border: 0; background: transparent; color: var(--c-text-2); font: inherit; font-weight: var(--fw-semibold); justify-content: inherit; }
 .el-scroll thead th.n button { justify-content: flex-end; }
@@ -85,7 +85,7 @@
 .el-arrow::after { content: ''; }
 th[aria-sort='ascending'] .el-arrow::after { content: '↑'; }
 th[aria-sort='descending'] .el-arrow::after { content: '↓'; }
-.el-scroll td, .el-scroll tbody th { padding: 0 var(--sp-3); height: 44px; border-bottom: 1px solid var(--c-line); white-space: nowrap; color: var(--c-text-2); text-align: left; font-weight: var(--fw-regular); }
+.el-scroll td, .el-scroll tbody th { padding: 0 var(--sp-3); height: 44px; white-space: nowrap; color: var(--c-text-2); text-align: left; font-weight: var(--fw-regular); }
 .el-scroll tbody th { color: var(--c-text); font-weight: var(--fw-semibold); }
 .el-scroll td.n { text-align: right; }
 /* The symbol column stays put while the table scrolls sideways. */
@@ -93,6 +93,8 @@ th[aria-sort='descending'] .el-arrow::after { content: '↓'; }
 .el-scroll thead th:first-child { z-index: 3; }
 .el-sym { display: inline-grid; place-items: center; min-width: 34px; height: 28px; padding: 0 6px; border-radius: 6px; background: color-mix(in srgb, var(--c) 20%, var(--c-surface-2)); box-shadow: inset 0 -2px 0 var(--c); color: var(--c-text); font-weight: var(--fw-bold); }
 .el-scroll tbody tr { cursor: pointer; }
+/* Rows told apart by alternating plates rather than rules between them. */
+.el-scroll tbody tr:nth-child(even) > *, .el-scroll tbody tr:nth-child(even) > td:first-child { background: var(--c-surface-2); }
 .el-scroll tbody tr:hover td, .el-scroll tbody tr:hover th { background: var(--c-surface-2); }
 .el-scroll tbody tr:focus-visible { outline: 2px solid var(--c-accent); outline-offset: -2px; }
 .el-scroll tbody tr.is-current th { color: var(--c-accent); }
