@@ -9,7 +9,7 @@ import { frontier, loadSave, writeSave, type OrbitalShape, type SaveData, type S
 // The gallery's gate puzzles (lenses, nucleus view, looks); loaded here so they are ready.
 import './puzzles/unlock';
 import { atomProgress, isotopeCollected, rowOf, rowOpen, rowSpan, segmentsOf, shapeAt, stepState, stepsOf, vaultIsotopes, type StepState } from './core/progress';
-import { SILVER, atomColour, hexToHue, hslToHex } from './core/paint';
+import { tableColour } from './core/paint';
 import { Detail } from './gallery/detail';
 import { createAtomBar, type AtomBar } from './gallery/atombar';
 import { refreshModeProgress } from './ui/modebar';
@@ -75,7 +75,6 @@ export class Game {
     this.bar = createAtomBar({ onChange: (z) => this.start(z), locked: (z) => !rowOpen(rowOf(z), this.save) });
     $('build-bar').append(this.bar.el);
     $('bh-sci').append(scienceButton());
-    $('bh-paint').onclick = () => this.openPaint();
     this.applySettings();
     this.bindInput();
     this.z = frontier(this.save, MAX_Z);
@@ -183,12 +182,9 @@ export class Game {
     if (on) this.detail.start(); else this.detail.stop();
   }
 
-  /** The 3D atom shows as collected once built, in the player's paint (or its orbital colors). */
+  /** The 3D atom in the orbital colors, the same as in View: dimmed until it is built. */
   private tintDetail(): void {
-    const b = this.save.built[this.z];
-    this.detail.setCollected(Boolean(b));
-    const c = this.colourFor(this.z);
-    this.detail.setTint(b && c.toLowerCase() !== SILVER ? c : null);
+    this.detail.setCollected(Boolean(this.save.built[this.z]));
   }
 
   private makePuzzle(stage: Exclude<Stage, 'home'>): PuzzleView {
@@ -233,8 +229,9 @@ export class Game {
     window.dispatchEvent(new CustomEvent('atomos:progress', { detail: { z: this.z } }));
   }
 
+  /** The atom's own color from its place in the table, for the faint atom behind a puzzle. */
   private colourFor(z: number): string {
-    return atomColour(z, this.save);
+    return tableColour(z);
   }
 
   private refresh(): void {
@@ -307,9 +304,7 @@ export class Game {
     const built = this.save.built[z];
     const name = el.name.toLowerCase();
     this.renderProgress();
-    this.renderPaintButton();
 
-    $('build-home').style.setProperty('--atom', this.colourFor(z));
     const row = rowOf(z);
     const open = rowOpen(row, this.save);
     const stepRows = stepsOf(z).map((id) => {
@@ -466,77 +461,6 @@ export class Game {
         <span>${built ? (built.flawless ? 'Built, flawless' : 'Built') : 'Not built'}</span>
         <span class="bh-bar-count">${done} of ${segs.length} · ${pct}%</span>
       </div>`;
-  }
-
-  // ---- paint ---------------------------------------------------------------------
-
-  private renderPaintButton(): void {
-    const b = $<HTMLButtonElement>('bh-paint');
-    const built = Boolean(this.save.built[this.z]);
-    b.style.setProperty('--paint', this.colourFor(this.z));
-    b.innerHTML = `<span class="bh-paint-dot"></span><span class="bh-paint-brush">${icon('paint', { size: 14 })}</span>`;
-    b.disabled = !built;
-    const label = built ? 'Paint this atom' : 'Paint it once it is built';
-    b.setAttribute('aria-label', label);
-    b.title = label;
-  }
-
-  /** A small panel under the paint button: a hue slider and a way back to silver. */
-  private openPaint(): void {
-    if (!this.save.built[this.z]) return;
-    const old = document.getElementById('bh-paint-pop');
-    if (old) { old.remove(); return; }
-    const current = this.colourFor(this.z);
-    const pop = document.createElement('div');
-    pop.className = 'bh-paint-pop';
-    pop.id = 'bh-paint-pop';
-    pop.setAttribute('role', 'dialog');
-    pop.setAttribute('aria-label', 'Paint');
-    const hue = current.toLowerCase() === SILVER ? 190 : Math.round(hexToHue(current));
-    pop.innerHTML = `
-      <p class="bh-paint-title">Paint</p>
-      <input class="bh-hue" type="range" min="0" max="359" step="1" value="${hue}" aria-label="Hue">
-      <div class="bh-paint-row">
-        <button class="text-btn" data-own>Its own color</button>
-        <button class="text-btn" data-silver>Silver</button>
-      </div>
-      <p class="bh-paint-note">Atoms have no color at this scale. Its own color comes from its place in the periodic table.</p>`;
-    $('bh-stage').append(pop);
-    const range = pop.querySelector<HTMLInputElement>('.bh-hue')!;
-    range.oninput = () => this.paint(hueToHex(Number(range.value)));
-    pop.querySelector<HTMLButtonElement>('[data-silver]')!.onclick = () => this.paint(SILVER);
-    pop.querySelector<HTMLButtonElement>('[data-own]')!.onclick = () => this.paint(null);
-    const close = () => {
-      pop.remove();
-      window.removeEventListener('pointerdown', away, true);
-      window.removeEventListener('keydown', esc, true);
-    };
-    const away = (e: PointerEvent) => {
-      if (!pop.contains(e.target as Node) && !$('bh-paint').contains(e.target as Node)) close();
-    };
-    const esc = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return;
-      e.stopPropagation();
-      close();
-      $('bh-paint').focus({ preventScroll: true });
-    };
-    window.addEventListener('pointerdown', away, true);
-    window.addEventListener('keydown', esc, true);
-    range.focus({ preventScroll: true });
-  }
-
-  /** Paints the atom; null takes it back to its own table color. */
-  private paint(paint: string | null): void {
-    const built = this.save.built[this.z];
-    if (!built) return;
-    if (paint) built.colour = paint; else delete built.colour;
-    writeSave(this.save);
-    const c = this.colourFor(this.z);
-    $('build-home').style.setProperty('--atom', c);
-    this.scene.setColour(c);
-    document.documentElement.style.setProperty('--el', c);
-    this.tintDetail();
-    this.renderPaintButton();
   }
 
   private openRulesFor(t: PuzzleType): void {
@@ -1195,11 +1119,6 @@ function fullAtom(z: number): Atom {
 /** "7.59%", "0.011%": a share of the element found on Earth. */
 function formatPercent(p: number): string {
   return `${p >= 10 ? Math.round(p) : p >= 1 ? p.toFixed(1) : Number(p.toPrecision(2))}%`;
-}
-
-/** A paint color from a hue: bright enough to glow against the dark, never garish. */
-function hueToHex(h: number): string {
-  return hslToHex(h, 0.62, 0.66);
 }
 
 const wait = (ms: number) => new Promise((r) => window.setTimeout(r, ms));
