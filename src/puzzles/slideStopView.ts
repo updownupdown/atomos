@@ -29,7 +29,7 @@ const STATUS_H = 22;
 
 export const INSTRUCTIONS = `
 <h3>In the game</h3>
-<p class="meta">Slide Until Stop opens each period of the table, so it is met at z 1, 3, 11, 19, 37, 55 and 87, and each gate brings something new: photons at 3, potential wells at 11, unstable nuclei at 19 (two photons from here), drift arrows at 37, three photons and three wells at 55, three unstable nuclei and three drift arrows at 87.</p>
+<p class="meta">Inertia opens each period of the table, so it is met at z 1, 3, 11, 19, 37, 55 and 87, and each gate brings something new: photons at 3, potential wells at 11, unstable nuclei at 19 (two photons from here), drift arrows at 37, three photons and three wells at 55, three unstable nuclei and three drift arrows at 87.</p>
 <p class="meta">The lattice grows from 7 by 7 to 8 by 8 at z 30 and 9 by 9 at z 80. Par is the fewest slides that win, found by a search over the electron's cell, the photons absorbed and the nuclei decayed. The ring is placed where the shortest win is as long as the element's range allows, so par usually sits at the top of that range: 5 at the first gates, 7 at z 37, 9 at z 55, 12 at z 87 and up to 14 at the end of the table, with a floor that rises from 3 to 8. A board is kept only when its shortest win uses every kind of tile on it. Undo takes back a slide and restores any nucleus it decayed.</p>
 `;
 

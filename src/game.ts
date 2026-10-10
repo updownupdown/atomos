@@ -33,7 +33,7 @@ const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as 
 
 /** Droplet silver: the default electron colour until the player tints an element. */
 /** 'home' is the atom's Build page; the others are its puzzles: the nucleus, the electrons, and
- *  one Packing board per isotope in its vault ('iso-7' builds the isotope with mass number 7). */
+ *  one Tessera board per isotope in its vault ('iso-7' builds the isotope with mass number 7). */
 type IsoStage = `iso-${number}`;
 type Stage = 'home' | StepId | IsoStage;
 
@@ -369,7 +369,7 @@ export class Game {
       <section class="bh-group">
         <div class="bh-group-head">
           <h3>Isotope vault</h3>
-          <p>The same atom with other numbers of neutrons. ${built ? `Each one is a Packing board.` : `Build ${name} first; then each isotope is a Packing board.`}</p>
+          <p>The same atom with other numbers of neutrons. ${built ? `Each one is a Tessera board.` : `Build ${name} first; then each isotope is a Tessera board.`}</p>
         </div>
         <ol class="bh-steps">${isoCards}</ol>
         ${live ? `<button class="text-btn bh-bench" id="bh-bench">Watch your unstable isotopes</button>` : ''}
@@ -518,8 +518,8 @@ export class Game {
   private laterFor(z: number): { what: string; by: string; text: string }[] {
     const el = element(z);
     const out: { what: string; by: string; text: string }[] = [];
-    if (NEW_SHAPE[z]) out.push({ what: `The ${NEW_SHAPE[z]} orbital shape`, by: 'Field Lines', text: `${el.name} is the first atom with an electron in a ${NEW_SHAPE[z]} orbital; this puzzle will discover its shape.` });
-    if (PERIOD_START[z]) out.push({ what: `Period ${PERIOD_START[z]}`, by: 'Slide Until Stop', text: `${el.name} starts a new row of the table; this puzzle will open it.` });
+    if (NEW_SHAPE[z]) out.push({ what: `The ${NEW_SHAPE[z]} orbital shape`, by: 'Flux', text: `${el.name} is the first atom with an electron in a ${NEW_SHAPE[z]} orbital; this puzzle will discover its shape.` });
+    if (PERIOD_START[z]) out.push({ what: `Period ${PERIOD_START[z]}`, by: 'Inertia', text: `${el.name} starts a new row of the table; this puzzle will open it.` });
     return out;
   }
 
@@ -698,7 +698,7 @@ export class Game {
     }, this.save.settings.reducedMotion ? 200 : 900);
   }
 
-  /** An isotope's Packing board solved: it joins the collection. A known unstable isotope also
+  /** An isotope's Tessera board solved: it joins the collection. A known unstable isotope also
    *  starts its own life on the bench, decaying in real time. */
   private collectIsotope(a: number): void {
     const z = this.z;
@@ -923,8 +923,8 @@ export class Game {
       <p>The number of protons decides which element it is. The electrons decide how it behaves: how it bonds, its color in a flame, whether it conducts. The same element with a different number of neutrons is another <b>isotope</b> of it.</p>
       <div class="actions">
         ${this.z > 1 ? `<button class="secondary" id="sci-nucleus">The science of ${nucleus.name}</button>` : ''}
-        <button class="secondary" id="sci-shells">The science of Orbital Grid</button>
-        <button class="secondary" id="sci-iso">The science of Packing</button>
+        <button class="secondary" id="sci-shells">The science of Quanta</button>
+        <button class="secondary" id="sci-iso">The science of Tessera</button>
       </div>`);
     const open = (step: StepId) => { const t = this.stagePuzzle(step); this.openModal(t.science?.(this.z) ?? `<h2>${t.name}</h2><p>${t.blurb}</p>`); };
     sheet.querySelector<HTMLButtonElement>('#sci-nucleus')?.addEventListener('click', () => open('nucleus'));

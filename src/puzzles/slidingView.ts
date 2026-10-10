@@ -16,7 +16,7 @@ const LEFT = 0.15;
 
 export const INSTRUCTIONS = `
 <h3>In the game</h3>
-<p class="meta">Sliding Block builds the nucleus of every element past iron (z 27 to 118). The board is 6 by 6, with one extra row from z 106. Par is the solver's fewest moves for the deal: about 4 at cobalt rising steadily to about 21 at the end of the table, and finishing within par counts as clean. Walls appear from z 45 (two from z 92), loose round pieces from z 75. Below z 60 each board is dealt fresh: the generator deals boards around a solved position, explores every position each one can reach and starts you from the one farthest from any solution. From z 60 it starts from a bank of deep boards found offline the same way, flips it at random and remixes it with a few changes that keep it deep enough, so every deal is different.</p>`;
+<p class="meta">Nova builds the nucleus of every element past iron (z 27 to 118). The board is 6 by 6, with one extra row from z 106. Par is the solver's fewest moves for the deal: about 4 at cobalt rising steadily to about 21 at the end of the table, and finishing within par counts as clean. Walls appear from z 45 (two from z 92), loose round pieces from z 75. Below z 60 each board is dealt fresh: the generator deals boards around a solved position, explores every position each one can reach and starts you from the one farthest from any solution. From z 60 it starts from a bank of deep boards found offline the same way, flips it at random and remixes it with a few changes that keep it deep enough, so every deal is different.</p>`;
 
 interface Drag {
   id: number;
