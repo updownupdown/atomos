@@ -150,7 +150,11 @@ export class GalleryApp {
     $('look-chip').onclick = () => this.openLooks();
     // Three views in the row under the header, styled like View/Build; under Map, a row at the
     // bottom picks the arrangement (the lenses).
-    this.modes = createSegments([{ id: 'collection', label: 'Collection' }, { id: 'map', label: 'Map' }, { id: 'details', label: 'Details' }], {
+    this.modes = createSegments([
+      { id: 'collection', label: 'Collection', icon: icon('mode-collection', { size: 20 }) },
+      { id: 'map', label: 'Map', icon: icon('mode-map', { size: 20 }) },
+      { id: 'details', label: 'Details', icon: icon('mode-details', { size: 20 }) },
+    ], {
       label: 'Gallery view',
       active: this.mode,
       onChange: (id) => {

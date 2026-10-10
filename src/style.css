@@ -576,7 +576,6 @@ body.stage-nucleus #atom { opacity: 0.12; }
 body[data-screen='gallery'] { --top: calc(var(--nav-bottom) + var(--mode-h)); }
 .mode-row.gal-modes { top: var(--nav-bottom); }
 body:not([data-screen='gallery']) .gal-modes { display: none; }
-.gal-prog { flex: none; display: inline-flex; align-items: center; gap: 6px; color: var(--c-text); }
 .layout-note { margin: 0; font-family: var(--mono); font-size: 11px; color: var(--muted); text-align: center; }
 
 .loupe-screen { position: absolute; inset: 0; z-index: 3; background: var(--c-bg); opacity: 0; transform: scale(1.04); transition: opacity 0.22s, transform 0.22s; display: flex; flex-direction: column; }
@@ -636,20 +635,23 @@ body:not([data-screen='gallery']) .gal-modes { display: none; }
 
 /* The bar sits at the top of the atom screens; the host places it. A navigation row: set apart
    by the navigation color, never by a one-sided rule. */
-.atom-bar { display: flex; align-items: stretch; height: var(--bar-h, 60px); background: var(--c-nav); }
+.atom-bar { display: flex; align-items: stretch; gap: var(--sp-2); height: var(--bar-h, 60px); padding: 0 var(--sp-3); background: var(--c-nav); }
 .loupe-screen > .atom-bar { position: absolute; left: 0; right: 0; top: var(--top); z-index: 4; }
-.bar-btn { flex: none; align-self: center; width: 40px; height: 40px; margin: 0 var(--sp-1); display: flex; align-items: center; justify-content: center; padding: 0; border: 0; border-radius: var(--r-sm); background: var(--c-surface-3); color: var(--c-accent); cursor: pointer; }
+.bar-btn { flex: none; align-self: center; width: 40px; height: 44px; display: flex; align-items: center; justify-content: center; padding: 0; border: 0; border-radius: var(--r-sm); background: var(--c-surface-3); color: var(--c-accent); cursor: pointer; }
 .bar-btn:hover { background: var(--c-pick); }
 .bar-btn:active { background: var(--c-surface-2); }
 .bar-btn:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
 .bar-btn:disabled { opacity: 0.3; cursor: default; background: var(--c-surface-3); }
-.atom-bar > .bar-btn:last-child { margin-right: var(--sp-3); }
-.bar-pick { flex: 1; min-width: 0; align-self: center; height: 44px; display: flex; align-items: center; gap: var(--sp-2); margin: 0 var(--sp-2) 0 var(--sp-3); padding: 0 var(--sp-3) 0 0; border: 0; border-radius: var(--r-sm); background: none; color: var(--c-text); font-family: var(--font); cursor: pointer; text-align: left; }
-.bar-dots { flex: none; width: 40px; height: 40px; display: grid; place-items: center; border-radius: var(--r-sm); background: var(--c-surface-3); color: var(--c-accent); }
-.bar-pick:hover .bar-dots { background: var(--c-pick); }
+/* The element plate: number left, name centered, the three dots right. The side columns match so
+   the name sits in the true middle. */
+.bar-pick { flex: 1; min-width: 0; align-self: center; height: 44px; display: grid; grid-template-columns: 40px minmax(0, 1fr) 40px; align-items: center; padding: 0; border: 0; border-radius: var(--r-sm); background: var(--c-surface-3); color: var(--c-text); font-family: var(--font); cursor: pointer; }
+.bar-pick:hover { background: var(--c-pick); }
+.bar-pick:active { background: var(--c-surface-2); }
 .bar-pick:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
-.bar-name { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; font-size: 15px; font-weight: var(--fw-bold); letter-spacing: var(--track, 0.24em); text-transform: uppercase; color: var(--c-text); }
-@media (max-width: 400px) { .bar-btn { width: 36px; margin: 0 2px; } .atom-bar > .bar-btn:last-child { margin-right: var(--sp-2); } .bar-pick { margin-left: var(--sp-2); } }
+.bar-z { justify-self: start; padding-left: var(--sp-3); font-size: var(--fs-sm); font-weight: var(--fw-semibold); color: var(--c-text-2); font-variant-numeric: tabular-nums; }
+.bar-dots { justify-self: end; width: 40px; height: 40px; display: grid; place-items: center; color: var(--c-accent); }
+.bar-name { min-width: 0; overflow: hidden; white-space: nowrap; text-align: center; font-size: 15px; font-weight: var(--fw-bold); letter-spacing: var(--track, 0.24em); text-indent: var(--track, 0.24em); text-transform: uppercase; color: var(--c-text); }
+@media (max-width: 400px) { .atom-bar { gap: 6px; padding: 0 var(--sp-2); } .bar-btn { width: 36px; } }
 .dec-z { font-size: var(--fs-sm); color: var(--c-text-2); font-variant-numeric: tabular-nums; }
 .dec-sym { font-weight: var(--fw-semibold); font-size: var(--fs-2xl); line-height: 1; }
 .pill { font-size: 10px; padding: 1px 5px; border-radius: 4px; color: var(--c-bg); font-weight: 700; }
@@ -998,21 +1000,20 @@ body[data-screen^='atom'] .build-bar { top: var(--nav-bottom); }
 /* Inside a Build puzzle the atom bar steps away, so the row moves up under the header. */
 body[data-screen='atom-build']:not(.build-home) .mode-row { top: var(--nav-bottom); }
 .mode-seg { flex: 1; min-width: 0; }
-.mode-seg .ui-seg { width: 100%; padding: 3px; border-radius: var(--r-pill); background: rgba(0, 0, 0, 0.32); }
+.mode-seg .ui-seg { width: 100%; padding: 3px; border-radius: var(--r-pill); background: var(--c-well); }
 .mode-seg .ui-seg-opt { min-height: 40px; padding: 0 var(--sp-3); border-radius: var(--r-pill); }
-/* The element, an unboxed periodic-table cell: symbol large, number over weight beside it. */
-.mode-cell { flex: none; display: grid; grid-template-columns: auto auto; grid-template-rows: auto auto; column-gap: 6px; align-items: center; line-height: 1; padding-left: var(--sp-1); }
-.mode-sym { grid-row: 1 / 3; font-size: 28px; font-weight: var(--fw-semibold); letter-spacing: -0.01em; color: var(--c-text); }
-.mode-z { align-self: end; font-size: var(--fs-sm); font-weight: var(--fw-semibold); color: var(--c-text); font-variant-numeric: tabular-nums; }
-.mode-w { align-self: start; margin-top: 3px; font-size: 10px; font-weight: var(--fw-medium); color: var(--c-text-2); font-variant-numeric: tabular-nums; }
-/* Build's progress: a ring and the percentage, to the right of the word. */
+/* The progress on the right: a ring, the main percentage large, and under it a small line for
+   the extras (fleeting isotopes) when the atom has any. */
+.mode-prog, .gal-prog { flex: none; display: inline-flex; align-items: center; gap: var(--sp-2); color: var(--c-text); }
+.mode-figs { display: flex; flex-direction: column; line-height: 1.1; }
+.mode-sub { font-size: 11px; font-weight: var(--fw-medium); color: var(--c-text-2); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .mode-ring { display: inline-grid; place-items: center; }
-.mode-ring svg { width: 20px; height: 20px; transform: rotate(-90deg); }
+.mode-ring svg { width: 24px; height: 24px; transform: rotate(-90deg); }
 .mode-ring circle { fill: none; stroke-width: 2.5; }
-.mode-prog-track { stroke: currentColor; opacity: 0.22; }
+.mode-prog-track { stroke: var(--c-surface-3); }
 .mode-prog-arc { stroke: var(--c-accent); stroke-linecap: round; transition: stroke-dasharray var(--dur) var(--ease); }
 .mode-ring.is-done .mode-prog-arc { stroke: var(--c-good); }
-.mode-pct { font-size: var(--fs-sm); font-weight: var(--fw-semibold); font-variant-numeric: tabular-nums; }
+.mode-pct { font-size: var(--fs-md); font-weight: var(--fw-semibold); font-variant-numeric: tabular-nums; }
 
 /* The microscope, wherever a screen puts it. Dimmed when there is nothing to open. */
 .science-btn[aria-expanded='true'] { background: var(--c-tile); color: var(--c-tile-ink); }

@@ -32,6 +32,7 @@
      slightly lighter graphite, so the chrome reads apart from the page without lines. */
   --c-bg: #000000;
   --c-nav: #222529;
+  --c-well: #121416;     /* sunken groups on navigation rows: the mode choices */
   /* The picked item in a navigation row: cyan on a dark gray chip. */
   --c-pick: #353a40;
   --c-plate: #131416;
