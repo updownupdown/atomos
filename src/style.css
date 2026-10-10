@@ -884,7 +884,8 @@ body.stage-nucleus #atom { opacity: 0.12; }
 .ov-photo { position: relative; margin: var(--sp-2) 0 var(--sp-3); border-radius: var(--r-md); overflow: hidden; background: var(--c-plate); border: 1px solid var(--c-line); }
 .ov-photo img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; }
 .ov-photo figcaption { display: flex; flex-direction: column; gap: 2px; padding: var(--sp-2) var(--sp-3); font-size: var(--fs-xs); color: var(--c-text-2); }
-.ov-photo figcaption a { color: var(--c-text-3); text-decoration: none; }
+.ov-photo .ov-credit { color: var(--c-text-3); }
+.ov-photo figcaption a { color: inherit; text-decoration: underline; text-decoration-color: var(--c-line-2); }
 .ov-photo figcaption a:hover { color: var(--c-accent); }
 .ov-photo.is-missing { display: none; }
 .ov-label { display: flex; gap: var(--sp-3); align-items: center; margin: var(--sp-2) 0 var(--sp-3); }
