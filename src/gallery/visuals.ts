@@ -4,6 +4,7 @@
 // coloured through the design tokens in style.css.
 
 import { BLOCK_COLOUR, ELEMENTS, L_OF, formatHalfLife, keyIsotope, sup, type Element, type Subshell } from './data';
+import { radial, radialTable } from './orbital';
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 const f1 = (v: number) => Math.round(v * 10) / 10;
@@ -128,6 +129,109 @@ export function blueprint(e: Element): string {
     <ol class="bp-steps">${steps.join('')}</ol>
     <p class="note">An illustration, like an exploded drawing: real electrons are clouds, not rings, and the layers overlap rather than stack. Each pair of dots is one orbital; hollow dots are room to spare. The 3D tab shows the true shapes and sizes.</p>`;
 }
+
+// ---------- Structure, second and third views: the shells as they are, and the orbital boxes ----------
+
+const SHELL_NAMES = ['K', 'L', 'M', 'N', 'O', 'P', 'Q'];
+
+/** The radial distribution of every layer: how likely an electron is at each distance from the
+ *  nucleus, from hydrogen-like orbitals with Slater's effective charges, scaled as in the 3D view
+ *  so the outer layer's edge sits at the van der Waals radius. The distance axis is a square root
+ *  so the tight inner shells and the wide outer ones both show. Peaks are the shells. */
+export function shellPlot(e: Element): string {
+  const W = 340, H = 180, left = 8, right = W - 8, base = H - 30, top = 26;
+  const samples = 360;
+  // Each layer's density over r in pm, normalised so its area is its electron count.
+  const layers = e.subshells.map((s) => {
+    const l = L_OF[s.l];
+    const xmax = 3 * s.n * s.n + 6 * s.n;
+    const pts: { r: number; d: number }[] = [];
+    let total = 0;
+    for (let i = 1; i <= 1200; i++) {
+      const x = (i / 1200) * xmax;
+      const R = radial(s.n, l, x);
+      const d = x * x * R * R;
+      total += d;
+      pts.push({ r: (x * 52.9) / s.zeff, d });
+    }
+    return { s, pts, total, edge: (radialTable(s.n, l).edge * 52.9) / s.zeff };
+  });
+  // One factor for every layer, as the 3D view uses: the outermost edge lands on the vdW radius.
+  const k = e.vdw / Math.max(...layers.map((x) => x.edge));
+  for (const x of layers) for (const p of x.pts) p.r *= k;
+  const rMax = Math.max(e.vdw * 1.15, ...layers.map(({ pts, total }) => {
+    let acc = 0;
+    for (const p of pts) { acc += p.d; if (acc > total * 0.995) return p.r; }
+    return pts[pts.length - 1].r;
+  }));
+  const u = (r: number) => Math.sqrt(r / rMax);
+  const X = (r: number) => left + u(r) * (right - left);
+  // Density per unit of u = sqrt(r / rMax): P(r) dr/du, with dr/du = 2 u rMax.
+  const grid = Array.from({ length: samples + 1 }, (_, i) => (i / samples));
+  const curves = layers.map(({ s, pts, total }) => {
+    const dx = pts[1].r - pts[0].r;
+    const at = (r: number) => {
+      const i = Math.min(pts.length - 1, Math.max(0, Math.round(r / dx) - 1));
+      return (pts[i].d / (total * dx)) * s.count;
+    };
+    return { s, ys: grid.map((g) => { const r = g * g * rMax; return at(r) * 2 * g * rMax; }) };
+  });
+  const sum = grid.map((_, i) => curves.reduce((a, c) => a + c.ys[i], 0));
+  const peak = Math.max(...sum);
+  const Y = (v: number) => base - (v / peak) * (base - top);
+  const path = (ys: number[]) => `M ${left} ${base} ` + ys.map((y, i) => `L ${f1(left + grid[i] * (right - left))} ${f1(Y(y))}`).join(' ') + ` L ${right} ${base} Z`;
+  const fills = curves.map(({ s, ys }) => `<path class="sp-layer${s.core ? ' is-core' : ''}" d="${path(ys)}" style="--b:${BLOCK_COLOUR[s.l]}"><title>${s.key}: ${s.count} electron${s.count === 1 ? '' : 's'}</title></path>`).join('');
+  const outline = `<path class="sp-sum" d="${path(sum).replace(/ L [\d.]+ [\d.]+ Z$/, '')}"/>`;
+  // Shell letters over each shell's peak.
+  // Shell letters over each shell's peak; shells packed too close to name apart share one label ("K–M").
+  const peaks = [...new Set(e.subshells.map((s) => s.n))].sort((a, b) => a - b).map((n) => {
+    const ys = grid.map((_, i) => curves.filter((c) => c.s.n === n).reduce((a, c) => a + c.ys[i], 0));
+    const i = ys.indexOf(Math.max(...ys));
+    return { n, x: left + grid[i] * (right - left), y: Y(sum[i]) };
+  });
+  const runs: (typeof peaks)[] = [];
+  for (const pk of peaks) {
+    const run = runs[runs.length - 1];
+    if (run && pk.x - run[run.length - 1].x < 16) run.push(pk); else runs.push([pk]);
+  }
+  const shells = runs.map((run) => {
+    const last = run[run.length - 1];
+    const text = run.length === 1 ? SHELL_NAMES[last.n - 1] : `${SHELL_NAMES[run[0].n - 1]}–${SHELL_NAMES[last.n - 1]}`;
+    const y = Math.max(12, Math.min(...run.map((r) => r.y)) - 6);
+    return `<text class="sp-shell" x="${f1(last.x)}" y="${f1(y)}">${text}</text>`;
+  }).join('');
+  const ticks = [1, 10, 50, 100, 200, 300, 400, 500].filter((r) => r <= rMax).map((r) => `<path class="sp-tick" d="M ${f1(X(r))} ${base} v 4"/><text class="sp-tl" x="${f1(X(r))}" y="${base + 15}">${r}</text>`).join('');
+  const vdw = `<path class="sp-vdw" d="M ${f1(X(e.vdw))} 4 V ${base}"/><text class="sp-vdw-l" x="${f1(X(e.vdw)) - 4}" y="12">edge ${e.vdw} pm</text>`;
+  return `<figure class="sp">
+    <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="How likely an electron is at each distance from the nucleus; each peak is a shell.">
+      ${vdw}${fills}${outline}${shells}<path class="sp-base" d="M ${left} ${base} H ${right}"/>${ticks}<text class="sp-unit" x="${right}" y="${H - 2}">pm from the nucleus</text>
+    </svg>
+    <figcaption>Where the electrons are likely to be, by distance from the nucleus. Each colored hill is a layer, sized by its electrons; the peaks are the shells.</figcaption>
+  </figure>`;
+}
+
+/** The orbital box diagram: a row per shell, a box per orbital, an arrow per electron, filled
+ *  one per box before any pair (Hund's rule). Lone electrons are lit: they make atoms magnetic. */
+export function orbitalBoxes(e: Element): string {
+  const byShell = new Map<number, Subshell[]>();
+  for (const s of e.subshells) byShell.set(s.n, [...(byShell.get(s.n) ?? []), s]);
+  const rows = [...byShell.entries()].sort((a, b) => b[0] - a[0]).map(([n, subs]) => {
+    const groups = subs.sort((a, b) => L_OF[a.l] - L_OF[b.l]).map((s) => {
+      const boxes = orbitalFill(s.count, s.capacity).map((k) => `<i class="ob-box${k === 1 ? ' is-lone' : ''}">${k >= 1 ? '<b>↑</b>' : ''}${k === 2 ? '<b>↓</b>' : ''}</i>`).join('');
+      return `<div class="ob-group${s.core ? ' is-core' : ''}" style="--b:${BLOCK_COLOUR[s.l]}"><span class="ob-key">${s.key}</span><div class="ob-boxes">${boxes}</div></div>`;
+    }).join('');
+    return `<div class="ob-row"><span class="ob-shell">${SHELL_NAMES[n - 1]}</span><div class="ob-groups">${groups}</div></div>`;
+  }).join('');
+  const lone = e.unpaired;
+  return `<div class="ob">${rows}</div>
+    <p class="note">Each box is one orbital and holds two electrons of opposite spin. ${lone ? `${esc(e.name)} has ${lone} lone electron${lone === 1 ? '' : 's'}, lit in cyan.` : `Every electron in ${esc(e.name.toLowerCase())} is paired.`} The outermost shell is at the top; the noble-gas core is dimmed.</p>`;
+}
+
+export const STRUCTURE_VIEWS: { id: string; label: string }[] = [
+  { id: 'blueprint', label: 'Blueprint' },
+  { id: 'shells', label: 'Shells' },
+  { id: 'boxes', label: 'Orbitals' },
+];
 
 // ---------- Isotopes: an album of tiles ----------
 
