@@ -1,7 +1,7 @@
 // Every puzzle type in the game, in one list, so the Puzzles home can show where each one sits
 // and the game can ask for a board by id. Every game has one job: Tokamak builds every nucleus
 // and Quanta every atom's electrons; Tessera, Chroma, Flux, Nova, Inertia and Aurum build
-// isotopes; Glyph opens the display unlocks; Lumen waits in reserve for its redesign.
+// isotopes, and Lumen fleeting ones; Glyph opens the display unlocks.
 
 import { elementAt as element } from '../gallery/data';
 import { ICON_NAMES, icon } from '../ui/icons';
@@ -225,11 +225,12 @@ export const PUZZLES: PuzzleType[] = [
       <p class="muted">Game rule: the maze is a maze. Real electrons do not skate from nucleus to nucleus.</p>`,
   },
   {
-    id: 'light', name: 'Lumen', tier: 'reserve',
-    use: 'Being redesigned',
+    id: 'light', name: 'Lumen', tier: 'facet',
+    use: 'Isotopes',
     get rules() { return rulesOf(LightV); },
-    blurb: 'Flip the mirrors and splitters until light reaches every ring and none touches a dark sensor.',
-    role: 'Being redesigned around placing the optics yourself; it joins the isotope puzzles once ready.',
+    blurb: 'Set the mirrors and splitters from the tray so light reaches every ring and no dark sensor. Each board has one answer, and it uses every piece.',
+    role: 'Builds fleeting isotopes, when you pick it; lasting isotopes keep their own puzzles.',
+    live: 'Build mode: any fleeting isotope by choice.',
     instructions: LIGHT_HOW,
     zRange: [1, 118],
     deal: (z, seed, reduced) => new LightView(newLight(z, seed), reduced),

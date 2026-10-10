@@ -10,7 +10,7 @@ const RANGE: Record<string, { lo: number; hi: number; from: number; to: number }
   packing: { lo: 2, hi: 7, from: 1, to: 118 },
   lines: { lo: 3, hi: 8, from: 1, to: 118 },
   slideStop: { lo: 3, hi: 7, from: 1, to: 118 },
-  light: { lo: 1, hi: 4, from: 1, to: 118 },
+  light: { lo: 2, hi: 8, from: 1, to: 118 },
   rutherford: { lo: 4, hi: 6, from: 1, to: 118 },
   codebreaker: { lo: 5, hi: 6, from: 1, to: 118 },
   colorCharge: { lo: 2, hi: 7, from: 1, to: 118 },
