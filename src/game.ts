@@ -6,6 +6,8 @@ import {
   isotopeKey, isotopesOf, sampleLifetime, type Isotope,
 } from './core/isotopes';
 import { frontier, loadSave, writeSave, type OrbitalShape, type SaveData, type StepId } from './core/save';
+// The gallery's gate puzzles (lenses, nucleus view, looks); loaded here so they are ready.
+import './puzzles/unlock';
 import { atomProgress, isotopeCollected, rowOf, rowOpen, rowSpan, segmentsOf, shapeAt, stepState, stepsOf, vaultIsotopes, type StepState } from './core/progress';
 import { SILVER, atomColour, hexToHue, hslToHex } from './core/paint';
 import { Detail } from './gallery/detail';
