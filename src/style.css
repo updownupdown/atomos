@@ -184,7 +184,7 @@ body:not(.build-home) .build-bar { display: none; }
 .bh-stage { position: relative; height: var(--stage-h, clamp(220px, 40vh, 380px)); max-width: 592px; margin: 0 auto; }
 .bh-stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: pan-y; }
 .bh-sci { position: absolute; top: var(--sp-2); right: var(--sp-2); }
-.bh-meter { position: relative; max-width: 592px; margin: 0 auto; padding: var(--sp-1) var(--sp-4) var(--sp-2); display: flex; align-items: center; gap: var(--sp-3); border-bottom: 1px solid var(--c-line); }
+.bh-meter { position: relative; max-width: 592px; margin: 0 auto; padding: var(--sp-1) var(--sp-4) var(--sp-2); display: flex; align-items: center; gap: var(--sp-3); }
 .bh-paint { position: relative; flex: none; width: 44px; height: 44px; border: 0; border-radius: 50%; background: transparent; padding: 0; cursor: pointer; }
 .bh-paint-dot { position: absolute; inset: 6px; border-radius: 50%; background: var(--paint, var(--c-silver)); box-shadow: 0 0 0 2px var(--c-bg), 0 0 0 3px var(--c-line-2); }
 .bh-paint-brush { position: absolute; right: -2px; bottom: -2px; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; background: var(--c-surface-3); color: var(--c-text); box-shadow: 0 0 0 2px var(--c-bg); }
@@ -196,7 +196,7 @@ body:not(.build-home) .build-bar { display: none; }
 .bh-hue::-webkit-slider-thumb { -webkit-appearance: none; width: 30px; height: 30px; border-radius: 50%; background: transparent; border: 3px solid var(--c-text); box-shadow: 0 0 0 2px var(--c-bg); }
 .bh-hue::-moz-range-thumb { width: 26px; height: 26px; border-radius: 50%; background: transparent; border: 3px solid var(--c-text); }
 .bh-paint-row { display: flex; align-items: center; gap: var(--sp-2); margin-top: var(--sp-2); }
-.bh-paint-note { margin: var(--sp-2) 0 0; font-size: var(--fs-xs); color: var(--c-text-3); line-height: var(--lh); }
+.bh-paint-note { margin: var(--sp-2) 0 0; font-size: var(--fs-md); color: var(--c-text-3); line-height: var(--lh); }
 .bh-progress { flex: 1; min-width: 0; }
 .bh-bar { display: flex; gap: 6px; }
 .bh-bar-group { display: flex; gap: 3px; }
@@ -208,7 +208,7 @@ body:not(.build-home) .build-bar { display: none; }
 .bh-in { max-width: 592px; margin: 0 auto; padding: var(--sp-3) var(--sp-4) 0; display: flex; flex-direction: column; gap: var(--sp-5); }
 .bh-group { display: flex; flex-direction: column; gap: var(--sp-2); }
 .bh-group-head h3 { margin: 0; font-size: var(--fs-lg); font-weight: var(--fw-semibold); }
-.bh-group-head p { margin: 2px 0 0; font-size: var(--fs-sm); color: var(--c-text-2); line-height: var(--lh); }
+.bh-group-head p { margin: 2px 0 0; font-size: var(--fs-md); color: var(--c-text-2); line-height: var(--lh); }
 .bh-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
 .bh-step { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: stretch; gap: var(--sp-3); padding: var(--sp-3); border-radius: var(--r-lg); background: var(--c-surface); border: 1px solid var(--c-line); }
 .bh-step.is-next { border-color: var(--atom); }
@@ -222,9 +222,9 @@ body:not(.build-home) .build-bar { display: none; }
 .is-next .bh-mark, .is-next .bh-step-name { color: var(--atom); }
 .bh-info { display: inline-grid; place-items: center; width: 32px; height: 32px; margin: -6px 0; border: 0; border-radius: 50%; background: transparent; color: var(--c-text-2); cursor: pointer; }
 .bh-info:hover { color: var(--c-text); background: var(--c-surface-2); }
-.bh-adds { margin: 2px 0 0; font-size: var(--fs-sm); line-height: var(--lh); color: var(--c-text-2); }
+.bh-adds { margin: 2px 0 0; font-size: var(--fs-md); line-height: var(--lh); color: var(--c-text-2); }
 .bh-role { color: var(--c-text); font-weight: var(--fw-semibold); margin-right: 2px; }
-.bh-where { margin: var(--sp-1) 0 0; font-size: var(--fs-xs); color: var(--c-text-3); }
+.bh-where { margin: var(--sp-1) 0 0; font-size: var(--fs-sm); color: var(--c-text-3); }
 .is-flawless .bh-where { color: var(--c-warn); }
 .bh-side { display: flex; flex-direction: column; align-items: flex-end; justify-content: space-between; gap: var(--sp-2); }
 .bh-state { font-size: var(--fs-2xs); font-weight: var(--fw-semibold); letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--c-text-2); white-space: nowrap; }
@@ -239,7 +239,7 @@ body:not(.build-home) .build-bar { display: none; }
 .bh-later ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-3); }
 .bh-later li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--sp-2); }
 .bh-later-by { font-size: var(--fs-sm); color: var(--c-text-3); }
-.bh-later-text { flex-basis: 100%; font-size: var(--fs-sm); color: var(--c-text-2); line-height: var(--lh); }
+.bh-later-text { flex-basis: 100%; font-size: var(--fs-md); color: var(--c-text-2); line-height: var(--lh); }
 
 /* While a puzzle is up, it takes the touch and the atom waits dimly behind it. */
 body.puzzling #overlay { pointer-events: auto; touch-action: none; }
@@ -617,7 +617,7 @@ body.stage-nucleus #atom { opacity: 0.12; }
 .pg-home-lede { color: var(--c-text-2); font-size: var(--fs-md); line-height: var(--lh); max-width: 60ch; margin: 0 0 var(--sp-4); }
 .pg-group { margin-top: var(--sp-5); }
 .pg-group-name { font-size: var(--fs-xs); font-weight: var(--fw-semibold); letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--c-text-2); margin: 0; }
-.pg-group-note { font-size: var(--fs-sm); color: var(--c-text-3); margin: 2px 0 var(--sp-3); }
+.pg-group-note { font-size: var(--fs-md); color: var(--c-text-3); margin: 2px 0 var(--sp-3); }
 .pg-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 380px), 1fr)); gap: var(--sp-2); }
 .pg-card { display: flex; gap: var(--sp-3); align-items: flex-start; text-align: left; width: 100%; padding: var(--sp-3); border: 1px solid var(--c-line); border-radius: var(--r-md); background: var(--c-surface); color: var(--c-text); font-family: var(--font); cursor: pointer; transition: border-color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease); }
 .pg-card:hover { border-color: var(--c-line-2); background: var(--c-surface-2); }
@@ -626,8 +626,8 @@ body.stage-nucleus #atom { opacity: 0.12; }
 .pg-card-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .pg-card-top { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
 .pg-card-name { font-size: var(--fs-md); font-weight: var(--fw-semibold); }
-.pg-card-blurb { font-size: var(--fs-sm); color: var(--c-text-2); line-height: var(--lh); }
-.pg-card-use { font-size: var(--fs-sm); color: var(--c-text); line-height: var(--lh); }
+.pg-card-blurb { font-size: var(--fs-md); color: var(--c-text-2); line-height: var(--lh); }
+.pg-card-use { font-size: var(--fs-md); color: var(--c-text); line-height: var(--lh); }
 .pg-card-plan { color: var(--c-text-2); }
 .pg-card-k { font-size: var(--fs-2xs); letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--c-text-3); margin-right: 4px; }
 .pg-card-range { font-size: var(--fs-xs); color: var(--c-text-3); }
@@ -637,7 +637,7 @@ body.stage-nucleus #atom { opacity: 0.12; }
 
 /* Inside a puzzle: Back, then its name. */
 .pg-game { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-.pg-bar { display: flex; align-items: center; gap: var(--sp-2); padding: 0 var(--sp-3) var(--sp-2); flex: none; min-width: 0; border-bottom: 1px solid var(--c-line); }
+.pg-bar { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3); flex: none; min-width: 0; background: var(--c-plate); }
 .pg-el { font-size: var(--fs-md); white-space: nowrap; text-align: center; min-width: 0; flex: 0 1 11em; overflow: hidden; text-overflow: ellipsis; }
 .pg-bar > .ui-icon-btn, .pg-bar .pg-deal { flex: none; }
 @media (max-width: 400px) { .pg-el small { display: none; } }
@@ -653,11 +653,11 @@ body.stage-nucleus #atom { opacity: 0.12; }
 .pg-result { font-size: var(--fs-md); font-weight: var(--fw-semibold); color: var(--c-text); text-align: center; }
 .pg-planned { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--sp-2); padding: var(--sp-5); text-align: center; }
 .pg-planned[hidden] { display: none; }
-.pg-planned .muted { color: var(--c-text-2); font-size: var(--fs-sm); max-width: 44ch; }
-.pg-bottom { flex: none; display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3) calc(var(--safe-bottom) + var(--sp-2)); border-top: 1px solid var(--c-line); }
+.pg-planned .muted { color: var(--c-text-2); font-size: var(--fs-md); max-width: 44ch; }
+.pg-bottom { flex: none; display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3) calc(var(--safe-bottom) + var(--sp-2)); background: var(--c-plate); }
 .pg-status { display: flex; flex-direction: column; min-width: 0; }
 .pg-count { font-size: var(--fs-sm); color: var(--c-text); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.pg-hint { font-size: var(--fs-xs); color: var(--c-text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pg-hint { font-size: var(--fs-sm); color: var(--c-text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pg-actions { display: flex; gap: var(--sp-1); flex: none; }
 /* A puzzle's header: a Back plate, the name centered, what it is for on the right. */
 .pg-head { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3) var(--sp-1); flex: none; min-width: 0; }
@@ -674,7 +674,7 @@ body.stage-nucleus #atom { opacity: 0.12; }
 .how .rule { margin: 0; padding: var(--sp-3); border-radius: var(--r-md); background: var(--c-surface-2); }
 .rule-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
 .rule-head b { font-size: var(--fs-md); font-weight: var(--fw-semibold); }
-.how .rule > p { margin: 2px 0 0; font-size: var(--fs-sm); color: var(--c-text-2); line-height: var(--lh); }
+.how .rule > p { margin: 2px 0 0; font-size: var(--fs-md); color: var(--c-text-2); line-height: var(--lh); }
 .rule-play { flex: none; display: inline-flex; align-items: center; gap: 4px; min-height: 36px; padding: 0 var(--sp-3) 0 var(--sp-2); border: 0; border-radius: var(--r-pill); background: var(--c-surface-3); color: var(--c-text); font: inherit; font-size: var(--fs-sm); font-weight: var(--fw-semibold); cursor: pointer; }
 .rule-play:hover { color: var(--c-accent); }
 .rule-play.is-playing { background: var(--c-accent); color: var(--c-accent-ink); }
@@ -701,7 +701,7 @@ body.stage-nucleus #atom { opacity: 0.12; }
 .win-stats div { padding: var(--sp-2); border-radius: var(--r-md); background: var(--c-surface-2); }
 .win-stats dt { font-size: var(--fs-2xs); letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--c-text-3); }
 .win-stats dd { margin: 2px 0 0; font-size: var(--fs-lg); font-weight: var(--fw-semibold); font-variant-numeric: tabular-nums; }
-.win-note { position: relative; margin: 0 0 var(--sp-4); font-size: var(--fs-sm); color: var(--c-text-2); line-height: var(--lh); }
+.win-note { position: relative; margin: 0 0 var(--sp-4); font-size: var(--fs-md); color: var(--c-text-2); line-height: var(--lh); }
 .win-actions { position: relative; display: flex; flex-direction: column; gap: var(--sp-2); }
 .win-actions button { width: 100%; min-height: var(--hit); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .win--still, .win--still .win-card { animation: none; }
