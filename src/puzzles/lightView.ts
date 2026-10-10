@@ -6,6 +6,7 @@
 // or Enter taps under it, Tab switches between mirrors and splitters.
 
 import { applyFix, cloneLight, DELTA, filterHue, isSplitter, left, lift, nextFix, open, place, relocate, slant, status, tap, targetLit, trace, turnable, type Cell, type Dir, type Hue, type LightState, type PieceKind, type Target } from './light';
+import { drawFrame, framePad, frameWidth, type FrameGap } from './frame';
 import { bead, C, fitGrid, font, tile } from './palette';
 import { drawHelpMark, type Area, type Help, type Illustration, type Point, type PuzzleView, type RuleCard, type Stat } from './view';
 
@@ -398,14 +399,21 @@ function paintLight(ctx: CanvasRenderingContext2D, s: LightState, g: Geo, progre
   const beam = trace(s);
   ctx.save();
 
-  // Tiles: raised where a tap does something. The lamp's own cell has none: nothing can go there,
-  // and the lamp's barrel reaches into it.
+  boardFrame(ctx, s, g);
+
+  // A placed piece stands on a raised tile; a square that can take one shows a faint dot. The
+  // rest (the lamp's own cell, fixed pieces, sensors) are bare: what is on them says what they are.
   for (let i = 0; i < n * g.rows; i++) {
-    if (i === s.entry && s.cells[i] === '.') continue;
     const p = center(i);
-    const raised = turnable(s.cells[i]) && i !== ghost;
-    const inset = c * 0.05;
-    tile(ctx, p.x - half + inset, p.y - half + inset, c - inset * 2, c - inset * 2, c * 0.18, raised ? C.surface3 : C.surface, raised ? C.line2 : null, 1);
+    if (turnable(s.cells[i]) && i !== ghost) {
+      const inset = c * 0.05;
+      tile(ctx, p.x - half + inset, p.y - half + inset, c - inset * 2, c - inset * 2, c * 0.18, C.surface3, C.line2, 1);
+    } else if (open(s, i) || i === ghost) {
+      ctx.fillStyle = C.surface3;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, Math.max(1.5, c * 0.035), 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
 
   // The beam, grown out from the lamp by steps since the last change: per color, runs of
@@ -449,6 +457,40 @@ function paintLight(ctx: CanvasRenderingContext2D, s: LightState, g: Geo, progre
   for (const d of s.darks) if (shown(d)) darkSensor(ctx, center(d), c, lit.has(d), now, motion);
 
   lamp(ctx, center(s.entry), s.entryDir, c, motion);
+  ctx.restore();
+}
+
+/**
+ * The frame round the grid's shown rows, with the lamp's barrel passing in through a gap in it.
+ * drawFrame's path starts at the top-left corner, so a gap on the top or left side is cut on the
+ * frame turned half round (the box maps onto itself), where it can never reach that start. The
+ * gap is named by its distance along the path, as a top-side gap: drawFrame places those at
+ * (at - x - r) along the path, which holds round every side.
+ */
+function boardFrame(ctx: CanvasRenderingContext2D, s: LightState, g: Geo): void {
+  const c = g.c, n = s.size;
+  const p = framePad(c), lw = frameWidth(c);
+  const box = { x: g.x - p, y: g.y - p, w: n * c + p * 2, h: g.rows * c + p * 2 };
+  const r = Math.min(c * 0.2 + p, box.w / 2, box.h / 2);
+  const gaps: FrameGap[] = [];
+  const [dx, dy] = DELTA[s.entryDir];
+  // The lamp sits off the side the beam comes in from: the left side for a beam running right.
+  const turn = dx > 0 || dy > 0;
+  if (Math.floor(s.entry / n) < g.rows) {
+    let e = { x: g.x + ((s.entry % n) + 0.5) * c, y: g.y + (Math.floor(s.entry / n) + 0.5) * c };
+    if (turn) e = { x: 2 * box.x + box.w - e.x, y: 2 * box.y + box.h - e.y };
+    // Now on the right side (a beam running left) or the bottom (running up).
+    const sw = box.w - 2 * r, sh = box.h - 2 * r, q = (Math.PI * r) / 2;
+    const d = dx ? sw + q + (e.y - box.y - r) : sw + sh + 2 * q + (box.x + box.w - r - e.x);
+    gaps.push({ side: 'top', at: box.x + r + d, size: c * 0.36 + lw * 2 });
+  }
+  ctx.save();
+  if (turn) {
+    ctx.translate(box.x + box.w / 2, box.y + box.h / 2);
+    ctx.rotate(Math.PI);
+    ctx.translate(-box.x - box.w / 2, -box.y - box.h / 2);
+  }
+  drawFrame(ctx, box, { width: lw, radius: r, gaps });
   ctx.restore();
 }
 

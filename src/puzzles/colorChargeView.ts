@@ -16,6 +16,7 @@
 // running animations, so the rule cards replay the same drawing as the board.
 
 import { adjacent, bind, canBind, canSwap, cloneCharge, COLOR_LETTERS, gluonsLeft, groupKind, isolated, nextStep, onTrack, solved, stranded, swap, tally, type ColorChargeState, type GroupKind, type Quark, type Tally } from './colorCharge';
+import { drawFrame, frameBox, framePad, frameWidth } from './frame';
 import { C, fitGrid, font, tile } from './palette';
 import { drawHelpMark, ease, undoHelp, type Area, type Help, type Illustration, type Point, type PuzzleView, type RuleCard, type Stat } from './view';
 
@@ -97,19 +98,33 @@ function boardGeom(area: Area, cols: number, rows: number, gluons: number, opts:
   if (opts.side && gluons) {
     // Rule cards: the gluons stand left of the grid, to leave the tiny board its height.
     const strip = tokenSide + 8;
-    const g = fitGrid({ ...area, x: area.x + strip, w: area.w - strip }, cols, rows, { margin: opts.margin ?? 10, maxCell: opts.maxCell ?? 72, top: opts.top ?? 0 });
+    const g = fitFramed({ ...area, x: area.x + strip, w: area.w - strip }, cols, rows, { margin: opts.margin ?? 10, maxCell: opts.maxCell ?? 72, top: opts.top ?? 0 });
     const total = gluons * tokenSide + (gluons - 1) * gap;
-    for (let k = 0; k < gluons; k++) tokens.push({ x: g.x - strip, y: g.y + (g.h - total) / 2 + k * (tokenSide + gap), w: tokenSide, h: tokenSide });
-    return { cell: g.cell, x: g.x, y: g.y, tokens, area, legend: g.y + g.h };
+    for (let k = 0; k < gluons; k++) tokens.push({ x: g.x - g.room - strip, y: g.y + (g.h - total) / 2 + k * (tokenSide + gap), w: tokenSide, h: tokenSide });
+    return { cell: g.cell, x: g.x, y: g.y, tokens, area, legend: g.y + g.h + g.room };
   }
   const strip = gluons ? tokenSide + 16 : 0;
   const legend = opts.legend ? LEGEND_GAP + opts.legend : 0;
-  const g = fitGrid(area, cols, rows, { margin: opts.margin ?? 10, maxCell: opts.maxCell ?? 72, top: opts.top ?? 0, bottom: strip + legend });
+  const g = fitFramed(area, cols, rows, { margin: opts.margin ?? 10, maxCell: opts.maxCell ?? 72, top: opts.top ?? 0, bottom: strip + legend });
+  const below = g.y + g.h + g.room;
   const total = gluons * tokenSide + (gluons - 1) * gap;
   for (let k = 0; k < gluons; k++) {
-    tokens.push({ x: g.x + (g.w - total) / 2 + k * (tokenSide + gap), y: g.y + g.h + 12, w: tokenSide, h: tokenSide });
+    tokens.push({ x: g.x + (g.w - total) / 2 + k * (tokenSide + gap), y: below + 12, w: tokenSide, h: tokenSide });
   }
-  return { cell: g.cell, x: g.x, y: g.y, tokens, area, legend: g.y + g.h + strip + LEGEND_GAP };
+  return { cell: g.cell, x: g.x, y: g.y, tokens, area, legend: below + strip + LEGEND_GAP };
+}
+
+/** The room the board frame takes round a grid of this cell size: its padding and half its stroke. */
+const frameRoom = (c: number): number => framePad(c) + frameWidth(c) / 2 + 1;
+
+/**
+ * Fits the grid with room round it for the frame. The room shrinks (never grows) with the cell,
+ * so the room for the cell fitted without it is always enough.
+ */
+function fitFramed(area: Area, cols: number, rows: number, opts: { margin: number; maxCell: number; top: number; bottom?: number }): { cell: number; x: number; y: number; w: number; h: number; room: number } {
+  const room = frameRoom(fitGrid(area, cols, rows, opts).cell);
+  const g = fitGrid(area, cols, rows, { ...opts, margin: opts.margin + room });
+  return { ...g, room };
 }
 
 /**
@@ -132,11 +147,15 @@ function paint(ctx: CanvasRenderingContext2D, sc: Scene, G: Geom, now: number, r
   const strandT = reduced ? 1 : ease((now - sc.strandedAt) / STRAND_MS);
   const won = sc.wonAt !== null;
 
-  // Faint sockets under every cell, so the grid reads as a board.
+  // The frame round the board, and a faint dot at each cell's center (seen only while a tile is away).
+  drawFrame(ctx, frameBox(G.x, G.y, sc.cols * c, sc.rows * c, c), { width: frameWidth(c), radius: c * 0.2 + framePad(c) });
+  ctx.fillStyle = C.surface3;
   for (let i = 0; i < sc.tiles.length; i++) {
     if (sc.hidden?.[i]) continue;
     const p = center(i);
-    tile(ctx, p.x - w / 2, p.y - w / 2, w, w, rad, null, C.line, 1);
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, Math.max(1.5, c * 0.035), 0, Math.PI * 2);
+    ctx.fill();
   }
 
   // Bound groups at rest: one white hadron each.
