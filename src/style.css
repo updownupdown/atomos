@@ -917,16 +917,44 @@ body[data-screen^='atom'] { --top: calc(var(--safe-top) + var(--nav-h) + var(--m
 .iso-head b { font-size: var(--fs-xl); font-weight: var(--fw-semibold); color: var(--c-text); }
 .iso-head span { font-size: var(--fs-xs); color: var(--c-text-2); }
 .iso-intro { color: var(--c-text-2); }
-.iso-album { display: grid; grid-template-columns: repeat(auto-fill, minmax(68px, 1fr)); gap: 6px; margin: var(--sp-3) 0; }
-.iso-tile { position: relative; display: flex; flex-direction: column; align-items: flex-start; padding: 6px 7px 9px; border: 1px dashed var(--c-line-3); border-radius: var(--r-sm); color: var(--c-text-2); min-height: 66px; overflow: hidden; }
-.iso-tile .iso-a { font-size: 10px; line-height: 1; }
-.iso-tile .iso-sym { font-size: var(--fs-lg); font-weight: var(--fw-semibold); line-height: 1.1; color: var(--c-text); }
-.iso-tile .iso-cap { font-size: 10px; line-height: 1.2; margin-top: auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
-.iso-tile .iso-meter { position: absolute; left: 0; bottom: 0; height: 3px; width: calc(var(--v) * 100%); background: var(--c-text-3); }
-.iso-tile.is-stable { border-style: solid; border-color: var(--c-silver); background: var(--c-surface); color: var(--c-text); }
-.iso-tile.is-stable .iso-sym { color: var(--c-silver); }
-.iso-tile.is-stable .iso-meter { background: var(--c-accent); }
-.iso-tile.is-key { box-shadow: 0 0 0 1px var(--c-accent) inset; }
+/* Isotopes: the neutron chart, the filter, and the table with lifetime bars and share rings. */
+.ic { margin: var(--sp-4) 0 var(--sp-2); }
+.ic svg { display: block; width: 100%; height: auto; }
+.ic-base { stroke: var(--c-line-2); }
+.ic-bar { fill: color-mix(in srgb, var(--c-silver) calc(25% + var(--v) * 45%), var(--c-surface-3)); }
+.ic-bar.is-stable { fill: var(--c-accent); }
+.ic-bar.is-key { stroke: var(--c-silver); stroke-width: 1.5; }
+.ic text { fill: var(--c-text-3); font-family: var(--font); font-size: 9px; text-anchor: middle; }
+.ic figcaption { display: flex; justify-content: space-between; gap: var(--sp-2); font-size: var(--fs-xs); color: var(--c-text-3); }
+.ic figcaption span:nth-child(2) { color: var(--c-text-2); text-align: center; }
+.it-filter { margin: var(--sp-4) 0 var(--sp-2); overflow-x: auto; scrollbar-width: none; }
+.it-filter::-webkit-scrollbar { display: none; }
+.it-filter .ui-seg { width: max-content; min-width: 100%; }
+.it-filter .ui-seg-dot { display: none; }
+.it-filter .ui-seg-opt { padding: 0 var(--sp-3); font-size: var(--fs-sm); }
+.it { display: flex; flex-direction: column; }
+.it-row { display: grid; grid-template-columns: minmax(78px, 0.8fr) minmax(0, 1.6fr) minmax(64px, 0.7fr); gap: var(--sp-3); align-items: center; padding: var(--sp-3) var(--sp-2); border-bottom: 1px solid var(--c-line); }
+.it-row[hidden] { display: none; }
+.it-headrow { padding-top: var(--sp-2); padding-bottom: var(--sp-2); font-size: var(--fs-xs); color: var(--c-text-3); text-transform: uppercase; letter-spacing: var(--tracking-caps); }
+.it-row.is-key { background: var(--c-surface); border-radius: var(--r-sm); }
+.it-name { display: flex; flex-direction: column; gap: 1px; }
+.it-name b { font-size: var(--fs-lg); font-weight: var(--fw-semibold); color: var(--c-text-2); line-height: 1.1; }
+.it-name b sup { font-size: 0.6em; margin-right: 1px; font-weight: var(--fw-medium); }
+.it-row.is-stable .it-name b { color: var(--c-silver); }
+.it-name span { font-size: var(--fs-xs); color: var(--c-text-3); }
+.it-life { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.it-track { position: relative; height: 8px; border-radius: 4px; background: var(--c-surface-2); overflow: hidden; }
+.it-track i { position: absolute; inset: 0 auto 0 0; width: calc(var(--v) * 100%); border-radius: 4px; background: color-mix(in srgb, var(--c-accent) calc(var(--v) * 70%), var(--c-orb-d)); }
+.it-row.is-stable .it-track i { background: var(--c-accent); }
+.it-life-lab { font-size: var(--fs-sm); color: var(--c-text-2); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.it-row.is-stable .it-life-lab { color: var(--c-accent); }
+.it-share { display: flex; align-items: center; gap: 6px; font-size: var(--fs-sm); color: var(--c-text); font-variant-numeric: tabular-nums; }
+.it-ring { width: 24px; height: 24px; flex: none; }
+.it-ring-bg { fill: none; stroke: var(--c-surface-3); stroke-width: 4; }
+.it-ring-fg { fill: none; stroke: var(--c-accent); stroke-width: 4; stroke-linecap: round; }
+.it-empty { display: none; color: var(--c-text-2); padding: var(--sp-4) var(--sp-2); }
+.it.is-empty .it-empty { display: block; }
+.it.is-empty .it-headrow { display: none; }
 
 /* Properties: one axis per property, every element a faint tick. */
 /* Properties: label and value on the left, every element as a colored dot on the right. */

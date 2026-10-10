@@ -7,7 +7,7 @@ import { ORBITAL_NAMES } from './orbital';
 import FACTS from '../data/element-facts.json';
 import IMAGES from '../data/element-images.json';
 import { disclosureHTML } from '../ui/components';
-import { blueprint, discoveryTimeline, isotopeAlbum, propertyAxes } from './visuals';
+import { blueprint, discoveryTimeline, isotopeTable, propertyAxes } from './visuals';
 
 export type Tab = 'overview' | 'structure' | 'isotopes' | 'properties' | 'story';
 export const TABS: { id: Tab; label: string }[] = [
@@ -139,11 +139,11 @@ function isotopes(e: Element): string {
     <td>${e.symbol}-${i.a}</td><td>${i.a - e.z}</td><td>${i.mass == null ? '' : i.mass.toFixed(3)}</td>
     <td>${i.abundance == null ? '' : i.abundance + '%'}</td><td>${i.stable ? 'stable' : i.halfLife == null ? '<span class="na">not known</span>' : formatHalfLife(i.halfLife)}</td><td>${i.spin ?? ''}</td></tr>`).join('');
   return `
-    ${isotopeAlbum(e)}
+    ${isotopeTable(e)}
     ${disclosureHTML({ title: 'All the numbers', hint: `${e.isotopes.length} isotopes`, body: `<div class="tablewrap"><table>
       <thead><tr><th>Isotope</th><th>Neutrons</th><th>Mass</th><th>Abundance</th><th>Half-life</th><th>Spin</th></tr></thead>
       <tbody>${rows}</tbody></table></div>` })}
-    <p class="note">Half-lives from the mendeleev dataset; stable means observationally stable.</p>`;
+    `;
 }
 
 function properties(e: Element): string {
