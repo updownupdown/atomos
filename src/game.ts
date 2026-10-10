@@ -7,6 +7,7 @@ import {
 } from './core/isotopes';
 import { frontier, loadSave, writeSave, type SaveData, type StepId } from './core/save';
 import { atomProgress, isotopeCollected, segmentsOf, stepState, stepsOf, vaultIsotopes, type StepState } from './core/progress';
+import { SILVER, atomColour, hexToHue, hslToHex } from './core/paint';
 import { Detail } from './gallery/detail';
 import { createAtomBar, type AtomBar } from './gallery/atombar';
 import { refreshModeProgress } from './ui/modebar';
@@ -31,7 +32,6 @@ import * as sfx from './audio';
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
 /** Droplet silver: the default electron colour until the player tints an element. */
-const SILVER = '#e8e2d4';
 /** 'home' is the atom's Build page; the others are its puzzles: the nucleus, the electrons, and
  *  one Packing board per isotope in its vault ('iso-7' builds the isotope with mass number 7). */
 type IsoStage = `iso-${number}`;
@@ -85,7 +85,11 @@ export class Game {
     this.start(this.z);
     this.processDecays(true);
     window.setInterval(() => this.processDecays(false), 1000);
-    window.addEventListener('resize', () => this.resizeOverlay());
+    window.addEventListener('resize', () => { this.resizeOverlay(); this.fitStage(); });
+    let fitting = 0;
+    $('build-home').addEventListener('scroll', () => {
+      if (!fitting) fitting = requestAnimationFrame(() => { fitting = 0; this.fitStage(); });
+    }, { passive: true });
     this.resizeOverlay();
     if (Object.keys(this.save.built).length === 0) this.showIntro();
   }
@@ -141,6 +145,7 @@ export class Game {
     this.bar.set(z);
     $('build-home').scrollTop = 0;
     this.enter('home');
+    this.fitStage();
   }
 
   /** Shows the Build page or one of the atom's puzzles. A puzzle left part-way picks up where it was. */
@@ -178,6 +183,18 @@ export class Game {
     this.ensureLoop();
   }
 
+  /** The 3D atom shrinks as the page scrolls, down to a fifth of the screen, then stays put
+   *  while the cards scroll under it. A spacer of the same amount keeps the cards in place. */
+  private fitStage(): void {
+    const home = $('build-home');
+    const vh = window.innerHeight;
+    const full = Math.round(Math.min(380, Math.max(220, vh * 0.4)));
+    const min = Math.round(Math.max(96, vh * 0.2));
+    const h = Math.max(min, full - home.scrollTop);
+    home.style.setProperty('--stage-h', `${h}px`);
+    home.style.setProperty('--stage-gap', `${full - h}px`);
+  }
+
   /** The 3D atom on the Build page runs only while the page shows. */
   private syncDetail(): void {
     const on = !this.paused && this.stage === 'home';
@@ -190,7 +207,8 @@ export class Game {
   private tintDetail(): void {
     const b = this.save.built[this.z];
     this.detail.setCollected(Boolean(b));
-    this.detail.setTint(b?.colour && b.colour.toLowerCase() !== SILVER ? b.colour : null);
+    const c = this.colourFor(this.z);
+    this.detail.setTint(b && c.toLowerCase() !== SILVER ? c : null);
   }
 
   private makePuzzle(stage: Exclude<Stage, 'home'>): PuzzleView {
@@ -233,7 +251,7 @@ export class Game {
   }
 
   private colourFor(z: number): string {
-    return this.save.built[z]?.colour ?? SILVER;
+    return atomColour(z, this.save);
   }
 
   private refresh(): void {
@@ -301,14 +319,13 @@ export class Game {
     this.renderProgress();
     this.renderPaintButton();
 
+    $('build-home').style.setProperty('--atom', this.colourFor(z));
     const steps = stepsOf(z);
-    const noneDone = steps.every((id) => !this.stepState(z, id).done);
     const stepCards = steps.map((id) => {
       const st = this.stepState(z, id);
-      const suggested = noneDone && id === steps[0] && steps.length > 1;
       return this.card({
         stage: id,
-        kicker: `${STEP_LABEL[id]}${suggested ? ' · suggested first' : ''}`,
+        kicker: STEP_LABEL[id],
         title: this.stagePuzzle(id).name,
         text: this.contribution(id),
         done: st.done,
@@ -365,29 +382,33 @@ export class Game {
     root.querySelector<HTMLButtonElement>('#bh-bench')?.addEventListener('click', () => this.showBench(z));
   }
 
-  /** One puzzle on the Build page: its icon, what it builds, how far it has got, and Play on the right. */
+  /** One puzzle on the Build page: its icon and name in the same color, what it builds, then on
+   *  the right where it stands (not built, built, locked) over its Play or Replay button. */
   private card(o: { stage: Exclude<Stage, 'home'>; kicker: string; title: string; text: string; done: boolean; flawless: boolean; best?: number; locked?: string }): string {
     const t = this.stagePuzzle(o.stage);
     const paused = this.suspended[o.stage];
     const cls = o.locked ? 'is-locked' : o.done ? (o.flawless ? 'is-flawless' : 'is-done') : 'is-next';
-    const best = o.best !== undefined ? ` · best ${o.best} move${o.best === 1 ? '' : 's'}` : '';
-    const where = o.locked ? o.locked
-      : paused ? `In progress · ${paused.moves} move${paused.moves === 1 ? '' : 's'}`
-      : o.done ? `${isIso(o.stage) ? 'Built' : o.flawless ? 'Flawless' : 'Done'}${best}`
-      : 'Not built yet';
+    const state = o.locked ? 'Locked' : paused ? 'In progress' : o.done ? (o.flawless && !isIso(o.stage) ? 'Flawless' : 'Built') : 'Not built';
+    const note = o.locked ? o.locked
+      : paused ? `${paused.moves} move${paused.moves === 1 ? '' : 's'} so far`
+      : o.done && o.best !== undefined ? `Best ${o.best} move${o.best === 1 ? '' : 's'}`
+      : '';
     const badge = o.done ? `<span class="bh-badge">${icon(o.flawless ? 'star' : 'check', { size: 14 })}</span>` : '';
+    const verb = paused ? 'Resume' : o.done ? 'Replay' : 'Play';
     const play = o.locked ? ''
-      : `<button class="${o.done && !paused ? 'secondary' : 'primary'} bh-play" data-stage="${o.stage}" aria-label="${paused ? 'Resume' : o.done ? 'Replay' : 'Play'} ${o.title}">${paused ? 'Resume' : o.done ? 'Replay' : 'Play'}</button>`;
+      : `<button class="${o.done && !paused ? 'secondary' : 'primary'} bh-play" data-stage="${o.stage}" aria-label="${verb} ${o.title}">${o.done && !paused ? icon('restart', { size: 18 }) : icon('play', { size: 18 })}<span>${verb}</span></button>`;
     return `
       <li class="bh-step ${cls}">
         <span class="bh-mark" aria-hidden="true">${puzzleIcon(t.id, 24)}${badge}</span>
         <div class="bh-step-body">
-          <p class="bh-kicker">${o.kicker}</p>
           <h4 class="bh-step-name">${o.title}<button class="bh-info" data-rules="${t.id}" aria-label="How ${t.name} works" title="${t.name}: how it works">${icon('info', { size: 18 })}</button></h4>
-          <p class="bh-adds">${o.text}</p>
-          <p class="bh-where">${where}</p>
+          <p class="bh-adds"><b class="bh-role">${o.kicker}</b> ${o.text}</p>
+          ${note ? `<p class="bh-where">${note}</p>` : ''}
         </div>
-        ${play}
+        <div class="bh-side">
+          <span class="bh-state">${state}</span>
+          ${play}
+        </div>
       </li>`;
   }
 
@@ -397,11 +418,11 @@ export class Game {
       <li class="bh-step is-done">
         <span class="bh-mark" aria-hidden="true">${icon('atom', { size: 24 })}<span class="bh-badge">${icon('check', { size: 14 })}</span></span>
         <div class="bh-step-body">
-          <p class="bh-kicker">Nucleus</p>
           <h4 class="bh-step-name">A lone proton</h4>
-          <p class="bh-adds">${this.contribution('nucleus')}</p>
+          <p class="bh-adds"><b class="bh-role">Nucleus</b> ${this.contribution('nucleus')}</p>
           <p class="bh-where">Ready from the start</p>
         </div>
+        <div class="bh-side"><span class="bh-state">Built</span></div>
       </li>`;
   }
 
@@ -417,7 +438,7 @@ export class Game {
         ${groups.map((g) => `<span class="bh-bar-group" style="flex:${g.length}">${g.map((x) => `<span class="bh-seg${x.done ? ' is-done' : ''}${x.kind === 'isotope' ? ' is-iso' : ''}" title="${x.label}${x.done ? ': built' : ''}"></span>`).join('')}</span>`).join('')}
       </div>
       <div class="bh-bar-caption">
-        <span>${built ? (built.flawless ? 'Built, flawless' : 'Built') : 'Not built yet'}</span>
+        <span>${built ? (built.flawless ? 'Built, flawless' : 'Built') : 'Not built'}</span>
         <span class="bh-bar-count">${done} of ${segs.length} · ${pct}%</span>
       </div>`;
   }
@@ -451,13 +472,15 @@ export class Game {
       <p class="bh-paint-title">Paint</p>
       <input class="bh-hue" type="range" min="0" max="359" step="1" value="${hue}" aria-label="Hue">
       <div class="bh-paint-row">
+        <button class="text-btn" data-own>Its own color</button>
         <button class="text-btn" data-silver>Silver</button>
-        <span class="bh-paint-note">Atoms have no color at this scale.</span>
-      </div>`;
-    $('bh-stage').append(pop);
+      </div>
+      <p class="bh-paint-note">Atoms have no color at this scale. Its own color comes from its place in the periodic table.</p>`;
+    document.querySelector('.bh-meter')!.append(pop);
     const range = pop.querySelector<HTMLInputElement>('.bh-hue')!;
     range.oninput = () => this.paint(hueToHex(Number(range.value)));
     pop.querySelector<HTMLButtonElement>('[data-silver]')!.onclick = () => this.paint(SILVER);
+    pop.querySelector<HTMLButtonElement>('[data-own]')!.onclick = () => this.paint(null);
     const close = () => {
       pop.remove();
       window.removeEventListener('pointerdown', away, true);
@@ -477,11 +500,14 @@ export class Game {
     range.focus({ preventScroll: true });
   }
 
-  private paint(c: string): void {
+  /** Paints the atom; null takes it back to its own table color. */
+  private paint(paint: string | null): void {
     const built = this.save.built[this.z];
     if (!built) return;
-    built.colour = c;
+    if (paint) built.colour = paint; else delete built.colour;
     writeSave(this.save);
+    const c = this.colourFor(this.z);
+    $('build-home').style.setProperty('--atom', c);
     this.scene.setColour(c);
     document.documentElement.style.setProperty('--el', c);
     this.tintDetail();
@@ -1076,22 +1102,7 @@ function formatPercent(p: number): string {
 
 /** A paint color from a hue: bright enough to glow against the dark, never garish. */
 function hueToHex(h: number): string {
-  const s = 0.62, l = 0.66;
-  const f = (n: number) => {
-    const k = (n + h / 30) % 12;
-    const c = l - s * Math.min(l, 1 - l) * Math.max(-1, Math.min(k - 3, 9 - k, 1));
-    return Math.round(c * 255).toString(16).padStart(2, '0');
-  };
-  return `#${f(0)}${f(8)}${f(4)}`;
-}
-
-function hexToHue(hex: string): number {
-  const n = parseInt(hex.slice(1), 16);
-  const r = ((n >> 16) & 255) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255;
-  const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
-  if (d === 0) return 0;
-  const h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
-  return (h * 60 + 360) % 360;
+  return hslToHex(h, 0.62, 0.66);
 }
 
 const wait = (ms: number) => new Promise((r) => window.setTimeout(r, ms));
