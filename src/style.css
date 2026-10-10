@@ -919,14 +919,9 @@ body[data-screen^='atom'] .build-bar { top: var(--nav-bottom); }
 body[data-screen='atom-build']:not(.build-home) .mode-row { top: var(--nav-bottom); }
 .mode-seg { flex: 1; min-width: 0; }
 .mode-seg .ui-seg { width: 100%; padding: 0; background: transparent; }
-.mode-seg .ui-seg-opt { min-height: 42px; padding: 0 var(--sp-3); border-radius: var(--r-md); }
-/* Build's progress: a ring on the left of the word and the percentage on its right. */
-.mode-ring { display: inline-grid; place-items: center; }
-.mode-ring svg { width: 20px; height: 20px; transform: rotate(-90deg); }
-.mode-ring circle { fill: none; stroke-width: 2.5; }
-.mode-prog-track { stroke: currentColor; opacity: 0.22; }
-.mode-prog-arc { stroke: var(--c-accent); stroke-linecap: round; transition: stroke-dasharray var(--dur) var(--ease); }
-.mode-pct { font-size: var(--fs-sm); font-weight: var(--fw-semibold); font-variant-numeric: tabular-nums; }
+.mode-seg .ui-seg-opt { min-height: 42px; padding: 0 var(--sp-3); border-radius: var(--r-md); box-shadow: inset 0 0 0 2px var(--c-line-2); }
+/* Build's progress: its background fills from the left as the atom is built. */
+.mode-seg .ui-seg-opt[data-id='build'] { background-image: linear-gradient(to right, color-mix(in srgb, var(--c-good) 22%, transparent) var(--p, 0%), transparent var(--p, 0%)); }
 
 /* The microscope, wherever a screen puts it. Dimmed when there is nothing to open. */
 .science-btn[aria-expanded='true'] { background: var(--c-tile); color: var(--c-tile-ink); }
