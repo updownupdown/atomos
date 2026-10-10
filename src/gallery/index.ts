@@ -12,7 +12,7 @@ import { Gallery } from './gallery';
 import { decoratorsHTML, tabHTML, VIEW_TABS, type ViewTab } from './info';
 import { guideHTML } from './guide';
 import { icon, type IconName } from '../ui/icons';
-import { createSegments, createTabs, type Segments, type Tabs } from '../ui/components';
+import { createSegments, createTabs, nextButton, type Segments, type Tabs } from '../ui/components';
 import { ISO_FILTERS, STRUCTURE_VIEWS } from './visuals';
 import { createAtomBar, type AtomBar } from './atombar';
 import { isLayoutId, LAYOUT_STORY, LAYOUTS, type LayoutId } from './layouts';
@@ -475,10 +475,7 @@ export class GalleryApp {
         <div class="gate-next"></div>
         <button class="secondary gate-look">${icon('mode-view', { size: 20 })}<span>Look at ${e.name.toLowerCase()}</span></button>
       </div>`);
-    const go = document.createElement('button');
-    go.className = 'primary gate-go';
-    go.innerHTML = `${icon('play', { size: 20 })}<span>Build ${t.name.toLowerCase()}</span>`;
-    go.onclick = () => { closeModal(); this.handlers.onBuild(target); };
+    const go = nextButton({ label: `Build ${t.name.toLowerCase()}`, landKey: 'period-sheet', onClick: () => { closeModal(); this.handlers.onBuild(target); } });
     sheet.querySelector('.gate-next')!.append(go);
     sheet.querySelector<HTMLButtonElement>('.gate-look')!.onclick = () => { closeModal(); this.open(e); };
   }
