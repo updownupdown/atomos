@@ -1,6 +1,7 @@
 // The puzzles' shared look, for canvas drawing. Flat fills and fine lines, no
-// radial gradients: the same plate, silver and single red accent as the rest
-// of the app (see the design tokens), in Outfit.
+// radial gradients, in Outfit. Colours come from the design tokens in
+// src/ui/tokens.css (read at start-up by syncPalette), so a palette change
+// there reaches every puzzle; the values below are only the fallbacks.
 
 export const FONT = "'Outfit Variable', 'Outfit', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif";
 
@@ -29,7 +30,27 @@ export const C = {
   /** Nucleons: protons warm, neutrons grey. */
   proton: '#d6963c',
   neutron: '#7a7468',
-} as const;
+};
+
+/** Which design token each palette colour follows. */
+const TOKENS: Partial<Record<keyof typeof C, string>> = {
+  bg: '--c-bg', plate: '--c-plate', surface: '--c-surface', surface2: '--c-surface-2',
+  text: '--c-text', text2: '--c-text-2', text3: '--c-text-3',
+  line: '--c-line', line2: '--c-line-2', line3: '--c-line-3',
+  silver: '--c-silver', accent: '--c-accent', good: '--c-good', warn: '--c-warn',
+  s: '--c-orb-s', p: '--c-orb-p', d: '--c-orb-d', f: '--c-orb-f',
+};
+
+/** Re-reads the palette from the design tokens. Runs once on load; call again after a theme change. */
+export function syncPalette(): void {
+  if (typeof document === 'undefined') return;
+  const css = getComputedStyle(document.documentElement);
+  for (const [key, prop] of Object.entries(TOKENS) as [keyof typeof C, string][]) {
+    const v = css.getPropertyValue(prop).trim();
+    if (v) C[key] = v;
+  }
+}
+syncPalette();
 
 /** A font string for canvas text. */
 export function font(px: number, weight = 500): string {
