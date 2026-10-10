@@ -1,5 +1,5 @@
 import { AtomScene, type ScreenPoint } from './render/scene';
-import { applyPlacement, configuration, electronCount, newAtom, resolvePlacement, type Atom } from './core/physics';
+import { applyPlacement, electronCount, newAtom, resolvePlacement, type Atom } from './core/physics';
 import { FAMILY_COLOURS, MAX_Z, element } from './core/elements';
 import {
   MODE_LABEL, decayProducts, findIsotope, formatDuration, isFleeting, isStable,
@@ -11,6 +11,7 @@ import './puzzles/unlock';
 import { atomProgress, isotopeCollected, rowOf, rowOpen, rowSpan, segmentsOf, shapeAt, stepState, stepsOf, vaultIsotopes, type StepState } from './core/progress';
 import { tableColour } from './core/paint';
 import { Detail } from './gallery/detail';
+import type { AtomLit } from './gallery/atom';
 import { createAtomBar, type AtomBar } from './gallery/atombar';
 import { refreshModeProgress } from './ui/modebar';
 import { buildTracks, drawWitness, slowFactor } from './ui/witness';
@@ -133,7 +134,7 @@ export class Game {
     document.documentElement.style.setProperty('--el', colour);
     this.scene.setAtom(this.atom, this.neutrons, { pDiscovered: true });
     this.detail.show(elementAt(z), false);
-    this.tintDetail();
+    this.detail.setLit(this.litState());
     this.bar.set(z);
     $('build-home').scrollTop = 0;
     this.enter('home');
@@ -183,10 +184,6 @@ export class Game {
   }
 
   /** The 3D atom in the orbital colors, the same as in View: dimmed until it is built. */
-  private tintDetail(): void {
-    this.detail.setCollected(Boolean(this.save.built[this.z]));
-  }
-
   private makePuzzle(stage: Exclude<Stage, 'home'>): PuzzleView {
     const reduced = this.save.settings.reducedMotion;
     if (isIso(stage)) return new PackingView(newPacking(this.z, dealSeed('isotope', this.z, isoA(stage))), reduced);
@@ -554,25 +551,48 @@ export class Game {
     }
     const wasBuilt = Boolean(this.save.built[this.z]);
     this.recordStep(stage, p);
-    if (stage === 'nucleus') {
-      sfx.harmonySound();
-      this.scene.setAtom(this.atom, this.neutrons, { pDiscovered: true });
-    } else {
-      // Each electron settles into its orbital in order.
-      for (let i = 0; i < this.z; i++) {
-        const r = resolvePlacement(this.atom);
-        if (r?.kind !== 'placed') break;
-        this.atom = applyPlacement(this.atom, r.orbital, r.spin);
-        this.scene.setAtom(this.atom, this.neutrons, { pDiscovered: true });
-        sfx.captureSound();
-        this.say(electronCount(this.atom) >= this.z ? shortConfiguration(elementAt(this.z)) : configuration(this.atom));
-        await wait(reduced ? 60 : 220);
-      }
-    }
+    if (stage === 'shells') this.atom = fullAtom(this.z);
+    this.scene.setAtom(this.atom, this.neutrons, { pDiscovered: true });
+    // Back on the Build page, the part just solved lights up in the 3D atom before the win shows.
+    this.enter('home');
+    $('build-home').scrollTo({ top: 0, behavior: reduced ? 'auto' : 'smooth' });
+    await this.lightUp(stage);
     this.busy = false;
     const bothDone = stepsOf(this.z).every((id) => this.stepState(this.z, id).done);
     if (bothDone) this.finish(p, stage, wasBuilt);
     else this.stepWon(stage, p);
+  }
+
+  /** The 3D atom's parts in color as far as they are solved: the nucleus once its puzzle is
+   *  solved, the electrons once Quanta is. Gray until then. */
+  private litState(): AtomLit {
+    return {
+      nucleus: this.stepState(this.z, 'nucleus').done,
+      electrons: this.stepState(this.z, 'shells').done ? this.z : 0,
+    };
+  }
+
+  /** A step just solved comes alive in the 3D atom: the nucleus all at once, the electrons one
+   *  subshell at a time, each in its orbital color as it fills. */
+  private async lightUp(stage: StepId): Promise<void> {
+    const reduced = this.save.settings.reducedMotion;
+    const lit = this.litState();
+    if (stage === 'nucleus') {
+      sfx.harmonySound();
+      this.detail.setLit(lit, true);
+      await wait(reduced ? 150 : 700);
+      return;
+    }
+    let electrons = 0;
+    this.detail.setLit({ ...lit, electrons });
+    await wait(reduced ? 100 : 400);
+    for (const sub of elementAt(this.z).subshells) {
+      electrons += sub.count;
+      this.detail.setLit({ ...lit, electrons }, true);
+      sfx.captureSound();
+      await wait(reduced ? 60 : 350);
+    }
+    await wait(reduced ? 100 : 400);
   }
 
   /** Flux solved on the atom where an orbital shape first appears: the shape is discovered, and
@@ -663,7 +683,7 @@ export class Game {
       this.atom = fullAtom(this.z);
       this.scene.setAtom(this.atom, this.neutrons, { pDiscovered: true });
     }
-    this.tintDetail();
+    this.detail.setLit(this.litState());
     this.scene.celebrate();
     sfx.completeSound();
     this.say('');
