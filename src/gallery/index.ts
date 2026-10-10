@@ -11,7 +11,7 @@ import { decoratorsHTML, tabHTML, VIEW_TABS, type ViewTab } from './info';
 import { guideHTML } from './guide';
 import { icon, type IconName } from '../ui/icons';
 import { createSegments, createTabs, type Tabs } from '../ui/components';
-import { ISO_FILTERS } from './visuals';
+import { ISO_FILTERS, STRUCTURE_VIEWS } from './visuals';
 import { openElementPicker } from '../ui/picker';
 import { isLayoutId, LAYOUT_STORY, LAYOUTS, type LayoutId } from './layouts';
 import { setScienceHandler, setScienceOpen } from '../ui/science';
@@ -35,6 +35,7 @@ export class GalleryApp {
   private current: Element | null = null;
   private tab: ViewTab = 'model';
   private isoFilter = 'all';
+  private structView = 'blueprint';
   private layoutId: LayoutId = (() => {
     const saved = localStorage.getItem('atomos.gallery.layout');
     return isLayoutId(saved) ? saved : 'spiral';
@@ -287,8 +288,24 @@ export class GalleryApp {
       + `<div class="page-guide"><button type="button" class="guide-btn" id="guide-btn">${icon('microscope')}<span><b>How to read this</b><small>A guide to the ${label} page, and more context</small></span></button></div></div>`;
     $('guide-btn').onclick = () => this.openGuide();
     this.mountIsotopeFilter();
+    this.mountStructureSwitch();
     panel.scrollTop = 0;
     panel.setAttribute('aria-label', VIEW_TABS.find((t) => t.id === this.tab)!.label);
+  }
+
+  /** The structure page's three ways to see the atom: the blueprint, the shells as they are, the orbital boxes. */
+  private mountStructureSwitch(): void {
+    const slot = document.getElementById('struct-switch');
+    if (!slot) return;
+    const views = [...document.querySelectorAll<HTMLElement>('.st-view')];
+    const apply = (id: string) => {
+      this.structView = id;
+      for (const v of views) v.hidden = v.dataset.view !== id;
+    };
+    const seg = createSegments(STRUCTURE_VIEWS, { active: this.structView, label: 'How to see the structure', onChange: apply });
+    slot.append(seg.el);
+    seg.select(this.structView);
+    apply(this.structView);
   }
 
   /** The isotope page's filter: All, Stable, In nature, Radioactive; kept while stepping through elements. */
