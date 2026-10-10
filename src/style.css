@@ -279,6 +279,8 @@ body:not(.build-home) .build-bar { display: none; }
 body.puzzling #overlay { pointer-events: auto; touch-action: none; }
 body.puzzling #atom { opacity: 0.35; transition: opacity 0.6s; }
 body.stage-nucleus #atom { opacity: 0.12; }
+/* Quanta (the electrons) plays on plain black: no atom behind its grid. */
+body.puzzling:not(.stage-nucleus) #atom { opacity: 0; }
 
 
 .bottom {
