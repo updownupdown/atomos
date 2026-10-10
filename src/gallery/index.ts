@@ -12,21 +12,22 @@ import { Gallery } from './gallery';
 import { decoratorsHTML, tabHTML, VIEW_TABS, type ViewTab } from './info';
 import { guideHTML } from './guide';
 import { icon, type IconName } from '../ui/icons';
-import { createSegments, createTabs, type Segments, type Tabs } from '../ui/components';
+import { createSegments, createTabs, nextButton, type Segments, type Tabs } from '../ui/components';
 import { ISO_FILTERS, STRUCTURE_VIEWS } from './visuals';
 import { createAtomBar, type AtomBar } from './atombar';
 import { isLayoutId, LAYOUT_STORY, LAYOUTS, type LayoutId } from './layouts';
 import { setScienceHandler, setScienceOpen } from '../ui/science';
 import { closeModal, openModal } from '../ui/modal';
 import { loadSave, writeSave, type SaveData } from '../core/save';
-import { fleetingTotal, atomProgress, orbitalShapeUnlocked, rowOf, rowOpen, SHAPE_AT, stepState } from '../core/progress';
+import { atomBuilt, fleetingTotal, atomProgress, rowSpan, orbitalShapeUnlocked, rowOf, rowOpen, SHAPE_AT, stepState } from '../core/progress';
 import { createElementList, type ElementList } from '../ui/elementlist';
+import { nextLabel, nextStep, openAtom, openStep, type NextStep } from '../core/next';
 import { isUnlocked, unlockPuzzle, type UnlockId } from '../core/unlocks';
 import { PUZZLES } from '../puzzles/catalog';
 import { playUnlock } from '../puzzles/unlock';
 import { isLookId, lensUnlock, lookOf, lookUnlock, LOOKS, type LookId } from './looks';
 import { atomThumb } from './thumbs';
-import { rowLockNote } from './locks';
+import { fleetingOpen, periodSentence, rowLockNote } from './locks';
 import { progressHtml } from '../ui/modebar';
 
 type GalleryMode = 'collection' | 'map' | 'details';
@@ -40,11 +41,22 @@ export interface GalleryHandlers {
   onLoupe?: (z: number | null) => void;
 }
 
+/** What the next step asks for, under its label: "Tokamak · gather its nucleus". */
+function upNextWhat(step: NextStep): string {
+  const what: Record<NextStep['kind'], string> = {
+    resume: 'pick up where you left off', nucleus: 'gather its nucleus', electrons: 'place its electrons',
+    lasting: 'a lasting isotope', discovery: 'discover a new shape',
+  };
+  return `${step.gameName} · ${what[step.kind]}`;
+}
+
 export class GalleryApp {
   private save: SaveData = loadSave();
   private gallery: Gallery;
   private detail: Detail;
   private current: Element | null = null;
+  /** The Up next card above the Collection list. */
+  private upNext = Object.assign(document.createElement('div'), { className: 'up-next', hidden: true });
   private tab: ViewTab = 'model';
   private isoFilter = 'all';
   private structView = 'blueprint';
@@ -90,7 +102,7 @@ export class GalleryApp {
     this.gallery.setLayout(this.layoutId, false);
     this.detail.setStyle(this.style);
     this.detail.setRings(this.rings);
-    this.gallery.onPick = (e) => this.open(e);
+    this.gallery.onPick = (e) => this.pick(e.z);
     this.gallery.onHover = (e) => this.hover(e);
     window.addEventListener('keydown', (ev) => this.key(ev));
     // Build announces each change to an atom's progress so the tiles' bars stay current.
@@ -116,6 +128,8 @@ export class GalleryApp {
     this.detail.setHiddenShapes(this.hiddenShapes);
     this.paintShapeNote();
     this.paintOverall();
+    this.paintUpNext();
+    if (this.current && !$('loupe-screen').hidden) this.paintViewNext();
     this.list?.refresh();
     // The Isotopes page shows what is built and what has decayed.
     if (this.tab === 'isotopes') this.renderPanel();
@@ -126,9 +140,10 @@ export class GalleryApp {
     const save = this.save;
     const main = ELEMENTS.reduce((t, e) => t + atomProgress(e.z, save), 0) / MAX_Z;
     const n = Math.round(main * 100);
-    const f = fleetingTotal(save);
-    $('gal-prog').innerHTML = progressHtml(main, f.total ? { label: 'fleeting', pct: f.built / f.total } : null);
-    $('gal-prog').setAttribute('aria-label', `Collection ${n}% built; ${f.built} of ${f.total} fleeting isotopes`);
+    // Fleeting isotopes join the count once they are open (any atom built).
+    const f = fleetingOpen(save) ? fleetingTotal(save) : null;
+    $('gal-prog').innerHTML = progressHtml(main, f?.total ? { label: 'fleeting', pct: f.built / f.total } : null);
+    $('gal-prog').setAttribute('aria-label', `Collection ${n}% built${f ? `; ${f.built} of ${f.total} fleeting isotopes` : ''}`);
   }
 
   /** Whether this atom's row is not open yet (two thirds of the row above unbuilt). It stays
@@ -404,7 +419,7 @@ export class GalleryApp {
     if (this.mode === 'details' && !this.list) {
       this.list = createElementList({
         variant: 'table',
-        onPick: (z) => this.open(elementAt(z)),
+        onPick: (z) => this.pick(z),
         locked: (z) => this.buildLocked(z),
         storageKey: 'atomos.details.sort',
       });
@@ -412,14 +427,45 @@ export class GalleryApp {
     }
     if (this.mode === 'collection' && !this.collection) {
       this.collection = createElementList({
-        onPick: (z) => this.open(elementAt(z)),
+        onPick: (z) => this.pick(z),
         locked: (z) => this.buildLocked(z),
         storageKey: 'atomos.collection.sort',
         thumbs: (z) => atomThumb(z, this.litOf(z)),
         fleetingTotal: true,
       });
-      $('gal-collection').append(this.collection.el);
+      $('gal-collection').append(this.upNext, this.collection.el);
+      this.paintUpNext();
     }
+  }
+
+  /** The Up next card above the Collection: the one next thing to do (nextStep), with the Next
+   *  button. It doubles as Continue for a returning player: a half-done puzzle comes first. */
+  private paintUpNext(): void {
+    const step = nextStep(this.save);
+    const card = this.upNext;
+    card.hidden = !step;
+    if (!step) { card.replaceChildren(); return; }
+    const key = `${step.kind}/${step.z}/${step.stage}`;
+    if (card.dataset.key !== key) {
+      card.dataset.key = key;
+      const e = elementAt(step.z);
+      card.innerHTML = `<span class="up-pic"><span class="up-tile">${e.symbol}</span></span>
+        <span class="up-text"><small>${step.kind === 'resume' ? 'Continue' : 'Up next'}</small><b>${step.label}</b><span>${upNextWhat(step)}</span></span>`;
+      card.append(nextButton({ label: step.kind === 'resume' ? 'Resume' : 'Next', compact: true, landKey: 'gallery-upnext', onClick: () => openStep(step) }));
+      void atomThumb(step.z, this.litOf(step.z)).then((url) => {
+        if (!url || card.dataset.key !== key) return;
+        const img = document.createElement('img');
+        img.src = url;
+        img.alt = '';
+        card.querySelector('.up-pic')!.append(img);
+      });
+    }
+    this.setUpNextShown(true);
+  }
+
+  /** Only one Next button may show at once: the card stands aside under the atom view or a sheet. */
+  private setUpNextShown(on: boolean): void {
+    this.upNext.classList.toggle('is-away', !on || !$('loupe-screen').hidden);
   }
 
   /** Run the map's render loop, unless a panel covers it. */
@@ -453,6 +499,33 @@ export class GalleryApp {
     if (e) tag.textContent = `${e.z} ${e.name}${this.collected(e.z) ? '' : ' · not yet collected'}`;
   }
 
+  /** An atom tapped in the Collection, Map or Details: one still to build opens Build, a built
+   *  one opens View, and one whose period is shut says what opens it. */
+  private pick(z: number): void {
+    if (this.buildLocked(z)) { this.offerPeriod(z); return; }
+    openAtom(z);
+  }
+
+  /** A locked atom: which period opens it, a way to the atom that helps, and a look at this one. */
+  private offerPeriod(z: number): void {
+    const e = elementAt(z);
+    const [first, last] = rowSpan(rowOf(z) - 1);
+    let target = first;
+    for (let a = first; a <= last; a++) if (!atomBuilt(a, this.save)) { target = a; break; }
+    const step = nextStep(this.save, target);
+    const sheet = openModal(`<h2>${e.name}</h2>
+      <div class="gate-sheet">
+        <p class="gate-why">${icon('lock', { size: 20 })}<span>${periodSentence(z, this.save) ?? ''}</span></p>
+        <div class="gate-next"></div>
+        <button class="secondary gate-look">${icon('mode-view', { size: 20 })}<span>Look at ${e.name.toLowerCase()}</span></button>
+      </div>`, () => this.setUpNextShown(true));
+    if (step) {
+      this.setUpNextShown(false);
+      sheet.querySelector('.gate-next')!.append(nextButton({ label: nextLabel(step), landKey: 'period-sheet', onClick: () => { closeModal(); openStep(step); } }));
+    }
+    sheet.querySelector<HTMLButtonElement>('.gate-look')!.onclick = () => { closeModal(); this.open(e); };
+  }
+
   private open(e: Element): void {
     const first = !this.current;
     this.current = e;
@@ -474,7 +547,20 @@ export class GalleryApp {
       requestAnimationFrame(() => { screen.classList.add('in'); this.tabs.select(this.tab); });
     }
     this.registerScience();
+    this.paintViewNext();
+    this.setUpNextShown(false);
     this.handlers.onLoupe?.(e.z);
+  }
+
+  /** On an atom still to build (in an open period), a Next button to build it. */
+  private paintViewNext(): void {
+    const slot = $('view-next');
+    const z = this.current?.z;
+    const step = z && !atomBuilt(z, this.save) && !this.buildLocked(z) ? nextStep(this.save, z) : null;
+    slot.replaceChildren();
+    slot.hidden = !step;
+    $('loupe-screen').classList.toggle('has-next', Boolean(step));
+    if (step) slot.append(nextButton({ label: step.kind === 'resume' ? step.label : `Build ${elementAt(step.z).name.toLowerCase()}`, compact: true, landKey: 'atom-view', onClick: () => openStep(step) }));
   }
 
   /** The microscope: the arrangement's story on the map. In the atom view each page has its own
@@ -513,7 +599,7 @@ export class GalleryApp {
     this.detail.stop();
     if (this.current) this.gallery.focus(this.current.z);
     this.startMap();
-    window.setTimeout(() => { screen.hidden = true; this.registerScience(); }, 220);
+    window.setTimeout(() => { screen.hidden = true; this.registerScience(); this.paintUpNext(); }, 220);
     this.handlers.onLoupe?.(null);
   }
 

@@ -53,7 +53,9 @@
 .el-opt[aria-checked='true'] { color: var(--c-accent); font-weight: var(--fw-semibold); }
 .el-opt[aria-checked='true'] svg { visibility: visible; }
 .is-searching .el-sortbox { opacity: 0.4; }
-.el-none { margin: var(--sp-3) 0; color: var(--c-text-2); }
+.el-none { margin: var(--sp-4) var(--sp-2); color: var(--c-text-2); font-size: var(--fs-md); }
+.el-none p { margin: 0 0 var(--sp-3); max-width: 34em; }
+.el-none-act:empty { display: none; }
 .el-none[hidden] { display: none; }
 
 /* Rows */
@@ -100,7 +102,7 @@
 .el-segs i.on { background: var(--p); }
 .el-prog--none b { color: var(--c-text-3); }
 .el-fleet { font-size: var(--fs-sm); line-height: 1; color: var(--c-text-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.el-prog--some { --p: var(--c-warn); }
+.el-prog--some { --p: var(--c-accent); }
 .el-prog--most { --p: var(--c-accent); }
 .el-prog--full { --p: var(--c-good); }
 .el-row.is-locked .el-tile { background: var(--c-surface-2); box-shadow: inset 0 0 0 3px var(--c-line); }
