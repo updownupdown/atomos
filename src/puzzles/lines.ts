@@ -1,24 +1,30 @@
 // Field Lines: draw one path through the grid that obeys every mark on it.
 //
 // The path runs along the edges of a small grid from a start node to an end
-// node, and cuts the grid's cells into pockets. Marks constrain it:
+// node, and cuts the grid's cells into pockets. Marks constrain it (the names
+// in brackets are what players see; linesView draws them):
 //
-//   dots     beads on edges the path must run over;
-//   gaps     broken edges the path cannot cross;
-//   colors  colored tiles: no pocket may hold two colors of tile;
-//   counts   1 to 3 droplets in a cell: the path runs along exactly that many
-//            of the cell's four sides;
-//   pairs    colored rings: a pocket holding a ring holds exactly two marks of
-//            the ring's color (rings and tiles alike);
-//   shapes   tiny bead polyominoes: a pocket holding shapes is exactly those
-//            shapes fitted together, unrotated.
+//   dots     [beads] on edges the path must run over;
+//   gaps     [gaps] broken edges the path cannot cross;
+//   colors   [orbitals] filled orbital shapes: no pocket may hold two kinds;
+//   counts   [bars] 1 to 3 bars in a cell: the path runs along exactly that
+//            many of the cell's four sides;
+//   pairs    [pairs] hollow orbital shapes: a pocket holding one holds exactly
+//            two marks of its kind (hollow and filled alike);
+//   shapes   [shapes] tiny bead polyominoes: a pocket holding shapes is
+//            exactly those shapes fitted together, unrotated.
+//
+// The path runs from a + charge (start) to a − charge at the rim (end), as an
+// electric field line runs from positive to negative charge and never crosses
+// itself.
 //
 // A level is built from a random self-avoiding walk, and every mark is read off
 // that walk, so an answer always exists; any path meeting the marks counts.
 // Rules arrive a band of elements at a time, two or three kinds per level.
 //
-// Game rule, not physics: the colors borrow the sub-shell palette for mood,
-// nothing here is labeled as a field line or an orbital.
+// Game rule, not physics: the orbital marks are drawn in their real shapes and
+// sub-shell colors (s round, p two lobes, d four, f six), but sorting them into
+// pockets is only a puzzle rule.
 
 import { rand, randInt, seeded, type Rng } from './rng';
 

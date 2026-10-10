@@ -1,14 +1,17 @@
-// Slide Until Stop: an ice maze. The droplet slides in the chosen direction
-// until a rock or the edge stops it. Stop exactly on the goal ring to win;
-// passing over the goal does not count.
+// Slide Until Stop: a lattice maze. The electron slides in the chosen
+// direction until a nucleus or the edge stops it. Stop exactly on the goal
+// ring to win; passing over the goal does not count.
 //
-// Heavier elements add, one at a time:
-//   sparks   the droplet must pass over (or stop on) every spark before the
-//            ring counts;
-//   sticky   patches the droplet stops on as soon as it enters;
-//   cracks   thin ice that breaks into a rock once the droplet has left it;
-//   arrows   one-way cells, entered only while moving the way they point
-//            (leaving is free).
+// Heavier elements add, one at a time (model name, then the name players see):
+//   sparks   [photons] the electron must pass over (or stop on) every one
+//            before the ring counts;
+//   sticky   [potential wells] cells the electron stops on as soon as it enters;
+//   cracks   [unstable nuclei] cells that decay into a blocker once the
+//            electron has left them;
+//   arrows   [drift arrows] one-way cells, entered only while moving the way
+//            they point (leaving is free).
+// Rocks ('#') are shown as fixed nuclei. The code keeps its original names so
+// the tests and deals are untouched.
 //
 // A level is a random field checked by breadth-first search over (cell,
 // sparks collected, cracks broken). The goal is put where the shortest route

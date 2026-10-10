@@ -174,7 +174,7 @@ export const PUZZLES: PuzzleType[] = [
     id: 'lines', name: 'Field Lines', tier: 'facet',
     use: 'Orbital shapes',
     get rules() { return rulesOf(LinesV); },
-    blurb: 'Draw one line from a start to an end that keeps every mark on the board happy.',
+    blurb: 'Draw one line from a + charge to a − charge that keeps every mark on the board happy.',
     role: 'Discovers each new orbital shape (19) and a chapter per particle (17).',
     instructions: LINES_HOW,
     zRange: [1, 118],
@@ -191,15 +191,15 @@ export const PUZZLES: PuzzleType[] = [
     id: 'slideStop', name: 'Slide Until Stop', tier: 'gate',
     use: 'Period gates',
     get rules() { return rulesOf(SlideStopV); },
-    blurb: 'Swipe to skate: the droplet slides until something stops it. Collect every spark, then stop on the red ring.',
+    blurb: 'Swipe and the electron slides until something stops it. Absorb every photon, then stop on the red ring.',
     role: 'Opens each new period of the table.',
     instructions: SLIDESTOP_HOW,
     zRange: [1, 118],
     make: (z, deal, reduced) => new SlideStopView(newSlideStop(z, dealSeed('slideStop', z, deal)), reduced),
     science: () => `<h2>Slide Until Stop: the science</h2>
-      <p>A thing in motion keeps moving until a force acts on it: Newton's first law. On the ice board the rocks are the only forces, so the droplet slides until one stops it.</p>
+      <p>A thing in motion keeps moving until a force acts on it: Newton's first law. On the lattice the nuclei are the only obstacles, so the electron slides until one stops it.</p>
       <p>Electrons in a metal behave a little like this. They move freely through the lattice and are scattered only by defects and vibrations; the colder and purer the metal, the further they travel between collisions, which is why resistance falls with temperature.</p>
-      <p class="muted">Game rule: the maze is a maze. Real electrons do not skate from rock to rock.</p>`,
+      <p class="muted">Game rule: the maze is a maze. Real electrons do not skate from nucleus to nucleus.</p>`,
   },
   {
     id: 'light', name: 'Light Routing', tier: 'gate',

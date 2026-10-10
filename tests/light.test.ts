@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { differing, featuresFor, fewestTaps, flip, INTRO, newLight, reflect, sizeFor, solved, status, trace, turnable, type Cell, type LightState } from '../src/puzzles/light';
 import { seeded } from '../src/puzzles/rng';
+import { INSTRUCTIONS, LightView, RULES } from '../src/puzzles/lightView';
+import { C } from '../src/puzzles/palette';
+import type { RuleCard } from '../src/puzzles/view';
 
 function grid(cells: Cell[], extra: Partial<LightState> = {}): LightState {
   return { size: Math.round(Math.sqrt(cells.length)), cells, entry: 0, entryDir: 'down', targets: [], darks: [], solution: [...cells], features: [], moves: 0, par: 1, ...extra };
@@ -166,3 +169,72 @@ describe('levels', () => {
     expect(newLight(118, 2).par).toBeGreaterThanOrEqual(2);
   });
 });
+
+describe('view and rule cards', () => {
+  it('draws boards inside the area', () => {
+    for (const z of [1, 60, 118]) for (const a of AREAS_ALL) {
+      const v = new LightView(newLight(z, 3), true);
+      const { ctx, pts } = recCtx();
+      v.draw(ctx, a, 0);
+      expect(inside(pts, a)).toBe(true);
+      expect(v.hint().length).toBeLessThanOrEqual(40);
+    }
+  });
+
+  it('has a card with a demo for every piece, drawn inside its box', () => {
+    checkRules(RULES);
+    expect(INSTRUCTIONS).toMatch(/^\s*<h3>In the game<\/h3>\s*<p class="meta">/);
+    expect(INSTRUCTIONS).not.toMatch(/How to play/);
+    expect(RULES.map((r) => r.title)).toEqual(['Mirrors', 'Rings', 'Fixed mirrors', 'Splitters', 'Filters', 'Colored rings', 'Dark sensors', 'Blockers']);
+  });
+});
+
+/** A canvas stand-in that records every coordinate drawn and every color set. */
+function recCtx(): { ctx: CanvasRenderingContext2D; pts: [number, number][]; colors: Set<unknown> } {
+  const pts: [number, number][] = [];
+  const colors = new Set<unknown>();
+  const rec = (x: number, y: number) => pts.push([x, y]);
+  const store: Record<string | symbol, unknown> = {};
+  const ctx = new Proxy(store, {
+    get(t, k) {
+      if (k in t) return t[k];
+      if (k === 'moveTo' || k === 'lineTo') return rec;
+      if (k === 'arc') return (x: number, y: number, r: number) => { rec(x - r, y - r); rec(x + r, y + r); };
+      if (k === 'ellipse') return (x: number, y: number, rx: number, ry: number) => { const r = Math.max(rx, ry); rec(x - r, y - r); rec(x + r, y + r); };
+      if (k === 'roundRect' || k === 'rect' || k === 'fillRect' || k === 'strokeRect') return (x: number, y: number, w: number, h: number) => { rec(x, y); rec(x + w, y + h); };
+      if (k === 'fillText') return (s: string, x: number, y: number) => { rec(x, y - 12); rec(x + s.length * 7, y); };
+      return () => {};
+    },
+    set(t, k, v) {
+      if (k === 'strokeStyle' || k === 'fillStyle') colors.add(v);
+      t[k] = v;
+      return true;
+    },
+  }) as unknown as CanvasRenderingContext2D;
+  return { ctx, pts, colors };
+}
+
+function inside(pts: [number, number][], a: { x: number; y: number; w: number; h: number }): boolean {
+  return pts.every(([x, y]) => x >= a.x - 0.5 && x <= a.x + a.w + 0.5 && y >= a.y - 0.5 && y <= a.y + a.h + 0.5);
+}
+
+const AREAS_ALL = [{ x: 0, y: 0, w: 340, h: 430 }, { x: 10, y: 8, w: 1200, h: 700 }, { x: 0, y: 0, w: 600, h: 300 }];
+
+function checkRules(rules: RuleCard[]): void {
+  expect(rules.length).toBeGreaterThan(3);
+  for (const r of rules) {
+    expect(r.title.length, r.title).toBeLessThanOrEqual(24);
+    expect(r.text, r.title).not.toMatch(/[<>]/);
+    expect(r.text.split(/[.!?](\s|$)/).filter((x) => x && x.trim()).length, r.title).toBeLessThanOrEqual(2);
+    expect(r.demo, r.title).toBeTypeOf('function');
+    for (const [w, h] of [[120, 96], [240, 192]]) for (let t = 0; t < 7; t += 0.13) {
+      const { ctx, pts } = recCtx();
+      r.demo!(ctx, w, h, t);
+      expect(inside(pts, { x: 0, y: 0, w, h }), `${r.title} at ${t.toFixed(2)}s`).toBe(true);
+    }
+    // The still frame shown under reduced motion is the passing case: nothing flagged red.
+    const { ctx, colors } = recCtx();
+    r.demo!(ctx, 120, 96, 2.5);
+    expect(colors.has(C.bad), r.title).toBe(false);
+  }
+}
