@@ -24,7 +24,6 @@ export const VIEW_TABS: { id: ViewTab; label: string }[] = [{ id: 'model', label
 
 const esc = (s: string | null | undefined) => (s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 const num = (v: number | null, unit = '', digits = 3) => (v == null ? '<span class="na">not known</span>' : `${Number(v.toPrecision(digits))}${unit}`);
-const kelvin = (k: number | null) => (k == null ? '<span class="na">not known</span>' : `${Math.round(k)} K <span class="dim">(${Math.round(k - 273.15)} °C)</span>`);
 const row = (label: string, value: string) => `<div class="kv"><span>${label}</span><b>${value}</b></div>`;
 
 /** Small white captions round the loupe: the simple layer, worn like plate markings. */
@@ -150,12 +149,12 @@ function isotopes(e: Element): string {
 function properties(e: Element): string {
   return `
     ${propertyAxes(e)}
-    <h4>More</h4>
-    ${row('Electron affinity', num(e.electronAffinity, ' eV'))}
+    ${disclosureHTML({ title: 'More about it', body: `
+    ${row('Electron affinity', e.electronAffinity != null && e.electronAffinity < 0 ? '<span class="na">no stable negative ion</span>' : num(e.electronAffinity, ' eV'))}
     ${row('Geochemical class', e.geochemical ? esc(e.geochemical) : '<span class="na">not classed</span>')}
     ${row('CPK color', e.cpk ? `<span class="swatch" style="background:${e.cpk}"></span>${e.cpk}` : '<span class="na">none</span>')}
-    ${row('Melting point', kelvin(e.melt))}
-    ${row('Boiling point', kelvin(e.boil))}`;
+    ${row('Covalent radius', num(e.covalent, ' pm'))}
+    ${row('Atomic weight', num(e.weight, '', 6))}` })}`;
 }
 
 function story(e: Element): string {
