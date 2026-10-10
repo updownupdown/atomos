@@ -1160,3 +1160,7 @@ body[data-screen^='atom'] { --top: calc(var(--safe-top) + var(--nav-h) + var(--m
 .ip-card--mark .ip-swatches span svg { width: 44px; height: 44px; }
 .ip-card--mark .ip-light svg { width: 32px; height: 32px; }
 .ip-card figcaption { font-size: var(--fs-sm); font-weight: var(--fw-medium); color: var(--c-text-2); text-align: center; }
+
+/* View and Build read as two halves of one switch; no radio marks needed. */
+.mode-seg .ui-seg-dot { display: none; }
+.mode-seg .ui-seg-opt { padding: 0 var(--sp-3); }
