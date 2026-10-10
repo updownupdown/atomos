@@ -146,6 +146,18 @@ interface Layer {
   t: number;
   /** Radius of this layer's edge in units of a0 / zeff (from the radial table). */
   edge: number;
+  /** How far this layer has turned from pale gray to its orbital color (0 to 1), and where it is heading. */
+  vivid: number;
+  vividTo: number;
+  /** A brief white glint as the layer lights up, fading from 1. */
+  glint: number;
+}
+
+/** How much of an atom is lit (in color): its nucleus, and how many of its electrons, counted in
+ *  the order they fill the subshells (0 to z). Unlit parts are drawn pale gray. */
+export interface AtomLit {
+  nucleus: boolean;
+  electrons: number;
 }
 
 export interface AtomViewOptions {
@@ -170,6 +182,14 @@ const HAZE_SIZE = 8;
 const HAZE_ALPHA = 0.085;
 /** How strongly an undiscovered orbital shape still shows, as a ghost over its cloud. */
 const GHOST = 0.12;
+/** A part not built yet: pale gray, and a little fainter than when it is in color. */
+const PALE: [number, number, number] = [0.7, 0.72, 0.74];
+const PALE_ALPHA = 0.8;
+/** Seconds a part takes to turn between gray and color. */
+const VIVID_S = 0.4;
+const GLINT_S = 0.9;
+const NUCLEUS_GLOW: [number, number, number] = [1, 0.78, 0.6];
+const HALO_GLOW: [number, number, number] = [1, 0.7, 0.45];
 
 export class AtomView {
   readonly group = new THREE.Group();
@@ -183,6 +203,12 @@ export class AtomView {
   /** Orbital kinds whose shapes the player has not discovered yet (Flux). */
   private hidden = new Set<Block>();
   private dim = 1;
+  /** What is lit; layers made later take their color from here. Infinity lights every electron. */
+  private lit: AtomLit = { nucleus: true, electrons: Infinity };
+  private nucleusVivid = 1;
+  private nucleusVividTo = 1;
+  private nucleusGlint = 0;
+  private reduced = false;
   element: Element | null = null;
   /** True when a transition is still running. */
   animating = false;
@@ -196,7 +222,7 @@ export class AtomView {
     g.setAttribute('slot', new THREE.BufferAttribute(new Float32Array([0]), 1));
     g.setAttribute('orbital', new THREE.BufferAttribute(new Float32Array([0]), 1));
     g.setAttribute('sign', new THREE.BufferAttribute(new Float32Array([1]), 1));
-    this.nucleusMaterial = this.makeMaterial([1, 0.78, 0.6]);
+    this.nucleusMaterial = this.makeMaterial(NUCLEUS_GLOW);
     this.nucleusMaterial.uniforms.uTo.value = 1;
     this.nucleusMaterial.uniforms.uT.value = 1;
     this.nucleusMaterial.uniforms.uSize.value = opts.pointSize * 1.6;
@@ -205,7 +231,7 @@ export class AtomView {
     this.group.add(this.nucleus);
     if (opts.haze) {
       // A warm glow round the nucleus: the eye's anchor at the center of the cloud.
-      this.haloMaterial = this.makeMaterial([1, 0.7, 0.45], true);
+      this.haloMaterial = this.makeMaterial(HALO_GLOW, true);
       this.haloMaterial.uniforms.uTo.value = 1;
       this.haloMaterial.uniforms.uT.value = 1;
       this.haloMaterial.uniforms.uSize.value = opts.pointSize * 10;
@@ -269,7 +295,8 @@ export class AtomView {
       }
     }
     const edge = radialTable(sub.n, L_OF[sub.l]).edge;
-    return { sub, points, material, haze, hazeMaterial, shapes, shapeMaterials, from: 0, to: 0, scaleFrom: 1, scaleTo: 1, t: 1, edge };
+    const vivid = this.litShare(sub.key);
+    return { sub, points, material, haze, hazeMaterial, shapes, shapeMaterials, from: 0, to: 0, scaleFrom: 1, scaleTo: 1, t: 1, edge, vivid, vividTo: vivid, glint: 0 };
   }
 
   /** Scene units per sampled unit (a0 / zeff) for each layer, so the outermost edge lands on the vdW radius. */
@@ -340,7 +367,6 @@ export class AtomView {
     if (this.haloMaterial) this.haloMaterial.uniforms.uSize.value = px * 10;
   }
 
-  /** Overall brightness, used to dim atoms the player has not collected yet. */
   /** The glow of a layer: its block color, or the tint when one is set. */
   private glow(l: Block): [number, number, number] {
     return this.tint ?? BLOCK_GLOW[l];
@@ -354,15 +380,45 @@ export class AtomView {
       c.setStyle(color);
       this.tint = [c.r, c.g, c.b];
     } else this.tint = null;
-    for (const layer of this.layers.values()) {
-      const g = this.glow(layer.sub.l);
-      (layer.material.uniforms.uColor.value as THREE.Vector3).set(...g);
-      if (layer.hazeMaterial) (layer.hazeMaterial.uniforms.uColor.value as THREE.Vector3).set(...g);
-      for (const m of layer.shapeMaterials) m.color.setRGB(...g);
-    }
     this.apply();
   }
 
+  /** The share of a subshell's electrons that are lit (0 to 1), filling in Aufbau order. */
+  private litShare(key: string): number {
+    if (!this.element) return 1;
+    let before = 0;
+    for (const k of fillOrder(this.element)) {
+      const sub = this.element.subshells.find((x) => x.key === k)!;
+      if (k === key) return Math.max(0, Math.min(1, (this.lit.electrons - before) / sub.count));
+      before += sub.count;
+    }
+    return 0;
+  }
+
+  /**
+   * How much of the atom is lit. Every part is always drawn: unlit parts are pale gray and a
+   * little fainter, lit ones take their color (the nucleus warm, each subshell its orbital color).
+   * Electrons light subshell by subshell in Aufbau order, a partly lit subshell blending between
+   * the two. With `animate`, each change eases over 0.4 s and a part that comes fully alight
+   * glints white for a moment, so stepping `electrons` from 0 to z makes the atom come alive.
+   */
+  setLit(lit: AtomLit, animate = false): void {
+    this.lit = { ...lit };
+    for (const layer of this.layers.values()) {
+      const to = this.litShare(layer.sub.key);
+      if (animate && !this.reduced && to === 1 && layer.vividTo < 1) layer.glint = 1;
+      layer.vividTo = to;
+      if (!animate) { layer.vivid = to; layer.glint = 0; }
+    }
+    const n = lit.nucleus ? 1 : 0;
+    if (animate && !this.reduced && n === 1 && this.nucleusVividTo < 1) this.nucleusGlint = 1;
+    this.nucleusVividTo = n;
+    if (!animate) { this.nucleusVivid = n; this.nucleusGlint = 0; }
+    this.animating = this.animating || animate;
+    this.apply();
+  }
+
+  /** Overall brightness on top of the parts (1 = full). */
   setDim(dim: number): void {
     this.dim = dim;
     this.apply();
@@ -371,17 +427,19 @@ export class AtomView {
   /** Turn the live cloud on or off (off for reduced motion). */
   setLive(on: boolean): void {
     this.live = on;
+    this.reduced = !on;
     for (const layer of this.layers.values()) layer.material.uniforms.uLive.value = on ? 1 : 0;
   }
 
   /** Advance transitions and the live cloud; call once per frame. */
   update(dt: number): void {
+    if (this.stepColor(dt)) this.animating = true;
     if (this.live) {
       this.time += dt;
       for (const layer of this.layers.values()) layer.material.uniforms.uTime.value = this.time;
     }
     if (!this.animating) return;
-    let busy = false;
+    let busy = this.coloring();
     for (const [key, layer] of this.layers) {
       if (layer.t < 1) {
         layer.t = Math.min(1, layer.t + dt / TRANSITION_S);
@@ -396,6 +454,26 @@ export class AtomView {
     this.apply();
   }
 
+  /** Move each part's color toward where it is heading; true while anything is still changing. */
+  private stepColor(dt: number): boolean {
+    const k = dt / (this.reduced ? 0.2 : VIVID_S);
+    const toward = (v: number, to: number) => (v < to ? Math.min(to, v + k) : Math.max(to, v - k));
+    const fade = (g: number) => (g > 0.01 ? g * Math.exp(-dt * (4.6 / GLINT_S)) : 0);
+    for (const layer of this.layers.values()) {
+      layer.vivid = toward(layer.vivid, layer.vividTo);
+      layer.glint = fade(layer.glint);
+    }
+    this.nucleusVivid = toward(this.nucleusVivid, this.nucleusVividTo);
+    this.nucleusGlint = fade(this.nucleusGlint);
+    return this.coloring();
+  }
+
+  private coloring(): boolean {
+    if (this.nucleusVivid !== this.nucleusVividTo || this.nucleusGlint > 0) return true;
+    for (const layer of this.layers.values()) if (layer.vivid !== layer.vividTo || layer.glint > 0) return true;
+    return false;
+  }
+
   private apply(): void {
     const cloudAlpha = this.style === 'shapes' ? 0 : 1;
     const shapeAlpha = this.style === 'shapes' ? 1 : this.style === 'hybrid' ? 0.35 : 0;
@@ -404,6 +482,12 @@ export class AtomView {
     for (const layer of this.layers.values()) {
       const hidden = this.hidden.has(layer.sub.l);
       const u = layer.material.uniforms;
+      // Pale gray until built, the orbital color after, with a white glint as it lights up.
+      const v = ease(layer.vivid);
+      const glow = mixRGB(mixRGB(PALE, this.glow(layer.sub.l), v), [1, 1, 1], layer.glint * 0.7);
+      const pale = PALE_ALPHA + (1 - PALE_ALPHA) * v + layer.glint * 0.6;
+      (u.uColor.value as THREE.Vector3).set(...glow);
+      if (layer.hazeMaterial) (layer.hazeMaterial.uniforms.uColor.value as THREE.Vector3).set(...glow);
       u.uFrom.value = layer.from;
       u.uTo.value = layer.to;
       u.uT.value = ease(layer.t);
@@ -412,7 +496,7 @@ export class AtomView {
       const rel = Math.min(1, (u.uScale.value * layer.edge) / Math.max(1e-6, outer));
       u.uDim.value = (layer.sub.core ? 0.5 : 1) * (layer.sub.l === 's' && !layer.sub.core ? 1.5 : 1) * Math.max(0.05, Math.pow(rel, 1.4));
       u.uSizeMul.value = 0.4 + 0.6 * rel;
-      u.uAlpha.value = (hidden ? 1 : cloudAlpha) * this.dim;
+      u.uAlpha.value = (hidden ? 1 : cloudAlpha) * this.dim * pale;
       const count = this.currentCount(layer);
       if (layer.hazeMaterial) {
         const h = layer.hazeMaterial.uniforms;
@@ -421,7 +505,7 @@ export class AtomView {
         // Inner layers are small and dense: their haze shrinks with them. Many electrons in one
         // layer overlap into a bright mass, so each one's share of glow falls as the layer fills.
         h.uSizeMul.value = 0.25 + 0.75 * rel;
-        h.uAlpha.value = (this.style === 'shapes' && !hidden ? 0.35 : 1) * this.dim * HAZE_ALPHA / Math.sqrt(Math.max(1, count));
+        h.uAlpha.value = (this.style === 'shapes' && !hidden ? 0.35 : 1) * this.dim * pale * HAZE_ALPHA / Math.sqrt(Math.max(1, count));
       }
       const lo = Math.min(layer.from, layer.to), hi = Math.max(layer.from, layer.to);
       layer.shapes.forEach((mesh, oi) => {
@@ -435,14 +519,21 @@ export class AtomView {
         const m = layer.shapeMaterials[oi];
         // s shells are drawn as thin glass so the lobes inside stay visible; core layers fainter still.
         const base = layer.sub.l === 's' ? 0.12 : 0.6;
-        m.opacity = shapeAlpha * base * Math.min(1, have) * (layer.sub.core ? 0.45 : 1) * (hidden ? GHOST : 1) * this.dim;
-        m.emissiveIntensity = 0.25 + flash * 1.2;
-        m.emissive.setRGB(...this.glow(layer.sub.l));
+        m.opacity = shapeAlpha * base * Math.min(1, have) * (layer.sub.core ? 0.45 : 1) * (hidden ? GHOST : 1) * this.dim * pale;
+        m.emissiveIntensity = 0.25 + flash * 1.2 + layer.glint * 0.8;
+        m.color.setRGB(...glow);
+        m.emissive.setRGB(...glow);
         if (flash > 0) m.emissive.lerp(layer.to > layer.from ? new THREE.Color(1, 1, 1) : new THREE.Color(1, 0.3, 0.2), flash * 0.8);
       });
     }
-    this.nucleusMaterial.uniforms.uAlpha.value = this.dim;
-    if (this.haloMaterial) this.haloMaterial.uniforms.uAlpha.value = 0.55 * this.dim;
+    const nv = ease(this.nucleusVivid), ng = this.nucleusGlint;
+    const npale = PALE_ALPHA + (1 - PALE_ALPHA) * nv + ng * 0.6;
+    (this.nucleusMaterial.uniforms.uColor.value as THREE.Vector3).set(...mixRGB(mixRGB(PALE, NUCLEUS_GLOW, nv), [1, 1, 1], ng * 0.7));
+    this.nucleusMaterial.uniforms.uAlpha.value = this.dim * npale;
+    if (this.haloMaterial) {
+      (this.haloMaterial.uniforms.uColor.value as THREE.Vector3).set(...mixRGB(PALE, HALO_GLOW, nv));
+      this.haloMaterial.uniforms.uAlpha.value = 0.55 * this.dim * npale * (1 + ng * 0.8);
+    }
   }
 
   private disposeLayer(layer: Layer): void {
@@ -463,6 +554,16 @@ export class AtomView {
     this.haloMaterial?.dispose();
     this.nucleus.geometry.dispose();
   }
+}
+
+function mixRGB(a: [number, number, number], b: [number, number, number], t: number): [number, number, number] {
+  return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+}
+
+/** An atom's subshells in the order electrons fill them (n + l, then n). */
+export function fillOrder(e: Element | null): string[] {
+  if (!e) return [];
+  return [...e.subshells].sort((a, b) => a.n + L_OF[a.l] - (b.n + L_OF[b.l]) || a.n - b.n).map((s) => s.key);
 }
 
 function ease(t: number): number {
