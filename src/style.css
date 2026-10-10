@@ -530,9 +530,9 @@ body.stage-nucleus #atom { opacity: 0.12; }
 .gal-hover[hidden] { display: none; }
 .gal-bottom { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 8px 12px calc(10px + var(--safe-bottom)); pointer-events: none; }
 .gal-bottom > * { pointer-events: auto; }
-.layout-switch { flex-wrap: nowrap; justify-content: flex-start; max-width: 100%; overflow-x: auto; scrollbar-width: none; }
-.layout-switch::-webkit-scrollbar { display: none; }
-.layout-switch button { flex: none; font-size: 12px; padding: 0 9px; min-height: 36px; }
+.layout-switch { flex-wrap: nowrap; justify-content: center; max-width: 100%; }
+.layout-switch button { flex: none; font-size: 12px; padding: 0 12px; min-height: 36px; }
+.lens-switch[hidden] { display: none; }
 /* Details: every element in the shared sortable table, filling the space between the count and the switch. */
 .gal-details { position: absolute; inset: 0; z-index: 1; display: flex; flex-direction: column; padding: calc(var(--top) + 40px) var(--sp-3) calc(var(--safe-bottom) + 84px); background: var(--c-bg); }
 .gal-details[hidden] { display: none; }

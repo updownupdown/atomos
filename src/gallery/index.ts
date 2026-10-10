@@ -133,14 +133,16 @@ export class GalleryApp {
     $('look-chip').innerHTML = `${icon('paint', { size: 18 })}<span>Color</span>`;
     $('look-chip').onclick = () => this.openLooks();
     const seg = $('layout-switch');
-    seg.innerHTML = `<button data-id="collection">Collection</button>`
-      + LAYOUTS.map((l) => `<button data-id="${l.id}">${l.label}</button>`).join('')
-      + `<button data-id="details">Details</button>`;
+    // Three views; under Map, a second row picks the arrangement (the lenses).
+    seg.innerHTML = `<button data-id="collection">Collection</button><button data-id="map">Map</button><button data-id="details">Details</button>`;
     seg.querySelectorAll<HTMLButtonElement>('button').forEach((b) => (b.onclick = () => {
-      const id = b.dataset.id!;
-      if (id === 'details' || id === 'collection') this.setMode(id);
-      else this.setLayout(id as LayoutId);
+      const id = b.dataset.id as GalleryMode;
+      if (id === 'map') this.setLayout(this.layoutId);
+      else this.setMode(id);
     }));
+    const lenses = $('lens-switch');
+    lenses.innerHTML = LAYOUTS.map((l) => `<button data-id="${l.id}">${l.label}</button>`).join('');
+    lenses.querySelectorAll<HTMLButtonElement>('button').forEach((b) => (b.onclick = () => this.setLayout(b.dataset.id as LayoutId)));
     // The two corner tools speak the same way: a small caption, then chips with an icon and a
     // plain label. Bottom right: how the atom is drawn.
     const styleIcon: Record<Style, IconName> = { cloud: 'view-cloud', shapes: 'view-shapes', hybrid: 'view-hybrid' };
@@ -297,9 +299,8 @@ export class GalleryApp {
 
   /** Locks on the lens buttons and the look chip, re-read after any puzzle is solved. */
   private paintGates(): void {
-    $('layout-switch').querySelectorAll<HTMLButtonElement>('button').forEach((b) => {
-      const id = b.dataset.id as LayoutId | GalleryMode;
-      const locked = id !== 'details' && id !== 'collection' && id !== 'map' && !this.opened(lensUnlock(id));
+    $('lens-switch').querySelectorAll<HTMLButtonElement>('button').forEach((b) => {
+      const locked = !this.opened(lensUnlock(b.dataset.id as LayoutId));
       b.classList.toggle('is-locked', locked);
       b.querySelector('.seg-lock')?.remove();
       if (locked) b.insertAdjacentHTML('beforeend', `<span class="seg-lock" aria-label=", locked">${icon('lock', { size: 14 })}</span>`);
@@ -364,8 +365,9 @@ export class GalleryApp {
 
   /** The arrangement buttons, the note under them, and the panel that covers the map. */
   private paintDetails(): void {
-    const id = this.mode === 'map' ? this.layoutId : this.mode;
-    $('layout-switch').querySelectorAll<HTMLButtonElement>('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.id === id)));
+    $('layout-switch').querySelectorAll<HTMLButtonElement>('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.id === this.mode)));
+    $('lens-switch').querySelectorAll<HTMLButtonElement>('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.id === this.layoutId)));
+    $('lens-switch').hidden = this.mode !== 'map';
     $('layout-note').textContent = this.mode === 'details' ? 'Every element in one table: tap a heading to sort, a row to open it'
       : this.mode === 'collection' ? 'Every atom and how far it is built: tap one to open it'
       : LAYOUTS.find((l) => l.id === this.layoutId)!.note;
