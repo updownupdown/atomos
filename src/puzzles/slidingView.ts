@@ -326,6 +326,10 @@ function hatch(ctx: CanvasRenderingContext2D, x0: number, y0: number, side: numb
 }
 
 // ---- rules ------------------------------------------------------------------------
+//
+// Each rule's pictures are stills of their last frame until the player taps Play. A move leaves
+// a faint copy of the piece where it started and a thin arrow to where it went, so the still
+// says what happened; what cannot happen is flagged in amber.
 
 /** Fits a cols x rows tray (with the exit lane) in a demo box; returns the cell size and the tray's top left. */
 function demoTray(w: number, h: number, cols: number, rows: number): { c: number; x: number; y: number } {
@@ -333,22 +337,117 @@ function demoTray(w: number, h: number, cols: number, rows: number): { c: number
   return { c, x: (w - (cols + LANE + LEFT) * c) / 2 + LEFT * c, y: (h - rows * c) / 2 };
 }
 
-const bar = (id: number, x: number, y: number, len: number, horiz: boolean): Block => ({ id, x, y, len, horiz, free: false });
+type Tray = { c: number; x: number; y: number };
 
-/** 0 to 1 and back over a loop: rest, go, rest, return. */
-function shuttle(T: number, loop: number): number {
-  const k = (T % loop) / loop;
-  return k < 0.15 ? 0 : k < 0.4 ? ease((k - 0.15) / 0.25) : k < 0.65 ? 1 : k < 0.9 ? 1 - ease((k - 0.65) / 0.25) : 0;
+const bar = (id: number, x: number, y: number, len: number, horiz: boolean): Block => ({ id, x, y, len, horiz, free: false });
+const loose = (x: number, y: number): Block => ({ id: 1, x, y, len: 1, horiz: true, free: true });
+
+const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
+/** Progress through [a, b] seconds, eased. */
+const seg = (t: number, a: number, b: number) => ease(clamp01((t - a) / (b - a)));
+
+/** A piece at cell (bx, by), possibly between cells. */
+function piece(ctx: CanvasRenderingContext2D, T: Tray, b: Block, bx = b.x, by = b.y, active = false): void {
+  drawBlock(ctx, b, T.x + bx * T.c, T.y + by * T.c, T.c, active);
 }
 
-/** The key bar leaving through the gap into the lane, fading as it goes. */
-function keyOut(ctx: CanvasRenderingContext2D, x0: number, y0: number, cols: number, rows: number, c: number, key: Block, k: number): void {
+/** Where a piece started: a faint copy. */
+function ghost(ctx: CanvasRenderingContext2D, T: Tray, b: Block): void {
+  ctx.save();
+  ctx.globalAlpha = 0.22;
+  piece(ctx, T, b);
+  ctx.restore();
+}
+
+/** The center of a piece's footprint at cell (bx, by). */
+function mid(T: Tray, b: Block, bx = b.x, by = b.y): { x: number; y: number } {
+  const w = b.free || !b.horiz ? 1 : b.len, h = b.free || b.horiz ? 1 : b.len;
+  return { x: T.x + (bx + w / 2) * T.c, y: T.y + (by + h / 2) * T.c };
+}
+
+/** A thin arrow for a move made, from one point to another. */
+function trail(ctx: CanvasRenderingContext2D, x1: number, y1: number, x2: number, y2: number, color: string = C.line3, alpha = 1): void {
+  if (alpha <= 0) return;
+  const a = Math.atan2(y2 - y1, x2 - x1), hd = 4;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.5;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.moveTo(x2 - hd * Math.cos(a - 0.6), y2 - hd * Math.sin(a - 0.6));
+  ctx.lineTo(x2, y2);
+  ctx.lineTo(x2 - hd * Math.cos(a + 0.6), y2 - hd * Math.sin(a + 0.6));
+  ctx.stroke();
+  ctx.restore();
+}
+
+/** A way a piece cannot go: an amber arrow struck through. */
+function noWay(ctx: CanvasRenderingContext2D, x1: number, y1: number, x2: number, y2: number, alpha: number): void {
+  if (alpha <= 0) return;
+  trail(ctx, x1, y1, x2, y2, C.warn, alpha);
+  const mx = (x1 + x2) / 2, my = (y1 + y2) / 2, k = 4;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.strokeStyle = C.warn;
+  ctx.lineWidth = 2;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(mx - k, my - k); ctx.lineTo(mx + k, my + k);
+  ctx.moveTo(mx + k, my - k); ctx.lineTo(mx - k, my + k);
+  ctx.stroke();
+  ctx.restore();
+}
+
+/** An amber outline around a piece's footprint at cell (bx, by): the piece that is stuck or in the way. */
+function warnOutline(ctx: CanvasRenderingContext2D, T: Tray, b: Block, bx: number, by: number, alpha: number, dashed = false): void {
+  if (alpha <= 0) return;
+  const w = b.free || !b.horiz ? 1 : b.len, h = b.free || b.horiz ? 1 : b.len, g = T.c * 0.03;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  if (dashed) ctx.setLineDash([4, 3]);
+  tile(ctx, T.x + bx * T.c + g, T.y + by * T.c + g, w * T.c - 2 * g, h * T.c - 2 * g, T.c * (b.free ? 0.5 : 0.2), null, C.warn, 2);
+  ctx.restore();
+}
+
+/** Where a sliding piece hit something: a short amber bar on the face it met, along x = const or y = const. */
+function stopLine(ctx: CanvasRenderingContext2D, x1: number, y1: number, x2: number, y2: number, alpha: number): void {
+  if (alpha <= 0) return;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.strokeStyle = C.warn;
+  ctx.lineWidth = 3;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.stroke();
+  ctx.restore();
+}
+
+/** A fingertip dragging, while k runs from 0 to 1. */
+function finger(ctx: CanvasRenderingContext2D, x1: number, y1: number, x2: number, y2: number, k: number): void {
+  if (k <= 0 || k >= 1) return;
+  ctx.save();
+  ctx.globalAlpha = 0.55 * Math.sin(Math.PI * k);
+  ctx.fillStyle = C.silver;
+  ctx.beginPath();
+  ctx.arc(x1 + (x2 - x1) * ease(k), y1 + (y2 - y1) * ease(k), 5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+/** The key bar on its way out through the gap, as the board draws it: clipped at the lane's end and fading. */
+function keyOut(ctx: CanvasRenderingContext2D, T: Tray, cols: number, rows: number, key: Block, k: number): void {
   ctx.save();
   ctx.beginPath();
-  ctx.rect(x0, y0, (cols + LANE) * c, rows * c);
+  ctx.rect(T.x, T.y, (cols + LANE) * T.c, rows * T.c);
   ctx.clip();
-  ctx.globalAlpha = 1 - k;
-  drawBlock(ctx, key, x0 + (key.x + k * LANE) * c, y0 + key.y * c, c, false);
+  ctx.globalAlpha = 1 - 0.65 * k;
+  piece(ctx, T, key, key.x + k * (key.len + LANE));
   ctx.restore();
 }
 
@@ -356,86 +455,167 @@ export const RULES: RuleCard[] = [
   {
     title: 'The key bar',
     text: 'Get the red key bar out through the gap in the right wall, marked by a red chevron.',
-    demo: (ctx, w, h, t) => {
-      const T = t % 3.2;
-      const cols = 4, rows = 2, { c, x, y } = demoTray(w, h, cols, rows);
-      drawTray(ctx, x, y, cols, rows, c, 0, LANE);
-      drawBlock(ctx, bar(1, 1, 1, 3, true), x + c, y + c, c, false);
-      const key = bar(0, 0, 0, 2, true);
-      if (T < 1.6) drawBlock(ctx, key, x + ease(Math.max(0, (T - 0.5) / 0.6)) * 2 * c, y, c, T > 0.5 && T < 1.1);
-      else if (T < 2.4) keyOut(ctx, x, y, cols, rows, c, { ...key, x: 2 }, ease((T - 1.6) / 0.8));
+    good: {
+      duration: 2.4,
+      caption: 'Out through the gap',
+      draw: (ctx, w, h, t) => {
+        const cols = 4, rows = 2, T = demoTray(w, h, cols, rows);
+        drawTray(ctx, T.x, T.y, cols, rows, T.c, 0, LANE);
+        piece(ctx, T, bar(1, 1, 1, 3, true));
+        const key = bar(0, 0, 0, 2, true);
+        ghost(ctx, T, key);
+        const a = mid(T, key);
+        trail(ctx, a.x, a.y, T.x + (cols + LANE * 0.9) * T.c, a.y, C.line3, seg(t, 0.3, 0.6));
+        if (t < 1.1) piece(ctx, T, key, seg(t, 0.4, 1.0) * 2, 0, t > 0.4);
+        else keyOut(ctx, T, cols, rows, { ...key, x: 2 }, seg(t, 1.1, 2.2) * 0.5);
+      },
     },
   },
   {
     title: 'Bars slide lengthwise',
     text: 'Drag a bar along its length: bars lying across slide left and right, standing bars slide up and down. One slide is one move, however far it goes.',
-    demo: (ctx, w, h, t) => {
-      const cols = 5, rows = 3, { c, x, y } = demoTray(w, h, cols, rows);
-      drawTray(ctx, x, y, cols, rows, c, 0, LANE);
-      const a = shuttle(t, 4), b = shuttle(t + 2, 4);
-      drawBlock(ctx, bar(1, 0, 2, 2, true), x + a * 2 * c, y + 2 * c, c, a > 0 && a < 1);
-      drawBlock(ctx, bar(2, 4, 0, 2, false), x + 4 * c, y + b * c, c, b > 0 && b < 1);
+    good: {
+      duration: 2.4,
+      caption: 'Along its length, any distance',
+      draw: (ctx, w, h, t) => {
+        const cols = 4, rows = 3, T = demoTray(w, h, cols, rows);
+        drawTray(ctx, T.x, T.y, cols, rows, T.c, 0, LANE);
+        const lying = bar(1, 0, 2, 2, true), standing = bar(2, 0, 0, 2, false);
+        ghost(ctx, T, lying);
+        ghost(ctx, T, standing);
+        const a = mid(T, lying), b = mid(T, lying, 2), c = mid(T, standing), d = mid(T, standing, 0, 1);
+        trail(ctx, a.x, a.y, b.x, b.y, C.line3, seg(t, 1, 1.2));
+        trail(ctx, c.x, c.y, d.x, d.y, C.line3, seg(t, 2, 2.2));
+        const k1 = seg(t, 0.3, 0.9), k2 = seg(t, 1.3, 1.9);
+        piece(ctx, T, lying, k1 * 2, 2, t > 0.3 && t < 0.95);
+        piece(ctx, T, standing, 0, k2, t > 1.3 && t < 1.95);
+      },
+    },
+    bad: {
+      duration: 2,
+      caption: 'Never sideways',
+      draw: (ctx, w, h, t) => {
+        const cols = 4, rows = 3, T = demoTray(w, h, cols, rows);
+        drawTray(ctx, T.x, T.y, cols, rows, T.c, 0, LANE);
+        const lying = bar(1, 1, 1, 2, true);
+        const c = mid(T, lying);
+        // Tugged upward, it does not budge.
+        piece(ctx, T, lying, 1, 1, t > 0.3 && t < 1.2);
+        finger(ctx, c.x, c.y, c.x, c.y - T.c, (t - 0.3) / 0.9);
+        warnOutline(ctx, T, lying, 1, 1, seg(t, 1.1, 1.4));
+        noWay(ctx, c.x, c.y - T.c * 0.55, c.x, c.y - T.c * 1.4, seg(t, 1.1, 1.4));
+      },
     },
   },
   {
     title: 'Walls',
     text: 'Hatched squares are walls. They never move, and nothing slides through them.',
-    demo: (ctx, w, h, t) => {
-      const T = t % 3;
-      const cols = 4, rows = 2, { c, x, y } = demoTray(w, h, cols, rows);
-      drawTray(ctx, x, y, cols, rows, c, 0, LANE);
-      drawWall(ctx, x + 3 * c, y + c, c);
-      // Pulled hard to the right, the bar stops at the wall and leans a little.
-      const k = T < 0.4 ? 0 : T < 1.2 ? ease((T - 0.4) / 0.8) * 1.12 : T < 1.6 ? 1.12 : T < 1.8 ? 1.12 - 0.12 * ease((T - 1.6) / 0.2) : T < 2.4 ? 1 - ease((T - 1.8) / 0.6) : 0;
-      drawBlock(ctx, bar(1, 0, 1, 2, true), x + k * c, y + c, c, T > 0.4 && T < 1.6);
+    good: {
+      duration: 2,
+      caption: 'It stops beside the wall',
+      draw: (ctx, w, h, t) => {
+        const cols = 4, rows = 2, T = demoTray(w, h, cols, rows);
+        drawTray(ctx, T.x, T.y, cols, rows, T.c, 0, LANE);
+        drawWall(ctx, T.x + 3 * T.c, T.y + T.c, T.c);
+        const b = bar(1, 0, 1, 2, true);
+        ghost(ctx, T, b);
+        const a = mid(T, b), z = mid(T, b, 1);
+        trail(ctx, a.x, a.y, z.x, z.y, C.line3, seg(t, 1.1, 1.3));
+        piece(ctx, T, b, seg(t, 0.3, 0.9), 1, t > 0.3 && t < 0.95);
+      },
+    },
+    bad: {
+      duration: 2.2,
+      caption: 'Never through it',
+      draw: (ctx, w, h, t) => {
+        const cols = 4, rows = 2, T = demoTray(w, h, cols, rows);
+        drawTray(ctx, T.x, T.y, cols, rows, T.c, 0, LANE);
+        drawWall(ctx, T.x + 3 * T.c, T.y + T.c, T.c);
+        const b = bar(1, 1, 1, 2, true);
+        // Pulled hard to the right, the bar leans into the wall and settles back.
+        const lean = t < 0.3 ? 0 : t < 0.8 ? 0.12 * seg(t, 0.3, 0.8) : 0.12 * (1 - seg(t, 1.0, 1.25));
+        piece(ctx, T, b, 1 + lean, 1, t > 0.3 && t < 1.2);
+        finger(ctx, mid(T, b).x, mid(T, b).y, mid(T, b, 2.2).x, mid(T, b).y, (t - 0.3) / 0.8);
+        const k = seg(t, 1.2, 1.5);
+        warnOutline(ctx, T, b, 2, 1, k * 0.9, true);
+        stopLine(ctx, T.x + 3 * T.c, T.y + T.c + T.c * 0.15, T.x + 3 * T.c, T.y + 2 * T.c - T.c * 0.15, k);
+      },
     },
   },
   {
     title: 'Loose pieces',
     text: 'Round pieces are loose: they slide any of the four ways, one way per move.',
-    demo: (ctx, w, h, t) => {
-      const cols = 3, rows = 3, { c, x, y } = demoTray(w, h, cols, rows);
-      drawTray(ctx, x, y, cols, rows, c, 1, LANE);
-      // Round the edge: right, down, left, up.
-      const T = (t % 4) / 4, side = Math.floor(T * 4), k = ease(Math.min(1, ((T * 4) % 1) / 0.6));
-      const corners = [[0, 0], [2, 0], [2, 2], [0, 2]];
-      const [ax, ay] = corners[side], [bx, by] = corners[(side + 1) % 4];
-      drawWall(ctx, x + c, y + c, c);
-      const loose: Block = { id: 1, x: 0, y: 0, len: 1, horiz: true, free: true };
-      drawBlock(ctx, loose, x + (ax + (bx - ax) * k) * c, y + (ay + (by - ay) * k) * c, c, k > 0 && k < 1);
+    good: {
+      duration: 2.4,
+      caption: 'Any of four ways, one per move',
+      draw: (ctx, w, h, t) => {
+        const cols = 3, rows = 3, T = demoTray(w, h, cols, rows);
+        drawTray(ctx, T.x, T.y, cols, rows, T.c, 1, LANE);
+        drawWall(ctx, T.x + T.c, T.y + T.c, T.c);
+        const p = loose(0, 0);
+        ghost(ctx, T, p);
+        const k1 = seg(t, 0.3, 0.8), k2 = seg(t, 1.1, 1.6);
+        const a = mid(T, p), b = mid(T, p, 2, 0), c = mid(T, p, 2, 2);
+        trail(ctx, a.x + T.c * 0.3, a.y, b.x - T.c * 0.3, b.y, C.line3, seg(t, 0.8, 1));
+        trail(ctx, b.x, b.y + T.c * 0.3, c.x, c.y - T.c * 0.3, C.line3, seg(t, 1.6, 1.8));
+        if (t > 0.8) { ctx.save(); ctx.globalAlpha = 0.22; piece(ctx, T, p, 2, 0); ctx.restore(); }
+        piece(ctx, T, p, 2 * k1, 2 * k2, (t > 0.3 && t < 0.85) || (t > 1.1 && t < 1.65));
+      },
+    },
+    bad: {
+      duration: 2,
+      caption: 'Never diagonally',
+      draw: (ctx, w, h, t) => {
+        const cols = 3, rows = 3, T = demoTray(w, h, cols, rows);
+        drawTray(ctx, T.x, T.y, cols, rows, T.c, 1, LANE);
+        const p = loose(0, 0);
+        const a = mid(T, p), z = mid(T, p, 1, 1);
+        piece(ctx, T, p, 0, 0, t > 0.3 && t < 1.2);
+        finger(ctx, a.x, a.y, z.x, z.y, (t - 0.3) / 0.8);
+        const k = seg(t, 1.1, 1.4);
+        warnOutline(ctx, T, p, 1, 1, k * 0.9, true);
+        noWay(ctx, a.x + T.c * 0.3, a.y + T.c * 0.3, z.x - T.c * 0.3, z.y - T.c * 0.3, k);
+      },
     },
   },
   {
     title: 'Clear the way',
     text: 'Slide whatever stands in the key bar\'s row out of its way, then drag the key bar to the gap and it slides out.',
-    demo: (ctx, w, h, t) => {
-      const T = t % 5;
-      const cols = 4, rows = 4, { c, x, y } = demoTray(w, h, cols, rows);
-      drawTray(ctx, x, y, cols, rows, c, 1, LANE);
-      const down = T < 0.5 ? 0 : T < 1.1 ? ease((T - 0.5) / 0.6) * 2 : T < 4.4 ? 2 : 2 - ease((T - 4.4) / 0.5) * 2;
-      drawBlock(ctx, bar(1, 2, 0, 2, false), x + 2 * c, y + down * c, c, T > 0.5 && T < 1.1);
-      const key = bar(0, 0, 1, 2, true);
-      if (T < 2.1) drawBlock(ctx, key, x + ease(Math.max(0, (T - 1.5) / 0.6)) * 2 * c, y + c, c, T > 1.5);
-      else if (T < 2.9) keyOut(ctx, x, y, cols, rows, c, { ...key, x: 2 }, ease((T - 2.1) / 0.8));
-      else if (T > 4.4) {
-        ctx.save();
-        ctx.globalAlpha = ease((T - 4.4) / 0.5);
-        drawBlock(ctx, key, x, y + c, c, false);
-        ctx.restore();
-      }
+    good: {
+      duration: 3,
+      caption: 'Out of its row, then the key leaves',
+      draw: (ctx, w, h, t) => {
+        const cols = 4, rows = 4, T = demoTray(w, h, cols, rows);
+        drawTray(ctx, T.x, T.y, cols, rows, T.c, 1, LANE);
+        const blocker = bar(1, 3, 0, 2, false), key = bar(0, 0, 1, 2, true);
+        ghost(ctx, T, blocker);
+        const a = mid(T, blocker), b = mid(T, blocker, 3, 2);
+        trail(ctx, a.x, a.y, b.x, b.y, C.line3, seg(t, 0.9, 1.1));
+        piece(ctx, T, blocker, 3, 2 * seg(t, 0.3, 0.8), t > 0.3 && t < 0.85);
+        if (t < 1.8) piece(ctx, T, key, 2 * seg(t, 1.2, 1.7), 1, t > 1.2);
+        else keyOut(ctx, T, cols, rows, { ...key, x: 2 }, seg(t, 1.8, 2.8) * 0.5);
+      },
+    },
+    bad: {
+      duration: 2.4,
+      caption: 'One cell down still blocks it',
+      draw: (ctx, w, h, t) => {
+        const cols = 4, rows = 4, T = demoTray(w, h, cols, rows);
+        drawTray(ctx, T.x, T.y, cols, rows, T.c, 1, LANE);
+        const blocker = bar(1, 3, 0, 2, false), key = bar(0, 0, 1, 2, true);
+        ghost(ctx, T, blocker);
+        const a = mid(T, blocker), b = mid(T, blocker, 3, 1);
+        trail(ctx, a.x, a.y, b.x, b.y, C.line3, seg(t, 0.9, 1.1));
+        piece(ctx, T, blocker, 3, seg(t, 0.3, 0.8), t > 0.3 && t < 0.85);
+        piece(ctx, T, key, seg(t, 1.2, 1.6), 1, t > 1.2 && t < 1.7);
+        const k = seg(t, 1.7, 2);
+        warnOutline(ctx, T, blocker, 3, 1, k);
+        stopLine(ctx, T.x + 3 * T.c, T.y + T.c * 1.15, T.x + 3 * T.c, T.y + T.c * 1.85, k);
+      },
     },
   },
   {
     title: 'Keyboard',
     text: 'Tab picks a piece, ringed in cyan; the arrow keys slide it one cell.',
-    demo: (ctx, w, h, t) => {
-      const T = t % 4;
-      const cols = 4, rows = 3, { c, x, y } = demoTray(w, h, cols, rows);
-      drawTray(ctx, x, y, cols, rows, c, 1, LANE);
-      const pick = T < 1.2 ? 0 : 1;
-      const shift = pick === 1 ? (T < 1.8 ? 0 : T < 2.1 ? ease((T - 1.8) / 0.3) : T < 3.4 ? 1 : 1 - ease((T - 3.4) / 0.3)) : 0;
-      drawBlock(ctx, bar(0, 0, 1, 2, true), x, y + c, c, pick === 0);
-      drawBlock(ctx, bar(1, 3, 0, 2, false), x + 3 * c, y + shift * c, c, pick === 1);
-    },
   },
 ];
