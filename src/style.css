@@ -197,7 +197,7 @@ body:not(.build-home) .build-bar { display: none; }
 .bh-bar { display: flex; gap: 6px; }
 .bh-bar-group { display: flex; gap: 3px; }
 .bh-seg { flex: 1; height: 8px; border-radius: var(--r-pill); background: var(--c-surface-3); }
-.bh-seg.is-done { background: var(--atom); }
+.bh-seg.is-done { background: var(--c-good); }
 .bh-bar-caption { display: flex; justify-content: space-between; margin-top: var(--sp-1); font-size: var(--fs-sm); color: var(--c-text-2); }
 .bh-bar-count { font-variant-numeric: tabular-nums; color: var(--c-text); font-weight: var(--fw-semibold); }
 
@@ -209,25 +209,27 @@ body:not(.build-home) .build-bar { display: none; }
 .bh-label { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .bh-label b { font-size: var(--fs-md); font-weight: var(--fw-semibold); color: var(--c-text); overflow-wrap: anywhere; }
 .bh-label span { font-size: var(--fs-sm); color: var(--c-text-3); }
+.bh-label .bh-label-icon { display: block; margin-bottom: var(--sp-1); color: var(--c-text-2); }
 .bh-step { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: var(--sp-2) var(--sp-3); padding: var(--sp-2) var(--sp-3) var(--sp-2) var(--sp-2); border-radius: 6px; background: var(--c-surface); border: 2px solid color-mix(in srgb, var(--c-text) 9%, transparent); }
-.is-next .bh-step { border-color: color-mix(in srgb, var(--atom) 38%, transparent); }
 .bh-row.is-locked { opacity: 0.55; }
 .bh-mark { position: relative; width: 48px; height: 48px; border-radius: 4px; display: grid; place-items: center; background: var(--c-surface-2); color: var(--c-text); }
 .bh-badge { position: absolute; right: -6px; bottom: -6px; width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; background: var(--c-surface-3); color: var(--c-text); box-shadow: 0 0 0 2px var(--c-surface); }
-.is-flawless .bh-badge { color: var(--c-warn); }
+.is-done .bh-badge, .is-flawless .bh-badge { color: var(--c-good); }
 .bh-step-body { min-width: 0; }
 .bh-step-name { margin: 0; font-size: var(--fs-md); font-weight: var(--fw-semibold); }
 /* The icon and the name share one color: the atom's while the step waits to be played. */
-.is-next .bh-mark, .is-next .bh-step-name { color: var(--atom); }
 .bh-adds { margin: 2px 0 0; font-size: var(--fs-md); line-height: var(--lh); color: var(--c-text-2); }
 .bh-where { margin: var(--sp-1) 0 0; font-size: var(--fs-sm); color: var(--c-text-3); }
-.is-flawless .bh-where { color: var(--c-warn); }
 .bh-side { display: flex; flex-direction: column; align-items: center; gap: var(--sp-1); min-width: 64px; }
 .bh-state { font-size: var(--fs-2xs); font-weight: var(--fw-semibold); letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--c-text-2); white-space: nowrap; text-align: center; }
-.is-next .bh-state { color: var(--atom); }
-.is-flawless .bh-state { color: var(--c-warn); }
+.is-done .bh-state, .is-flawless .bh-state { color: var(--c-good); }
 .bh-step .bh-play { display: grid; place-items: center; width: 48px; height: 48px; min-height: 0; padding: 0; border-radius: 50%; }
-.bh-step .bh-play.primary { background: var(--atom); color: var(--c-bg); }
+.bh-step .bh-play.primary { background: var(--c-accent); color: var(--c-accent-ink); }
+.bh-lock { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 50%; background: var(--c-surface-2); color: var(--c-text-3); }
+.bh-head { display: flex; align-items: flex-start; gap: var(--sp-3); margin-bottom: calc(var(--sp-3) - var(--sp-5)); }
+.bh-head-icon { flex: none; color: var(--c-text-2); padding-top: 2px; }
+.bh-head h3 { margin: 0; font-size: var(--fs-lg); font-weight: var(--fw-semibold); }
+.bh-head p { margin: 2px 0 0; font-size: var(--fs-md); line-height: var(--lh); color: var(--c-text-2); }
 .bh-bench { align-self: flex-start; }
 
 /* The Build microscope: a tab per part of the atom, a few big numbers and a line each. */
@@ -751,9 +753,9 @@ body.stage-nucleus #atom { opacity: 0.12; }
 .win-card { position: relative; width: min(100%, 400px); max-height: 100%; overflow: auto; padding: var(--sp-5) var(--sp-4) var(--sp-4); border-radius: var(--r-lg); background: var(--c-surface); border: 1px solid var(--c-line-2); box-shadow: var(--shadow-modal); text-align: center; animation: win-pop 420ms var(--ease); }
 .win-burst { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .win-mark { position: relative; color: var(--c-accent); display: flex; justify-content: center; }
-.win--flawless .win-mark { color: var(--c-warn); }
+.win--flawless .win-mark { color: var(--c-good); }
 .win-kicker { position: relative; margin: var(--sp-2) 0 0; font-size: var(--fs-xs); font-weight: var(--fw-semibold); letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--c-accent); }
-.win--flawless .win-kicker { color: var(--c-warn); }
+.win--flawless .win-kicker { color: var(--c-good); }
 .win-title { position: relative; margin: var(--sp-1) 0 var(--sp-3); font-size: var(--fs-xl); font-weight: var(--fw-semibold); line-height: var(--lh-tight); }
 .win-stats { position: relative; display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: var(--sp-2); margin: 0 0 var(--sp-3); }
 .win-stats div { padding: var(--sp-2); border-radius: var(--r-md); background: var(--c-surface-2); }
@@ -994,6 +996,14 @@ body[data-screen^='atom'].build-home .science-fab, body[data-screen='atom-view']
 .settings-screen[hidden] { display: none; }
 .settings-page { width: min(640px, 100%); margin: 0 auto; padding-top: var(--sp-3); }
 .settings-title { margin: var(--sp-2) 0 var(--sp-3); font-size: var(--fs-2xl); font-weight: var(--fw-bold); }
+/* Readable text and room between rows: only the section labels are small. */
+.settings-page h3 { margin: var(--sp-6) 0 var(--sp-3); font-size: var(--fs-sm); }
+.settings-page .muted { margin: var(--sp-2) 0; font-family: var(--font); font-size: var(--fs-md); line-height: var(--lh); color: var(--c-text-2); }
+.settings-page .ui-switch-row + .ui-switch-row { margin-top: var(--sp-4); }
+.settings-page .ui-switch-text { font-size: calc(var(--fs-md) + 2px); }
+.settings-page .ui-switch-text small { margin-top: var(--sp-1); font-size: var(--fs-md); line-height: var(--lh); }
+.settings-page .actions { gap: var(--sp-3); margin-top: var(--sp-4); }
+.settings-link { display: inline-flex; align-items: center; font-size: var(--fs-md); text-decoration: none; }
 
 /* ---- Science sheet: one picture per tab ---- */
 .atom-page figure { margin: var(--sp-2) 0 var(--sp-3); }
@@ -1224,11 +1234,6 @@ body[data-screen^='atom'].build-home .science-fab, body[data-screen='atom-view']
 .ob-group.is-core { opacity: 0.45; }
 @media (max-width: 420px) { .ob-box { width: 25px; height: 26px; } .ob-box b { font-size: 12px; } }
 .pg-card-icon { display: inline-grid; place-items: center; color: var(--c-accent); margin-right: 2px; }
-
-/* Settings' last line: quiet links to the pages behind it. */
-.settings-foot { margin: var(--sp-6) 0 0; font-size: var(--fs-sm); }
-.settings-foot a { color: var(--c-accent); text-decoration: none; font-weight: var(--fw-semibold); }
-.settings-foot a:hover { text-decoration: underline; }
 
 /* The icon library page (src/ui/iconpage.ts). */
 .icon-page { width: min(960px, 100%); margin: 0 auto; padding-top: var(--sp-3); }

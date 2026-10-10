@@ -26,7 +26,7 @@ import { openRules } from './puzzles/rulesModal';
 import { showWin } from './puzzles/winPanel';
 import { closeModal, modalOpen, openModal } from './ui/modal';
 import { createHoldButton, createTabs, iconButton } from './ui/components';
-import { icon } from './ui/icons';
+import { icon, type IconName } from './ui/icons';
 import { scienceButton, setScienceHandler } from './ui/science';
 import { elementAt, shortConfiguration } from './gallery/data';
 import * as sfx from './audio';
@@ -317,6 +317,7 @@ export class Game {
       return this.card({
         stage: id,
         label: STEP_LABEL[id],
+        labelIcon: id === 'nucleus' ? 'nucleus' : 'electrons',
         text: this.adds(id),
         done: st.done,
         flawless: st.flawless,
@@ -372,6 +373,10 @@ export class Game {
       ${gateRow && !open ? `<ol class="bh-steps" aria-label="Row ${row} gate">${gateRow}</ol>` : ''}
       <ol class="bh-steps" aria-label="Build ${name}">${z === 1 ? this.hydrogenNucleus() : ''}${stepRows}</ol>
       ${vault.length ? `
+      <div class="bh-head">
+        <span class="bh-head-icon" aria-hidden="true">${icon('isotopes', { size: 28 })}</span>
+        <div><h3>Isotopes</h3><p>${el.name} with other numbers of neutrons. ${built ? `One Tessera board each.` : `They open once ${name} is built.`}</p></div>
+      </div>
       <ol class="bh-steps" aria-label="${el.name} isotopes">${isoRows}</ol>
       ${live ? `<button class="text-btn bh-bench" id="bh-bench">Watch your unstable isotopes</button>` : ''}` : ''}
       ${shapeRow || (gateRow && open) ? `<ol class="bh-steps" aria-label="Discoveries">${open ? gateRow : ''}${shapeRow}</ol>` : ''}`;
@@ -396,7 +401,7 @@ export class Game {
 
   /** One row of the Build page: what it builds on the left; in the box, the puzzle's icon and name
    *  in one color, what it adds, and on the right its state over a round Play or Replay button. */
-  private card(o: { stage: Exclude<Stage, 'home'>; label: string; sub?: string; text: string; done: boolean; flawless: boolean; best?: number; locked?: string; gate?: string }): string {
+  private card(o: { stage: Exclude<Stage, 'home'>; label: string; labelIcon?: IconName; sub?: string; text: string; done: boolean; flawless: boolean; best?: number; locked?: string; gate?: string }): string {
     const t = this.stagePuzzle(o.stage);
     const paused = this.suspended[o.stage];
     const gated = Boolean(o.gate) && !o.done;
@@ -410,11 +415,11 @@ export class Game {
     const badge = o.done ? `<span class="bh-badge">${icon(o.flawless ? 'star' : 'check', { size: 14 })}</span>` : '';
     const verb = paused ? 'Resume' : o.done ? 'Replay' : gated ? 'Unlock' : 'Play';
     const glyph = o.done && !paused ? icon('restart', { size: 22 }) : gated && !paused ? icon('unlock', { size: 22 }) : icon('play', { size: 22 });
-    const play = o.locked ? ''
+    const play = o.locked ? `<span class="bh-lock" aria-hidden="true">${icon('lock', { size: 22 })}</span>`
       : `<button class="${o.done && !paused ? 'secondary' : 'primary'} bh-play" data-stage="${o.stage}" aria-label="${verb} ${t.name}: ${o.label}" title="${verb}">${glyph}</button>`;
     return `
       <li class="bh-row ${cls}">
-        <div class="bh-label"><b>${o.label}</b>${o.sub ? `<span>${o.sub}</span>` : ''}</div>
+        <div class="bh-label">${o.labelIcon ? `<span class="bh-label-icon" aria-hidden="true">${icon(o.labelIcon, { size: 28 })}</span>` : ''}<b>${o.label}</b>${o.sub ? `<span>${o.sub}</span>` : ''}</div>
         <div class="bh-step">
           <span class="bh-mark" aria-hidden="true">${puzzleIcon(t.id, 32)}${badge}</span>
           <div class="bh-step-body">

@@ -72,7 +72,7 @@ function burst(canvas: HTMLCanvasElement, flawless: boolean): () => void {
   canvas.height = h * dpr;
   const ctx = canvas.getContext('2d');
   if (!ctx) return () => {};
-  const colors = flawless ? [C.accent, C.silver, C.warn, C.accent] : [C.accent, C.silver, C.silverDim];
+  const colors = flawless ? [C.accent, C.silver, C.good, C.accent] : [C.accent, C.silver, C.silverDim];
   const n = flawless ? 46 : 30;
   const sparks = Array.from({ length: n }, (_, i) => {
     const a = (i / n) * Math.PI * 2 + Math.random() * 0.4;
