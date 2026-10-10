@@ -8,6 +8,8 @@ import { GalleryApp } from './gallery';
 import type { Game } from './game';
 import type { Playground } from './playground';
 import { onSettingsChange, openSettings } from './ui/settings';
+import { icon } from './ui/icons';
+import { setScienceHandler } from './ui/science';
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -34,6 +36,7 @@ export class AppShell {
     $('nav-gallery').onclick = () => void this.go('gallery');
     $('nav-atom').onclick = () => void this.go('atom', this.mode);
     $('nav-puzzles').onclick = () => void this.go('puzzles');
+    $('nav-settings').innerHTML = icon('settings');
     $('nav-settings').onclick = () => openSettings();
     $('mode-view').onclick = () => void this.go('atom', 'view');
     $('mode-build').onclick = () => void this.go('atom', 'build');
@@ -63,7 +66,8 @@ export class AppShell {
     this.mode = screen === 'atom' ? mode : this.mode;
     this.setNav(screen, this.mode);
 
-    // Put away whatever is not on screen.
+    // Put away whatever is not on screen. The screen that shows re-registers the microscope.
+    setScienceHandler(null);
     const showGallery = screen === 'gallery' || (screen === 'atom' && mode === 'view');
     const showGame = screen === 'atom' && mode === 'build';
     const showPlay = screen === 'puzzles';

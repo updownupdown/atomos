@@ -26,8 +26,8 @@ interface Node {
   phase: number;
 }
 
-/** Atoms keep their true relative sizes but are shrunk so the largest (francium) fits its slot. */
-const ATOM_SCALE = 0.3;
+/** Atoms keep their true relative sizes but are shrunk so even francium leaves a clear gap to its neighbours. */
+const ATOM_SCALE = 0.23;
 
 interface Pointer { id: number; x: number; y: number }
 
@@ -306,7 +306,8 @@ export class Gallery {
     this.camera.position.set(this.centre.x + this.pan.x, this.centre.y + this.pan.y, dist);
     this.camera.lookAt(this.centre.x + this.pan.x, this.centre.y + this.pan.y, 0);
     const px = this.height * this.renderer.getPixelRatio();
-    const size = px * 0.15;
+    // Fine, crisp dots so each atom keeps a readable edge instead of melting into its neighbours.
+    const size = px * 0.075;
     for (const n of this.nodes) {
       if (!this.reducedMotion) {
         n.view.group.rotation.y += dt * 0.3;
@@ -330,12 +331,24 @@ export class Gallery {
 
   private tmp = new THREE.Vector3();
   private placeLabels(): void {
-    const offset = 0.62;
-    for (const n of this.nodes) {
+    const offset = 0.52;
+    // Labels that would collide with one already placed are hidden until the player zooms in.
+    // The selected element goes first so its label always shows.
+    const placed: [number, number][] = [];
+    const clear = (x: number, y: number) => placed.every(([px, py]) => Math.abs(px - x) > 17 || Math.abs(py - y) > 11);
+    const order = this.selected ? [this.nodes[this.selected - 1], ...this.nodes.filter((n) => n.e.z !== this.selected)] : this.nodes;
+    for (const m of this.markers) {
+      this.tmp.set(Number(m.dataset.x), Number(m.dataset.y), Number(m.dataset.z));
+      const [x, y] = this.project(this.tmp);
+      placed.push([x, y - 6]);
+    }
+    for (const n of order) {
       this.tmp.copy(n.view.group.position);
       this.tmp.y -= offset;
       const [x, y, depth] = this.project(this.tmp);
-      const visible = depth < 1 && x > -40 && x < this.width + 40 && y > -20 && y < this.height + 20;
+      const onScreen = depth < 1 && x > -40 && x < this.width + 40 && y > -20 && y < this.height + 20;
+      const visible = onScreen && (n.e.z === this.selected || clear(x, y));
+      if (visible) placed.push([x, y]);
       n.label.style.transform = `translate(${x.toFixed(1)}px,${y.toFixed(1)}px) translateX(-50%)`;
       n.label.style.opacity = visible ? '1' : '0';
       n.label.classList.toggle('sel', n.e.z === this.selected);

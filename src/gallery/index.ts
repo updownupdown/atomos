@@ -7,9 +7,11 @@ import { CLOUD_RINGS, ELEMENTS, MAX_Z, elementAt, type Element } from './data';
 import { Detail } from './detail';
 import { Gallery } from './gallery';
 import { decoratorsHTML, TABS, tabHTML, type Tab } from './info';
-import { icon, MICROSCOPE, type IconName } from '../ui/icons';
+import { icon, type IconName } from '../ui/icons';
 import { closeButton, createTabs, type Tabs } from '../ui/components';
-import { isLayoutId, LAYOUTS, type LayoutId } from './layouts';
+import { isLayoutId, LAYOUT_STORY, LAYOUTS, type LayoutId } from './layouts';
+import { setScienceHandler, setScienceOpen } from '../ui/science';
+import { openModal } from '../ui/modal';
 import { loadSave, writeSave, type SaveData } from '../core/save';
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -55,6 +57,7 @@ export class GalleryApp {
     this.detail.onTap = () => this.toggleSheet(false);
     window.addEventListener('keydown', (ev) => this.key(ev));
     this.gallery.start();
+    this.registerScience();
   }
 
   /** Re-read the save: called when the game screen hands back. */
@@ -165,7 +168,7 @@ export class GalleryApp {
     $('dec-top-left').innerHTML = dec.topLeft;
     $('dec-top-right').innerHTML = `<button class="iso-toggle" aria-expanded="false" aria-controls="iso-list">${dec.isoSummary}<span class="chev"></span></button><div class="iso-list" id="iso-list">${dec.isoList}</div>`;
     this.setIsoOpen(this.isoOpen);
-    $('dec-name').innerHTML = `${dec.name}<span class="bar-science" aria-hidden="true">${MICROSCOPE}</span>`;
+    $('dec-name').innerHTML = dec.name;
     $<HTMLButtonElement>('loupe-prev').disabled = e.z === 1;
     $<HTMLButtonElement>('loupe-next').disabled = e.z === MAX_Z;
     $('loupe-prev').title = e.z > 1 ? elementAt(e.z - 1).name : '';
@@ -178,7 +181,21 @@ export class GalleryApp {
       this.detail.start();
       requestAnimationFrame(() => screen.classList.add('in'));
     }
+    this.registerScience();
     this.handlers.onLoupe?.(e.z);
+  }
+
+  /** The header microscope: the element's science in the atom view, the arrangement's story on the map. */
+  private registerScience(): void {
+    if ($('gallery-screen').hidden) return;
+    if (!$('loupe-screen').hidden && this.current) setScienceHandler(() => this.toggleSheet(), `The science of ${this.current.name}`);
+    else setScienceHandler(() => this.openLayoutStory(), 'Why the atoms are arranged this way');
+  }
+
+  private openLayoutStory(): void {
+    const l = LAYOUTS.find((x) => x.id === this.layoutId)!;
+    setScienceOpen(true);
+    openModal(`<h2>${l.label}</h2>${LAYOUT_STORY[l.id].map((p) => `<p>${p}</p>`).join('')}`, () => setScienceOpen(false));
   }
 
   /** Open the loupe on an element (Atom, View mode), from the app shell. */
@@ -199,7 +216,7 @@ export class GalleryApp {
     this.detail.stop();
     if (this.current) this.gallery.focus(this.current.z);
     this.gallery.start();
-    window.setTimeout(() => { screen.hidden = true; }, 220);
+    window.setTimeout(() => { screen.hidden = true; this.registerScience(); }, 220);
     this.handlers.onLoupe?.(null);
   }
 
@@ -215,6 +232,7 @@ export class GalleryApp {
     const sheet = $('sheet');
     sheet.hidden = !open;
     $('dec-name').setAttribute('aria-expanded', String(open));
+    setScienceOpen(open);
     if (open) {
       this.renderSheet();
       this.tabs.select(this.tab);
@@ -247,11 +265,13 @@ export class GalleryApp {
   show(): void {
     $('gallery-screen').hidden = false;
     this.refreshCollected();
+    this.registerScience();
     if ($('loupe-screen').hidden) this.gallery.start(); else this.detail.start();
   }
 
   hide(): void {
     $('gallery-screen').hidden = true;
+    this.toggleSheet(false);
     this.gallery.stop();
     this.detail.stop();
   }

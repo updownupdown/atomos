@@ -150,6 +150,8 @@ export interface AtomViewOptions {
   pointSize: number;
   /** Electrons blink in and out and jitter (the loupe); off for the gallery's small atoms. */
   live?: boolean;
+  /** Crisp dots instead of soft glows. Defaults to on. */
+  sharp?: boolean;
 }
 
 export class AtomView {
@@ -187,7 +189,7 @@ export class AtomView {
         uScale: { value: 1 }, uFrom: { value: 0 }, uTo: { value: 0 }, uT: { value: 1 },
         uSize: { value: this.opts.pointSize }, uOrbitals: { value: 1 }, uDim: { value: 1 }, uAlpha: { value: 1 }, uSizeMul: { value: 1 },
         uColor: { value: new THREE.Vector3(...glow) },
-        uTime: { value: 0 }, uLive: { value: this.live ? 1 : 0 }, uSharp: { value: this.live ? 1 : 0 },
+        uTime: { value: 0 }, uLive: { value: this.live ? 1 : 0 }, uSharp: { value: this.opts.sharp === false ? 0 : 1 },
       },
       vertexShader: POINT_VERT, fragmentShader: POINT_FRAG,
       transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
