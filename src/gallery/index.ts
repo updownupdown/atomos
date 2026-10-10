@@ -22,12 +22,13 @@ import { loadSave, writeSave, type SaveData } from '../core/save';
 import { atomBuilt, fleetingTotal, atomProgress, rowSpan, orbitalShapeUnlocked, rowOf, rowOpen, SHAPE_AT, stepState } from '../core/progress';
 import { createElementList, type ElementList } from '../ui/elementlist';
 import { nextLabel, nextStep, openAtom, openStep, type NextStep } from '../core/next';
+import { firstTimeLine } from '../ui/nu';
 import { isUnlocked, unlockPuzzle, type UnlockId } from '../core/unlocks';
 import { PUZZLES } from '../puzzles/catalog';
 import { playUnlock } from '../puzzles/unlock';
 import { isLookId, lensUnlock, lookOf, lookUnlock, LOOKS, type LookId } from './looks';
 import { atomThumb } from './thumbs';
-import { fleetingOpen, periodSentence, rowLockNote } from './locks';
+import { fleetingOpen, periodNeed, periodSentence, rowLockNote } from './locks';
 import { progressHtml } from '../ui/modebar';
 
 type GalleryMode = 'collection' | 'map' | 'details';
@@ -396,6 +397,7 @@ export class GalleryApp {
     this.mode = mode;
     try { localStorage.setItem('atomos.gallery.mode', mode); } catch { /* storage off: the choice just resets */ }
     this.paintDetails();
+    this.sayLookLine();
     if (!$('gallery-screen').hidden && $('loupe-screen').hidden) {
       if (this.covered) this.gallery.stop();
       else if (was) this.gallery.start();
@@ -463,6 +465,14 @@ export class GalleryApp {
     this.setUpNextShown(true);
   }
 
+  /** Nu's line the first time a Glyph look is open: said over the Collection, the first time it
+   *  is on screen afterwards. */
+  private sayLookLine(): void {
+    if (this.mode !== 'collection' || !this.collection || $('gallery-screen').hidden || !$('loupe-screen').hidden) return;
+    if (!Object.keys(this.save.unlocks).some((id) => id.startsWith('look:'))) return;
+    firstTimeLine('first-glyph', 'A new way to color the table is ready in the Gallery. Find it under Color on the Map.', this.upNext.hidden ? this.collection.el : this.upNext);
+  }
+
   /** Only one Next button may show at once: the card stands aside under the atom view or a sheet. */
   private setUpNextShown(on: boolean): void {
     this.upNext.classList.toggle('is-away', !on || !$('loupe-screen').hidden);
@@ -519,6 +529,14 @@ export class GalleryApp {
         <div class="gate-next"></div>
         <button class="secondary gate-look">${icon('mode-view', { size: 20 })}<span>Look at ${e.name.toLowerCase()}</span></button>
       </div>`, () => this.setUpNextShown(true));
+    // The first time a locked period is tapped, Nu says what opens it instead of the plain line.
+    const why = sheet.querySelector<HTMLElement>('.gate-why')!;
+    const p = periodNeed(z, this.save);
+    const said = p && firstTimeLine('first-locked-period', `Build ${p.more} more atom${p.more === 1 ? '' : 's'} in Period ${p.period - 1} to open Period ${p.period}.`, why);
+    if (said) {
+      why.style.display = 'none';
+      new MutationObserver((_, o) => { if (!said.isConnected) { why.style.display = ''; o.disconnect(); } }).observe(why.parentElement!, { childList: true });
+    }
     if (step) {
       this.setUpNextShown(false);
       sheet.querySelector('.gate-next')!.append(nextButton({ label: nextLabel(step), landKey: 'period-sheet', onClick: () => { closeModal(); openStep(step); } }));
@@ -631,6 +649,9 @@ export class GalleryApp {
       + `<div class="page-guide"><button type="button" class="guide-btn" id="guide-btn">${icon('microscope')}<span><b>How to read this</b><small>A guide to the ${label} page, and more context</small></span></button></div></div>`;
     $('guide-btn').onclick = () => this.openGuide();
     this.mountIsotopeFilter();
+    // The first time fleeting isotopes are open and on screen, Nu says what they are.
+    const fleeting = panel.querySelector('.icl-fleeting');
+    if (fleeting && fleetingOpen(this.save) && !$('loupe-screen').hidden && !$('gallery-screen').hidden) firstTimeLine('first-fleeting', 'Fleeting isotopes vanish in under a year. Pick any game to build one; shorter lives make harder boards.', fleeting);
     this.mountStructureSwitch();
     panel.scrollTop = 0;
     panel.setAttribute('aria-label', VIEW_TABS.find((t) => t.id === this.tab)!.label);
@@ -703,6 +724,7 @@ export class GalleryApp {
     $('gallery-screen').hidden = false;
     this.refreshCollected();
     this.registerScience();
+    this.sayLookLine();
     if ($('loupe-screen').hidden) this.startMap(); else if (this.tab === 'model') this.detail.start();
   }
 
