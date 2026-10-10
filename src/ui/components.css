@@ -501,3 +501,15 @@
   .ui-next.is-live::after { animation: none; box-shadow: 0 0 0 4px var(--c-go-ring); }
   .nu-orbit-arm { animation: none; }
 }
+
+/* Nu in flight: the head and its fading trail of ghosts, above everything, untouchable. */
+.nu-fly { position: fixed; inset: 0; z-index: 45; pointer-events: none; }
+.nu-fly svg { position: absolute; inset: 0; overflow: visible; }
+.nu-fly line { stroke: var(--c-go); stroke-linecap: round; }
+.nu-fly b { position: absolute; left: -5px; top: -5px; width: 10px; height: 10px; border-radius: 50%; background: var(--c-go); box-shadow: 0 0 14px 4px var(--c-go-ring); will-change: transform; }
+
+/* A first-time line: Nu's icon and one plain sentence, on a quiet plate. */
+.nu-line { display: flex; align-items: flex-start; gap: var(--sp-2); margin: 0 0 var(--sp-3); padding: var(--sp-3) var(--sp-4) var(--sp-3) var(--sp-3); border-radius: var(--r-md); background: var(--c-surface); font-size: var(--fs-md); line-height: var(--lh); color: var(--c-text); }
+.nu-line .nu-icon { margin-top: 2px; color: var(--c-go); }
+.nu-line > span { transition: opacity 0.3s ease 0.2s; }
+.nu-line.is-arriving > span { opacity: 0; }

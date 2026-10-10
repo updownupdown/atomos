@@ -6,7 +6,7 @@
 // render a placeholder, then replace it with the element (or use switchHtml, which is a string).
 
 import { icon } from './icons';
-import { landNu, nuIconHtml, nuOrbit, nuStreak, reducedMotion } from './nu';
+import { landNu, nuEnabled, nuIconHtml, nuOrbit, nuStreak, reducedMotion } from './nu';
 
 // Stand-in glyphs from before the icon library; drawn on the 24 px grid with 2 px padding.
 export const ICON_CLOSE = `<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>`;
@@ -493,7 +493,7 @@ function watchNext(b: HTMLButtonElement): void {
       const key = btn.dataset.landKey!;
       if (!landed.has(key)) {
         landed.add(key);
-        void landNu(btn);
+        if (nuEnabled()) void landNu(btn);
       }
     }
     const live = document.querySelectorAll('.ui-next.is-live').length;

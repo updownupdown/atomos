@@ -3,6 +3,7 @@
 import '@fontsource-variable/outfit';
 import { ICON_CHEVRON, closeButton, confirmDialog, createSlider, createSwitch, createTabs, iconButton, nextButton, playButton, showToast } from './components';
 import { openModal } from './modal';
+import { firstTimeLine, nuFly } from './nu';
 import { openElementPicker } from './picker';
 import { MICROSCOPE } from './icons';
 
@@ -47,6 +48,18 @@ section('Next and Play',
   playButton({ ariaLabel: 'Play Tessera', compact: true, onClick: () => (goOut.textContent = 'play') }),
   goOut,
 );
+
+const fly = document.createElement('button');
+fly.className = 'secondary';
+fly.textContent = 'Nu flies here';
+const target = nextButton({ label: 'Next: helium', onClick: () => undefined, landKey: 'kit-fly' });
+fly.onclick = () => void nuFly(fly, target);
+const say = document.createElement('button');
+say.className = 'secondary';
+say.textContent = 'First-time line';
+let lines = 0;
+const saySection = section('Nu', fly, target, say);
+say.onclick = () => { firstTimeLine(`kit-${Date.now()}-${++lines}`, 'Each atom is two puzzles: its nucleus and its electrons. Play either one.', saySection.querySelector('.row')!); };
 
 const confirmOut = out();
 const board = document.createElement('div');
