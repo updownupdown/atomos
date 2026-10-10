@@ -271,7 +271,7 @@ function isotopeChart(e: Element): string {
     const h = Math.max(2, v * (base - top));
     const x = 4 + (n - n0) * bw;
     const cls = `ic-bar${i.stable ? ' is-stable' : ''}${key && key.a === i.a ? ' is-key' : ''}`;
-    return `<rect class="${cls}" x="${f1(x + bw * 0.12)}" y="${f1(base - h)}" width="${f1(Math.max(1.5, bw * 0.76))}" height="${f1(h)}" rx="1" style="--v:${v.toFixed(3)}"><title>${e.symbol}-${i.a}: ${n} neutrons, ${i.stable ? 'stable' : formatHalfLife(i.halfLife)}</title></rect>`;
+    return `<rect class="${cls}" x="${f1(x + bw * 0.12)}" y="${f1(base - h)}" width="${f1(Math.max(1.5, bw * 0.76))}" height="${f1(h)}" rx="1" style="--v:${v.toFixed(3)}"><title>${e.symbol}-${i.a}: ${n} neutrons, ${i.stable ? 'stable' : i.halfLife == null ? 'half-life not known' : formatHalfLife(i.halfLife)}</title></rect>`;
   }).join('');
   const label = (n: number) => `<text x="${f1(4 + (n - n0 + 0.5) * bw)}" y="${H - 4}">${n}</text>`;
   const marks = [n0, ...(key ? [key.a - e.z] : []), n1].filter((n, i, a) => a.indexOf(n) === i);

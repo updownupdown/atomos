@@ -40,7 +40,7 @@ export function decoratorsHTML(e: Element): { topLeft: string; topRight: string 
   const moreUnstable = unstable.length - shown.filter((i) => !i.stable).length;
   const rows = shown.map((i) => `<li class="${i.stable ? 'is-stable' : ''}"><span>${e.symbol}-${i.a}</span><b>${i.stable
     ? (i.abundance == null ? 'trace' : `${Number(i.abundance.toPrecision(3))}%`)
-    : formatHalfLife(i.halfLife)}</b></li>`).join('');
+    : i.halfLife == null ? 'unknown' : formatHalfLife(i.halfLife)}</b></li>`).join('');
   const more = [moreStable ? `+${moreStable} stable` : '', moreUnstable ? `+${moreUnstable} unstable` : ''].filter(Boolean);
   return {
     topLeft: `<span class="dec-config">${shortConfiguration(e)}</span>`

@@ -5,6 +5,7 @@
 
 import { STYLES, type Style } from './atom';
 import { CLOUD_RINGS, ELEMENTS, MAX_Z, elementAt, type Element } from './data';
+import { NUCLEUS_RINGS } from './nucleus';
 import type { OrbitalShape } from '../core/save';
 import { Detail } from './detail';
 import { Gallery } from './gallery';
@@ -50,6 +51,8 @@ export class GalleryApp {
     const saved = localStorage.getItem('atomos.gallery.look');
     return isLookId(saved) ? saved : 'block';
   })();
+  /** The 3D tab shows the nucleus up close instead of the whole atom (once Aurum opens it). */
+  private nucleusOn = false;
   /** Orbital kinds whose shapes Flux has not discovered yet. */
   private hiddenShapes: OrbitalShape[] = [];
   private style: Style = (() => {
@@ -123,15 +126,26 @@ export class GalleryApp {
     // plain label. Bottom right: how the atom is drawn.
     const styleIcon: Record<Style, IconName> = { cloud: 'view-cloud', shapes: 'view-shapes', hybrid: 'view-hybrid' };
     const styles = $('style-switch');
-    styles.innerHTML = `<span class="tool-cap">Draw as</span>`
+    styles.innerHTML = `<div class="tool-group" id="draw-group"><span class="tool-cap">Draw as</span>`
       + STYLES.map((s) => `<button class="tool-chip" data-id="${s.id}" aria-pressed="${s.id === this.style}">${icon(styleIcon[s.id], { size: 18 })}<span>${s.label}</span></button>`).join('')
-      + `<p class="tool-note" id="shape-note" hidden></p>`;
-    styles.querySelectorAll<HTMLButtonElement>('button').forEach((b) => (b.onclick = () => this.setStyle(b.dataset.id as Style)));
+      + `<p class="tool-note" id="shape-note" hidden></p></div>`
+      // Below it, the nucleus up close (opened with Aurum) and back.
+      + `<div class="tool-group"><span class="tool-cap">Zoom to</span><button class="tool-chip" id="nucleus-chip"></button><p class="tool-note" id="nucleus-note" hidden></p></div>`;
+    styles.querySelectorAll<HTMLButtonElement>('button[data-id]').forEach((b) => (b.onclick = () => this.setStyle(b.dataset.id as Style)));
+    $('nucleus-chip').onclick = () => {
+      if (!this.opened('nucleus-view')) {
+        this.offerUnlock('nucleus-view', 'The nucleus view', 'Zoom a hundred thousand times closer, past the electrons, to every proton and neutron packed in the middle of the atom.', 'Aurum', () => this.setNucleus(true));
+        return;
+      }
+      this.setNucleus(!this.nucleusOn);
+    };
     // Bottom left: the scale circles, one line per circle with its diameter, and the switch.
     const line = (style: string) => `<svg width="18" height="4" aria-hidden="true"><line x1="1" y1="2" x2="17" y2="2" stroke="currentColor" stroke-width="1.5"${style === 'dashed' ? ' stroke-dasharray="3 2.5"' : ''}/></svg>`;
     const legend = $('scale-legend');
+    const rows = (sizes: { d: number; style: string }[], unit: string) => sizes.map((r, i) => `<li>${line(r.style)}<span>${r.d}${i === sizes.length - 1 ? ` ${unit}` : ''}</span></li>`).join('');
     legend.innerHTML = `<span class="tool-cap">Scale circles</span>`
-      + `<ul>${CLOUD_RINGS.map((r, i) => `<li>${line(r.style)}<span>${r.pm * 2}${i === CLOUD_RINGS.length - 1 ? ' pm' : ''}</span></li>`).join('')}</ul>`
+      + `<ul id="rings-atom">${rows(CLOUD_RINGS.map((r) => ({ d: r.pm * 2, style: r.style })), 'pm')}</ul>`
+      + `<ul id="rings-nucleus" hidden>${rows(NUCLEUS_RINGS.map((r) => ({ d: r.fm * 2, style: r.style })), 'fm')}</ul>`
       + `<button class="tool-chip" id="rings-toggle" aria-pressed="${this.rings}"></button>`;
     $('rings-toggle').onclick = () => this.setRings(!this.rings);
     this.paintRingsToggle();
@@ -175,6 +189,33 @@ export class GalleryApp {
     localStorage.setItem('atomos.gallery.rings', on ? 'on' : 'off');
     this.detail.setRings(on);
     this.paintRingsToggle();
+  }
+
+  /** Swap the 3D view between the whole atom and its nucleus up close. */
+  private setNucleus(on: boolean): void {
+    this.nucleusOn = on;
+    this.detail.setNucleus(on);
+    this.paintNucleus();
+  }
+
+  private paintNucleus(): void {
+    const chip = $('nucleus-chip');
+    const open = this.opened('nucleus-view');
+    chip.setAttribute('aria-pressed', String(this.nucleusOn));
+    chip.innerHTML = !open
+      ? `${icon('lock', { size: 18 })}<span>Nucleus</span>`
+      : this.nucleusOn ? `${icon('atom', { size: 18 })}<span>Whole atom</span>` : `${icon('nucleus', { size: 18 })}<span>Nucleus</span>`;
+    chip.setAttribute('aria-label', !open ? 'Nucleus view, locked' : this.nucleusOn ? 'Back to the whole atom' : 'Zoom to the nucleus');
+    $('draw-group').hidden = this.nucleusOn;
+    $('rings-atom').hidden = this.nucleusOn;
+    $('rings-nucleus').hidden = !this.nucleusOn;
+    const note = $('nucleus-note');
+    const e = this.current;
+    note.hidden = !this.nucleusOn || !e;
+    if (e && this.nucleusOn) {
+      const n = e.commonA - e.z;
+      note.textContent = `${e.symbol}-${e.commonA}: ${e.z} proton${e.z === 1 ? '' : 's'}${n ? ` and ${n} neutron${n === 1 ? '' : 's'}` : ''}, about ${(2 * e.nucleusRadius).toFixed(1)} fm across.`;
+    }
   }
 
   private paintRingsToggle(): void {
@@ -230,6 +271,8 @@ export class GalleryApp {
     // A look or lens chosen before a reset can be locked again: fall back to an open one.
     if (!this.opened(lookUnlock(this.look))) this.look = 'block';
     if (!this.opened(lensUnlock(this.layoutId))) { this.layoutId = 'spiral'; this.gallery.setLayout('spiral', false); }
+    if (this.nucleusOn && !this.opened('nucleus-view')) this.setNucleus(false);
+    else this.paintNucleus();
     this.applyLook();
   }
 
@@ -309,7 +352,7 @@ export class GalleryApp {
   private setStyle(style: Style): void {
     this.style = style;
     localStorage.setItem('atomos.gallery.style', style);
-    $('style-switch').querySelectorAll<HTMLButtonElement>('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.id === style)));
+    $('style-switch').querySelectorAll<HTMLButtonElement>('button[data-id]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.id === style)));
     this.detail.setStyle(style);
     this.paintShapeNote();
   }
@@ -342,6 +385,7 @@ export class GalleryApp {
     $('dec-top-left').innerHTML = dec.topLeft;
     $('dec-top-right').innerHTML = dec.topRight;
     this.paintShapeNote();
+    this.paintNucleus();
     this.bar.set(e.z);
     this.renderPanel();
     const screen = $('loupe-screen');
