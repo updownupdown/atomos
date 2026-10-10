@@ -489,10 +489,14 @@ export class Game {
     return `
       <li class="bh-row ${cls}">
         <div class="bh-step">
-          <span class="bh-mark" aria-hidden="true">${puzzleIcon(t.id, 38)}${badge}</span>
           <div class="bh-step-body">
-            <h4 class="bh-step-name">${o.title ?? t.name}</h4>
-            <p class="bh-diff"><span class="bh-pips" aria-hidden="true">${pips}</span>${o.title ? `${t.name} · ` : ''}${difficultyWord(rating)}</p>
+            <div class="bh-step-head">
+              <span class="bh-mark" aria-hidden="true">${puzzleIcon(t.id, 32)}${badge}</span>
+              <div>
+                <h4 class="bh-step-name">${o.title ?? t.name}</h4>
+                <p class="bh-diff"><span class="bh-pips" aria-hidden="true">${pips}</span>${o.title ? `${t.name} · ` : ''}${difficultyWord(rating)}</p>
+              </div>
+            </div>
             <p class="bh-adds">${o.text}</p>
             ${note ? `<p class="bh-where">${note}</p>` : ''}
           </div>
@@ -509,9 +513,11 @@ export class Game {
     return `
       <li class="bh-row is-done">
         <div class="bh-step">
-          <span class="bh-mark" aria-hidden="true">${icon('atom', { size: 38 })}<span class="bh-badge">${icon('check', { size: 14 })}</span></span>
           <div class="bh-step-body">
-            <h4 class="bh-step-name">A lone proton</h4>
+            <div class="bh-step-head">
+              <span class="bh-mark" aria-hidden="true">${icon('atom', { size: 32 })}<span class="bh-badge">${icon('check', { size: 14 })}</span></span>
+              <h4 class="bh-step-name">A lone proton</h4>
+            </div>
             <p class="bh-adds">Ready from the start</p>
           </div>
           <div class="bh-side"><span class="bh-state">Built</span></div>
@@ -519,32 +525,27 @@ export class Game {
       </li>`;
   }
 
-  /** The bar under the atom: one segment per thing to build, filled as each is done, in groups
-   *  for the nucleus and electrons, the stable isotopes and the unstable ones. The isotope groups
-   *  are sized roughly by how many isotopes of each kind the element has, within limits. */
+  /** The rings at the foot of the atom: a disc for the nucleus and a ring for the electrons, lit
+   *  once built, and an outer ring for the isotopes, if any: an arc for the lasting ones and one
+   *  for the fleeting ones, sized by how many of each there are, each filling as they are built.
+   *  Beside them, the atom's share built (nucleus, electrons and lasting isotopes) and, smaller,
+   *  the fleeting isotopes' share. */
   private renderProgress(): void {
     const z = this.z;
-    const segs = segmentsOf(z, this.save);
-    const done = segs.filter((g) => g.done).length;
     const pct = Math.round(atomProgress(z, this.save) * 100);
-    const built = this.save.built[z];
-    const el = elementAt(z);
-    const stableA = new Set(lastingIsotopes(z).filter((i) => i.stable).map((i) => String(i.a)));
-    const known = { stable: el.isotopes.filter((i) => i.stable).length, unstable: el.isotopes.filter((i) => !i.stable).length };
-    const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
-    const groups = [
-      { segs: segs.filter((g) => g.kind === 'step'), flex: segs.filter((g) => g.kind === 'step').length },
-      { segs: segs.filter((g) => g.kind === 'isotope' && stableA.has(g.id)), flex: clamp(known.stable / 2, 1, 3) },
-      { segs: segs.filter((g) => g.kind === 'isotope' && !stableA.has(g.id)), flex: clamp(known.unstable / 8, 1, 4) },
-    ].filter((g) => g.segs.length);
+    const nucleus = stepState(this.save, z, 'nucleus').done;
+    const shells = stepState(this.save, z, 'shells').done;
+    const lasting = lastingIsotopes(z);
+    const lastingDone = lasting.filter((i) => isotopeCollected(this.save, z, i.a)).length;
+    const fleet = fleetingCount(z, this.save);
+    const fleetPct = fleet.total ? Math.round((fleet.built / fleet.total) * 100) : 0;
     $('bh-progress').innerHTML = `
-      <div class="bh-bar" role="img" aria-label="${done} of ${segs.length} built, ${pct}%">
-        ${groups.map((g) => `<span class="bh-bar-group" style="flex:${Math.max(g.flex, g.segs.length * 0.5)}">${g.segs.map((x) => `<span class="bh-seg${x.done ? ' is-done' : ''}${x.kind === 'isotope' ? ' is-iso' : ''}" title="${x.label}${x.done ? ': built' : ''}"></span>`).join('')}</span>`).join('')}
-      </div>
-      <div class="bh-bar-caption">
-        <span>${built ? (built.flawless ? 'Built, flawless' : 'Built') : 'Not built'}</span>
-        <span class="bh-bar-count">${done} of ${segs.length} · ${pct}%</span>
+      ${progressRings({ nucleus, shells, lasting: { built: lastingDone, total: lasting.length }, fleeting: fleet })}
+      <div class="bh-rings-text">
+        <b>${pct}%</b>
+        ${fleet.total ? `<span>${fleetPct}% fleeting</span>` : ''}
       </div>`;
+    $('bh-progress').setAttribute('aria-label', `${pct}% built${fleet.total ? `, ${fleet.built} of ${fleet.total} fleeting isotopes` : ''}`);
   }
 
   private openRulesFor(t: PuzzleType): void {
@@ -1222,3 +1223,34 @@ const wait = (ms: number) => new Promise((r) => window.setTimeout(r, ms));
 
 
 export { FAMILY_COLOURS, electronCount };
+
+/** Nucleus disc, electron ring and, when the atom has isotopes, an outer ring of two arcs (lasting
+ *  then fleeting, clockwise from the top) sized by their counts, with a gap between them. A small
+ *  group keeps a fifth of the ring so it stays visible beside a large one. */
+export function progressRings(o: { nucleus: boolean; shells: boolean; lasting: { built: number; total: number }; fleeting: { built: number; total: number } }, size = 64): string {
+  const c = 32, gap = 0.09, w = 5;
+  const arc = (r: number, from: number, to: number, cls: string): string => {
+    if (to - from <= 0.0001) return '';
+    if (to - from >= 0.9999) return `<circle class="${cls}" cx="${c}" cy="${c}" r="${r}" stroke-width="${w}" />`;
+    const pt = (t: number) => `${(c + r * Math.sin(t * 2 * Math.PI)).toFixed(2)} ${(c - r * Math.cos(t * 2 * Math.PI)).toFixed(2)}`;
+    return `<path class="${cls}" d="M ${pt(from)} A ${r} ${r} 0 ${to - from > 0.5 ? 1 : 0} 1 ${pt(to)}" stroke-width="${w}" />`;
+  };
+  const groups = [o.lasting, o.fleeting].filter((g) => g.total > 0);
+  const sum = groups.reduce((a, g) => a + g.total, 0);
+  let shares = groups.map((g) => g.total / sum);
+  if (shares.length === 2) shares = shares.map((x) => Math.min(0.8, Math.max(0.2, x)));
+  let outer = '';
+  let at = 0;
+  const free = 1 - (groups.length > 1 ? gap * groups.length : 0);
+  groups.forEach((g, i) => {
+    const span = shares[i] * free;
+    const from = at + (groups.length > 1 ? gap / 2 : 0);
+    outer += arc(26, from, from + span, 'rg-track') + arc(26, from, from + span * (g.built / g.total), 'rg-on');
+    at = from + span + (groups.length > 1 ? gap / 2 : 0);
+  });
+  return `<svg class="bh-rings-svg" viewBox="0 0 64 64" width="${size}" height="${size}" aria-hidden="true">
+    ${outer}
+    <circle class="${o.shells ? 'rg-on' : 'rg-track'}" cx="${c}" cy="${c}" r="17" stroke-width="${w}" />
+    <circle class="${o.nucleus ? 'rg-fill-on' : 'rg-fill'}" cx="${c}" cy="${c}" r="9" />
+  </svg>`;
+}
