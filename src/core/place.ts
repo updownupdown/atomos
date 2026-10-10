@@ -1,5 +1,6 @@
 // Where the player was when they left: the screen, the atom and its mode. The shell saves it
-// on every move and reopens it on the next visit; anything it cannot use means the gallery.
+// on every move; the next visit opens on the Gallery, and the Atom tab goes back to that atom
+// and mode. Anything it cannot use means the gallery.
 
 export type Screen = 'gallery' | 'atom' | 'puzzles' | 'settings' | 'icons';
 export type PlaceMode = 'view' | 'build';

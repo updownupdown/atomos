@@ -77,11 +77,12 @@ export class AppShell {
     else this.restore(saved);
   }
 
-  /** Reopen the screen the player left, or stay on the gallery if that is not possible. A new
-   *  player starts on hydrogen's Build page. */
+  /** Where the app opens. A player who hasn't built anything yet starts on hydrogen's Build
+   *  page; everyone else lands on the Gallery, where Up next says what to do. The Atom tab still
+   *  remembers the last atom and mode. */
   private restore(raw: string | null): void {
     const save = loadSave();
-    if (raw === null && !Object.keys(save.built).length && !Object.keys(save.steps).length) {
+    if (!Object.keys(save.built).length && !Object.keys(save.steps).length) {
       this.z = 1;
       this.go('atom', 'build').catch(() => void this.go('gallery'));
       return;
@@ -89,8 +90,6 @@ export class AppShell {
     const place = readPlace(raw);
     this.z = place.z;
     this.mode = place.mode;
-    if (place.screen === 'gallery') return;
-    this.go(place.screen, place.mode).catch(() => void this.go('gallery'));
   }
 
   private remember(screen: Screen, mode: AtomMode): void {
