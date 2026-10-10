@@ -60,7 +60,9 @@ export interface Tabs {
   select(id: string, notify?: boolean): void;
 }
 
-/** A row of tabs with a sliding underline. Arrow keys move between them. */
+/** The universal tab row: labels on a hairline, the active one in cyan with a blue bar under
+ *  it that slides between tabs. Arrow keys move between them. Use it wherever a view splits
+ *  into sections, so players learn it once. */
 export function createTabs(items: TabItem[], opts: { active?: string; onChange?: (id: string) => void; label?: string } = {}): Tabs {
   const root = el('div', 'ui-tabs');
   root.setAttribute('role', 'tablist');
@@ -109,6 +111,61 @@ export function createTabs(items: TabItem[], opts: { active?: string; onChange?:
   });
   // The underline needs real sizes: place it once the row is in the page and on resize.
   new ResizeObserver(place).observe(root);
+  select(active);
+  return { el: root, get active() { return active; }, select };
+}
+
+// ---- Radio segments ------------------------------------------------------------------------
+
+export interface SegmentItem {
+  id: string;
+  label: string;
+  icon?: string;
+}
+
+export interface Segments {
+  el: HTMLElement;
+  readonly active: string;
+  select(id: string, notify?: boolean): void;
+}
+
+/** A choice of modes: two to four options side by side, exactly one picked, each with a radio
+ *  mark so it reads as "pick one" rather than as an action. Arrow keys move the choice. */
+export function createSegments(items: SegmentItem[], opts: { active?: string; onChange?: (id: string) => void; label?: string } = {}): Segments {
+  const root = el('div', 'ui-seg');
+  root.setAttribute('role', 'radiogroup');
+  if (opts.label) root.setAttribute('aria-label', opts.label);
+  const buttons = items.map((t) => {
+    const b = el('button', 'ui-seg-opt', `<i class="ui-seg-dot" aria-hidden="true"></i>${t.icon ?? ''}<span>${esc(t.label)}</span>`);
+    b.type = 'button';
+    b.setAttribute('role', 'radio');
+    b.dataset.id = t.id;
+    root.append(b);
+    return b;
+  });
+  let active = opts.active ?? items[0]?.id ?? '';
+  const select = (id: string, notify = false) => {
+    active = id;
+    for (const b of buttons) {
+      const on = b.dataset.id === id;
+      b.setAttribute('aria-checked', String(on));
+      b.tabIndex = on ? 0 : -1;
+    }
+    if (notify) opts.onChange?.(id);
+  };
+  root.addEventListener('click', (e) => {
+    const b = (e.target as HTMLElement).closest<HTMLButtonElement>('.ui-seg-opt');
+    if (b && b.dataset.id !== active) select(b.dataset.id!, true);
+  });
+  root.addEventListener('keydown', (e) => {
+    const i = buttons.findIndex((b) => b.dataset.id === active);
+    const step = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 0;
+    if (!step || i < 0) return;
+    e.preventDefault();
+    const next = buttons[(i + step + buttons.length) % buttons.length];
+    select(next.dataset.id!, true);
+    next.focus();
+  });
   select(active);
   return { el: root, get active() { return active; }, select };
 }

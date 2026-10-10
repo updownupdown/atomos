@@ -19,19 +19,20 @@
     <header class="nav" id="nav" aria-label="Main">
       <button class="nav-logo" id="nav-logo" aria-label="Atomos: back to the gallery" title="Atomos"></button>
       <nav class="nav-tabs" aria-label="Sections">
-        <button id="nav-gallery" aria-current="page" aria-label="Gallery" title="Gallery"></button>
-        <button id="nav-atom" aria-current="false" aria-label="Atom" title="Atom"></button>
-        <button id="nav-puzzles" aria-current="false" aria-label="Puzzles" title="Puzzles"></button>
+        <button id="nav-gallery" aria-current="page"><span class="nav-ico"></span><span class="nav-lab">Gallery</span></button>
+        <button id="nav-atom" aria-current="false"><span class="nav-ico"></span><span class="nav-lab">Atom</span></button>
+        <button id="nav-puzzles" aria-current="false"><span class="nav-ico"></span><span class="nav-lab">Puzzles</span></button>
+        <button id="nav-settings" aria-current="false"><span class="nav-ico"></span><span class="nav-lab">Settings</span></button>
       </nav>
-      <div class="nav-end">
-        <div class="nav-mode" id="nav-mode" role="group" aria-label="Atom mode" hidden>
-          <button id="mode-view" aria-pressed="true">View</button>
-          <button id="mode-build" aria-pressed="false">Build</button>
-        </div>
-        <button class="nav-icon" id="nav-science" aria-label="More about what is on screen" aria-expanded="false" disabled></button>
-        <button class="nav-icon" id="nav-settings" aria-label="Settings" title="Settings"></button>
-      </div>
+      <div class="nav-end" aria-hidden="true"></div>
     </header>
+
+    <!-- Atom screens: pick View or Build for this atom; the right side holds quick details for
+         the mode, and the microscope. See src/ui/modebar.ts. -->
+    <div class="mode-row" id="mode-row" hidden>
+      <div class="mode-seg" id="mode-seg"></div>
+      <div class="mode-detail" id="mode-detail"></div>
+    </div>
 
     <div id="gallery-screen">
       <canvas id="gal" aria-label="Every element as an atom. Drag to move, pinch to zoom, tap one to look closer."></canvas>
@@ -124,6 +125,10 @@
           <div class="pg-actions" id="pg-actions"></div>
         </div>
       </div>
+    </section>
+
+    <section id="settings-screen" class="settings-screen" hidden aria-label="Settings">
+      <div class="sheet settings-page" id="settings-page"></div>
     </section>
 
     <div class="modal ui-modal" id="modal" hidden>
