@@ -1,241 +1,282 @@
-// Rutherford Probe: find the hidden nucleus from how probes scatter off it.
+// Rutherford Probe: find the hidden nuclei by probing the cells around them.
 //
-// A 6×6 box hides a nucleus of a few connected cells. Probes fired from the 24
-// edge slots travel straight: one that runs into a nucleus cell is absorbed (a
-// hit), one that passes a nucleus cell on its diagonal is turned 90° away from
-// it (two at once turn it right round), and the rest come out somewhere. Mark
-// the cells you believe are the nucleus and submit the guess.
+// A square plate hides a scatter of nuclei. Probing a cell reveals what it
+// detects: normally the number of nuclei in the eight cells around it. Two
+// kinds of cell bend that rule. A scatter cell (drawn with outward ticks)
+// counts every nucleus in its whole row and column instead. A quiet cell shows
+// only "?" and gives no count. Probing a nucleus is a direct hit: it is shown
+// and counted against a flawless run, but play goes on. Probe every empty cell
+// to win; marks are only notes.
 //
-// Game rule, not physics: Rutherford's alpha particles scattered off a point
-// charge by the Coulomb force, in every direction. The straight tracks and the
-// right-angle turns are the Black Box game's rules, not the scattering law.
+// Every plate opens with a region already probed and is checked by a
+// constraint solver that finishes it from there without ever guessing: each
+// step follows from a single clue (all of its unknowns safe, or all nuclei),
+// from comparing two overlapping clues, or from the count of nuclei left.
+//
+// Game rule, not physics: Rutherford found the nucleus from how alpha particles
+// scattered off gold foil, not by probing a grid. The idea, mapping something
+// unseen from what probes report, is his.
 
-import { pick, randInt, seeded, type Rng } from './rng';
+import { rand, randInt, seeded, type Rng } from './rng';
 
-export const SIZE = 6;
-export const SLOTS = SIZE * 4;
-
-export interface Cell {
-  r: number;
-  c: number;
-}
-
-export type Outcome =
-  | { kind: 'hit' }
-  | { kind: 'reflect' }
-  | { kind: 'pass'; exit: number };
-
-export interface Probe {
-  slot: number;
-  outcome: Outcome;
-  /** The cells the probe crossed, in order; empty for one turned back at the edge. */
-  track: Cell[];
-  /** 1-based number shared by the two ends of a pass; 0 for hits and reflections. */
-  label: number;
-}
+export type CellKind = 'plain' | 'scatter' | 'quiet';
 
 export interface RutherfordState {
-  nucleus: Cell[];
-  probes: Probe[];
-  /** The player's marks, one flag per cell, row-major. */
-  marks: boolean[];
-  /** Wrong guesses submitted so far. */
-  wrong: number;
+  size: number;
+  nuclei: boolean[];
+  /** What a safe cell reports once probed; nuclei are 'plain'. */
+  kind: CellKind[];
+  /** The count each safe cell reports (unused for quiet cells). */
+  clue: number[];
+  probed: boolean[];
+  marked: boolean[];
+  /** Nuclei probed by mistake. Undo does not take one back. */
+  hits: number;
+  /** Probe actions, including ones that opened several cells. */
   moves: number;
-  par: number;
-  won: boolean;
+  total: number;
 }
 
 export function cloneRutherford(s: RutherfordState): RutherfordState {
-  return { ...s, nucleus: s.nucleus.map((c) => ({ ...c })), probes: s.probes.map((p) => ({ ...p, track: p.track.map((c) => ({ ...c })) })), marks: [...s.marks] };
+  return { ...s, probed: [...s.probed], marked: [...s.marked] };
 }
 
-// ---- slots --------------------------------------------------------------------------
+// ---- geometry ------------------------------------------------------------------------
 
-/** Where a slot sits: side 0 top, 1 right, 2 bottom, 3 left; `i` runs along that side left-to-right or top-to-bottom. */
-export function slotSide(slot: number): { side: number; i: number } {
-  return { side: Math.floor(slot / SIZE), i: slot % SIZE };
-}
-
-/** The cell just outside the box at a slot, and the direction a probe fired there travels. */
-export function slotEntry(slot: number): { pos: Cell; dir: Cell } {
-  const { side, i } = slotSide(slot);
-  switch (side) {
-    case 0: return { pos: { r: -1, c: i }, dir: { r: 1, c: 0 } };
-    case 1: return { pos: { r: i, c: SIZE }, dir: { r: 0, c: -1 } };
-    case 2: return { pos: { r: SIZE, c: i }, dir: { r: -1, c: 0 } };
-    default: return { pos: { r: i, c: -1 }, dir: { r: 0, c: 1 } };
-  }
-}
-
-/** The slot a probe leaves through when it steps out of the box onto `pos`. */
-export function slotOf(pos: Cell): number {
-  if (pos.r < 0) return pos.c;
-  if (pos.c >= SIZE) return SIZE + pos.r;
-  if (pos.r >= SIZE) return 2 * SIZE + pos.c;
-  return 3 * SIZE + pos.r;
-}
-
-const inside = (p: Cell) => p.r >= 0 && p.r < SIZE && p.c >= 0 && p.c < SIZE;
-const same = (a: Cell, b: Cell) => a.r === b.r && a.c === b.c;
-
-/** Fires a probe through a nucleus; the pure Black Box rules. */
-export function trace(nucleus: Cell[], slot: number): { outcome: Outcome; track: Cell[] } {
-  const has = (p: Cell) => nucleus.some((n) => same(n, p));
-  let { pos, dir } = slotEntry(slot);
-  const track: Cell[] = [];
-  for (let guard = 0; guard < 4 * SIZE * SIZE; guard++) {
-    const ahead = { r: pos.r + dir.r, c: pos.c + dir.c };
-    if (!inside(ahead)) {
-      const exit = slotOf(ahead);
-      return { outcome: exit === slot ? { kind: 'reflect' } : { kind: 'pass', exit }, track };
-    }
-    if (has(ahead)) return { outcome: { kind: 'hit' }, track };
-    // The two cells diagonally ahead: one turns the probe away from it, two turn it back.
-    const left = { r: ahead.r - dir.c, c: ahead.c + dir.r };
-    const right = { r: ahead.r + dir.c, c: ahead.c - dir.r };
-    const l = has(left), rr = has(right);
-    if (l && rr) {
-      dir = { r: -dir.r, c: -dir.c };
-    } else if (l) {
-      dir = { r: dir.c, c: -dir.r };
-    } else if (rr) {
-      dir = { r: -dir.c, c: dir.r };
-    } else {
-      pos = ahead;
-      track.push({ ...pos });
-    }
-    if ((l || rr) && !inside(pos)) {
-      // Turned before it ever entered: it comes straight back out.
-      return { outcome: { kind: 'reflect' }, track };
+export function neighbours(size: number, i: number): number[] {
+  const r = Math.floor(i / size), c = i % size;
+  const out: number[] = [];
+  for (let dr = -1; dr <= 1; dr++) {
+    for (let dc = -1; dc <= 1; dc++) {
+      if (!dr && !dc) continue;
+      const rr = r + dr, cc = c + dc;
+      if (rr >= 0 && cc >= 0 && rr < size && cc < size) out.push(rr * size + cc);
     }
   }
-  return { outcome: { kind: 'reflect' }, track };
+  return out;
 }
 
-/** True when a slot already carries a mark, so nothing new can be learnt from it. */
-export function slotUsed(s: RutherfordState, slot: number): boolean {
-  return s.probes.some((p) => p.slot === slot || (p.outcome.kind === 'pass' && p.outcome.exit === slot));
+/** Every other cell in the same row and column. */
+export function cross(size: number, i: number): number[] {
+  const r = Math.floor(i / size), c = i % size;
+  const out: number[] = [];
+  for (let k = 0; k < size; k++) {
+    if (k !== c) out.push(r * size + k);
+    if (k !== r) out.push(k * size + c);
+  }
+  return out;
 }
 
-/** Fires a probe from a slot; null when the slot is used up or the puzzle is over. */
-export function fire(s: RutherfordState, slot: number): RutherfordState | null {
-  if (s.won || slot < 0 || slot >= SLOTS || slotUsed(s, slot)) return null;
+/** The cells a probed cell's count covers. */
+export function scope(s: Pick<RutherfordState, 'size' | 'kind'>, i: number): number[] {
+  return s.kind[i] === 'scatter' ? cross(s.size, i) : neighbours(s.size, i);
+}
+
+// ---- rules ---------------------------------------------------------------------------
+
+/** Probes a cell; a count of zero opens everything it covers, and so on. Null if nothing changes. */
+export function probe(s: RutherfordState, i: number): RutherfordState | null {
+  if (i < 0 || i >= s.nuclei.length || s.probed[i] || s.marked[i]) return null;
   const next = cloneRutherford(s);
-  const { outcome, track } = trace(s.nucleus, slot);
-  const label = outcome.kind === 'pass' ? s.probes.filter((p) => p.outcome.kind === 'pass').length + 1 : 0;
-  next.probes.push({ slot, outcome, track, label });
-  next.moves += 1;
+  next.moves = s.moves + 1;
+  open(next, [i]);
   return next;
 }
 
-/** Flips the player's mark on a cell; null when the puzzle is over. */
-export function toggle(s: RutherfordState, cell: Cell): RutherfordState | null {
-  if (s.won || !inside(cell)) return null;
+function open(s: RutherfordState, cells: number[]): void {
+  const queue = [...cells];
+  while (queue.length) {
+    const i = queue.pop()!;
+    if (s.probed[i]) continue;
+    s.probed[i] = true;
+    s.marked[i] = false;
+    if (s.nuclei[i]) { s.hits++; continue; }
+    if (s.kind[i] !== 'quiet' && s.clue[i] === 0) for (const j of scope(s, i)) if (!s.probed[j] && !s.marked[j]) queue.push(j);
+  }
+}
+
+export function toggleMark(s: RutherfordState, i: number): RutherfordState | null {
+  if (i < 0 || i >= s.nuclei.length || s.probed[i]) return null;
   const next = cloneRutherford(s);
-  const i = cell.r * SIZE + cell.c;
-  next.marks[i] = !next.marks[i];
+  next.marked[i] = !s.marked[i];
   return next;
-}
-
-export function markedCount(s: RutherfordState): number {
-  return s.marks.filter(Boolean).length;
-}
-
-export function canSubmit(s: RutherfordState): boolean {
-  return !s.won && markedCount(s) === s.nucleus.length;
-}
-
-/** Submits the marked cells as the guess; null unless exactly the nucleus's size is marked. */
-export function submit(s: RutherfordState): RutherfordState | null {
-  if (!canSubmit(s)) return null;
-  const next = cloneRutherford(s);
-  next.moves += 1;
-  if (s.nucleus.every((n) => s.marks[n.r * SIZE + n.c])) next.won = true;
-  else next.wrong += 1;
-  return next;
-}
-
-export const solved = (s: RutherfordState): boolean => s.won;
-
-// ---- generation ---------------------------------------------------------------------
-
-/** Cells in the nucleus for an element: two for the lightest, five from the heaviest. */
-export function nucleusSize(z: number): number {
-  return 2 + Math.min(3, Math.floor(z / 30));
-}
-
-function growNucleus(rng: Rng, size: number): Cell[] {
-  const cells: Cell[] = [{ r: randInt(rng, SIZE), c: randInt(rng, SIZE) }];
-  while (cells.length < size) {
-    const base = pick(rng, cells);
-    const dirs = [{ r: 1, c: 0 }, { r: -1, c: 0 }, { r: 0, c: 1 }, { r: 0, c: -1 }];
-    const d = pick(rng, dirs);
-    const next = { r: base.r + d.r, c: base.c + d.c };
-    if (!inside(next) || cells.some((x) => same(x, next))) continue;
-    cells.push(next);
-  }
-  return cells.sort((a, b) => a.r - b.r || a.c - b.c);
-}
-
-/** What every slot reports, as one string: two nuclei with the same signature cannot be told apart. */
-export function signature(nucleus: Cell[]): string {
-  const parts: string[] = [];
-  for (let slot = 0; slot < SLOTS; slot++) {
-    const o = trace(nucleus, slot).outcome;
-    parts.push(o.kind === 'pass' ? String(o.exit) : o.kind[0]);
-  }
-  return parts.join(',');
-}
-
-/** Every connected set of `size` cells in the box, as sorted cell lists. */
-export function connectedSets(size: number): Cell[][] {
-  const key = (cells: Cell[]) => cells.map((c) => c.r * SIZE + c.c).sort((a, b) => a - b).join('.');
-  let layer = new Map<string, Cell[]>();
-  for (let r = 0; r < SIZE; r++) for (let c = 0; c < SIZE; c++) layer.set(key([{ r, c }]), [{ r, c }]);
-  for (let k = 1; k < size; k++) {
-    const next = new Map<string, Cell[]>();
-    for (const cells of layer.values()) {
-      for (const base of cells) {
-        for (const d of [{ r: 1, c: 0 }, { r: -1, c: 0 }, { r: 0, c: 1 }, { r: 0, c: -1 }]) {
-          const n = { r: base.r + d.r, c: base.c + d.c };
-          if (!inside(n) || cells.some((x) => same(x, n))) continue;
-          const grown = [...cells, n];
-          const kk = key(grown);
-          if (!next.has(kk)) next.set(kk, grown);
-        }
-      }
-    }
-    layer = next;
-  }
-  return [...layer.values()].map((cells) => cells.sort((a, b) => a.r - b.r || a.c - b.c));
-}
-
-const signatureCache = new Map<number, Map<string, number>>();
-
-/** How many connected nuclei of that size share a nucleus's signature. */
-export function lookalikes(nucleus: Cell[]): number {
-  const size = nucleus.length;
-  let counts = signatureCache.get(size);
-  if (!counts) {
-    counts = new Map();
-    for (const set of connectedSets(size)) {
-      const sig = signature(set);
-      counts.set(sig, (counts.get(sig) ?? 0) + 1);
-    }
-    signatureCache.set(size, counts);
-  }
-  return counts.get(signature(nucleus)) ?? 1;
 }
 
 /**
- * A level for element z: a connected nucleus that the full set of probes pins
- * down uniquely, so a careful player can always deduce it.
+ * On a probed cell whose count is already met by marks, probes everything
+ * else it covers. Null when the marks do not match the count.
  */
+export function chord(s: RutherfordState, i: number): RutherfordState | null {
+  if (!s.probed[i] || s.nuclei[i] || s.kind[i] === 'quiet') return null;
+  const sc = scope(s, i);
+  const known = sc.filter((j) => s.marked[j] || (s.probed[j] && s.nuclei[j])).length;
+  const rest = sc.filter((j) => !s.probed[j] && !s.marked[j]);
+  if (known !== s.clue[i] || !rest.length) return null;
+  const next = cloneRutherford(s);
+  next.moves = s.moves + 1;
+  open(next, rest);
+  return next;
+}
+
+export function solved(s: RutherfordState): boolean {
+  return s.nuclei.every((n, i) => n || s.probed[i]);
+}
+
+/** Nuclei not yet marked or found. */
+export function remaining(s: RutherfordState): number {
+  let n = s.total;
+  for (let i = 0; i < s.nuclei.length; i++) if (s.marked[i] || (s.probed[i] && s.nuclei[i])) n--;
+  return n;
+}
+
+// ---- the no-guess solver ---------------------------------------------------------------
+
+interface Constraint {
+  cells: number[];
+  need: number;
+}
+
+/**
+ * Plays the plate by deduction alone from its current state, probing every
+ * cell it can prove safe. Returns the state it reached; it is finished when
+ * `solved` holds. Deductions: a clue whose unknowns must be all safe or all
+ * nuclei; two overlapping clues compared; the total count of nuclei.
+ */
+export function deduce(start: RutherfordState): { state: RutherfordState; steps: number } {
+  const s = cloneRutherford(start);
+  const n = s.nuclei.length;
+  // The solver's own knowledge of nuclei: probed hits and nuclei it proved.
+  const nucleus = s.nuclei.map((x, i) => x && s.probed[i]);
+  let steps = 0;
+  for (;;) {
+    if (solved(s)) break;
+    const unknown = (j: number) => !s.probed[j] && !nucleus[j];
+    const cons: Constraint[] = [];
+    for (let i = 0; i < n; i++) {
+      if (!s.probed[i] || s.nuclei[i] || s.kind[i] === 'quiet') continue;
+      const sc = scope(s, i);
+      const cells = sc.filter(unknown);
+      if (!cells.length) continue;
+      cons.push({ cells, need: s.clue[i] - sc.filter((j) => nucleus[j]).length });
+    }
+    const all: number[] = [];
+    let found = 0;
+    for (let j = 0; j < n; j++) { if (unknown(j)) all.push(j); if (nucleus[j]) found++; }
+    cons.push({ cells: all, need: s.total - found });
+
+    const safe = new Set<number>(), hot = new Set<number>();
+    const judge = (cells: number[], lo: number, hi: number) => {
+      if (!cells.length) return;
+      if (hi <= 0) for (const j of cells) safe.add(j);
+      else if (lo >= cells.length) for (const j of cells) hot.add(j);
+    };
+    for (const c of cons) judge(c.cells, c.need, c.need);
+    if (!safe.size && !hot.size) {
+      const inA = new Uint8Array(n);
+      for (let a = 0; a < cons.length && !safe.size && !hot.size; a++) {
+        const A = cons[a];
+        for (const j of A.cells) inA[j] = 1;
+        for (let b = 0; b < cons.length; b++) {
+          if (a === b) continue;
+          const B = cons[b];
+          let both = 0;
+          const bOnly: number[] = [];
+          for (const j of B.cells) { if (inA[j]) both++; else bOnly.push(j); }
+          if (!both) continue;
+          const aOnly = A.cells.length - both;
+          const maxI = Math.min(A.need, B.need, both);
+          const minI = Math.max(0, A.need - aOnly, B.need - bOnly.length);
+          judge(bOnly, B.need - maxI, B.need - minI);
+          if (safe.size || hot.size) break;
+        }
+        for (const j of A.cells) inA[j] = 0;
+      }
+    }
+    if (!safe.size && !hot.size) break;
+    for (const j of hot) nucleus[j] = true;
+    if (safe.size) open(s, [...safe]);
+    steps++;
+  }
+  return { state: s, steps };
+}
+
+// ---- generation ----------------------------------------------------------------------
+
+export interface PlateSpec {
+  size: number;
+  nuclei: number;
+  /** Shares of the safe cells that are scatter and quiet cells. */
+  scatter: number;
+  quiet: number;
+}
+
+export function specFor(z: number): PlateSpec {
+  const t = Math.max(0, Math.min(1, (z - 1) / 117));
+  const size = z <= 20 ? 7 : z <= 50 ? 8 : z <= 85 ? 9 : 10;
+  const density = 0.15 + 0.05 * t;
+  return { size, nuclei: Math.round(size * size * density), scatter: 0.06 + 0.06 * t, quiet: 0.04 + 0.06 * t };
+}
+
+function shuffle<T>(rng: Rng, a: T[]): T[] {
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = randInt(rng, i + 1);
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function deal(rng: Rng, spec: PlateSpec): { state: RutherfordState; start: number } {
+  const { size } = spec;
+  const n = size * size;
+  // The opening probe sits away from the rim and has no nucleus around it.
+  const start = (1 + randInt(rng, size - 2)) * size + 1 + randInt(rng, size - 2);
+  const clear = new Set([start, ...neighbours(size, start)]);
+  const nuclei = Array(n).fill(false);
+  for (const i of shuffle(rng, Array.from({ length: n }, (_, k) => k)).filter((i) => !clear.has(i)).slice(0, spec.nuclei)) nuclei[i] = true;
+  const kind: CellKind[] = Array(n).fill('plain');
+  for (let i = 0; i < n; i++) {
+    if (nuclei[i] || i === start) continue;
+    const r = rand(rng);
+    if (r < spec.scatter) kind[i] = 'scatter';
+    else if (r < spec.scatter + spec.quiet && !clear.has(i)) kind[i] = 'quiet';
+  }
+  const base = { size, kind };
+  const clue = nuclei.map((_, i) => scope(base, i).filter((j) => nuclei[j]).length);
+  const state: RutherfordState = {
+    size, nuclei, kind, clue,
+    probed: Array(n).fill(false), marked: Array(n).fill(false),
+    hits: 0, moves: 0, total: spec.nuclei,
+  };
+  open(state, [start]);
+  return { state, start };
+}
+
 export function newRutherford(z: number, seed: number): RutherfordState {
-  const rng: Rng = seeded(seed);
-  const size = nucleusSize(z);
-  let nucleus = growNucleus(rng, size);
-  for (let tries = 0; tries < 200 && lookalikes(nucleus) > 1; tries++) nucleus = growNucleus(rng, size);
-  return { nucleus, probes: [], marks: Array(SIZE * SIZE).fill(false), wrong: 0, moves: 0, par: size + 3, won: false };
+  const rng = seeded(seed);
+  const spec = specFor(z);
+  // Among deals the solver finishes unaided, keep the one with the smallest opening.
+  const safeCells = spec.size * spec.size - spec.nuclei;
+  let best: { state: RutherfordState; left: number; opened: number } | null = null;
+  for (let attempt = 0; attempt < 40; attempt++) {
+    const { state } = deal(rng, spec);
+    const end = deduce(state).state;
+    const left = end.nuclei.filter((x, i) => !x && !end.probed[i]).length;
+    const opened = state.probed.filter(Boolean).length;
+    if (!best || left < best.left || (left === best.left && opened < best.opened)) best = { state, left, opened };
+    if (left === 0 && opened <= safeCells * 0.3) break;
+  }
+  if (best!.left === 0) return best!.state;
+  // No clean deal: open one more safe cell wherever the solver stalls until it finishes.
+  const state = best!.state;
+  for (;;) {
+    const end = deduce(state).state;
+    if (solved(end)) return state;
+    const frontier: number[] = [];
+    for (let i = 0; i < state.nuclei.length; i++) {
+      if (state.nuclei[i] || end.probed[i]) continue;
+      if (neighbours(state.size, i).some((j) => end.probed[j])) frontier.push(i);
+    }
+    const pool = frontier.length ? frontier : state.nuclei.map((x, i) => (!x && !end.probed[i] ? i : -1)).filter((i) => i >= 0);
+    open(state, [pool[randInt(rng, pool.length)]]);
+  }
 }

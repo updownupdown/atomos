@@ -8,13 +8,16 @@ import {
 import { frontier, loadSave, writeSave, type SaveData } from './core/save';
 import { wavelengthToHex } from './render/colour';
 import { buildTracks, drawWitness, slowFactor } from './ui/witness';
-import { MERGE_UP_TO, mergeLevel, ringsLevel, slidingLevel } from './puzzles/levels';
+import { MERGE_UP_TO, mergeLevel, orbitalGridLevel, slidingLevel } from './puzzles/levels';
 import { MergeView } from './puzzles/mergeView';
-import { RingsView } from './puzzles/ringsView';
+import { OrbitalGridView } from './puzzles/orbitalGridView';
 import { SlidingView } from './puzzles/slidingView';
 import { type Area, type PuzzleView } from './puzzles/view';
 import { puzzleType } from './puzzles/catalogue';
 import { closeModal, modalOpen, openModal } from './ui/modal';
+import { createHoldButton, iconButton } from './ui/components';
+import { icon } from './ui/icons';
+import { setScienceHandler } from './ui/science';
 import { elementAt, shortConfiguration } from './gallery/data';
 import * as sfx from './audio';
 
@@ -29,7 +32,7 @@ type Stage = 'nucleus' | 'shells' | 'done';
 
 const STAGES: { id: Stage; label: string }[] = [
   { id: 'nucleus', label: 'Nucleus' },
-  { id: 'shells', label: 'Shells' },
+  { id: 'shells', label: 'Electrons' },
 ];
 
 export class Game {
@@ -47,7 +50,7 @@ export class Game {
   private pointerId: number | null = null;
   /** Whether the nucleus puzzle was solved without a spoiled fusion. */
   private nucleusClean = true;
-  private ringsClean = true;
+  private shellsClean = true;
   private shownHint = '';
   private paused = false;
 
@@ -82,6 +85,8 @@ export class Game {
 
   resume(): void {
     this.paused = false;
+    // The header microscope: the science behind the puzzle in play, or the finished atom's card.
+    setScienceHandler(() => (this.stage === 'done' ? this.showCard(this.z, false) : this.showWhy()), 'The science behind this build');
     window.dispatchEvent(new Event('resize'));
     this.resizeOverlay();
     this.ensureLoop();
@@ -100,7 +105,7 @@ export class Game {
     this.neutrons = element(z).commonA - z;
     this.busy = false;
     this.nucleusClean = true;
-    this.ringsClean = true;
+    this.shellsClean = true;
     this.hooks.onElement?.(z);
     const colour = this.colourFor(z);
     this.scene.setColour(colour);
@@ -115,7 +120,7 @@ export class Game {
     this.shownHint = '';
     const reduced = this.save.settings.reducedMotion;
     if (stage === 'nucleus') this.puzzle = this.z <= MERGE_UP_TO ? new MergeView(mergeLevel(this.z), reduced) : new SlidingView(slidingLevel(this.z), reduced);
-    else if (stage === 'shells') this.puzzle = new RingsView(ringsLevel(this.z), reduced);
+    else if (stage === 'shells') this.puzzle = new OrbitalGridView(orbitalGridLevel(this.z), reduced);
     else this.puzzle = null;
     document.body.classList.toggle('puzzling', this.puzzle !== null);
     document.body.classList.toggle('stage-nucleus', stage === 'nucleus');
@@ -155,7 +160,9 @@ export class Game {
 
   private sayHint(): void {
     const p = this.puzzle;
-    const text = p ? p.hint() : '';
+    // A short status only; how-to text lives behind the i.
+    const raw = p ? p.hint().replace(/<[^>]+>/g, '') : '';
+    const text = raw.length > 60 ? '' : raw;
     if (text === this.shownHint) return;
     this.shownHint = text;
     $('message').innerHTML = text;
@@ -230,7 +237,7 @@ export class Game {
       this.enter('shells');
       return;
     }
-    this.ringsClean = p.clean;
+    this.shellsClean = p.clean;
     this.puzzle = null;
     document.body.classList.remove('puzzling');
     this.clearOverlay();
@@ -251,7 +258,7 @@ export class Game {
   private finish(): void {
     this.stage = 'done';
     const prev = this.save.built[this.z];
-    const flawless = this.nucleusClean && this.ringsClean;
+    const flawless = this.nucleusClean && this.shellsClean;
     this.save.built[this.z] = { flawless: (prev?.flawless ?? false) || flawless, colour: prev?.colour };
     const key = isotopeKey(this.z, element(this.z).commonA);
     this.save.isotopes[key] = { ...this.save.isotopes[key], collected: true };
@@ -261,8 +268,8 @@ export class Game {
     this.refresh();
     const name = element(this.z).name;
     this.say(flawless
-      ? `<span class="hl">${name}, flawless:</span> nothing spoiled, shells settled at par.`
-      : `<span class="hl">${name} complete.</span> ${!this.nucleusClean ? 'A fusion overshot along the way' : 'The shells took more turns than par'}; rebuild for a flawless one.`);
+      ? `<span class="hl">${name}, flawless:</span> nothing spoiled, electrons placed at par.`
+      : `<span class="hl">${name} complete.</span> ${!this.nucleusClean ? 'A fusion overshot along the way' : 'The electrons took more placements than par'}; rebuild for a flawless one.`);
     window.setTimeout(() => this.showCard(this.z, true), this.save.settings.reducedMotion ? 300 : 1200);
   }
 
@@ -275,9 +282,12 @@ export class Game {
     canvas.addEventListener('pointerup', (e) => this.onUp(e));
     canvas.addEventListener('pointercancel', () => this.onCancel());
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
-    $('btn-undo').onclick = () => this.undo();
-    $('btn-restart').onclick = () => this.restartPuzzle();
-    $('btn-why').onclick = () => this.showWhy();
+    const undo = iconButton({ icon: icon('undo'), label: 'Undo', onClick: () => this.undo() });
+    undo.id = 'btn-undo';
+    const restart = createHoldButton({ icon: icon('restart'), label: 'Restart', doneLabel: 'Restarted', onConfirm: () => this.restartPuzzle() });
+    restart.id = 'btn-restart';
+    const how = iconButton({ icon: icon('info'), label: 'Instructions', onClick: () => this.showHow() });
+    $('build-actions').append(undo, restart, how);
     $('badge').onclick = () => this.showCard(this.z, false);
     window.addEventListener('keydown', (e) => this.onKey(e));
     window.addEventListener('blur', () => this.onCancel());
@@ -436,17 +446,26 @@ export class Game {
   private showIntro(): void {
     const sheet = this.openModal(`
       <h2>Atomos</h2>
-      <p class="muted">Prototype · hydrogen to neon</p>
-      <p>Every atom is two puzzles. <b>Merge</b> the nucleus: swipe to slide light nuclei together until they add up to the one you need. Then settle the <b>Shells</b>: turn the rings and hop electrons through the gate until every socket is lit.</p>
-      <p>No timers, no reading required. The microscope explains the science behind each puzzle, if you want it.</p>
+      <p class="muted">Prototype</p>
+      <p>Every atom is two puzzles: one gathers its <b>nucleus</b>, the other settles its <b>electrons</b>.</p>
+      <p>No timers. The <b>i</b> explains how a puzzle works, and the microscope the science behind it, whenever you want them.</p>
       <div class="actions"><button class="primary" id="intro-go">Build hydrogen</button></div>`);
     sheet.querySelector<HTMLButtonElement>('#intro-go')!.onclick = () => this.closeModal();
   }
 
+  /** The catalogue entry for the puzzle on screen. */
+  private stagePuzzle() {
+    return puzzleType(this.stage === 'nucleus' ? (this.z <= MERGE_UP_TO ? 'merge' : 'sliding') : 'orbitalGrid');
+  }
+
   private showWhy(): void {
-    const html = puzzleType(this.stage === 'nucleus' ? (this.z <= MERGE_UP_TO ? 'merge' : 'sliding') : 'rings').science!(this.z);
-    const sheet = this.openModal(`${html}<div class="actions"><button class="primary" id="why-close">Back to the puzzle</button></div>`);
-    sheet.querySelector<HTMLButtonElement>('#why-close')!.onclick = () => this.closeModal();
+    const t = this.stagePuzzle();
+    this.openModal(t.science?.(this.z) ?? `<h2>${t.name}</h2><p>${t.blurb}</p>`);
+  }
+
+  private showHow(): void {
+    const t = this.stagePuzzle();
+    this.openModal(`<div class="how"><h2>${t.name}</h2><p>${t.blurb}</p>${t.instructions ?? ''}</div>`);
   }
 
   private showCard(z: number, justBuilt: boolean): void {
@@ -469,7 +488,7 @@ export class Game {
         <span class="tier ${built?.flawless ? 'on' : ''}">Flawless</span>
         <span class="tier ${stableHave === stable.length && stable.length ? 'on' : ''}">Stable isotopes ${stableHave}/${stable.length}</span>
       </div>
-      ${justBuilt && built && !built.flawless ? '<p class="muted">Flawless: no fusion past the target, and the shells settled in par or fewer turns.</p>' : ''}
+      ${justBuilt && built && !built.flawless ? '<p class="muted">Flawless: no fusion past the target, and the electrons placed in par or fewer moves.</p>' : ''}
       <h3>Facts</h3>
       <ul class="facts">${el.facts.map((f) => `<li>${f}</li>`).join('')}</ul>
       ${el.famousLine ? `<h3>Signature light</h3><div class="line-row"><span class="swatch" style="background:${wavelengthToHex(el.famousLine.nm)};color:${wavelengthToHex(el.famousLine.nm)}"></span><span>${el.famousLine.nm} nm · ${el.famousLine.label}</span></div>` : ''}
@@ -617,12 +636,12 @@ export class Game {
     if (!this.puzzle || this.busy) return;
     const p = this.puzzle as unknown as { state: unknown };
     if (this.stage === 'nucleus') {
-      const s = p.state as { sockets?: number[]; filled?: number; blocks?: { x: number; len: number }[]; size?: number };
+      const s = p.state as { sockets?: number[]; filled?: number; blocks?: { x: number; len: number }[]; w?: number };
       if (s.sockets) s.filled = s.sockets.length;
-      else if (s.blocks) s.blocks[0] = { ...s.blocks[0], x: s.size! - s.blocks[0].len };
+      else if (s.blocks) s.blocks[0] = { ...s.blocks[0], x: s.w! - s.blocks[0].len };
     } else {
-      const s = p.state as { rings: { cells: boolean[]; sockets: (string | null)[] }[] };
-      for (const r of s.rings) r.cells = r.sockets.map((k) => k !== null);
+      const s = p.state as { cells: number[]; solution: number[] };
+      s.cells = [...s.solution];
     }
     this.ensureLoop();
   }

@@ -1,46 +1,62 @@
-// Packing: fit a tray of pieces into an outline so nothing sticks out.
+// Packing: fit a tray of pieces into an outline so every open cell is filled.
 //
-// A level is carved from its own answer: an outline blob is grown on a small
-// grid, cut into polyominoes of two to five cells, and the pieces handed over
-// shuffled and turned. Every piece can be moved, turned and lifted freely, so
-// the board is never stuck. The outline is filled when all its cells are
-// covered, which by construction means every piece is on it.
+// A level is carved from its own answer: an outline is grown on a small grid
+// (a compact blob, a mirror-symmetric one, one with a hole through it, or a
+// looser one with arms), a few of its cells are filled in advance as fixed
+// blocks, and the rest is cut into polyominoes of two to five cells. The
+// pieces are handed over shuffled and turned. Heavier elements bring larger
+// outlines, more blocks, one decoy piece that belongs nowhere, and at the top
+// of the table pieces that arrive mirrored and must be flipped. Every piece
+// can be moved, turned, flipped (when allowed) and lifted freely, so the
+// board is never stuck.
 //
-// Game rule, not physics: the pieces are "clusters" of electron-like droplets
-// and the outline is a neutral socket; nothing here is labelled as an orbital.
+// Game rule, not physics: the pieces are neutral clusters and the outline a
+// neutral socket; nothing here is labelled as a nucleus or an orbital.
 
-import { pick, randInt, seeded, weighted, type Rng } from './rng';
+import { pick, rand, randInt, seeded, weighted, type Rng } from './rng';
 
 export interface Cell { x: number; y: number }
 export type Rot = 0 | 1 | 2 | 3;
 
 export interface Piece {
   id: number;
-  /** The shape at rotation 0, normalised so its minimum x and y are 0. */
+  /** The shape at rotation 0, unflipped, normalised so its minimum x and y are 0. */
   shape: Cell[];
   rot: Rot;
-  /** Grid position of the rotated shape's top-left bounding corner; null while in the tray. */
+  /** Mirrored left to right before turning. */
+  flip: boolean;
+  /** Grid position of the oriented shape's top-left bounding corner; null while in the tray. */
   at: Cell | null;
 }
+
+export type OutlineStyle = 'blob' | 'mirror' | 'ring' | 'arms';
 
 export interface PackingState {
   w: number;
   h: number;
-  /** Which grid cells belong to the outline (w*h, row-major). */
+  /** Which grid cells belong to the outline (w*h, row-major), blocked ones included. */
   outline: boolean[];
+  /** Outline cells filled from the start; nothing can go there. */
+  blocked: boolean[];
   pieces: Piece[];
+  /** Whether the flip control is offered. */
+  flips: boolean;
+  /** How many tray pieces belong nowhere (0 or 1). The view never says which. */
+  decoys: number;
+  style: OutlineStyle;
   /** Placements made so far. */
   moves: number;
-  /** One placement per piece. */
+  /** One placement per piece that belongs. */
   par: number;
-  /** Where each piece (by id) sits at rotation 0 in the carved answer. */
-  solution: Cell[];
+  /** Where each piece (by id) sits at rotation 0, unflipped, in the carved answer; null for the decoy. */
+  solution: (Cell | null)[];
 }
 
 export type PackingMove =
   | { kind: 'place'; piece: number; at: Cell }
   | { kind: 'lift'; piece: number }
-  | { kind: 'rotate'; piece: number };
+  | { kind: 'rotate'; piece: number }
+  | { kind: 'flip'; piece: number };
 
 const key = (c: Cell) => `${c.x},${c.y}`;
 
@@ -58,21 +74,39 @@ export function rotated(shape: Cell[], rot: Rot): Cell[] {
   return normalise(cells);
 }
 
-/** The piece's cells in its current rotation, relative to its own top-left corner. */
+/** The shape mirrored left to right, normalised. */
+export function mirrored(shape: Cell[]): Cell[] {
+  return normalise(shape.map((c) => ({ x: -c.x, y: c.y })));
+}
+
+/** The shape in a given orientation. */
+export function oriented(shape: Cell[], rot: Rot, flip: boolean): Cell[] {
+  return rotated(flip ? mirrored(shape) : shape, rot);
+}
+
+/** The piece's cells in its current orientation, relative to its own top-left corner. */
 export function cellsOf(p: Piece): Cell[] {
-  return rotated(p.shape, p.rot);
+  return oriented(p.shape, p.rot, p.flip);
 }
 
 export function bounds(cells: Cell[]): { w: number; h: number } {
   return { w: Math.max(...cells.map((c) => c.x)) + 1, h: Math.max(...cells.map((c) => c.y)) + 1 };
 }
 
+/** One string for a shape in every orientation, so congruent shapes compare equal. */
+export function canonical(shape: Cell[]): string {
+  const forms: string[] = [];
+  for (const flip of [false, true]) for (let r = 0; r < 4; r++) forms.push(oriented(shape, r as Rot, flip).map(key).join(';'));
+  return forms.sort()[0];
+}
+
 export function clonePacking(s: PackingState): PackingState {
   return {
     ...s,
     outline: [...s.outline],
+    blocked: [...s.blocked],
     pieces: s.pieces.map((p) => ({ ...p, shape: p.shape.map((c) => ({ ...c })), at: p.at ? { ...p.at } : null })),
-    solution: s.solution.map((c) => ({ ...c })),
+    solution: s.solution.map((c) => (c ? { ...c } : null)),
   };
 }
 
@@ -86,24 +120,31 @@ export function occupancy(s: PackingState): number[] {
   return occ;
 }
 
-/** True when the piece, at the given rotation and corner, lies within the outline on free cells. */
-export function canPlace(s: PackingState, id: number, at: Cell, rot?: Rot): boolean {
+/** True when the piece, in the given orientation and corner, lies on open outline cells. */
+export function canPlace(s: PackingState, id: number, at: Cell, rot?: Rot, flip?: boolean): boolean {
   const p = s.pieces.find((q) => q.id === id);
   if (!p) return false;
   const occ = occupancy(s);
-  for (const c of rotated(p.shape, rot ?? p.rot)) {
+  for (const c of oriented(p.shape, rot ?? p.rot, flip ?? p.flip)) {
     const x = at.x + c.x, y = at.y + c.y;
     if (x < 0 || y < 0 || x >= s.w || y >= s.h) return false;
     const i = y * s.w + x;
-    if (!s.outline[i]) return false;
+    if (!s.outline[i] || s.blocked[i]) return false;
     if (occ[i] !== -1 && occ[i] !== id) return false;
   }
   return true;
 }
 
-export function solved(s: PackingState): boolean {
+/** Open outline cells not yet covered. */
+export function cellsLeft(s: PackingState): number {
   const occ = occupancy(s);
-  return s.outline.every((on, i) => !on || occ[i] !== -1);
+  let n = 0;
+  s.outline.forEach((on, i) => { if (on && !s.blocked[i] && occ[i] === -1) n++; });
+  return n;
+}
+
+export function solved(s: PackingState): boolean {
+  return cellsLeft(s) === 0;
 }
 
 /** Applies a move and returns the new state, or null when it changes nothing or is not allowed. */
@@ -123,11 +164,16 @@ export function applyMove(s: PackingState, m: PackingMove): PackingState | null 
     p.at = null;
     return next;
   }
-  // Rotate about the bounding box centre; a turned piece that no longer fits drops back to the tray.
+  if (m.kind === 'flip' && !s.flips) return null;
+  // Turn or flip in place about the bounding box centre; a piece that no longer fits drops back to the tray.
   const before = bounds(cellsOf(p));
-  const rot = ((p.rot + 1) % 4) as Rot;
-  const after = bounds(rotated(p.shape, rot));
-  p.rot = rot;
+  if (m.kind === 'rotate') p.rot = ((p.rot + 1) % 4) as Rot;
+  else {
+    // Mirroring the base shape flips the piece left to right on screen whatever its turn.
+    p.flip = !p.flip;
+    p.rot = ((4 - p.rot) % 4) as Rot;
+  }
+  const after = bounds(cellsOf(p));
   if (p.at) {
     const at = { x: p.at.x + Math.floor((before.w - after.w) / 2), y: p.at.y + Math.floor((before.h - after.h) / 2) };
     p.at = canPlace(next, p.id, at) ? at : null;
@@ -141,48 +187,95 @@ function neighbours(c: Cell): Cell[] {
   return [{ x: c.x + 1, y: c.y }, { x: c.x - 1, y: c.y }, { x: c.x, y: c.y + 1 }, { x: c.x, y: c.y - 1 }];
 }
 
-/** How many cells the outline has for an element, and the grid that holds it. */
-export function sizeFor(z: number): { w: number; h: number; n: number } {
-  const n = 11 + Math.round((Math.min(118, Math.max(1, z)) * 19) / 118);
-  const w = n <= 14 ? 4 : n <= 20 ? 5 : 6;
-  const h = Math.min(6, Math.ceil(n / w) + 1);
-  return { w, h, n };
+export interface PackingPlan {
+  /** Outline cells, blocked ones included. */
+  n: number;
+  w: number;
+  h: number;
+  blocked: number;
+  decoys: number;
+  flips: boolean;
 }
 
-/** Grows a compact blob of n cells from the grid centre. */
-function growOutline(rng: Rng, w: number, h: number, n: number): boolean[] {
+/** How a level scales with the element: outline size, grid, blocks, decoy and flipping. */
+export function sizeFor(z: number): PackingPlan {
+  const zz = Math.min(118, Math.max(1, z));
+  const n = 10 + Math.round((zz * 24) / 118);
+  const w = Math.min(7, Math.ceil(Math.sqrt(n * 1.5)));
+  const h = Math.min(7, Math.ceil((n * 1.5) / w));
+  return {
+    n, w, h,
+    blocked: zz >= 80 ? 3 : zz >= 40 ? 2 : zz >= 12 ? 1 : 0,
+    decoys: zz >= 30 ? 1 : 0,
+    flips: zz >= 90,
+  };
+}
+
+/** Grows an outline of n cells; the weights decide whether it is compact or has arms. */
+function grow(rng: Rng, w: number, h: number, n: number, style: OutlineStyle): boolean[] | null {
   const on: boolean[] = Array(w * h).fill(false);
   const idx = (c: Cell) => c.y * w + c.x;
   const inside = (c: Cell) => c.x >= 0 && c.y >= 0 && c.x < w && c.y < h;
-  on[idx({ x: Math.floor(w / 2), y: Math.floor(h / 2) })] = true;
-  for (let count = 1; count < n; count++) {
+  const mirror = (c: Cell): Cell => ({ x: w - 1 - c.x, y: c.y });
+  const start = { x: Math.floor(w / 2), y: Math.floor(h / 2) };
+  on[idx(start)] = true;
+  let count = 1;
+  if (style === 'mirror' && !on[idx(mirror(start))]) { on[idx(mirror(start))] = true; count++; }
+  while (count < n) {
     const frontier = new Map<string, Cell>();
     for (let i = 0; i < on.length; i++) {
       if (!on[i]) continue;
       for (const nb of neighbours({ x: i % w, y: Math.floor(i / w) })) if (inside(nb) && !on[idx(nb)]) frontier.set(key(nb), nb);
     }
-    const cells = [...frontier.values()];
+    let cells = [...frontier.values()];
+    if (style === 'mirror') {
+      // Cells added in mirror pairs; a lone centre cell only when one is needed to land on n.
+      cells = cells.filter((c) => (mirror(c).x === c.x ? true : n - count >= 2));
+    }
+    if (!cells.length) return null;
     const weights = cells.map((c) => {
       const k = neighbours(c).filter((nb) => inside(nb) && on[idx(nb)]).length;
-      return k * k;
+      return style === 'arms' ? (k === 1 ? 3 : 1) : k * k;
     });
-    on[idx(cells[weighted(rng, weights)])] = true;
+    const c = cells[weighted(rng, weights)];
+    on[idx(c)] = true;
+    count++;
+    if (style === 'mirror' && !on[idx(mirror(c))]) { on[idx(mirror(c))] = true; count++; }
+  }
+  return count === n ? on : null;
+}
+
+/** A blob with one or two interior cells taken out, so the outline has a hole through it. */
+function ring(rng: Rng, w: number, h: number, n: number): boolean[] | null {
+  const holes = n >= 22 ? 2 : 1;
+  const on = grow(rng, w, h, n + holes, 'blob');
+  if (!on) return null;
+  const interior = (i: number) => {
+    const x = i % w, y = Math.floor(i / w);
+    return on[i] && neighbours({ x, y }).every((nb) => nb.x >= 0 && nb.y >= 0 && nb.x < w && nb.y < h && on[nb.y * w + nb.x]);
+  };
+  for (let k = 0; k < holes; k++) {
+    const options = on.map((_, i) => i).filter(interior);
+    if (!options.length) return null;
+    on[pick(rng, options)] = false;
   }
   return on;
 }
 
-/** Cuts the outline into edge-connected pieces of 2 to 5 cells, or null when the cut leaves an orphan. */
-function carve(rng: Rng, w: number, outline: boolean[]): Cell[][] | null {
-  const owner: number[] = outline.map((on) => (on ? -1 : -2));
+/** Cuts the open cells into edge-connected pieces of 2 to 5 cells, or null when the cut leaves an orphan. */
+function carve(rng: Rng, w: number, open: boolean[], big: boolean): Cell[][] | null {
+  const owner: number[] = open.map((on) => (on ? -1 : -2));
   const pieces: Cell[][] = [];
   const idx = (c: Cell) => c.y * w + c.x;
-  const free = (c: Cell) => c.x >= 0 && c.y >= 0 && c.x < w && idx(c) < owner.length && owner[idx(c)] === -1;
+  const valid = (c: Cell) => c.x >= 0 && c.y >= 0 && c.x < w && idx(c) < owner.length;
+  const free = (c: Cell) => valid(c) && owner[idx(c)] === -1;
   for (;;) {
-    const open: Cell[] = [];
-    owner.forEach((o, i) => { if (o === -1) open.push({ x: i % w, y: Math.floor(i / w) }); });
-    if (!open.length) break;
-    const seed = pick(rng, open);
-    const target = 2 + randInt(rng, 4);
+    const left: Cell[] = [];
+    owner.forEach((o, i) => { if (o === -1) left.push({ x: i % w, y: Math.floor(i / w) }); });
+    if (!left.length) break;
+    const seed = pick(rng, left);
+    // Larger outlines lean on larger pieces so the tray stays manageable.
+    const target = 2 + weighted(rng, big ? [1, 3, 4, 3] : [3, 4, 3, 1]);
     const piece: Cell[] = [seed];
     owner[idx(seed)] = pieces.length;
     while (piece.length < target) {
@@ -195,7 +288,7 @@ function carve(rng: Rng, w: number, outline: boolean[]): Cell[][] | null {
     }
     if (piece.length === 1) {
       // An orphan joins a small neighbour, or the cut is thrown away.
-      const hosts = neighbours(seed).filter((nb) => nb.x >= 0 && nb.y >= 0 && nb.x < w && idx(nb) < owner.length && owner[idx(nb)] >= 0 && pieces[owner[idx(nb)]].length < 5);
+      const hosts = neighbours(seed).filter((nb) => valid(nb) && owner[idx(nb)] >= 0 && pieces[owner[idx(nb)]].length < 5);
       if (!hosts.length) return null;
       const host = owner[idx(pick(rng, hosts))];
       owner[idx(seed)] = host;
@@ -207,42 +300,98 @@ function carve(rng: Rng, w: number, outline: boolean[]): Cell[][] | null {
   return pieces.length >= 2 ? pieces : null;
 }
 
+/** A random polyomino of `size` cells that matches none of the given shapes in any orientation. */
+function decoyShape(rng: Rng, size: number, avoid: Set<string>): Cell[] | null {
+  for (let tries = 0; tries < 60; tries++) {
+    const cells: Cell[] = [{ x: 0, y: 0 }];
+    while (cells.length < size) {
+      const has = new Set(cells.map(key));
+      const options = cells.flatMap(neighbours).filter((c) => !has.has(key(c)));
+      cells.push(pick(rng, options));
+    }
+    const shape = normalise(cells);
+    if (!avoid.has(canonical(shape))) return shape;
+  }
+  return null;
+}
+
+function chooseStyle(rng: Rng, z: number): OutlineStyle {
+  if (z < 20) return pick(rng, ['blob', 'mirror'] as OutlineStyle[]);
+  if (z < 50) return pick(rng, ['blob', 'mirror', 'ring'] as OutlineStyle[]);
+  return pick(rng, ['blob', 'mirror', 'ring', 'arms'] as OutlineStyle[]);
+}
+
 /** A fresh level for an element: an outline and the pieces that fill it, shuffled and turned. */
 export function newPacking(z: number, seed: number): PackingState {
   const rng = seeded(seed);
-  const { w, h, n } = sizeFor(z);
-  let outline = growOutline(rng, w, h, n);
-  let cut: Cell[][] | null = null;
-  for (let attempt = 0; attempt < 60 && !cut; attempt++) {
-    cut = carve(rng, w, outline);
-    if (!cut && attempt % 10 === 9) outline = growOutline(rng, w, h, n);
-  }
-  if (!cut) {
-    // Vanishingly rare; a plain rectangle of dominoes keeps the level playable.
-    outline = Array(w * h).fill(false);
-    cut = [];
-    for (let y = 0; y < 3; y++) for (let x = 0; x < 4; x += 2) {
-      outline[y * w + x] = outline[y * w + x + 1] = true;
-      cut.push([{ x, y }, { x: x + 1, y }]);
+  const plan = sizeFor(z);
+  const { w, h, n } = plan;
+  for (let attempt = 0; attempt < 200; attempt++) {
+    const style = chooseStyle(rng, z);
+    const outline = style === 'ring' ? ring(rng, w, h, n) : grow(rng, w, h, n, style);
+    if (!outline) continue;
+    // Blocks go on cells with at least two outline neighbours, so they read as part of the shape.
+    const blocked: boolean[] = Array(w * h).fill(false);
+    const inner = outline.map((on, i) => i).filter((i) => outline[i] && neighbours({ x: i % w, y: Math.floor(i / w) }).filter((c) => c.x >= 0 && c.y >= 0 && c.x < w && c.y < h && outline[c.y * w + c.x]).length >= 2);
+    for (let k = 0; k < plan.blocked && inner.length; k++) blocked[inner.splice(randInt(rng, inner.length), 1)[0]] = true;
+    const open = outline.map((on, i) => on && !blocked[i]);
+    let cut: Cell[][] | null = null;
+    for (let t = 0; t < 12 && !cut; t++) cut = carve(rng, w, open, n >= 22);
+    if (!cut) continue;
+    const shapes = cut.map(normalise);
+    let extra: Cell[] | null = null;
+    if (plan.decoys) {
+      extra = decoyShape(rng, 3 + randInt(rng, 3), new Set(shapes.map(canonical)));
+      if (!extra) continue;
     }
+    const all = extra ? [...cut, extra] : cut;
+    const order = all.map((_, i) => i);
+    for (let i = order.length - 1; i > 0; i--) {
+      const j = randInt(rng, i + 1);
+      [order[i], order[j]] = [order[j], order[i]];
+    }
+    const solution: (Cell | null)[] = [];
+    const pieces: Piece[] = order.map((src, id) => {
+      const cells = all[src];
+      solution[id] = src < cut!.length ? { x: Math.min(...cells.map((c) => c.x)), y: Math.min(...cells.map((c) => c.y)) } : null;
+      return { id, shape: normalise(cells), rot: randInt(rng, 4) as Rot, flip: plan.flips && rand(rng) < 0.5, at: null };
+    });
+    return crop({ w, h, outline, blocked, pieces, flips: plan.flips, decoys: extra ? 1 : 0, style, moves: 0, par: cut.length, solution });
   }
-  const order = cut.map((_, i) => i);
-  for (let i = order.length - 1; i > 0; i--) {
-    const j = randInt(rng, i + 1);
-    [order[i], order[j]] = [order[j], order[i]];
-  }
-  const solution: Cell[] = [];
-  const pieces: Piece[] = order.map((src, id) => {
-    const cells = cut[src];
-    solution[id] = { x: Math.min(...cells.map((c) => c.x)), y: Math.min(...cells.map((c) => c.y)) };
-    return { id, shape: normalise(cells), rot: randInt(rng, 4) as Rot, at: null };
-  });
-  return { w, h, outline, pieces, moves: 0, par: pieces.length, solution };
+  return fallback(w, h);
 }
 
-/** The carved answer applied to a level: every piece at its home at rotation 0. Used by tests and hints. */
+/** Trims the grid to the outline's bounding box, so the board is drawn as large as it can be. */
+function crop(s: PackingState): PackingState {
+  const xs: number[] = [], ys: number[] = [];
+  s.outline.forEach((on, i) => { if (on) { xs.push(i % s.w); ys.push(Math.floor(i / s.w)); } });
+  const x0 = Math.min(...xs), y0 = Math.min(...ys);
+  const w = Math.max(...xs) - x0 + 1, h = Math.max(...ys) - y0 + 1;
+  const take = (a: boolean[]) => Array.from({ length: w * h }, (_, i) => a[(y0 + Math.floor(i / w)) * s.w + x0 + (i % w)]);
+  return { ...s, w, h, outline: take(s.outline), blocked: take(s.blocked), solution: s.solution.map((c) => (c ? { x: c.x - x0, y: c.y - y0 } : null)) };
+}
+
+/** A plain rectangle of dominoes, only if every attempt failed (never seen in tests). */
+function fallback(w: number, h: number): PackingState {
+  const outline: boolean[] = Array(w * h).fill(false);
+  const pieces: Piece[] = [];
+  const solution: Cell[] = [];
+  for (let y = 0; y < 3; y++) for (let x = 0; x < 4; x += 2) {
+    outline[y * w + x] = outline[y * w + x + 1] = true;
+    solution.push({ x, y });
+    pieces.push({ id: pieces.length, shape: [{ x: 0, y: 0 }, { x: 1, y: 0 }], rot: 1, flip: false, at: null });
+  }
+  return { w, h, outline, blocked: Array(w * h).fill(false), pieces, flips: false, decoys: 0, style: 'blob', moves: 0, par: pieces.length, solution };
+}
+
+/** The carved answer applied to a level: every real piece at its home, unturned; the decoy left in the tray. */
 export function solvedState(s: PackingState): PackingState {
   const next = clonePacking(s);
-  next.pieces.forEach((p) => { p.rot = 0; p.at = { ...next.solution[p.id] }; });
+  next.pieces.forEach((p) => {
+    const home = next.solution[p.id];
+    p.rot = 0;
+    p.flip = false;
+    p.at = home ? { ...home } : null;
+  });
   return next;
 }

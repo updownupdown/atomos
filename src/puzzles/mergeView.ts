@@ -4,6 +4,7 @@
 import { ALL_SYMBOLS } from '../core/elements';
 import { cloneMerge, jammed, slide, wanted, won, type Dir, type MergeState, type Tile } from './merge';
 import { ease, MONO, type Area, type Point, type PuzzleView } from './view';
+import { C, font } from './palette';
 
 const SLIDE_MS = 150;
 const POP_MS = 260;
@@ -34,15 +35,11 @@ export class MergeView implements PuzzleView {
   get clean(): boolean { return this.state.spoils === 0; }
 
   hint(): string {
-    const t = this.state.target;
-    const name = `${sup(String(t.a))}${symbolOf(t.z)}`;
     const want = wanted(this.state);
-    if (this.won) return `That is ${name}: ${t.a} nucleons, all gathered.`;
-    if (this.stuck) return 'Jammed: nothing can move. Restart the board.';
-    if (this.state.moves === 0) return `<span class="hl">Swipe</span> to slide everything. Two clusters of the same size merge into one. Build a <span class="hl">${want}</span> and it joins the nucleus.`;
-    if (this.state.cells.some((c) => c?.spoiled)) return 'Too big for what is left: that one cracks. It crumbles on your next swipe.';
-    if (this.state.flown.length) return `A ${this.state.flown[0].tile.v} joins ${name}. Next: a <span class="hl">${want}</span>.`;
-    return `${name} needs a <span class="hl">${want}</span> next.`;
+    if (this.won) return 'Nucleus complete';
+    if (this.stuck) return 'Jammed: restart';
+    if (this.state.cells.some((c) => c?.spoiled)) return 'Cracked: it crumbles next swipe';
+    return want === null ? '' : `Next: a ${want}`;
   }
 
   restart(): void {
@@ -108,7 +105,7 @@ export class MergeView implements PuzzleView {
     this.drawGoal(ctx, x0, y0 - goalH + 10, side, r);
 
     // The board: a faint ruled grid.
-    ctx.strokeStyle = 'rgba(226, 220, 207, 0.16)';
+    ctx.strokeStyle = C.line2;
     ctx.lineWidth = 1;
     ctx.setLineDash([3, 5]);
     for (let i = 0; i < n * n; i++) {
@@ -174,15 +171,15 @@ export class MergeView implements PuzzleView {
     const t = s.target;
     const sr = Math.min(r * 0.7, 26);
     ctx.font = `13px ${MONO}`;
-    ctx.fillStyle = 'rgba(226, 220, 207, 0.7)';
+    ctx.fillStyle = C.text2;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
     const label = `${sup(String(t.a))}${symbolOf(t.z)}`;
     ctx.font = `700 22px ${MONO}`;
-    ctx.fillStyle = this.won ? '#e0503a' : 'rgba(226, 220, 207, 0.9)';
+    ctx.fillStyle = this.won ? C.accent : C.text;
     ctx.fillText(label, x + 4, y + 22);
     ctx.font = `12px ${MONO}`;
-    ctx.fillStyle = 'rgba(226, 220, 207, 0.55)';
+    ctx.fillStyle = C.text2;
     ctx.fillText(`${t.a} nucleons · ${t.z} p · ${t.a - t.z} n`, x + 4, y + 46);
     // Sockets, right-aligned, largest first.
     const gap = sr * 2 + 14;
@@ -196,14 +193,14 @@ export class MergeView implements PuzzleView {
       const next = i === s.filled;
       if (filled) this.drawTile(ctx, { id: 0, v, spoiled: false }, cx, cy, sr, 1, false);
       else {
-        ctx.strokeStyle = next ? '#e0503a' : 'rgba(226, 220, 207, 0.35)';
+        ctx.strokeStyle = next ? C.target : C.line2;
         ctx.lineWidth = next ? 2 : 1;
         ctx.setLineDash(next ? [] : [3, 4]);
         ctx.beginPath();
         ctx.arc(cx, cy, sr, 0, Math.PI * 2);
         ctx.stroke();
         ctx.setLineDash([]);
-        ctx.fillStyle = next ? '#e0503a' : 'rgba(226, 220, 207, 0.5)';
+        ctx.fillStyle = next ? C.target : C.text3;
         ctx.font = `700 ${Math.round(sr * 0.8)}px ${MONO}`;
         ctx.textAlign = 'center';
         ctx.fillText(String(v), cx, cy + 1);
@@ -216,21 +213,18 @@ export class MergeView implements PuzzleView {
     ctx.save();
     ctx.globalAlpha = alpha * (tile.spoiled ? 0.55 : 1);
     if (lit) {
-      ctx.shadowColor = 'rgba(224, 80, 58, 0.8)';
+      ctx.shadowColor = C.target;
       ctx.shadowBlur = r * 0.8;
     }
-    const g = ctx.createRadialGradient(x - r * 0.3, y - r * 0.3, 0, x, y, r);
-    const tone = Math.min(1, Math.log2(tile.v) / 6);
-    if (tile.v === 1) { g.addColorStop(0, '#b3ab9c'); g.addColorStop(1, '#5f5a50'); }
-    else { g.addColorStop(0, '#fbf8f0'); g.addColorStop(0.75, `rgb(${211 + 30 * tone}, ${205 + 10 * tone}, ${191 - 60 * tone})`); g.addColorStop(1, `rgb(${143 + 40 * tone}, ${136}, ${121 - 50 * tone})`); }
-    ctx.fillStyle = g;
+    // Flat card-table discs: a lone nucleon is grey, clusters are light tiles.
+    ctx.fillStyle = tile.v === 1 ? C.pewter : tile.v === 2 ? C.silverDim : C.tile;
     ctx.beginPath();
     ctx.arc(x, y, r, 0, Math.PI * 2);
     ctx.fill();
     ctx.shadowBlur = 0;
     if (tile.v > 1) this.drawNucleons(ctx, tile, x, y, r);
     if (tile.spoiled) {
-      ctx.strokeStyle = 'rgba(224, 80, 58, 0.95)';
+      ctx.strokeStyle = C.bad;
       ctx.lineWidth = Math.max(1.5, r * 0.08);
       ctx.beginPath();
       ctx.moveTo(x - r * 0.7, y - r * 0.5);
@@ -243,7 +237,7 @@ export class MergeView implements PuzzleView {
       ctx.stroke();
     }
     if (lit) {
-      ctx.strokeStyle = '#e0503a';
+      ctx.strokeStyle = C.target;
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.arc(x, y, r + 4, 0, Math.PI * 2);
@@ -253,13 +247,13 @@ export class MergeView implements PuzzleView {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     if (tile.v > 1) {
-      ctx.fillStyle = 'rgba(251, 248, 240, 0.85)';
+      ctx.fillStyle = C.tile;
       ctx.beginPath();
       ctx.ellipse(x, y, r * (label.length > 1 ? 0.56 : 0.42), r * 0.4, 0, 0, Math.PI * 2);
       ctx.fill();
     }
-    ctx.fillStyle = '#1b1813';
-    ctx.font = `700 ${Math.round(r * (label.length > 1 ? 0.6 : 0.78))}px ${MONO}`;
+    ctx.fillStyle = C.tileInk;
+    ctx.font = font(r * (label.length > 1 ? 0.62 : 0.8), 700);
     ctx.fillText(label, x, y + 1);
     ctx.restore();
   }
@@ -273,7 +267,7 @@ export class MergeView implements PuzzleView {
       const k = (i + 0.5) / count;
       const rr = Math.sqrt(k) * (r - dot - 1);
       const a = i * golden;
-      ctx.fillStyle = i % 2 ? 'rgba(120, 114, 104, 0.9)' : 'rgba(214, 150, 60, 0.9)';
+      ctx.fillStyle = i % 2 ? C.neutron : C.proton;
       ctx.beginPath();
       ctx.arc(x + Math.cos(a) * rr, y + Math.sin(a) * rr, dot, 0, Math.PI * 2);
       ctx.fill();
@@ -285,3 +279,15 @@ const SUP: Record<string, string> = { '0': '⁰', '1': '¹', '2': '²', '3': '³
 export function sup(s: string): string {
   return s.split('').map((c) => SUP[c] ?? c).join('');
 }
+
+export const INSTRUCTIONS = `
+<h3>How to play</h3>
+<ul>
+  <li>Swipe (or use the arrow keys) to slide every cluster as far as it goes.</li>
+  <li>Two clusters of the <b>same size</b> that meet merge into one twice as big: 1 + 1 makes 2, 2 + 2 makes 4, and so on.</li>
+  <li>The nucleus at the top asks for clusters, largest first. Carbon-12 wants an 8, then a 4. The moment you make the size it wants, that cluster flies up into the nucleus.</li>
+  <li>Make something bigger than anything still wanted and it cracks; it crumbles away on your next swipe.</li>
+  <li>Fill every socket to finish. No cracks means a flawless build.</li>
+</ul>
+<h3>In the game</h3>
+<p class="meta">Builds the nucleus of every element from helium to iron (hydrogen has nothing to gather). The sockets are the mass number of the element's most common isotope written in powers of two, so the number of sockets and their sizes set the difficulty. Par is a nucleon budget (about 0.7 swipes per nucleon), still a first guess: light elements are easy enough that random swiping often beats it.</p>`;

@@ -5,28 +5,36 @@
 import { elementAt as element } from '../gallery/data';
 import { applyPlacement, configuration, newAtom, resolvePlacement } from '../core/physics';
 import { newMerge } from './merge';
-import { MergeView, sup } from './mergeView';
-import { newRings } from './rings';
+import { MergeView, sup, INSTRUCTIONS as MERGE_HOW } from './mergeView';
 import { newSliding } from './sliding';
-import { SlidingView } from './slidingView';
+import { SlidingView, INSTRUCTIONS as SLIDING_HOW } from './slidingView';
 import { newPacking } from './packing';
-import { PackingView } from './packingView';
+import { PackingView, INSTRUCTIONS as PACKING_HOW } from './packingView';
 import { newLines } from './lines';
-import { LinesView } from './linesView';
+import { LinesView, INSTRUCTIONS as LINES_HOW } from './linesView';
 import { newSlideStop } from './slideStop';
-import { SlideStopView } from './slideStopView';
+import { SlideStopView, INSTRUCTIONS as SLIDESTOP_HOW } from './slideStopView';
 import { newLight } from './light';
-import { LightView } from './lightView';
+import { LightView, INSTRUCTIONS as LIGHT_HOW } from './lightView';
 import { newCodebreaker } from './codebreaker';
-import { CodebreakerView } from './codebreakerView';
-import { newDecay } from './decay';
-import { DecayView } from './decayView';
+import { CodebreakerView, INSTRUCTIONS as CODE_HOW } from './codebreakerView';
 import { newRutherford } from './rutherford';
-import { RutherfordView } from './rutherfordView';
-import { RingsView } from './ringsView';
+import { RutherfordView, INSTRUCTIONS as RUTHERFORD_HOW } from './rutherfordView';
+import { newOrbitalGrid } from './orbitalGrid';
+import { OrbitalGridView, INSTRUCTIONS as GRID_HOW } from './orbitalGridView';
+import { newColourCharge } from './colourCharge';
+import { ColourChargeView, INSTRUCTIONS as CHARGE_HOW } from './colourChargeView';
 import { SUBSHELL_COLOURS, type PuzzleView } from './view';
 
 export type Tier = 'every' | 'facet' | 'gate' | 'reserve';
+
+/** What each tier means, for the Puzzles home. */
+export const TIER_NOTE: Record<Tier, string> = {
+  every: 'Played for every atom you build.',
+  facet: 'Unlock extra layers of an atom: isotopes, orbital shapes, particles.',
+  gate: 'Open new parts of the game: periods, gallery lenses, the synthetic elements.',
+  reserve: 'Built to try out; no place in the game yet.',
+};
 
 export const TIER_LABEL: Record<Tier, string> = {
   every: 'Every atom',
@@ -43,10 +51,14 @@ export interface PuzzleType {
   blurb: string;
   /** Where it sits in the progression. */
   role: string;
+  /** Where the game actually uses it today; absent while it lives only in the playground. Keep this true to the code. */
+  live?: string;
   /** Elements it makes sense for (inclusive). */
   zRange: [number, number];
   /** Present once the puzzle is built; planned types have none. */
   make?: (z: number, deal: number, reducedMotion: boolean) => PuzzleView;
+  /** How to play, and notes for playtesting, as sheet HTML for the Instructions modal. */
+  instructions?: string;
   /** The science behind it, as sheet HTML. */
   science?: (z: number) => string;
 }
@@ -72,6 +84,8 @@ export const PUZZLES: PuzzleType[] = [
     id: 'merge', name: 'Merge', tier: 'every',
     blurb: 'Swipe to slide the board; two clusters of the same size merge. Gather the clusters the nucleus wants.',
     role: 'Builds the nucleus of every element up to iron.',
+    live: 'Build mode: every nucleus from helium to iron.',
+    instructions: MERGE_HOW,
     zRange: [2, 26],
     make: (z, deal, reduced) => new MergeView(newMerge({ z, a: element(z).commonA }, dealSeed('merge', z, deal)), reduced),
     science: (z) => {
@@ -85,23 +99,27 @@ export const PUZZLES: PuzzleType[] = [
     },
   },
   {
-    id: 'rings', name: 'Shell Rings', tier: 'every',
-    blurb: 'Turn the rings and hop electrons through the gate until every socket is lit.',
-    role: 'Settles the electron shells of all 118 elements.',
+    id: 'orbitalGrid', name: 'Orbital Grid', tier: 'every',
+    blurb: 'Fill the grid so every row, column and outlined block holds each orbital once.',
+    role: 'Settles the electrons of every element, standing in for Shell Rings until a better electron puzzle is found.',
+    live: 'Build mode: the electrons of every element.',
+    instructions: GRID_HOW,
     zRange: [1, 118],
-    make: (z, deal, reduced) => new RingsView(newRings(z, dealSeed('rings', z, deal)), reduced),
+    make: (z, deal, reduced) => new OrbitalGridView(newOrbitalGrid(z, dealSeed('orbitalGrid', z, deal)), reduced),
     science: (z) => {
       const el = element(z);
-      return `<h2>Shell Rings: the science</h2>
-        <p>Electrons live in <b>shells</b> round the nucleus, and shell n holds at most 2n² electrons: 2, then 8, then 18. That is the real reason the periodic table has rows of 2, 8, 8, 18. Each ring here has exactly that many slots.</p>
-        <p>The sockets are coloured by sub-shell: <span style="color:${SUBSHELL_COLOURS.s}">s</span> holds 2, <span style="color:${SUBSHELL_COLOURS.p}">p</span> holds 6, <span style="color:${SUBSHELL_COLOURS.d}">d</span> 10, <span style="color:${SUBSHELL_COLOURS.f}">f</span> 14. Electrons fill the lowest-energy sockets first, which for ${el.name} gives ${groundConfiguration(z)}. Every socket lit and nothing stray is the <b>ground state</b>.</p>
-        <p class="muted">Game rule: electrons are not beads and there is no gate; a real electron is a cloud of probability, which is what the atom behind this puzzle shows.</p>`;
+      return `<h2>Orbital Grid: the science</h2>
+        <p>Electrons in an atom sit in <b>orbitals</b>, grouped into sub-shells named <span style="color:${SUBSHELL_COLOURS.s}">s</span>, <span style="color:${SUBSHELL_COLOURS.p}">p</span>, <span style="color:${SUBSHELL_COLOURS.d}">d</span> and <span style="color:${SUBSHELL_COLOURS.f}">f</span>. Each orbital holds at most two electrons, and those two must spin opposite ways, up and down: the <b>Pauli exclusion principle</b>, which says no two electrons in an atom may share every quantum number.</p>
+        <p>That rule of "never the same twice" is what this grid plays with. Fill ${el.name}'s orbitals lowest energy first and you get ${groundConfiguration(z)}.</p>
+        <p class="muted">Game rule: the grid is a logic puzzle using orbital labels as symbols. The cells are not places in the atom, and real orbitals are not arranged in rows.</p>`;
     },
   },
   {
     id: 'sliding', name: 'Sliding Block', tier: 'every',
-    blurb: 'Drag the bars out of the way so the red key bar can slide out.',
+    blurb: 'Slide the bars and blocks out of the way so the red key bar can slide out.',
     role: 'Builds the nucleus of every element past iron, where fusion stops paying.',
+    live: 'Build mode: every nucleus from cobalt on.',
+    instructions: SLIDING_HOW,
     zRange: [27, 118],
     make: (z, deal, reduced) => new SlidingView(newSliding(z, dealSeed('sliding', z, deal)), reduced),
     science: (z) => {
@@ -116,6 +134,7 @@ export const PUZZLES: PuzzleType[] = [
     id: 'packing', name: 'Packing', tier: 'facet',
     blurb: 'Drag the pieces into the outline until it is filled exactly; tap a piece to turn it.',
     role: 'Opens an element\'s isotope vault; later isotopes rotate Packing, Merge and Sliding Block.',
+    instructions: PACKING_HOW,
     zRange: [1, 118],
     make: (z, deal, reduced) => new PackingView(newPacking(z, dealSeed('packing', z, deal)), reduced),
     science: (z) => {
@@ -128,8 +147,9 @@ export const PUZZLES: PuzzleType[] = [
   },
   {
     id: 'lines', name: 'Field Lines', tier: 'facet',
-    blurb: 'Draw one line from the circle to the tail: cover every dot and keep each colour in its own pocket.',
+    blurb: 'Draw one line from a start to an end that keeps every mark on the board happy.',
     role: 'Discovers each new orbital shape (19) and a chapter per particle (17).',
+    instructions: LINES_HOW,
     zRange: [1, 118],
     make: (z, deal, reduced) => new LinesView(newLines(z, dealSeed('lines', z, deal)), reduced),
     science: (z) => {
@@ -141,20 +161,10 @@ export const PUZZLES: PuzzleType[] = [
     },
   },
   {
-    id: 'decay', name: 'Decay Path', tier: 'facet',
-    blurb: 'Step a radioactive nucleus across the chart, one decay at a time, until it lands on a stable tile.',
-    role: 'Rare, visual and number-free; only for radioactive isotopes.',
-    zRange: [1, 118],
-    make: (z, deal, reduced) => new DecayView(newDecay(z, dealSeed('decay', z, deal)), reduced),
-    science: () => `<h2>Decay Path: the science</h2>
-      <p>Every known nucleus is a tile on the <b>chart of nuclides</b>: neutrons across, protons up. Most are unstable and decay. <b>α</b> emission sheds two protons and two neutrons; <b>β⁻</b> turns a neutron into a proton; <b>β⁺</b> (or electron capture) turns a proton into a neutron. Each step lands on a lighter or better balanced nucleus, until a stable one is reached.</p>
-      <p>Uranium-238 takes fourteen such steps to become lead-206, over four and a half billion years.</p>
-      <p class="muted">Game rule: a real nucleus has one dominant decay mode and no choice; here you pick the route. The shapes of the steps and the tiles themselves are real.</p>`,
-  },
-  {
     id: 'slideStop', name: 'Slide Until Stop', tier: 'gate',
-    blurb: 'Swipe to skate: the droplet slides until it hits a rock. Stop on the red ring.',
+    blurb: 'Swipe to skate: the droplet slides until something stops it. Collect every spark, then stop on the red ring.',
     role: 'Opens each new period of the table.',
+    instructions: SLIDESTOP_HOW,
     zRange: [1, 118],
     make: (z, deal, reduced) => new SlideStopView(newSlideStop(z, dealSeed('slideStop', z, deal)), reduced),
     science: () => `<h2>Slide Until Stop: the science</h2>
@@ -164,29 +174,34 @@ export const PUZZLES: PuzzleType[] = [
   },
   {
     id: 'light', name: 'Light Routing', tier: 'gate',
-    blurb: 'Tap the mirrors to flip them until the beam lights every ring.',
+    blurb: 'Flip the mirrors and splitters until light reaches every ring and none touches a dark sensor.',
     role: 'Opens each new lens (arrangement) of the gallery.',
+    instructions: LIGHT_HOW,
     zRange: [1, 118],
     make: (z, deal, reduced) => new LightView(newLight(z, dealSeed('light', z, deal)), reduced),
     science: () => `<h2>Light Routing: the science</h2>
       <p>Light reflects from a mirror at the angle it arrived, and its path runs the same backwards: ray optics. Everything we know about atoms began with light: the sharp coloured lines in an element's spectrum are photons released as electrons drop between energy levels, and each element has its own set.</p>
       <p>A spectrometer is exactly this puzzle made serious: slits, mirrors and a prism or grating steering light onto a detector.</p>
+      <p>A coloured filter works by absorption: it passes its own colour and swallows the rest, which is why light already tinted one colour cannot get through a filter of another.</p>
       <p class="muted">Game rule: no atom contains mirrors.</p>`,
   },
   {
     id: 'rutherford', name: 'Rutherford Probe', tier: 'gate',
-    blurb: 'Fire probes into the box and deduce the hidden nucleus from how they come out.',
+    blurb: 'Probe the plate cell by cell; each count says how many nuclei sit around it. Find them all without a direct hit.',
     role: 'Played once; opens the nucleus view.',
+    instructions: RUTHERFORD_HOW,
     zRange: [1, 118],
     make: (z, deal, reduced) => new RutherfordView(newRutherford(z, dealSeed('rutherford', z, deal)), reduced),
     science: () => `<h2>Rutherford Probe: the science</h2>
       <p>In 1909 Hans Geiger and Ernest Marsden fired alpha particles at a sheet of gold foil. Nearly all passed straight through, but about one in eight thousand bounced back, which Rutherford said was as surprising as a shell rebounding off tissue paper. The only explanation: almost all of the atom's mass and all its positive charge sit in a <b>nucleus</b> tens of thousands of times smaller than the atom.</p>
-      <p class="muted">Game rule: real scattering is by the electric force at every angle; the straight tracks and right-angle turns are the Black Box game's rules. The method, deducing the unseen from how probes scatter, is Rutherford's.</p>`,
+      <p>The lesson was that an atom is almost entirely empty: probe it at random and you nearly always pass straight through.</p>
+      <p class="muted">Game rule: the counts on the plate are a deduction game, not a measurement. Real scattering happens by the electric force at every angle, and a gold atom has one nucleus, not many. The method, inferring what you cannot see from what your probes report, is Rutherford's.</p>`,
   },
   {
     id: 'codebreaker', name: 'Codebreaker', tier: 'gate',
     blurb: 'Guess the sealed sequence of four; each guess earns clues about what was right.',
     role: 'Guards the 15 synthetic elements.',
+    instructions: CODE_HOW,
     zRange: [104, 118],
     make: (z, deal, reduced) => new CodebreakerView(newCodebreaker(z, dealSeed('codebreaker', z, deal)), reduced),
     science: (z) => {
@@ -198,16 +213,16 @@ export const PUZZLES: PuzzleType[] = [
     },
   },
   {
-    id: 'colour', name: 'Colour Charge', tier: 'reserve',
-    blurb: 'Combine three colours so every piece ends up white.',
-    role: 'In reserve for quarks, if a particle chapter wants it.',
+    id: 'colourCharge', name: 'Colour Charge', tier: 'reserve',
+    blurb: 'Bind the quarks into colour-neutral groups until the grid is clear.',
+    role: 'In reserve for the quark chapter of the particles, if it earns a place.',
+    instructions: CHARGE_HOW,
     zRange: [1, 118],
-  },
-  {
-    id: 'orbitalGrid', name: 'Orbital Grid', tier: 'reserve',
-    blurb: 'Place the orbitals so every row and column balances.',
-    role: 'In reserve.',
-    zRange: [1, 118],
+    make: (z, deal, reduced) => new ColourChargeView(newColourCharge(z, dealSeed('colourCharge', z, deal)), reduced),
+    science: () => `<h2>Colour Charge: the science</h2>
+      <p>Protons and neutrons are each made of three <b>quarks</b>, held by the strong force. Quarks carry a kind of charge physicists call <b>colour</b>, with three values nicknamed red, green and blue. A quark is never found alone: quarks only exist in groups whose colours cancel to "white".</p>
+      <p>There are two ways to cancel. Three quarks, one of each colour, make a <b>baryon</b> such as the proton. A quark and an antiquark carrying the matching anticolour make a <b>meson</b>, such as the pion.</p>
+      <p class="muted">Game rule: colour charge has nothing to do with real colour, and quarks do not sit on a grid; the shapes on the board are only for play.</p>`,
   },
 ];
 

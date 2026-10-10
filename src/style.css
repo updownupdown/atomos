@@ -565,41 +565,75 @@ body.stage-nucleus #atom { opacity: 0.12; }
   padding-top: var(--top);
   display: flex;
   flex-direction: column;
-  background: radial-gradient(ellipse at 50% 45%, #1a1714 0%, var(--plate) 55%, var(--bg) 100%);
+  background: var(--c-bg);
+  font-family: var(--font);
 }
 #puzzles-screen[hidden] { display: none; }
-.pg-types { display: flex; gap: 14px; overflow-x: auto; padding: 8px 12px 6px; border-bottom: 1px solid var(--line); scrollbar-width: none; flex: none; }
-.pg-types::-webkit-scrollbar { display: none; }
-.pg-tier { display: flex; align-items: center; gap: 4px; flex: none; }
-.pg-tier-name { font-family: var(--sans); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin-right: 4px; white-space: nowrap; }
-.pg-tier button { min-height: 32px; padding: 0 10px; border: 1px solid var(--line); background: transparent; border-radius: 1px; font-family: var(--mono); font-size: 12px; white-space: nowrap; }
-.pg-tier button.planned { color: var(--muted); border-style: dashed; }
-.pg-tier button[aria-pressed='true'] { border-color: var(--text); background: var(--label); color: var(--label-ink); }
-.pg-head { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: flex-start; justify-content: space-between; padding: 8px 14px 4px; flex: none; }
-.pg-about { min-width: 0; flex: 1 1 260px; }
-.pg-about h2 { margin: 0; font-family: var(--mono); font-size: 18px; font-weight: 700; }
-.pg-blurb { margin: 2px 0 0; font-size: 13px; max-width: 60ch; }
-.pg-role { margin: 2px 0 0; font-family: var(--mono); font-size: 11px; color: var(--muted); max-width: 60ch; }
-.pg-pick { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; flex: 0 1 auto; }
-.pg-el { font-family: var(--mono); font-size: 14px; min-width: 130px; text-align: center; }
-.pg-el b { color: var(--muted); font-weight: 400; margin-right: 4px; }
-.pg-el span { color: var(--muted); }
-.arrow-sm { background: transparent; border: 1px solid var(--line); border-radius: 2px; color: var(--muted); font-family: var(--mono); min-width: 40px; min-height: 40px; }
-.arrow-sm:disabled { opacity: 0.25; cursor: default; }
-.pg-pick input[type='range'] { width: 150px; accent-color: var(--accent); }
-.pg-dealno { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+
+/* Puzzles home: every puzzle, what it is for, and whether the game uses it yet. */
+.pg-home { flex: 1; min-height: 0; overflow-y: auto; padding: var(--sp-4) var(--sp-4) calc(var(--safe-bottom) + var(--sp-6)); }
+.pg-home[hidden], .pg-game[hidden] { display: none; }
+.pg-home-in { max-width: 860px; margin: 0 auto; }
+.pg-home-title { font-size: var(--fs-2xl); font-weight: var(--fw-semibold); margin: var(--sp-2) 0 var(--sp-1); }
+.pg-home-lede { color: var(--c-text-2); font-size: var(--fs-md); line-height: var(--lh); max-width: 60ch; margin: 0 0 var(--sp-4); }
+.pg-group { margin-top: var(--sp-5); }
+.pg-group-name { font-size: var(--fs-xs); font-weight: var(--fw-semibold); letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--c-text-2); margin: 0; }
+.pg-group-note { font-size: var(--fs-sm); color: var(--c-text-3); margin: 2px 0 var(--sp-3); }
+.pg-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 380px), 1fr)); gap: var(--sp-2); }
+.pg-card { display: flex; gap: var(--sp-3); align-items: flex-start; text-align: left; width: 100%; padding: var(--sp-3); border: 1px solid var(--c-line); border-radius: var(--r-md); background: var(--c-surface); color: var(--c-text); font-family: var(--font); cursor: pointer; transition: border-color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease); }
+.pg-card:hover { border-color: var(--c-line-2); background: var(--c-surface-2); }
+.pg-card:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
+.pg-thumb { flex: none; width: 88px; height: 88px; border-radius: var(--r-sm); background: var(--c-bg); }
+.pg-card-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.pg-card-top { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
+.pg-card-name { font-size: var(--fs-md); font-weight: var(--fw-semibold); }
+.pg-card-blurb { font-size: var(--fs-sm); color: var(--c-text-2); line-height: var(--lh); }
+.pg-card-use { font-size: var(--fs-sm); color: var(--c-text); line-height: var(--lh); }
+.pg-card-plan { color: var(--c-text-2); }
+.pg-card-k { font-size: var(--fs-2xs); letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--c-text-3); margin-right: 4px; }
+.pg-card-range { font-size: var(--fs-xs); color: var(--c-text-3); }
+.pg-chip { font-size: var(--fs-2xs); letter-spacing: 0.04em; padding: 2px 8px; border-radius: var(--r-pill); border: 1px solid var(--c-line-2); color: var(--c-text-2); white-space: nowrap; }
+.pg-chip--live { border-color: var(--c-accent); color: var(--c-accent); }
+.pg-chip--planned { border-style: dashed; color: var(--c-text-3); }
+
+/* Inside a puzzle: Back, then its name. */
+.pg-game { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.pg-head { display: flex; align-items: center; gap: var(--sp-1); padding: var(--sp-1) var(--sp-3) 0 var(--sp-1); flex: none; min-width: 0; }
+.pg-title { display: flex; align-items: baseline; gap: var(--sp-2); min-width: 0; white-space: nowrap; overflow: hidden; }
+.pg-title b { font-size: var(--fs-lg); font-weight: var(--fw-semibold); overflow: hidden; text-overflow: ellipsis; }
+.pg-title span { font-size: var(--fs-2xs); letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--c-text-3); }
+.pg-bar { display: flex; align-items: center; gap: var(--sp-2); padding: 0 var(--sp-3) var(--sp-2); flex: none; min-width: 0; border-bottom: 1px solid var(--c-line); }
+.pg-el { font-size: var(--fs-md); white-space: nowrap; text-align: center; min-width: 0; flex: 0 1 11em; overflow: hidden; text-overflow: ellipsis; }
+.pg-bar > .ui-icon-btn, .pg-bar .pg-deal { flex: none; }
+@media (max-width: 400px) { .pg-el small { display: none; } }
+.pg-el b { font-weight: var(--fw-semibold); margin-right: 6px; }
+.pg-el span { color: var(--c-text-2); }
+.pg-el small { color: var(--c-text-3); margin-right: 6px; font-size: var(--fs-xs); }
+.pg-bar .ui-slider { flex: 1 1 80px; min-width: 60px; }
+.pg-deal { display: flex; align-items: center; gap: 2px; flex: none; }
+.pg-dealno { font-size: var(--fs-xs); color: var(--c-text-3); min-width: 3.2em; }
 .pg-play { position: relative; flex: 1; min-height: 0; }
 .pg-play[hidden] { display: none; }
 #pg-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
-.pg-done { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); background: var(--panel-solid); border: 1px solid var(--line); padding: 12px 16px; display: flex; flex-direction: column; gap: 10px; align-items: center; box-shadow: 0 8px 30px rgba(0,0,0,0.5); }
+.pg-done { position: absolute; left: 50%; bottom: var(--sp-3); transform: translateX(-50%); background: var(--c-surface); border: 1px solid var(--c-line-2); border-radius: var(--r-lg); padding: var(--sp-3) var(--sp-4); display: flex; flex-direction: column; gap: var(--sp-3); align-items: center; box-shadow: var(--shadow-modal); }
 .pg-done[hidden] { display: none; }
-.pg-done .actions { display: flex; gap: 8px; }
-.pg-planned { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 20px; text-align: center; }
+.pg-done .actions { display: flex; gap: var(--sp-2); }
+.pg-result { font-size: var(--fs-md); font-weight: var(--fw-semibold); color: var(--c-text); text-align: center; }
+.pg-planned { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--sp-2); padding: var(--sp-5); text-align: center; }
 .pg-planned[hidden] { display: none; }
-.pg-planned .muted { color: var(--muted); font-family: var(--mono); font-size: 13px; max-width: 44ch; }
-.pg-bottom { flex: none; padding: 6px 14px calc(var(--safe-bottom) + 10px); display: flex; flex-direction: column; gap: 6px; }
-.pg-bottom .message { min-height: 1.5em; }
-.pg-count { font-family: var(--mono); font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.pg-planned .muted { color: var(--c-text-2); font-size: var(--fs-sm); max-width: 44ch; }
+.pg-bottom { flex: none; display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3) calc(var(--safe-bottom) + var(--sp-2)); border-top: 1px solid var(--c-line); }
+.pg-status { display: flex; flex-direction: column; min-width: 0; }
+.pg-count { font-size: var(--fs-sm); color: var(--c-text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pg-hint { font-size: var(--fs-xs); color: var(--c-text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pg-actions { display: flex; gap: var(--sp-1); flex: none; }
+.how h3 { margin-top: var(--sp-4); }
+.how ul { padding-left: 1.2em; margin: var(--sp-1) 0; }
+.how li { margin: 2px 0; }
+.how .meta { color: var(--c-text-2); font-size: var(--fs-sm); }
+
+.secondary.danger { border-color: var(--accent); color: var(--accent); }
+.reset-row { align-items: center; }
 /* In the loupe, a chosen icon is lit rather than filled, so the atom stays the brightest thing. */
 .loupe-tools .ui-icon-btn { color: var(--c-text-3); }
 .loupe-tools .ui-icon-btn:hover { color: var(--c-text); }
@@ -681,9 +715,7 @@ body.stage-nucleus #atom { opacity: 0.12; }
 .badge { border-radius: var(--r-md); transform: none; box-shadow: var(--shadow-tile); font-family: var(--font); }
 .card-sym { border-radius: var(--r-md); transform: none; }
 .stamp { border-radius: var(--r-pill); transform: none; letter-spacing: var(--tracking-caps); font-weight: var(--fw-semibold); }
-.tier, .iso, .pg-tier button { border-radius: var(--r-sm); }
-.pg-tier button { border: 0; background: var(--c-surface-2); font-weight: var(--fw-semibold); }
-.pg-tier button[aria-pressed='true'] { background: var(--c-tile); color: var(--c-tile-ink); }
+.tier, .iso { border-radius: var(--r-sm); }
 
 .sheet h2 { font-weight: var(--fw-semibold); }
 .sheet h3 {
