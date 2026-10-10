@@ -54,7 +54,7 @@ export class Playground {
 
     // The bottom row: undo, hold to restart, instructions, the science.
     this.undoBtn = iconButton({ icon: icon('undo'), label: 'Undo', onClick: () => this.host.undo() });
-    this.restartBtn = createHoldButton({ icon: icon('restart'), label: 'Restart', onConfirm: () => { this.host.restart(); this.solved = false; $('pg-done').hidden = true; } });
+    this.restartBtn = createHoldButton({ icon: icon('restart'), label: 'Restart', doneLabel: 'Restarted', onConfirm: () => { this.host.restart(); this.solved = false; $('pg-done').hidden = true; } });
     $('pg-actions').append(
       this.undoBtn,
       this.restartBtn,

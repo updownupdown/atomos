@@ -281,7 +281,7 @@ export class Game {
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
     const undo = iconButton({ icon: icon('undo'), label: 'Undo', onClick: () => this.undo() });
     undo.id = 'btn-undo';
-    const restart = createHoldButton({ icon: icon('restart'), label: 'Restart', onConfirm: () => this.restartPuzzle() });
+    const restart = createHoldButton({ icon: icon('restart'), label: 'Restart', doneLabel: 'Restarted', onConfirm: () => this.restartPuzzle() });
     restart.id = 'btn-restart';
     const how = iconButton({ icon: icon('info'), label: 'Instructions', onClick: () => this.showHow() });
     const why = iconButton({ icon: MICROSCOPE, label: 'The science behind this puzzle', onClick: () => this.showWhy() });
