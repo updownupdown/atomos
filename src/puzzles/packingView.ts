@@ -6,6 +6,7 @@
 // they all fit, so nothing ever spills.
 
 import { applyMove, bounds, canPlace, cellsLeft, cellsOf, clonePacking, completion, nextPlacement, occupancy, oriented, solved, type Cell, type PackingMove, type PackingState, type Piece, type Placement, type Rot } from './packing';
+import { framePad, frameWidth } from './frame';
 import { C, tile } from './palette';
 import { drawHelpMark, ease, undoHelp, type Area, type Help, type Point, type PuzzleView, type RuleCard } from './view';
 
@@ -151,12 +152,14 @@ export class PackingView implements PuzzleView {
         const boardArea: Area = below
           ? { x: area.x, y: area.y, w: area.w, h: area.h * f }
           : { x: area.x, y: area.y, w: area.w * f, h: area.h };
-        const cell = Math.min(MAX_CELL, Math.floor(Math.min((boardArea.w - margin * 2) / s.w, (boardArea.h - margin * 2) / s.h)));
+        // Half a cell kept round the board for its frame.
+        const cell = Math.min(MAX_CELL, Math.floor(Math.min((boardArea.w - margin * 2) / (s.w + 0.5), (boardArea.h - margin * 2) / (s.h + 0.5))));
         if (cell < 8) continue;
+        const room = Math.ceil(cell * 0.25);
         const bw = cell * s.w, bh = cell * s.h;
         let tray: Area = below
-          ? { x: area.x + margin, y: area.y + margin + bh + margin, w: area.w - margin * 2, h: area.h - bh - margin * 3 }
-          : { x: area.x + margin + bw + margin * 2, y: area.y + margin, w: area.w - bw - margin * 4, h: area.h - margin * 2 };
+          ? { x: area.x + margin, y: area.y + margin + bh + 2 * room + margin, w: area.w - margin * 2, h: area.h - bh - 2 * room - margin * 3 }
+          : { x: area.x + margin + bw + 2 * room + margin * 2, y: area.y + margin, w: area.w - bw - 2 * room - margin * 4, h: area.h - margin * 2 };
         if (tray.w < 40 || tray.h < 40) continue;
         let flip: Area | null = null;
         if (s.flips) {
@@ -182,8 +185,8 @@ export class PackingView implements PuzzleView {
         // Balance a big board against tray pieces big enough to grab (about half a board cell).
         const score = Math.min(cell, tc / 0.5) + cell * 0.3;
         if (!best || score > best.score) {
-          const bx = below ? area.x + (area.w - bw) / 2 : area.x + margin;
-          const by = below ? area.y + margin : area.y + (area.h - bh) / 2;
+          const bx = below ? area.x + (area.w - bw) / 2 : area.x + margin + room;
+          const by = below ? area.y + margin + room : area.y + (area.h - bh) / 2;
           best = { score, lay: { key: k, board: { x: Math.round(bx), y: Math.round(by), cell }, tray, tc, slots, flip } };
         }
       }
@@ -379,25 +382,13 @@ export class PackingView implements PuzzleView {
     const won = this.won;
     const shaking = now - this.shake < SHAKE_MS;
 
-    // The outline: a flat plate with a fine rim, faint sockets on open cells, hatched blocks.
-    const outlineCells: Cell[] = [];
-    s.outline.forEach((on, i) => { if (on) outlineCells.push({ x: i % s.w, y: Math.floor(i / s.w) }); });
-    const loops = outlinePolygons(outlineCells);
-    tracePath(ctx, loops, bx, by, cell, 0, cell * 0.18);
-    ctx.fillStyle = C.surface;
-    ctx.fill();
-    ctx.save();
-    ctx.setLineDash([4, 4]);
-    ctx.strokeStyle = shaking ? C.warn : won ? C.line3 : C.line2;
-    ctx.lineWidth = 1.25;
-    ctx.stroke();
-    ctx.restore();
-    for (const c of outlineCells) {
-      const i = c.y * s.w + c.x;
-      const x = bx + c.x * cell, y = by + c.y * cell;
-      if (s.blocked[i]) drawBlock(ctx, x, y, cell);
-      else tile(ctx, x + cell * 0.14, y + cell * 0.14, cell * 0.72, cell * 0.72, cell * 0.12, null, C.line, 1);
-    }
+    // The outline: the open cells (filled blocks are left out, black like any other gap) inside
+    // the shared board frame, which follows their shape, and a faint dot on each open cell.
+    const open: Cell[] = [];
+    s.outline.forEach((on, i) => { if (on && !s.blocked[i]) open.push({ x: i % s.w, y: Math.floor(i / s.w) }); });
+    drawOutline(ctx, open, bx, by, cell, shaking ? C.warn : won ? C.good : C.frame);
+
+
 
     const d = this.drag && this.drag.moved ? this.drag : null;
     const t = d ? this.target(d) : null;
@@ -430,7 +421,7 @@ export class PackingView implements PuzzleView {
     // The tray.
     if (!won) {
       const tr = lay.tray;
-      tile(ctx, tr.x, tr.y, tr.w, tr.h, 12, null, C.line, 1);
+      tile(ctx, tr.x, tr.y, tr.w, tr.h, 12, C.plate);
       for (const sl of lay.slots) {
         const p = this.piece(sl.id);
         if (p.at || (d && d.id === sl.id)) continue;
@@ -534,11 +525,25 @@ function drawPiece(ctx: CanvasRenderingContext2D, p: Piece, ox: number, oy: numb
   ctx.restore();
 }
 
-/** A filled block: a fixed square with fine hatching. */
-function drawBlock(ctx: CanvasRenderingContext2D, x: number, y: number, c: number): void {
-  const g = c * 0.06;
-  tile(ctx, x + g, y + g, c - 2 * g, c - 2 * g, c * 0.12, C.surface3, C.line2, 1);
-  hatch(ctx, x + g, y + g, c - 2 * g, c * 0.22);
+/** The outline: a board frame traced round the open cells, standing off them by framePad, and
+ *  a faint dot at the center of each. Filled blocks are simply not in `open`. */
+function drawOutline(ctx: CanvasRenderingContext2D, open: Cell[], bx: number, by: number, cell: number, color: string): void {
+  if (!open.length || !(cell > 0)) return;
+  const pad = framePad(cell);
+  tracePath(ctx, outlinePolygons(open), bx, by, cell, -pad, cell * 0.2 + pad);
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = frameWidth(cell);
+  ctx.lineJoin = 'round';
+  ctx.stroke();
+  ctx.fillStyle = C.surface3;
+  const r = Math.max(1.5, cell * 0.035);
+  for (const c of open) {
+    ctx.beginPath();
+    ctx.arc(bx + (c.x + 0.5) * cell, by + (c.y + 0.5) * cell, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
 }
 
 // ---- outline tracing ------------------------------------------------------------
@@ -607,18 +612,6 @@ function tracePath(ctx: CanvasRenderingContext2D, loops: Loop[], ox: number, oy:
   }
 }
 
-/** Fine diagonal hatching inside a square, computed to stay inside it. */
-function hatch(ctx: CanvasRenderingContext2D, x0: number, y0: number, side: number, step: number): void {
-  ctx.strokeStyle = C.line2;
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  for (let t = step; t < side * 2; t += step) {
-    ctx.moveTo(x0 + Math.max(0, t - side), y0 + Math.min(t, side));
-    ctx.lineTo(x0 + Math.min(t, side), y0 + Math.max(0, t - side));
-  }
-  ctx.stroke();
-}
-
 // ---- rules ------------------------------------------------------------------------
 
 type Shape = [number, number][];
@@ -639,30 +632,18 @@ interface DemoTable { cell: number; bx: number; by: number; tray: Area; tc: numb
 /** A demo table: an outline of gw x gh cells on the left and a tray on the right. */
 function demoTable(w: number, h: number, gw: number, gh: number, trayShare = 0.36): DemoTable {
   const trayW = w * trayShare;
-  const cell = Math.min((w - trayW - 16) / gw, (h - 12) / gh, 26);
+  const cell = Math.min((w - trayW - 16) / (gw + 0.6), (h - 12) / (gh + 0.6), 26);
   const bx = 6 + (w - trayW - 16 - cell * gw) / 2, by = (h - cell * gh) / 2;
   return { cell, bx, by, tray: { x: w - trayW - 4, y: 6, w: trayW, h: h - 12 }, tc: Math.min(cell * 0.6, 14) };
 }
 
-/** The outline as the board draws it: a flat plate with a dashed rim, sockets on open cells and hatched blocks. */
-function demoOutline(ctx: CanvasRenderingContext2D, T: DemoTable, open: Shape, blocks: Shape = [], rim: string = C.line2): void {
-  const cells = [...open, ...blocks].map(([x, y]) => ({ x, y }));
-  const { bx, by, cell } = T;
-  tracePath(ctx, outlinePolygons(cells), bx, by, cell, 0, cell * 0.18);
-  ctx.fillStyle = C.surface;
-  ctx.fill();
-  ctx.save();
-  ctx.setLineDash([4, 4]);
-  ctx.strokeStyle = rim;
-  ctx.lineWidth = 1.25;
-  ctx.stroke();
-  ctx.restore();
-  for (const [x, y] of open) tile(ctx, bx + x * cell + cell * 0.14, by + y * cell + cell * 0.14, cell * 0.72, cell * 0.72, cell * 0.12, null, C.line, 1);
-  for (const [x, y] of blocks) drawBlock(ctx, bx + x * cell, by + y * cell, cell);
+/** The outline as the board draws it: the frame round the open cells (filled blocks left out) and a dot on each. */
+function demoOutline(ctx: CanvasRenderingContext2D, T: DemoTable, open: Shape, _blocks: Shape = [], rim: string = C.frame): void {
+  drawOutline(ctx, open.map(([x, y]) => ({ x, y })), T.bx, T.by, T.cell, rim);
 }
 
 function demoTray(ctx: CanvasRenderingContext2D, T: DemoTable): void {
-  tile(ctx, T.tray.x, T.tray.y, T.tray.w, T.tray.h, 8, null, C.line, 1);
+  tile(ctx, T.tray.x, T.tray.y, T.tray.w, T.tray.h, 8, C.plate);
 }
 
 /** Where a piece sits in the tray: slot k of n, stacked top to bottom and centered. */
@@ -780,14 +761,14 @@ const HELD = 0.66;
 export const RULES: RuleCard[] = [
   {
     title: 'Fill the outline',
-    text: 'Drag pieces from the tray onto the dotted outline until every open cell is filled. Pieces are tinted by size.',
+    text: 'Drag pieces from the tray into the outline until every open cell is filled. Pieces are tinted by size.',
     good: {
       duration: 2.6,
       caption: 'Every cell filled',
       draw: (ctx, w, h, t) => {
         const T = demoTable(w, h, 4, 2);
         const a = demoPiece(0, SQUARE), b = demoPiece(1, SQUARE);
-        demoOutline(ctx, T, OPEN_4X2, [], t > 2.1 ? C.line3 : C.line2);
+        demoOutline(ctx, T, OPEN_4X2, [], t > 2.1 ? C.good : C.frame);
         demoTray(ctx, T);
         const ka = seg(t, 0.3, 1.1), kb = seg(t, 1.2, 2.0);
         if (ka === 0) demoInTray(ctx, T, a, 0, 2);
@@ -908,14 +889,14 @@ export const RULES: RuleCard[] = [
   },
   {
     title: 'Filled blocks',
-    text: 'Hatched squares are already filled: nothing goes on them, so pack around them.',
+    text: 'Some cells are already filled and left out of the outline, black like the space around it: nothing goes there, so pack around them.',
     good: {
       duration: 2.6,
       caption: 'Packed around the block',
       draw: (ctx, w, h, t) => {
         const T = demoTable(w, h, 3, 2);
         const a = demoPiece(0, BAR3), b = demoPiece(1, [[0, 0], [1, 0]]);
-        demoOutline(ctx, T, [[0, 0], [1, 0], [2, 0], [0, 1], [1, 1]], [[2, 1]], t > 2.1 ? C.line3 : C.line2);
+        demoOutline(ctx, T, [[0, 0], [1, 0], [2, 0], [0, 1], [1, 1]], [[2, 1]], t > 2.1 ? C.good : C.frame);
         demoTray(ctx, T);
         const ka = seg(t, 0.3, 1.1), kb = seg(t, 1.2, 2.0);
         if (ka === 0) demoInTray(ctx, T, a, 0, 2);
@@ -948,7 +929,7 @@ export const RULES: RuleCard[] = [
       draw: (ctx, w, h, t) => {
         const T = demoTable(w, h, 3, 2);
         const a = demoPiece(0, DOMINO), b = demoPiece(1, SQUARE), spare = demoPiece(2, BAR3);
-        demoOutline(ctx, T, OPEN_3X2, [], t > 2.1 ? C.line3 : C.line2);
+        demoOutline(ctx, T, OPEN_3X2, [], t > 2.1 ? C.good : C.frame);
         demoTray(ctx, T);
         const ka = seg(t, 0.3, 1.1), kb = seg(t, 1.2, 2.0);
         if (ka === 0) demoInTray(ctx, T, a, 0, 3);
@@ -1002,7 +983,7 @@ export const RULES: RuleCard[] = [
  */
 function flipPicture(ctx: CanvasRenderingContext2D, w: number, h: number, t: number, flip: boolean): void {
   const T = demoTable(w, h, 3, 2);
-  demoOutline(ctx, T, [[1, 0], [2, 0], [0, 1], [1, 1]], [], flip && t > 2.6 ? C.line3 : C.line2);
+  demoOutline(ctx, T, [[1, 0], [2, 0], [0, 1], [1, 1]], [], flip && t > 2.6 ? C.good : C.frame);
   demoTray(ctx, T);
   const side = Math.min(32, T.tray.w * 0.62, T.tray.h * 0.42);
   const f = { x: T.tray.x + (T.tray.w - side) / 2, y: T.tray.y + T.tray.h - side - 6, w: side, h: side };

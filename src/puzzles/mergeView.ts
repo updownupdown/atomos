@@ -4,7 +4,8 @@
 import { ALL_SYMBOLS } from '../core/elements';
 import { bestSwipe, cloneMerge, closestPair, inReach, jammed, mergeOf, slide, wanted, won, type Dir, type MergeState, type Tile } from './merge';
 import { drawHelpMark, ease, MONO, undoHelp, type Area, type Help, type Point, type PuzzleView, type RuleCard } from './view';
-import { C, font } from './palette';
+import { C, font, tile as roundTile } from './palette';
+import { drawFrame, frameWidth, framePad } from './frame';
 
 const SLIDE_MS = 150;
 const POP_MS = 260;
@@ -146,24 +147,28 @@ export class MergeView implements PuzzleView {
     this.area = area;
     const n = this.state.size;
     const goalH = 84;
-    const side = Math.min(area.w, area.h - goalH) * 0.94;
+    const outer = Math.max(1, Math.min(area.w, area.h - goalH) * 0.96);
+    // Room inside for the frame, which sits framePad outside the cells.
+    const pad = framePad(outer / n);
+    const side = Math.max(1, outer - 2 * pad);
     const cell = side / n;
     const x0 = area.x + (area.w - side) / 2;
     const y0 = area.y + goalH + (area.h - goalH - side) / 2;
     const center = (i: number): Point => ({ x: x0 + (i % n) * cell + cell / 2, y: y0 + Math.floor(i / n) * cell + cell / 2 });
-    const r = cell * 0.4;
+    const r = cell * 0.43;
 
-    this.drawGoal(ctx, x0, y0 - goalH + 10, side, r);
+    this.drawGoal(ctx, x0 - pad, y0 - pad - goalH + 10, side + 2 * pad, Math.min(r, 30));
 
-    // The board: a faint ruled grid.
-    ctx.strokeStyle = C.line2;
-    ctx.lineWidth = 1;
-    ctx.setLineDash([3, 5]);
+    // The board: the shared frame, and a faint dot at each empty cell's center.
+    drawFrame(ctx, { x: x0 - pad, y: y0 - pad, w: side + 2 * pad, h: side + 2 * pad }, { width: frameWidth(cell), radius: cell * 0.2 + pad });
+    ctx.fillStyle = C.surface3;
     for (let i = 0; i < n * n; i++) {
+      if (this.state.cells[i]) continue;
       const c = center(i);
-      ctx.strokeRect(c.x - cell / 2 + 3, c.y - cell / 2 + 3, cell - 6, cell - 6);
+      ctx.beginPath();
+      ctx.arc(c.x, c.y, Math.max(1.5, cell * 0.035), 0, Math.PI * 2);
+      ctx.fill();
     }
-    ctx.setLineDash([]);
 
     const since = now - this.animAt;
     const t = this.reduced ? 1 : since / SLIDE_MS;
@@ -208,7 +213,7 @@ export class MergeView implements PuzzleView {
     if (this.mark?.state === this.state) {
       for (const i of this.mark.cells) {
         const c = center(i);
-        drawHelpMark(ctx, c.x - r, c.y - r, r * 2, r * 2, now, this.reduced, r);
+        drawHelpMark(ctx, c.x - r, c.y - r, r * 2, r * 2, now, this.reduced, r * TILE_RADIUS * 2);
       }
     }
     // Show me: an arrow the way it swiped, fading out.
@@ -275,25 +280,39 @@ export class MergeView implements PuzzleView {
   }
 }
 
+/** Corner radius of a cluster tile, as a share of its side. */
+const TILE_RADIUS = 0.24;
+
 /**
- * A cluster: a flat disc, gray for a lone nucleon and light for clusters, its
- * nucleons packed inside, the size in the middle, a crack when spoiled and a
- * red ring when lit.
+ * Cluster colors climb the spectrum as clusters grow, the way a plasma glows hotter: a lone
+ * nucleon is gray, then orange, yellow, lime, green, cyan, blue, violet and orchid. Pure red
+ * stays kept for the target ring, amber for warnings and rose for Next.
+ */
+const SPECTRUM = ['#7d868a', '#f08a4b', '#ecd24f', '#a6d95b', '#3fcf8e', '#3fc3dc', '#5b8cff', '#9b7bff', '#cf72ec', '#e7a3f5'];
+
+/** The color of a cluster of v nucleons. */
+export function clusterColor(v: number): string {
+  return SPECTRUM[Math.max(0, Math.min(SPECTRUM.length - 1, Math.round(Math.log2(Math.max(1, v)))))];
+}
+
+/**
+ * A cluster: a rounded tile in its spectrum color with its size in dark ink, a soft glow of its
+ * own color, a crack when spoiled and a red ring when it is the one wanted (lit). (x, y) is its
+ * center and r half its side.
  */
 export function drawCluster(ctx: CanvasRenderingContext2D, tile: Pick<Tile, 'v' | 'spoiled'>, x: number, y: number, r: number, alpha = 1, lit = false): void {
+  if (!(r > 0)) return;
+  const hue = clusterColor(tile.v);
+  const side = r * 2, rad = side * TILE_RADIUS;
   ctx.save();
   ctx.globalAlpha = alpha * (tile.spoiled ? 0.55 : 1);
-  if (lit) {
-    ctx.shadowColor = C.target;
-    ctx.shadowBlur = r * 0.8;
+  // A faint halo of the tile's own color: luminous, never a gradient fill.
+  if (tile.v > 1) {
+    ctx.shadowColor = hue;
+    ctx.shadowBlur = r * 0.3;
   }
-  // Flat card-table discs: a lone nucleon is gray, clusters are light tiles.
-  ctx.fillStyle = tile.v === 1 ? C.pewter : tile.v === 2 ? C.silverDim : C.tile;
-  ctx.beginPath();
-  ctx.arc(x, y, r, 0, Math.PI * 2);
-  ctx.fill();
+  roundTile(ctx, x - r, y - r, side, side, rad, hue);
   ctx.shadowBlur = 0;
-  if (tile.v > 1) drawNucleons(ctx, tile.v, x, y, r);
   if (tile.spoiled) {
     ctx.strokeStyle = C.bad;
     ctx.lineWidth = Math.max(1.5, r * 0.08);
@@ -308,24 +327,15 @@ export function drawCluster(ctx: CanvasRenderingContext2D, tile: Pick<Tile, 'v' 
     ctx.stroke();
   }
   if (lit) {
-    ctx.strokeStyle = C.target;
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(x, y, r + 4, 0, Math.PI * 2);
-    ctx.stroke();
+    const g = Math.max(3, r * 0.12);
+    roundTile(ctx, x - r - g, y - r - g, side + 2 * g, side + 2 * g, rad + g, null, C.target, Math.max(2, r * 0.07));
   }
   const label = String(tile.v);
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  if (tile.v > 1) {
-    ctx.fillStyle = C.tile;
-    ctx.beginPath();
-    ctx.ellipse(x, y, r * (label.length > 1 ? 0.56 : 0.42), r * 0.4, 0, 0, Math.PI * 2);
-    ctx.fill();
-  }
   ctx.fillStyle = C.tileInk;
-  ctx.font = font(r * (label.length > 1 ? 0.62 : 0.8), 700);
-  ctx.fillText(label, x, y + 1);
+  ctx.font = font(r * (label.length > 2 ? 0.66 : label.length > 1 ? 0.8 : 0.95), 700);
+  ctx.fillText(label, x, y + r * 0.04);
   ctx.restore();
 }
 
@@ -334,15 +344,11 @@ export function drawSocket(ctx: CanvasRenderingContext2D, cx: number, cy: number
   if (state === 'filled') { drawCluster(ctx, { v, spoiled: false }, cx, cy, sr); return; }
   const next = state === 'next';
   ctx.save();
-  ctx.strokeStyle = next ? C.target : C.line2;
-  ctx.lineWidth = next ? 2 : 1;
   ctx.setLineDash(next ? [] : [3, 4]);
-  ctx.beginPath();
-  ctx.arc(cx, cy, sr, 0, Math.PI * 2);
-  ctx.stroke();
+  roundTile(ctx, cx - sr, cy - sr, sr * 2, sr * 2, sr * 2 * TILE_RADIUS, null, next ? C.target : C.line2, next ? 2 : 1.25);
   ctx.setLineDash([]);
   ctx.fillStyle = next ? C.target : C.text3;
-  ctx.font = `700 ${Math.round(sr * 0.8)}px ${MONO}`;
+  ctx.font = font(sr * (String(v).length > 1 ? 0.75 : 0.9), 700);
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(String(v), cx, cy + 1);
@@ -371,22 +377,6 @@ function drawSwipeArrow(ctx: CanvasRenderingContext2D, x: number, y: number, l: 
   ctx.lineTo(tx - ux * hd + uy * hd, ty - uy * hd - ux * hd);
   ctx.stroke();
   ctx.restore();
-}
-
-/** The nucleons packed inside a cluster, in a sunflower spiral. */
-function drawNucleons(ctx: CanvasRenderingContext2D, v: number, x: number, y: number, r: number): void {
-  const count = Math.min(v, 64);
-  const dot = Math.max(1.6, (r * 0.95) / Math.sqrt(count + 2));
-  const golden = Math.PI * (3 - Math.sqrt(5));
-  for (let i = 0; i < count; i++) {
-    const k = (i + 0.5) / count;
-    const rr = Math.sqrt(k) * (r - dot - 1);
-    const a = i * golden;
-    ctx.fillStyle = i % 2 ? C.neutron : C.proton;
-    ctx.beginPath();
-    ctx.arc(x + Math.cos(a) * rr, y + Math.sin(a) * rr, dot, 0, Math.PI * 2);
-    ctx.fill();
-  }
 }
 
 const SUP: Record<string, string> = { '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴', '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹' };
@@ -557,7 +547,7 @@ export const RULES: RuleCard[] = [
   },
   {
     title: 'Clusters',
-    text: 'A lone nucleon is a gray disc. Bigger clusters show their protons and neutrons, with the size in the middle.',
+    text: 'A lone nucleon is a gray tile. Bigger clusters show their size, and their color climbs the spectrum as they grow: orange, yellow, green, cyan, blue, violet.',
     good: {
       duration: 1.6,
       caption: '1, 2, 4 and 8 nucleons',
