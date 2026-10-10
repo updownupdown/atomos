@@ -523,7 +523,7 @@ body.stage-nucleus #atom { opacity: 0.12; }
 .style-switch .ui-icon-btn { width: 40px; height: 40px; }
 
 /* The bar: full width, previous and next at the ends, the element between. */
-.loupe-bar { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; display: flex; align-items: stretch; height: calc(60px + var(--safe-bottom)); padding-bottom: var(--safe-bottom); background: var(--c-plate); border-top: 1px solid var(--c-line); }
+.atom-bar { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; display: flex; align-items: stretch; height: calc(60px + var(--safe-bottom)); padding-bottom: var(--safe-bottom); background: var(--c-plate); border-top: 1px solid var(--c-line); }
 .bar-arrow { flex: none; width: 64px; display: flex; align-items: center; justify-content: center; background: none; border: 0; color: var(--c-silver); cursor: pointer; }
 .bar-arrow:hover { background: var(--c-surface-2); }
 .bar-arrow:disabled { opacity: 0.2; cursor: default; background: none; }
@@ -1051,8 +1051,7 @@ body[data-screen^='atom'] { --top: calc(var(--safe-top) + var(--nav-h) + var(--m
 .mode-detail .mode-progress { font-size: var(--fs-sm); color: var(--c-text-2); }
 .pg-home-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
 
-/* View pages: the row's microscope stands down; each page ends with its own guide button. */
-body[data-screen='atom-view'] .mode-row .science-btn { visibility: hidden; }
+/* View pages: each page ends with its own guide button. */
 .page-guide { margin: var(--sp-6) 0 var(--sp-2); display: flex; justify-content: center; }
 .guide-btn { display: flex; align-items: center; gap: var(--sp-3); width: 100%; max-width: 420px; min-height: 64px; padding: var(--sp-3) var(--sp-4); border: 1px solid var(--c-line-2); border-radius: var(--r-md); background: var(--c-surface); color: var(--c-text); font-family: var(--font); text-align: left; cursor: pointer; transition: background-color var(--dur-fast), transform var(--dur-fast) var(--ease); }
 .guide-btn:hover { background: var(--c-surface-2); }

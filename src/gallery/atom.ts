@@ -161,6 +161,7 @@ export interface AtomViewOptions {
 export class AtomView {
   readonly group = new THREE.Group();
   private layers = new Map<string, Layer>();
+  private tint: [number, number, number] | null = null;
   private nucleus: THREE.Points;
   private nucleusMaterial: THREE.ShaderMaterial;
   private style: Style = 'cloud';
@@ -201,7 +202,7 @@ export class AtomView {
   }
 
   private makeLayer(sub: Subshell): Layer {
-    const material = this.makeMaterial(BLOCK_GLOW[sub.l]);
+    const material = this.makeMaterial(this.glow(sub.l));
     material.uniforms.uOrbitals.value = sub.capacity / 2;
     material.uniforms.uTime.value = this.time;
     const points = new THREE.Points(pointGeometry(sub.n, sub.l, this.opts.perSlot), material);
@@ -210,7 +211,7 @@ export class AtomView {
     const shapes: THREE.Mesh[] = [];
     const shapeMaterials: THREE.MeshStandardMaterial[] = [];
     if (this.opts.shapes) {
-      const colour = new THREE.Color(...BLOCK_GLOW[sub.l]);
+      const colour = new THREE.Color(...this.glow(sub.l));
       for (let oi = 0; oi < sub.capacity / 2; oi++) {
         const geo = surfaceGeometry(sub.l, oi);
         // Two-tone shading of the lobes by the sign of the wavefunction.
@@ -291,6 +292,27 @@ export class AtomView {
   }
 
   /** Overall brightness, used to dim atoms the player has not collected yet. */
+  /** The glow of a layer: its block color, or the tint when one is set. */
+  private glow(l: Block): [number, number, number] {
+    return this.tint ?? BLOCK_GLOW[l];
+  }
+
+  /** Paint every layer one color (any CSS color the browser parses into rgb), or null for the
+   *  block colors. Build uses it for the player's chosen paint. */
+  setTint(color: string | null): void {
+    if (color) {
+      const c = new THREE.Color();
+      c.setStyle(color);
+      this.tint = [c.r, c.g, c.b];
+    } else this.tint = null;
+    for (const layer of this.layers.values()) {
+      const g = this.glow(layer.sub.l);
+      (layer.material.uniforms.uColor.value as THREE.Vector3).set(...g);
+      for (const m of layer.shapeMaterials) m.color.setRGB(...g);
+    }
+    this.apply();
+  }
+
   setDim(dim: number): void {
     this.dim = dim;
     this.apply();
@@ -355,7 +377,7 @@ export class AtomView {
         const base = layer.sub.l === 's' ? 0.12 : 0.6;
         m.opacity = shapeAlpha * base * Math.min(1, have) * (layer.sub.core ? 0.45 : 1) * this.dim;
         m.emissiveIntensity = 0.25 + flash * 1.2;
-        m.emissive.setRGB(...BLOCK_GLOW[layer.sub.l]);
+        m.emissive.setRGB(...this.glow(layer.sub.l));
         if (flash > 0) m.emissive.lerp(layer.to > layer.from ? new THREE.Color(1, 1, 1) : new THREE.Color(1, 0.3, 0.2), flash * 0.8);
       });
     }
