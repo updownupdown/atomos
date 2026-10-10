@@ -71,6 +71,13 @@ export class PackingView implements PuzzleView {
   get par(): number | null { return this.state.par; }
   get clean(): boolean { return this.state.moves <= this.state.par; }
 
+  /** The game bar's Progress column: open cells filled out of all of them. */
+  stats(): { progress: { label: string; value: string } } {
+    const s = this.state;
+    const total = s.outline.filter((on, i) => on && !s.blocked[i]).length;
+    return { progress: { label: 'Filled', value: `${total - cellsLeft(s)}/${total}` } };
+  }
+
   hint(): string {
     if (this.won) return 'The outline is full';
     const n = cellsLeft(this.state);

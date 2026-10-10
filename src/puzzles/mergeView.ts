@@ -41,6 +41,11 @@ export class MergeView implements PuzzleView {
   get par(): number | null { return this.state.par; }
   get clean(): boolean { return this.state.spoils === 0; }
 
+  /** The game bar's Progress column: the nucleus's clusters fused so far. */
+  stats(): { progress: { label: string; value: string } } {
+    return { progress: { label: 'Fused', value: `${this.state.filled}/${this.state.sockets.length}` } };
+  }
+
   hint(): string {
     const want = wanted(this.state);
     if (this.won) return 'Nucleus complete';
