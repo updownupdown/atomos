@@ -696,7 +696,7 @@ const iconW = (kind: GroupKind, px: number): number => iconCell(px) * (kind === 
 
 /**
  * Lays the tally out to fit `width`: one row at the largest size that fits
- * (13 px down to 11), else rows at 11 px, as many items on each as fit.
+ * (16 px down to 13), else rows at 13 px, as many items on each as fit.
  */
 function legendLayout(ctx: CanvasRenderingContext2D, items: Tally[], width: number): Legend {
   const measure = (px: number) => items.map((t) => {
@@ -708,9 +708,9 @@ function legendLayout(ctx: CanvasRenderingContext2D, items: Tally[], width: numb
     return { t, w: iconW(t.kind, px) + px * 0.5 + name + count };
   });
   const sum = (row: { w: number }[], gap: number) => row.reduce((a, x) => a + x.w, 0) + gap * Math.max(0, row.length - 1);
-  for (const px of [13, 12, 11]) {
+  for (const px of [16, 14.5, 13]) {
     const row = measure(px), gap = px * 1.3;
-    if (sum(row, gap) <= width || px === 11) {
+    if (sum(row, gap) <= width || px === 13) {
       const rows: { t: Tally; w: number }[][] = [];
       for (const x of row) {
         const last = rows[rows.length - 1];

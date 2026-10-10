@@ -12,7 +12,7 @@ import { showWin } from './puzzles/winPanel';
 import type { Area } from './puzzles/view';
 import { createSlider, iconButton, type Slider } from './ui/components';
 import { countPlay, GOAL_PLAYS } from './core/plays';
-import { clearOffers, createGameBar, gameFooter, offerRules, type GameBar } from './puzzles/gamebar';
+import { aboveOffers, clearOffers, createGameBar, gameFooter, offerRules, type GameBar } from './puzzles/gamebar';
 import { difficulty } from './puzzles/difficulty';
 import { askRestart, confirming, restartButton } from './puzzles/restart';
 import { icon } from './ui/icons';
@@ -268,7 +268,8 @@ export class Playground {
     const r = $('pg-canvas').getBoundingClientRect();
     const w = r.width;
     const colW = w < 700 ? w - 16 : Math.min(720, w * 0.7);
-    return { x: (w - colW) / 2, y: 6, w: colW, h: Math.max(200, r.height - 12) };
+    const bottom = aboveOffers(this.gbar.el, r.bottom - 6) - r.top;
+    return { x: (w - colW) / 2, y: 6, w: colW, h: Math.max(200, bottom - 6) };
   }
 
   /** Restart asks first; Nu streaks across the board as it clears. */

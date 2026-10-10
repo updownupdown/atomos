@@ -11,7 +11,7 @@ import { modalOpen } from '../ui/modal';
 import { puzzleType } from './catalog';
 import { PuzzleHost } from './host';
 import { difficulty } from './difficulty';
-import { createGameBar, gameFooter, offerRules } from './gamebar';
+import { aboveOffers, createGameBar, gameFooter, offerRules } from './gamebar';
 import { openRules } from './rulesModal';
 import { showWin } from './winPanel';
 import type { Area } from './view';
@@ -54,7 +54,8 @@ function run(id: UnlockId, info: UnlockInfo): Promise<boolean> {
     const area = (): Area => {
       const r = canvas.getBoundingClientRect();
       const colW = r.width < 700 ? r.width - 16 : Math.min(720, r.width * 0.7);
-      return { x: (r.width - colW) / 2, y: 6, w: colW, h: Math.max(200, r.height - 12) };
+      const bottom = aboveOffers(root, r.bottom - 6) - r.top;
+      return { x: (r.width - colW) / 2, y: 6, w: colW, h: Math.max(200, bottom - 6) };
     };
     const host = new PuzzleHost(canvas, area);
     let closeWin = () => {};

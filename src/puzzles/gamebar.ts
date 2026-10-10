@@ -108,11 +108,11 @@ export function offerRules(bar: GameBar, game: { id: string; name: string }, ope
   const acts = document.createElement('span');
   acts.className = 'nu-acts';
   const rules = document.createElement('button');
-  rules.className = 'secondary nu-act';
+  rules.className = 'primary nu-act';
   rules.textContent = 'Rules';
   rules.onclick = () => open();
   const later = document.createElement('button');
-  later.className = 'nu-act nu-act-quiet';
+  later.className = 'secondary nu-act';
   later.textContent = 'Not now';
   later.onclick = () => line.remove();
   acts.append(rules, later);
@@ -123,6 +123,15 @@ export function offerRules(bar: GameBar, game: { id: string; name: string }, ope
  *  back the next time instead. */
 export function clearOffers(bar: GameBar): void {
   bar.el.querySelectorAll('.gbar-nu').forEach((e) => e.remove());
+}
+
+/** The lowest the board may reach (in viewport pixels) so an offer at the bottom never covers it:
+ *  `bottom` itself when no offer is showing. */
+export function aboveOffers(scope: ParentNode, bottom: number): number {
+  const offer = scope.querySelector<HTMLElement>('.gbar-nu');
+  if (!offer?.isConnected) return bottom;
+  const r = offer.getBoundingClientRect();
+  return r.height > 0 ? Math.min(bottom, r.top - 8) : bottom;
 }
 
 export interface GameFooter {

@@ -31,7 +31,7 @@ import { closeModal, modalOpen, openModal } from './ui/modal';
 import { createTabs, iconButton, nextButton, playButton } from './ui/components';
 import { askRestart, confirming, restartButton } from './puzzles/restart';
 import { HintControl } from './puzzles/hints';
-import { clearOffers, createGameBar, gameFooter, offerRules, type GameBar, type GameFooter } from './puzzles/gamebar';
+import { aboveOffers, clearOffers, createGameBar, gameFooter, offerRules, type GameBar, type GameFooter } from './puzzles/gamebar';
 import { countPlay, GOAL_PLAYS } from './core/plays';
 import { icon, type IconName } from './ui/icons';
 import { scienceButton, setScienceHandler } from './ui/science';
@@ -678,7 +678,7 @@ export class Game {
 
   private area(): Area {
     const top = $('build-head').getBoundingClientRect().bottom + 8;
-    const bottom = $('build-foot').getBoundingClientRect().top - 8;
+    const bottom = aboveOffers(this.gbar.el, $('build-foot').getBoundingClientRect().top - 8);
     const w = window.innerWidth;
     const narrow = w < 900;
     // On wide screens the puzzle keeps to a column so the atom can sit beside it.

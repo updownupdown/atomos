@@ -20,6 +20,7 @@
 
 import { allSparks, cellX, cellY, cloneSlideStop, cracksOf, isRock, slide, slideRun, solve, solved, type Dir, type SlideStopState, type Tile } from './slideStop';
 import { bead, C, fitGrid, font, tile } from './palette';
+import { drawFrame, frameBox, framePad, frameWidth } from './frame';
 import { drawHelpMark, ease, undoHelp, type Area, type Help, type Illustration, type Point, type PuzzleView, type RuleCard, type Stat } from './view';
 
 const SWIPE = 22;
@@ -79,7 +80,7 @@ function paintSlide(ctx: CanvasRenderingContext2D, s: SlideStopState, g: Geo, no
     return j < 0 || along >= j + 0.7;
   };
 
-  lattice(ctx, g.x, g.y, s.size, g.rows, c, o.bumped);
+  lattice(ctx, s, g, o.bumped);
 
   // Tiles.
   const cracks = cracksOf(s);
@@ -155,7 +156,7 @@ function paintSlide(ctx: CanvasRenderingContext2D, s: SlideStopState, g: Geo, no
     }
     ctx.restore();
   }
-  electron(ctx, p.x, p.y, r, o.won && o.motion);
+  electron(ctx, p.x, p.y, r, o.motion ? now : 0, o.won && o.motion);
 
   // Which ways can move, as small ticks at the electron's sides, once settled.
   if (o.ticks && !o.won && t >= 1) {
@@ -164,7 +165,7 @@ function paintSlide(ctx: CanvasRenderingContext2D, s: SlideStopState, g: Geo, no
     for (const [d, dx, dy] of dirs) {
       if (slideRun(s, d).end === s.pos) continue;
       ctx.beginPath();
-      ctx.arc(p.x + dx * (r + c * 0.1), p.y + dy * (r + c * 0.1), Math.max(1.2, c * 0.03), 0, Math.PI * 2);
+      ctx.arc(p.x + dx * (r + c * 0.15), p.y + dy * (r + c * 0.15), Math.max(1.2, c * 0.03), 0, Math.PI * 2);
       ctx.fill();
     }
   }
@@ -307,7 +308,7 @@ export class SlideStopView implements PuzzleView {
   draw(ctx: CanvasRenderingContext2D, area: Area, now: number): void {
     const s = this.state;
     const status = s.sparks.length > 0;
-    const fit = fitGrid(area, s.size, s.size, { margin: 8, maxCell: 72, top: status ? STATUS_H : 0 });
+    const fit = fitFramed(area, s.size, s.size, { margin: 8, maxCell: 72, top: status ? STATUS_H : 0 });
     const c = fit.cell;
     this.cell = c;
     this.origin = { x: fit.x, y: fit.y };
@@ -326,11 +327,11 @@ export class SlideStopView implements PuzzleView {
     if (m) helpSlide(ctx, s, { x: fit.x, y: fit.y, c, rows: s.size }, m.end, m.dir, now, this.reduced);
 
     if (status) {
-      ctx.font = font(12);
+      ctx.font = font(13);
       ctx.fillStyle = C.text2;
       ctx.textAlign = 'left';
       ctx.textBaseline = 'bottom';
-      ctx.fillText(`Photons ${popcount(s.got)} / ${s.sparks.length}`, this.origin.x + 2, this.origin.y - 6);
+      ctx.fillText(`Photons ${popcount(s.got)} / ${s.sparks.length}`, this.origin.x - fit.room + frameWidth(c) / 2, this.origin.y - fit.room - 4);
     }
   }
 }
@@ -364,18 +365,38 @@ function popcount(v: number): number {
 
 // ---- tiles ---------------------------------------------------------------------------
 
-/** The calm lattice plate: a flat panel with a fine dot at each lattice point. */
-function lattice(ctx: CanvasRenderingContext2D, x: number, y: number, cols: number, rows: number, c: number, bumped: boolean): void {
-  const w = c * cols, h = c * rows;
-  tile(ctx, x, y, w, h, c * 0.18, C.surface, null);
-  ctx.fillStyle = C.line2;
-  const r = Math.max(0.9, c * 0.025);
-  for (let j = 1; j < rows; j++) for (let i = 1; i < cols; i++) {
+/** The room the board frame takes round a grid of this cell size: its padding and half its stroke. */
+const frameRoom = (c: number): number => framePad(c) + frameWidth(c) / 2 + 1;
+
+/**
+ * Fits the grid with room round it for the shared board frame. The room shrinks (never grows)
+ * with the cell, so the room for the cell fitted without it is always enough.
+ */
+function fitFramed(area: Area, cols: number, rows: number, opts: { margin: number; maxCell: number; top?: number }): { cell: number; x: number; y: number; room: number } {
+  const room = frameRoom(fitGrid(area, cols, rows, opts).cell);
+  const g = fitGrid(area, cols, rows, { ...opts, margin: opts.margin + room });
+  return { cell: g.cell, x: g.x, y: g.y, room };
+}
+
+/**
+ * The lattice: the shared board frame round it (flashing red on a swipe that went nowhere) and a
+ * faint dot at the center of every open cell, as on the other boards.
+ */
+function lattice(ctx: CanvasRenderingContext2D, s: SlideStopState, g: Geo, bumped: boolean): void {
+  const c = g.c, cols = s.size, rows = g.rows;
+  drawFrame(ctx, frameBox(g.x, g.y, cols * c, rows * c, c), {
+    width: frameWidth(c),
+    radius: c * 0.2 + framePad(c),
+    color: bumped ? C.bad : C.frame,
+  });
+  ctx.fillStyle = C.surface3;
+  const r = Math.max(1.5, c * 0.035);
+  for (let i = 0; i < cols * rows; i++) {
+    if (s.tiles[i] !== '.' || i === s.goal) continue;
     ctx.beginPath();
-    ctx.arc(x + i * c, y + j * c, r, 0, Math.PI * 2);
+    ctx.arc(g.x + (i % cols + 0.5) * c, g.y + (Math.floor(i / cols) + 0.5) * c, r, 0, Math.PI * 2);
     ctx.fill();
   }
-  tile(ctx, x, y, w, h, c * 0.18, null, bumped ? C.bad : C.line2, 1);
 }
 
 /** A wall block's size and corner, as fractions of a cell. */
@@ -383,16 +404,15 @@ const BLOCK = 0.8;
 const BLOCK_R = 0.16;
 
 /**
- * A fixed nucleus: a plain wall block, flat and muted, with one small dot. It
- * blocks the electron. Kept calm on purpose: a board can hold many of them.
+ * A fixed nucleus: a plain wall block in the frame's color, part of the board like the walls of
+ * the other games, with one small dot. It blocks the electron. Kept calm on purpose: a board can
+ * hold many of them.
  */
 export function nucleus(ctx: CanvasRenderingContext2D, x: number, y: number, c: number): void {
   const side = c * BLOCK;
   ctx.save();
-  ctx.globalAlpha = 0.17;
-  tile(ctx, x - side / 2, y - side / 2, side, side, c * BLOCK_R, C.tile, null);
-  ctx.globalAlpha = 0.35;
-  ctx.fillStyle = C.tile;
+  tile(ctx, x - side / 2, y - side / 2, side, side, c * BLOCK_R, C.frame, null);
+  ctx.fillStyle = C.text3;
   ctx.beginPath();
   ctx.arc(x, y, Math.max(1.5, c * 0.055), 0, Math.PI * 2);
   ctx.fill();
@@ -408,8 +428,9 @@ export const pebble = nucleus;
  */
 function unstable(ctx: CanvasRenderingContext2D, x: number, y: number, c: number, salt: number, now: number): void {
   const side = c * BLOCK;
-  const jx = now ? Math.sin(now / 70 + salt * 1.7) * c * 0.018 : 0;
-  const jy = now ? Math.cos(now / 90 + salt * 2.3) * c * 0.018 : 0;
+  // A slow, slight drift of the inner ring: alive, but never busy.
+  const jx = now ? Math.sin(now / 520 + salt * 1.7) * c * 0.009 : 0;
+  const jy = now ? Math.cos(now / 650 + salt * 2.3) * c * 0.009 : 0;
   ctx.save();
   ctx.globalAlpha = 0.06;
   tile(ctx, x - side / 2, y - side / 2, side, side, c * BLOCK_R, C.tile, null);
@@ -448,7 +469,7 @@ function well(ctx: CanvasRenderingContext2D, x: number, y: number, c: number): v
   ctx.restore();
 }
 
-/** Drift arrows: a pane with a double chevron pointing the only way in. */
+/** Drift arrows: a pane with a double chevron pointing the only way in, the pair centered in the pane. */
 function drift(ctx: CanvasRenderingContext2D, x: number, y: number, c: number, t: Tile): void {
   const [dx, dy] = t === '^' ? [0, -1] : t === 'v' ? [0, 1] : t === '<' ? [-1, 0] : [1, 0];
   ctx.save();
@@ -458,8 +479,10 @@ function drift(ctx: CanvasRenderingContext2D, x: number, y: number, c: number, t
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
   const k = c * 0.16;
+  // Each chevron's tip sits `off` along the way in and its arms reach k back, so the pair spans
+  // -0.12c - k to +0.12c; shifting the tips by k / 2 centers that span on the pane.
   for (const off of [-0.12, 0.12]) {
-    const cx = x + dx * off * c, cy = y + dy * off * c;
+    const cx = x + dx * (off * c + k / 2), cy = y + dy * (off * c + k / 2);
     ctx.beginPath();
     ctx.moveTo(cx - dx * k + dy * k, cy - dy * k + dx * k);
     ctx.lineTo(cx, cy);
@@ -484,7 +507,7 @@ function photon(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, 
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
   ctx.beginPath();
-  const phase = now / 260;
+  const phase = now / 720;
   for (let k = 0; k <= 24; k++) {
     const u = k / 24 * 2 - 1;
     const env = Math.cos(u * Math.PI / 2) ** 2;
@@ -512,8 +535,22 @@ function ring(ctx: CanvasRenderingContext2D, x: number, y: number, c: number, op
   ctx.restore();
 }
 
-/** The electron: the game's silver bead. */
-function electron(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, glow: boolean): void {
+/**
+ * The electron: the game's silver bead in a thin white ring with a soft glow, so the piece the
+ * player moves is the brightest thing on the board. The ring breathes slowly (`now` 0: still).
+ */
+function electron(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, now: number, glow: boolean): void {
+  const k = now ? 0.5 + 0.5 * Math.sin(now / 520) : 0.6;
+  ctx.save();
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = Math.max(1.5, r * 0.14);
+  ctx.globalAlpha = 0.55 + 0.35 * k;
+  ctx.shadowColor = 'rgba(255, 255, 255, 0.9)';
+  ctx.shadowBlur = r * (0.5 + 0.7 * k);
+  ctx.beginPath();
+  ctx.arc(x, y, r * (1.2 + 0.03 * k), 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
   bead(ctx, x, y, r, C.silver, { rim: C.pewter, glow: glow ? C.silver : undefined });
 }
 
@@ -593,7 +630,7 @@ function picture(rows: string[], moves: Dir[], caption: string, o: { from?: [num
         st = step.next;
         gl = { from: step.prev.pos, to: step.next.pos, path: step.path, prev: step.prev, at: step.at * 1000, ms: step.ms };
       }
-      const fit = fitGrid({ x: 0, y: 0, w, h }, s0.size, n, { margin: 3, maxCell: 999 });
+      const fit = fitFramed({ x: 0, y: 0, w, h }, s0.size, n, { margin: 2, maxCell: 999 });
       const k = flag >= 0 && u > settle ? ease((u - settle) / VERDICT) : 0;
       paintSlide(ctx, st, { x: fit.x, y: fit.y, c: fit.cell, rows: n }, u * 1000, gl, {
         won: solved(st),
