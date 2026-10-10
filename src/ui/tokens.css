@@ -28,7 +28,12 @@
   --tracking-caps: 0.14em;
 
   /* Colour: graphite, cool white, cyan. Red is kept only for the active target in an atom. */
-  --c-bg: #101112;
+  /* Content sits on pure black; the navigation rows (header, atom bar, View/Build) on a
+     slightly lighter graphite, so the chrome reads apart from the page without lines. */
+  --c-bg: #000000;
+  --c-nav: #16181a;
+  /* The picked item in a navigation row: cyan on a dark gray chip. */
+  --c-pick: #272b2f;
   --c-plate: #131416;
   --c-surface: #17191b;
   --c-surface-2: #1f2225;
@@ -46,8 +51,6 @@
   --c-accent: #6fd0e6;
   --c-accent-ink: #06232a;
   --c-target: #e0503a;
-  /* The bar under the active tab: a deeper blue beside the cyan label. */
-  --c-tab-line: #3a8fe0;
   --c-good: #8fd19e;
   --c-warn: #e8b45c;
   --c-bad: #ef6a55;

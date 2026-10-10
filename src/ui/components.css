@@ -72,7 +72,6 @@
   margin: calc(-1 * var(--sp-5)) calc(-1 * var(--sp-5)) var(--sp-3);
   padding: var(--sp-3) calc(var(--hit) + var(--sp-4)) var(--sp-3) var(--sp-5);
   background: var(--c-surface);
-  border-bottom: 1px solid transparent;
 }
 .ui-modal-head > h1, .ui-modal-head > h2, .ui-modal-head > h3 { margin: 0 !important; }
 .ui-modal-head > .ui-close { top: 50%; transform: translateY(-50%); right: var(--sp-3); }
@@ -81,7 +80,8 @@
 @keyframes ui-fade { from { opacity: 0; } }
 @keyframes ui-rise { from { opacity: 0; transform: translateY(8px) scale(0.99); } }
 
-/* ---- Tabs: labels on a hairline; the active one is cyan with a blue bar beneath ---- */
+/* ---- Tabs: labels on a hairline; the active one is cyan with a square cyan bar beneath.
+   Tabs are the one place a line runs along only one side. ---- */
 .ui-tabs {
   position: relative;
   display: flex;
@@ -119,8 +119,8 @@
   bottom: 0;
   width: 0;
   height: 3px;
-  border-radius: 3px 3px 0 0;
-  background: var(--c-tab-line);
+  border-radius: 0;
+  background: var(--c-accent);
   pointer-events: none;
   transition: transform var(--dur) var(--ease), width var(--dur) var(--ease);
 }
@@ -166,7 +166,7 @@
   place-items: center;
 }
 .ui-seg-dot::after { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; transform: scale(0); transition: transform var(--dur) var(--ease); }
-.ui-seg-opt[aria-checked='true'] { background: var(--c-tile); color: var(--c-tile-ink); }
+.ui-seg-opt[aria-checked='true'] { background: var(--c-pick); color: var(--c-accent); }
 .ui-seg-opt[aria-checked='true'] .ui-seg-dot::after { transform: scale(1); }
 .ui-seg-opt:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
 
@@ -177,10 +177,12 @@
   justify-content: space-between;
   gap: var(--sp-4);
   min-height: 56px;
-  padding: var(--sp-2) 0;
-  border-bottom: 1px solid var(--c-line);
+  padding: var(--sp-2) var(--sp-4);
+  border-radius: var(--r-md);
+  background: var(--c-surface);
   cursor: pointer;
 }
+.ui-switch-row + .ui-switch-row { margin-top: var(--sp-2); }
 .ui-switch-text { font-size: var(--fs-md); font-weight: var(--fw-semibold); }
 .ui-switch-text small { display: block; margin-top: 2px; font-size: var(--fs-sm); font-weight: var(--fw-regular); color: var(--c-text-2); }
 .ui-switch {
@@ -419,4 +421,4 @@
 .ui-disclosure-head:hover .ui-disclosure-chev { color: var(--c-text); }
 .ui-disclosure[open]:not(.is-closing) .ui-disclosure-chev { transform: rotate(180deg); background: var(--c-accent); color: var(--c-accent-ink); }
 .ui-disclosure-body { overflow: hidden; }
-.ui-disclosure-in { padding: 0 var(--sp-4) var(--sp-4); border-top: 1px solid var(--c-line); padding-top: var(--sp-3); }
+.ui-disclosure-in { padding: var(--sp-1) var(--sp-4) var(--sp-4); }
