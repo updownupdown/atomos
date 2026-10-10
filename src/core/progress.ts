@@ -95,6 +95,19 @@ export function fleetingTotal(save: SaveData = loadSave()): { built: number; tot
   return { built, total };
 }
 
+/** Lasting isotopes built across the whole table, out of how many there are (294). */
+export function lastingTotal(save: SaveData = loadSave()): { built: number; total: number } {
+  let built = 0;
+  let total = 0;
+  for (let z = 1; z <= 118; z++) {
+    for (const i of lastingIsotopes(z)) {
+      total++;
+      if (isotopeCollected(save, z, i.a)) built++;
+    }
+  }
+  return { built, total };
+}
+
 /** A built fleeting isotope stays in the collection but shows as decayed. Derived, not stored. */
 export function isDecayed(z: number, i: Isotope, save: SaveData = loadSave()): boolean {
   return !isLasting(i) && isotopeCollected(save, z, i.a);

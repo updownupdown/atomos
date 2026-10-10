@@ -3,6 +3,7 @@
 // Build and the Puzzles screen.
 
 import { C, syncPalette } from './palette';
+import { nextButton } from '../ui/components';
 
 export interface WinStat {
   label: string;
@@ -12,6 +13,8 @@ export interface WinStat {
 export interface WinAction {
   label: string;
   primary?: boolean;
+  /** The Next step: drawn as the app's one Next button, ahead of the others. */
+  next?: boolean;
   onClick: () => void;
 }
 
@@ -45,6 +48,10 @@ export function showWin(host: HTMLElement, info: WinInfo, reducedMotion = false)
     </div>`;
   const actions = root.querySelector<HTMLElement>('.win-actions')!;
   for (const a of info.actions) {
+    if (a.next) {
+      actions.append(nextButton({ label: a.label, onClick: () => { close(); a.onClick(); }, landKey: `win:${info.title}`, className: 'win-next' }));
+      continue;
+    }
     const b = document.createElement('button');
     b.type = 'button';
     b.className = a.primary ? 'primary' : 'secondary';

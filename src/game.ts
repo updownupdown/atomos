@@ -10,6 +10,7 @@ import { frontier, loadSave, writeSave, type OrbitalShape, type SaveData, type S
 import './puzzles/unlock';
 import { atomProgress, fleetingCount, fleetingDealZ, fleetingIsotopes, isotopeCollected, isotopeGame, ISOTOPE_GAMES_LIST, lastingIsotopes, rowNeed, rowOf, rowOpen, rowSpan, segmentsOf, shapeAt, stepState, stepsOf, type IsotopeGame, type StepState } from './core/progress';
 import { SHAPE_GLYPH_Z } from './core/unlocks';
+import { nextLabel, nextStep, notePaused, type NextStep } from './core/next';
 import { tableColour } from './core/paint';
 import { Detail } from './gallery/detail';
 import type { AtomLit } from './gallery/atom';
@@ -24,9 +25,10 @@ import { type Area, type PuzzleView } from './puzzles/view';
 import { dealSeed, puzzleIcon, puzzleType, type PuzzleType } from './puzzles/catalog';
 import { difficulty, difficultyWord } from './puzzles/difficulty';
 import { openRules } from './puzzles/rulesModal';
-import { showWin } from './puzzles/winPanel';
+import { showWin, type WinAction } from './puzzles/winPanel';
 import { closeModal, modalOpen, openModal } from './ui/modal';
-import { createHoldButton, createTabs, iconButton } from './ui/components';
+import { createTabs, iconButton, nextButton, playButton } from './ui/components';
+import { askRestart, confirming, restartButton } from './puzzles/restart';
 import { icon, type IconName } from './ui/icons';
 import { scienceButton, setScienceHandler } from './ui/science';
 import { elementAt, shortConfiguration } from './gallery/data';
@@ -67,6 +69,8 @@ export class Game {
   /** The navigator along the foot of the Build page, the same one View uses. */
   private bar: AtomBar;
   private closeWin: () => void = () => {};
+  /** The next step, as of the last time the Build page was drawn. */
+  private nextHere: NextStep | null = null;
   private busy = false;
   private overlay = $<HTMLCanvasElement>('overlay');
   private modalCleanup: (() => void) | null = null;
@@ -90,7 +94,6 @@ export class Game {
     window.setInterval(() => this.processDecays(false), 1000);
     window.addEventListener('resize', () => this.resizeOverlay());
     this.resizeOverlay();
-    if (Object.keys(this.save.built).length === 0) this.showIntro();
   }
 
   // ---- lifecycle --------------------------------------------------------------
@@ -103,6 +106,30 @@ export class Game {
   }
 
   get currentZ(): number { return this.z; }
+
+  /** Opens one of an atom's puzzles, from the Next button anywhere in the app. A puzzle under way
+   *  is kept to pick up later; a stage that isn't open yet leaves the player on the Build page. */
+  play(z: number, stage: string): void {
+    if (this.busy) return;
+    if (z !== this.z) this.start(Math.min(MAX_Z, Math.max(1, z)));
+    else this.suspend();
+    const s = stage as Stage;
+    if (s === this.stage) return;
+    if (this.canPlay(s)) this.enter(s);
+    else if (this.stage !== 'home') this.enter('home');
+  }
+
+  /** Whether a stage can be played on this atom now. */
+  private canPlay(s: Stage): boolean {
+    const z = this.z;
+    if (s === 'home') return true;
+    if (s === 'nucleus' || s === 'shells') return stepsOf(z).includes(s) && rowOpen(rowOf(z), this.save);
+    if (s === 'shape') return shapeAt(z) !== undefined;
+    const built = Boolean(this.save.built[z]);
+    if (isIso(s)) return built && lastingIsotopes(z).some((i) => i.a === isoA(s));
+    if (isFleet(s)) return built && fleetingIsotopes(z).some((i) => i.a === fleetA(s)) && (ISOTOPE_GAMES_LIST as readonly string[]).includes(fleetGame(s));
+    return false;
+  }
 
   /** The screen is hidden: stop drawing until resume(). */
   pause(): void {
@@ -117,6 +144,7 @@ export class Game {
     window.dispatchEvent(new Event('resize'));
     this.resizeOverlay();
     this.ensureLoop();
+    if (this.stage === 'home') this.showNextCard();
   }
 
   /** Settings changed in the global sheet: re-read them. */
@@ -134,6 +162,7 @@ export class Game {
     this.atom = this.save.built[z] ? fullAtom(z) : newAtom(z);
     this.busy = false;
     this.suspended = {};
+    this.syncPaused();
     this.hooks.onElement?.(z);
     const colour = this.colourFor(z);
     this.scene.setColour(colour);
@@ -144,6 +173,14 @@ export class Game {
     this.bar.set(z);
     $('build-home').scrollTop = 0;
     this.enter('home');
+    this.showNextCard();
+  }
+
+  /** Brings the card with the Next button into view, if it is below the fold. */
+  private showNextCard(): void {
+    const row = $('bh-in').querySelector<HTMLElement>('.bh-row.is-go');
+    if (!row || this.paused) return;
+    requestAnimationFrame(() => row.scrollIntoView({ block: 'nearest', behavior: this.save.settings.reducedMotion ? 'auto' : 'smooth' }));
   }
 
   /** Shows the Build page or one of the atom's puzzles. A puzzle left part-way picks up where it was. */
@@ -157,6 +194,7 @@ export class Game {
       const resumed = this.suspended[stage];
       this.puzzle = resumed ?? this.makePuzzle(stage);
       delete this.suspended[stage];
+      this.syncPaused();
       if (stage === 'shells' && !resumed) {
         // The electrons go on fresh each time they are played.
         this.atom = newAtom(this.z);
@@ -218,8 +256,22 @@ export class Game {
   /** Back to the Build page, keeping a puzzle that is under way. */
   private toHome(): void {
     if (this.busy) return;
-    if (this.stage !== 'home' && this.puzzle && this.puzzle.moves > 0 && !this.puzzle.won) this.suspended[this.stage] = this.puzzle;
+    this.suspend();
     this.enter('home');
+  }
+
+  /** Keeps the puzzle on screen, if it is under way, to pick up later. */
+  private suspend(): void {
+    if (this.stage !== 'home' && this.puzzle && this.puzzle.moves > 0 && !this.puzzle.won) {
+      this.suspended[this.stage] = this.puzzle;
+      this.syncPaused();
+    }
+  }
+
+  /** Tells nextStep about the puzzle kept half done, so Next everywhere offers to resume it. */
+  private syncPaused(): void {
+    const stage = Object.keys(this.suspended)[0] as Exclude<Stage, 'home'> | undefined;
+    notePaused(stage ? { z: this.z, stage, game: this.stagePuzzle(stage).id } : null);
   }
 
   /** The microscope: how building works on the Build page, the science of a puzzle inside it. */
@@ -365,6 +417,7 @@ export class Game {
     }) : '';
 
     const steps = stepsOf(z);
+    this.nextHere = nextStep(this.save, z);
     $('bh-in').innerHTML = [
       open ? '' : this.section('lock', `Row ${row} is locked`, `${need.built} of ${need.need}`, '',
         `Row ${row} opens once you've built ${need.need} of the ${this.rowSize(row - 1)} atoms in row ${row - 1}. ${shut} to open it.`),
@@ -382,6 +435,14 @@ export class Game {
     ].join('');
 
     const root = $('bh-in');
+    root.querySelectorAll<HTMLElement>('.bh-slot').forEach((slot) => {
+      const stage = slot.dataset.slot as Stage;
+      const go = () => this.enter(stage);
+      const b = slot.dataset.next === '1'
+        ? nextButton({ label: slot.dataset.verb!, onClick: go, compact: true, landKey: `build:${z}`, className: 'bh-go' })
+        : playButton({ ariaLabel: `${slot.dataset.verb} ${slot.dataset.what}`, onClick: go, compact: true, className: 'bh-plain' });
+      slot.replaceWith(b);
+    });
     root.querySelectorAll<HTMLButtonElement>('[data-stage]').forEach((b) => (b.onclick = () => this.enter(b.dataset.stage as Stage)));
     root.querySelector<HTMLButtonElement>('#bh-bench')?.addEventListener('click', () => this.showBench(z));
     root.querySelectorAll<HTMLButtonElement>('[data-fleet]').forEach((b) => (b.onclick = () => this.pickFleeting(Number(b.dataset.fleet))));
@@ -481,13 +542,16 @@ export class Game {
       : '';
     const badge = o.done ? `<span class="bh-badge">${icon(o.flawless ? 'star' : 'check', { size: 14 })}</span>` : '';
     const verb = paused ? 'Resume' : o.done ? 'Replay' : gated ? 'Unlock' : 'Play';
-    const glyph = o.done && !paused ? icon('restart', { size: 20 }) : gated && !paused ? icon('unlock', { size: 20 }) : icon('play', { size: 20 });
+    const isNext = !o.locked && this.nextHere?.z === this.z && this.nextHere.stage === o.stage;
+    // The next step gets the Next button and the rest a plain Play, both mounted after render;
+    // a built step gets Replay, and a discovery still to make, Unlock.
     const play = o.locked ? `<span class="bh-lock" aria-hidden="true">${icon('lock', { size: 20 })}</span>`
-      : `<button class="${o.done && !paused ? 'secondary' : 'primary'} bh-play" data-stage="${o.stage}" aria-label="${verb} ${t.name}${o.title ? `: ${o.title}` : ''}" title="${verb}">${glyph}</button>`;
+      : isNext || (!o.done && !gated) || paused ? `<span class="bh-slot" data-slot="${o.stage}" data-next="${isNext ? 1 : 0}" data-verb="${verb}" data-what="${t.name}${o.title ? `: ${o.title}` : ''}"></span>`
+      : `<button class="secondary bh-play" data-stage="${o.stage}" aria-label="${verb} ${t.name}${o.title ? `: ${o.title}` : ''}" title="${verb}">${icon(o.done ? 'restart' : 'unlock', { size: 20 })}</button>`;
     const rating = difficulty(t.id, this.dealtFor(o.stage));
     const pips = Array.from({ length: 5 }, (_, i) => `<i class="${i < Math.ceil(rating / 2) ? 'on' : ''}"></i>`).join('');
     return `
-      <li class="bh-row ${cls}">
+      <li class="bh-row ${cls}${isNext ? ' is-go' : ''}">
         <div class="bh-step">
           <div class="bh-step-body">
             <div class="bh-step-head">
@@ -594,6 +658,7 @@ export class Game {
     }
     const ctx = this.overlayCtx();
     p.draw(ctx, this.area(), now);
+    this.drawSweep(ctx);
     this.renderStage();
     ($('btn-undo') as HTMLButtonElement).disabled = !p.canUndo() || this.busy;
     this.sayHint();
@@ -696,7 +761,7 @@ export class Game {
       flawless: false,
       stats: this.winStats(p),
       note: prev ? `Your best is ${best} move${best === 1 ? '' : 's'}.` : `The Shapes view in 3D now draws ${l} orbitals in every atom that has them.`,
-      actions: [this.backAction()],
+      actions: this.winActions(),
     }, this.save.settings.reducedMotion);
   }
 
@@ -710,15 +775,31 @@ export class Game {
     ];
   }
 
-  /** The way back to this atom, which every win panel leads with: the player picks what is next. */
-  private backAction(primary = true) {
+  /** The way back to this atom's Build page. */
+  private backAction(primary = false): WinAction {
     return { label: `Back to ${element(this.z).name.toLowerCase()}`, primary, onClick: () => this.enter('home') };
+  }
+
+  /** What every win panel offers: the Next step first (or Back, once everything is done), then
+   *  a look at the atom once it is built, or the way back to its Build page. */
+  private winActions(): WinAction[] {
+    const step = nextStep(this.save, this.z);
+    const el = element(this.z);
+    const look: WinAction = this.save.built[this.z] && this.hooks.onView
+      ? { label: `Look at ${el.name.toLowerCase()}`, onClick: () => { this.enter('home'); this.hooks.onView!(this.z); } }
+      : this.backAction();
+    if (!step) return [{ ...look, primary: true }, ...(look.label.startsWith('Back') ? [] : [this.backAction()])];
+    return [{ label: nextLabel(step), next: true, onClick: () => this.goTo(step) }, look];
+  }
+
+  /** Takes the player to a step, on this atom or another. */
+  private goTo(step: NextStep): void {
+    this.play(step.z, step.stage);
   }
 
   /** One of the two puzzles solved, the atom not yet whole: say what it added. */
   private stepWon(step: StepId, p: PuzzleView): void {
     const el = element(this.z);
-    const other: StepId = step === 'nucleus' ? 'shells' : 'nucleus';
     const note = step === 'nucleus'
       ? `${el.z} protons and ${this.neutrons} neutrons, held together. ${el.name} still needs its electrons.`
       : `${el.z} electrons in their orbitals. ${el.name} still needs its nucleus.`;
@@ -728,10 +809,7 @@ export class Game {
       flawless: p.clean,
       stats: this.winStats(p, step),
       note,
-      actions: [
-        this.backAction(),
-        { label: `Play its ${other === 'nucleus' ? 'nucleus' : 'electrons'}`, onClick: () => this.enter(other) },
-      ],
+      actions: this.winActions(),
     }, this.save.settings.reducedMotion);
   }
 
@@ -765,10 +843,7 @@ export class Game {
         flawless,
         stats: this.winStats(p, step),
         note: flawless || wasBuilt ? note : `${note} For a flawless one: no fusion past the target, and the electrons in par or fewer moves.`,
-        actions: [
-          this.backAction(),
-          ...(this.hooks.onView && !wasBuilt ? [{ label: `Look at ${el.name.toLowerCase()}`, onClick: () => { this.enter('home'); this.hooks.onView!(this.z); } }] : []),
-        ],
+        actions: this.winActions(),
       }, this.save.settings.reducedMotion);
     }, this.save.settings.reducedMotion ? 200 : 900);
   }
@@ -801,21 +876,17 @@ export class Game {
         flawless: false,
         stats: this.winStats(p),
         note: `${parts}.${life} it stays in your collection, marked decayed. ${c.built} of ${c.total} of ${el.name.toLowerCase()}'s fleeting isotopes built.`,
-        actions: [this.backAction()],
+        actions: this.winActions(),
       }, this.save.settings.reducedMotion);
       return;
     }
-    const next = lastingIsotopes(this.z).find((i) => i.a !== a && !isotopeCollected(this.save, this.z, i.a));
     this.closeWin = showWin($('app'), {
       kicker: 'Isotope built',
       title: `${el.name}-${a}`,
       flawless: false,
       stats: this.winStats(p),
       note: `${parts}, now in your collection.`,
-      actions: [
-        this.backAction(),
-        ...(next ? [{ label: `Next isotope: ${el.symbol}-${next.a}`, onClick: () => this.enter(`iso-${next.a}`) }] : []),
-      ],
+      actions: this.winActions(),
     }, this.save.settings.reducedMotion);
   }
 
@@ -830,7 +901,7 @@ export class Game {
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
     const undo = iconButton({ icon: icon('undo'), label: 'Undo', onClick: () => this.undo() });
     undo.id = 'btn-undo';
-    const restart = createHoldButton({ icon: icon('restart'), label: 'Restart', doneLabel: 'Restarted', onConfirm: () => this.restartPuzzle() });
+    const restart = restartButton(this.restartOptions());
     restart.id = 'btn-restart';
     const how = iconButton({ icon: icon('info'), label: 'Instructions', onClick: () => this.showHow() });
     $('build-actions').append(undo, restart, how, scienceButton('ui-icon-btn science-btn'));
@@ -868,10 +939,10 @@ export class Game {
   }
 
   private onKey(e: KeyboardEvent): void {
-    if (this.paused || $('app').hidden || modalOpen() || $('app').querySelector('.win')) return;
+    if (this.paused || $('app').hidden || modalOpen() || confirming() || $('app').querySelector('.win')) return;
     if (e.key === 'Escape' && this.stage !== 'home') { this.toHome(); e.preventDefault(); return; }
     if (e.key === 'u' || (e.key === 'z' && (e.ctrlKey || e.metaKey))) return this.undo();
-    if (e.key === 'r' && !e.ctrlKey && !e.metaKey) return this.restartPuzzle();
+    if (e.key === 'r' && !e.ctrlKey && !e.metaKey) { void askRestart(this.restartOptions()); return; }
     if (this.puzzle && !this.busy && this.puzzle.key(e)) {
       e.preventDefault();
       this.ensureLoop();
@@ -889,6 +960,47 @@ export class Game {
     this.puzzle.restart();
     this.refresh();
     this.ensureLoop();
+  }
+
+  /** Restart asks first; on yes Nu streaks across the board and the old moves fade behind it. */
+  private restartOptions() {
+    return {
+      canRestart: () => !this.busy && this.puzzle !== null && this.puzzle.moves > 0,
+      sweepOver: () => this.overlay,
+      restart: () => {
+        // Keep a picture of the old board to wipe away along Nu's trail.
+        const snap = document.createElement('canvas');
+        snap.width = this.overlay.width;
+        snap.height = this.overlay.height;
+        snap.getContext('2d')?.drawImage(this.overlay, 0, 0);
+        this.sweep = { snap, p: 0 };
+        this.restartPuzzle();
+      },
+      onSweep: (p: number) => {
+        if (this.sweep) this.sweep.p = p;
+        if (p >= 1) this.sweep = null;
+        this.ensureLoop();
+      },
+    };
+  }
+
+  /** The old board, wiped from left to right as Nu crosses it after a restart. */
+  private sweep: { snap: HTMLCanvasElement; p: number } | null = null;
+
+  /** Draws what is left of the old board, right of Nu, fading as it goes. */
+  private drawSweep(ctx: CanvasRenderingContext2D): void {
+    const sw = this.sweep;
+    if (!sw) return;
+    const w = window.innerWidth, h = window.innerHeight;
+    const x = sw.p * w;
+    ctx.clearRect(x, 0, w - x, h);
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(x, 0, w - x, h);
+    ctx.clip();
+    ctx.globalAlpha = 1 - sw.p * 0.5;
+    ctx.drawImage(sw.snap, 0, 0, w, h);
+    ctx.restore();
   }
 
   // ---- overlay drawing ------------------------------------------------------------
@@ -987,16 +1099,6 @@ export class Game {
 
   private closeModal(): void {
     closeModal();
-  }
-
-  private showIntro(): void {
-    const sheet = this.openModal(`
-      <h2>Atomos</h2>
-      <p class="muted">Prototype</p>
-      <p>Every atom is built from two puzzles, in any order: one gathers its <b>nucleus</b>, the other settles its <b>electrons</b>. Then its isotopes open. Each atom's Build page shows its puzzles, what each one adds, and how far you have got.</p>
-      <p>No timers. The <b>i</b> explains how a puzzle works, and the microscope the science behind it, whenever you want them.</p>
-      <div class="actions"><button class="primary" id="intro-go">Start with hydrogen</button></div>`);
-    sheet.querySelector<HTMLButtonElement>('#intro-go')!.onclick = () => this.closeModal();
   }
 
   private showWhy(): void {
