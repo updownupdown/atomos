@@ -1,10 +1,10 @@
 // Which puzzle an element asks for, and the seed that makes its level the same
 // for everyone. Merge builds nuclei up to iron; past iron the nucleus puzzle is
-// Sliding Block. Shell Rings settles every element.
+// Sliding Block. Orbital Grid settles every element's electrons.
 
 import { element } from '../core/elements';
 import { newMerge, type MergeState } from './merge';
-import { newRings, type RingsState } from './rings';
+import { newOrbitalGrid, type OrbitalGridState } from './orbitalGrid';
 import { newSliding, type SlidingState } from './sliding';
 
 export const MERGE_UP_TO = 26;
@@ -18,6 +18,6 @@ export function slidingLevel(z: number): SlidingState {
   return newSliding(z, 15485863 * z + 3);
 }
 
-export function ringsLevel(z: number): RingsState {
-  return newRings(z, 104729 * z + 7);
+export function orbitalGridLevel(z: number): OrbitalGridState {
+  return newOrbitalGrid(z, 104729 * z + 7);
 }

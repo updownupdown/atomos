@@ -6,7 +6,6 @@ import { elementAt as element } from '../gallery/data';
 import { applyPlacement, configuration, newAtom, resolvePlacement } from '../core/physics';
 import { newMerge } from './merge';
 import { MergeView, sup, INSTRUCTIONS as MERGE_HOW } from './mergeView';
-import { newRings } from './rings';
 import { newSliding } from './sliding';
 import { SlidingView } from './slidingView';
 import { newPacking } from './packing';
@@ -18,10 +17,13 @@ import { SlideStopView } from './slideStopView';
 import { newLight } from './light';
 import { LightView, INSTRUCTIONS as LIGHT_HOW } from './lightView';
 import { newCodebreaker } from './codebreaker';
-import { CodebreakerView } from './codebreakerView';
+import { CodebreakerView, INSTRUCTIONS as CODE_HOW } from './codebreakerView';
 import { newRutherford } from './rutherford';
-import { RutherfordView } from './rutherfordView';
-import { RingsView } from './ringsView';
+import { RutherfordView, INSTRUCTIONS as RUTHERFORD_HOW } from './rutherfordView';
+import { newOrbitalGrid } from './orbitalGrid';
+import { OrbitalGridView, INSTRUCTIONS as GRID_HOW } from './orbitalGridView';
+import { newColourCharge } from './colourCharge';
+import { ColourChargeView, INSTRUCTIONS as CHARGE_HOW } from './colourChargeView';
 import { SUBSHELL_COLOURS, type PuzzleView } from './view';
 
 export type Tier = 'every' | 'facet' | 'gate' | 'reserve';
@@ -86,17 +88,18 @@ export const PUZZLES: PuzzleType[] = [
     },
   },
   {
-    id: 'rings', name: 'Shell Rings', tier: 'every',
-    blurb: 'Turn the rings and hop electrons through the gate until every socket is lit.',
-    role: 'Settles the electron shells of all 118 elements.',
+    id: 'orbitalGrid', name: 'Orbital Grid', tier: 'every',
+    blurb: 'Fill the grid so every row, column and outlined block holds each orbital once.',
+    role: 'Settles the electrons of every element, standing in for Shell Rings until a better electron puzzle is found.',
+    instructions: GRID_HOW,
     zRange: [1, 118],
-    make: (z, deal, reduced) => new RingsView(newRings(z, dealSeed('rings', z, deal)), reduced),
+    make: (z, deal, reduced) => new OrbitalGridView(newOrbitalGrid(z, dealSeed('orbitalGrid', z, deal)), reduced),
     science: (z) => {
       const el = element(z);
-      return `<h2>Shell Rings: the science</h2>
-        <p>Electrons live in <b>shells</b> round the nucleus, and shell n holds at most 2n² electrons: 2, then 8, then 18. That is the real reason the periodic table has rows of 2, 8, 8, 18. Each ring here has exactly that many slots.</p>
-        <p>The sockets are coloured by sub-shell: <span style="color:${SUBSHELL_COLOURS.s}">s</span> holds 2, <span style="color:${SUBSHELL_COLOURS.p}">p</span> holds 6, <span style="color:${SUBSHELL_COLOURS.d}">d</span> 10, <span style="color:${SUBSHELL_COLOURS.f}">f</span> 14. Electrons fill the lowest-energy sockets first, which for ${el.name} gives ${groundConfiguration(z)}. Every socket lit and nothing stray is the <b>ground state</b>.</p>
-        <p class="muted">Game rule: electrons are not beads and there is no gate; a real electron is a cloud of probability, which is what the atom behind this puzzle shows.</p>`;
+      return `<h2>Orbital Grid: the science</h2>
+        <p>Electrons in an atom sit in <b>orbitals</b>, grouped into sub-shells named <span style="color:${SUBSHELL_COLOURS.s}">s</span>, <span style="color:${SUBSHELL_COLOURS.p}">p</span>, <span style="color:${SUBSHELL_COLOURS.d}">d</span> and <span style="color:${SUBSHELL_COLOURS.f}">f</span>. Each orbital holds at most two electrons, and those two must spin opposite ways, up and down: the <b>Pauli exclusion principle</b>, which says no two electrons in an atom may share every quantum number.</p>
+        <p>That rule of "never the same twice" is what this grid plays with. Fill ${el.name}'s orbitals lowest energy first and you get ${groundConfiguration(z)}.</p>
+        <p class="muted">Game rule: the grid is a logic puzzle using orbital labels as symbols. The cells are not places in the atom, and real orbitals are not arranged in rows.</p>`;
     },
   },
   {
@@ -168,18 +171,21 @@ export const PUZZLES: PuzzleType[] = [
   },
   {
     id: 'rutherford', name: 'Rutherford Probe', tier: 'gate',
-    blurb: 'Fire probes into the box and deduce the hidden nucleus from how they come out.',
+    blurb: 'Probe the plate cell by cell; each count says how many nuclei sit around it. Find them all without a direct hit.',
     role: 'Played once; opens the nucleus view.',
+    instructions: RUTHERFORD_HOW,
     zRange: [1, 118],
     make: (z, deal, reduced) => new RutherfordView(newRutherford(z, dealSeed('rutherford', z, deal)), reduced),
     science: () => `<h2>Rutherford Probe: the science</h2>
       <p>In 1909 Hans Geiger and Ernest Marsden fired alpha particles at a sheet of gold foil. Nearly all passed straight through, but about one in eight thousand bounced back, which Rutherford said was as surprising as a shell rebounding off tissue paper. The only explanation: almost all of the atom's mass and all its positive charge sit in a <b>nucleus</b> tens of thousands of times smaller than the atom.</p>
-      <p class="muted">Game rule: real scattering is by the electric force at every angle; the straight tracks and right-angle turns are the Black Box game's rules. The method, deducing the unseen from how probes scatter, is Rutherford's.</p>`,
+      <p>The lesson was that an atom is almost entirely empty: probe it at random and you nearly always pass straight through.</p>
+      <p class="muted">Game rule: the counts on the plate are a deduction game, not a measurement. Real scattering happens by the electric force at every angle, and a gold atom has one nucleus, not many. The method, inferring what you cannot see from what your probes report, is Rutherford's.</p>`,
   },
   {
     id: 'codebreaker', name: 'Codebreaker', tier: 'gate',
     blurb: 'Guess the sealed sequence of four; each guess earns clues about what was right.',
     role: 'Guards the 15 synthetic elements.',
+    instructions: CODE_HOW,
     zRange: [104, 118],
     make: (z, deal, reduced) => new CodebreakerView(newCodebreaker(z, dealSeed('codebreaker', z, deal)), reduced),
     science: (z) => {
@@ -191,16 +197,16 @@ export const PUZZLES: PuzzleType[] = [
     },
   },
   {
-    id: 'colour', name: 'Colour Charge', tier: 'reserve',
-    blurb: 'Combine three colours so every piece ends up white.',
-    role: 'In reserve for quarks, if a particle chapter wants it.',
+    id: 'colourCharge', name: 'Colour Charge', tier: 'reserve',
+    blurb: 'Bind the quarks into colour-neutral groups until the grid is clear.',
+    role: 'In reserve for the quark chapter of the particles, if it earns a place.',
+    instructions: CHARGE_HOW,
     zRange: [1, 118],
-  },
-  {
-    id: 'orbitalGrid', name: 'Orbital Grid', tier: 'reserve',
-    blurb: 'Place the orbitals so every row and column balances.',
-    role: 'In reserve.',
-    zRange: [1, 118],
+    make: (z, deal, reduced) => new ColourChargeView(newColourCharge(z, dealSeed('colourCharge', z, deal)), reduced),
+    science: () => `<h2>Colour Charge: the science</h2>
+      <p>Protons and neutrons are each made of three <b>quarks</b>, held by the strong force. Quarks carry a kind of charge physicists call <b>colour</b>, with three values nicknamed red, green and blue. A quark is never found alone: quarks only exist in groups whose colours cancel to "white".</p>
+      <p>There are two ways to cancel. Three quarks, one of each colour, make a <b>baryon</b> such as the proton. A quark and an antiquark carrying the matching anticolour make a <b>meson</b>, such as the pion.</p>
+      <p class="muted">Game rule: colour charge has nothing to do with real colour, and quarks do not sit on a grid; the shapes on the board are only for play.</p>`,
   },
 ];
 

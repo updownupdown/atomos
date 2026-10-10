@@ -8,9 +8,9 @@ import {
 import { frontier, loadSave, writeSave, type SaveData } from './core/save';
 import { wavelengthToHex } from './render/colour';
 import { buildTracks, drawWitness, slowFactor } from './ui/witness';
-import { MERGE_UP_TO, mergeLevel, ringsLevel, slidingLevel } from './puzzles/levels';
+import { MERGE_UP_TO, mergeLevel, orbitalGridLevel, slidingLevel } from './puzzles/levels';
 import { MergeView } from './puzzles/mergeView';
-import { RingsView } from './puzzles/ringsView';
+import { OrbitalGridView } from './puzzles/orbitalGridView';
 import { SlidingView } from './puzzles/slidingView';
 import { type Area, type PuzzleView } from './puzzles/view';
 import { puzzleType } from './puzzles/catalogue';
@@ -31,7 +31,7 @@ type Stage = 'nucleus' | 'shells' | 'done';
 
 const STAGES: { id: Stage; label: string }[] = [
   { id: 'nucleus', label: 'Nucleus' },
-  { id: 'shells', label: 'Shells' },
+  { id: 'shells', label: 'Electrons' },
 ];
 
 export class Game {
@@ -49,7 +49,7 @@ export class Game {
   private pointerId: number | null = null;
   /** Whether the nucleus puzzle was solved without a spoiled fusion. */
   private nucleusClean = true;
-  private ringsClean = true;
+  private shellsClean = true;
   private shownHint = '';
   private paused = false;
 
@@ -102,7 +102,7 @@ export class Game {
     this.neutrons = element(z).commonA - z;
     this.busy = false;
     this.nucleusClean = true;
-    this.ringsClean = true;
+    this.shellsClean = true;
     this.hooks.onElement?.(z);
     const colour = this.colourFor(z);
     this.scene.setColour(colour);
@@ -117,7 +117,7 @@ export class Game {
     this.shownHint = '';
     const reduced = this.save.settings.reducedMotion;
     if (stage === 'nucleus') this.puzzle = this.z <= MERGE_UP_TO ? new MergeView(mergeLevel(this.z), reduced) : new SlidingView(slidingLevel(this.z), reduced);
-    else if (stage === 'shells') this.puzzle = new RingsView(ringsLevel(this.z), reduced);
+    else if (stage === 'shells') this.puzzle = new OrbitalGridView(orbitalGridLevel(this.z), reduced);
     else this.puzzle = null;
     document.body.classList.toggle('puzzling', this.puzzle !== null);
     document.body.classList.toggle('stage-nucleus', stage === 'nucleus');
@@ -234,7 +234,7 @@ export class Game {
       this.enter('shells');
       return;
     }
-    this.ringsClean = p.clean;
+    this.shellsClean = p.clean;
     this.puzzle = null;
     document.body.classList.remove('puzzling');
     this.clearOverlay();
@@ -255,7 +255,7 @@ export class Game {
   private finish(): void {
     this.stage = 'done';
     const prev = this.save.built[this.z];
-    const flawless = this.nucleusClean && this.ringsClean;
+    const flawless = this.nucleusClean && this.shellsClean;
     this.save.built[this.z] = { flawless: (prev?.flawless ?? false) || flawless, colour: prev?.colour };
     const key = isotopeKey(this.z, element(this.z).commonA);
     this.save.isotopes[key] = { ...this.save.isotopes[key], collected: true };
@@ -265,8 +265,8 @@ export class Game {
     this.refresh();
     const name = element(this.z).name;
     this.say(flawless
-      ? `<span class="hl">${name}, flawless:</span> nothing spoiled, shells settled at par.`
-      : `<span class="hl">${name} complete.</span> ${!this.nucleusClean ? 'A fusion overshot along the way' : 'The shells took more turns than par'}; rebuild for a flawless one.`);
+      ? `<span class="hl">${name}, flawless:</span> nothing spoiled, electrons placed at par.`
+      : `<span class="hl">${name} complete.</span> ${!this.nucleusClean ? 'A fusion overshot along the way' : 'The electrons took more placements than par'}; rebuild for a flawless one.`);
     window.setTimeout(() => this.showCard(this.z, true), this.save.settings.reducedMotion ? 300 : 1200);
   }
 
@@ -486,7 +486,7 @@ export class Game {
         <span class="tier ${built?.flawless ? 'on' : ''}">Flawless</span>
         <span class="tier ${stableHave === stable.length && stable.length ? 'on' : ''}">Stable isotopes ${stableHave}/${stable.length}</span>
       </div>
-      ${justBuilt && built && !built.flawless ? '<p class="muted">Flawless: no fusion past the target, and the shells settled in par or fewer turns.</p>' : ''}
+      ${justBuilt && built && !built.flawless ? '<p class="muted">Flawless: no fusion past the target, and the electrons placed in par or fewer moves.</p>' : ''}
       <h3>Facts</h3>
       <ul class="facts">${el.facts.map((f) => `<li>${f}</li>`).join('')}</ul>
       ${el.famousLine ? `<h3>Signature light</h3><div class="line-row"><span class="swatch" style="background:${wavelengthToHex(el.famousLine.nm)};color:${wavelengthToHex(el.famousLine.nm)}"></span><span>${el.famousLine.nm} nm · ${el.famousLine.label}</span></div>` : ''}
@@ -638,8 +638,8 @@ export class Game {
       if (s.sockets) s.filled = s.sockets.length;
       else if (s.blocks) s.blocks[0] = { ...s.blocks[0], x: s.size! - s.blocks[0].len };
     } else {
-      const s = p.state as { rings: { cells: boolean[]; sockets: (string | null)[] }[] };
-      for (const r of s.rings) r.cells = r.sockets.map((k) => k !== null);
+      const s = p.state as { cells: number[]; solution: number[] };
+      s.cells = [...s.solution];
     }
     this.ensureLoop();
   }
