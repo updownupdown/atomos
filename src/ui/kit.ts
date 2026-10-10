@@ -3,6 +3,7 @@
 import '@fontsource-variable/outfit';
 import { ICON_CHEVRON, closeButton, createHoldButton, createSlider, createSwitch, createTabs, iconButton, showToast } from './components';
 import { openModal } from './modal';
+import { openElementPicker } from './picker';
 import { MICROSCOPE } from './icons';
 
 const kit = document.getElementById('kit')!;
@@ -78,3 +79,11 @@ open.onclick = () => {
   sheet.querySelector('#kit-tabs')!.replaceWith(createTabs([{ id: 'a', label: 'Overview' }, { id: 'b', label: 'Isotopes' }, { id: 'c', label: 'Story' }]).el);
 };
 section('Modal', open);
+
+const pickOut = out('Z 8');
+const pickBtn = document.createElement('button');
+pickBtn.className = 'secondary';
+pickBtn.textContent = 'Choose an element';
+let pickedZ = 8;
+pickBtn.onclick = () => openElementPicker((z) => { pickedZ = z; pickOut.textContent = `Z ${z}`; }, { current: pickedZ, locked: (z) => z > 20 });
+section('Drawer: element picker', pickBtn, pickOut);
