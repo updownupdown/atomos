@@ -150,6 +150,7 @@ function mockCtx(): { ctx: CanvasRenderingContext2D; pts: [number, number][] } {
   const ctx = new Proxy(store, {
     get(t, k) {
       if (k in t) return t[k];
+      if (k === 'measureText') return (s: string) => ({ width: s.length * 7 });
       if (k === 'moveTo' || k === 'lineTo') return rec;
       if (k === 'bezierCurveTo') return (...a: number[]) => { rec(a[0], a[1]); rec(a[2], a[3]); rec(a[4], a[5]); };
       if (k === 'arc') return (x: number, y: number, r: number) => { rec(x - r, y - r); rec(x + r, y + r); };
@@ -176,7 +177,9 @@ const lay = (v: OrbitalGridView) => (v as any).lay as { cell: number; gx: number
 const slot = (v: OrbitalGridView, k: number): Point => { const p = (v as any).slotPos(k); const L = lay(v); return { x: p.x + L.slotW / 2, y: p.y + L.slotH / 2 }; };
 const cellAt = (v: OrbitalGridView, s: OrbitalGridState, i: number): Point => {
   const L = lay(v);
-  return { x: L.gx + ((i % s.size) + 0.5) * L.cell, y: L.gy + (Math.floor(i / s.size) + 0.5) * L.cell };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const g = v as any;
+  return { x: g.colX(i % s.size) + 0.5 * L.cell, y: g.rowY(Math.floor(i / s.size)) + 0.5 * L.cell };
 };
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const state = (v: OrbitalGridView) => (v as any).state as OrbitalGridState;

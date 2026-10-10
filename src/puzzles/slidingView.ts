@@ -4,15 +4,16 @@
 
 import { applySlide, cellsOf, reach, slidingPath, solved, type Block, type Reach, type SlideMove, type SlidingState } from './sliding';
 import { C, fitGrid, tile } from './palette';
+import { drawFrame, frameBox, frameWidth, framePad } from './frame';
 import { drawHelpMark, ease, undoHelp, type Area, type Help, type Point, type PuzzleView, type RuleCard } from './view';
 
 const SNAP_MS = 140;
 const EXIT_MS = 520;
 /** Pixels a free block's drag must travel before its axis is chosen. */
 const AXIS_PX = 6;
-/** Extra board width, in cells, kept free right of the board for the exit marker and the leaving key bar, and left of it for balance. */
-const LANE = 0.7;
-const LEFT = 0.15;
+/** Board width, in cells, kept free each side of the cells for the frame; the key bar leaves through the frame's gap. */
+const LANE = 0.3;
+const LEFT = 0.3;
 
 export const INSTRUCTIONS = `
 <h3>In the game</h3>
@@ -215,10 +216,10 @@ export class SlidingView implements PuzzleView {
 
   draw(ctx: CanvasRenderingContext2D, area: Area, now: number): void {
     const s = this.state;
-    const fit = fitGrid(area, s.w + LANE + LEFT, s.h, { margin: 8, maxCell: 72 });
+    const fit = fitGrid(area, s.w + LANE + LEFT, s.h + LANE + LEFT, { margin: 6, maxCell: 88 });
     const c = fit.cell;
     this.cell = c;
-    this.origin = { x: fit.x + LEFT * c, y: fit.y };
+    this.origin = { x: fit.x + LEFT * c, y: fit.y + LEFT * c };
     const { x: x0, y: y0 } = this.origin;
     const W = s.w * c, H = s.h * c;
 
@@ -240,10 +241,10 @@ export class SlidingView implements PuzzleView {
       }
       const bx = x0 + (b.x + ox) * c, by = y0 + (b.y + oy) * c;
       if (b.id === 0 && this.won) {
-        // The key bar slides out through the gap, clipped at the edge of the lane.
+        // The key bar slides out through the gap and fades past the frame.
         ctx.save();
         ctx.beginPath();
-        ctx.rect(x0, y0, W + LANE * c, H);
+        ctx.rect(x0, y0, W + (LANE + 1) * c, H);
         ctx.clip();
         ctx.globalAlpha = 1 - exitT;
         drawBlock(ctx, b, bx + exitT * (b.len + LANE) * c, by, c, false);
@@ -265,51 +266,35 @@ export class SlidingView implements PuzzleView {
 
 }
 
-/** The tray: a plate with faint cell sockets, a frame broken at the exit and a red chevron just outside the gap. */
-export function drawTray(ctx: CanvasRenderingContext2D, x0: number, y0: number, cols: number, rows: number, c: number, exitRow: number, lane: number): void {
+/** The tray: the shared board frame, with a gap at the exit row marked by a small red dot, and
+ *  a faint dot at the center of every cell. */
+export function drawTray(ctx: CanvasRenderingContext2D, x0: number, y0: number, cols: number, rows: number, c: number, exitRow: number, _lane = LANE): void {
   const W = cols * c, H = rows * c;
-  const rad = c * 0.18;
-  tile(ctx, x0, y0, W, H, rad, C.surface);
   ctx.save();
-  ctx.globalAlpha = 0.9;
+  ctx.fillStyle = C.surface2;
+  const dr = Math.max(1.5, c * 0.035);
   for (let i = 0; i < cols * rows; i++) {
-    tile(ctx, x0 + (i % cols) * c + c * 0.12, y0 + Math.floor(i / cols) * c + c * 0.12, c * 0.76, c * 0.76, c * 0.14, null, C.line, 1);
+    ctx.beginPath();
+    ctx.arc(x0 + (i % cols + 0.5) * c, y0 + (Math.floor(i / cols) + 0.5) * c, dr, 0, Math.PI * 2);
+    ctx.fill();
   }
   ctx.restore();
-  const ey = y0 + exitRow * c;
-  ctx.save();
-  ctx.strokeStyle = C.line3;
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.moveTo(x0 + W, ey);
-  ctx.lineTo(x0 + W, y0 + rad);
-  ctx.arcTo(x0 + W, y0, x0 + W - rad, y0, rad);
-  ctx.arcTo(x0, y0, x0, y0 + rad, rad);
-  ctx.arcTo(x0, y0 + H, x0 + rad, y0 + H, rad);
-  ctx.arcTo(x0 + W, y0 + H, x0 + W, y0 + H - rad, rad);
-  ctx.lineTo(x0 + W, ey + c);
-  ctx.stroke();
-  const mx = x0 + W + lane * c * 0.45, my = ey + c / 2, mk = c * 0.13;
-  ctx.strokeStyle = C.target;
-  ctx.lineWidth = Math.max(1.5, c * 0.045);
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  ctx.beginPath();
-  ctx.moveTo(mx - mk * 0.6, my - mk);
-  ctx.lineTo(mx + mk * 0.4, my);
-  ctx.lineTo(mx - mk * 0.6, my + mk);
-  ctx.stroke();
-  ctx.restore();
+  const lw = frameWidth(c);
+  const box = frameBox(x0, y0, W, H, c);
+  drawFrame(ctx, box, {
+    width: lw,
+    radius: c * 0.2 + framePad(c),
+    gaps: [{ side: 'right', at: y0 + (exitRow + 0.5) * c, size: c * 0.8, dot: C.target }],
+  });
 }
 
-/** A wall cell: a hatched square. */
+/** A wall cell: a solid square in the frame's color, part of the board itself. */
 export function drawWall(ctx: CanvasRenderingContext2D, x: number, y: number, c: number): void {
-  const g = c * 0.06;
-  tile(ctx, x + g, y + g, c - 2 * g, c - 2 * g, c * 0.1, C.surface3, C.line2, 1);
-  hatch(ctx, x + g, y + g, c - 2 * g, c * 0.22);
+  const g = c * 0.07;
+  tile(ctx, x + g, y + g, c - 2 * g, c - 2 * g, c * 0.18, C.frame);
 }
 
-/** A piece: a bar with a groove along its axis (the key bar red, with a chevron), or a round loose piece with a four-way mark. */
+/** A piece: a bar with a groove along its axis (the key bar red), or a round loose piece with a four-way mark. */
 export function drawBlock(ctx: CanvasRenderingContext2D, b: Block, x: number, y: number, c: number, active: boolean): void {
   const g = c * 0.07;
   const key = b.id === 0;
@@ -347,28 +332,7 @@ export function drawBlock(ctx: CanvasRenderingContext2D, b: Block, x: number, y:
   if (b.horiz) { ctx.moveTo(bx + inset, by + h / 2); ctx.lineTo(bx + w - inset, by + h / 2); }
   else { ctx.moveTo(bx + w / 2, by + inset); ctx.lineTo(bx + w / 2, by + h - inset); }
   ctx.stroke();
-  if (key) {
-    // The key bar points the way out.
-    const tx = bx + w - inset * 0.55, ty = by + h / 2, k = c * 0.1;
-    ctx.beginPath();
-    ctx.moveTo(tx - k, ty - k);
-    ctx.lineTo(tx, ty);
-    ctx.lineTo(tx - k, ty + k);
-    ctx.stroke();
-  }
   ctx.restore();
-}
-
-/** Fine diagonal hatching inside a square, computed to stay inside it. */
-function hatch(ctx: CanvasRenderingContext2D, x0: number, y0: number, side: number, step: number): void {
-  ctx.strokeStyle = C.line2;
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  for (let t = step; t < side * 2; t += step) {
-    ctx.moveTo(x0 + Math.max(0, t - side), y0 + Math.min(t, side));
-    ctx.lineTo(x0 + Math.min(t, side), y0 + Math.max(0, t - side));
-  }
-  ctx.stroke();
 }
 
 // ---- rules ------------------------------------------------------------------------
@@ -379,7 +343,7 @@ function hatch(ctx: CanvasRenderingContext2D, x0: number, y0: number, side: numb
 
 /** Fits a cols x rows tray (with the exit lane) in a demo box; returns the cell size and the tray's top left. */
 function demoTray(w: number, h: number, cols: number, rows: number): { c: number; x: number; y: number } {
-  const c = Math.min((w * 0.9) / (cols + LANE + LEFT), (h * 0.88) / rows);
+  const c = Math.min((w * 0.9) / (cols + LANE + LEFT), (h * 0.9) / (rows + LANE + LEFT));
   return { c, x: (w - (cols + LANE + LEFT) * c) / 2 + LEFT * c, y: (h - rows * c) / 2 };
 }
 
@@ -490,17 +454,17 @@ function finger(ctx: CanvasRenderingContext2D, x1: number, y1: number, x2: numbe
 function keyOut(ctx: CanvasRenderingContext2D, T: Tray, cols: number, rows: number, key: Block, k: number): void {
   ctx.save();
   ctx.beginPath();
-  ctx.rect(T.x, T.y, (cols + LANE) * T.c, rows * T.c);
+  ctx.rect(T.x, T.y, (cols + LANE + 0.15) * T.c, rows * T.c);
   ctx.clip();
   ctx.globalAlpha = 1 - 0.65 * k;
-  piece(ctx, T, key, key.x + k * (key.len + LANE));
+  piece(ctx, T, key, key.x + k * (LANE + 0.6));
   ctx.restore();
 }
 
 export const RULES: RuleCard[] = [
   {
     title: 'The key bar',
-    text: 'Get the red key bar out through the gap in the right wall, marked by a red chevron.',
+    text: 'Get the red key bar out through the gap in the frame, marked by a red dot.',
     good: {
       duration: 2.4,
       caption: 'Out through the gap',
@@ -555,7 +519,7 @@ export const RULES: RuleCard[] = [
   },
   {
     title: 'Walls',
-    text: 'Hatched squares are walls. They never move, and nothing slides through them.',
+    text: 'Solid gray squares are walls. They never move, and nothing slides through them.',
     good: {
       duration: 2,
       caption: 'It stops beside the wall',

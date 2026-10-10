@@ -4,15 +4,17 @@
 // dragging it off the board clears it. Keys: arrows move, 1-8 or s/p/d/f place,
 // Backspace clears.
 //
-// Every symbol is a flat tile in its orbital's color with a small glyph of dots,
-// after the mark's electrons: s one dot, p two on one axis, d four on the
-// diagonals, f six in a ring. On spin grids spin up is the solid tile with the
-// glyph in dark ink and spin down its negative: a dark tile ringed in the hue
-// with the glyph in the hue, like the mark's solid and hollow nucleons. Dealt
-// tiles are nearly square, yours are round, and neither has an outline.
+// Every symbol is a flat tile in its orbital's color with a centered glyph of
+// dots, after the mark's electrons: s one dot, p two on one axis, d four, f six
+// in a ring. On spin grids spin up is the solid tile with the glyph in dark ink
+// and spin down its negative: a dark tile ringed in the hue with the glyph in
+// the hue, like the mark's solid and hollow nucleons. Dealt tiles are squares
+// with softened corners, yours (and the stacks) are round; the letters live
+// under the stacks. Each block sits in the shared board frame.
 
 import { conflicts, cycleValue, EMPTY, filledCount, moveTile, nextForced, place, remaining, solved, symbolName, symbolOf, type Orbital, type OrbitalGridState } from './orbitalGrid';
-import { C, font, tile } from './palette';
+import { C, font, socket, tile } from './palette';
+import { drawFrame, frameWidth } from './frame';
 import { drawHelpMark, type Area, type Help, type Point, type PuzzleView, type RuleCard } from './view';
 
 export const INSTRUCTIONS = `
@@ -30,12 +32,28 @@ const DRAG_PX = 9;
 
 type TileStyle = 'given' | 'placed' | 'key';
 
-/** Corner radius as a share of the tile: dealt tiles nearly square, yours (and the stacks you take them from) round. */
-const RADIUS: Record<TileStyle, number> = { given: 0.03, placed: 0.3, key: 0.3 };
+/** Corner radius as a share of the tile: dealt tiles square with soft corners, yours (and the stacks you take them from) perfect circles. */
+const RADIUS: Record<TileStyle, number> = { given: 0.12, placed: 0.5, key: 0.5 };
 /** The spin-down ring's width as a share of the tile. */
 const RING = 0.08;
-/** The empty cell's radius, between the two. */
-const EMPTY_RADIUS = 0.14;
+/** Kept for the empty-cell calls; an empty cell is now only a faint dot. */
+const EMPTY_RADIUS = 0.5;
+/** Space between blocks, and round the grid for the frames, in cells. */
+const BLOCK_GAP = 0.42;
+const OUTER = 0.22;
+/** How far each block's frame line sits outside its cells, in cells. */
+const FRAME_OUT = 0.14;
+/** Tap-to-cycle: the tile stays at this opacity until the taps stop for CYCLE_HOLD ms, then fades up over CYCLE_FADE ms. */
+const CYCLE_ALPHA = 0.6;
+const CYCLE_HOLD = 2000;
+const CYCLE_FADE = 250;
+
+/**
+ * Quanta's tile colors. They are the orbital colors of the 3D atom (s blue, p green, d gold,
+ * f violet), lifted for small flat tiles on black: the same hues, brighter and cleaner, with d
+ * moved from ochre to a clear copper so it no longer reads as drab or as the amber warning.
+ */
+export const QUANTA_HUE: Record<Orbital, string> = { s: '#6e9cff', p: '#37c994', d: '#ec8a4a', f: '#b884f2' };
 
 /** Each orbital's dots: how many, the first one's bearing, how far out (as a share of the reach) and how big. */
 const GLYPH: Record<Orbital, { count: number; start: number; dist: number; dot: number }> = {
@@ -71,7 +89,7 @@ export function orbitalShape(ctx: CanvasRenderingContext2D, cx: number, cy: numb
  * ring of it. Returns the ink the glyph goes in.
  */
 function tileGround(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, rad: number, orbital: Orbital, up: boolean | null): string {
-  const hue = C[orbital];
+  const hue = QUANTA_HUE[orbital];
   if (up !== false) {
     tile(ctx, x, y, w, w, rad, hue);
     return C.tileInk;
@@ -87,30 +105,34 @@ function tileGround(ctx: CanvasRenderingContext2D, x: number, y: number, w: numb
 }
 
 /**
- * A symbol tile, w square at (x, y): its ground (see tileGround), the orbital's
- * dots and a small, light letter in the top left corner. Dealt tiles are nearly
- * square, placed ones and the stacks round; no outline on either.
+ * A symbol tile, w square at (x, y): its ground (see tileGround) and the
+ * orbital's dots, centered. Dealt tiles are squares with soft corners, placed
+ * ones and the stacks circles; no outline on either.
  */
 export function drawSymbolTile(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, spin: boolean, k: number, style: TileStyle = 'placed', alpha = 1): void {
   const { orbital, up } = symbolOf(spin, k);
   ctx.save();
   ctx.globalAlpha = alpha;
   const ink = tileGround(ctx, x, y, w, w * RADIUS[style], orbital, up);
-  orbitalShape(ctx, x + w * 0.53, y + w * 0.53, w * 0.22, orbital, ink);
-  // The letter sits in the corner, inside the spin-down ring.
-  const inset = (style === 'given' ? 0.16 : 0.19) + (up === false ? RING : 0) * 0.75;
-  ctx.globalAlpha = alpha * 0.72;
-  ctx.fillStyle = ink;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.font = font(Math.max(8, w * 0.17), 500);
-  ctx.fillText(orbital, x + w * inset, y + w * (inset - 0.01));
+  // A circle has less room for the f ring than a square.
+  orbitalShape(ctx, x + w / 2, y + w / 2, w * (style === 'given' ? 0.25 : 0.23), orbital, ink);
   ctx.restore();
 }
 
-/** An empty cell. */
-function drawEmpty(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, rad: number): void {
-  tile(ctx, x, y, w, w, rad, C.surface2, C.line, 1);
+/** An empty cell: only a faint dot at its center, so the eye can find the gaps. */
+function drawEmpty(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, _rad?: number): void {
+  ctx.save();
+  ctx.fillStyle = C.surface3;
+  ctx.beginPath();
+  ctx.arc(x + w / 2, y + w / 2, Math.max(1.5, w * 0.05), 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+/** A symbol's label under its stack: its letter, with an arrow for its spin on spin grids. */
+export function symbolLabel(spin: boolean, k: number): string {
+  const { orbital, up } = symbolOf(spin, k);
+  return up === null ? orbital : `${orbital}${up ? '\u2191' : '\u2193'}`;
 }
 
 /** The clash mark: a dark gap, then an amber ring just outside the tile, so it reads on any hue. */
@@ -130,37 +152,37 @@ function drawClash(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
   ctx.restore();
 }
 
-/** A stack of one symbol with the count still needed under it. The box is k wide; the count sits below. */
-function drawStack(ctx: CanvasRenderingContext2D, x: number, y: number, k: number, countH: number, spin: boolean, sym: number, left: number, ring: boolean): void {
+/**
+ * A stack of one symbol: a single round tile (the stack never runs out), with its letter and the
+ * count still needed under it. While a tile is dragged off it, a dotted placeholder holds its
+ * place. The box is k wide; the label sits below.
+ */
+function drawStack(ctx: CanvasRenderingContext2D, x: number, y: number, k: number, countH: number, spin: boolean, sym: number, left: number, ring: boolean, lifted = false): void {
   const off = Math.max(2, k * 0.06);
   const t = k - 2 * off;
   const done = left <= 0;
-  if (!done) {
-    // Two tiles peeking out behind: the stack goes on as long as you need.
-    for (const layer of [2, 1]) {
-      ctx.save();
-      ctx.globalAlpha = layer === 2 ? 0.35 : 0.6;
-      drawStackBack(ctx, x + off * layer, y + off * (2 - layer), t, spin, sym);
-      ctx.restore();
-    }
-  }
-  drawSymbolTile(ctx, x, y + 2 * off, t, spin, sym, 'key', done ? 0.4 : 1);
-  if (ring) tile(ctx, x - 3, y + 2 * off - 3, t + 6, t + 6, t * RADIUS.key + 3, null, C.silver, 1.5);
+  const tx = x + off, ty = y + off;
+  if (lifted) socket(ctx, tx, ty, t, t, t / 2, C.line3);
+  else drawSymbolTile(ctx, tx, ty, t, spin, sym, 'key', done ? 0.35 : 1);
+  if (ring) tile(ctx, tx - 3.5, ty - 3.5, t + 7, t + 7, t / 2 + 3.5, null, C.silver, 2);
   ctx.save();
-  ctx.fillStyle = done ? C.text3 : C.text2;
-  ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.font = font(Math.max(11, Math.min(16, countH * 0.8)), done ? 500 : 600);
-  ctx.fillText(String(Math.max(0, left)), x + t / 2, y + k + countH / 2 + 1);
+  const fs = Math.max(12, Math.min(17, countH * 0.85));
+  const label = symbolLabel(spin, sym), count = String(Math.max(0, left));
+  ctx.font = font(fs, 600);
+  const lw = ctx.measureText(label).width;
+  ctx.font = font(fs * 0.82, 500);
+  const cw = ctx.measureText(count).width;
+  const gap = fs * 0.4, cx = x + k / 2, cy = y + k + countH / 2 + 1;
+  const x0 = cx - (lw + gap + cw) / 2;
+  ctx.textAlign = 'left';
+  ctx.font = font(fs, 600);
+  ctx.fillStyle = done ? C.text3 : C.text;
+  ctx.fillText(label, x0, cy);
+  ctx.font = font(fs * 0.82, 500);
+  ctx.fillStyle = done ? C.text3 : C.text2;
+  ctx.fillText(count, x0 + lw + gap, cy + fs * 0.04);
   ctx.restore();
-}
-
-/** The edge of a tile further down a stack: its ground, without the glyph. */
-function drawStackBack(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, spin: boolean, sym: number): void {
-  const { orbital, up } = symbolOf(spin, sym);
-  const rad = w * RADIUS.key;
-  tileGround(ctx, x, y, w, rad, orbital, up);
-  tile(ctx, x, y, w, w, rad, null, C.bg, 1);
 }
 
 /** The finger in the rule demos. */
@@ -210,6 +232,8 @@ export class OrbitalGridView implements PuzzleView {
   /** Look here: the cells to ring, for the board it was asked on. */
   private mark: { state: OrbitalGridState; unit: number[]; cell: number } | null = null;
   private reduced: boolean;
+  /** The cell last stepped by tapping it, and when: it shows faint until the taps stop. */
+  private cycled: { cell: number; at: number } | null = null;
 
   constructor(private readonly initial: OrbitalGridState, reducedMotion: boolean) {
     this.state = initial;
@@ -270,6 +294,7 @@ export class OrbitalGridView implements PuzzleView {
     this.drag = null;
     this.pressed = null;
     this.selected = this.initial.cells.indexOf(EMPTY);
+    this.cycled = null;
   }
 
   canUndo(): boolean { return this.history.length > 0; }
@@ -280,6 +305,7 @@ export class OrbitalGridView implements PuzzleView {
     // Undo is free: the board and the placement count both go back.
     this.state = { ...prev };
     this.drag = null;
+    this.cycled = null;
     return true;
   }
 
@@ -303,10 +329,28 @@ export class OrbitalGridView implements PuzzleView {
 
   // ---- input ----------------------------------------------------------------------
 
+  /** A column's or row's left or top edge: cells step by one cell, plus a gap between blocks. */
+  private colX(col: number): number {
+    const L = this.lay!;
+    return L.gx + (col + Math.floor(col / this.state.rw) * BLOCK_GAP) * L.cell;
+  }
+
+  private rowY(row: number): number {
+    const L = this.lay!;
+    return L.gy + (row + Math.floor(row / this.state.rh) * BLOCK_GAP) * L.cell;
+  }
+
+  /** The cell under a point: the nearest one anywhere inside the grid's frames (so the gaps
+   *  between blocks still count), -1 outside. */
   private cellAt(p: Point): number {
-    const L = this.lay!, n = this.state.size;
-    const c = Math.floor((p.x - L.gx) / L.cell), r = Math.floor((p.y - L.gy) / L.cell);
-    return c >= 0 && r >= 0 && c < n && r < n ? r * n + c : -1;
+    const L = this.lay!, n = this.state.size, c = L.cell, out = OUTER * c;
+    if (p.x < this.colX(0) - out || p.x > this.colX(n - 1) + c + out || p.y < this.rowY(0) - out || p.y > this.rowY(n - 1) + c + out) return -1;
+    const near = (pos: (i: number) => number, v: number) => {
+      let best = 0, bd = Infinity;
+      for (let i = 0; i < n; i++) { const d = Math.abs(pos(i) + c / 2 - v); if (d < bd) { bd = d; best = i; } }
+      return best;
+    };
+    return near((r) => this.rowY(r), p.y) * n + near((k) => this.colX(k), p.x);
   }
 
   /** How far above the pointer the dragged tile rides. A mouse needs none; on touch the tile
@@ -372,7 +416,10 @@ export class OrbitalGridView implements PuzzleView {
     if (Math.hypot(p.x - s.x, p.y - s.y) > 16) return;
     const i = this.cellAt(p);
     if (i >= 0) {
-      if (i === this.selected && !this.state.givens[i]) this.set(i, cycleValue(this.state, i));
+      if (i === this.selected && !this.state.givens[i]) {
+        this.set(i, cycleValue(this.state, i));
+        this.cycled = { cell: i, at: performance.now() };
+      }
       this.selected = i;
       return;
     }
@@ -444,7 +491,10 @@ export class OrbitalGridView implements PuzzleView {
 
   private layout(area: Area): Layout {
     const n = this.state.size;
-    const margin = 8, gap = 12, padX = 8, padY = 4;
+    // The grid's span in cells: the cells, the gaps between blocks and room for the frames.
+    const spanX = n + (n / this.state.rw - 1) * BLOCK_GAP + 2 * OUTER;
+    const spanY = n + (n / this.state.rh - 1) * BLOCK_GAP + 2 * OUTER;
+    const margin = 8, gap = 14, padX = 10, padY = 6;
     const availW = Math.max(1, area.w - margin * 2), availH = Math.max(1, area.h - margin * 2);
     const countOf = (k: number) => Math.round(Math.max(13, Math.min(18, k * 0.3)));
     let best: Layout | null = null;
@@ -460,7 +510,7 @@ export class OrbitalGridView implements PuzzleView {
         let key = Math.min(60, maxKey), cell = 0;
         for (let pass = 0; pass < 5; pass++) {
           const slotW = key + padX, slotH = key + countOf(key) + padY;
-          cell = Math.min(72, side ? (availW - cols * slotW - gap) / n : availW / n, side ? availH / n : (availH - rows * slotH - gap) / n);
+          cell = Math.min(72, side ? (availW - cols * slotW - gap) / spanX : availW / spanX, side ? availH / spanY : (availH - rows * slotH - gap) / spanY);
           // Stacks a little bigger than a cell, 38 to 60 px, as far as they fit.
           key = Math.min(maxKey, Math.max(38, Math.min(60, cell * 1.1)));
         }
@@ -470,12 +520,12 @@ export class OrbitalGridView implements PuzzleView {
         if (score <= bestScore) continue;
         bestScore = score;
         const kW = cols * slotW, kH = rows * slotH;
-        const g = cell * n;
-        const totalW = side ? g + gap + kW : Math.max(g, kW), totalH = side ? Math.max(g, kH) : g + gap + kH;
+        const gW = cell * spanX, gH = cell * spanY, o = OUTER * cell;
+        const totalW = side ? gW + gap + kW : Math.max(gW, kW), totalH = side ? Math.max(gH, kH) : gH + gap + kH;
         const ox = area.x + (area.w - totalW) / 2, oy = area.y + (area.h - totalH) / 2;
         best = side
-          ? { cell, gx: ox, gy: oy + (totalH - g) / 2, key, countH, slotW, slotH, cols, px: ox + g + gap, py: oy + (totalH - kH) / 2 }
-          : { cell, gx: area.x + (area.w - g) / 2, gy: oy, key, countH, slotW, slotH, cols, px: area.x + (area.w - kW) / 2, py: oy + g + gap };
+          ? { cell, gx: ox + o, gy: oy + (totalH - gH) / 2 + o, key, countH, slotW, slotH, cols, px: ox + gW + gap, py: oy + (totalH - kH) / 2 }
+          : { cell, gx: area.x + (area.w - gW) / 2 + o, gy: oy + o, key, countH, slotW, slotH, cols, px: area.x + (area.w - kW) / 2, py: oy + gH + gap };
       }
     }
     return best!;
@@ -503,22 +553,31 @@ export class OrbitalGridView implements PuzzleView {
     const d = this.drag?.live ? this.drag : null;
     const target = d ? this.dropCell(d) : -1;
 
-    // Blocks: a fine outline round each region.
+    // Blocks: each in its own board frame, with room between them so no frame crowds a tile.
+    const fo = FRAME_OUT * c;
     for (let br = 0; br < n; br += s.rh) {
       for (let bc = 0; bc < n; bc += s.rw) {
-        const x = L.gx + bc * c, y = L.gy + br * c;
-        tile(ctx, x + 1, y + 1, s.rw * c - 2, s.rh * c - 2, c * 0.18, C.plate, won ? C.good : C.line3, 1.25);
+        const x = this.colX(bc), y = this.rowY(br);
+        drawFrame(ctx, { x: x - fo, y: y - fo, w: s.rw * c + 2 * fo, h: s.rh * c + 2 * fo }, { width: frameWidth(c), radius: c * 0.22 + fo, color: won ? C.good : C.frame });
       }
     }
 
+    const fade = (i: number): number => {
+      const cy = this.cycled;
+      if (!cy || cy.cell !== i) return 1;
+      const age = now - cy.at;
+      if (age < CYCLE_HOLD) return CYCLE_ALPHA;
+      if (age >= CYCLE_HOLD + CYCLE_FADE || this.reduced) { this.cycled = null; return 1; }
+      return CYCLE_ALPHA + (1 - CYCLE_ALPHA) * ((age - CYCLE_HOLD) / CYCLE_FADE);
+    };
     for (let i = 0; i < n * n; i++) {
-      const x = L.gx + (i % n) * c + pad, y = L.gy + Math.floor(i / n) * c + pad;
+      const x = this.colX(i % n) + pad, y = this.rowY(Math.floor(i / n)) + pad;
       const v = s.cells[i];
       const lifted = d !== null && d.from === i;
-      if (v === EMPTY || lifted) drawEmpty(ctx, x, y, w, w * EMPTY_RADIUS);
-      else drawSymbolTile(ctx, x, y, w, s.spin, v, s.givens[i] ? 'given' : 'placed');
+      if (v === EMPTY || lifted) drawEmpty(ctx, x, y, w);
+      else drawSymbolTile(ctx, x, y, w, s.spin, v, s.givens[i] ? 'given' : 'placed', fade(i));
       if (clash[i] && !s.givens[i] && !lifted) drawClash(ctx, x, y, w, w * RADIUS.placed);
-      if (i === this.selected && !won && !d) tile(ctx, x - 2, y - 2, w + 4, w + 4, w * 0.3, null, C.accent, 2);
+      if (i === this.selected && !won && !d) tile(ctx, x - 3, y - 3, w + 6, w + 6, (s.givens[i] ? w * RADIUS.given : w / 2) + 3, null, C.accent, 2);
     }
 
     // Look here: the unit that decides it, and the cell.
@@ -527,21 +586,22 @@ export class OrbitalGridView implements PuzzleView {
       const box = (cells: number[]) => {
         const rs = cells.map((i) => Math.floor(i / n)), cs = cells.map((i) => i % n);
         const r0 = Math.min(...rs), r1 = Math.max(...rs), c0 = Math.min(...cs), c1 = Math.max(...cs);
-        return { x: L.gx + c0 * c, y: L.gy + r0 * c, w: (c1 - c0 + 1) * c, h: (r1 - r0 + 1) * c };
+        const x = this.colX(c0), y = this.rowY(r0);
+        return { x, y, w: this.colX(c1) + c - x, h: this.rowY(r1) + c - y };
       };
       if (m.unit.length > 1) { const b = box(m.unit); drawHelpMark(ctx, b.x, b.y, b.w, b.h, now, this.reduced, c * 0.2); }
       const b = box([m.cell]);
-      drawHelpMark(ctx, b.x + pad, b.y + pad, w, w, now, this.reduced, w * 0.3);
+      drawHelpMark(ctx, b.x + pad, b.y + pad, w, w, now, this.reduced, w / 2);
     }
 
     // The drop target: cyan, under the dragged tile.
     if (d && target >= 0 && !s.givens[target]) {
-      const x = L.gx + (target % n) * c + pad, y = L.gy + Math.floor(target / n) * c + pad;
+      const x = this.colX(target % n) + pad, y = this.rowY(Math.floor(target / n)) + pad;
       ctx.save();
       ctx.globalAlpha = 0.22;
-      tile(ctx, x - 2, y - 2, w + 4, w + 4, w * 0.3, C.accent);
+      tile(ctx, x - 2, y - 2, w + 4, w + 4, w / 2 + 2, C.accent);
       ctx.restore();
-      tile(ctx, x - 2.5, y - 2.5, w + 5, w + 5, w * 0.3, null, C.accent, 3);
+      tile(ctx, x - 2.5, y - 2.5, w + 5, w + 5, w / 2 + 2.5, null, C.accent, 3);
     }
 
     // The stacks.
@@ -550,7 +610,7 @@ export class OrbitalGridView implements PuzzleView {
     const live = !won && sel >= 0 && !s.givens[sel];
     for (let k = 0; k < n; k++) {
       const { x, y } = this.slotPos(k);
-      drawStack(ctx, x + (L.slotW - L.key) / 2, y + 2, L.key, L.countH, s.spin, k, left[k], live && s.cells[sel] === k);
+      drawStack(ctx, x + (L.slotW - L.key) / 2, y + 2, L.key, L.countH, s.spin, k, left[k], live && s.cells[sel] === k, d !== null && d.from < 0 && d.sym === k);
     }
 
     // The tile being dragged rides above the finger.
@@ -561,7 +621,7 @@ export class OrbitalGridView implements PuzzleView {
       ctx.shadowColor = C.bg;
       ctx.shadowBlur = 12;
       ctx.shadowOffsetY = 3;
-      tile(ctx, g.x - size / 2, g.y - size / 2, size, size, size * 0.3, C.bg);
+      tile(ctx, g.x - size / 2, g.y - size / 2, size, size, size / 2, C.bg);
       ctx.restore();
       drawSymbolTile(ctx, g.x - size / 2, g.y - size / 2, size, s.spin, d.sym, 'placed', 0.94);
     }
@@ -607,7 +667,7 @@ function demoUnit(ctx: CanvasRenderingContext2D, x0: number, y0: number, c: numb
 
 /** The demo 4x4 board: block plates, then the cells. */
 function demoGrid(ctx: CanvasRenderingContext2D, x: number, y: number, c: number, cells: number[], givens: boolean[]): void {
-  for (let br = 0; br < 4; br += 2) for (let bc = 0; bc < 4; bc += 2) tile(ctx, x + bc * c + 0.5, y + br * c + 0.5, 2 * c - 1, 2 * c - 1, c * 0.18, C.plate, C.line3, 1);
+  for (let br = 0; br < 4; br += 2) for (let bc = 0; bc < 4; bc += 2) drawFrame(ctx, { x: x + bc * c + 1.5, y: y + br * c + 1.5, w: 2 * c - 3, h: 2 * c - 3 }, { width: 2.5, radius: c * 0.24, color: C.frame });
   demoCells(ctx, x, y, c, 4, false, cells, givens);
 }
 
@@ -671,7 +731,7 @@ export const RULES: RuleCard[] = [
   },
   {
     title: 'The orbitals',
-    text: 'Each symbol is an orbital with its own color, its letter and one dot for each lobe of the real orbital: s one, p two, d four, f six.',
+    text: 'Each symbol is an orbital, in the same color as in the atom, with one dot for each lobe of the real orbital: s one, p two, d four, f six. Its letter sits under its stack.',
     good: {
       duration: 2,
       caption: 's p d f: 1, 2, 4, 6 dots',
@@ -719,9 +779,9 @@ export const RULES: RuleCard[] = [
         if (m > 0.75) {
           ctx.save();
           ctx.globalAlpha = 0.22;
-          tile(ctx, target.x - 2, target.y - 2, target.w + 4, target.w + 4, target.w * 0.3, C.accent);
+          tile(ctx, target.x - 2, target.y - 2, target.w + 4, target.w + 4, target.w / 2 + 2, C.accent);
           ctx.restore();
-          tile(ctx, target.x - 2, target.y - 2, target.w + 4, target.w + 4, target.w * 0.3, null, C.accent, 2);
+          tile(ctx, target.x - 2, target.y - 2, target.w + 4, target.w + 4, target.w / 2 + 2, null, C.accent, 2);
         }
         if (t > 0.3) {
           const gs = c * 0.84;
@@ -733,7 +793,7 @@ export const RULES: RuleCard[] = [
   },
   {
     title: 'Or tap',
-    text: 'Tap a cell to choose it, then tap a stack. Tap the cell again to step it through the symbols.',
+    text: 'Tap a cell to choose it, then tap a stack. Tap the cell again to step it through the symbols; the tile stays faint until you stop tapping.',
     good: {
       duration: 2.6,
       caption: 'Cell, then stack',
@@ -743,7 +803,7 @@ export const RULES: RuleCard[] = [
         const sym = t < 1.5 ? EMPTY : t < 2.3 ? 1 : 2;
         demoCells(ctx, x0, y0, c, 4, false, [0, sym, 3, EMPTY], [true, false, true, false]);
         const cell = cellBox(x0, y0, c, 4, 1);
-        if (t > 0.5) tile(ctx, cell.x - 2, cell.y - 2, cell.w + 4, cell.w + 4, cell.w * 0.3, null, C.accent, 2);
+        if (t > 0.5) tile(ctx, cell.x - 2, cell.y - 2, cell.w + 4, cell.w + 4, cell.w / 2 + 2, null, C.accent, 2);
         // A tall count row, so the ring round the chosen stack clears its number.
         const k = c * 0.85, countH = Math.max(14, c * 0.45);
         const sx = (w - 4 * (k + c * 0.15)) / 2, ky = y0 + c + h * 0.08;
@@ -756,7 +816,7 @@ export const RULES: RuleCard[] = [
   },
   {
     title: 'Counts',
-    text: 'The number under each stack is how many more of that symbol the grid needs. At 0 the stack dims: that symbol is done.',
+    text: 'The number beside each stack\'s letter is how many more of that symbol the grid needs. At 0 the stack dims: that symbol is done.',
     good: {
       duration: 2.4,
       caption: 'At 0, p is done',
@@ -810,7 +870,7 @@ export const RULES: RuleCard[] = [
         const v = t < 1.2 || at === 0 ? EMPTY : t < 1.9 ? 2 : 3;
         demoCells(ctx, x, y, c, 4, true, [EMPTY, v, 0, 5], [false, false, true, true]);
         const b = cellBox(x, y, c, 4, at);
-        tile(ctx, b.x - 2, b.y - 2, b.w + 4, b.w + 4, b.w * 0.3, null, C.accent, 2);
+        tile(ctx, b.x - 2, b.y - 2, b.w + 4, b.w + 4, b.w / 2 + 2, null, C.accent, 2);
       },
     },
   },
