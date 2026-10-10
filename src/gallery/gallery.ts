@@ -113,13 +113,15 @@ export class Gallery {
     }
   }
 
-  /** Mark the atoms whose Build is still locked (their row's gate is unsolved). They stay viewable. */
-  setLocked(locked: (z: number) => boolean): void {
+  /** Mark the atoms whose Build is still locked (their row is not open yet), with what opens it.
+   *  They stay viewable. */
+  setLocked(note: (z: number) => string | null): void {
     for (const n of this.nodes) {
-      const on = locked(n.e.z);
-      n.tile.classList.toggle('is-locked', on);
-      const label = n.tile.getAttribute('aria-label')?.replace(/, Build locked$/, '') ?? `${n.e.z} ${n.e.name}`;
-      n.tile.setAttribute('aria-label', on ? `${label}, Build locked` : label);
+      const why = note(n.e.z);
+      n.tile.classList.toggle('is-locked', why !== null);
+      const label = n.tile.getAttribute('aria-label')?.replace(/, Build locked.*$/, '') ?? `${n.e.z} ${n.e.name}`;
+      n.tile.setAttribute('aria-label', why ? `${label}, Build locked. ${why}` : label);
+      if (why) n.tile.title = `Build locked. ${why}`; else n.tile.removeAttribute('title');
     }
   }
 

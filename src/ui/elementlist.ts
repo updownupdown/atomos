@@ -16,19 +16,20 @@
 import { ELEMENTS, BLOCK_COLOUR, type Element } from '../gallery/data';
 import { icon } from './icons';
 import { searchElements } from './search';
-import { segmentsOf, vaultIsotopes } from '../core/progress';
+import { fleetingCount, fleetingTotal, lastingIsotopes, segmentsOf } from '../core/progress';
+import { rowLockNote } from '../gallery/locks';
 import { loadSave, type SaveData } from '../core/save';
 import './elementlist.css';
 
-export type SortKey = 'z' | 'name' | 'symbol' | 'weight' | 'group' | 'period' | 'block' | 'series' | 'density' | 'melt' | 'boil' | 'electronegativity' | 'radius' | 'discovered';
+export type SortKey = 'z' | 'name' | 'symbol' | 'weight' | 'group' | 'period' | 'block' | 'series' | 'density' | 'melt' | 'boil' | 'electronegativity' | 'radius' | 'discovered' | 'fleeting';
 
 interface Column {
   key: SortKey;
   label: string;
   /** Short label for narrow table headers. */
   short?: string;
-  value: (e: Element) => number | string | null;
-  text: (e: Element) => string;
+  value: (e: Element, save: SaveData) => number | string | null;
+  text: (e: Element, save: SaveData) => string;
   numeric?: boolean;
   /** Heading for the group a row falls in when the list is sorted by this column. */
   section?: (e: Element) => string;
@@ -54,6 +55,8 @@ export const COLUMNS: Column[] = [
   { key: 'boil', label: 'Boils', short: 'Boils °C', value: (e) => e.boil, text: (e) => celsius(e.boil), numeric: true },
   { key: 'electronegativity', label: 'Electronegativity', short: 'EN', value: (e) => e.electronegativity, text: (e) => num(e.electronegativity), numeric: true },
   { key: 'radius', label: 'Radius', short: 'Radius pm', value: (e) => e.vdw, text: (e) => String(e.vdw), numeric: true },
+  // Fleeting isotopes built, out of how many the atom has (they never count toward its 100%).
+  { key: 'fleeting', label: 'Fleeting', value: (e, s) => fleetingCount(e.z, s).built, text: (e, s) => { const f = fleetingCount(e.z, s); return `${f.built} / ${f.total}`; }, numeric: true },
   { key: 'discovered', label: 'Discovered', value: (e) => e.discoveryYear ?? -1, text: (e) => (e.discoveryYear === null ? 'Ancient' : String(e.discoveryYear)), numeric: true },
 ];
 const COL = Object.fromEntries(COLUMNS.map((c) => [c.key, c])) as Record<SortKey, Column>;
@@ -70,14 +73,15 @@ export const STAGES: { id: Stage | 'all'; label: string }[] = [
 ];
 const STAGE_HEADING: Record<Stage, string> = { new: 'Not started', started: 'In progress', done: 'Completed' };
 export const stageOf = (pct: number): Stage => (pct >= 100 ? 'done' : pct > 0 ? 'started' : 'new');
-const TABLE_COLUMNS: SortKey[] = ['symbol', 'name', 'z', 'weight', 'group', 'period', 'block', 'series', 'density', 'melt', 'boil', 'electronegativity', 'radius', 'discovered'];
+const TABLE_COLUMNS: SortKey[] = ['symbol', 'name', 'z', 'weight', 'group', 'period', 'block', 'series', 'density', 'melt', 'boil', 'electronegativity', 'radius', 'discovered', 'fleeting'];
 
 /** Elements in order for a sort. Missing values go last whichever way the sort runs; ties
  *  fall back to atomic number. */
-export function sortElements(list: Element[], key: SortKey, desc = false): Element[] {
+export function sortElements(list: Element[], key: SortKey, desc = false, save: SaveData = loadSave()): Element[] {
   const c = COL[key];
+  const values = new Map(list.map((e) => [e.z, c.value(e, save)]));
   return [...list].sort((a, b) => {
-    const va = c.value(a), vb = c.value(b);
+    const va = values.get(a.z)!, vb = values.get(b.z)!;
     if (va === null && vb === null) return a.z - b.z;
     if (va === null) return 1;
     if (vb === null) return -1;
@@ -100,6 +104,8 @@ export interface ElementListOptions {
   storageKey?: string;
   /** A picture of each atom (a data URL), asked for once its row has been on screen a moment. */
   thumbs?: (z: number) => Promise<string | null>;
+  /** Show the fleeting isotopes built across the whole table beside the count. */
+  fleetingTotal?: boolean;
 }
 
 export interface ElementList {
@@ -165,7 +171,7 @@ export function createElementList(opts: ElementListOptions = {}): ElementList {
   const none = root.querySelector<HTMLElement>('.el-none')!;
 
   const sorted = (): Element[] => {
-    if (sort !== 'progress') return sortElements(ELEMENTS, sort, desc);
+    if (sort !== 'progress') return sortElements(ELEMENTS, sort, desc, save);
     const pct = new Map(ELEMENTS.map((e) => [e.z, pctOf(e.z)]));
     return [...ELEMENTS].sort((a, b) => (desc ? pct.get(b.z)! - pct.get(a.z)! : pct.get(a.z)! - pct.get(b.z)!) || a.z - b.z);
   };
@@ -186,7 +192,7 @@ export function createElementList(opts: ElementListOptions = {}): ElementList {
     const done = segs.filter((s) => s.done).length;
     const pct = segs.length ? Math.round((done / segs.length) * 100) : 0;
     const tier = pct >= 100 ? 'full' : pct >= 50 ? 'most' : pct > 0 ? 'some' : 'none';
-    const stable = new Set(vaultIsotopes(e.z).filter((i) => i.stable).map((i) => String(i.a)));
+    const stable = new Set(lastingIsotopes(e.z).filter((i) => i.stable).map((i) => String(i.a)));
     const kind = (s: (typeof segs)[number]) => (s.kind === 'step' ? 'step' : stable.has(s.id) ? 'stable' : 'unstable');
     let last = '';
     const parts = segs.map((s) => {
@@ -196,9 +202,13 @@ export function createElementList(opts: ElementListOptions = {}): ElementList {
       return `<i class="${k}${s.done ? ' on' : ''}${gap}"></i>`;
     });
     const isotopes = segs.length - stepsCount(segs);
+    // Fleeting isotopes have their own count beside the bar; they never hold back the 100%.
+    const f = fleetingCount(e.z, save);
+    const fleet = f.total ? `<small class="el-fleet" aria-label="${f.built} of ${f.total} fleeting isotopes built">${f.built}/${f.total} fleeting</small>` : '';
     return `<span class="el-prog el-prog--${tier}" style="--iso:${isotopes}" aria-label="${pct}% built">
       <b>${pct}%</b>
       <span class="el-segs" aria-hidden="true">${parts.join('')}</span>
+      ${fleet}
     </span>`;
   };
   const stepsCount = (segs: { kind: string }[]) => segs.filter((s) => s.kind === 'step').length;
@@ -210,7 +220,7 @@ export function createElementList(opts: ElementListOptions = {}): ElementList {
     const pic = thumbCache.get(e.z);
     return `<button type="button" role="option" class="${cls}" data-z="${e.z}" aria-selected="${e.z === opts.current}">
       ${opts.thumbs ? `<span class="el-pic${pic ? ' on' : ''}">${tile(e)}${pic ? `<img src="${pic}" alt="">` : ''}</span>` : tile(e)}
-      <span class="el-main"><b>${locked ? `<i class="el-lockico" role="img" aria-label="Build locked">${icon('lock', { size: 16 })}</i>` : ''}<span>${esc(e.name)}</span></b><span><span class="el-num">${e.z}</span> · ${esc(e.series)}</span></span>
+      <span class="el-main"><b>${locked ? `<i class="el-lockico" role="img" aria-label="Build locked">${icon('lock', { size: 16 })}</i>` : ''}<span>${esc(e.name)}</span></b><span><span class="el-num">${e.z}</span> · ${esc((locked && rowLockNote(e.z, save, true)) || e.series)}</span></span>
       ${progress(e, save)}
     </button>`;
   };
@@ -243,7 +253,7 @@ export function createElementList(opts: ElementListOptions = {}): ElementList {
         const c = COL[k];
         if (k === 'symbol') return `<td><span class="el-sym" style="--c:${BLOCK_COLOUR[e.block]}">${e.symbol}</span></td>`;
         if (k === 'name') return `<th scope="row">${esc(e.name)}${locked ? `<span class="el-lock" aria-label="Build locked">${icon('lock', { size: 16 })}</span>` : ''}</th>`;
-        return `<td class="${c.numeric ? 'n' : ''}">${esc(c.text(e))}</td>`;
+        return `<td class="${c.numeric ? 'n' : ''}">${esc(c.text(e, save))}</td>`;
       }).join('');
       return `<tr class="${locked ? 'is-locked' : ''}${e.z === opts.current ? ' is-current' : ''}" data-z="${e.z}" tabindex="0">${cells}</tr>`;
     }).join('');
@@ -266,7 +276,8 @@ export function createElementList(opts: ElementListOptions = {}): ElementList {
     const c = root.querySelector<HTMLElement>('.el-count');
     if (!c) return;
     const what = stage === 'all' ? '' : ` ${STAGE_HEADING[stage].toLowerCase()}`;
-    c.textContent = `${n} element${n === 1 ? '' : 's'}${what}`;
+    const f = opts.fleetingTotal ? fleetingTotal(save) : null;
+    c.textContent = `${n} element${n === 1 ? '' : 's'}${what}${f ? ` · Fleeting ${f.built.toLocaleString('en-US')} of ${f.total.toLocaleString('en-US')}` : ''}`;
   };
 
   // Pictures for the rows that stay on screen a moment (DWELL_MS), fetched one at a time.

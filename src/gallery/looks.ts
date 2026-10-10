@@ -1,7 +1,7 @@
 // Looks: ways to color the gallery's tiles by what the elements are like. "Block" (the orbital
 // strip) is always there; the other six are opened one by one with Glyph (src/core/unlocks.ts).
 // Each look turns an element into a shade from 0 to 1, or a category, or nothing when the value
-// is unknown. Lenses (the arrangements) are gated the same way, with Lumen.
+// is unknown. Lenses (the arrangements) are gated the same way, with Glyph.
 
 import type { Element } from './data';
 import type { LayoutId } from './layouts';
@@ -71,6 +71,6 @@ export const lookOf = (id: LookId): Look => LOOKS.find((l) => l.id === id)!;
 /** The unlock that opens a look, or null when it is open from the start. */
 export const lookUnlock = (id: LookId): UnlockId | null => (id === 'block' ? null : `look:${id}`);
 
-/** The arrangements open from the start; the others are opened with Lumen. */
+/** The arrangements open from the start; the others are opened with Glyph. */
 const OPEN_LENSES: LayoutId[] = ['spiral', 'table'];
 export const lensUnlock = (id: LayoutId): UnlockId | null => (OPEN_LENSES.includes(id) ? null : `lens:${id}`);

@@ -99,6 +99,7 @@
 .el-segs i.gap { margin-left: 3px; }
 .el-segs i.on { background: var(--p); }
 .el-prog--none b { color: var(--c-text-3); }
+.el-fleet { font-size: var(--fs-sm); line-height: 1; color: var(--c-text-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .el-prog--some { --p: var(--c-warn); }
 .el-prog--most { --p: var(--c-accent); }
 .el-prog--full { --p: var(--c-good); }

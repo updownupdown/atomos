@@ -1084,6 +1084,29 @@ body[data-screen^='atom'].build-home .science-fab, body[data-screen='atom-view']
 .bp-steps b { color: var(--c-text); font-weight: 600; }
 
 /* Isotopes: an album of collectable tiles. */
+/* Isotopes page: what the player has built. Lasting tiles name their puzzle; fleeting ones that
+   are built stay complete but faded, with a "decayed" chip and their half-life. */
+.icl { margin: var(--sp-2) 0 var(--sp-4); }
+.icl-head { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: var(--sp-1) var(--sp-3); }
+.icl-head h3 { margin: 0; font-size: var(--fs-lg); font-weight: var(--fw-semibold); }
+.icl-head span { font-size: var(--fs-md); color: var(--c-text-2); font-variant-numeric: tabular-nums; }
+.icl-sub { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin: var(--sp-3) 0 var(--sp-2); font-size: var(--fs-md); font-weight: var(--fw-semibold); }
+.icl-sub span { flex-basis: 100%; font-size: var(--fs-sm); font-weight: var(--fw-regular); color: var(--c-text-2); }
+.icl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 6px; }
+.icl-grid--fleet { grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); }
+.icl-tile { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: var(--sp-2) var(--sp-3); border-radius: var(--r-sm); background: var(--c-surface); color: var(--c-text-2); }
+.icl-tile > b { font-size: var(--fs-lg); font-weight: var(--fw-semibold); color: var(--c-text); line-height: 1.1; }
+.icl-tile > b sup { font-size: 0.6em; margin-right: 1px; }
+.icl-game { display: inline-flex; align-items: center; gap: 4px; font-size: var(--fs-sm); color: var(--c-text); }
+.icl-state, .icl-life { display: inline-flex; align-items: center; gap: 3px; font-size: var(--fs-sm); font-variant-numeric: tabular-nums; }
+.icl-tile.is-built { background: color-mix(in srgb, var(--c-good) 14%, var(--c-surface)); }
+.icl-tile.is-built .icl-state { color: var(--c-good); }
+.icl-tile.is-decayed { background: color-mix(in srgb, var(--c-good) 7%, var(--c-surface)); }
+.icl-tile.is-decayed > b, .icl-tile.is-decayed .icl-life { opacity: 0.6; }
+.icl-chip { padding: 1px 8px; border-radius: 999px; background: var(--c-surface-3); color: var(--c-text); font-size: var(--fs-sm); }
+.icl-note { margin: 0 0 var(--sp-3); font-size: var(--fs-md); color: var(--c-text-2); }
+.icl .ui-disclosure { margin-top: var(--sp-3); }
+
 .iso-head { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-2); margin: var(--sp-2) 0; }
 .iso-head div { display: flex; flex-direction: column; align-items: center; padding: var(--sp-2); border: 1px solid var(--c-line-2); border-radius: var(--r-md); }
 .iso-head b { font-size: var(--fs-xl); font-weight: var(--fw-semibold); color: var(--c-text); }
