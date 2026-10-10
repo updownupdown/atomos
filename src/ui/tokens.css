@@ -1,0 +1,78 @@
+/* Design tokens shared by every screen. Outfit is the one typeface; the palette is still the
+   Cloud Chamber plate (silver on black, one red accent) until a new style is picked. Screens
+   should read these rather than hard-code values, so a restyle is a change here.
+
+   The legacy names in style.css (--text, --muted, --line, --mono, --sans ...) are aliases of
+   these and keep working. */
+:root {
+  /* Type. Outfit is self-hosted (@fontsource-variable/outfit), weights 100-900. */
+  --font: 'Outfit Variable', 'Outfit', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --fw-light: 300;
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+  --fw-bold: 700;
+
+  /* Type scale (px). 2xs is for scale labels on the plate, 3xl for the element symbol. */
+  --fs-2xs: 10px;
+  --fs-xs: 11px;
+  --fs-sm: 13px;
+  --fs-md: 15px;
+  --fs-lg: 18px;
+  --fs-xl: 22px;
+  --fs-2xl: 28px;
+  --fs-3xl: 36px;
+  --lh-tight: 1.15;
+  --lh: 1.45;
+  --tracking-caps: 0.12em;
+
+  /* Colour: the plate. */
+  --c-bg: #0c0b0a;
+  --c-plate: #16140f;
+  --c-surface: #17150f;
+  --c-surface-2: #201d17;
+  --c-scrim: rgba(4, 3, 2, 0.62);
+  --c-text: #e2dccf;
+  --c-text-2: #9a9284;
+  --c-text-3: #6d665a;
+  --c-line: rgba(226, 220, 207, 0.16);
+  --c-line-2: rgba(226, 220, 207, 0.28);
+  --c-line-3: rgba(226, 220, 207, 0.55);
+  --c-silver: #f3eee2;
+  --c-accent: #e0503a;
+  --c-good: #9fc98a;
+  --c-warn: #e0a24a;
+  --c-bad: #e0503a;
+  /* Orbital colours: the same in every atom and every puzzle. */
+  --c-orb-s: #5f8ae0;
+  --c-orb-p: #2ea57a;
+  --c-orb-d: #c07f1e;
+  --c-orb-f: #a865d6;
+
+  /* Spacing (4 px grid). */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 24px;
+  --sp-6: 32px;
+
+  /* Radius. */
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 16px;
+  --r-pill: 999px;
+
+  /* Touch: the smallest comfortable target. */
+  --hit: 44px;
+
+  /* Elevation and motion. Flat by default: shadows only lift modals off the page. */
+  --shadow-modal: 0 18px 48px rgba(0, 0, 0, 0.55);
+  --dur-fast: 120ms;
+  --dur: 200ms;
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --dur-fast: 0ms; --dur: 0ms; }
+}

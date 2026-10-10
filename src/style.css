@@ -1,3 +1,6 @@
+@import './ui/tokens.css';
+@import './ui/components.css';
+
 /* Cloud Chamber: the look of a 1930s particle-physics photographic plate. Silver droplets on
    grainy black, curling tracks, film-edge markings and typed paper labels. Interface text
    sits on solid label stock so it stays readable over the plate. */
@@ -18,8 +21,9 @@
   --warn: #e0a24a;
   --bad: #e0503a;
   --good: #9fc98a;
-  --mono: 'Courier Prime', 'Courier New', Courier, monospace;
-  --sans: 'Archivo Narrow', 'Arial Narrow', 'Roboto Condensed', ui-sans-serif, system-ui, sans-serif;
+  /* Both names now mean Outfit; new code should use --font from tokens.css. */
+  --mono: var(--font);
+  --sans: var(--font);
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   /* The app-wide header; every screen's own top row sits below it. */
@@ -317,35 +321,7 @@ body.stage-nucleus #atom { opacity: 0.12; }
 .inline-icon { display: inline-block; vertical-align: middle; margin-right: 4px; }
 .inline-icon svg { width: 18px; height: 18px; }
 
-/* Modal sheets: a darker plate with a paper card pinned to it. */
-.modal {
-  position: fixed;
-  inset: 0;
-  background: rgba(4, 3, 2, 0.7);
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  z-index: 30;
-}
-
-.modal[hidden] { display: none; }
-
-.sheet {
-  background: var(--panel-solid);
-  border: 1px solid var(--line);
-  border-radius: 0;
-  width: min(640px, 100%);
-  max-height: 92vh;
-  overflow-y: auto;
-  padding: 20px 20px calc(var(--safe-bottom) + 20px);
-  box-shadow: 0 -20px 60px rgba(0, 0, 0, 0.6);
-}
-
-@media (min-width: 700px) {
-  .modal { align-items: center; }
-  .sheet { max-height: 88vh; }
-}
-
+/* Modal sheets: the frame itself is .ui-modal / .ui-modal-card in ui/components.css. */
 .sheet h2 { margin: 0 0 4px; font-size: 22px; font-family: var(--mono); font-weight: 700; }
 .sheet h3 { margin: 20px 0 8px; font-size: 12px; color: var(--muted); font-family: var(--mono); text-transform: lowercase; letter-spacing: 0.08em; font-weight: 400; border-bottom: 1px solid var(--line); padding-bottom: 4px; }
 .sheet p { margin: 6px 0; }

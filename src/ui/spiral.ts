@@ -92,7 +92,7 @@ export function drawSpiral(canvas: HTMLCanvasElement, nodes: SpiralNode[], t: nu
       ctx.stroke();
     }
     ctx.fillStyle = n.state === 'locked' ? 'rgba(226, 220, 207, 0.55)' : n.state === 'frontier' ? '#e0503a' : '#f3eee2';
-    ctx.font = `700 ${Math.round(n.r * (n.state === 'locked' ? 0.85 : 0.8))}px 'Courier Prime', 'Courier New', monospace`;
+    ctx.font = `700 ${Math.round(n.r * (n.state === 'locked' ? 0.85 : 0.8))}px 'Outfit Variable', system-ui, sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(n.state === 'frontier' ? n.symbol : n.symbol, n.x, n.y + 1);
