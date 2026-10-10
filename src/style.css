@@ -231,13 +231,6 @@ body:not(.build-home) .build-bar { display: none; }
 .bh-play { display: inline-flex; align-items: center; gap: var(--sp-1); min-width: 0; min-height: var(--hit); padding: 0 var(--sp-4) 0 var(--sp-3); }
 .bh-play.primary { background: var(--atom); color: var(--c-bg); }
 .bh-bench { align-self: flex-start; }
-.bh-section { padding: var(--sp-3) var(--sp-4) var(--sp-4); border-radius: var(--r-lg); }
-.bh-section h3 { margin: 0 0 var(--sp-2); font-size: var(--fs-xs); font-weight: var(--fw-semibold); letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--c-text-2); }
-.bh-later { background: transparent; border: 1px dashed var(--c-line-2); }
-.bh-later ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-3); }
-.bh-later li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--sp-2); }
-.bh-later-by { font-size: var(--fs-sm); color: var(--c-text-3); }
-.bh-later-text { flex-basis: 100%; font-size: var(--fs-md); color: var(--c-text-2); line-height: var(--lh); }
 
 /* While a puzzle is up, it takes the touch and the atom waits dimly behind it. */
 body.puzzling #overlay { pointer-events: auto; touch-action: none; }
