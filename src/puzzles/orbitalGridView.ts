@@ -4,10 +4,12 @@
 // dragging it off the board clears it. Keys: arrows move, 1-8 or s/p/d/f place,
 // Backspace clears.
 //
-// Every symbol is a tile in its orbital's color with a shape after the real
-// orbital (s a round blob, p two lobes, d four, f six). On spin grids spin up is
-// a deep tile with an up arrow and spin down a pale tile with a down arrow, so
-// the pair differs in shade as well as in the arrow.
+// Every symbol is a flat tile in its orbital's color with a small glyph of dots,
+// after the mark's electrons: s one dot, p two on one axis, d four on the
+// diagonals, f six in a ring. On spin grids spin up is the solid tile with the
+// glyph in dark ink and spin down its negative: a dark tile ringed in the hue
+// with the glyph in the hue, like the mark's solid and hollow nucleons. Dealt
+// tiles are nearly square, yours are round, and neither has an outline.
 
 import { conflicts, cycleValue, EMPTY, filledCount, moveTile, place, remaining, solved, symbolOf, type Orbital, type OrbitalGridState } from './orbitalGrid';
 import { C, font, tile } from './palette';
@@ -28,90 +30,81 @@ const DRAG_PX = 9;
 
 type TileStyle = 'given' | 'placed' | 'key';
 
-/** One lobe: a teardrop from the center out to length l along angle a, w wide. */
-function lobe(ctx: CanvasRenderingContext2D, cx: number, cy: number, l: number, w: number, a: number): void {
-  const ca = Math.cos(a), sa = Math.sin(a);
-  // Local (u along the lobe, v across it) to canvas.
-  const P = (u: number, v: number): [number, number] => [cx + u * ca - v * sa, cy + u * sa + v * ca];
-  ctx.moveTo(...P(0, 0));
-  ctx.bezierCurveTo(...P(l * 0.2, -w * 0.9), ...P(l * 1.02, -w * 0.95), ...P(l, 0));
-  ctx.bezierCurveTo(...P(l * 1.02, w * 0.95), ...P(l * 0.2, w * 0.9), ...P(0, 0));
-}
+/** Corner radius as a share of the tile: dealt tiles nearly square, yours (and the stacks you take them from) round. */
+const RADIUS: Record<TileStyle, number> = { given: 0.03, placed: 0.3, key: 0.3 };
+/** The spin-down ring's width as a share of the tile. */
+const RING = 0.08;
+/** The empty cell's radius, between the two. */
+const EMPTY_RADIUS = 0.14;
+
+/** Each orbital's dots: how many, the first one's bearing, how far out (as a share of the reach) and how big. */
+const GLYPH: Record<Orbital, { count: number; start: number; dist: number; dot: number }> = {
+  s: { count: 1, start: 0, dist: 0, dot: 0.5 },
+  p: { count: 2, start: -Math.PI / 2, dist: 0.6, dot: 0.34 },
+  d: { count: 4, start: -Math.PI / 2, dist: 0.68, dot: 0.29 },
+  f: { count: 6, start: -Math.PI / 2, dist: 0.78, dot: 0.23 },
+};
 
 /**
- * The orbital's shape, after the real orbitals: s a round blob, p two lobes,
- * d a four-lobed clover, f six petals. r is the reach from the center.
+ * The orbital's glyph: solid dots round (cx, cy) within reach r, like the
+ * mark's electrons, one per lobe of the real orbital. s one dot, p two on the
+ * vertical axis, d four in a cross, f six in a ring.
  */
 export function orbitalShape(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number, orbital: Orbital, color: string): void {
+  const g = GLYPH[orbital];
   ctx.save();
   ctx.fillStyle = color;
   ctx.beginPath();
-  if (orbital === 's') ctx.arc(cx, cy, r * 0.66, 0, Math.PI * 2);
-  else {
-    const count = orbital === 'p' ? 2 : orbital === 'd' ? 4 : 6;
-    const wide = orbital === 'p' ? 0.46 : orbital === 'd' ? 0.4 : 0.3;
-    for (let i = 0; i < count; i++) lobe(ctx, cx, cy, r, r * wide, -Math.PI / 2 + (i * Math.PI * 2) / count);
+  for (let i = 0; i < g.count; i++) {
+    const a = g.start + (i * Math.PI * 2) / g.count;
+    const x = cx + Math.cos(a) * r * g.dist, y = cy + Math.sin(a) * r * g.dist;
+    ctx.moveTo(x + r * g.dot, y);
+    ctx.arc(x, y, r * g.dot, 0, Math.PI * 2);
   }
   ctx.fill();
   ctx.restore();
 }
 
-function arrow(ctx: CanvasRenderingContext2D, x: number, cy: number, h: number, up: boolean, color: string, lw: number): void {
-  const top = cy - h / 2, bot = cy + h / 2, head = h * 0.28;
-  const tip = up ? top : bot, dir = up ? 1 : -1;
-  ctx.save();
-  ctx.strokeStyle = color;
-  ctx.lineWidth = lw;
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  ctx.beginPath();
-  ctx.moveTo(x, top);
-  ctx.lineTo(x, bot);
-  ctx.moveTo(x - head, tip + head * dir);
-  ctx.lineTo(x, tip);
-  ctx.lineTo(x + head, tip + head * dir);
-  ctx.stroke();
-  ctx.restore();
+/**
+ * A tile's ground with no glyph. Spin up and plain symbols are solid in the hue;
+ * spin down is the negative, a dark ground washed with the hue inside a thick
+ * ring of it. Returns the ink the glyph goes in.
+ */
+function tileGround(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, rad: number, orbital: Orbital, up: boolean | null): string {
+  const hue = C[orbital];
+  if (up !== false) {
+    tile(ctx, x, y, w, w, rad, hue);
+    return C.tileInk;
+  }
+  const a = ctx.globalAlpha;
+  const ring = Math.max(2, w * RING);
+  tile(ctx, x, y, w, w, rad, hue);
+  tile(ctx, x + ring, y + ring, w - 2 * ring, w - 2 * ring, Math.max(0, rad - ring), C.bg);
+  ctx.globalAlpha = a * 0.16;
+  tile(ctx, x + ring, y + ring, w - 2 * ring, w - 2 * ring, Math.max(0, rad - ring), hue);
+  ctx.globalAlpha = a;
+  return hue;
 }
 
 /**
- * A symbol tile, w square at (x, y): deep in its orbital color for spin up and
- * plain symbols, pale for spin down; its orbital's shape, the spin arrow and a
- * small letter in ink. Dealt tiles are squarer with a fine inset frame; placed
- * ones are rounder.
+ * A symbol tile, w square at (x, y): its ground (see tileGround), the orbital's
+ * dots and a small, light letter in the top left corner. Dealt tiles are nearly
+ * square, placed ones and the stacks round; no outline on either.
  */
 export function drawSymbolTile(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, spin: boolean, k: number, style: TileStyle = 'placed', alpha = 1): void {
   const { orbital, up } = symbolOf(spin, k);
-  const hue = C[orbital];
-  const rad = w * (style === 'given' ? 0.12 : style === 'placed' ? 0.3 : 0.22);
   ctx.save();
   ctx.globalAlpha = alpha;
-  if (up === false) {
-    // Pale: the light tile washed with the hue, ringed in the deep hue.
-    tile(ctx, x, y, w, w, rad, C.tile);
-    ctx.globalAlpha = alpha * 0.4;
-    tile(ctx, x, y, w, w, rad, hue);
-    ctx.globalAlpha = alpha;
-    tile(ctx, x + 1, y + 1, w - 2, w - 2, rad, null, hue, 2);
-  } else tile(ctx, x, y, w, w, rad, hue);
-  if (style === 'given') {
-    ctx.globalAlpha = alpha * 0.4;
-    const g = Math.max(2, w * 0.08);
-    tile(ctx, x + g, y + g, w - 2 * g, w - 2 * g, rad * 0.6, null, C.tileInk, 1);
-    ctx.globalAlpha = alpha;
-  }
-  const ink = C.tileInk;
-  const cx = x + w / 2, cy = y + w / 2;
-  if (up === null) orbitalShape(ctx, cx + w * 0.04, cy + w * 0.04, w * 0.34, orbital, ink);
-  else {
-    orbitalShape(ctx, cx - w * 0.08, cy + w * 0.04, w * 0.3, orbital, ink);
-    arrow(ctx, cx + w * 0.3, cy + w * 0.04, w * 0.5, up, ink, Math.max(1.5, w * 0.065));
-  }
+  const ink = tileGround(ctx, x, y, w, w * RADIUS[style], orbital, up);
+  orbitalShape(ctx, x + w * 0.53, y + w * 0.53, w * 0.22, orbital, ink);
+  // The letter sits in the corner, inside the spin-down ring.
+  const inset = (style === 'given' ? 0.16 : 0.19) + (up === false ? RING : 0) * 0.75;
+  ctx.globalAlpha = alpha * 0.72;
   ctx.fillStyle = ink;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.font = font(Math.max(8, w * 0.22), 700);
-  ctx.fillText(orbital, x + w * 0.17, y + w * 0.18);
+  ctx.font = font(Math.max(8, w * 0.17), 500);
+  ctx.fillText(orbital, x + w * inset, y + w * (inset - 0.01));
   ctx.restore();
 }
 
@@ -152,7 +145,7 @@ function drawStack(ctx: CanvasRenderingContext2D, x: number, y: number, k: numbe
     }
   }
   drawSymbolTile(ctx, x, y + 2 * off, t, spin, sym, 'key', done ? 0.4 : 1);
-  if (ring) tile(ctx, x - 3, y + 2 * off - 3, t + 6, t + 6, t * 0.26, null, C.silver, 1.5);
+  if (ring) tile(ctx, x - 3, y + 2 * off - 3, t + 6, t + 6, t * RADIUS.key + 3, null, C.silver, 1.5);
   ctx.save();
   ctx.fillStyle = done ? C.text3 : C.text2;
   ctx.textAlign = 'center';
@@ -162,17 +155,11 @@ function drawStack(ctx: CanvasRenderingContext2D, x: number, y: number, k: numbe
   ctx.restore();
 }
 
-/** The edge of a tile further down a stack: its color, without the symbol. */
+/** The edge of a tile further down a stack: its ground, without the glyph. */
 function drawStackBack(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, spin: boolean, sym: number): void {
   const { orbital, up } = symbolOf(spin, sym);
-  const rad = w * 0.22;
-  if (up === false) {
-    tile(ctx, x, y, w, w, rad, C.tile);
-    const a = ctx.globalAlpha;
-    ctx.globalAlpha = a * 0.4;
-    tile(ctx, x, y, w, w, rad, C[orbital]);
-    ctx.globalAlpha = a;
-  } else tile(ctx, x, y, w, w, rad, C[orbital]);
+  const rad = w * RADIUS.key;
+  tileGround(ctx, x, y, w, rad, orbital, up);
   tile(ctx, x, y, w, w, rad, null, C.bg, 1);
 }
 
@@ -492,9 +479,9 @@ export class OrbitalGridView implements PuzzleView {
       const x = L.gx + (i % n) * c + pad, y = L.gy + Math.floor(i / n) * c + pad;
       const v = s.cells[i];
       const lifted = d !== null && d.from === i;
-      if (v === EMPTY || lifted) drawEmpty(ctx, x, y, w, w * 0.14);
+      if (v === EMPTY || lifted) drawEmpty(ctx, x, y, w, w * EMPTY_RADIUS);
       else drawSymbolTile(ctx, x, y, w, s.spin, v, s.givens[i] ? 'given' : 'placed');
-      if (clash[i] && !s.givens[i] && !lifted) drawClash(ctx, x, y, w, w * (s.givens[i] ? 0.12 : 0.3));
+      if (clash[i] && !s.givens[i] && !lifted) drawClash(ctx, x, y, w, w * RADIUS.placed);
       if (i === this.selected && !won && !d) tile(ctx, x - 2, y - 2, w + 4, w + 4, w * 0.3, null, C.accent, 2);
     }
 
@@ -545,7 +532,7 @@ function demoCells(ctx: CanvasRenderingContext2D, x0: number, y0: number, c: num
   const pad = Math.max(1.5, c * 0.06), w = c - pad * 2;
   cells.forEach((v, i) => {
     const x = x0 + (i % cols) * c + pad, y = y0 + Math.floor(i / cols) * c + pad;
-    if (v === EMPTY) drawEmpty(ctx, x, y, w, w * 0.14);
+    if (v === EMPTY) drawEmpty(ctx, x, y, w, w * EMPTY_RADIUS);
     else drawSymbolTile(ctx, x, y, w, spin, v, givens[i] ? 'given' : 'placed');
   });
 }
@@ -584,7 +571,7 @@ export const RULES: RuleCard[] = [
   },
   {
     title: 'The orbitals',
-    text: 'Each symbol is an orbital with its own color and a shape after the real one: s a round blob, p two lobes, d four, f six.',
+    text: 'Each symbol is an orbital with its own color, its letter and one dot for each lobe of the real orbital: s one, p two, d four, f six.',
     demo: (ctx, w, h, t) => {
       const size = Math.min((w * 0.9) / 4.4, h * 0.6);
       const gap = size * 0.13, x0 = (w - 4 * size - 3 * gap) / 2, y0 = (h - size) / 2;
@@ -597,7 +584,7 @@ export const RULES: RuleCard[] = [
   },
   {
     title: 'Spin up, spin down',
-    text: 'On the bigger grids each orbital comes twice: a deep tile with an up arrow and a pale tile with a down arrow. They count as different symbols.',
+    text: 'On the bigger grids each orbital comes twice: spin up is a solid tile, spin down its hollow twin, dark inside a ring of the same color. They count as different symbols.',
     demo: (ctx, w, h, t) => {
       const size = Math.min((w * 0.86) / 2.3, h * 0.7);
       const gap = size * 0.3, x0 = (w - 2 * size - gap) / 2, y0 = (h - size) / 2;
@@ -670,13 +657,13 @@ export const RULES: RuleCard[] = [
       for (let i = 0; i < 4; i++) {
         const yy = by + (i % 2) * c * 1.1, xx = bx + Math.floor(i / 2) * c * 1.1;
         if (i < 4 - left) drawSymbolTile(ctx, xx, yy, c, false, 1, i < 2 ? 'given' : 'placed');
-        else drawEmpty(ctx, xx, yy, c, c * 0.14);
+        else drawEmpty(ctx, xx, yy, c, c * EMPTY_RADIUS);
       }
     },
   },
   {
     title: 'Dealt tiles',
-    text: 'Squarer tiles with a fine frame were dealt and never change. Your tiles are rounder: drag one to move it, or off the board to clear it.',
+    text: 'Square tiles were dealt and never change. Your tiles are round: drag one to move it, or off the board to clear it.',
     demo: (ctx, w, h, t) => {
       const T = t % 3.4;
       const c = Math.min(w / 3.6, h / 1.9);
@@ -686,7 +673,7 @@ export const RULES: RuleCard[] = [
       const cell = cellBox(x0, y0, c, 3, 1);
       if (T > 0.6 && T <= 2.2) {
         // Lift the placed tile and carry it off the board.
-        drawEmpty(ctx, cell.x, cell.y, cell.w, cell.w * 0.14);
+        drawEmpty(ctx, cell.x, cell.y, cell.w, cell.w * EMPTY_RADIUS);
         const m = smooth(Math.min(1, (T - 0.7) / 1.3));
         const fx = cell.x + cell.w / 2 + m * c * 0.2, fy = cell.y + cell.w / 2 + c * 0.7 + m * (h - cell.y - cell.w / 2 - c);
         ctx.save();
@@ -724,7 +711,7 @@ export const RULES: RuleCard[] = [
       demoCells(ctx, x0, y0, c, 4, true, [2, 0, v, 1], [true, true, false, true]);
       if (v === 2) {
         const a = cellBox(x0, y0, c, 4, 2);
-        drawClash(ctx, a.x, a.y, a.w, a.w * 0.3);
+        drawClash(ctx, a.x, a.y, a.w, a.w * RADIUS.placed);
       }
     },
   },
