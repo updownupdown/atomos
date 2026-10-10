@@ -17,6 +17,10 @@ export const INSTRUCTIONS = `
 <h3>In the game</h3>
 <p class="meta">The electron stage of building every element, z 1 to 118. Periods 1-3 play a 4x4 with s p d f (6 to 10 empty cells); periods 4-5 a 6x6 with 2x3 blocks and s p d in spin up and spin down (14 to 22 empty); periods 6-7, where the f block arrives, an 8x8 with 2x4 blocks and s p d f in both spins (24 to 36 empty). Par is one placement per empty cell: editing or moving the tile you just placed is free, going back to an older cell costs another, and undo takes a placement back. Clean means finishing within par. Each grid is carved from a full random grid so that it always finishes by deduction alone, with one answer. The symbols are only orbital labels: a cell is not a place in the atom.</p>`;
 
+/** The kind of pointer last pressed anywhere, so a drag can tell a mouse from a finger. */
+let lastPointer = 'mouse';
+if (typeof window !== 'undefined') window.addEventListener('pointerdown', (e) => { lastPointer = e.pointerType; }, true);
+
 /** Pixels a press must travel before it becomes a drag. */
 const DRAG_PX = 9;
 
@@ -281,10 +285,12 @@ export class OrbitalGridView implements PuzzleView {
     return c >= 0 && r >= 0 && c < n && r < n ? r * n + c : -1;
   }
 
-  /** How far above the finger the dragged tile rides, so the finger never hides it. */
+  /** How far above the pointer the dragged tile rides. A mouse needs none; on touch the tile
+   *  sits just above the fingertip, so the finger never hides it. */
   private lift(): number {
+    if (lastPointer !== 'touch' && lastPointer !== 'pen') return 0;
     const L = this.lay!;
-    return Math.max(L.cell, 40) * 0.85;
+    return Math.max(L.cell, 40) * 0.6;
   }
 
   private ghostSize(): number {
