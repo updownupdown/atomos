@@ -28,8 +28,11 @@ const icon = (share, { grain = true } = {}) => {
 </svg>`;
 };
 
-// Standalone mark, transparent ground, for the favicon and anywhere the page supplies the colour.
-const favicon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" color="${SILVER}">${markInner()}</svg>`;
+// Favicon: the mark on a rounded plate-black tile, so it reads on pale and dark browser tabs alike.
+const favicon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <rect width="100" height="100" rx="22" fill="${PLATE}"/>
+  <svg x="11" y="11" width="78" height="78" viewBox="0 0 100 100" color="${SILVER}">${markInner()}</svg>
+</svg>`;
 
 writeFileSync(join(out, 'atomos.svg'), icon(0.78));
 writeFileSync(join(out, 'favicon.svg'), favicon);

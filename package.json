@@ -9,7 +9,10 @@
     "build:single": "vite build --mode single",
     "preview": "vite preview --host",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "icons": "node scripts/icons.mjs",
+    "predev": "node scripts/icons.mjs",
+    "prebuild": "node scripts/icons.mjs"
   },
   "dependencies": {
     "three": "^0.186.1"
