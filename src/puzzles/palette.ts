@@ -17,6 +17,8 @@ export const C = {
   line: 'rgba(228, 232, 234, 0.12)',
   line2: 'rgba(228, 232, 234, 0.26)',
   line3: 'rgba(228, 232, 234, 0.5)',
+  /** The board frame every game draws (src/puzzles/frame.ts): solid, between the surfaces and the dim text. */
+  frame: '#3a3f44',
   /** Pieces: the light card-table tile and the ink drawn on it. */
   tile: '#e4e8ea',
   tileInk: '#101112',
@@ -100,7 +102,7 @@ export function bead(ctx: CanvasRenderingContext2D, x: number, y: number, r: num
 /** A rounded tile: a flat fill with an optional outline. */
 export function tile(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, radius: number, fill: string | null, stroke: string | null = null, lineWidth = 1): void {
   ctx.beginPath();
-  ctx.roundRect(x, y, w, h, Math.min(radius, w / 2, h / 2));
+  ctx.roundRect(x, y, w, h, Math.max(0, Math.min(radius, w / 2, h / 2)));
   if (fill) {
     ctx.fillStyle = fill;
     ctx.fill();
