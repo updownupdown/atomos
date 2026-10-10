@@ -1,22 +1,57 @@
-// Drawing and touch for Codebreaker: tap a slot to cycle its symbol, or tap a
-// symbol on the key row to set the chosen slot; the arrow mark submits. Keys
-// 1–6 type symbols, Enter submits, Backspace clears.
+// Drawing and touch for Codebreaker: tap a slot in the guess row to choose it,
+// tap a symbol in the palette to fill it, then tap Guess. Tapping the chosen
+// slot again clears it. Keys 1-6 type symbols, arrows move, Backspace clears,
+// Enter guesses.
 
 import { cloneCodebreaker, cycleSlot, draftComplete, EMPTY, MAX_ROWS, setSlot, SLOTS, solved, stuck, submit, SYMBOLS, type CodebreakerState } from './codebreaker';
-import { ease, MONO, SUBSHELL_COLOURS, type Area, type Point, type PuzzleView } from './view';
+import { C, font, socket, tile } from './palette';
+import { ease, type Area, type Point, type PuzzleView } from './view';
 
 const REVEAL_MS = 260;
-const COLOURS = [SUBSHELL_COLOURS.s, SUBSHELL_COLOURS.p, SUBSHELL_COLOURS.d, SUBSHELL_COLOURS.f, '#e4dfd2', '#8a857a'];
+/** The six symbol colours, read at draw time. */
+const colourOf = (k: number): string => [C.s, C.p, C.d, C.f, C.silverDim, C.pewter][k];
+const GAP = 6;
 
-interface Hit { kind: 'slot' | 'key' | 'submit'; index: number }
+export const INSTRUCTIONS = `
+<h3>How to play</h3>
+<p>A sealed code of <b>four symbols</b> hides at the top, drawn from the six in the palette. Work it out in ten guesses or fewer.</p>
+<ul>
+  <li>Tap a slot in the big guess row, then tap a symbol in the palette to fill it; the next empty slot is chosen for you. Tap the chosen slot again to empty it.</li>
+  <li>When all four slots are full, tap <b>Guess</b>.</li>
+  <li>Each guess moves up into the list with its clue: a <b>filled dot</b> for every symbol in the right place, a <b>hollow dot</b> for every right symbol in the wrong place. The dots do not say which symbols they mean.</li>
+  <li>Each symbol has its own shape as well as its colour.</li>
+</ul>
+<p>Keyboard: 1-6 type a symbol, arrows move between slots, Backspace clears, Enter guesses.</p>
+<h3>In the game</h3>
+<p>A gate for the 15 synthetic elements, z 104-118.</p>
+<ul>
+  <li>Up to z 111 the four symbols are all different; from z 112 a symbol may repeat.</li>
+  <li>Par is 5 guesses; clean means cracking it within par. Ten guesses without cracking it is stuck, and a restart deals the same code.</li>
+  <li>Undo takes back changes to the guess row, but a guess once made stays made.</li>
+</ul>`;
+
+interface Rect { x: number; y: number; w: number; h: number }
+
+interface Layout {
+  rowH: number;
+  /** Left edge and width of the history column. */
+  hx: number;
+  hw: number;
+  /** Top of the sealed row; the history rows follow it. */
+  hy: number;
+  slots: Rect[];
+  submit: Rect;
+  keys: Rect[];
+}
 
 export class CodebreakerView implements PuzzleView {
   private state: CodebreakerState;
+  /** Draft edits since the last guess; a guess clears it. */
   private history: CodebreakerState[] = [];
   private pressed: Point | null = null;
   private cursor = 0;
   private submittedAt = 0;
-  private hits: { hit: Hit; x: number; y: number; r: number }[] = [];
+  private lay: Layout | null = null;
   private reduced: boolean;
 
   constructor(private readonly initial: CodebreakerState, reducedMotion: boolean) {
@@ -31,11 +66,10 @@ export class CodebreakerView implements PuzzleView {
   get clean(): boolean { return this.state.moves <= this.state.par; }
 
   hint(): string {
-    if (this.won) return `Cracked in ${this.state.moves} guess${this.state.moves === 1 ? '' : 'es'}.`;
-    if (this.stuck) return 'Ten guesses used. Restart for the same code.';
-    if (this.state.moves === 0) return `<span class="hl">Tap the slots</span> to pick four symbols, then the <span class="hl">arrow</span> to guess. A filled dot: right symbol, right place. A hollow dot: right symbol, wrong place.`;
-    const last = this.state.rows[this.state.rows.length - 1];
-    return `Last guess: ${last.exact} in place, ${last.near} out of place. ${MAX_ROWS - this.state.rows.length} guesses left.`;
+    const n = this.state.moves;
+    if (this.won) return `Cracked in ${n} guess${n === 1 ? '' : 'es'}`;
+    if (this.stuck) return 'Out of guesses';
+    return `Guess ${this.state.rows.length + 1} of ${MAX_ROWS}`;
   }
 
   restart(): void {
@@ -55,12 +89,31 @@ export class CodebreakerView implements PuzzleView {
 
   private over(): boolean { return this.won || this.stuck; }
 
-  private trySubmit(): void {
-    const next = submit(this.state);
-    if (!next) return;
+  private edit(next: CodebreakerState): void {
     this.history.push(this.state);
     if (this.history.length > 50) this.history.shift();
     this.state = next;
+  }
+
+  private put(symbol: number): void {
+    if (this.over()) return;
+    this.edit(setSlot(this.state, this.cursor, symbol));
+    // On to the next empty slot, if there is one.
+    for (let k = 1; k <= SLOTS; k++) {
+      const j = (this.cursor + k) % SLOTS;
+      if (this.state.draft[j] === EMPTY) { this.cursor = j; return; }
+    }
+  }
+
+  private clear(slot: number): void {
+    if (this.state.draft[slot] !== EMPTY) this.edit(setSlot(this.state, slot, EMPTY));
+  }
+
+  private trySubmit(): void {
+    const next = submit(this.state);
+    if (!next) return;
+    this.state = next;
+    this.history = [];
     this.cursor = 0;
     this.submittedAt = performance.now();
   }
@@ -74,169 +127,185 @@ export class CodebreakerView implements PuzzleView {
   up(p: Point): void {
     const s = this.pressed;
     this.pressed = null;
-    if (!s || Math.hypot(p.x - s.x, p.y - s.y) > 14 || this.over()) return;
-    for (const h of this.hits) {
-      if (Math.hypot(p.x - h.x, p.y - h.y) > h.r) continue;
-      if (h.hit.kind === 'slot') {
-        if (this.cursor === h.hit.index || this.state.draft[h.hit.index] === EMPTY) this.state = cycleSlot(this.state, h.hit.index);
-        this.cursor = h.hit.index;
-      } else if (h.hit.kind === 'key') {
-        this.state = setSlot(this.state, this.cursor, h.hit.index);
-        this.cursor = (this.cursor + 1) % SLOTS;
-      } else this.trySubmit();
+    if (!s || Math.hypot(p.x - s.x, p.y - s.y) > 16 || this.over() || !this.lay) return;
+    const L = this.lay;
+    const inside = (r: Rect, pad: number) => p.x >= r.x - pad && p.x <= r.x + r.w + pad && p.y >= r.y - pad && p.y <= r.y + r.h + pad;
+    const slot = L.slots.findIndex((r) => inside(r, GAP / 2));
+    if (slot >= 0) {
+      if (slot === this.cursor) this.clear(slot);
+      this.cursor = slot;
       return;
     }
+    const key = L.keys.findIndex((r) => inside(r, GAP / 2));
+    if (key >= 0) { this.put(key); return; }
+    if (inside(L.submit, GAP / 2)) this.trySubmit();
   }
 
   key(e: KeyboardEvent): boolean {
     if (this.over()) return false;
-    if (/^[1-6]$/.test(e.key)) {
-      this.state = setSlot(this.state, this.cursor, Number(e.key) - 1);
-      this.cursor = (this.cursor + 1) % SLOTS;
-      return true;
-    }
+    if (/^[1-6]$/.test(e.key)) { this.put(Number(e.key) - 1); return true; }
     if (e.key === 'ArrowLeft') { this.cursor = (this.cursor + SLOTS - 1) % SLOTS; return true; }
     if (e.key === 'ArrowRight') { this.cursor = (this.cursor + 1) % SLOTS; return true; }
-    if (e.key === 'ArrowUp') { this.state = cycleSlot(this.state, this.cursor, 1); return true; }
-    if (e.key === 'ArrowDown') { this.state = cycleSlot(this.state, this.cursor, -1); return true; }
-    if (e.key === ' ') { this.state = cycleSlot(this.state, this.cursor, 1); return true; }
-    if (e.key === 'Backspace') { this.state = setSlot(this.state, this.cursor, EMPTY); return true; }
+    if (e.key === 'ArrowUp') { this.edit(cycleSlot(this.state, this.cursor, 1)); return true; }
+    if (e.key === 'ArrowDown') { this.edit(cycleSlot(this.state, this.cursor, -1)); return true; }
+    if (e.key === 'Backspace' || e.key === 'Delete') { this.clear(this.cursor); return true; }
     if (e.key === 'Enter') { this.trySubmit(); return true; }
     return false;
+  }
+
+  // ---- layout ---------------------------------------------------------------------
+
+  private layout(area: Area): Layout {
+    const m = 8;
+    const aw = Math.max(1, area.w - m * 2), ah = Math.max(1, area.h - m * 2);
+    // The controls for a given width: a guess row (four slots and a wider Guess button) and the palette.
+    const controls = (bw: number) => {
+      const slot = Math.max(30, Math.min(60, (bw - 5 * GAP) / 5.5));
+      const btnW = Math.max(slot * 1.5, 72);
+      const rowW = slot * 4 + GAP * 5 + btnW;
+      let keyCols = SYMBOLS;
+      let key = Math.min(60, (bw - GAP * (SYMBOLS - 1)) / SYMBOLS);
+      if (key < 44) { keyCols = 3; key = Math.min(60, (bw - GAP * 2) / 3); }
+      const keyRows = Math.ceil(SYMBOLS / keyCols);
+      const palW = keyCols * key + (keyCols - 1) * GAP, palH = keyRows * key + (keyRows - 1) * GAP;
+      return { slot, btnW, rowW, key, keyCols, palW, palH, w: Math.max(rowW, palW), h: slot + 14 + palH };
+    };
+    const rows = MAX_ROWS + 1;
+    const histW = (rh: number) => Math.min(aw, rh * 8.2);
+
+    // Stacked (history above the controls) unless that squeezes the rows and they fit side by side.
+    let ctrl = controls(aw);
+    let rowH = Math.min(34, (ah - ctrl.h - 14) / rows);
+    let side = false;
+    if (rowH < 22) {
+      const sideRowH = Math.min(34, ah / rows);
+      const sc = controls(aw - histW(sideRowH) - 24);
+      if (sideRowH > rowH && sc.slot >= 44 && sc.key >= 40 && sc.h <= ah) { side = true; rowH = sideRowH; ctrl = sc; }
+    }
+    rowH = Math.max(14, rowH);
+    const hw = histW(rowH), hh = rowH * rows;
+
+    let hx: number, hy: number, cx: number, cy: number;
+    if (side) {
+      const total = hw + 24 + ctrl.w;
+      hx = area.x + (area.w - total) / 2;
+      hy = area.y + (area.h - hh) / 2;
+      cx = hx + hw + 24;
+      cy = area.y + (area.h - ctrl.h) / 2;
+    } else {
+      const total = hh + 14 + ctrl.h;
+      hy = area.y + (area.h - total) / 2;
+      hx = area.x + (area.w - hw) / 2;
+      cx = area.x + (area.w - ctrl.w) / 2;
+      cy = hy + hh + 14;
+    }
+    const { slot, btnW, key, keyCols } = ctrl;
+    const rx = cx + (ctrl.w - ctrl.rowW) / 2;
+    const slots = Array.from({ length: SLOTS }, (_, k) => ({ x: rx + k * (slot + GAP), y: cy, w: slot, h: slot }));
+    const submitRect = { x: rx + 4 * slot + 5 * GAP, y: cy, w: btnW, h: slot };
+    const px = cx + (ctrl.w - ctrl.palW) / 2, py = cy + slot + 14;
+    const keys = Array.from({ length: SYMBOLS }, (_, k) => ({
+      x: px + (k % keyCols) * (key + GAP), y: py + Math.floor(k / keyCols) * (key + GAP), w: key, h: key,
+    }));
+    return { rowH, hx, hw, hy, slots, submit: submitRect, keys };
   }
 
   // ---- drawing --------------------------------------------------------------------
 
   draw(ctx: CanvasRenderingContext2D, area: Area, now: number): void {
     const s = this.state;
-    this.hits = [];
-    const rows = MAX_ROWS + 2;
-    const rowH = Math.max(34, Math.min(50, area.h / (rows + 0.8)));
-    const slot = Math.min(rowH * 0.86, area.w / 9);
-    const labelW = slot * 7.4;
-    const x0 = area.x + (area.w - labelW) / 2;
-    const y0 = area.y + (area.h - rowH * rows - 8) / 2;
-    const slotX = (k: number) => x0 + slot * 0.6 + (k + 0.5) * slot;
-    const symR = slot * 0.3;
+    const L = (this.lay = this.layout(area));
+    const rh = L.rowH, sr = rh * 0.3;
+    const symX = (k: number) => L.hx + rh * 1.15 + (k + 0.5) * rh * 0.98;
+    const clueX = L.hx + L.hw - rh * 0.9;
 
-    // The secret, a sealed label until the code is cracked.
-    const secretY = y0 + rowH / 2;
-    label(ctx, x0, secretY - rowH * 0.42, labelW, rowH * 0.84, this.won ? 0.14 : 0.06);
+    // The sealed code, opened once cracked.
+    const sy = L.hy + rh / 2;
+    tile(ctx, L.hx, L.hy + 2, L.hw, rh - 4, rh * 0.25, this.won ? C.surface2 : C.surface, this.won ? C.line3 : C.line2, 1);
     for (let k = 0; k < SLOTS; k++) {
-      if (this.won) symbol(ctx, slotX(k), secretY, symR, s.secret[k]);
+      if (this.won) symbol(ctx, symX(k), sy, sr, s.secret[k]);
       else {
-        ctx.strokeStyle = 'rgba(226, 220, 207, 0.3)';
-        ctx.lineWidth = 1;
+        ctx.save();
         ctx.setLineDash([2, 3]);
+        ctx.strokeStyle = C.line3;
+        ctx.lineWidth = 1;
         ctx.beginPath();
-        ctx.arc(slotX(k), secretY, symR, 0, Math.PI * 2);
+        ctx.arc(symX(k), sy, sr, 0, Math.PI * 2);
         ctx.stroke();
-        ctx.setLineDash([]);
+        ctx.restore();
       }
     }
-    ctx.font = `11px ${MONO}`;
-    ctx.fillStyle = 'rgba(226, 220, 207, 0.5)';
-    ctx.textAlign = 'right';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(this.won ? 'code' : 'sealed', x0 + labelW - 10, secretY);
+    lock(ctx, clueX, sy, rh * 0.22, this.won);
 
-    // Guess rows: the submitted ones, then the draft, then blanks.
+    // The guesses so far, compact.
     for (let r = 0; r < MAX_ROWS; r++) {
-      const y = y0 + rowH * (r + 1.3) + rowH / 2;
+      const y = L.hy + rh * (r + 1) + rh / 2;
       const row = s.rows[r];
-      const isDraft = r === s.rows.length && !this.over();
-      ctx.font = `11px ${MONO}`;
-      ctx.fillStyle = 'rgba(226, 220, 207, 0.4)';
+      ctx.fillStyle = row ? C.text2 : C.text3;
+      ctx.font = font(Math.max(9, rh * 0.38), 500);
       ctx.textAlign = 'right';
       ctx.textBaseline = 'middle';
-      ctx.fillText(String(r + 1), x0 + slot * 0.45, y);
+      ctx.fillText(String(r + 1), L.hx + rh * 0.8, y + 1);
       if (row) {
-        const justNow = r === s.rows.length - 1 && !this.reduced ? ease((now - this.submittedAt) / REVEAL_MS) : 1;
-        label(ctx, x0, y - rowH * 0.42, labelW, rowH * 0.84, 0.08 * justNow + 0.02);
-        for (let k = 0; k < SLOTS; k++) symbol(ctx, slotX(k), y, symR, row.guess[k], 0.5 + 0.5 * justNow);
-        clues(ctx, x0 + labelW - slot * 1.1, y, symR * 0.5, row.exact, row.near, justNow);
-      } else if (isDraft) {
-        label(ctx, x0, y - rowH * 0.42, labelW, rowH * 0.84, 0.12);
-        for (let k = 0; k < SLOTS; k++) {
-          const cx = slotX(k);
-          this.hits.push({ hit: { kind: 'slot', index: k }, x: cx, y, r: Math.max(20, slot / 2) });
-          if (k === this.cursor) {
-            ctx.strokeStyle = 'rgba(226, 220, 207, 0.7)';
-            ctx.lineWidth = 1.5;
-            ctx.beginPath();
-            ctx.arc(cx, y, symR + 5, 0, Math.PI * 2);
-            ctx.stroke();
-          }
-          if (s.draft[k] === EMPTY) {
-            ctx.strokeStyle = 'rgba(226, 220, 207, 0.3)';
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.arc(cx, y, symR, 0, Math.PI * 2);
-            ctx.stroke();
-          } else symbol(ctx, cx, y, symR, s.draft[k]);
-        }
-        // The submit mark: an arrow, red once the row is full.
-        const ax = x0 + labelW - slot * 0.9;
-        const ready = draftComplete(s);
-        this.hits.push({ hit: { kind: 'submit', index: 0 }, x: ax, y, r: Math.max(20, slot / 2) });
-        ctx.strokeStyle = ready ? '#e0503a' : 'rgba(226, 220, 207, 0.3)';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(ax - 8, y);
-        ctx.lineTo(ax + 8, y);
-        ctx.moveTo(ax + 2, y - 6);
-        ctx.lineTo(ax + 8, y);
-        ctx.lineTo(ax + 2, y + 6);
-        ctx.stroke();
+        const t = r === s.rows.length - 1 && !this.reduced ? ease((now - this.submittedAt) / REVEAL_MS) : 1;
+        tile(ctx, L.hx + rh, y - rh / 2 + 2, L.hw - rh, rh - 4, rh * 0.25, null, C.line, 1);
+        for (let k = 0; k < SLOTS; k++) symbol(ctx, symX(k), y, sr, row.guess[k], 0.5 + 0.5 * t);
+        clues(ctx, clueX, y, rh * 0.1, row.exact, row.near, t);
       } else {
-        ctx.strokeStyle = 'rgba(226, 220, 207, 0.1)';
+        ctx.strokeStyle = C.line;
         ctx.lineWidth = 1;
         ctx.beginPath();
-        ctx.moveTo(x0 + slot * 0.6, y);
-        ctx.lineTo(x0 + labelW - slot * 0.5, y);
+        ctx.moveTo(L.hx + rh * 1.15, y);
+        ctx.lineTo(L.hx + L.hw - rh * 0.3, y);
         ctx.stroke();
       }
     }
 
-    // The key row: all six symbols, tap to set the chosen slot.
-    const ky = y0 + rowH * (MAX_ROWS + 1.6) + rowH / 2;
-    const keyStep = labelW / (SYMBOLS + 0.5);
-    for (let k = 0; k < SYMBOLS; k++) {
-      const cx = x0 + keyStep * (k + 0.75);
-      symbol(ctx, cx, ky, symR * 0.85, k, this.over() ? 0.4 : 0.85);
-      ctx.font = `10px ${MONO}`;
-      ctx.fillStyle = 'rgba(226, 220, 207, 0.4)';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'top';
-      ctx.fillText(String(k + 1), cx, ky + symR + 3);
-      this.hits.push({ hit: { kind: 'key', index: k }, x: cx, y: ky, r: Math.max(20, keyStep / 2) });
-    }
-  }
-}
+    // The guess row: four big slots and the Guess button.
+    const live = !this.over();
+    L.slots.forEach((r, k) => {
+      const v = s.draft[k];
+      const rad = r.w * 0.18;
+      if (v === EMPTY || !live) socket(ctx, r.x, r.y, r.w, r.h, rad, C.line2);
+      else tile(ctx, r.x, r.y, r.w, r.h, rad, C.surface2, C.line2, 1);
+      if (v !== EMPTY && live) symbol(ctx, r.x + r.w / 2, r.y + r.h / 2, r.w * 0.3, v);
+      if (live && k === this.cursor) tile(ctx, r.x - 2, r.y - 2, r.w + 4, r.h + 4, rad * 1.1, null, C.accent, 2);
+    });
+    const b = L.submit;
+    const ready = live && draftComplete(s);
+    tile(ctx, b.x, b.y, b.w, b.h, b.h * 0.22, ready ? C.accent : C.surface, ready ? null : C.line2, 1);
+    ctx.fillStyle = ready ? C.tileInk : C.text3;
+    ctx.font = font(Math.min(17, b.h * 0.34), 600);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('Guess', b.x + b.w / 2, b.y + b.h / 2 + 1);
 
-/** A strip of typed paper. */
-function label(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, alpha: number): void {
-  ctx.fillStyle = `rgba(226, 220, 207, ${alpha})`;
-  ctx.strokeStyle = 'rgba(226, 220, 207, 0.2)';
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.rect(x, y, w, h);
-  ctx.fill();
-  ctx.stroke();
+    // The palette.
+    L.keys.forEach((r, k) => {
+      ctx.save();
+      ctx.globalAlpha = live ? 1 : 0.4;
+      tile(ctx, r.x, r.y, r.w, r.h, r.w * 0.18, C.surface2, C.line2, 1);
+      symbol(ctx, r.x + r.w / 2, r.y + r.h / 2, r.w * 0.28, k);
+      ctx.fillStyle = C.text3;
+      ctx.font = font(10, 500);
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'top';
+      ctx.fillText(String(k + 1), r.x + r.w - 5, r.y + 4);
+      ctx.restore();
+    });
+  }
 }
 
 /** One of the six symbols: a colour and a shape, so colour alone never carries the code. */
 export function symbol(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, k: number, alpha = 1): void {
   ctx.save();
   ctx.globalAlpha = alpha;
-  ctx.fillStyle = COLOURS[k];
-  ctx.strokeStyle = 'rgba(0, 0, 0, 0.35)';
-  ctx.lineWidth = 1;
+  ctx.fillStyle = colourOf(k);
   ctx.beginPath();
   switch (k) {
     case 0: ctx.arc(x, y, r, 0, Math.PI * 2); break;
     case 1: ctx.moveTo(x, y - r); ctx.lineTo(x + r, y + r * 0.8); ctx.lineTo(x - r, y + r * 0.8); ctx.closePath(); break;
-    case 2: ctx.rect(x - r * 0.85, y - r * 0.85, r * 1.7, r * 1.7); break;
+    case 2: ctx.roundRect(x - r * 0.85, y - r * 0.85, r * 1.7, r * 1.7, r * 0.25); break;
     case 3: ctx.moveTo(x, y - r); ctx.lineTo(x + r, y); ctx.lineTo(x, y + r); ctx.lineTo(x - r, y); ctx.closePath(); break;
     case 4:
       for (let i = 0; i < 8; i++) {
@@ -253,27 +322,44 @@ export function symbol(ctx: CanvasRenderingContext2D, x: number, y: number, r: n
       ctx.closePath();
   }
   ctx.fill();
-  ctx.stroke();
   ctx.restore();
 }
 
-/** The clue dots: filled for right place, hollow for right symbol elsewhere. */
+/** The clue: four dots in a square, filled for right place, hollow for right symbol elsewhere. */
 function clues(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, exact: number, near: number, alpha: number): void {
-  const step = r * 2.6;
+  const step = r * 2.8;
+  ctx.save();
+  ctx.globalAlpha = alpha;
   for (let i = 0; i < SLOTS; i++) {
-    const cx = x - (SLOTS - 1 - i) * step;
+    const cx = x + (i % 2 ? step / 2 : -step / 2), cy = y + (i < 2 ? -step / 2 : step / 2);
     ctx.beginPath();
-    ctx.arc(cx, y, r, 0, Math.PI * 2);
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
     if (i < exact) {
-      ctx.fillStyle = `rgba(243, 238, 226, ${0.95 * alpha})`;
+      ctx.fillStyle = C.silver;
       ctx.fill();
     } else if (i < exact + near) {
-      ctx.strokeStyle = `rgba(243, 238, 226, ${0.9 * alpha})`;
-      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = C.silver;
+      ctx.lineWidth = 1.25;
       ctx.stroke();
     } else {
-      ctx.fillStyle = `rgba(226, 220, 207, ${0.12 * alpha})`;
+      ctx.fillStyle = C.line;
       ctx.fill();
     }
   }
+  ctx.restore();
+}
+
+/** A small padlock on the sealed row, open once the code is cracked. */
+function lock(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, open: boolean): void {
+  ctx.save();
+  ctx.strokeStyle = open ? C.good : C.text3;
+  ctx.fillStyle = open ? C.good : C.text3;
+  ctx.lineWidth = Math.max(1.25, r * 0.22);
+  ctx.beginPath();
+  ctx.arc(x + (open ? r * 0.9 : 0), y - r * 0.2, r * 0.55, Math.PI, 0);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.roundRect(x - r * 0.8, y - r * 0.2, r * 1.6, r * 1.2, r * 0.2);
+  ctx.fill();
+  ctx.restore();
 }

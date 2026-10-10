@@ -1,11 +1,13 @@
 // Shared interface pieces: icon buttons, the modal close button, tabs, switch toggles, a range
-// slider, toasts and hold-to-confirm. Every screen builds its controls from these so they look
+// slider, toasts, hold-to-confirm and the drawer. Every screen builds its controls from these so they look
 // and behave the same everywhere. Styles live in components.css and read tokens.css.
 //
 // Each builder returns plain DOM, so it drops into code that renders with innerHTML too:
 // render a placeholder, then replace it with the element (or use switchHtml, which is a string).
 
-// Stand-in glyphs until the icon library lands; drawn on the 24 px grid with 2 px padding.
+import { icon } from './icons';
+
+// Stand-in glyphs from before the icon library; drawn on the 24 px grid with 2 px padding.
 export const ICON_CLOSE = `<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>`;
 export const ICON_CHEVRON = `<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg>`;
 
@@ -403,3 +405,97 @@ export function createHoldButton(o: HoldButtonOptions): HTMLButtonElement {
   bindHold(b, { label: `Hold to ${o.label.toLowerCase()}`, doneLabel: o.doneLabel, holdMs: o.holdMs, onConfirm: o.onConfirm });
   return b;
 }
+
+// ---- Drawer --------------------------------------------------------------------------------
+
+export interface DrawerOptions {
+  /** Spoken name of the panel. */
+  label: string;
+  /** Optional heading shown beside the chevron. */
+  title?: string;
+  /** What goes inside; it scrolls if it is taller than the panel. */
+  content?: Node;
+  onClose?: () => void;
+}
+
+export interface Drawer {
+  el: HTMLElement;
+  /** The scrolling area; append content here. */
+  body: HTMLElement;
+  close(): void;
+}
+
+let openDrawers = 0;
+
+/** A panel that rises from the bottom and covers most of the screen, leaving the header and
+ *  a strip of the page above it in view. Unlike a modal it closes with a chevron, by tapping
+ *  the page above it, by dragging the chevron down, or with Escape. */
+export function openDrawer(o: DrawerOptions): Drawer {
+  const scrim = el('div', 'ui-drawer-scrim');
+  const panel = el('section', 'ui-drawer');
+  panel.setAttribute('role', 'dialog');
+  panel.setAttribute('aria-modal', 'true');
+  panel.setAttribute('aria-label', o.label);
+  const head = el('div', 'ui-drawer-head');
+  const handle = el('button', 'ui-drawer-handle', icon('chevron-down'));
+  handle.type = 'button';
+  handle.setAttribute('aria-label', 'Close');
+  head.append(handle);
+  if (o.title) head.append(el('h2', 'ui-drawer-title', esc(o.title)));
+  const body = el('div', 'ui-drawer-body');
+  if (o.content) body.append(o.content);
+  panel.append(head, body);
+  scrim.append(panel);
+  document.body.append(scrim);
+  openDrawers++;
+  const before = document.activeElement as HTMLElement | null;
+  requestAnimationFrame(() => scrim.classList.add('is-open'));
+
+  let closed = false;
+  const close = () => {
+    if (closed) return;
+    closed = true;
+    openDrawers--;
+    window.removeEventListener('keydown', onKey, true);
+    scrim.classList.remove('is-open');
+    panel.style.transform = '';
+    const done = () => { scrim.remove(); before?.focus?.(); o.onClose?.(); };
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) done();
+    else setTimeout(done, 220);
+  };
+  const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.stopPropagation(); close(); } };
+  window.addEventListener('keydown', onKey, true);
+  scrim.addEventListener('click', (e) => { if (e.target === scrim) close(); });
+
+  // Drag the chevron (or the head) down to close; a short tap closes too.
+  let startY = 0;
+  let dy = 0;
+  let dragging = false;
+  head.addEventListener('pointerdown', (e) => {
+    dragging = true;
+    startY = e.clientY;
+    dy = 0;
+    head.setPointerCapture(e.pointerId);
+    panel.classList.add('is-dragging');
+  });
+  head.addEventListener('pointermove', (e) => {
+    if (!dragging) return;
+    dy = Math.max(0, e.clientY - startY);
+    panel.style.transform = `translate(-50%, ${dy}px)`;
+  });
+  const end = () => {
+    if (!dragging) return;
+    dragging = false;
+    panel.classList.remove('is-dragging');
+    if (dy > 80 || dy < 6) close();
+    else panel.style.transform = '';
+  };
+  head.addEventListener('pointerup', end);
+  head.addEventListener('pointercancel', () => { dragging = false; panel.classList.remove('is-dragging'); panel.style.transform = ''; });
+  handle.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); close(); } });
+  handle.focus({ preventScroll: true });
+  return { el: panel, body, close };
+}
+
+/** True while any drawer is open, so screens can ignore their own keys meanwhile. */
+export const drawerOpen = (): boolean => openDrawers > 0;

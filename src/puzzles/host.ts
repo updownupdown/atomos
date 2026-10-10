@@ -1,6 +1,7 @@
 // Runs one PuzzleView on a canvas: pointer and keyboard input, the draw loop,
 // undo and restart. The build screen and the playground both sit on this.
 
+import { syncPalette } from './palette';
 import type { Area, Point, PuzzleView } from './view';
 
 export class PuzzleHost {
@@ -15,6 +16,7 @@ export class PuzzleHost {
   private wonReported = false;
 
   constructor(private canvas: HTMLCanvasElement, private area: () => Area) {
+    syncPalette(); // the stylesheet is certainly applied by now
     canvas.addEventListener('pointerdown', (e) => this.down(e));
     canvas.addEventListener('pointermove', (e) => this.move(e));
     canvas.addEventListener('pointerup', (e) => this.up(e));
