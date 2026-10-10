@@ -518,7 +518,7 @@ body.stage-nucleus #atom { opacity: 0.12; }
 
 /* View's tabs: a strip under the header; the model tab shows the canvas, the others a scrolling page. */
 .loupe-screen { --tabs-h: 48px; }
-.atom-tabs { position: absolute; left: 0; right: 0; top: var(--top); z-index: 3; height: var(--tabs-h); display: flex; align-items: center; justify-content: center; padding: 0 var(--sp-3); background: var(--c-bg); border-bottom: 1px solid var(--c-line); }
+.atom-tabs { position: absolute; left: 0; right: 0; top: var(--top); z-index: 3; height: var(--tabs-h); display: flex; align-items: flex-end; justify-content: center; padding: 0 var(--sp-3); background: var(--c-bg); }
 .atom-tabs .ui-tabs { max-width: 100%; }
 .atom-panel { position: absolute; left: 0; right: 0; top: calc(var(--top) + var(--tabs-h)); bottom: calc(60px + var(--safe-bottom)); z-index: 2; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; background: var(--c-bg); }
 .atom-panel[hidden] { display: none; }
