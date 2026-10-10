@@ -6,8 +6,8 @@
 // they all fit, so nothing ever spills.
 
 import { applyMove, bounds, canPlace, cellsLeft, cellsOf, clonePacking, completion, nextPlacement, occupancy, oriented, solved, type Cell, type PackingMove, type PackingState, type Piece, type Placement, type Rot } from './packing';
-import { framePad, frameWidth } from './frame';
-import { C, tile } from './palette';
+import { drawCellFrame } from './frame';
+import { C, shade, tile } from './palette';
 import { drawHelpMark, ease, undoHelp, type Area, type Help, type Point, type PuzzleView, type RuleCard } from './view';
 
 const TAP = 8;
@@ -496,24 +496,33 @@ export class PackingView implements PuzzleView {
 
 const same = (a: Cell[], b: Cell[]): boolean => a.length === b.length && a.every((c, i) => c.x === b[i].x && c.y === b[i].y);
 
-/** Color by size: a quick way to tell the pieces apart on the board. */
+/**
+ * Color by size: a quick way to tell the pieces apart on the board. Mosaic stones, like the
+ * tesserae the game is named for: marble, terracotta, slate and sage. Their own set, kept off
+ * the orbital, target, warning and Next colors: a piece is a shape, not an orbital.
+ */
+const STONES = ['#ece6d8', '#d98a6c', '#8fa8c4', '#93bc9c'];
 function colorOf(p: Piece): string {
   const n = p.shape.length;
-  // Their own palette, not the orbital colors: a piece is a shape, not an s, p, d or f orbital.
-  return n <= 2 ? C.piece1 : n === 3 ? C.piece2 : n === 4 ? C.piece3 : C.piece4;
+  return STONES[n <= 2 ? 0 : n === 3 ? 1 : n === 4 ? 2 : 3];
 }
 
-/** A piece: one flat rounded shape with a faint dot per cell. */
+/**
+ * A piece: a mosaic of its cells. The shape is laid in a darker grout of its stone, and each
+ * cell is a slightly raised tessera on it: a rounded square in the stone's color with a thin
+ * lighter top edge.
+ */
 function drawPiece(ctx: CanvasRenderingContext2D, p: Piece, ox: number, oy: number, cell: number, glow: number, selected: boolean): void {
   const cells = cellsOf(p);
   const inset = Math.max(1, cell * 0.06);
+  const stone = colorOf(p);
   ctx.save();
   if (glow > 0) {
-    ctx.shadowColor = colorOf(p);
+    ctx.shadowColor = stone;
     ctx.shadowBlur = cell * 0.6 * glow;
   }
   tracePath(ctx, outlinePolygons(cells), ox, oy, cell, inset, cell * 0.18);
-  ctx.fillStyle = colorOf(p);
+  ctx.fillStyle = shade(stone, -0.38);
   ctx.fill();
   ctx.shadowBlur = 0;
   if (selected) {
@@ -521,13 +530,11 @@ function drawPiece(ctx: CanvasRenderingContext2D, p: Piece, ox: number, oy: numb
     ctx.lineWidth = 2;
     ctx.stroke();
   }
-  ctx.fillStyle = C.tileInk;
-  ctx.globalAlpha *= 0.28;
-  const r = Math.max(1, cell * 0.07);
+  const g = cell * 0.13, side = cell - 2 * g, rad = cell * 0.12, lip = Math.max(1, cell * 0.05);
   for (const c of cells) {
-    ctx.beginPath();
-    ctx.arc(ox + (c.x + 0.5) * cell, oy + (c.y + 0.5) * cell, r, 0, Math.PI * 2);
-    ctx.fill();
+    const x = ox + c.x * cell + g, y = oy + c.y * cell + g;
+    tile(ctx, x, y, side, side, rad, shade(stone, 0.28));
+    tile(ctx, x, y + lip, side, side - lip, rad, stone);
   }
   ctx.restore();
 }
@@ -536,13 +543,9 @@ function drawPiece(ctx: CanvasRenderingContext2D, p: Piece, ox: number, oy: numb
  *  a faint dot at the center of each. Filled blocks are simply not in `open`. */
 function drawOutline(ctx: CanvasRenderingContext2D, open: Cell[], bx: number, by: number, cell: number, color: string): void {
   if (!open.length || !(cell > 0)) return;
-  const pad = framePad(cell);
-  tracePath(ctx, outlinePolygons(open), bx, by, cell, -pad, cell * 0.2 + pad);
+  // Cut from the cells grown twice, so close parts of the outline never cross each other.
+  drawCellFrame(ctx, open, bx, by, cell, color);
   ctx.save();
-  ctx.strokeStyle = color;
-  ctx.lineWidth = frameWidth(cell);
-  ctx.lineJoin = 'round';
-  ctx.stroke();
   ctx.fillStyle = C.surface3;
   const r = Math.max(1.5, cell * 0.035);
   for (const c of open) {

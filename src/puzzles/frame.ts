@@ -153,3 +153,77 @@ export function dashFor(box: { x: number; y: number; w: number; h: number }, r: 
   // Pattern position 0 sits at path position `from`, so the path's start is total - from into it.
   return { dash, offset: ((total - from) % total + total) % total };
 }
+
+// ---- frames round any shape of cells ------------------------------------------------
+
+const ringCache = new Map<string, HTMLCanvasElement | OffscreenCanvas>();
+
+/**
+ * The frame traced round an arbitrary set of cells (an outline with notches and holes), as a
+ * ring of the frame's width standing framePad off the cells. It is cut from the cells grown by
+ * two amounts (outer edge minus inner edge), so it can never cross itself where two parts of
+ * the outline come close, at inner corners or round a cell that only touches the edge at a
+ * corner. Convex corners are rounded by the growth itself, inner corners stay sharp. The ring is drawn once into a cached
+ * bitmap for this shape, size and color.
+ */
+export function drawCellFrame(ctx: CanvasRenderingContext2D, cells: { x: number; y: number }[], ox: number, oy: number, cell: number, color: string = C.frame): void {
+  if (!cells.length || !(cell > 0)) return;
+  const lw = frameWidth(cell), pad = framePad(cell);
+  const outer = pad + lw / 2, inner = pad - lw / 2;
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const c of cells) { x0 = Math.min(x0, c.x); y0 = Math.min(y0, c.y); x1 = Math.max(x1, c.x + 1); y1 = Math.max(y1, c.y + 1); }
+  const m = outer + 2;
+  const wCss = (x1 - x0) * cell + 2 * m, hCss = (y1 - y0) * cell + 2 * m;
+  const t = typeof ctx.getTransform === 'function' ? ctx.getTransform() : null;
+  const scale = Math.max(1, Math.min(3, t ? Math.hypot(t.a, t.b) : 1));
+  const make = makeCanvas(Math.ceil(wCss * scale), Math.ceil(hCss * scale));
+  if (!make) {
+    // No canvas to draw into (tests): a plain outline per cell keeps the geometry checkable.
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = lw;
+    for (const c of cells) {
+      ctx.beginPath();
+      ctx.rect(ox + c.x * cell - pad, oy + c.y * cell - pad, cell + 2 * pad, cell + 2 * pad);
+      ctx.stroke();
+    }
+    ctx.restore();
+    return;
+  }
+  const key = `${cells.map((c) => `${c.x},${c.y}`).join(';')}|${cell.toFixed(2)}|${scale}|${color}`;
+  let bmp = ringCache.get(key);
+  if (!bmp) {
+    bmp = make;
+    const g = bmp.getContext('2d') as CanvasRenderingContext2D | null;
+    if (!g) return;
+    g.scale(scale, scale);
+    const grow = (e: number, r: number) => {
+      g.beginPath();
+      for (const c of cells) {
+        const x = m + (c.x - x0) * cell - e, y = m + (c.y - y0) * cell - e;
+        g.roundRect(x, y, cell + 2 * e, cell + 2 * e, Math.max(0, Math.min(r, cell / 2 + e)));
+      }
+      g.fill();
+    };
+    g.fillStyle = color;
+    // A corner rounder than the growth would notch the straight runs where two cells meet.
+    grow(outer, outer);
+    g.globalCompositeOperation = 'destination-out';
+    grow(inner, inner);
+    if (ringCache.size > 24) ringCache.delete(ringCache.keys().next().value!);
+    ringCache.set(key, bmp);
+  }
+  ctx.drawImage(bmp as CanvasImageSource, ox + x0 * cell - m, oy + y0 * cell - m, wCss, hCss);
+}
+
+function makeCanvas(w: number, h: number): HTMLCanvasElement | OffscreenCanvas | null {
+  if (!(w > 0 && h > 0)) return null;
+  if (typeof OffscreenCanvas !== 'undefined') return new OffscreenCanvas(w, h);
+  if (typeof document !== 'undefined') {
+    const c = document.createElement('canvas');
+    c.width = w;
+    c.height = h;
+    return c;
+  }
+  return null;
+}

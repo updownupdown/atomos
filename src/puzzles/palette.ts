@@ -17,8 +17,8 @@ export const C = {
   line: 'rgba(228, 232, 234, 0.12)',
   line2: 'rgba(228, 232, 234, 0.26)',
   line3: 'rgba(228, 232, 234, 0.5)',
-  /** The board frame every game draws (src/puzzles/frame.ts): solid, between the surfaces and the dim text. */
-  frame: '#3a3f44',
+  /** The board frame every game draws (src/puzzles/frame.ts): solid, clearly visible on black but quieter than any piece. */
+  frame: '#5e666c',
   /** Pieces: the light card-table tile and the ink drawn on it. */
   tile: '#e4e8ea',
   tileInk: '#101112',
@@ -72,6 +72,16 @@ export function syncPalette(): void {
   }
 }
 syncPalette();
+
+/** A #rrggbb color lightened (k > 0, toward white) or darkened (k < 0, toward black) by |k|. */
+export function shade(hex: string, k: number): string {
+  const m = /^#([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return hex;
+  const n = parseInt(m[1], 16);
+  const ch = (v: number) => Math.round(k >= 0 ? v + (255 - v) * k : v * (1 + k));
+  const r = ch((n >> 16) & 255), g = ch((n >> 8) & 255), b = ch(n & 255);
+  return `#${((1 << 24) | (r << 16) | (g << 8) | b).toString(16).slice(1)}`;
+}
 
 /** A font string for canvas text. */
 export function font(px: number, weight = 500): string {

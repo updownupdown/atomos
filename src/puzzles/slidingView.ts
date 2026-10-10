@@ -3,7 +3,7 @@
 // the red key bar leaves through the gap in the right wall.
 
 import { applySlide, cellsOf, reach, slidingPath, solved, type Block, type Reach, type SlideMove, type SlidingState } from './sliding';
-import { C, fitGrid, tile } from './palette';
+import { C, fitGrid, shade, tile } from './palette';
 import { drawFrame, frameBox, frameWidth, framePad } from './frame';
 import { drawHelpMark, ease, undoHelp, type Area, type Help, type Point, type PuzzleView, type RuleCard } from './view';
 
@@ -299,23 +299,32 @@ export function drawWall(ctx: CanvasRenderingContext2D, x: number, y: number, c:
   tile(ctx, x + g, y + g, c - 2 * g, c - 2 * g, c * 0.18, C.frame);
 }
 
-/** A piece: a bar with a groove along its axis (the key bar red), or a round loose piece with a four-way mark. */
+/**
+ * A piece, as a chunky card-table block: a darker base under a lighter face (so it stands up off
+ * the board), with a recessed track along its axis showing which way it slides. The key bar is
+ * red with a bright bead at the head of its track, pointing the way out; a loose piece is a round
+ * block with a recessed four-way cross.
+ */
 export function drawBlock(ctx: CanvasRenderingContext2D, b: Block, x: number, y: number, c: number, active: boolean): void {
   const g = c * 0.07;
   const key = b.id === 0;
+  const face = key ? C.target : b.free ? C.silverDim : C.tile;
+  const lip = Math.max(1.5, c * 0.06);
+  const w = (b.free || !b.horiz ? 1 : b.len) * c - 2 * g, h = (b.free || b.horiz ? 1 : b.len) * c - 2 * g;
+  const bx = x + g, by = y + g;
+  const rad = b.free ? w / 2 : c * 0.2;
+  // Base, then the face lifted off it.
+  tile(ctx, bx, by, w, h, rad, shade(face, -0.42));
+  tile(ctx, bx, by, w, h - lip, rad, face);
+  if (active) tile(ctx, bx - 2.5, by - 2.5, w + 5, h + 5, rad + 2.5, null, C.accent, 2.5);
+  const fh = h - lip, cx = bx + w / 2, cy = by + fh / 2;
+  const groove = shade(face, -0.22);
+  ctx.save();
+  ctx.lineCap = 'round';
   if (b.free) {
-    // A loose piece: a round tile with a small four-way mark.
-    const cx = x + c / 2, cy = y + c / 2, r = c / 2 - g;
-    ctx.fillStyle = C.silverDim;
-    ctx.beginPath();
-    ctx.arc(cx, cy, r, 0, Math.PI * 2);
-    ctx.fill();
-    if (active) { ctx.strokeStyle = C.accent; ctx.lineWidth = 2; ctx.stroke(); }
-    ctx.save();
-    ctx.globalAlpha = 0.45;
-    ctx.strokeStyle = C.tileInk;
-    ctx.lineWidth = Math.max(1, c * 0.035);
-    const k = r * 0.42;
+    ctx.strokeStyle = groove;
+    ctx.lineWidth = Math.max(2, c * 0.08);
+    const k = w * 0.2;
     ctx.beginPath();
     ctx.moveTo(cx - k, cy); ctx.lineTo(cx + k, cy);
     ctx.moveTo(cx, cy - k); ctx.lineTo(cx, cy + k);
@@ -323,20 +332,24 @@ export function drawBlock(ctx: CanvasRenderingContext2D, b: Block, x: number, y:
     ctx.restore();
     return;
   }
-  const w = (b.horiz ? b.len : 1) * c - 2 * g, h = (b.horiz ? 1 : b.len) * c - 2 * g;
-  const bx = x + g, by = y + g;
-  tile(ctx, bx, by, w, h, c * 0.18, key ? C.target : C.tile, active ? C.accent : null, 2);
-  // A groove along the bar shows which way it slides.
-  ctx.save();
-  ctx.globalAlpha = key ? 0.5 : 0.28;
-  ctx.strokeStyle = C.tileInk;
-  ctx.lineWidth = Math.max(1.5, c * 0.05);
-  ctx.lineCap = 'round';
+  // The track: a recessed capsule along the bar, with a thin highlight on its lower lip.
+  const inset = c * 0.3, tw = Math.max(3, c * 0.13);
+  const [x1, y1, x2, y2] = b.horiz ? [bx + inset, cy, bx + w - inset, cy] : [cx, by + inset, cx, by + fh - inset];
+  ctx.strokeStyle = shade(face, 0.35);
+  ctx.lineWidth = tw;
   ctx.beginPath();
-  const inset = c * 0.32;
-  if (b.horiz) { ctx.moveTo(bx + inset, by + h / 2); ctx.lineTo(bx + w - inset, by + h / 2); }
-  else { ctx.moveTo(bx + w / 2, by + inset); ctx.lineTo(bx + w / 2, by + h - inset); }
+  ctx.moveTo(x1, y1 + 1); ctx.lineTo(x2, y2 + 1);
   ctx.stroke();
+  ctx.strokeStyle = groove;
+  ctx.beginPath();
+  ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
+  ctx.stroke();
+  if (key) {
+    ctx.fillStyle = C.silver;
+    ctx.beginPath();
+    ctx.arc(x2, y2, tw * 0.62, 0, Math.PI * 2);
+    ctx.fill();
+  }
   ctx.restore();
 }
 
