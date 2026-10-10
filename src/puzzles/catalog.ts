@@ -249,16 +249,17 @@ export const PUZZLES: PuzzleType[] = [
   },
   {
     id: 'colorCharge', name: 'Color Charge', tier: 'reserve',
-    use: 'Reserve',
+    use: 'Quark chapters (planned)',
     get rules() { return rulesOf(ChargeV); },
-    blurb: 'Bind the quarks into color-neutral groups until the grid is clear.',
-    role: 'In reserve for the quark chapter of the particles, if it earns a place.',
+    blurb: 'Bind the quarks into color-neutral groups until the grid is clear; on heavier elements a gluon can swap two colors.',
+    role: 'Planned for the quark and gluon chapters of the particles (up, down, gluon, strange, charm, bottom, top): each brings in its own mechanic.',
     instructions: CHARGE_HOW,
     zRange: [1, 118],
     make: (z, deal, reduced) => new ColorChargeView(newColorCharge(z, dealSeed('colorCharge', z, deal)), reduced),
     science: () => `<h2>Color Charge: the science</h2>
       <p>Protons and neutrons are each made of three <b>quarks</b>, held by the strong force. Quarks carry a kind of charge physicists call <b>color</b>, with three values nicknamed red, green and blue. A quark is never found alone: quarks only exist in groups whose colors cancel to "white".</p>
-      <p>There are two ways to cancel. Three quarks, one of each color, make a <b>baryon</b> such as the proton. A quark and an antiquark carrying the matching anticolor make a <b>meson</b>, such as the pion.</p>
+      <p>There are two ways to cancel. Three quarks, one of each color, make a <b>baryon</b> such as the proton. A quark and an antiquark carrying the matching anticolor make a <b>meson</b>, such as the pion. Three antiquarks make an <b>antibaryon</b>, such as the antiproton.</p>
+      <p><b>Gluons</b> carry the strong force and carry color themselves, so exchanging one changes the colors of both quarks; in the game that is the swap.</p>
       <p class="muted">Game rule: color charge has nothing to do with real color, and quarks do not sit on a grid; the shapes on the board are only for play.</p>`,
   },
 ];
