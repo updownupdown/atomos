@@ -232,10 +232,10 @@ export const PUZZLES: PuzzleType[] = [
   },
   {
     id: 'codebreaker', name: 'Codebreaker', tier: 'gate',
-    use: 'Synthetic elements',
+    use: 'Atom looks · 6 times',
     get rules() { return rulesOf(CodeV); },
     blurb: 'Guess the sealed sequence of four; each guess earns clues about what was right.',
-    role: 'Guards the 15 synthetic elements.',
+    role: 'Played six times in all, never more: each solve opens a new way to draw the atoms (a look or an overlay in the gallery).',
     instructions: CODE_HOW,
     zRange: [104, 118],
     make: (z, deal, reduced) => new CodebreakerView(newCodebreaker(z, dealSeed('codebreaker', z, deal)), reduced),
