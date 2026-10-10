@@ -28,7 +28,7 @@ export const INSTRUCTIONS = `
   <li>z 19-54 (periods 4-5): 6x6 with 2x3 blocks, s p d with spin up and down, 14 to 22 empty cells.</li>
   <li>z 55-118 (periods 6-7, where the f block arrives): 8x8 with 2x4 blocks, s p d f with spin up and down, 24 to 36 empty cells.</li>
 </ul>
-<p>Par is the number of empty cells: one placement each. Editing the same cell several times in a row counts as one placement, so cycling is free; going back to change a cell later costs another. Undo does not refund placements. Clean means finishing within par.</p>
+<p>Par is the number of empty cells: one placement each. Editing the same cell several times in a row counts as one placement, so cycling is free; going back to change a cell later costs another. Undo is free: it takes the placement back too. Clean means finishing within par.</p>
 <p>Levels are carved from a random full grid, removing givens only while the grid still solves by singles, so the answer is unique and never needs a guess.</p>
 <p>The symbols are orbital labels only: a cell is not a place in the atom and the grid does not say where electrons are.</p>`;
 
@@ -82,8 +82,8 @@ export class OrbitalGridView implements PuzzleView {
   undo(): boolean {
     const prev = this.history.pop();
     if (!prev) return false;
-    // Undo puts the board back but does not refund the placement.
-    this.state = { ...prev, moves: this.state.moves, lastCell: -1 };
+    // Undo is free: the board and the placement count both go back.
+    this.state = { ...prev };
     return true;
   }
 

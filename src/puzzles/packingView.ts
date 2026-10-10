@@ -471,7 +471,8 @@ export class PackingView implements PuzzleView {
 /** Colour by size: a quick way to tell the pieces apart on the board. */
 function colourOf(p: Piece): string {
   const n = p.shape.length;
-  return n <= 2 ? C.s : n === 3 ? C.p : n === 4 ? C.d : C.f;
+  // Their own palette, not the orbital colours: a piece is a shape, not an s, p, d or f orbital.
+  return n <= 2 ? C.piece1 : n === 3 ? C.piece2 : n === 4 ? C.piece3 : C.piece4;
 }
 
 /** A piece: one flat rounded shape with a faint dot per cell. */

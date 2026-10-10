@@ -42,7 +42,7 @@ export interface OrbitalGridState {
   givens: boolean[];
   /** The board: a symbol index or EMPTY, row-major. */
   cells: number[];
-  /** Placements made; edits to the same cell in a row count once. Undo does not refund them. */
+  /** Placements made; edits to the same cell in a row count once. Undo takes them back. */
   moves: number;
   /** The cell edited last, so a run of edits to it counts as one placement. */
   lastCell: number;
