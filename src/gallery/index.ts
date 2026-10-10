@@ -62,6 +62,8 @@ export class GalleryApp {
     this.gallery.onPick = (e) => this.open(e);
     this.gallery.onHover = (e) => this.hover(e);
     window.addEventListener('keydown', (ev) => this.key(ev));
+    // Build announces each change to an atom's progress so the tiles' bars stay current.
+    window.addEventListener('atomos:progress', () => this.refreshCollected());
     this.gallery.start();
     this.registerScience();
   }
