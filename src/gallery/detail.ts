@@ -23,6 +23,10 @@ export class Detail {
   private nucleus = new NucleusView(3 / 8);
   private nucleusRings = new THREE.Group();
   private nucleusOn = false;
+  /** Where the dive between atom and nucleus stands: 0 the whole atom, 1 the nucleus close-up. */
+  private dive = 0;
+  private diveFrom = 0;
+  private diveT = 1;
   private element: Element | null = null;
   private ringsOn = true;
   private width = 1;
@@ -42,6 +46,10 @@ export class Detail {
   private autoSpin = true;
   private style: Style = 'cloud';
   onTap: (() => void) | null = null;
+  onDoubleTap: (() => void) | null = null;
+  /** During a dive, the true width of the view ("74 pm across"); null when it ends. */
+  onDive: ((across: string | null) => void) | null = null;
+  private lastTap = { at: 0, x: 0, y: 0 };
 
   constructor(private canvas: HTMLCanvasElement) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' });
@@ -79,18 +87,47 @@ export class Detail {
     this.paintMode();
   }
 
-  /** Swap the whole atom for its nucleus up close, or back. */
-  setNucleus(on: boolean): void {
+  /** Swap the whole atom for its nucleus up close, or back. With `animate`, dive there at the
+   *  true ratio of sizes (see paintDive); otherwise cut straight to it. */
+  setNucleus(on: boolean, animate = false): void {
     this.nucleusOn = on;
     if (on && this.element) this.nucleus.show(this.element);
-    this.paintMode();
+    if (animate && !this.reducedMotion) {
+      this.diveFrom = this.dive;
+      this.diveT = 0;
+    } else {
+      this.dive = on ? 1 : 0;
+      this.diveT = 1;
+      this.onDive?.(null);
+    }
+    this.paintDive();
+  }
+
+  /**
+   * Place the atom and its nucleus for the dive. The close-up draws the nucleus 37,500 times
+   * larger than it really is beside its atom (8 fm on the 300 pm circle), so the dive scales
+   * everything by that same factor, evenly in powers of ten: the cloud swells past the camera
+   * and fades, the view is empty for a long stretch (an atom is almost all empty space), then
+   * the nucleus grows out of a point. Nothing is resized on its own, so the true proportions hold.
+   */
+  private paintDive(): void {
+    const s = smooth(this.dive);
+    const k = Math.pow(DIVE_RATIO, s);
+    this.view.group.scale.setScalar(k);
+    this.rings.scale.setScalar(k);
+    this.nucleus.group.scale.setScalar(k / DIVE_RATIO);
+    this.nucleusRings.scale.setScalar(k / DIVE_RATIO);
+    // The cloud fades as the camera passes into it (by ten times closer it is gone).
+    const fade = Math.max(0, 1 - Math.log10(k) / 1.1);
+    this.view.setDim(fade);
+    this.view.group.visible = fade > 0;
+    this.nucleus.group.visible = this.dive > 0;
+    this.rings.visible = this.ringsOn && fade > 0;
+    this.nucleusRings.visible = this.ringsOn && this.dive > 0.5;
   }
 
   private paintMode(): void {
-    this.view.group.visible = !this.nucleusOn;
-    this.nucleus.group.visible = this.nucleusOn;
-    this.rings.visible = this.ringsOn && !this.nucleusOn;
-    this.nucleusRings.visible = this.ringsOn && this.nucleusOn;
+    this.paintDive();
   }
 
   setStyle(style: Style): void {
@@ -192,7 +229,16 @@ export class Detail {
       if (!this.drag || this.touches.size > 0) return;
       const d = this.drag;
       this.drag = null;
-      if (!d.moved) this.onTap?.();
+      if (d.moved) return;
+      const now = performance.now();
+      const t = this.lastTap;
+      if (now - t.at < DOUBLE_TAP_MS && Math.hypot(ev.clientX - t.x, ev.clientY - t.y) < 32) {
+        this.lastTap = { at: 0, x: 0, y: 0 };
+        this.onDoubleTap?.();
+        return;
+      }
+      this.lastTap = { at: now, x: ev.clientX, y: ev.clientY };
+      this.onTap?.();
     };
     c.addEventListener('pointerup', up);
     c.addEventListener('pointercancel', up);
@@ -220,6 +266,13 @@ export class Detail {
       if (Math.abs(this.zoom - 1) < 0.002) this.zoom = 1;
       this.camera.position.z = this.baseDist / this.zoom;
     }
+    if (this.diveT < 1) {
+      this.diveT = Math.min(1, this.diveT + dt / DIVE_S);
+      const to = this.nucleusOn ? 1 : 0;
+      this.dive = this.diveFrom + (to - this.diveFrom) * this.diveT;
+      this.paintDive();
+      this.onDive?.(this.diveT < 1 ? across(Math.pow(DIVE_RATIO, smooth(this.dive)) * this.zoom) : null);
+    }
     this.view.update(dt);
     this.renderer.render(this.scene, this.camera);
     this.raf = requestAnimationFrame((t) => this.frame(t));
@@ -244,6 +297,22 @@ function ring(r: number, style: 'solid' | 'dashed'): THREE.Line {
 }
 
 const ZOOM_MIN = 0.7;
+/** How much larger the close-up draws the nucleus than it is beside its atom: 3/8 scene units
+ *  per fm, against 1 unit per 100 pm (100,000 fm). */
+const DIVE_RATIO = (3 / 8) * 1e5;
+const DIVE_S = 2.6;
+const DOUBLE_TAP_MS = 320;
+/** The view spans about 740 pm across its shorter side at the shared scale. */
+const VIEW_PM = 740;
+
+/** The true width of the view at a magnification, in pm or fm. */
+function across(k: number): string {
+  const pm = VIEW_PM / k;
+  const fmt = (v: number) => (v >= 100 ? Math.round(v).toLocaleString('en-US') : v >= 10 ? v.toFixed(0) : v.toFixed(1));
+  return pm >= 1 ? `${fmt(pm)} pm across` : `${fmt(pm * 1000)} fm across`;
+}
+
+const smooth = (t: number) => t * t * (3 - 2 * t);
 const ZOOM_MAX = 4;
 const ZOOM_REST_MS = 2200;
 
