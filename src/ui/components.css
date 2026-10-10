@@ -375,3 +375,48 @@
   .ui-modal, .ui-modal-card, .ui-toast { animation: none; }
   .ui-drawer, .ui-drawer-scrim { transition: none; }
 }
+
+/* ---- Disclosure: a card that folds its detail away ---- */
+.ui-disclosure {
+  margin: var(--sp-4) 0;
+  border: 1px solid var(--c-line-2);
+  border-radius: var(--r-md);
+  background: var(--c-surface);
+  overflow: hidden;
+  transition: border-color var(--dur-fast), background-color var(--dur-fast);
+}
+.ui-disclosure[open] { background: var(--c-plate); }
+.ui-disclosure-head {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  min-height: 56px;
+  padding: 0 var(--sp-3) 0 var(--sp-4);
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform var(--dur-fast) var(--ease), background-color var(--dur-fast);
+}
+.ui-disclosure-head::-webkit-details-marker { display: none; }
+.ui-disclosure-head:hover { background: var(--c-surface-2); }
+.ui-disclosure-head:active { transform: scale(0.985); }
+.ui-disclosure-head:focus-visible { outline: 2px solid var(--c-accent); outline-offset: -2px; border-radius: inherit; }
+.ui-disclosure-title { flex: 1; min-width: 0; font-family: var(--font); font-size: var(--fs-md); font-weight: var(--fw-semibold); color: var(--c-text); }
+.ui-disclosure-hint { font-size: var(--fs-sm); color: var(--c-text-3); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ui-disclosure-chev {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--c-surface-2);
+  color: var(--c-text-2);
+  transition: transform var(--dur) var(--ease), background-color var(--dur-fast), color var(--dur-fast);
+}
+.ui-disclosure-chev svg { width: 20px; height: 20px; }
+.ui-disclosure-head:hover .ui-disclosure-chev { color: var(--c-text); }
+.ui-disclosure[open]:not(.is-closing) .ui-disclosure-chev { transform: rotate(180deg); background: var(--c-accent); color: var(--c-accent-ink); }
+.ui-disclosure-body { overflow: hidden; }
+.ui-disclosure-in { padding: 0 var(--sp-4) var(--sp-4); border-top: 1px solid var(--c-line); padding-top: var(--sp-3); }

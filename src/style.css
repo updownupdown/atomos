@@ -505,11 +505,16 @@ body.stage-nucleus #atom { opacity: 0.12; }
 .bar-arrow { flex: none; width: 64px; display: flex; align-items: center; justify-content: center; background: none; border: 0; color: var(--c-silver); cursor: pointer; }
 .bar-arrow:hover { background: var(--c-surface-2); }
 .bar-arrow:disabled { opacity: 0.2; cursor: default; background: none; }
-.bar-mid { position: relative; flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center; border-left: 1px solid var(--c-line); border-right: 1px solid var(--c-line); }
-.bar-pick { position: absolute; left: 0; top: 0; bottom: 0; display: flex; align-items: center; gap: var(--sp-2); padding: 0 var(--sp-3); background: none; border: 0; color: var(--c-silver); font-family: var(--font); cursor: pointer; }
-.bar-pick:hover { background: var(--c-surface); }
-.bar-chev { display: inline-flex; color: var(--c-text-2); margin-left: -2px; }
-.bar-name { font-family: var(--font); font-size: var(--fs-lg); color: var(--c-silver); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: calc(100% - 180px); }
+/* The bar's middle: one button that opens the picker. Number and chevron in cyan on the left,
+   the name in the wordmark's tracked capitals in the middle, the symbol on the right. */
+.bar-mid { flex: 1; min-width: 0; display: grid; grid-template-columns: minmax(64px, 1fr) auto minmax(64px, 1fr); align-items: center; gap: var(--sp-2); padding: 0 var(--sp-4); background: none; border: 0; border-left: 1px solid var(--c-line); border-right: 1px solid var(--c-line); color: var(--c-text); font-family: var(--font); cursor: pointer; }
+.bar-mid:hover { background: var(--c-surface); }
+.bar-mid:focus-visible { outline: 2px solid var(--c-accent); outline-offset: -2px; }
+.bar-z { justify-self: start; display: inline-flex; align-items: center; gap: 2px; color: var(--c-accent); font-size: var(--fs-lg); font-weight: var(--fw-semibold); font-variant-numeric: tabular-nums; }
+.bar-chev { display: inline-flex; color: var(--c-accent); }
+.bar-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 17px; font-weight: var(--fw-bold); letter-spacing: 0.3em; margin-right: -0.3em; text-transform: uppercase; color: var(--c-text); }
+.bar-sym { justify-self: end; font-size: var(--fs-2xl); font-weight: var(--fw-semibold); line-height: 1; color: var(--c-silver); }
+@media (max-width: 380px) { .bar-name { font-size: 15px; letter-spacing: 0.2em; margin-right: -0.2em; } .bar-mid { padding: 0 var(--sp-3); } }
 .dec-z { font-size: var(--fs-sm); color: var(--c-text-2); font-variant-numeric: tabular-nums; }
 .dec-sym { font-weight: var(--fw-semibold); font-size: var(--fs-2xl); line-height: 1; }
 .pill { font-size: 10px; padding: 1px 5px; border-radius: 4px; color: var(--c-bg); font-weight: 700; }
@@ -978,3 +983,40 @@ body[data-screen^='atom'] { --top: calc(var(--safe-top) + var(--nav-h) + var(--m
 .ov-collection.is-in { border-style: solid; border-color: var(--c-accent); }
 .mode-detail .mode-progress { font-size: var(--fs-sm); color: var(--c-text-2); }
 .pg-home-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
+
+/* View pages: the row's microscope stands down; each page ends with its own guide button. */
+body[data-screen='atom-view'] .mode-row .science-btn { visibility: hidden; }
+.page-guide { margin: var(--sp-6) 0 var(--sp-2); display: flex; justify-content: center; }
+.guide-btn { display: flex; align-items: center; gap: var(--sp-3); width: 100%; max-width: 420px; min-height: 64px; padding: var(--sp-3) var(--sp-4); border: 1px solid var(--c-line-2); border-radius: var(--r-md); background: var(--c-surface); color: var(--c-text); font-family: var(--font); text-align: left; cursor: pointer; transition: background-color var(--dur-fast), transform var(--dur-fast) var(--ease); }
+.guide-btn:hover { background: var(--c-surface-2); }
+.guide-btn:active { transform: scale(0.985); }
+.guide-btn:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
+.guide-btn svg { flex: none; width: 28px; height: 28px; color: var(--c-accent); }
+.guide-btn span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.guide-btn b { font-size: var(--fs-md); font-weight: var(--fw-semibold); }
+.guide-btn small { font-size: var(--fs-sm); color: var(--c-text-2); }
+
+/* The guides: small drawings beside the words. */
+.gd p { line-height: 1.55; }
+.gd .ui-disclosure p { margin: 0; color: var(--c-text-2); }
+.gd-blocks { list-style: none; margin: var(--sp-3) 0; padding: 0; display: grid; gap: var(--sp-2); }
+.gd-blocks li { display: grid; grid-template-columns: 14px 64px 1fr; gap: var(--sp-2); align-items: baseline; font-size: var(--fs-sm); }
+.gd-blocks i { width: 12px; height: 12px; border-radius: 3px; align-self: center; }
+.gd-blocks span { color: var(--c-text-2); }
+.gd-anatomy { display: flex; gap: var(--sp-4); align-items: flex-start; margin: var(--sp-3) 0; }
+.gd-anatomy ul { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-2); font-size: var(--fs-sm); color: var(--c-text-2); }
+.gd-anatomy li b { color: var(--c-text); margin-right: 6px; font-weight: var(--fw-semibold); }
+.gd-anatomy .gd-strip { display: inline-block; width: 18px; height: 4px; border-radius: 2px; vertical-align: middle; }
+.gd-madelung { display: block; width: 100%; max-width: 260px; margin: var(--sp-3) auto; }
+.gd-m rect { fill: var(--c-surface-2); stroke: var(--c-line-2); }
+.gd-m text { fill: var(--c-text-3); font-family: var(--font); font-size: 12px; font-weight: 600; text-anchor: middle; }
+.gd-m.is-mine rect { fill: var(--b); stroke: none; }
+.gd-m.is-mine text { fill: var(--c-bg); }
+.gd-diag { stroke: var(--c-accent); stroke-width: 1.5; opacity: 0.55; stroke-linecap: round; }
+.gd-ruler { display: block; width: 100%; max-width: 420px; margin: var(--sp-3) auto; }
+.gd-ruler-bar { fill: var(--c-surface-3); }
+.gd-ruler-tick { stroke: var(--c-accent); stroke-width: 1.5; }
+.gd-ruler text { fill: var(--c-text-2); font-family: var(--font); font-size: 10px; text-anchor: middle; }
+.gd-defs { margin: 0; display: grid; gap: var(--sp-3); }
+.gd-defs dt { font-weight: var(--fw-semibold); color: var(--c-text); }
+.gd-defs dd { margin: 2px 0 0; color: var(--c-text-2); line-height: 1.5; }
