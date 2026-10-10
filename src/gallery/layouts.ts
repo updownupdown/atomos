@@ -18,7 +18,7 @@ export const LAYOUT_STORY: Record<LayoutId, string[]> = {
   spiral: [
     'Each turn of the spiral is one period: a row of the periodic table. A new turn starts when electrons begin filling a new shell, just right of the top, with an alkali metal.',
     'Every turn ends just left of the top with a noble gas, whose outer shell is full. That is why the noble gases line up along the seam.',
-    'The coloured rails show which kind of orbital each element is filling: s (blue), then f (violet) from period 6, then d (amber), then p (green). Longer turns hold more elements because the d and f orbitals open up.',
+    'The colored rails show which kind of orbital each element is filling: s (blue), then f (violet) from period 6, then d (amber), then p (green). Longer turns hold more elements because the d and f orbitals open up.',
   ],
   table: [
     'The standard periodic table. Each row is a period; each column is a group of elements with the same arrangement of outer electrons, which is why they behave alike.',
@@ -30,7 +30,7 @@ export const LAYOUT_STORY: Record<LayoutId, string[]> = {
     'The f block rises from the top as a loop of its own, lanthanides inside and actinides outside, between groups 3 and 4 where it belongs.',
   ],
   circle: [
-    'One ring per period, from hydrogen and helium in the middle outward. Each spoke is a group, so elements that behave alike line up from the centre out.',
+    'One ring per period, from hydrogen and helium in the middle outward. Each spoke is a group, so elements that behave alike line up from the center out.',
     'The s and p groups take wider spokes than the d groups. Periods 2 and 3 have no d block, so their rings stay open on that side.',
     'The f block hangs below as two arcs: lanthanides on the inner one, actinides on the outer.',
   ],
