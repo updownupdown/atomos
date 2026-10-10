@@ -445,8 +445,8 @@ body.stage-nucleus #atom { opacity: 0.12; }
 .splash.out { opacity: 0; pointer-events: none; }
 .splash .grain { position: absolute; }
 .splash-mark { width: min(46vw, 210px); height: auto; position: relative; }
-.splash-word { font-family: var(--mono); font-weight: 700; font-size: 15px; letter-spacing: 0.32em; text-transform: uppercase; margin-top: 18px; padding-left: 0.32em; }
-.splash-sub { font-family: var(--mono); font-size: 11px; color: var(--muted); letter-spacing: 0.06em; }
+.splash-word { font-family: var(--font); font-weight: 700; font-size: 15px; letter-spacing: 0.32em; text-transform: uppercase; margin-top: 18px; padding-left: 0.32em; }
+.splash-sub { font-family: var(--font); font-size: 11px; color: var(--muted); letter-spacing: 0.06em; }
 
 /* Starting states, only while playing: everything hidden or wound back. */
 .splash.play .nucleon { transform-box: fill-box; transform-origin: center; transform: scale(0); animation: splash-pop 0.42s cubic-bezier(0.2, 1.4, 0.4, 1) forwards; }
@@ -457,9 +457,9 @@ body.stage-nucleus #atom { opacity: 0.12; }
 .splash.play .nucleon:nth-of-type(5) { animation-delay: 0.47s; }
 .splash.play .nucleon:nth-of-type(6) { animation-delay: 0.57s; }
 .splash.play .nucleon:nth-of-type(7) { animation-delay: 0.67s; }
-.splash.play .shell { stroke-dasharray: 1; stroke-dashoffset: 1; animation: splash-draw 0.8s cubic-bezier(0.4, 0, 0.2, 1) 0.55s forwards; }
-.splash.play .orbit { transform-box: view-box; transform-origin: 50px 50px; transform: rotate(-200deg); animation: splash-swing 1.05s cubic-bezier(0.2, 0.9, 0.3, 1) 0.8s forwards; }
-.splash.play .orbit + .orbit { animation-delay: 0.92s; }
+.splash.play .electron { transform-box: fill-box; transform-origin: center; transform: scale(0); animation: splash-pop 0.36s cubic-bezier(0.2, 1.4, 0.4, 1) 0.5s forwards; }
+.splash.play .spin { transform-box: view-box; transform-origin: 50px 50px; transform: rotate(-200deg); animation: splash-swing 1.25s cubic-bezier(0.25, 0.8, 0.3, 1) 0.6s forwards; }
+.splash.play .shell { stroke-dasharray: 1; stroke-dashoffset: 1; animation: splash-draw 1.05s cubic-bezier(0.4, 0, 0.2, 1) 0.7s forwards; }
 .splash.play .splash-word, .splash.play .splash-sub { opacity: 0; animation: splash-fade 0.6s ease 1.35s forwards; }
 .splash.play .splash-sub { animation-delay: 1.55s; }
 @keyframes splash-pop { to { transform: scale(1); } }
@@ -749,21 +749,28 @@ body.stage-nucleus #atom { opacity: 0.12; }
 }
 .nav-logo {
   justify-self: start;
-  width: 40px;
   height: 40px;
-  display: grid;
-  place-items: center;
-  padding: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 0 var(--sp-2) 0 6px;
   border: 0;
   border-radius: var(--r-pill);
   background: transparent;
   color: var(--c-text);
 }
-.nav-logo svg { width: 28px; height: 28px; }
+.nav-logo svg { width: 28px; height: 28px; flex: none; }
+/* The wordmark from the splash: Outfit bold, all caps, widely tracked. */
+.nav-word, .wordmark { font-family: var(--font); font-weight: var(--fw-bold); font-size: 12px; letter-spacing: 0.32em; text-transform: uppercase; line-height: 1; }
+.nav-word { margin-right: -0.32em; }
+/* The wordmark gives way first when the header is short of room: on narrow phones, and on
+   the Atom screen (which also carries the View/Build pill) below 440 px. */
+@media (max-width: 359px) { .nav-word { display: none; } }
+@media (max-width: 439px) { body[data-screen^='atom'] .nav-word { display: none; } }
 .nav-logo:hover { background: var(--c-surface-2); }
 .nav-tabs { flex: none; display: flex; gap: var(--sp-1); padding: 3px; border-radius: var(--r-pill); background: var(--c-surface); }
 .nav-tabs button {
-  width: 48px;
+  width: 44px;
   height: 34px;
   display: grid;
   place-items: center;

@@ -36,7 +36,7 @@ export class AppShell {
     });
     // Header: the mark (home) on the left, the three sections as icons in the middle, the
     // microscope and Settings on the right.
-    $('nav-logo').innerHTML = markSvg();
+    $('nav-logo').innerHTML = `${markSvg()}<span class="nav-word">Atomos</span>`;
     $('nav-logo').onclick = () => void this.go('gallery');
     $('nav-gallery').innerHTML = icon('gallery');
     $('nav-atom').innerHTML = icon('atom');
