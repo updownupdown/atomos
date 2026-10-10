@@ -482,10 +482,13 @@ export function confirmDialog(o: ConfirmOptions): Promise<boolean> {
   ok.focus();
   return new Promise((resolve) => {
     let done = false;
+    // The overlay fades in (ui-fade) and out the same way.
     const close = () => {
       window.removeEventListener('keydown', key, true);
-      scrim.remove();
       before?.focus?.();
+      if (!scrim.animate || reducedMotion()) { scrim.remove(); return; }
+      scrim.style.pointerEvents = 'none';
+      scrim.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 220, easing: 'ease-in', fill: 'forwards' }).finished.finally(() => scrim.remove());
     };
     const finish = async (yes: boolean) => {
       if (done) return;
