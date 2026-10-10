@@ -25,20 +25,44 @@ const A0 = 0.529;
 const TRANSITION_S = 0.9;
 
 const pointGeometries = new Map<string, THREE.BufferGeometry>();
+/**
+ * The sampled points of one subshell. Each point carries a second sample of the
+ * same orbital and a random seed: in a live cloud a point blinks out and comes
+ * back at its other position, so the set of electrons on screen never settles,
+ * the way a probability cloud is meant to be read.
+ */
 function pointGeometry(n: number, block: Block, perSlot: number): THREE.BufferGeometry {
   const key = `${n}${block}/${perSlot}`;
   let g = pointGeometries.get(key);
   if (!g) {
-    const c = sampleSubshell(n, block, perSlot);
+    const c = sampleSubshell(n, block, perSlot * 2);
+    const total = c.slot.length / 2;
+    const a = new Float32Array(total * 3), b = new Float32Array(total * 3);
+    const slot = new Float32Array(total), orbital = new Float32Array(total), sign = new Float32Array(total), seed = new Float32Array(total);
+    // Slots are stored one after another, 2 x perSlot points each: the first half is
+    // a point's home, the second half its other place.
+    for (let i = 0; i < total; i++) {
+      const s = Math.floor(i / perSlot), k = i % perSlot;
+      const ia = s * perSlot * 2 + k, ib = ia + perSlot;
+      a.set(c.positions.subarray(ia * 3, ia * 3 + 3), i * 3);
+      b.set(c.positions.subarray(ib * 3, ib * 3 + 3), i * 3);
+      slot[i] = c.slot[ia];
+      orbital[i] = c.orbital[ia];
+      sign[i] = c.sign[ia];
+      seed[i] = fract(Math.sin(i * 12.9898 + n * 78.233 + block.charCodeAt(0)) * 43758.5453);
+    }
     g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.BufferAttribute(c.positions, 3));
-    g.setAttribute('slot', new THREE.BufferAttribute(c.slot, 1));
-    g.setAttribute('orbital', new THREE.BufferAttribute(c.orbital, 1));
-    g.setAttribute('sign', new THREE.BufferAttribute(c.sign, 1));
+    g.setAttribute('position', new THREE.BufferAttribute(a, 3));
+    g.setAttribute('position2', new THREE.BufferAttribute(b, 3));
+    g.setAttribute('slot', new THREE.BufferAttribute(slot, 1));
+    g.setAttribute('orbital', new THREE.BufferAttribute(orbital, 1));
+    g.setAttribute('sign', new THREE.BufferAttribute(sign, 1));
+    g.setAttribute('seed', new THREE.BufferAttribute(seed, 1));
     pointGeometries.set(key, g);
   }
   return g;
 }
+const fract = (x: number) => x - Math.floor(x);
 
 const surfaceGeometries = new Map<string, THREE.BufferGeometry>();
 function surfaceGeometry(block: Block, oi: number): THREE.BufferGeometry {
@@ -57,11 +81,24 @@ function surfaceGeometry(block: Block, oi: number): THREE.BufferGeometry {
 }
 
 const POINT_VERT = `
-attribute float slot; attribute float orbital; attribute float sign;
-uniform float uScale, uFrom, uTo, uT, uSize, uOrbitals, uDim, uSizeMul;
+attribute float slot; attribute float orbital; attribute float sign; attribute float seed; attribute vec3 position2;
+uniform float uScale, uFrom, uTo, uT, uSize, uOrbitals, uDim, uSizeMul, uTime, uLive;
 uniform vec3 uColor;
 varying vec3 vColor; varying float vAlpha;
+float hash(float x) { return fract(sin(x) * 43758.5453); }
 void main() {
+  // Live cloud: each point lives for a moment, blinks out, and reappears at its other sample,
+  // jittering slightly while it is lit. Rates vary per point so nothing pulses in step.
+  float rate = 0.55 + seed * 0.7;
+  float cyc = uTime * rate + seed * 17.0;
+  float k = fract(cyc);
+  float other = mod(floor(cyc), 2.0);
+  vec3 home = mix(position, position2, other * uLive);
+  float life = smoothstep(0.0, 0.08, k) * (1.0 - smoothstep(0.5, 0.72, k));
+  float lit = mix(1.0, life, uLive);
+  float tick = floor(uTime * 18.0);
+  vec3 j = vec3(hash(seed * 91.7 + tick), hash(seed * 37.3 + tick * 1.3), hash(seed * 53.1 + tick * 0.7)) - 0.5;
+  home += j * (0.035 * length(home) + 0.03) * uLive;
   float shown = mix(uFrom, uTo, uT);
   float a = clamp(shown - slot, 0.0, 1.0);
   float lo = min(uFrom, uTo), hi = max(uFrom, uTo);
@@ -71,20 +108,22 @@ void main() {
   vec3 c = tint > 0.0 ? uColor + (1.0 - uColor) * tint : uColor * (1.0 + tint);
   vec3 flashColor = uTo > uFrom ? vec3(1.0) : vec3(1.0, 0.32, 0.22);
   vColor = mix(c, flashColor, flash * 0.9);
-  vAlpha = a * uDim * (1.0 + flash * 0.8);
-  vec4 mv = modelViewMatrix * vec4(position * uScale, 1.0);
-  gl_Position = a > 0.0 ? projectionMatrix * mv : vec4(2.0, 2.0, 2.0, 1.0);
+  vAlpha = a * uDim * (1.0 + flash * 0.8) * lit;
+  vec4 mv = modelViewMatrix * vec4(home * uScale, 1.0);
+  gl_Position = a > 0.0 && lit > 0.002 ? projectionMatrix * mv : vec4(2.0, 2.0, 2.0, 1.0);
   gl_PointSize = max(1.0, uSize * uSizeMul * (1.0 + flash * 0.5) / -mv.z);
 }`;
 const POINT_FRAG = `
 varying vec3 vColor; varying float vAlpha;
-uniform float uAlpha;
+uniform float uAlpha, uSharp;
 void main() {
   vec2 c = gl_PointCoord - 0.5;
   float d = dot(c, c);
   if (d > 0.25) discard;
-  float g = exp(-d * 14.0);
-  gl_FragColor = vec4(vColor, g * vAlpha * uAlpha);
+  // Soft glow for the small gallery atoms; a crisp dot with a one-pixel edge under the loupe.
+  float soft = exp(-d * 14.0);
+  float crisp = 1.0 - smoothstep(0.16, 0.25, d);
+  gl_FragColor = vec4(vColor, mix(soft, crisp, uSharp) * vAlpha * uAlpha);
 }`;
 
 interface Layer {
@@ -109,6 +148,8 @@ export interface AtomViewOptions {
   shapes: boolean;
   /** Point size in screen pixels at distance 1, before perspective. */
   pointSize: number;
+  /** Electrons blink in and out and jitter (the loupe); off for the gallery's small atoms. */
+  live?: boolean;
 }
 
 export class AtomView {
@@ -121,8 +162,11 @@ export class AtomView {
   element: Element | null = null;
   /** True when a transition is still running. */
   animating = false;
+  private time = 0;
+  private live: boolean;
 
   constructor(private opts: AtomViewOptions) {
+    this.live = Boolean(opts.live);
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.BufferAttribute(new Float32Array([0, 0, 0]), 3));
     g.setAttribute('slot', new THREE.BufferAttribute(new Float32Array([0]), 1));
@@ -143,6 +187,7 @@ export class AtomView {
         uScale: { value: 1 }, uFrom: { value: 0 }, uTo: { value: 0 }, uT: { value: 1 },
         uSize: { value: this.opts.pointSize }, uOrbitals: { value: 1 }, uDim: { value: 1 }, uAlpha: { value: 1 }, uSizeMul: { value: 1 },
         uColor: { value: new THREE.Vector3(...glow) },
+        uTime: { value: 0 }, uLive: { value: this.live ? 1 : 0 }, uSharp: { value: this.live ? 1 : 0 },
       },
       vertexShader: POINT_VERT, fragmentShader: POINT_FRAG,
       transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
@@ -152,6 +197,7 @@ export class AtomView {
   private makeLayer(sub: Subshell): Layer {
     const material = this.makeMaterial(BLOCK_GLOW[sub.l]);
     material.uniforms.uOrbitals.value = sub.capacity / 2;
+    material.uniforms.uTime.value = this.time;
     const points = new THREE.Points(pointGeometry(sub.n, sub.l, this.opts.perSlot), material);
     points.frustumCulled = false;
     this.group.add(points);
@@ -244,8 +290,18 @@ export class AtomView {
     this.apply();
   }
 
-  /** Advance transitions; call once per frame. */
+  /** Turn the live cloud on or off (off for reduced motion). */
+  setLive(on: boolean): void {
+    this.live = on;
+    for (const layer of this.layers.values()) layer.material.uniforms.uLive.value = on ? 1 : 0;
+  }
+
+  /** Advance transitions and the live cloud; call once per frame. */
   update(dt: number): void {
+    if (this.live) {
+      this.time += dt;
+      for (const layer of this.layers.values()) layer.material.uniforms.uTime.value = this.time;
+    }
     if (!this.animating) return;
     let busy = false;
     for (const [key, layer] of this.layers) {
