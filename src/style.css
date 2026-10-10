@@ -697,7 +697,7 @@ body.stage-nucleus #atom { opacity: 0.12; }
 .rule-pic--bad figcaption { color: var(--c-warn); }
 
 /* The win panel: a burst of light, what was won, the numbers, and what next. */
-.win { position: absolute; inset: 0; z-index: 5; display: flex; align-items: center; justify-content: center; padding: var(--sp-4); background: var(--c-scrim); animation: win-in var(--dur) var(--ease); }
+.win { position: absolute; inset: 0; z-index: 5; display: flex; align-items: center; justify-content: center; padding: var(--sp-4); background: var(--c-scrim); -webkit-backdrop-filter: var(--blur-mask); backdrop-filter: var(--blur-mask); animation: win-in var(--dur) var(--ease); }
 .win-card { position: relative; width: min(100%, 400px); max-height: 100%; overflow: auto; padding: var(--sp-5) var(--sp-4) var(--sp-4); border-radius: var(--r-lg); background: var(--c-surface); border: 1px solid var(--c-line-2); box-shadow: var(--shadow-modal); text-align: center; animation: win-pop 420ms var(--ease); }
 .win-burst { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .win-mark { position: relative; color: var(--c-accent); display: flex; justify-content: center; }
