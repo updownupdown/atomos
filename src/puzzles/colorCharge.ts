@@ -1,34 +1,34 @@
-// Colour Charge: bind quarks into colour-neutral particles until the grid is clear.
+// Color Charge: bind quarks into color-neutral particles until the grid is clear.
 //
-// Every tile is a quark carrying one of three colour charges (red, green,
-// blue), or, on heavier levels, an antiquark carrying an anticolour. Three
-// orthogonally connected quarks holding one of each colour bind into a baryon;
-// a quark next to an antiquark of its own colour binds into a meson. Bound
+// Every tile is a quark carrying one of three color charges (red, green,
+// blue), or, on heavier levels, an antiquark carrying an anticolor. Three
+// orthogonally connected quarks holding one of each color bind into a baryon;
+// a quark next to an antiquark of its own color binds into a meson. Bound
 // tiles turn white. Clear the whole grid.
 //
 // Levels are dealt by tiling the grid into connected triominoes (and, on
-// heavier levels, dominoes), then colouring each triomino red, green and blue
-// in random order and each domino as a colour plus its anticolour, so a full
+// heavier levels, dominoes), then coloring each triomino red, green and blue
+// in random order and each domino as a color plus its anticolor, so a full
 // clearance always exists. Deals are kept only when that clearance is the only
 // one, so every grid has exactly one answer.
 //
-// Game rule, not physics: colour charge has nothing to do with visible colour,
-// and quarks do not sit on a grid. The rule that only colour-neutral
+// Game rule, not physics: color charge has nothing to do with visible color,
+// and quarks do not sit on a grid. The rule that only color-neutral
 // combinations exist on their own is the real one.
 
 import { randInt, seeded, type Rng } from './rng';
 
-export type Colour = 0 | 1 | 2;
-export const COLOUR_NAMES = ['red', 'green', 'blue'] as const;
-export const COLOUR_LETTERS = ['r', 'g', 'b'] as const;
+export type Color = 0 | 1 | 2;
+export const COLOR_NAMES = ['red', 'green', 'blue'] as const;
+export const COLOR_LETTERS = ['r', 'g', 'b'] as const;
 
 export interface Quark {
-  colour: Colour;
-  /** An antiquark, carrying the anticolour. */
+  color: Color;
+  /** An antiquark, carrying the anticolor. */
   anti: boolean;
 }
 
-export interface ColourChargeState {
+export interface ColorChargeState {
   cols: number;
   rows: number;
   tiles: Quark[];
@@ -59,7 +59,7 @@ export function specFor(z: number): ChargeSpec {
   return { cols: 5, rows: 5, mesons: 5 };
 }
 
-export function cloneCharge(s: ColourChargeState): ColourChargeState {
+export function cloneCharge(s: ColorChargeState): ColorChargeState {
   return { ...s, bound: [...s.bound], groups: s.groups.map((g) => [...g]) };
 }
 
@@ -118,24 +118,24 @@ export function groupKind(tiles: Quark[], cells: number[]): 'baryon' | 'antibary
   if (cells.length === 3) {
     const q = cells.map((i) => tiles[i]);
     if (q[0].anti !== q[1].anti || q[1].anti !== q[2].anti) return null;
-    if (new Set(q.map((x) => x.colour)).size !== 3) return null;
+    if (new Set(q.map((x) => x.color)).size !== 3) return null;
     return q[0].anti ? 'antibaryon' : 'baryon';
   }
   if (cells.length === 2) {
     const [a, b] = cells.map((i) => tiles[i]);
-    return a.anti !== b.anti && a.colour === b.colour ? 'meson' : null;
+    return a.anti !== b.anti && a.color === b.color ? 'meson' : null;
   }
   return null;
 }
 
-/** True when the cells are free, distinct, connected and colour-neutral. */
-export function canBind(s: ColourChargeState, cells: number[]): boolean {
+/** True when the cells are free, distinct, connected and color-neutral. */
+export function canBind(s: ColorChargeState, cells: number[]): boolean {
   if (new Set(cells).size !== cells.length) return false;
   if (cells.some((i) => i < 0 || i >= s.tiles.length || s.bound[i] >= 0)) return false;
   return groupKind(s.tiles, cells) !== null && connected(s.cols, cells);
 }
 
-export function bind(s: ColourChargeState, cells: number[]): ColourChargeState | null {
+export function bind(s: ColorChargeState, cells: number[]): ColorChargeState | null {
   if (!canBind(s, cells)) return null;
   const next = cloneCharge(s);
   const id = next.groups.length;
@@ -145,12 +145,12 @@ export function bind(s: ColourChargeState, cells: number[]): ColourChargeState |
   return next;
 }
 
-export function solved(s: ColourChargeState): boolean {
+export function solved(s: ColorChargeState): boolean {
   return s.bound.every((g) => g >= 0);
 }
 
 /** True when the free tiles can still all be bound. */
-export function canFinish(s: ColourChargeState): boolean {
+export function canFinish(s: ColorChargeState): boolean {
   const { cols, rows, tiles } = s;
   const used = s.bound.map((g) => g >= 0);
   const go = (): boolean => {
@@ -226,37 +226,37 @@ export function tiling(rng: Rng, cols: number, rows: number, mesons: number): nu
   return go(0, 0) ? pieces : null;
 }
 
-function colour(rng: Rng, n: number, pieces: number[][]): Quark[] {
+function color(rng: Rng, n: number, pieces: number[][]): Quark[] {
   const tiles: Quark[] = Array(n);
   for (const p of pieces) {
     if (p.length === 3) {
-      const order = shuffle(rng, [0, 1, 2] as Colour[]);
-      p.forEach((i, k) => (tiles[i] = { colour: order[k], anti: false }));
+      const order = shuffle(rng, [0, 1, 2] as Color[]);
+      p.forEach((i, k) => (tiles[i] = { color: order[k], anti: false }));
     } else {
-      const c = randInt(rng, 3) as Colour;
+      const c = randInt(rng, 3) as Color;
       const flip = randInt(rng, 2);
-      p.forEach((i, k) => (tiles[i] = { colour: c, anti: k === flip }));
+      p.forEach((i, k) => (tiles[i] = { color: c, anti: k === flip }));
     }
   }
   return tiles;
 }
 
-export function newColourCharge(z: number, seed: number): ColourChargeState {
+export function newColorCharge(z: number, seed: number): ColorChargeState {
   const rng = seeded(seed);
   const spec = specFor(z);
   const n = spec.cols * spec.rows;
-  // Deal tilings and colourings until one has a single clearance.
+  // Deal tilings and colorings until one has a single clearance.
   let best: { pieces: number[][]; tiles: Quark[] } | null = null;
   for (let t = 0; t < 400; t++) {
     const pieces = tiling(rng, spec.cols, spec.rows, spec.mesons);
     if (!pieces) continue;
     for (let c = 0; c < 8; c++) {
-      const tiles = colour(rng, n, pieces);
+      const tiles = color(rng, n, pieces);
       best ??= { pieces, tiles };
       if (countClearances(tiles, spec.cols, spec.rows) === 1) { best = { pieces, tiles }; t = Infinity; break; }
     }
   }
-  if (!best) throw new Error('Colour Charge: no tiling');
+  if (!best) throw new Error('Color Charge: no tiling');
   const { pieces, tiles } = best;
   return {
     cols: spec.cols, rows: spec.rows, tiles,

@@ -8,8 +8,8 @@ import { C, font, socket, tile } from './palette';
 import { ease, type Area, type Point, type PuzzleView } from './view';
 
 const REVEAL_MS = 260;
-/** The six symbol colours, read at draw time. */
-const colourOf = (k: number): string => [C.s, C.p, C.d, C.f, C.silverDim, C.pewter][k];
+/** The six symbol colors, read at draw time. */
+const colorOf = (k: number): string => [C.s, C.p, C.d, C.f, C.silverDim, C.pewter][k];
 const GAP = 6;
 
 export const INSTRUCTIONS = `
@@ -19,7 +19,7 @@ export const INSTRUCTIONS = `
   <li>Tap a slot in the big guess row, then tap a symbol in the palette to fill it; the next empty slot is chosen for you. Tap the chosen slot again to empty it.</li>
   <li>When all four slots are full, tap <b>Guess</b>.</li>
   <li>Each guess moves up into the list with its clue: a <b>filled dot</b> for every symbol in the right place, a <b>hollow dot</b> for every right symbol in the wrong place. The dots do not say which symbols they mean.</li>
-  <li>Each symbol has its own shape as well as its colour.</li>
+  <li>Each symbol has its own shape as well as its color.</li>
 </ul>
 <p>Keyboard: 1-6 type a symbol, arrows move between slots, Backspace clears, Enter guesses.</p>
 <h3>In the game</h3>
@@ -296,11 +296,11 @@ export class CodebreakerView implements PuzzleView {
   }
 }
 
-/** One of the six symbols: a colour and a shape, so colour alone never carries the code. */
+/** One of the six symbols: a color and a shape, so color alone never carries the code. */
 export function symbol(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, k: number, alpha = 1): void {
   ctx.save();
   ctx.globalAlpha = alpha;
-  ctx.fillStyle = colourOf(k);
+  ctx.fillStyle = colorOf(k);
   ctx.beginPath();
   switch (k) {
     case 0: ctx.arc(x, y, r, 0, Math.PI * 2); break;

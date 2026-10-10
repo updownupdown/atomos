@@ -5,12 +5,12 @@
 //   F/ F\    fixed mirrors: reflect, but cannot be turned;
 //   H/ H\    splitters (half-silvered): the beam both passes and reflects;
 //            turnable;
-//   Cs..Cf   colour filters: white light leaves tinted; light of the
-//            filter's own colour passes; any other colour is absorbed;
+//   Cs..Cf   color filters: white light leaves tinted; light of the
+//            filter's own color passes; any other color is absorbed;
 //   #        blockers: stop the beam.
 //
-// Sensors sit on empty cells: target rings must be lit (a coloured ring by
-// light of its colour), dark sensors must stay unlit.
+// Sensors sit on empty cells: target rings must be lit (a colored ring by
+// light of its color), dark sensors must stay unlit.
 //
 // A level is built from a solved layout: trace the beams, pick sensors from
 // what they light (and dark sensors from what a wrong turn would light), then
@@ -21,13 +21,13 @@ import { rand, randInt, seeded, type Rng } from './rng';
 
 export type Dir = 'up' | 'down' | 'left' | 'right';
 export type Kind = 's' | 'p' | 'd' | 'f';
-/** The beam's colour: white, or one of the four tints. */
+/** The beam's color: white, or one of the four tints. */
 export type Hue = 'w' | Kind;
 export type Cell = '.' | '#' | '/' | '\\' | 'F/' | 'F\\' | 'H/' | 'H\\' | 'Cs' | 'Cp' | 'Cd' | 'Cf';
 
 export interface Target {
   cell: number;
-  /** 'w' accepts any light; a tint needs light of that colour. */
+  /** 'w' accepts any light; a tint needs light of that color. */
   hue: Hue;
 }
 
@@ -95,10 +95,10 @@ export interface Visit {
   hue: Hue;
   /** Directions it leaves in (none when stopped). */
   outs: Dir[];
-  /** Colour it leaves with. */
+  /** Color it leaves with. */
   outHue: Hue;
-  /** Where it stopped: at the cell's edge (a blocker), its centre (absorbed by a filter), or not at all. */
-  stop: 'edge' | 'centre' | null;
+  /** Where it stopped: at the cell's edge (a blocker), its center (absorbed by a filter), or not at all. */
+  stop: 'edge' | 'center' | null;
   /** Of `outs`, those that leave the grid. */
   exits: Dir[];
   /** Steps from the lamp, for drawing the beam as it grows. */
@@ -107,13 +107,13 @@ export interface Visit {
 
 export interface Beam {
   visits: Visit[];
-  /** Colours of light reaching each cell's centre. */
+  /** Colors of light reaching each cell's center. */
   lit: Map<number, Set<Hue>>;
 }
 
 /**
  * Follows the light from the lamp through every split. Each (cell, direction,
- * colour) is walked at most once, so loops through splitters and mirrors end.
+ * color) is walked at most once, so loops through splitters and mirrors end.
  */
 export function trace(s: LightState, cells: Cell[] = s.cells): Beam {
   const n = s.size;
@@ -134,7 +134,7 @@ export function trace(s: LightState, cells: Cell[] = s.cells): Beam {
     (lit.get(i) ?? lit.set(i, new Set()).get(i)!).add(hue);
     const f = filterHue(c);
     if (f) {
-      if (hue !== 'w' && hue !== f) { v.stop = 'centre'; continue; }
+      if (hue !== 'w' && hue !== f) { v.stop = 'center'; continue; }
       v.outHue = f;
       v.outs = [dir];
     } else if (isSplitter(c)) v.outs = [dir, reflect(c, dir)];
@@ -159,7 +159,7 @@ export interface Status {
   total: number;
   /** Dark sensors the light reaches. */
   darkLit: number[];
-  /** Targets reached only by light of the wrong colour. */
+  /** Targets reached only by light of the wrong color. */
   wrongHue: number[];
   won: boolean;
 }

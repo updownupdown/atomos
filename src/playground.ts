@@ -6,7 +6,7 @@
 
 import { elementAt as element } from './gallery/data';
 import { loadSave } from './core/save';
-import { PUZZLES, TIER_LABEL, TIER_NOTE, type PuzzleType, type Tier } from './puzzles/catalogue';
+import { PUZZLES, TIER_LABEL, TIER_NOTE, type PuzzleType, type Tier } from './puzzles/catalog';
 import { PuzzleHost } from './puzzles/host';
 import type { Area } from './puzzles/view';
 import { createHoldButton, createSlider, iconButton, type Slider } from './ui/components';

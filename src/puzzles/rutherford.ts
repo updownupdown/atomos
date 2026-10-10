@@ -43,7 +43,7 @@ export function cloneRutherford(s: RutherfordState): RutherfordState {
 
 // ---- geometry ------------------------------------------------------------------------
 
-export function neighbours(size: number, i: number): number[] {
+export function neighbors(size: number, i: number): number[] {
   const r = Math.floor(i / size), c = i % size;
   const out: number[] = [];
   for (let dr = -1; dr <= 1; dr++) {
@@ -69,7 +69,7 @@ export function cross(size: number, i: number): number[] {
 
 /** The cells a probed cell's count covers. */
 export function scope(s: Pick<RutherfordState, 'size' | 'kind'>, i: number): number[] {
-  return s.kind[i] === 'scatter' ? cross(s.size, i) : neighbours(s.size, i);
+  return s.kind[i] === 'scatter' ? cross(s.size, i) : neighbors(s.size, i);
 }
 
 // ---- rules ---------------------------------------------------------------------------
@@ -230,7 +230,7 @@ function deal(rng: Rng, spec: PlateSpec): { state: RutherfordState; start: numbe
   const n = size * size;
   // The opening probe sits away from the rim and has no nucleus around it.
   const start = (1 + randInt(rng, size - 2)) * size + 1 + randInt(rng, size - 2);
-  const clear = new Set([start, ...neighbours(size, start)]);
+  const clear = new Set([start, ...neighbors(size, start)]);
   const nuclei = Array(n).fill(false);
   for (const i of shuffle(rng, Array.from({ length: n }, (_, k) => k)).filter((i) => !clear.has(i)).slice(0, spec.nuclei)) nuclei[i] = true;
   const kind: CellKind[] = Array(n).fill('plain');
@@ -274,7 +274,7 @@ export function newRutherford(z: number, seed: number): RutherfordState {
     const frontier: number[] = [];
     for (let i = 0; i < state.nuclei.length; i++) {
       if (state.nuclei[i] || end.probed[i]) continue;
-      if (neighbours(state.size, i).some((j) => end.probed[j])) frontier.push(i);
+      if (neighbors(state.size, i).some((j) => end.probed[j])) frontier.push(i);
     }
     const pool = frontier.length ? frontier : state.nuclei.map((x, i) => (!x && !end.probed[i] ? i : -1)).filter((i) => i >= 0);
     open(state, [pool[randInt(rng, pool.length)]]);

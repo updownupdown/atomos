@@ -1,21 +1,21 @@
-// Drawing and touch for Colour Charge: drag across tiles (or tap them one by
-// one) to pick a group; a colour-neutral group binds and turns white.
+// Drawing and touch for Color Charge: drag across tiles (or tap them one by
+// one) to pick a group; a color-neutral group binds and turns white.
 
-import { adjacent, bind, canFinish, cloneCharge, COLOUR_LETTERS, groupKind, solved, type ColourChargeState } from './colourCharge';
+import { adjacent, bind, canFinish, cloneCharge, COLOR_LETTERS, groupKind, solved, type ColorChargeState } from './colorCharge';
 import { C, fitGrid, font, tile } from './palette';
 import type { Area, Point, PuzzleView } from './view';
 
-/** The three charge colours from the palette, read at draw time; letters carry them too. */
-export const chargeColour = (k: number): string => [C.bad, C.good, C.s][k];
+/** The three charge colors from the palette, read at draw time; letters carry them too. */
+export const chargeColor = (k: number): string => [C.bad, C.good, C.s][k];
 
 const FAIL_MS = 380;
 
 export const INSTRUCTIONS = `
 <h3>How to play</h3>
-<p>Every tile is a <b>quark</b> with a colour charge: <b>r</b>ed, <b>g</b>reen or <b>b</b>lue. Only colour-neutral groups can stand on their own, so bind the tiles into neutral groups until the grid is clear.</p>
+<p>Every tile is a <b>quark</b> with a color charge: <b>r</b>ed, <b>g</b>reen or <b>b</b>lue. Only color-neutral groups can stand on their own, so bind the tiles into neutral groups until the grid is clear.</p>
 <ul>
   <li><b>Baryon:</b> three tiles in a connected line or L, one red, one green, one blue. Drag across them (or tap them one after another) and they bind and turn white.</li>
-  <li><b>Meson:</b> on heavier elements some tiles are hollow: <b>antiquarks</b>, carrying an anticolour (shown with a bar over the letter). A quark next to the antiquark of its own colour, say r and r̄, binds as a pair.</li>
+  <li><b>Meson:</b> on heavier elements some tiles are hollow: <b>antiquarks</b>, carrying an anticolor (shown with a bar over the letter). A quark next to the antiquark of its own color, say r and r̄, binds as a pair.</li>
   <li>Every tile must end up in a group. Bind greedily and you may strand a tile with no partner; the status line says so, and Undo unbinds the last group.</li>
 </ul>
 <h3>In the game</h3>
@@ -25,11 +25,11 @@ export const INSTRUCTIONS = `
   <li>Each grid is dealt from a tiling into groups that work, and kept only if that is its one and only clearance: every grid has exactly one answer.</li>
   <li>Par is the number of groups in a clearance. Every bind counts as a move; Undo is free and takes the move back. Clean means clearing the grid within par.</li>
 </ul>
-<p>Science: colour charge is a name, not a colour, and quarks do not sit on a grid. That baryons are three quarks of all three colours and mesons a quark plus an antiquark, both colour-neutral, is real.</p>`;
+<p>Science: color charge is a name, not a color, and quarks do not sit on a grid. That baryons are three quarks of all three colors and mesons a quark plus an antiquark, both color-neutral, is real.</p>`;
 
-export class ColourChargeView implements PuzzleView {
-  private state: ColourChargeState;
-  private history: ColourChargeState[] = [];
+export class ColorChargeView implements PuzzleView {
+  private state: ColorChargeState;
+  private history: ColorChargeState[] = [];
   /** The tiles picked so far, in order. */
   private sel: number[] = [];
   private dragging = false;
@@ -40,7 +40,7 @@ export class ColourChargeView implements PuzzleView {
   private grid = { cell: 1, x: 0, y: 0 };
   private reduced: boolean;
 
-  constructor(private readonly initial: ColourChargeState, reducedMotion: boolean) {
+  constructor(private readonly initial: ColorChargeState, reducedMotion: boolean) {
     this.state = cloneCharge(initial);
     this.reduced = reducedMotion;
   }
@@ -52,7 +52,7 @@ export class ColourChargeView implements PuzzleView {
   get clean(): boolean { return this.state.moves <= this.state.par; }
 
   hint(): string {
-    if (this.won) return 'All colour-neutral';
+    if (this.won) return 'All color-neutral';
     if (!this.finishable) return 'A tile is stranded: undo a group';
     return `${this.state.groups.length} / ${this.state.par} bound`;
   }
@@ -161,9 +161,9 @@ export class ColourChargeView implements PuzzleView {
     const g = fitGrid(area, s.cols, s.rows, { margin: 10, maxCell: 72 });
     this.grid = { cell: g.cell, x: g.x, y: g.y };
     const c = g.cell, pad = Math.max(3, c * 0.08), w = c - pad * 2, rad = c * 0.18;
-    const centre = (i: number) => ({ x: g.x + (i % s.cols + 0.5) * c, y: g.y + (Math.floor(i / s.cols) + 0.5) * c });
+    const center = (i: number) => ({ x: g.x + (i % s.cols + 0.5) * c, y: g.y + (Math.floor(i / s.cols) + 0.5) * c });
 
-    // Bound groups: a white bar under each pair of neighbours, so a group reads as one particle.
+    // Bound groups: a white bar under each pair of neighbors, so a group reads as one particle.
     ctx.save();
     ctx.lineCap = 'round';
     for (const grp of s.groups) {
@@ -173,7 +173,7 @@ export class ColourChargeView implements PuzzleView {
       for (let a = 0; a < grp.length; a++) {
         for (let b = a + 1; b < grp.length; b++) {
           if (!adjacent(s.cols, grp[a], grp[b])) continue;
-          const p = centre(grp[a]), q = centre(grp[b]);
+          const p = center(grp[a]), q = center(grp[b]);
           ctx.moveTo(p.x, p.y);
           ctx.lineTo(q.x, q.y);
         }
@@ -187,30 +187,30 @@ export class ColourChargeView implements PuzzleView {
 
     for (let i = 0; i < s.tiles.length; i++) {
       const q = s.tiles[i];
-      let { x, y } = centre(i);
+      let { x, y } = center(i);
       if (this.fail?.cells.includes(i)) x += Math.sin(failT * Math.PI * 6) * c * 0.06 * (1 - failT);
       const tx = x - w / 2, ty = y - w / 2;
-      const colour = chargeColour(q.colour);
+      const color = chargeColor(q.color);
       if (s.bound[i] >= 0) {
         const glow = this.won ? 1 : 0;
         ctx.save();
         if (glow) { ctx.shadowColor = C.silver; ctx.shadowBlur = c * 0.2; }
         tile(ctx, tx, ty, w, w, rad, C.tile);
         ctx.restore();
-        // A small mark of the colour it brought, so a finished board still reads.
-        ctx.fillStyle = colour;
+        // A small mark of the color it brought, so a finished board still reads.
+        ctx.fillStyle = color;
         ctx.beginPath();
         ctx.arc(x, y, c * 0.08, 0, Math.PI * 2);
-        if (q.anti) { ctx.strokeStyle = colour; ctx.lineWidth = 1.5; ctx.stroke(); }
+        if (q.anti) { ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.stroke(); }
         else ctx.fill();
         continue;
       }
       if (q.anti) {
-        tile(ctx, tx + 1.25, ty + 1.25, w - 2.5, w - 2.5, rad, C.surface2, colour, 2.5);
-        letter(ctx, x, y, w, COLOUR_LETTERS[q.colour], colour, true);
+        tile(ctx, tx + 1.25, ty + 1.25, w - 2.5, w - 2.5, rad, C.surface2, color, 2.5);
+        letter(ctx, x, y, w, COLOR_LETTERS[q.color], color, true);
       } else {
-        tile(ctx, tx, ty, w, w, rad, colour);
-        letter(ctx, x, y, w, COLOUR_LETTERS[q.colour], C.tileInk, false);
+        tile(ctx, tx, ty, w, w, rad, color);
+        letter(ctx, x, y, w, COLOR_LETTERS[q.color], C.tileInk, false);
       }
     }
 
@@ -223,19 +223,19 @@ export class ColourChargeView implements PuzzleView {
       ctx.lineJoin = 'round';
       ctx.beginPath();
       this.sel.forEach((i, k) => {
-        const p = centre(i);
+        const p = center(i);
         if (k === 0) ctx.moveTo(p.x, p.y + w * 0.32);
         else ctx.lineTo(p.x, p.y + w * 0.32);
       });
       if (this.sel.length > 1) ctx.stroke();
       for (const i of this.sel) {
-        const p = centre(i);
+        const p = center(i);
         tile(ctx, p.x - w / 2 - 2.5, p.y - w / 2 - 2.5, w + 5, w + 5, rad * 1.1, null, C.accent, 2);
       }
       // A pair that can never become neutral gets a soft amber ring.
       if (hopeless(s, this.sel)) {
         for (const i of this.sel) {
-          const p = centre(i);
+          const p = center(i);
           tile(ctx, p.x - w / 2 - 2.5, p.y - w / 2 - 2.5, w + 5, w + 5, rad * 1.1, null, C.warn, 2);
         }
       }
@@ -245,21 +245,21 @@ export class ColourChargeView implements PuzzleView {
 }
 
 /** Two picked tiles that no third tile could make neutral. */
-function hopeless(s: ColourChargeState, sel: number[]): boolean {
+function hopeless(s: ColorChargeState, sel: number[]): boolean {
   if (sel.length !== 2) return false;
   const [a, b] = sel.map((i) => s.tiles[i]);
   if (groupKind(s.tiles, sel)) return false;
-  return a.anti !== b.anti || a.colour === b.colour;
+  return a.anti !== b.anti || a.color === b.color;
 }
 
-function letter(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, text: string, colour: string, bar: boolean): void {
-  ctx.fillStyle = colour;
+function letter(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, text: string, color: string, bar: boolean): void {
+  ctx.fillStyle = color;
   ctx.font = font(w * 0.46, 600);
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(text, x, y + w * 0.02);
   if (bar) {
-    ctx.strokeStyle = colour;
+    ctx.strokeStyle = color;
     ctx.lineWidth = Math.max(1.5, w * 0.045);
     ctx.lineCap = 'round';
     ctx.beginPath();

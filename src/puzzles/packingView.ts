@@ -176,7 +176,7 @@ export class PackingView implements PuzzleView {
     return lay;
   }
 
-  /** Rows of square slots, centred in the tray; null when they do not fit. */
+  /** Rows of square slots, centerd in the tray; null when they do not fit. */
   private flow(sides: number[], tray: Area, tc: number): Slot[] | null {
     const pad = Math.max(3, tc * 0.3);
     const gap = Math.max(4, tc * 0.2);
@@ -209,7 +209,7 @@ export class PackingView implements PuzzleView {
     return out;
   }
 
-  /** Pixel origin of a piece drawn in its tray slot, centred. */
+  /** Pixel origin of a piece drawn in its tray slot, centerd. */
   private slotOrigin(sl: Slot, p: Piece, tc: number): Point {
     const b = bounds(cellsOf(p));
     return { x: sl.x + (sl.side - b.w * tc) / 2, y: sl.y + (sl.side - b.h * tc) / 2 };
@@ -468,10 +468,10 @@ export class PackingView implements PuzzleView {
 
 // ---- pieces and blocks ----------------------------------------------------------------
 
-/** Colour by size: a quick way to tell the pieces apart on the board. */
-function colourOf(p: Piece): string {
+/** Color by size: a quick way to tell the pieces apart on the board. */
+function colorOf(p: Piece): string {
   const n = p.shape.length;
-  // Their own palette, not the orbital colours: a piece is a shape, not an s, p, d or f orbital.
+  // Their own palette, not the orbital colors: a piece is a shape, not an s, p, d or f orbital.
   return n <= 2 ? C.piece1 : n === 3 ? C.piece2 : n === 4 ? C.piece3 : C.piece4;
 }
 
@@ -481,11 +481,11 @@ function drawPiece(ctx: CanvasRenderingContext2D, p: Piece, ox: number, oy: numb
   const inset = Math.max(1, cell * 0.06);
   ctx.save();
   if (glow > 0) {
-    ctx.shadowColor = colourOf(p);
+    ctx.shadowColor = colorOf(p);
     ctx.shadowBlur = cell * 0.6 * glow;
   }
   tracePath(ctx, outlinePolygons(cells), ox, oy, cell, inset, cell * 0.18);
-  ctx.fillStyle = colourOf(p);
+  ctx.fillStyle = colorOf(p);
   ctx.fill();
   ctx.shadowBlur = 0;
   if (selected) {

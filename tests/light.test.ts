@@ -65,20 +65,20 @@ describe('beam', () => {
     expect(b.lit.has(8)).toBe(true);
   });
 
-  it('tints through a filter and absorbs the wrong colour', () => {
+  it('tints through a filter and absorbs the wrong color', () => {
     // Down column 0: white, then a blue filter, then a green filter that absorbs it.
     const s = grid(['.', '.', '.', 'Cs', '.', '.', 'Cp', '.', '.'], { targets: [{ cell: 4, hue: 's' }] });
     const b = trace(s);
     expect([...b.lit.get(0)!]).toEqual(['w']);
     expect([...b.lit.get(3)!]).toEqual(['w']);
     expect([...b.lit.get(6)!]).toEqual(['s']);
-    expect(b.visits.find((v) => v.cell === 6)!.stop).toBe('centre');
-    // The same colour passes.
+    expect(b.visits.find((v) => v.cell === 6)!.stop).toBe('center');
+    // The same color passes.
     const pass = trace(grid(['.', '.', '.', 'Cs', '.', '.', 'Cs', '.', '.']));
     expect(pass.visits.find((v) => v.cell === 6)!.exits).toEqual(['down']);
   });
 
-  it('needs coloured rings lit in their colour and dark sensors unlit', () => {
+  it('needs colored rings lit in their color and dark sensors unlit', () => {
     // Row 0 rightward: white to (1,0), tinted blue from the filter on.
     const base = { entry: 0, entryDir: 'right' as const };
     const s = grid(['.', 'Cs', '.', '.', '.', '.', '.', '.', '.'], { ...base, targets: [{ cell: 2, hue: 's' }] });

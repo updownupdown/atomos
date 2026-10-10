@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { bind, canBind, canFinish, countClearances, groupKind, newColourCharge, solved, specFor, type Quark } from '../src/puzzles/colourCharge';
+import { bind, canBind, canFinish, countClearances, groupKind, newColorCharge, solved, specFor, type Quark } from '../src/puzzles/colorCharge';
 
 const SPREAD = [1, 10, 11, 30, 31, 54, 55, 86, 87, 118];
 
 describe('groups', () => {
-  const q = (colour: 0 | 1 | 2, anti = false): Quark => ({ colour, anti });
+  const q = (color: 0 | 1 | 2, anti = false): Quark => ({ color, anti });
 
-  it('binds one of each colour, or a colour and its anticolour', () => {
+  it('binds one of each color, or a color and its anticolor', () => {
     expect(groupKind([q(0), q(1), q(2)], [0, 1, 2])).toBe('baryon');
     expect(groupKind([q(0, true), q(1, true), q(2, true)], [0, 1, 2])).toBe('antibaryon');
     expect(groupKind([q(0), q(0, true)], [0, 1])).toBe('meson');
@@ -19,13 +19,13 @@ describe('groups', () => {
 
 describe('levels', () => {
   it('is the same deal for the same seed', () => {
-    expect(newColourCharge(60, 4)).toEqual(newColourCharge(60, 4));
+    expect(newColorCharge(60, 4)).toEqual(newColorCharge(60, 4));
   });
 
   it('is dealt from a tiling into neutral connected groups, with par = groups', () => {
     for (const z of SPREAD) {
       for (let seed = 1; seed <= 8; seed++) {
-        const s = newColourCharge(z, seed);
+        const s = newColorCharge(z, seed);
         const spec = specFor(z);
         expect(s.tiles).toHaveLength(spec.cols * spec.rows);
         const covered = s.solution.flat().sort((a, b) => a - b);
@@ -46,14 +46,14 @@ describe('levels', () => {
   });
 
   it('only has antiquarks once mesons arrive', () => {
-    expect(newColourCharge(20, 1).tiles.some((t) => t.anti)).toBe(false);
-    expect(newColourCharge(100, 1).tiles.some((t) => t.anti)).toBe(true);
+    expect(newColorCharge(20, 1).tiles.some((t) => t.anti)).toBe(false);
+    expect(newColorCharge(100, 1).tiles.some((t) => t.anti)).toBe(true);
   });
 
   it('generates fast for every element', () => {
     for (let z = 1; z <= 118; z++) {
       const t = performance.now();
-      newColourCharge(z, z * 13 + 1);
+      newColorCharge(z, z * 13 + 1);
       expect(performance.now() - t).toBeLessThan(150);
     }
   });
@@ -61,17 +61,17 @@ describe('levels', () => {
 
 describe('binding', () => {
   it('refuses bound, disconnected or charged groups and spots a stranded tile', () => {
-    const s = newColourCharge(5, 2);
+    const s = newColorCharge(5, 2);
     const [a] = s.solution;
     const t = bind(s, a)!;
     expect(bind(t, a)).toBeNull();
-    // Two cells that are not neighbours never bind.
+    // Two cells that are not neighbors never bind.
     const far = [0, s.tiles.length - 1];
     expect(canBind(s, far)).toBe(false);
     // A hand-made board where the greedy pick strands a tile.
     const tiles: Quark[] = [
-      { colour: 0, anti: false }, { colour: 1, anti: false }, { colour: 2, anti: false },
-      { colour: 1, anti: false }, { colour: 2, anti: false }, { colour: 0, anti: false },
+      { color: 0, anti: false }, { color: 1, anti: false }, { color: 2, anti: false },
+      { color: 1, anti: false }, { color: 2, anti: false }, { color: 0, anti: false },
     ];
     const board = { cols: 3, rows: 2, tiles, bound: Array(6).fill(-1), groups: [], solution: [[0, 1, 2], [3, 4, 5]], moves: 0, par: 2 };
     expect(canFinish(board)).toBe(true);
@@ -86,7 +86,7 @@ describe('one answer', () => {
   it('deals grids with exactly one clearance across the range', () => {
     for (const z of SPREAD) {
       for (let d = 0; d < 4; d++) {
-        const s = newColourCharge(z, 7000 + 31 * z + d);
+        const s = newColorCharge(z, 7000 + 31 * z + d);
         expect(countClearances(s.tiles, s.cols, s.rows, 3)).toBe(1);
       }
     }

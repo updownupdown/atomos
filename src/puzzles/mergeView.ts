@@ -99,7 +99,7 @@ export class MergeView implements PuzzleView {
     const cell = side / n;
     const x0 = area.x + (area.w - side) / 2;
     const y0 = area.y + goalH + (area.h - goalH - side) / 2;
-    const centre = (i: number): Point => ({ x: x0 + (i % n) * cell + cell / 2, y: y0 + Math.floor(i / n) * cell + cell / 2 });
+    const center = (i: number): Point => ({ x: x0 + (i % n) * cell + cell / 2, y: y0 + Math.floor(i / n) * cell + cell / 2 });
     const r = cell * 0.4;
 
     this.drawGoal(ctx, x0, y0 - goalH + 10, side, r);
@@ -109,7 +109,7 @@ export class MergeView implements PuzzleView {
     ctx.lineWidth = 1;
     ctx.setLineDash([3, 5]);
     for (let i = 0; i < n * n; i++) {
-      const c = centre(i);
+      const c = center(i);
       ctx.strokeRect(c.x - cell / 2 + 3, c.y - cell / 2 + 3, cell - 6, cell - 6);
     }
     ctx.setLineDash([]);
@@ -123,7 +123,7 @@ export class MergeView implements PuzzleView {
 
     if (sliding) {
       for (const j of this.state.last) {
-        const a = centre(j.from), b = centre(j.to);
+        const a = center(j.from), b = center(j.to);
         const p = { x: a.x + (b.x - a.x) * ease(t), y: a.y + (b.y - a.y) * ease(t) };
         const tile = j.into ? this.ghostOf(j.id) : this.state.cells[byId.get(j.id)!];
         if (tile) this.drawTile(ctx, tile, p.x, p.y, r, 1, false);
@@ -134,7 +134,7 @@ export class MergeView implements PuzzleView {
       if (!tile) continue;
       const inFlight = sliding && this.state.last.some((j) => j.id === tile.id || j.into === tile.id);
       if (inFlight) continue;
-      const c = centre(i);
+      const c = center(i);
       const fresh = this.state.spawned.includes(tile.id);
       const scale = fresh ? ease(Math.min(1, pop)) : 1;
       const made = this.state.last.some((j) => j.into === tile.id) && pop < 1;
@@ -145,7 +145,7 @@ export class MergeView implements PuzzleView {
     const fly = this.reduced ? 1 : Math.max(0, since - SLIDE_MS) / FLY_MS;
     if (fly < 1) {
       this.state.flown.forEach((f, k) => {
-        const a = centre(f.from);
+        const a = center(f.from);
         const b = this.socketAt[this.state.filled - this.state.flown.length + k] ?? a;
         const e = ease(fly);
         const p = { x: a.x + (b.x - a.x) * e, y: a.y + (b.y - a.y) * e - Math.sin(Math.PI * e) * 30 };
@@ -216,7 +216,7 @@ export class MergeView implements PuzzleView {
       ctx.shadowColor = C.target;
       ctx.shadowBlur = r * 0.8;
     }
-    // Flat card-table discs: a lone nucleon is grey, clusters are light tiles.
+    // Flat card-table discs: a lone nucleon is gray, clusters are light tiles.
     ctx.fillStyle = tile.v === 1 ? C.pewter : tile.v === 2 ? C.silverDim : C.tile;
     ctx.beginPath();
     ctx.arc(x, y, r, 0, Math.PI * 2);

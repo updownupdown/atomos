@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { chord, cross, deduce, neighbours, newRutherford, probe, remaining, scope, solved, specFor, toggleMark, type RutherfordState } from '../src/puzzles/rutherford';
+import { chord, cross, deduce, neighbors, newRutherford, probe, remaining, scope, solved, specFor, toggleMark, type RutherfordState } from '../src/puzzles/rutherford';
 
 const SPREAD = [1, 6, 20, 21, 50, 51, 79, 85, 86, 92, 118];
 
@@ -18,9 +18,9 @@ function plate(size: number, nuclei: number[], kinds: Record<number, 'scatter' |
 }
 
 describe('geometry', () => {
-  it('counts the eight neighbours, fewer at the rim', () => {
-    expect(neighbours(5, 12)).toHaveLength(8);
-    expect(neighbours(5, 0).sort((a, b) => a - b)).toEqual([1, 5, 6]);
+  it('counts the eight neighbors, fewer at the rim', () => {
+    expect(neighbors(5, 12)).toHaveLength(8);
+    expect(neighbors(5, 0).sort((a, b) => a - b)).toEqual([1, 5, 6]);
   });
 
   it('a scatter cell covers its whole row and column', () => {
@@ -57,7 +57,7 @@ describe('probing', () => {
     const m = toggleMark(s, 0)!;
     expect(remaining(m)).toBe(0);
     expect(probe(m, 0)).toBeNull();
-    const p = probe(m, 4)!; // centre: count 1
+    const p = probe(m, 4)!; // center: count 1
     expect(p.clue[4]).toBe(1);
     const c = chord(p, 4)!;
     expect(solved(c)).toBe(true);

@@ -13,7 +13,7 @@ import { MergeView } from './puzzles/mergeView';
 import { OrbitalGridView } from './puzzles/orbitalGridView';
 import { SlidingView } from './puzzles/slidingView';
 import { type Area, type PuzzleView } from './puzzles/view';
-import { puzzleType } from './puzzles/catalogue';
+import { puzzleType } from './puzzles/catalog';
 import { closeModal, modalOpen, openModal } from './ui/modal';
 import { createHoldButton, iconButton } from './ui/components';
 import { icon } from './ui/icons';
@@ -453,7 +453,7 @@ export class Game {
     sheet.querySelector<HTMLButtonElement>('#intro-go')!.onclick = () => this.closeModal();
   }
 
-  /** The catalogue entry for the puzzle on screen. */
+  /** The catalog entry for the puzzle on screen. */
   private stagePuzzle() {
     return puzzleType(this.stage === 'nucleus' ? (this.z <= MERGE_UP_TO ? 'merge' : 'sliding') : 'orbitalGrid');
   }
@@ -492,9 +492,9 @@ export class Game {
       <h3>Facts</h3>
       <ul class="facts">${el.facts.map((f) => `<li>${f}</li>`).join('')}</ul>
       ${el.famousLine ? `<h3>Signature light</h3><div class="line-row"><span class="swatch" style="background:${wavelengthToHex(el.famousLine.nm)};color:${wavelengthToHex(el.famousLine.nm)}"></span><span>${el.famousLine.nm} nm · ${el.famousLine.label}</span></div>` : ''}
-      <h3>Colour</h3>
-      <p class="muted">Atoms have no colour at this scale, so paint yours.</p>
-      <div class="palette">${PAINTS.map((c) => `<button style="--c:${c}" data-c="${c}" aria-label="Colour ${c}" aria-pressed="${c.toLowerCase() === colour.toLowerCase()}"></button>`).join('')}</div>
+      <h3>Color</h3>
+      <p class="muted">Atoms have no color at this scale, so paint yours.</p>
+      <div class="palette">${PAINTS.map((c) => `<button style="--c:${c}" data-c="${c}" aria-label="Color ${c}" aria-pressed="${c.toLowerCase() === colour.toLowerCase()}"></button>`).join('')}</div>
       <div class="actions">
         ${built && next && next.z <= MAX_Z ? `<button class="primary" id="card-next">${this.save.built[next.z] ? 'Rebuild' : 'Build'} ${next.name}</button>` : ''}
         ${built ? `<button class="secondary" id="card-iso">Isotopes</button>` : ''}

@@ -14,7 +14,7 @@ export const INSTRUCTIONS = `
 <h3>How to play</h3>
 <p>Nuclei are hidden under some cells of the plate. Find them all by probing every other cell.</p>
 <ul>
-  <li><b>Tap</b> a cell to probe it. The number it shows is how many nuclei sit in the <b>eight cells around it</b>. A blank probed cell has none around it, and its neighbours open by themselves.</li>
+  <li><b>Tap</b> a cell to probe it. The number it shows is how many nuclei sit in the <b>eight cells around it</b>. A blank probed cell has none around it, and its neighbors open by themselves.</li>
   <li><b>Scatter cells</b>, drawn with small ticks pointing out, count differently: their number is every nucleus in the <b>whole row and column</b> they sit in.</li>
   <li><b>Quiet cells</b> show <b>?</b> and give no count at all.</li>
   <li><b>Mark</b> a suspected nucleus with a long press, or switch the tool under the plate to Mark and tap. Marks are notes for you; tap again to clear one.</li>
@@ -266,7 +266,7 @@ function nucleusGlyph(ctx: CanvasRenderingContext2D, x: number, y: number, r: nu
   ctx.restore();
 }
 
-/** The mark for a suspected nucleus: a ring with four ticks, in the selection colour. */
+/** The mark for a suspected nucleus: a ring with four ticks, in the selection color. */
 function reticle(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, alpha = 1): void {
   ctx.save();
   ctx.globalAlpha = alpha;
@@ -290,11 +290,11 @@ function reticle(ctx: CanvasRenderingContext2D, x: number, y: number, r: number,
 }
 
 /** Four small outward ticks on a scatter cell's edges: it counts along its row and column. */
-function ticks(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, colour: string): void {
+function ticks(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, color: string): void {
   const m = w * 0.1, len = w * 0.12;
   const cx = x + w / 2, cy = y + w / 2;
   ctx.save();
-  ctx.fillStyle = colour;
+  ctx.fillStyle = color;
   ctx.beginPath();
   const tri = (ax: number, ay: number, dx: number, dy: number) => {
     // A small triangle pointing along (dx, dy) with its tip at (ax, ay).

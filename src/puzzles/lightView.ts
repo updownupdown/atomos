@@ -16,18 +16,18 @@ export const INSTRUCTIONS = `
   <li><b>Mirrors</b> on a raised tile with a pivot bead turn when tapped. They bounce the beam through a right angle.</li>
   <li><b>Fixed mirrors</b> are darker, hatched on the back and sit flat. They bounce the beam too, but cannot be turned.</li>
   <li><b>Splitters</b> are dashed panes on a raised tile: half-silvered glass. The beam goes straight through <i>and</i> bounces off, so one beam becomes two. Tap to flip them like mirrors.</li>
-  <li><b>Colour filters</b> are tinted squares. White light leaves them tinted that colour. Light already of that colour passes; light of any other colour is absorbed and stops.</li>
-  <li><b>Coloured rings</b> need light of their own colour; a plain red ring takes any light.</li>
+  <li><b>Color filters</b> are tinted squares. White light leaves them tinted that color. Light already of that color passes; light of any other color is absorbed and stops.</li>
+  <li><b>Colored rings</b> need light of their own color; a plain red ring takes any light.</li>
   <li><b>Dark sensors</b> (dark discs with a bar) must stay unlit. A lit one flares amber and the puzzle is not solved.</li>
-  <li>Grey blocks stop the beam.</li>
+  <li>Gray blocks stop the beam.</li>
 </ul>
 <p>Keyboard: arrows move the cursor, Space or Enter flips under it, Tab jumps to the next turnable piece.</p>
 <h3>In the game</h3>
-<p>A gate puzzle. The grid grows from 5×5 (H to Cu, z 1–29) to 6×6 (Zn to Au, 30–79) and 7×7 (from Hg, 80). Pieces arrive in bands, each one always present in its own band and mixed in later: fixed mirrors from Na (11), dark sensors from Fe (26), splitters from Nb (41), colour filters from Pm (61); from Tl (81) each level draws two or three of the four. Rings go from two to three at Sn (50); dark sensors from one to two at Yb (70); coloured rings appear only with filters.</p>
+<p>A gate puzzle. The grid grows from 5×5 (H to Cu, z 1–29) to 6×6 (Zn to Au, 30–79) and 7×7 (from Hg, 80). Pieces arrive in bands, each one always present in its own band and mixed in later: fixed mirrors from Na (11), dark sensors from Fe (26), splitters from Nb (41), color filters from Pm (61); from Tl (81) each level draws two or three of the four. Rings go from two to three at Sn (50); dark sensors from one to two at Yb (70); colored rings appear only with filters.</p>
 <p>Every level is built from a solved layout whose beam is walked out piece by piece, then scrambled by flipping 1 to 4 turnable pieces the beam uses (1 + z/30). Par is that number of flips, and the generator checks no smaller set of taps solves it, so par is the true minimum. Each flip is one move; dark sensors are placed only where a wrong flip would send light.</p>
 `;
 
-const hueColour = (h: Hue): string => (h === 'w' ? C.silver : C[h]);
+const hueColor = (h: Hue): string => (h === 'w' ? C.silver : C[h]);
 
 export class LightView implements PuzzleView {
   private state: LightState;
@@ -57,7 +57,7 @@ export class LightView implements PuzzleView {
     const st = status(this.state);
     if (st.won) return 'Every ring is lit';
     if (st.darkLit.length) return st.darkLit.length === 1 ? 'A dark sensor is lit' : `${st.darkLit.length} dark sensors are lit`;
-    if (st.wrongHue.length) return st.wrongHue.length === 1 ? 'A ring has the wrong colour' : `${st.wrongHue.length} rings have the wrong colour`;
+    if (st.wrongHue.length) return st.wrongHue.length === 1 ? 'A ring has the wrong color' : `${st.wrongHue.length} rings have the wrong color`;
     return '';
   }
 
@@ -109,7 +109,7 @@ export class LightView implements PuzzleView {
     return cy * this.state.size + cx;
   }
 
-  private centre(i: number): Point {
+  private center(i: number): Point {
     const n = this.state.size;
     return { x: this.origin.x + ((i % n) + 0.5) * this.cell, y: this.origin.y + (Math.floor(i / n) + 0.5) * this.cell };
   }
@@ -176,7 +176,7 @@ export class LightView implements PuzzleView {
 
     // Tiles: raised where a tap does something.
     for (let i = 0; i < n * n; i++) {
-      const p = this.centre(i);
+      const p = this.center(i);
       const raised = turnable(s.cells[i]);
       const inset = c * 0.05;
       tile(ctx, p.x - half + inset, p.y - half + inset, c - inset * 2, c - inset * 2, c * 0.18, raised ? C.surface3 : C.surface, raised ? C.line2 : null, 1);
@@ -192,14 +192,14 @@ export class LightView implements PuzzleView {
       p.moveTo(a.x, a.y);
       p.lineTo(a.x + (b.x - a.x) * Math.min(1, f), a.y + (b.y - a.y) * Math.min(1, f));
     };
-    const e = this.centre(s.entry);
+    const e = this.center(s.entry);
     const [edx, edy] = DELTA[s.entryDir];
     const lamp = { x: e.x - edx * c * 0.85, y: e.y - edy * c * 0.85 };
     seg('w', lamp, { x: e.x - edx * half, y: e.y - edy * half }, 1);
     for (const v of beam.visits) {
       const f = progress - v.depth;
       if (f <= 0) continue;
-      const p = this.centre(v.cell);
+      const p = this.center(v.cell);
       const [dx, dy] = DELTA[v.dir];
       const edge = { x: p.x - dx * half, y: p.y - dy * half };
       if (v.stop === 'edge') { seg(v.hue, edge, { x: edge.x + dx * c * 0.12, y: edge.y + dy * c * 0.12 }, f * 2); continue; }
@@ -213,7 +213,7 @@ export class LightView implements PuzzleView {
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     for (const [h, p] of paths) {
-      const col = hueColour(h);
+      const col = hueColor(h);
       ctx.save();
       ctx.strokeStyle = col;
       ctx.globalAlpha = 0.22;
@@ -228,11 +228,11 @@ export class LightView implements PuzzleView {
 
     // Pieces.
     const lit = beam.lit;
-    for (let i = 0; i < n * n; i++) this.piece(ctx, s.cells[i], this.centre(i), lit.has(i));
+    for (let i = 0; i < n * n; i++) this.piece(ctx, s.cells[i], this.center(i), lit.has(i));
 
     // Sensors: target rings and dark discs.
     for (const t of s.targets) {
-      const p = this.centre(t.cell);
+      const p = this.center(t.cell);
       const on = targetLit(t, lit);
       const col = t.hue === 'w' ? C.target : C[t.hue];
       const r = half * 0.44;
@@ -252,11 +252,11 @@ export class LightView implements PuzzleView {
       ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
       ctx.stroke();
       ctx.restore();
-      // A coloured ring keeps a small red heart, so it still reads as a goal.
+      // A colored ring keeps a small red heart, so it still reads as a goal.
       if (t.hue !== 'w') bead(ctx, p.x, p.y, Math.max(2, c * 0.05), C.target, { alpha: on ? 1 : 0.7 });
     }
     for (const d of s.darks) {
-      const p = this.centre(d);
+      const p = this.center(d);
       const bad = lit.has(d);
       const r = half * 0.4;
       const pulse = this.reduced ? 1 : 0.7 + 0.3 * Math.sin(now / 160);
@@ -290,12 +290,12 @@ export class LightView implements PuzzleView {
 
     // Keyboard cursor and a nudge on a piece that does not turn.
     if (this.showCursor && !won) {
-      const p = this.centre(this.cursor);
+      const p = this.center(this.cursor);
       tile(ctx, p.x - half + 1.5, p.y - half + 1.5, c - 3, c - 3, c * 0.18, null, C.accent, 2);
     }
     const bumpT = this.bump ? Math.max(0, 1 - (now - this.bump.at) / 350) : 0;
     if (this.bump && bumpT > 0) {
-      const p = this.centre(this.bump.cell);
+      const p = this.center(this.bump.cell);
       const wob = this.reduced ? 0 : Math.sin(bumpT * Math.PI * 4) * c * 0.04;
       ctx.save();
       ctx.globalAlpha = bumpT;
@@ -312,7 +312,7 @@ export class LightView implements PuzzleView {
     ctx.restore();
   }
 
-  /** One piece, centred on p. */
+  /** One piece, centerd on p. */
   private piece(ctx: CanvasRenderingContext2D, cell: Cell, p: Point, lit: boolean): void {
     const c = this.cell;
     const half = c / 2;

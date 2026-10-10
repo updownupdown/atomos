@@ -129,7 +129,7 @@ export class SlideStopView implements PuzzleView {
 
   // ---- drawing --------------------------------------------------------------------
 
-  private centre(i: number): Point {
+  private center(i: number): Point {
     const n = this.state.size;
     return { x: this.origin.x + ((i % n) + 0.5) * this.cell, y: this.origin.y + (Math.floor(i / n) + 0.5) * this.cell };
   }
@@ -179,7 +179,7 @@ export class SlideStopView implements PuzzleView {
     const cracks = cracksOf(s);
     for (let i = 0; i < s.tiles.length; i++) {
       const t0 = s.tiles[i];
-      const p = this.centre(i);
+      const p = this.center(i);
       if (t0 === '#') pebble(ctx, p.x, p.y, c * 0.36, i * 7 + s.size);
       else if (t0 === '~') sticky(ctx, p.x, p.y, c, i);
       else if (t0 === '%') {
@@ -195,12 +195,12 @@ export class SlideStopView implements PuzzleView {
       const takenNow = (s.got >> k & 1) === 1;
       const takenBefore = gl ? (gl.prev.got >> k & 1) === 1 : takenNow;
       if (takenBefore || (takenNow && reached(cell))) return;
-      const p = this.centre(cell);
+      const p = this.center(cell);
       spark(ctx, p.x, p.y, c * 0.2, now);
     });
 
     // The goal ring: dashed while sparks remain, solid once it counts.
-    const g = this.centre(s.goal);
+    const g = this.center(s.goal);
     const open = s.got === allSparks(s);
     ctx.save();
     ctx.strokeStyle = C.target;
@@ -218,9 +218,9 @@ export class SlideStopView implements PuzzleView {
 
     // The droplet, easing along its slide with a fading streak behind.
     const r = c * 0.26;
-    let p = this.centre(s.pos);
+    let p = this.center(s.pos);
     if (gl) {
-      const from = this.centre(gl.from), to = this.centre(gl.to);
+      const from = this.center(gl.from), to = this.center(gl.to);
       const k = ease(t);
       p = { x: from.x + (to.x - from.x) * k, y: from.y + (to.y - from.y) * k };
       const fade = 1 - Math.max(0, Math.min(1, (now - gl.at - gl.ms * 0.4) / TRAIL_MS));

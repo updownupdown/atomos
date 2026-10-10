@@ -22,9 +22,9 @@ import { newRutherford } from './rutherford';
 import { RutherfordView, INSTRUCTIONS as RUTHERFORD_HOW } from './rutherfordView';
 import { newOrbitalGrid } from './orbitalGrid';
 import { OrbitalGridView, INSTRUCTIONS as GRID_HOW } from './orbitalGridView';
-import { newColourCharge } from './colourCharge';
-import { ColourChargeView, INSTRUCTIONS as CHARGE_HOW } from './colourChargeView';
-import { SUBSHELL_COLOURS, type PuzzleView } from './view';
+import { newColorCharge } from './colorCharge';
+import { ColorChargeView, INSTRUCTIONS as CHARGE_HOW } from './colorChargeView';
+import { SUBSHELL_COLORS, type PuzzleView } from './view';
 
 export type Tier = 'every' | 'facet' | 'gate' | 'reserve';
 
@@ -109,7 +109,7 @@ export const PUZZLES: PuzzleType[] = [
     science: (z) => {
       const el = element(z);
       return `<h2>Orbital Grid: the science</h2>
-        <p>Electrons in an atom sit in <b>orbitals</b>, grouped into sub-shells named <span style="color:${SUBSHELL_COLOURS.s}">s</span>, <span style="color:${SUBSHELL_COLOURS.p}">p</span>, <span style="color:${SUBSHELL_COLOURS.d}">d</span> and <span style="color:${SUBSHELL_COLOURS.f}">f</span>. Each orbital holds at most two electrons, and those two must spin opposite ways, up and down: the <b>Pauli exclusion principle</b>, which says no two electrons in an atom may share every quantum number.</p>
+        <p>Electrons in an atom sit in <b>orbitals</b>, grouped into sub-shells named <span style="color:${SUBSHELL_COLORS.s}">s</span>, <span style="color:${SUBSHELL_COLORS.p}">p</span>, <span style="color:${SUBSHELL_COLORS.d}">d</span> and <span style="color:${SUBSHELL_COLORS.f}">f</span>. Each orbital holds at most two electrons, and those two must spin opposite ways, up and down: the <b>Pauli exclusion principle</b>, which says no two electrons in an atom may share every quantum number.</p>
         <p>That rule of "never the same twice" is what this grid plays with. Fill ${el.name}'s orbitals lowest energy first and you get ${groundConfiguration(z)}.</p>
         <p class="muted">Game rule: the grid is a logic puzzle using orbital labels as symbols. The cells are not places in the atom, and real orbitals are not arranged in rows.</p>`;
     },
@@ -157,7 +157,7 @@ export const PUZZLES: PuzzleType[] = [
       return `<h2>Field Lines: the science</h2>
         <p>An electron in an atom is a standing wave, and a standing wave has <b>nodes</b>: surfaces where it is exactly zero. The nodes divide space into lobes, and the sign of the wave flips from one lobe to the next. That is what gives the p orbital its two lobes, the d orbital its four, and so on. ${el.name}'s outermost electrons sit in ${el.subshells[el.subshells.length - 1].key} orbitals.</p>
         <p>The number of nodes is fixed by the quantum numbers: an orbital with principal number n has n − 1 of them in total, split between spherical shells and planes or cones through the nucleus.</p>
-        <p class="muted">Game rule: the line that sorts colours into pockets is a playful stand-in for a nodal surface; the colours are the sub-shell palette, not real field lines.</p>`;
+        <p class="muted">Game rule: the line that sorts colors into pockets is a playful stand-in for a nodal surface; the colors are the sub-shell palette, not real field lines.</p>`;
     },
   },
   {
@@ -180,9 +180,9 @@ export const PUZZLES: PuzzleType[] = [
     zRange: [1, 118],
     make: (z, deal, reduced) => new LightView(newLight(z, dealSeed('light', z, deal)), reduced),
     science: () => `<h2>Light Routing: the science</h2>
-      <p>Light reflects from a mirror at the angle it arrived, and its path runs the same backwards: ray optics. Everything we know about atoms began with light: the sharp coloured lines in an element's spectrum are photons released as electrons drop between energy levels, and each element has its own set.</p>
+      <p>Light reflects from a mirror at the angle it arrived, and its path runs the same backwards: ray optics. Everything we know about atoms began with light: the sharp colored lines in an element's spectrum are photons released as electrons drop between energy levels, and each element has its own set.</p>
       <p>A spectrometer is exactly this puzzle made serious: slits, mirrors and a prism or grating steering light onto a detector.</p>
-      <p>A coloured filter works by absorption: it passes its own colour and swallows the rest, which is why light already tinted one colour cannot get through a filter of another.</p>
+      <p>A colored filter works by absorption: it passes its own color and swallows the rest, which is why light already tinted one color cannot get through a filter of another.</p>
       <p class="muted">Game rule: no atom contains mirrors.</p>`,
   },
   {
@@ -213,16 +213,16 @@ export const PUZZLES: PuzzleType[] = [
     },
   },
   {
-    id: 'colourCharge', name: 'Colour Charge', tier: 'reserve',
-    blurb: 'Bind the quarks into colour-neutral groups until the grid is clear.',
+    id: 'colorCharge', name: 'Color Charge', tier: 'reserve',
+    blurb: 'Bind the quarks into color-neutral groups until the grid is clear.',
     role: 'In reserve for the quark chapter of the particles, if it earns a place.',
     instructions: CHARGE_HOW,
     zRange: [1, 118],
-    make: (z, deal, reduced) => new ColourChargeView(newColourCharge(z, dealSeed('colourCharge', z, deal)), reduced),
-    science: () => `<h2>Colour Charge: the science</h2>
-      <p>Protons and neutrons are each made of three <b>quarks</b>, held by the strong force. Quarks carry a kind of charge physicists call <b>colour</b>, with three values nicknamed red, green and blue. A quark is never found alone: quarks only exist in groups whose colours cancel to "white".</p>
-      <p>There are two ways to cancel. Three quarks, one of each colour, make a <b>baryon</b> such as the proton. A quark and an antiquark carrying the matching anticolour make a <b>meson</b>, such as the pion.</p>
-      <p class="muted">Game rule: colour charge has nothing to do with real colour, and quarks do not sit on a grid; the shapes on the board are only for play.</p>`,
+    make: (z, deal, reduced) => new ColorChargeView(newColorCharge(z, dealSeed('colorCharge', z, deal)), reduced),
+    science: () => `<h2>Color Charge: the science</h2>
+      <p>Protons and neutrons are each made of three <b>quarks</b>, held by the strong force. Quarks carry a kind of charge physicists call <b>color</b>, with three values nicknamed red, green and blue. A quark is never found alone: quarks only exist in groups whose colors cancel to "white".</p>
+      <p>There are two ways to cancel. Three quarks, one of each color, make a <b>baryon</b> such as the proton. A quark and an antiquark carrying the matching anticolor make a <b>meson</b>, such as the pion.</p>
+      <p class="muted">Game rule: color charge has nothing to do with real color, and quarks do not sit on a grid; the shapes on the board are only for play.</p>`,
   },
 ];
 

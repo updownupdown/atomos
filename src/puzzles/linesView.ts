@@ -24,15 +24,15 @@ export const INSTRUCTIONS = `
 <ul>
   <li><b>Beads on a channel</b>: the line must run over every one.</li>
   <li><b>Broken channels</b>: the line cannot cross the break.</li>
-  <li><b>Coloured tiles</b>: no pocket may hold tiles of two colours. Wall the colours apart.</li>
+  <li><b>Colored tiles</b>: no pocket may hold tiles of two colors. Wall the colors apart.</li>
   <li><b>Droplets</b> (one to three): the line runs along exactly that many of that tile's four sides.</li>
-  <li><b>Coloured rings</b>: a ring's pocket holds exactly two marks of its colour, counting rings and coloured tiles alike. Two blue rings together are happy; a blue ring with a blue tile is happy; a blue ring alone, or with two other blue marks, is not.</li>
+  <li><b>Colored rings</b>: a ring's pocket holds exactly two marks of its color, counting rings and colored tiles alike. Two blue rings together are happy; a blue ring with a blue tile is happy; a blue ring alone, or with two other blue marks, is not.</li>
   <li><b>Bead shapes</b>: the pocket holding a shape must be exactly that shape, the same way up, no rotating. Two shapes in one pocket must fit together to fill it exactly.</li>
 </ul>
 <p>Some boards have two starts or two ends; use whichever you like. Broken marks flash red after a check, and the line stays so you can fix it: drag back along it to retract, or press any point on it to carry on from there.</p>
 <p>Keyboard: arrows draw from a start (Tab picks between two starts), Backspace steps back, Escape clears, Enter checks once the line reaches an end.</p>
 <h3>In the game</h3>
-<p>A facet puzzle. Grids grow from 4×4 tiles (H to K, z 1–19) to 5×5 (Ca to Cs, 20–55) and 6×6 (from Ba, 56). Rules arrive in bands so each one gets introduced on its own terms: beads and colours from H; droplets from Mg (12); breaks from Cr (24); rings from Kr (36); shapes from Sn (50). From Gd (64) every level draws one of the heavier rules (droplets, rings, shapes) plus one or two partners, with three-rule levels growing more common toward the end of the table; from Hg (80) about half the boards get a second start or a second end. Mark counts rise gently with the element.</p>
+<p>A facet puzzle. Grids grow from 4×4 tiles (H to K, z 1–19) to 5×5 (Ca to Cs, 20–55) and 6×6 (from Ba, 56). Rules arrive in bands so each one gets introduced on its own terms: beads and colors from H; droplets from Mg (12); breaks from Cr (24); rings from Kr (36); shapes from Sn (50). From Gd (64) every level draws one of the heavier rules (droplets, rings, shapes) plus one or two partners, with three-rule levels growing more common toward the end of the table; from Hg (80) about half the boards get a second start or a second end. Mark counts rise gently with the element.</p>
 <p>Every level is read off a hidden random walk, so it always has an answer; any line that meets every mark wins, not only the hidden one. Par is one check: a line that wins the first time it is checked counts as clean. Each release on an end is one check (one move).</p>
 `;
 
@@ -401,12 +401,12 @@ export class LinesView implements PuzzleView {
     ctx.restore();
   }
 
-  /** One cell symbol, centred on (x, y). */
+  /** One cell symbol, centerd on (x, y). */
   private mark(ctx: CanvasRenderingContext2D, m: Mark, x: number, y: number, c: number, won: boolean): void {
     const glow = won && !this.reduced;
     ctx.save();
     switch (m.type) {
-      case 'colour': {
+      case 'color': {
         const side = c * 0.3;
         if (glow) { ctx.shadowColor = C[m.c]; ctx.shadowBlur = c * 0.2; }
         tile(ctx, x - side / 2, y - side / 2, side, side, side * 0.28, C[m.c]);

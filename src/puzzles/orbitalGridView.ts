@@ -7,7 +7,7 @@ import { C, font, tile } from './palette';
 import type { Area, Point, PuzzleView } from './view';
 
 /** Read at draw time, so a palette change reaches the grid. */
-const orbitalColour = (o: 's' | 'p' | 'd' | 'f'): string => C[o];
+const orbitalColor = (o: 's' | 'p' | 'd' | 'f'): string => C[o];
 
 export const INSTRUCTIONS = `
 <h3>How to play</h3>
@@ -205,7 +205,7 @@ export class OrbitalGridView implements PuzzleView {
   private keyPos(k: number): { x: number; y: number } {
     const L = this.lay!;
     const row = Math.floor(k / L.keyCols), col = k % L.keyCols;
-    // A short last row is centred under the first.
+    // A short last row is centerd under the first.
     const inRow = Math.min(L.keyCols, this.state.size - row * L.keyCols);
     const shift = ((L.keyCols - inRow) * (L.key + L.keyGap)) / 2;
     return { x: L.px + shift + col * (L.key + L.keyGap), y: L.py + row * (L.key + L.keyGap) };
@@ -235,16 +235,16 @@ export class OrbitalGridView implements PuzzleView {
       const v = s.cells[i];
       if (v === EMPTY) tile(ctx, x, y, w, w, rad * 0.8, C.surface2, C.line, 1);
       else {
-        const colour = orbitalColour(symbolOf(s.spin, v).orbital);
+        const color = orbitalColor(symbolOf(s.spin, v).orbital);
         if (s.givens[i]) {
-          tile(ctx, x, y, w, w, rad * 0.8, colour);
+          tile(ctx, x, y, w, w, rad * 0.8, color);
           drawSymbol(ctx, x + w / 2, y + w / 2, w, s.spin, v, C.tileInk);
         } else {
           ctx.save();
           ctx.globalAlpha = 0.3 + 0.2 * glow;
-          tile(ctx, x, y, w, w, rad * 0.8, colour);
+          tile(ctx, x, y, w, w, rad * 0.8, color);
           ctx.restore();
-          tile(ctx, x + 0.75, y + 0.75, w - 1.5, w - 1.5, rad * 0.8, null, colour, 1.5);
+          tile(ctx, x + 0.75, y + 0.75, w - 1.5, w - 1.5, rad * 0.8, null, color, 1.5);
           drawSymbol(ctx, x + w / 2, y + w / 2, w, s.spin, v, C.text);
         }
       }
@@ -262,10 +262,10 @@ export class OrbitalGridView implements PuzzleView {
     const live = !won && sel >= 0 && !s.givens[sel];
     for (let k = 0; k < n; k++) {
       const { x, y } = this.keyPos(k);
-      const colour = orbitalColour(symbolOf(s.spin, k).orbital);
+      const color = orbitalColor(symbolOf(s.spin, k).orbital);
       ctx.save();
       ctx.globalAlpha = live ? 1 : 0.4;
-      tile(ctx, x, y, L.key, L.key, L.key * 0.18, colour);
+      tile(ctx, x, y, L.key, L.key, L.key * 0.18, color);
       drawSymbol(ctx, x + L.key / 2, y + L.key / 2, L.key, s.spin, k, C.tileInk);
       ctx.restore();
       if (live && s.cells[sel] === k) tile(ctx, x - 3, y - 3, L.key + 6, L.key + 6, L.key * 0.22, null, C.silver, 1.5);
@@ -274,11 +274,11 @@ export class OrbitalGridView implements PuzzleView {
 }
 
 /** A symbol: its orbital letter and, on spin grids, an up or down arrow beside it. */
-function drawSymbol(ctx: CanvasRenderingContext2D, cx: number, cy: number, size: number, spin: boolean, k: number, colour: string): void {
+function drawSymbol(ctx: CanvasRenderingContext2D, cx: number, cy: number, size: number, spin: boolean, k: number, color: string): void {
   const { orbital, up } = symbolOf(spin, k);
   ctx.save();
-  ctx.fillStyle = colour;
-  ctx.strokeStyle = colour;
+  ctx.fillStyle = color;
+  ctx.strokeStyle = color;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.font = font(size * (up === null ? 0.5 : 0.44), 600);
