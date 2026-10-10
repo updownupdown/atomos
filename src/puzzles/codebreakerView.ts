@@ -3,9 +3,9 @@
 // slot again clears it. Keys 1-6 type symbols, arrows move, Backspace clears,
 // Enter guesses.
 
-import { cloneCodebreaker, cycleSlot, draftComplete, EMPTY, MAX_ROWS, setSlot, SLOTS, solved, stuck, submit, SYMBOLS, type CodebreakerState } from './codebreaker';
+import { bestGuess, candidates, cloneCodebreaker, cycleSlot, decided, draftComplete, EMPTY, MAX_ROWS, setSlot, SLOTS, solved, stuck, submit, SYMBOLS, type CodebreakerState } from './codebreaker';
 import { C, font, socket, tile } from './palette';
-import { ease, type Area, type Point, type PuzzleView, type RuleCard } from './view';
+import { drawHelpMark, ease, type Area, type Help, type Point, type PuzzleView, type RuleCard } from './view';
 
 const REVEAL_MS = 260;
 /** The six symbol colors, read at draw time. */
@@ -39,6 +39,8 @@ export class CodebreakerView implements PuzzleView {
   private submittedAt = 0;
   private lay: Layout | null = null;
   private reduced: boolean;
+  /** Look here: the guess slots, palette symbols and Guess button to ring, for the board it was asked on. */
+  private mark: { state: CodebreakerState; slots: number[]; keys: number[]; submit: boolean } | null = null;
 
   constructor(private readonly initial: CodebreakerState, reducedMotion: boolean) {
     this.state = cloneCodebreaker(initial);
@@ -58,10 +60,88 @@ export class CodebreakerView implements PuzzleView {
     return `Guess ${this.state.rows.length + 1} of ${MAX_ROWS}`;
   }
 
+  help(level: 1 | 2): Help | null {
+    const s = this.state;
+    if (this.won) return null;
+    if (this.stuck) return { text: 'Restart to try this code again.' };
+    const codes = candidates(s);
+    const { can, fixed, inCode, outCode } = decided(codes);
+    const show = (slots: number[], keys: number[] = [], submit = false) => { this.mark = { state: s, slots, keys, submit }; };
+    // A symbol in the guess row the clues rule out comes first, or one used twice in a code that has no repeats.
+    const twice = (k: number) => s.distinct && s.draft.indexOf(s.draft[k]) < k;
+    const wrong = s.draft.findIndex((v, k) => v !== EMPTY && (!can[k][v] || twice(k)));
+    if (wrong >= 0) {
+      const v = s.draft[wrong];
+      if (level === 2) {
+        // The symbol the best fitting code keeps there, holding on to the rest of the row.
+        const g = bestGuess({ ...s, draft: s.draft.map((x, k) => (k === wrong ? EMPTY : x)) }, codes)!;
+        this.cursor = wrong;
+        this.put(g[wrong]);
+        return { text: 'Swapped out a symbol the clues rule out.', moved: true };
+      }
+      show([wrong], [v]);
+      this.cursor = wrong;
+      return { text: twice(wrong) ? 'No symbol appears twice in this code.' : outCode[v] ? "This symbol can't be in the code." : "This symbol can't go in this slot." };
+    }
+    // Show me: one guess, the unit moves are counted in. It fills the row, keeping what fits, and guesses.
+    if (level === 2) {
+      const g = bestGuess(s, codes)!;
+      for (let k = 0; k < SLOTS; k++) {
+        if (this.state.draft[k] === g[k]) continue;
+        this.cursor = k;
+        this.put(g[k]);
+      }
+      this.trySubmit();
+      return { text: codes.length === 1 ? 'Guessed the only code left.' : 'Guessed a code that fits every clue so far.', moved: true };
+    }
+    const blanks = s.draft.flatMap((v, k) => (v === EMPTY ? [k] : []));
+    if (draftComplete(s)) {
+      if (codes.some((c) => c.every((k, slot) => k === s.draft[slot]))) {
+        show([], [], true);
+        return { text: s.rows.length ? 'This guess fits every clue, so try it.' : 'There are no clues yet, so any guess is a good start.' };
+      }
+      show([...s.draft.keys()]);
+      return { text: "This guess breaks a clue, so it can't be the code." };
+    }
+    if (!s.rows.length) {
+      show(blanks);
+      return { text: 'There are no clues yet, so any guess is a good start.' };
+    }
+    const slot = fixed.findIndex((v, k) => v !== EMPTY && s.draft[k] !== v);
+    if (slot >= 0) {
+      show([slot], [fixed[slot]]);
+      this.cursor = slot;
+      return { text: 'The clues put this symbol in this slot.' };
+    }
+    const sure = inCode.findIndex((x, v) => x && !s.draft.includes(v));
+    if (sure >= 0) {
+      show([], [sure]);
+      return { text: 'The clues say this symbol is in the code.' };
+    }
+    // A symbol ruled out, one already guessed first: that is the one a player might try again.
+    const guessed = (v: number) => s.rows.some((r) => r.guess.includes(v));
+    const out = [...outCode.keys()].filter((v) => outCode[v]).sort((a, b) => Number(guessed(b)) - Number(guessed(a)))[0];
+    if (out !== undefined) {
+      show([], [out]);
+      return { text: 'The clues rule this symbol out.' };
+    }
+    // A symbol that may be in the code but no longer in a slot it was guessed in.
+    for (const r of s.rows) {
+      const k = r.guess.findIndex((v, slot) => !can[slot][v] && !outCode[v]);
+      if (k < 0) continue;
+      show([k], [r.guess[k]]);
+      this.cursor = k;
+      return { text: "The clues say this symbol can't go in this slot." };
+    }
+    show(blanks);
+    return { text: 'Any code that fits every clue so far is a good guess.' };
+  }
+
   restart(): void {
     this.state = cloneCodebreaker(this.initial);
     this.history = [];
     this.cursor = 0;
+    this.mark = null;
   }
 
   canUndo(): boolean { return this.history.length > 0; }
@@ -70,6 +150,7 @@ export class CodebreakerView implements PuzzleView {
     const prev = this.history.pop();
     if (!prev) return false;
     this.state = prev;
+    this.mark = null;
     return true;
   }
 
@@ -279,6 +360,14 @@ export class CodebreakerView implements PuzzleView {
       ctx.fillText(String(k + 1), r.x + r.w - 5, r.y + 4);
       ctx.restore();
     });
+
+    // Look here: the slots, symbols or button the clues point at.
+    const m = this.mark?.state === s && live ? this.mark : null;
+    if (m) {
+      for (const r of [...m.slots.map((k) => L.slots[k]), ...m.keys.map((k) => L.keys[k]), ...(m.submit ? [L.submit] : [])]) {
+        drawHelpMark(ctx, r.x, r.y, r.w, r.h, now, this.reduced, Math.min(r.w, r.h) * 0.18);
+      }
+    }
   }
 }
 

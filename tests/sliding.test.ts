@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { applySlide, newSliding, reach, slidingPlan, solveSliding, solved, type SlidingState } from '../src/puzzles/sliding';
+import { applySlide, newSliding, reach, slidingPath, slidingPlan, solveSliding, solved, type SlidingState } from '../src/puzzles/sliding';
+import { randInt, seeded } from '../src/puzzles/rng';
 import { INSTRUCTIONS, RULES, SlidingView } from '../src/puzzles/slidingView';
 import { C } from '../src/puzzles/palette';
 import type { Area, RuleCard } from '../src/puzzles/view';
@@ -165,6 +166,139 @@ describe('sliding block view', () => {
     expect(v.clean).toBe(true);
     expect(v.undo()).toBe(true);
     expect(v.won).toBe(false);
+  });
+});
+
+describe('sliding block hints', () => {
+  const AREA: Area = { x: 0, y: 0, w: 340, h: 430 };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const stateOf = (v: SlidingView): SlidingState => (v as any).state;
+  /** One short plain sentence: a capital, a full stop, no markup or dashes. */
+  const plain = (text: string) => {
+    expect(text).toMatch(/^[A-Z][^<>—–]*\.$/);
+    expect(text).not.toMatch(/\. /);
+    expect(text.length).toBeLessThanOrEqual(80);
+  };
+  /** A few random slides through the keyboard, as a player might wander. */
+  const wander = (v: SlidingView, seed: number, n: number) => {
+    const rng = seeded(seed);
+    const keys = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'];
+    for (let i = 0; i < n * 20 && v.moves < n && !v.won; i++) {
+      for (let k = randInt(rng, stateOf(v).blocks.length); k > 0; k--) v.key({ key: 'Tab', preventDefault() {} } as KeyboardEvent);
+      v.key({ key: keys[randInt(rng, 4)] } as KeyboardEvent);
+      // Never let the wander free the key bar itself.
+      if (v.won) v.undo();
+    }
+  };
+
+  it('finds a shortest path that the rules accept', () => {
+    for (const z of ZS) for (const seed of [1, 2]) {
+      const s = newSliding(z, seed * 31 + z);
+      const path = slidingPath(s)!;
+      expect(path).toHaveLength(s.par);
+      let t: SlidingState = s;
+      for (const m of path) t = applySlide(t, m)!;
+      expect(solved(t)).toBe(true);
+    }
+  });
+
+  it('Look here marks the piece to move and leaves the board and the count alone', () => {
+    for (const z of ZS) for (const seed of [1, 2, 3]) {
+      const v = new SlidingView(newSliding(z, seed * 31 + z), true);
+      for (const wandered of [false, true]) {
+        if (wandered) wander(v, seed + z, 6);
+        const before = stateOf(v), blocks = JSON.stringify(before.blocks), moves = v.moves;
+        const h = v.help(1)!;
+        plain(h.text);
+        expect(h.text).toMatch(/^(Slide this (key bar|bar|block) (left|right|up|down) next|The way is clear, so slide the key bar out)\.$/);
+        expect(h.moved).toBeUndefined();
+        expect(stateOf(v)).toBe(before);
+        expect(JSON.stringify(stateOf(v).blocks)).toBe(blocks);
+        expect(v.moves).toBe(moves);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const mark = (v as any).mark;
+        expect(mark.state).toBe(before);
+        // The marked piece is the one a shortest path moves first.
+        expect(slidingPath(before)![0].id).toBe(mark.id);
+      }
+    }
+  });
+
+  it('Show me plays a shortest solution, one slide per tap', () => {
+    for (const z of ZS) for (const seed of [1, 2, 3]) {
+      const v = new SlidingView(newSliding(z, seed * 31 + z), true);
+      const par = v.par!;
+      let calls = 0;
+      while (!v.won && calls < par * 3 + 10) {
+        const moves = v.moves;
+        const h = v.help(2)!;
+        plain(h.text);
+        expect(h.moved).toBe(true);
+        expect(v.moves).toBe(moves + 1);
+        expect(v.canUndo()).toBe(true);
+        calls++;
+      }
+      expect(v.won).toBe(true);
+      // From a fresh deal Show me is optimal: exactly par slides.
+      expect(calls).toBe(par);
+      expect(v.clean).toBe(true);
+      expect(v.help(1)).toBeNull();
+      expect(v.help(2)).toBeNull();
+    }
+  });
+
+  it('never meets a dead end: every slide can be slid back, so a wandering board stays solvable', () => {
+    for (const z of [27, 60, 80, 100, 118]) for (const seed of [1, 2]) {
+      const v = new SlidingView(newSliding(z, seed * 31 + z), true);
+      wander(v, seed * 7 + z, 30);
+      expect(v.moves).toBeGreaterThan(0);
+      expect(v.help(1)!.text).not.toMatch(/Undo/);
+      const left = solveSliding(stateOf(v))!;
+      for (let i = 0; i < left; i++) expect(v.help(2)!.moved).toBe(true);
+      expect(v.won).toBe(true);
+    }
+  });
+
+  it('clears the mark on a move, an undo or a restart', () => {
+    const v = new SlidingView(newSliding(40, 3), true);
+    v.help(1);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const mark = () => (v as any).mark;
+    expect(mark()).not.toBeNull();
+    // The mark is drawn inside the area, around the piece.
+    const area = AREA;
+    const { ctx, pts } = mockCtx();
+    v.draw(ctx, area, 0);
+    const { ctx: bare, pts: unmarked } = mockCtx();
+    new SlidingView(stateOf(v), true).draw(bare, area, 0);
+    expect(pts.length).toBeGreaterThan(unmarked.length);
+    for (const [x, y] of pts) {
+      expect(x).toBeGreaterThanOrEqual(area.x - 0.5);
+      expect(x).toBeLessThanOrEqual(area.x + area.w + 0.5);
+      expect(y).toBeGreaterThanOrEqual(area.y - 0.5);
+      expect(y).toBeLessThanOrEqual(area.y + area.h + 0.5);
+    }
+    v.help(2);
+    expect(mark().state).not.toBe(stateOf(v));
+    v.undo();
+    expect(mark()).toBeNull();
+    v.help(1);
+    v.restart();
+    expect(mark()).toBeNull();
+  });
+
+  it('answers well within 200 ms on every element', () => {
+    let worst = 0;
+    const time = (f: () => void) => { const t0 = performance.now(); f(); worst = Math.max(worst, performance.now() - t0); };
+    for (let z = 27; z <= 118; z += 3) {
+      const v = new SlidingView(newSliding(z, z * 13 + 1), true);
+      wander(v, z, 8);
+      while (!v.won) {
+        time(() => v.help(1));
+        time(() => v.help(2));
+      }
+    }
+    expect(worst).toBeLessThan(150);
   });
 });
 

@@ -227,6 +227,58 @@ export function solveBySingles(size: number, rh: number, rw: number, cells: numb
   return grid;
 }
 
+/** A forced step for the Hint button: the cell, the symbol it must hold, and the unit that
+ *  forces it (or 'cell' when it is the only symbol the cell's row, column and region allow). */
+export interface ForcedStep {
+  cell: number;
+  value: number;
+  /** The row, column or region that decides it, as cell indices; just the cell for 'cell'. */
+  unit: number[];
+  kind: 'last' | 'cell' | 'row' | 'column' | 'region';
+}
+
+/** The easiest forced step from the cells that are right so far: a row, column or region with
+ *  one gap left; then a cell only one symbol fits; then a symbol only one cell in a unit can
+ *  take. Wrong cells are ignored (the Hint button points those out first). */
+export function nextForced(s: OrbitalGridState): ForcedStep | null {
+  const { size, rh, rw } = s;
+  const grid = s.cells.map((v, i) => (v === s.solution[i] ? v : EMPTY));
+  const us = unitsCached(size, rh, rw);
+  const kindOf = (u: number): ForcedStep['kind'] => (u < size ? 'row' : u < size * 2 ? 'column' : 'region');
+  for (let u = 0; u < us.length; u++) {
+    const gaps = us[u].filter((i) => grid[i] === EMPTY);
+    if (gaps.length === 1) return { cell: gaps[0], value: s.solution[gaps[0]], unit: us[u], kind: 'last' };
+  }
+  const pe = peers(size, rh, rw);
+  const full = (1 << size) - 1;
+  const cand = grid.map((v, i) => {
+    if (v !== EMPTY) return 0;
+    let c = full;
+    for (const j of pe[i]) if (grid[j] !== EMPTY) c &= ~(1 << grid[j]);
+    return c;
+  });
+  for (let i = 0; i < grid.length; i++) {
+    const c = cand[i];
+    if (c && !(c & (c - 1))) return { cell: i, value: 31 - Math.clz32(c), unit: [i], kind: 'cell' };
+  }
+  for (let u = 0; u < us.length; u++) {
+    for (let v = 0; v < size; v++) {
+      if (us[u].some((i) => grid[i] === v)) continue;
+      const where = us[u].filter((i) => cand[i] & (1 << v));
+      if (where.length === 1) return { cell: where[0], value: v, unit: us[u], kind: kindOf(u) };
+    }
+  }
+  // Nothing forced by singles alone (deals never need more); point at the first open cell.
+  const i = grid.indexOf(EMPTY);
+  return i < 0 ? null : { cell: i, value: s.solution[i], unit: [i], kind: 'cell' };
+}
+
+/** A symbol's name for a sentence: "s", or "p, spin up". */
+export function symbolName(spin: boolean, k: number): string {
+  const { orbital, up } = symbolOf(spin, k);
+  return up === null ? orbital : `${orbital}, spin ${up ? 'up' : 'down'}`;
+}
+
 const unitCache = new Map<string, number[][]>();
 function unitsCached(size: number, rh: number, rw: number): number[][] {
   const key = `${size}:${rh}:${rw}`;

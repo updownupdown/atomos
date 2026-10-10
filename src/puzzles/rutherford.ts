@@ -210,6 +210,16 @@ export function remaining(s: RutherfordState): number {
 interface Constraint {
   cells: number[];
   need: number;
+  /** The probed cells whose numbers give it; none for the count of nuclei left. */
+  at: number[];
+}
+
+/** One round of deduction, and for each cell the probed cells whose numbers prove it (none for
+ *  the count of nuclei left) and whether it took two clues compared. */
+interface Round {
+  safe: Set<number>;
+  hot: Set<number>;
+  why: Map<number, { at: number[]; pair: boolean }>;
 }
 
 /**
@@ -245,6 +255,63 @@ export function choosePort(s: RutherfordState, nucleus: boolean[]): number {
 }
 
 /**
+ * One round of the solver: every cell a single clue proves safe or a nucleus
+ * (the count of nuclei left counts as a clue), or, when none does, the first
+ * cells two overlapping clues prove. `nucleus` is what the solver knows.
+ */
+function deduceRound(s: RutherfordState, nucleus: boolean[]): Round {
+  const n = s.nuclei.length;
+  const unknown = (j: number) => !s.probed[j] && !nucleus[j];
+  const cons: Constraint[] = [];
+  for (let i = 0; i < n; i++) {
+    if (!s.probed[i] || s.nuclei[i] || s.kind[i] === 'quiet') continue;
+    const sc = scope(s, i);
+    const cells = sc.filter(unknown);
+    if (!cells.length) continue;
+    cons.push({ cells, need: s.clue[i] - sc.filter((j) => nucleus[j]).length, at: [i] });
+  }
+  const all: number[] = [];
+  let found = 0;
+  for (let j = 0; j < n; j++) { if (unknown(j)) all.push(j); if (nucleus[j]) found++; }
+  cons.push({ cells: all, need: s.total - found, at: [] });
+
+  const safe = new Set<number>(), hot = new Set<number>();
+  const why: Round['why'] = new Map();
+  const judge = (cells: number[], lo: number, hi: number, at: number[], pair = false) => {
+    if (!cells.length) return;
+    const into = hi <= 0 ? safe : lo >= cells.length ? hot : null;
+    if (!into) return;
+    for (const j of cells) {
+      into.add(j);
+      if (!why.has(j)) why.set(j, { at, pair });
+    }
+  };
+  for (const c of cons) judge(c.cells, c.need, c.need, c.at);
+  if (!safe.size && !hot.size) {
+    const inA = new Uint8Array(n);
+    for (let a = 0; a < cons.length && !safe.size && !hot.size; a++) {
+      const A = cons[a];
+      for (const j of A.cells) inA[j] = 1;
+      for (let b = 0; b < cons.length; b++) {
+        if (a === b) continue;
+        const B = cons[b];
+        let both = 0;
+        const bOnly: number[] = [];
+        for (const j of B.cells) { if (inA[j]) both++; else bOnly.push(j); }
+        if (!both) continue;
+        const aOnly = A.cells.length - both;
+        const maxI = Math.min(A.need, B.need, both);
+        const minI = Math.max(0, A.need - aOnly, B.need - bOnly.length);
+        judge(bOnly, B.need - maxI, B.need - minI, [...A.at, ...B.at], true);
+        if (safe.size || hot.size) break;
+      }
+      for (const j of A.cells) inA[j] = 0;
+    }
+  }
+  return { safe, hot, why };
+}
+
+/**
  * Plays the plate by deduction alone from its current state, probing every
  * cell it can prove safe. Returns the state it reached; it is finished when
  * `solved` holds. Deductions: a clue whose unknowns must be all safe or all
@@ -259,48 +326,7 @@ export function deduce(start: RutherfordState, opts: { beams?: boolean } = {}): 
   let steps = 0, beams = 0;
   for (;;) {
     if (solved(s)) break;
-    const unknown = (j: number) => !s.probed[j] && !nucleus[j];
-    const cons: Constraint[] = [];
-    for (let i = 0; i < n; i++) {
-      if (!s.probed[i] || s.nuclei[i] || s.kind[i] === 'quiet') continue;
-      const sc = scope(s, i);
-      const cells = sc.filter(unknown);
-      if (!cells.length) continue;
-      cons.push({ cells, need: s.clue[i] - sc.filter((j) => nucleus[j]).length });
-    }
-    const all: number[] = [];
-    let found = 0;
-    for (let j = 0; j < n; j++) { if (unknown(j)) all.push(j); if (nucleus[j]) found++; }
-    cons.push({ cells: all, need: s.total - found });
-
-    const safe = new Set<number>(), hot = new Set<number>();
-    const judge = (cells: number[], lo: number, hi: number) => {
-      if (!cells.length) return;
-      if (hi <= 0) for (const j of cells) safe.add(j);
-      else if (lo >= cells.length) for (const j of cells) hot.add(j);
-    };
-    for (const c of cons) judge(c.cells, c.need, c.need);
-    if (!safe.size && !hot.size) {
-      const inA = new Uint8Array(n);
-      for (let a = 0; a < cons.length && !safe.size && !hot.size; a++) {
-        const A = cons[a];
-        for (const j of A.cells) inA[j] = 1;
-        for (let b = 0; b < cons.length; b++) {
-          if (a === b) continue;
-          const B = cons[b];
-          let both = 0;
-          const bOnly: number[] = [];
-          for (const j of B.cells) { if (inA[j]) both++; else bOnly.push(j); }
-          if (!both) continue;
-          const aOnly = A.cells.length - both;
-          const maxI = Math.min(A.need, B.need, both);
-          const minI = Math.max(0, A.need - aOnly, B.need - bOnly.length);
-          judge(bOnly, B.need - maxI, B.need - minI);
-          if (safe.size || hot.size) break;
-        }
-        for (const j of A.cells) inA[j] = 0;
-      }
-    }
+    const { safe, hot } = deduceRound(s, nucleus);
     if (!safe.size && !hot.size) {
       if (!opts.beams) break;
       const port = choosePort(s, nucleus);
@@ -318,6 +344,37 @@ export function deduce(start: RutherfordState, opts: { beams?: boolean } = {}): 
     steps++;
   }
   return { state: s, steps, beams };
+}
+
+/** A cell the numbers decide, with the probed cells whose numbers decide it (and whether two
+ *  clues had to be compared), or a beam to fire. */
+export type Lead =
+  | { kind: 'cell'; cell: number; nucleus: boolean; clues: number[]; pair: boolean }
+  | { kind: 'beam'; port: number };
+
+/**
+ * What a careful player can do next, from what they can see: a cell the
+ * numbers prove safe (to probe) or a nucleus (to mark), with the probed cells
+ * whose numbers prove it (none when the count of nuclei left does); or, when
+ * nothing is certain, the beam the solver would fire. Marks are not trusted:
+ * a marked nucleus counts as known only once the numbers prove it, and the
+ * proof goes on past it. Null on a solved plate, or when nothing is left to learn.
+ */
+export function nextLead(s: RutherfordState): Lead | null {
+  if (solved(s)) return null;
+  const nucleus = s.nuclei.map((_, i) => shown(s, i));
+  for (;;) {
+    const { safe, hot, why } = deduceRound(s, nucleus);
+    if (!safe.size && !hot.size) {
+      const port = choosePort(s, nucleus);
+      return port < 0 ? null : { kind: 'beam', port };
+    }
+    // A safe cell first: probing is what finishes the plate.
+    for (const j of safe) return { kind: 'cell', cell: j, nucleus: false, clues: why.get(j)!.at, pair: why.get(j)!.pair };
+    for (const j of hot) if (!s.marked[j]) return { kind: 'cell', cell: j, nucleus: true, clues: why.get(j)!.at, pair: why.get(j)!.pair };
+    // Every nucleus proved this round is marked already: take them as known and go on.
+    for (const j of hot) nucleus[j] = true;
+  }
 }
 
 // ---- generation ----------------------------------------------------------------------

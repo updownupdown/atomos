@@ -20,7 +20,7 @@
 
 import { allSparks, cellX, cellY, cloneSlideStop, cracksOf, isRock, slide, slideRun, solve, solved, type Dir, type SlideStopState, type Tile } from './slideStop';
 import { bead, C, fitGrid, font, tile } from './palette';
-import { ease, type Area, type Illustration, type Point, type PuzzleView, type RuleCard } from './view';
+import { drawHelpMark, ease, undoHelp, type Area, type Help, type Illustration, type Point, type PuzzleView, type RuleCard } from './view';
 
 const SWIPE = 22;
 const MS_PER_CELL = 55;
@@ -189,6 +189,8 @@ export class SlideStopView implements PuzzleView {
   private cell = 0;
   private reduced: boolean;
   private reachCache: { state: SlideStopState; left: number | null } | null = null;
+  /** Look here: the slide to point at, for the board it was asked on. */
+  private mark: { state: SlideStopState; dir: Dir; end: number } | null = null;
 
   constructor(private readonly initial: SlideStopState, reducedMotion: boolean) {
     this.state = cloneSlideStop(initial);
@@ -214,6 +216,30 @@ export class SlideStopView implements PuzzleView {
     const left = s.sparks.length - popcount(s.got);
     if (left > 0) return left === 1 ? '1 photon left' : `${left} photons left`;
     return 'Stop on the ring';
+  }
+
+  help(level: 1 | 2): Help | null {
+    if (this.won) return null;
+    const s = this.state;
+    const route = solve(s);
+    if (!route) return this.backOnTrack();
+    const dir = route[0];
+    if (level === 2) {
+      this.go(dir);
+      return { text: `Slid ${dir}.`, moved: true };
+    }
+    this.mark = { state: s, dir, end: slideRun(s, dir).end };
+    const text = route.length === 1 ? `Slide ${dir} to stop on the ring.`
+      : s.moves === 0 ? `Start by sliding ${dir}.` : `Slide ${dir} next.`;
+    return { text };
+  }
+
+  /** On a board that can no longer be won: the fewest undos back to one that can. */
+  private backOnTrack(): Help {
+    const h = this.history;
+    for (let k = 1; k <= h.length; k++) if (solve(h[h.length - k])) return undoHelp(k);
+    // Only when the way back is older than the undo history keeps.
+    return { text: 'Restart to get back on track.' };
   }
 
   restart(): void {
@@ -294,6 +320,10 @@ export class SlideStopView implements PuzzleView {
     });
     if (gl && t >= 1 && now - gl.at - gl.ms * 0.4 >= TRAIL_MS) this.glide = null;
 
+    // Look here: the first slide of the best route, from the electron to where it stops.
+    const m = this.mark?.state === s && !this.won && t >= 1 ? this.mark : null;
+    if (m) helpSlide(ctx, s, { x: fit.x, y: fit.y, c, rows: s.size }, m.end, m.dir, now, this.reduced);
+
     if (status) {
       ctx.font = font(12);
       ctx.fillStyle = C.text2;
@@ -302,6 +332,27 @@ export class SlideStopView implements PuzzleView {
       ctx.fillText(`Photons ${popcount(s.got)} / ${s.sparks.length}`, this.origin.x + 2, this.origin.y - 6);
     }
   }
+}
+
+/** The Look here mark for a slide: a soft outline round the cells it crosses, and a chevron where it stops. */
+function helpSlide(ctx: CanvasRenderingContext2D, s: SlideStopState, g: Geo, end: number, dir: Dir, now: number, reduced: boolean): void {
+  const c = g.c;
+  const a = centerOf(s, g, s.pos), b = centerOf(s, g, end);
+  const k = c * 0.42;
+  drawHelpMark(ctx, Math.min(a.x, b.x) - k, Math.min(a.y, b.y) - k, Math.abs(b.x - a.x) + 2 * k, Math.abs(b.y - a.y) + 2 * k, now, reduced, k);
+  const [dx, dy] = dir === 'up' ? [0, -1] : dir === 'down' ? [0, 1] : dir === 'left' ? [-1, 0] : [1, 0];
+  const w = c * 0.16;
+  ctx.save();
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+  ctx.lineWidth = Math.max(2, c * 0.06);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  ctx.moveTo(b.x - dx * w + dy * w, b.y - dy * w + dx * w);
+  ctx.lineTo(b.x, b.y);
+  ctx.lineTo(b.x - dx * w - dy * w, b.y - dy * w - dx * w);
+  ctx.stroke();
+  ctx.restore();
 }
 
 function popcount(v: number): number {

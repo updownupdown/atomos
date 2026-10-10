@@ -2,9 +2,9 @@
 // follows the finger up to whatever stops it, then snaps to the nearest cell);
 // the red key bar leaves through the gap in the right wall.
 
-import { applySlide, cellsOf, reach, solved, type Block, type Reach, type SlidingState } from './sliding';
+import { applySlide, cellsOf, reach, slidingPath, solved, type Block, type Reach, type SlideMove, type SlidingState } from './sliding';
 import { C, fitGrid, tile } from './palette';
-import { ease, type Area, type Point, type PuzzleView, type RuleCard } from './view';
+import { drawHelpMark, ease, undoHelp, type Area, type Help, type Point, type PuzzleView, type RuleCard } from './view';
 
 const SNAP_MS = 140;
 const EXIT_MS = 520;
@@ -42,6 +42,8 @@ export class SlidingView implements PuzzleView {
   private reduced: boolean;
   private cell = 0;
   private origin: Point = { x: 0, y: 0 };
+  /** Look here: the piece to move next, for the board it was asked on. */
+  private mark: { state: SlidingState; id: number } | null = null;
 
   constructor(private readonly initial: SlidingState, reducedMotion: boolean) {
     this.state = initial;
@@ -72,9 +74,40 @@ export class SlidingView implements PuzzleView {
     return seen.size;
   }
 
+  help(level: 1 | 2): Help | null {
+    const s = this.state;
+    if (this.won) return null;
+    const path = slidingPath(s);
+    // Slides can always be slid back, so a dealt board never stops being solvable; this is only a safety net.
+    if (!path) return this.backOnTrack();
+    const m = path[0];
+    const b = s.blocks.find((x) => x.id === m.id)!;
+    const way = m.dx < 0 ? 'left' : m.dx > 0 ? 'right' : m.dy < 0 ? 'up' : 'down';
+    const by = Math.abs(m.dx || m.dy);
+    const what = m.id === 0 ? 'key bar' : b.free ? 'block' : 'bar';
+    if (level === 2) {
+      this.selected = m.id;
+      this.play(m);
+      if (this.won) return { text: 'Slid the key bar out through the gap.', moved: true };
+      return { text: `Slid ${m.id === 0 ? 'the' : 'a'} ${what} ${way} ${by === 1 ? 'one cell' : `${by} cells`}.`, moved: true };
+    }
+    this.mark = { state: s, id: m.id };
+    this.selected = m.id;
+    if (m.id === 0 && path.length === 1) return { text: 'The way is clear, so slide the key bar out.' };
+    return { text: `Slide this ${what} ${way} next.` };
+  }
+
+  /** The fewest undos back to a board that can still be solved. */
+  private backOnTrack(): Help | null {
+    const h = this.history;
+    for (let n = 1; n <= h.length; n++) if (slidingPath(h[h.length - n])) return undoHelp(n);
+    return null;
+  }
+
   restart(): void {
     this.state = this.initial;
     this.history = [];
+    this.mark = null;
     this.drag = null;
     this.snap = null;
   }
@@ -86,6 +119,8 @@ export class SlidingView implements PuzzleView {
     if (!prev) return false;
     this.state = prev;
     this.drag = null;
+    // Undo hands back the very board a Look here may have been asked on; the mark stays cleared.
+    this.mark = null;
     this.snap = null;
     return true;
   }
@@ -164,12 +199,16 @@ export class SlidingView implements PuzzleView {
     const dirs: Record<string, [number, number]> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
     const v = dirs[e.key];
     if (!v) return false;
-    const next = applySlide(this.state, { id: this.selected, dx: v[0], dy: v[1] });
-    if (next) {
-      this.snap = { id: this.selected, horiz: v[0] !== 0, from: -(v[0] || v[1]), at: performance.now() };
-      this.commit(next);
-    }
+    this.play({ id: this.selected, dx: v[0], dy: v[1] });
     return true;
+  }
+
+  /** One slide from the keyboard or Show me: the piece glides from where it was. */
+  private play(m: SlideMove): void {
+    const next = applySlide(this.state, m);
+    if (!next) return;
+    this.snap = { id: m.id, horiz: m.dx !== 0, from: -(m.dx || m.dy), at: performance.now() };
+    this.commit(next);
   }
 
   // ---- drawing --------------------------------------------------------------------
@@ -213,6 +252,13 @@ export class SlidingView implements PuzzleView {
       }
       const active = !this.won && (d ? d.id === b.id : this.selected === b.id && this.keyboard);
       drawBlock(ctx, b, bx, by, c, active);
+    }
+
+    // Look here: the piece to move next, until the board changes.
+    if (this.mark?.state === s && !this.won && !this.drag) {
+      const b = s.blocks.find((x) => x.id === this.mark!.id)!, g = c * 0.07;
+      const bw = (!b.free && b.horiz ? b.len : 1) * c - 2 * g, bh = (!b.free && !b.horiz ? b.len : 1) * c - 2 * g;
+      drawHelpMark(ctx, x0 + b.x * c + g, y0 + b.y * c + g, bw, bh, now, this.reduced, b.free ? bw / 2 : c * 0.18);
     }
   }
 

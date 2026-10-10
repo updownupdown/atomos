@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cellSides, check, clearPath, edgeKey, extend, INTRO, newLines, normalize, pathEdges, regions, retract, rulesFor, satisfies, sizeFor, solved, tiles, verdict, type LinesState, type Mark, type Pt } from '../src/puzzles/lines';
+import { cellSides, check, clearPath, completeLine, edgeKey, extend, INTRO, newLines, nextStretch, normalize, pathEdges, regions, retract, rulesFor, satisfies, sharedPrefix, sizeFor, solved, tiles, verdict, type LinesState, type Mark, type Pt } from '../src/puzzles/lines';
 import { seeded } from '../src/puzzles/rng';
 import { INSTRUCTIONS, LinesView, RULES } from '../src/puzzles/linesView';
 import { C } from '../src/puzzles/palette';
@@ -257,6 +257,196 @@ describe('view and rule cards', () => {
     expect(INSTRUCTIONS).toMatch(/^\s*<h3>In the game<\/h3>\s*<p class="meta">/);
     expect(INSTRUCTIONS).not.toMatch(/How to play/);
     expect(RULES.map((r) => r.title)).toEqual(['Start', 'End', 'Pockets', 'Beads', 'Gaps', 'Orbitals', 'Bars', 'Pairs', 'Shapes', 'Two starts or ends']);
+  });
+});
+
+describe('hints', () => {
+  const SEEDS = [1, 2, 3, 7, 11];
+  /** The view's own state, for checking the board is left alone. */
+  const snapshot = (v: LinesView) => JSON.stringify((v as unknown as { state: LinesState }).state);
+  const timed = <T>(f: () => T): [T, number] => { const t0 = performance.now(); const r = f(); return [r, performance.now() - t0]; };
+
+  it('Look here says why and leaves the board alone', () => {
+    for (const z of SPREAD) for (const seed of SEEDS) {
+      const v = new LinesView(newLines(z, seed), false);
+      const before = snapshot(v);
+      const h = v.help(1)!;
+      expect(h.text.length, `z ${z} seed ${seed}`).toBeGreaterThan(0);
+      expect(h.text).not.toMatch(/[<>—]/);
+      expect(h.moved).toBeUndefined();
+      expect(snapshot(v)).toBe(before);
+      expect(v.moves).toBe(0);
+      expect(v.canUndo()).toBe(false);
+      // The mark shows on the board it was asked on, inside the area.
+      for (const a of AREAS_ALL) {
+        const { ctx, pts } = recCtx();
+        v.draw(ctx, a, 0);
+        expect(inside(pts, a)).toBe(true);
+      }
+    }
+  });
+
+  it('Show me draws the line a stretch at a time, as strokes of the pen, and wins on one check', () => {
+    let worst = 0;
+    for (const z of SPREAD) for (const seed of SEEDS) {
+      const s = newLines(z, seed);
+      const v = new LinesView(s, false);
+      const bound = Math.ceil(s.solution.length / 3) + 2;
+      let calls = 0;
+      while (!v.won && calls < bound) {
+        const h = v.help(2)!;
+        calls++;
+        expect(h.moved).toBe(true);
+        expect(h.text.length).toBeGreaterThan(0);
+        // A stroke that lets go on a − charge is a check, the only thing that counts as a move.
+        expect(v.moves).toBe(v.won ? 1 : 0);
+        expect(v.canUndo()).toBe(true);
+      }
+      worst = Math.max(worst, calls);
+      expect(v.won, `z ${z} seed ${seed}`).toBe(true);
+      expect(v.clean).toBe(true);
+      expect(v.help(1)).toBeNull();
+      expect(v.help(2)).toBeNull();
+    }
+    expect(worst).toBeLessThanOrEqual(13);
+  });
+
+  it('Show me can be undone stroke by stroke', () => {
+    const v = new LinesView(newLines(40, 5), false);
+    v.help(2);
+    v.help(2);
+    const drawn = (v as unknown as { state: LinesState }).state.path.length;
+    expect(v.undo()).toBe(true);
+    expect((v as unknown as { state: LinesState }).state.path.length).toBeLessThan(drawn);
+    expect(v.undo()).toBe(true);
+    expect((v as unknown as { state: LinesState }).state.path.length).toBe(0);
+  });
+
+  it('points at a wrong turn and takes the line back to it', () => {
+    let sure = 0, unsure = 0;
+    for (const z of SPREAD) for (const seed of SEEDS) {
+      const s = newLines(z, seed);
+      // Follow the hidden walk for a while, then turn off it where a lawful step allows and no lawful line follows.
+      let st = s;
+      let wrong = -1;
+      let proven = false;
+      for (let i = 0; i < s.solution.length - 1 && wrong < 0; i++) {
+        st = extend(st, s.solution[i])!;
+        if (i < 3) continue;
+        const cur = s.solution[i];
+        for (const d of [{ x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 }, { x: 0, y: -1 }]) {
+          const n = { x: cur.x + d.x, y: cur.y + d.y };
+          if ([s.solution[i - 1], s.solution[i + 1]].some((q) => q.x === n.x && q.y === n.y)) continue;
+          const next = extend(st, n);
+          if (!next) continue;
+          const found = completeLine(next, next.path, undefined, s.solution);
+          if (!found.line) { st = next; wrong = i + 1; proven = found.sure; break; }
+        }
+      }
+      if (wrong < 0) continue;
+      if (proven) sure++; else unsure++;
+      const v = new LinesView(st, false);
+      const before = snapshot(v);
+      const h1 = v.help(1)!;
+      expect(h1.text).toBe(proven ? 'The line goes the wrong way here.' : 'The line may not work past here, so try another way.');
+      expect(snapshot(v)).toBe(before);
+      expect(v.canUndo()).toBe(false);
+      const h2 = v.help(2)!;
+      expect(h2).toEqual({ text: proven ? 'Took the line back to where it went wrong.' : 'Took the line back to a point that works.', moved: true });
+      expect((v as unknown as { state: LinesState }).state.path).toEqual(s.solution.slice(0, wrong));
+      expect(v.moves).toBe(0);
+      expect(v.undo()).toBe(true);
+      expect(snapshot(v)).toBe(before);
+      // From there, Show me finishes the job.
+      v.help(2);
+      for (let k = 0; k < 20 && !v.won; k++) v.help(2);
+      expect(v.won).toBe(true);
+      expect(v.moves).toBe(1);
+    }
+    expect(sure).toBeGreaterThan(20);
+    expect(unsure).toBeGreaterThan(0);
+  });
+
+  it('follows a different lawful line rather than call it wrong', () => {
+    // On a bare board with only an end to reach, any line is lawful.
+    const s = board({}, { solution: P(0, 3, 1, 3, 2, 3, 3, 3, 3, 2, 3, 1, 3, 0) });
+    const st = drawPath(s, P(0, 3, 0, 2, 0, 1));
+    const v = new LinesView(st, false);
+    expect(v.help(1)!.text).not.toMatch(/wrong/);
+    for (let k = 0; k < 10 && !v.won; k++) v.help(2);
+    expect(v.won).toBe(true);
+  });
+
+  it('checks a finished line that was not let go on the charge', () => {
+    const s = newLines(30, 4);
+    const v = new LinesView(drawPath(s, s.solution), false);
+    expect(v.help(1)!.text).toBe('The line is done, so check it.');
+    expect(v.help(2)).toEqual({ text: 'Checked the line.', moved: true });
+    expect(v.won).toBe(true);
+    expect(v.moves).toBe(1);
+  });
+
+  it('after a failed check, points back along the line', () => {
+    for (const z of [12, 44, 92]) {
+      const s = newLines(z, 9);
+      // Run straight along the rim to any end: almost never lawful.
+      const v = new LinesView(s, false);
+      const k = (v as unknown as { judge(): void });
+      const st = (v as unknown as { state: LinesState });
+      let p = s;
+      p = extend(p, s.starts[0])!;
+      for (let guard = 0; guard < 60; guard++) {
+        const last = p.path[p.path.length - 1];
+        if (p.path.length > 1 && s.ends.some((e) => e.x === last.x && e.y === last.y)) break;
+        const opts = [{ x: 1, y: 0 }, { x: 0, y: -1 }, { x: -1, y: 0 }, { x: 0, y: 1 }].map((d) => extend(p, { x: last.x + d.x, y: last.y + d.y })).filter(Boolean) as LinesState[];
+        if (!opts.length) break;
+        p = opts[0];
+      }
+      st.state = p;
+      k.judge();
+      if (v.won) continue;
+      expect(v.moves).toBe(1);
+      const h = v.help(1)!;
+      expect(h.text.length).toBeGreaterThan(0);
+      for (let n = 0; n < 25 && !v.won; n++) v.help(2);
+      expect(v.won).toBe(true);
+      expect(v.moves).toBe(2);
+    }
+  });
+
+  it('answers quickly', () => {
+    let worst = 0;
+    for (const z of SPREAD) for (const seed of SEEDS) {
+      const s = newLines(z, seed);
+      // A fresh board, one partway along, and lines that turn off the hidden walk early, midway and late.
+      const boards = [s, drawPath(s, s.solution.slice(0, Math.ceil(s.solution.length / 2)))];
+      for (const f of [0.25, 0.5, 0.75]) {
+        const i = Math.max(1, Math.floor(s.solution.length * f));
+        const st = drawPath(s, s.solution.slice(0, i + 1));
+        for (const d of [{ x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 }, { x: 0, y: -1 }]) {
+          const n = extend(st, { x: s.solution[i].x + d.x, y: s.solution[i].y + d.y });
+          if (n && n.path.length > st.path.length && sharedPrefix(n.path, s.solution) === i + 1) boards.push(n);
+        }
+      }
+      for (const b of boards) for (const level of [1, 2] as const) {
+        const [, ms] = timed(() => new LinesView(b, false).help(level));
+        worst = Math.max(worst, ms);
+      }
+    }
+    expect(worst).toBeLessThan(200);
+  }, 30000);
+
+  it('stretches end at a mark, and never early on a − charge', () => {
+    for (const z of SPREAD) {
+      const s = newLines(z, 2);
+      let drawn = 0;
+      while (drawn < s.solution.length) {
+        const { nodes } = nextStretch(s, s.solution, drawn);
+        expect(nodes.length).toBeGreaterThan(0);
+        drawn += nodes.length;
+      }
+      expect(drawn).toBe(s.solution.length);
+    }
   });
 });
 

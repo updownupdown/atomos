@@ -77,6 +77,8 @@ export interface PuzzleType {
   tier: Tier;
   /** What the player does, in a line. */
   blurb: string;
+  /** One line on what winning takes, under the puzzle's name for its first plays. */
+  goal: string;
   /** Where it sits in the progression. */
   role: string;
   /** Where the game actually uses it today; absent while it lives only in the playground. Keep this true to the code. */
@@ -119,6 +121,7 @@ export const PUZZLES: PuzzleType[] = [
     id: 'merge', name: 'Tokamak', tier: 'every',
     use: 'Nucleus · every atom',
     get rules() { return rulesOf(MergeV); },
+    goal: 'Merge clusters into the ones the nucleus needs.',
     blurb: 'Swipe to slide the board; two clusters of the same size merge. Gather the clusters the nucleus wants.',
     role: 'Builds the nucleus of every element, and is one of the puzzles a fleeting isotope can be built with.',
     live: 'Build mode: every nucleus from helium to oganesson; any fleeting isotope, by choice.',
@@ -140,6 +143,7 @@ export const PUZZLES: PuzzleType[] = [
     id: 'orbitalGrid', name: 'Quanta', tier: 'every',
     use: 'Electrons · every atom',
     get rules() { return rulesOf(GridV); },
+    goal: 'Fill the grid with no symbol twice in a row, column or block.',
     blurb: 'Fill the grid so every row, column and outlined block holds each orbital once. Drag symbols from the stacks under the grid.',
     role: 'Settles the electrons of every element, standing in for Shell Rings until a better electron puzzle is found.',
     live: 'Build mode: the electrons of every element.',
@@ -158,6 +162,7 @@ export const PUZZLES: PuzzleType[] = [
     id: 'sliding', name: 'Nova', tier: 'facet',
     use: 'Isotopes',
     get rules() { return rulesOf(SlidingV); },
+    goal: 'Clear a path so the red bar can slide out.',
     blurb: 'Slide the bars and blocks out of the way so the red key bar can slide out.',
     role: 'Builds isotopes, leaning toward the heavy atoms, where its deepest boards are.',
     live: 'Build mode: 41 lasting isotopes, and any fleeting isotope by choice.',
@@ -177,6 +182,7 @@ export const PUZZLES: PuzzleType[] = [
     id: 'packing', name: 'Tessera', tier: 'facet',
     use: 'Isotopes',
     get rules() { return rulesOf(PackingV); },
+    goal: 'Fill the outline exactly, using every piece.',
     blurb: 'Drag the pieces into the outline until it is filled exactly; tap a piece to turn it.',
     role: 'Builds isotopes, leaning toward the lighter atoms.',
     live: 'Build mode: 72 lasting isotopes, and any fleeting isotope by choice.',
@@ -195,6 +201,7 @@ export const PUZZLES: PuzzleType[] = [
     id: 'lines', name: 'Flux', tier: 'facet',
     use: 'Isotopes',
     get rules() { return rulesOf(LinesV); },
+    goal: 'Draw one line from + to − that keeps every mark happy.',
     blurb: 'Draw one line from a + charge to a − charge that keeps every mark on the board happy.',
     role: 'Builds isotopes, leaning toward the heavy atoms; planned for a chapter per particle (17).',
     live: 'Build mode: 41 lasting isotopes, and any fleeting isotope by choice.',
@@ -213,6 +220,7 @@ export const PUZZLES: PuzzleType[] = [
     id: 'slideStop', name: 'Inertia', tier: 'facet',
     use: 'Isotopes',
     get rules() { return rulesOf(SlideStopV); },
+    goal: 'Absorb every photon, then stop on the red ring.',
     blurb: 'Swipe and the electron slides until something stops it. Absorb every photon, then stop on the red ring.',
     role: 'Builds isotopes. (Rows of the table now open by progress instead.)',
     live: 'Build mode: 38 lasting isotopes, and any fleeting isotope by choice.',
@@ -228,6 +236,7 @@ export const PUZZLES: PuzzleType[] = [
     id: 'light', name: 'Lumen', tier: 'facet',
     use: 'Isotopes',
     get rules() { return rulesOf(LightV); },
+    goal: 'Place the tray pieces so light reaches every ring.',
     blurb: 'Set the mirrors and splitters from the tray so light reaches every ring and no dark sensor. Each board has one answer, and it uses every piece.',
     role: 'Builds fleeting isotopes, when you pick it; lasting isotopes keep their own puzzles.',
     live: 'Build mode: any fleeting isotope by choice.',
@@ -244,6 +253,7 @@ export const PUZZLES: PuzzleType[] = [
     id: 'rutherford', name: 'Aurum', tier: 'facet',
     use: 'Isotopes',
     get rules() { return rulesOf(RutherfordV); },
+    goal: 'Find every nucleus without a direct hit.',
     blurb: 'Probe the foil cell by cell and fire a few alpha beams from the rim; counts and beam tracks reveal where every nucleus sits. Find them all without a direct hit.',
     role: 'Builds isotopes, leaning toward the lighter atoms.',
     live: 'Build mode: 30 lasting isotopes, and any fleeting isotope by choice.',
@@ -259,6 +269,7 @@ export const PUZZLES: PuzzleType[] = [
     id: 'codebreaker', name: 'Glyph', tier: 'gate',
     use: 'Display unlocks · 12 in all',
     get rules() { return rulesOf(CodeV); },
+    goal: 'Crack the sealed code of four.',
     blurb: 'Guess the sealed sequence of four; each guess earns clues about what was right.',
     role: 'Played twelve times in all, never more: each solve opens a way to see the collection (two gallery lenses, six looks, the nucleus view, and the p, d and f orbital shapes).',
     live: 'Gallery: the Ribbon and Circle lenses, six looks and the nucleus view. Build mode: the p, d and f orbital shapes on boron, scandium and cerium.',
@@ -277,6 +288,7 @@ export const PUZZLES: PuzzleType[] = [
     id: 'colorCharge', name: 'Chroma', tier: 'facet',
     use: 'Isotopes',
     get rules() { return rulesOf(ChargeV); },
+    goal: 'Clear the grid in color-neutral groups.',
     blurb: 'Bind the quarks into color-neutral groups until the grid is clear; on heavier elements a gluon can swap two colors.',
     role: 'Builds isotopes, leaning toward the lighter atoms; planned for the quark and gluon chapters of the particles too.',
     live: 'Build mode: 72 lasting isotopes, and any fleeting isotope by choice.',

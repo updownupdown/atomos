@@ -474,3 +474,98 @@ export function newColorCharge(z: number, seed: number): ColorChargeState {
     moves: 0, par: pieces.length + swaps.length,
   };
 }
+
+// ---- hints ---------------------------------------------------------------------------
+
+/** The tiles as the one clearance binds them: as dealt, with the hidden swaps made. */
+export function targetTiles(s: ColorChargeState): Quark[] {
+  let t = s.tiles;
+  for (let k = s.swaps.length - 1; k >= 0; k--) t = swapped(t, s.swaps[k][0], s.swaps[k][1]);
+  for (const [a, b] of s.solutionSwaps) t = swapped(t, a, b);
+  return t;
+}
+
+/**
+ * The fewest gluon swaps among free tiles, no more than the gluons left, that
+ * give every free tile its color in the clearance; null when there is no such
+ * way. A breadth-first search: there are at most two gluons.
+ */
+export function swapRoute(s: ColorChargeState, target = targetTiles(s)): [number, number][] | null {
+  const free = (i: number) => s.bound[i] < 0;
+  const misses = (t: Quark[]) => t.reduce((n, q, i) => n + (free(i) && q.color !== target[i].color ? 1 : 0), 0);
+  const left = gluonsLeft(s);
+  let layer: { t: Quark[]; route: [number, number][] }[] = [{ t: s.tiles, route: [] }];
+  const seen = new Set([keyOf(s.tiles)]);
+  for (let k = 0; ; k++) {
+    for (const { t, route } of layer) if (!misses(t)) return route;
+    if (k === left) return null;
+    const next: typeof layer = [];
+    for (const { t, route } of layer) {
+      // Each swap fixes at most two tiles.
+      if (misses(t) > 2 * (left - k)) continue;
+      for (const [a, b] of swapPairs(t, s.cols, s.rows, (i) => !free(i))) {
+        const u = swapped(t, a, b);
+        const key = keyOf(u);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        next.push({ t: u, route: [...route, [a, b]] });
+      }
+    }
+    layer = next;
+  }
+}
+
+const groupKey = (cells: number[]): string => [...cells].sort((a, b) => a - b).join(',');
+
+/**
+ * True while the grid can still be cleared: every group bound so far is one
+ * of the clearance's, and the gluons left can still give the free tiles their
+ * colors in it. Levels have one clearance, so this is the same as canFinish,
+ * only quicker.
+ */
+export function onTrack(s: ColorChargeState): boolean {
+  const keys = new Set(s.solution.map(groupKey));
+  return s.groups.every((g) => keys.has(groupKey(g))) && swapRoute(s) !== null;
+}
+
+export type ChargeStep =
+  /** `only` is a tile of the group that no other neutral group could hold, or -1. */
+  | { kind: 'bind'; cells: number[]; only: number }
+  | { kind: 'swap'; cells: [number, number] };
+
+/** How many neutral groups of free tiles, as they are colored now, could hold tile `i`. */
+function groupsHolding(s: ColorChargeState, i: number): number {
+  const near = (a: number) => [a - 1, a + 1, a - s.cols, a + s.cols].filter((b) => b >= 0 && b < s.tiles.length && s.bound[b] < 0 && adjacent(s.cols, a, b));
+  const found = new Set<string>();
+  for (const j of near(i)) {
+    if (groupKind(s.tiles, [i, j])) found.add(groupKey([i, j]));
+    for (const k of new Set([...near(i), ...near(j)])) {
+      if (k !== i && k !== j && groupKind(s.tiles, [i, j, k])) found.add(groupKey([i, j, k]));
+    }
+  }
+  return found.size;
+}
+
+/**
+ * The next step of the one clearance from here, or null when the grid is
+ * clear or can no longer be cleared. Groups come first, any that the swaps
+ * still to come leave alone, preferring one with a tile nothing else could
+ * hold; then the next swap.
+ */
+export function nextStep(s: ColorChargeState): ChargeStep | null {
+  if (solved(s)) return null;
+  const keys = new Set(s.solution.map(groupKey));
+  if (!s.groups.every((g) => keys.has(groupKey(g)))) return null;
+  const target = targetTiles(s);
+  const route = swapRoute(s, target);
+  if (!route) return null;
+  const touched = new Set(route.flat());
+  const ready = s.solution.filter((g) => g.every((i) => s.bound[i] < 0 && !touched.has(i) && s.tiles[i].color === target[i].color));
+  let pick: ChargeStep | null = null;
+  for (const g of ready) {
+    const only = g.find((i) => groupsHolding(s, i) === 1) ?? -1;
+    if (only >= 0) return { kind: 'bind', cells: g, only };
+    pick ??= { kind: 'bind', cells: g, only: -1 };
+  }
+  return pick ?? (route.length ? { kind: 'swap', cells: route[0] } : null);
+}

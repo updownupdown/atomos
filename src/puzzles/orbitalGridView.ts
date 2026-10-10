@@ -11,9 +11,9 @@
 // with the glyph in the hue, like the mark's solid and hollow nucleons. Dealt
 // tiles are nearly square, yours are round, and neither has an outline.
 
-import { conflicts, cycleValue, EMPTY, filledCount, moveTile, place, remaining, solved, symbolOf, type Orbital, type OrbitalGridState } from './orbitalGrid';
+import { conflicts, cycleValue, EMPTY, filledCount, moveTile, nextForced, place, remaining, solved, symbolName, symbolOf, type Orbital, type OrbitalGridState } from './orbitalGrid';
 import { C, font, tile } from './palette';
-import type { Area, Point, PuzzleView, RuleCard } from './view';
+import { drawHelpMark, type Area, type Help, type Point, type PuzzleView, type RuleCard } from './view';
 
 export const INSTRUCTIONS = `
 <h3>In the game</h3>
@@ -207,10 +207,13 @@ export class OrbitalGridView implements PuzzleView {
   private drag: Drag | null = null;
   private lay: Layout | null = null;
   private area: Area = { x: 0, y: 0, w: 1, h: 1 };
+  /** Look here: the cells to ring, for the board it was asked on. */
+  private mark: { state: OrbitalGridState; unit: number[]; cell: number } | null = null;
+  private reduced: boolean;
 
   constructor(private readonly initial: OrbitalGridState, reducedMotion: boolean) {
     this.state = initial;
-    void reducedMotion;
+    this.reduced = reducedMotion;
     this.selected = initial.cells.indexOf(EMPTY);
   }
 
@@ -225,6 +228,40 @@ export class OrbitalGridView implements PuzzleView {
     const clash = conflicts(this.state).filter(Boolean).length;
     if (clash) return `${clash} cells clash`;
     return `${filledCount(this.state)} / ${this.state.par} placed`;
+  }
+
+  help(level: 1 | 2): Help | null {
+    const s = this.state;
+    if (this.won) return null;
+    // A tile in the wrong place comes first: nothing else can be trusted while it is there.
+    const wrong = s.cells.findIndex((v, i) => v !== EMPTY && !s.givens[i] && v !== s.solution[i]);
+    if (wrong >= 0) {
+      if (level === 2) {
+        this.set(wrong, s.solution[wrong]);
+        this.selected = wrong;
+        return { text: `That cell takes ${symbolName(s.spin, s.solution[wrong])}.`, moved: true };
+      }
+      this.mark = { state: s, unit: [wrong], cell: wrong };
+      this.selected = wrong;
+      return { text: "This tile doesn't belong here." };
+    }
+    const f = nextForced(s);
+    if (!f) return null;
+    const name = symbolName(s.spin, f.value);
+    if (level === 2) {
+      this.set(f.cell, f.value);
+      this.selected = f.cell;
+      return { text: `Placed ${name}.`, moved: true };
+    }
+    this.mark = { state: s, unit: f.unit, cell: f.cell };
+    this.selected = f.cell;
+    const n = s.size;
+    const where = f.unit.every((i) => Math.floor(i / n) === Math.floor(f.cell / n)) ? 'row'
+      : f.unit.every((i) => i % n === f.cell % n) ? 'column' : 'block';
+    const text = f.kind === 'last' ? `This ${where} has one gap left.`
+      : f.kind === 'cell' ? 'Only one symbol fits this cell. Check its row, column and block.'
+      : `Only one cell in this ${where} can take ${name}.`;
+    return { text };
   }
 
   restart(): void {
@@ -455,7 +492,6 @@ export class OrbitalGridView implements PuzzleView {
   }
 
   draw(ctx: CanvasRenderingContext2D, area: Area, now = 0): void {
-    void now; // nothing here animates by time
     this.area = area;
     const s = this.state;
     const L = (this.lay = this.layout(area));
@@ -483,6 +519,19 @@ export class OrbitalGridView implements PuzzleView {
       else drawSymbolTile(ctx, x, y, w, s.spin, v, s.givens[i] ? 'given' : 'placed');
       if (clash[i] && !s.givens[i] && !lifted) drawClash(ctx, x, y, w, w * RADIUS.placed);
       if (i === this.selected && !won && !d) tile(ctx, x - 2, y - 2, w + 4, w + 4, w * 0.3, null, C.accent, 2);
+    }
+
+    // Look here: the unit that decides it, and the cell.
+    const m = this.mark?.state === s && !won ? this.mark : null;
+    if (m) {
+      const box = (cells: number[]) => {
+        const rs = cells.map((i) => Math.floor(i / n)), cs = cells.map((i) => i % n);
+        const r0 = Math.min(...rs), r1 = Math.max(...rs), c0 = Math.min(...cs), c1 = Math.max(...cs);
+        return { x: L.gx + c0 * c, y: L.gy + r0 * c, w: (c1 - c0 + 1) * c, h: (r1 - r0 + 1) * c };
+      };
+      if (m.unit.length > 1) { const b = box(m.unit); drawHelpMark(ctx, b.x, b.y, b.w, b.h, now, this.reduced, c * 0.2); }
+      const b = box([m.cell]);
+      drawHelpMark(ctx, b.x + pad, b.y + pad, w, w, now, this.reduced, w * 0.3);
     }
 
     // The drop target: cyan, under the dragged tile.

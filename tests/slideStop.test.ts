@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DIRS, cracksOf, isRock, newSlideStop, reachable, slide, slideEnd, slideRun, slideStopPlan, solve, solved, type SlideStopState, type Tile } from '../src/puzzles/slideStop';
 import { SlideStopView } from '../src/puzzles/slideStopView';
-import type { Area, Illustration, RuleCard } from '../src/puzzles/view';
+import { undoHelp, type Area, type Illustration, type RuleCard } from '../src/puzzles/view';
 import { INSTRUCTIONS, RULES } from '../src/puzzles/slideStopView';
 import { C } from '../src/puzzles/palette';
 
@@ -204,6 +204,116 @@ describe('view', () => {
     expect(v.won).toBe(true);
     expect(v.moves).toBe(level.par);
     expect(v.clean).toBe(true);
+  });
+});
+
+describe('hints', () => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const st = (v: SlideStopView) => (v as any).state as SlideStopState;
+  const press = (v: SlideStopView, d: string) => v.key({ key: `Arrow${d[0].toUpperCase()}${d.slice(1)}` } as KeyboardEvent);
+  const plain = (text: string) => {
+    expect(text).toMatch(/^[A-Z][^—<>]*\.$/);
+    expect(text.length).toBeLessThanOrEqual(60);
+  };
+
+  it('Look here points at the first slide of the best route and changes nothing', () => {
+    for (const z of ZS) for (const seed of [1, 2]) {
+      const v = new SlideStopView(newSlideStop(z, seed), true);
+      const before = st(v);
+      const snap = JSON.stringify(before);
+      const h = v.help(1)!;
+      plain(h.text);
+      expect(h.moved).toBeUndefined();
+      expect(h.text).toContain(solve(before)![0]);
+      expect(st(v)).toBe(before);
+      expect(JSON.stringify(st(v))).toBe(snap);
+      expect(v.moves).toBe(0);
+      // The mark is drawn inside the area, and only for the board it was asked on.
+      const area = { x: 0, y: 0, w: 340, h: 430 };
+      const { ctx, pts } = mockCtx();
+      v.draw(ctx, area, 0);
+      for (const [x, y] of pts) expect(x >= area.x - 0.5 && x <= area.x + area.w + 0.5 && y >= area.y - 0.5 && y <= area.y + area.h + 0.5).toBe(true);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      expect((v as any).mark.state).toBe(st(v));
+      press(v, solve(before)![0]);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      expect((v as any).mark.state).not.toBe(st(v));
+    }
+  });
+
+  it('Show me wins by the shortest route, one counted, undoable slide per call', () => {
+    for (const z of ZS) for (const seed of [1, 2, 3]) {
+      const level = newSlideStop(z, seed);
+      const v = new SlideStopView(level, true);
+      let calls = 0;
+      while (!v.won && calls < level.par * 3 + 10) {
+        const before = v.moves;
+        const h = v.help(2)!;
+        plain(h.text);
+        expect(h.moved).toBe(true);
+        expect(v.moves).toBe(before + 1);
+        expect(v.canUndo()).toBe(true);
+        calls++;
+      }
+      expect(v.won).toBe(true);
+      expect(v.moves).toBe(level.par);
+      expect(v.help(1)).toBeNull();
+      expect(v.help(2)).toBeNull();
+      v.undo();
+      expect(v.moves).toBe(level.par - 1);
+    }
+  });
+
+  it('counts the undos back to a board that can still be won', () => {
+    let found = 0;
+    for (const z of ZS) for (let seed = 1; seed <= 8 && found < 12; seed++) {
+      const level = newSlideStop(z, seed);
+      // A first or second slide that leaves the ring out of reach.
+      let path: string[] | null = null;
+      for (const a of DIRS) {
+        const s1 = slide(level, a);
+        if (!s1 || path) continue;
+        if (!reachable(s1)) { path = [a]; break; }
+        for (const b of DIRS) {
+          const s2 = slide(s1, b);
+          if (s2 && !solved(s2) && !reachable(s2)) { path = [a, b]; break; }
+        }
+      }
+      if (!path) continue;
+      found++;
+      const v = new SlideStopView(level, true);
+      for (const d of path) press(v, d);
+      expect(v.stuck).toBe(true);
+      const moves = v.moves;
+      expect(v.help(1)).toEqual(undoHelp(1));
+      expect(v.help(2)).toEqual(undoHelp(1));
+      expect(v.moves).toBe(moves);
+      // Any slide from a dead end is still one: two undos now.
+      const more = DIRS.find((d) => slide(st(v), d));
+      if (more) {
+        press(v, more);
+        expect(v.help(2)).toEqual(undoHelp(2));
+        v.undo();
+      }
+      v.undo();
+      expect(v.help(1)!.text).not.toMatch(/Undo/);
+    }
+    expect(found).toBeGreaterThanOrEqual(5);
+  });
+
+  it('answers well within 200 ms on every element', () => {
+    let worst = 0;
+    for (let z = 1; z <= 118; z += 9) for (const seed of [1, 2]) {
+      const v = new SlideStopView(newSlideStop(z, seed), true);
+      for (let k = 0; k < 3 && !v.won; k++) {
+        for (const level of [1, 2] as const) {
+          const t0 = performance.now();
+          v.help(level);
+          worst = Math.max(worst, performance.now() - t0);
+        }
+      }
+    }
+    expect(worst).toBeLessThan(200);
   });
 });
 

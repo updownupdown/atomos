@@ -11,9 +11,9 @@
 // Everything is painted from a Scene, a plain description of the board and its
 // running animations, so the rule cards replay the same drawing as the board.
 
-import { adjacent, bind, canBind, canSwap, cloneCharge, COLOR_LETTERS, gluonsLeft, groupKind, isolated, solved, stranded, swap, type ColorChargeState, type GroupKind, type Quark } from './colorCharge';
+import { adjacent, bind, canBind, canSwap, cloneCharge, COLOR_LETTERS, gluonsLeft, groupKind, isolated, nextStep, onTrack, solved, stranded, swap, type ColorChargeState, type GroupKind, type Quark } from './colorCharge';
 import { C, fitGrid, font, tile } from './palette';
-import { ease, type Area, type Illustration, type Point, type PuzzleView, type RuleCard } from './view';
+import { drawHelpMark, ease, undoHelp, type Area, type Help, type Illustration, type Point, type PuzzleView, type RuleCard } from './view';
 
 /**
  * The three charge colors, read at draw time from Color Charge's own tokens
@@ -636,6 +636,8 @@ export class ColorChargeView implements PuzzleView {
   private wonAt: number | null = null;
   private geom: Geom = { cell: 1, x: 0, y: 0, tokens: [], area: { x: 0, y: 0, w: 0, h: 0 } };
   private reduced: boolean;
+  /** Look here: the tiles to ring, for the board it was asked on. */
+  private mark: { state: ColorChargeState; cells: number[] } | null = null;
 
   /**
    * `clock` is the time base input is stamped with; it must match the `now`
@@ -662,6 +664,38 @@ export class ColorChargeView implements PuzzleView {
     const left = gluonsLeft(s);
     const g = left ? `, ${left} gluon${left === 1 ? '' : 's'}` : '';
     return `${s.groups.length} / ${s.par - s.gluons} bound${g}`;
+  }
+
+  help(level: 1 | 2): Help | null {
+    const s = this.state;
+    if (this.won) return null;
+    if (!onTrack(s)) {
+      // A dead end: count back through the history to the last board that can still be cleared.
+      for (let n = 1; n <= this.history.length; n++) if (onTrack(this.history[this.history.length - n])) return undoHelp(n);
+      return { text: 'Restart to get back on track.' };
+    }
+    const step = nextStep(s);
+    if (!step) return null;
+    if (step.kind === 'swap') {
+      const [a, b] = step.cells;
+      if (level === 2) {
+        this.sel = [];
+        this.trySwap(a, b);
+        return { text: 'Swapped their colors with a gluon.', moved: true };
+      }
+      this.mark = { state: s, cells: [a, b] };
+      return { text: 'These two need to trade colors with a gluon.' };
+    }
+    const kind = groupKind(s.tiles, step.cells)!;
+    if (level === 2) {
+      this.armed = false;
+      this.sel = [...step.cells];
+      this.tryBind();
+      return { text: `Bound ${kind === 'antibaryon' ? 'an' : 'a'} ${kind}.`, moved: true };
+    }
+    this.mark = { state: s, cells: step.cells };
+    if (step.only < 0) return { text: `This ${kind} is part of the only way to clear the grid.` };
+    return { text: `This ${s.tiles[step.only].anti ? 'antiquark' : 'quark'} can join only this ${kind}.` };
   }
 
   restart(): void {
@@ -872,6 +906,13 @@ export class ColorChargeView implements PuzzleView {
       sel: this.sel, armed: this.armed, stranded: this.lost, dead: this.dead, strandedAt: this.lostAt,
       binds: this.binds, swapAnim: this.swapAnim, provisional: this.provisional, fail: this.fail, wonAt: this.wonAt !== null && now >= this.wonAt ? this.wonAt : null,
     }, this.geom, now, this.reduced);
+
+    // Look here: each tile of the group (or the two to swap).
+    if (this.mark?.state === s && !this.won) {
+      const { cell: c, x, y } = this.geom;
+      const pad = Math.max(3, c * 0.08);
+      for (const i of this.mark.cells) drawHelpMark(ctx, x + (i % s.cols) * c + pad, y + Math.floor(i / s.cols) * c + pad, c - pad * 2, c - pad * 2, now, this.reduced, c * 0.18);
+    }
   }
 }
 

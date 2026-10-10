@@ -30,6 +30,8 @@ import { showWin, type WinAction } from './puzzles/winPanel';
 import { closeModal, modalOpen, openModal } from './ui/modal';
 import { createTabs, iconButton, nextButton, playButton } from './ui/components';
 import { askRestart, confirming, restartButton } from './puzzles/restart';
+import { HintControl } from './puzzles/hints';
+import { countPlay, GOAL_PLAYS } from './core/plays';
 import { icon, type IconName } from './ui/icons';
 import { scienceButton, setScienceHandler } from './ui/science';
 import { elementAt, shortConfiguration } from './gallery/data';
@@ -79,6 +81,10 @@ export class Game {
   private pointerId: number | null = null;
   private shownHint = '';
   private paused = false;
+  /** The game's goal, shown before the first move of its first plays. */
+  private goal = '';
+  /** The Hint button: Look here, then Show me. */
+  private hints = new HintControl(() => (this.busy ? null : this.puzzle), () => { this.refresh(); this.ensureLoop(); });
 
   constructor(private hooks: { onElement?: (z: number) => void; onView?: (z: number) => void } = {}) {
     this.scene = new AtomScene($<HTMLCanvasElement>('atom'));
@@ -194,6 +200,7 @@ export class Game {
     } else {
       const resumed = this.suspended[stage];
       this.puzzle = resumed ?? this.makePuzzle(stage);
+      if (!resumed) this.firstPlays(stage);
       delete this.suspended[stage];
       this.syncPaused();
       if (stage === 'shells' && !resumed) {
@@ -248,6 +255,15 @@ export class Game {
     return new MergeView(mergeLevel(z), reduced);
   }
 
+  /** A game's first plays: its rules open by themselves the first time, and its goal leads the
+   *  status line for the first three, until the first move. */
+  private firstPlays(stage: Exclude<Stage, 'home'>): void {
+    const t = this.stagePuzzle(stage);
+    const before = countPlay(t.id);
+    this.goal = before < GOAL_PLAYS ? t.goal : '';
+    if (before === 0) window.setTimeout(() => { if (this.stage === stage && !this.paused) this.openRulesFor(t); }, 350);
+  }
+
   /** The element a fleeting isotope's board is dealt for: harder the shorter it lives. */
   private fleetDealZ(a: number): number {
     const iso = fleetingIsotopes(this.z).find((i) => i.a === a);
@@ -289,8 +305,18 @@ export class Game {
   private recordStep(id: StepId, p: PuzzleView): void {
     const steps = (this.save.steps[this.z] ??= {});
     const prev = steps[id];
-    steps[id] = { flawless: (prev?.flawless ?? false) || p.clean, best: Math.min(prev?.best ?? Infinity, p.moves) };
+    steps[id] = { flawless: (prev?.flawless ?? false) || this.cleanRun(p), best: Math.min(prev?.best ?? Infinity, p.moves) };
     this.saveProgress();
+  }
+
+  /** Solved cleanly and without Show me: a hinted run is never flawless. */
+  private cleanRun(p: PuzzleView): boolean {
+    return p.clean && !this.hints.used(p);
+  }
+
+  /** The win panel's word on a run that used Show me. */
+  private hintNote(p: PuzzleView): string {
+    return this.hints.used(p) ? ' Built with a hint.' : '';
   }
 
   /** Saves, and tells the rest of the app (the mode row, the gallery) that progress changed. */
@@ -316,7 +342,7 @@ export class Game {
 
   private renderStage(): void {
     const p = this.puzzle;
-    const text = p ? `${p.moves} move${p.moves === 1 ? '' : 's'}${p.par !== null ? ` · par ${p.par}` : ''}` : '';
+    const text = !p ? '' : this.goal && p.moves === 0 ? this.goal : `${p.moves} move${p.moves === 1 ? '' : 's'}${p.par !== null ? ` · par ${p.par}` : ''}`;
     const box = $('stage');
     if (box.textContent !== text) box.textContent = text;
   }
@@ -631,9 +657,11 @@ export class Game {
 
   private sayHint(): void {
     const p = this.puzzle;
-    // A short status only; how-to text lives behind the i.
+    // The Hint button's line while its board is on screen; otherwise a short status only (how-to
+    // text lives behind the i).
+    const help = this.hints.line(p);
     const raw = p ? p.hint().replace(/<[^>]+>/g, '') : '';
-    const text = raw.length > 60 ? '' : raw;
+    const text = help ?? (raw.length > 60 ? '' : raw);
     if (text === this.shownHint) return;
     this.shownHint = text;
     $('message').innerHTML = text;
@@ -672,6 +700,7 @@ export class Game {
     const ctx = this.overlayCtx();
     p.draw(ctx, this.area(), now);
     this.drawSweep(ctx);
+    this.hints.watch(p, now);
     this.renderStage();
     ($('btn-undo') as HTMLButtonElement).disabled = !p.canUndo() || this.busy;
     this.sayHint();
@@ -816,12 +845,13 @@ export class Game {
     const note = step === 'nucleus'
       ? `${el.z} protons and ${this.neutrons} neutrons, held together. ${el.name} still needs its electrons.`
       : `${el.z} electrons in their orbitals. ${el.name} still needs its nucleus.`;
+    const clean = this.cleanRun(p);
     this.closeWin = showWin($('app'), {
-      kicker: p.clean ? 'Flawless' : 'Solved',
+      kicker: clean ? 'Flawless' : 'Solved',
       title: `${el.name}'s ${step === 'nucleus' ? 'nucleus' : 'electrons'}`,
-      flawless: p.clean,
+      flawless: clean,
       stats: this.winStats(p, step),
-      note,
+      note: note + this.hintNote(p),
       actions: this.winActions(),
     }, this.save.settings.reducedMotion);
   }
@@ -829,7 +859,8 @@ export class Game {
   /** Both puzzles done: the atom joins the collection (or is rebuilt). */
   private finish(p: PuzzleView, step: StepId, wasBuilt: boolean): void {
     const prev = this.save.built[this.z];
-    const flawless = stepsOf(this.z).every((id) => this.stepState(this.z, id).flawless);
+    // Saved from every step's best run; this run itself is flawless only without Show me.
+    const flawless = stepsOf(this.z).every((id) => this.stepState(this.z, id).flawless) && !this.hints.used(p);
     this.save.built[this.z] = { flawless: (prev?.flawless ?? false) || flawless, colour: prev?.colour };
     const el = element(this.z);
     const key = isotopeKey(this.z, el.commonA);
@@ -855,7 +886,8 @@ export class Game {
         title: wasBuilt ? `${el.name}'s ${step === 'nucleus' ? 'nucleus' : 'electrons'}` : `${el.name} is built`,
         flawless,
         stats: this.winStats(p, step),
-        note: flawless || wasBuilt ? note : `${note} For a flawless one: no fusion past the target, and the electrons in par or fewer moves.`,
+        note: this.hints.used(p) ? note + this.hintNote(p)
+          : flawless || wasBuilt ? note : `${note} For a flawless one: no fusion past the target, and the electrons in par or fewer moves.`,
         actions: this.winActions(),
       }, this.save.settings.reducedMotion);
     }, this.save.settings.reducedMotion ? 200 : 900);
@@ -888,7 +920,7 @@ export class Game {
         title: `${el.name}-${a}`,
         flawless: false,
         stats: this.winStats(p),
-        note: `${parts}.${life} it stays in your collection, marked decayed. ${c.built} of ${c.total} of ${el.name.toLowerCase()}'s fleeting isotopes built.`,
+        note: `${parts}.${life} it stays in your collection, marked decayed. ${c.built} of ${c.total} of ${el.name.toLowerCase()}'s fleeting isotopes built.${this.hintNote(p)}`,
         actions: this.winActions(),
       }, this.save.settings.reducedMotion);
       return;
@@ -898,7 +930,7 @@ export class Game {
       title: `${el.name}-${a}`,
       flawless: false,
       stats: this.winStats(p),
-      note: `${parts}, now in your collection.`,
+      note: `${parts}, now in your collection.${this.hintNote(p)}`,
       actions: this.winActions(),
     }, this.save.settings.reducedMotion);
   }
@@ -916,8 +948,9 @@ export class Game {
     undo.id = 'btn-undo';
     const restart = restartButton(this.restartOptions());
     restart.id = 'btn-restart';
+    this.hints.button.id = 'btn-hint';
     const how = iconButton({ icon: icon('info'), label: 'Instructions', onClick: () => this.showHow() });
-    $('build-actions').append(undo, restart, how, scienceButton('ui-icon-btn science-btn'));
+    $('build-actions').append(undo, restart, this.hints.button, how, scienceButton('ui-icon-btn science-btn'));
     window.addEventListener('keydown', (e) => this.onKey(e));
     window.addEventListener('blur', () => this.onCancel());
   }
@@ -943,6 +976,7 @@ export class Game {
     if (e.pointerId !== this.pointerId) return;
     this.pointerId = null;
     this.puzzle?.up(this.point(e));
+    this.hints.touched();
     this.ensureLoop();
   }
 
@@ -956,7 +990,9 @@ export class Game {
     if (e.key === 'Escape' && this.stage !== 'home') { this.toHome(); e.preventDefault(); return; }
     if (e.key === 'u' || (e.key === 'z' && (e.ctrlKey || e.metaKey))) return this.undo();
     if (e.key === 'r' && !e.ctrlKey && !e.metaKey) { void askRestart(this.restartOptions()); return; }
+    if (e.key === 'h' && !e.ctrlKey && !e.metaKey && this.puzzle) { this.hints.ask(); return; }
     if (this.puzzle && !this.busy && this.puzzle.key(e)) {
+      this.hints.touched();
       e.preventDefault();
       this.ensureLoop();
     }
@@ -964,6 +1000,7 @@ export class Game {
 
   private undo(): void {
     if (this.busy || !this.puzzle?.undo()) return;
+    this.hints.undone();
     this.refresh();
     this.ensureLoop();
   }
@@ -971,6 +1008,7 @@ export class Game {
   private restartPuzzle(): void {
     if (this.busy || !this.puzzle) return;
     this.puzzle.restart();
+    this.hints.restarted(this.puzzle);
     this.refresh();
     this.ensureLoop();
   }

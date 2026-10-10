@@ -79,6 +79,7 @@ function run(id: UnlockId, info: UnlockInfo): Promise<boolean> {
     root.querySelector('.pg-actions')!.append(
       undo,
       restartButton(restartOpts),
+      host.hints.button,
       iconButton({ icon: icon('info'), label: 'Instructions', onClick: () => openRules(t, { reducedMotion: reduced }) }),
     );
 
@@ -86,10 +87,10 @@ function run(id: UnlockId, info: UnlockInfo): Promise<boolean> {
       const text = `${v.moves} move${v.moves === 1 ? '' : 's'}${v.par !== null ? ` · par ${v.par}` : ''}`;
       if (count.textContent !== text) count.textContent = text;
       undo.disabled = !v.canUndo();
-      const plain = v.hint().replace(/<[^>]+>/g, '');
+      const plain = host.status();
       if (plain !== shown) {
         shown = plain;
-        hintEl.textContent = plain.length > 60 ? '' : plain;
+        hintEl.textContent = plain.length > 60 && plain !== host.hints.line(v) ? '' : plain;
       }
     };
 
@@ -111,7 +112,7 @@ function run(id: UnlockId, info: UnlockInfo): Promise<boolean> {
       closeWin = showWin(play, {
         kicker: prev ? 'Solved again' : 'Unlocked',
         title: info.title,
-        flawless: v.clean,
+        flawless: v.clean && !host.hints.used(v),
         stats: [
           { label: 'Moves', value: String(v.moves) },
           ...(v.par !== null ? [{ label: 'Par', value: v.moves <= v.par ? `${v.par} ✓` : String(v.par) }] : []),

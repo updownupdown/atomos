@@ -21,7 +21,42 @@ export interface PuzzleView {
   undo(): boolean;
   canUndo(): boolean;
   restart(): void;
+  /** A short status line ("3 / 8 placed"); not the Hint button, which is help(). */
   hint(): string;
+  /** The Hint button. Level 1, Look here: mark where progress can be made (drawn with
+   *  drawHelpMark until the board changes) and say why in one plain line. Level 2, Show me: play
+   *  one good move, through the same path as the player's own moves, so it counts and can be
+   *  undone, and say what it did (moved: true). When the board can no longer be solved, either
+   *  level says how far to go back instead: "Undo 2 moves to get back on track." Null when
+   *  there is nothing to say (a won board). */
+  help(level: 1 | 2): Help | null;
+}
+
+export interface Help {
+  /** One plain sentence for the message line, no markup. */
+  text: string;
+  /** Show me played a move. */
+  moved?: boolean;
+}
+
+/** "Undo 2 moves to get back on track." for a board that can no longer be solved. */
+export function undoHelp(n: number): Help {
+  return { text: n === 1 ? 'Undo your last move to get back on track.' : `Undo ${n} moves to get back on track.` };
+}
+
+/** The Look here mark: a soft white outline around a box, breathing slowly (still under reduced
+ *  motion). r is the corner radius. */
+export function drawHelpMark(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, now: number, reduced = false, r = 8): void {
+  const k = reduced ? 1 : 0.65 + 0.35 * Math.sin(now / 320);
+  ctx.save();
+  ctx.strokeStyle = `rgba(255, 255, 255, ${0.9 * k})`;
+  ctx.lineWidth = 3;
+  ctx.shadowColor = 'rgba(255, 255, 255, 0.8)';
+  ctx.shadowBlur = 10 * k;
+  ctx.beginPath();
+  ctx.roundRect(x - 3, y - 3, w + 6, h + 6, r);
+  ctx.stroke();
+  ctx.restore();
 }
 
 /** Draws into a w x h box (CSS pixels, the context already scaled). t is seconds from the start

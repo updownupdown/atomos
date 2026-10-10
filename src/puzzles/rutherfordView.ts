@@ -6,9 +6,9 @@
 // Keys: arrows move (out onto the frame to reach a port), Space or Enter probes
 // or fires, F or M marks, Tab switches tool, Escape lowers an aimed port.
 
-import { chord, cloneRutherford, fire, portLine, probe, remaining, scope, solved, toggleMark, traceBeam, type CellKind, type RutherfordState, type Side } from './rutherford';
+import { chord, cloneRutherford, fire, nextLead, portLine, probe, remaining, scope, solved, toggleMark, traceBeam, type CellKind, type RutherfordState, type Side } from './rutherford';
 import { C, font, tile } from './palette';
-import type { Area, Point, PuzzleView, RuleCard } from './view';
+import { drawHelpMark, type Area, type Help, type Point, type PuzzleView, type RuleCard } from './view';
 
 const LONG_MS = 380;
 const BAR_H = 48;
@@ -56,6 +56,8 @@ export class RutherfordView implements PuzzleView {
   private fx: Fx[] = [];
   /** Cells shown as foil until this time, while a particle is on its way. */
   private reveal = new Map<number, number>();
+  /** Look here: the cells (the one decided first) and the port to ring, for the plate it was asked on. */
+  private mark: { state: RutherfordState; cells: number[]; port: number } | null = null;
 
   constructor(private readonly initial: RutherfordState, reducedMotion: boolean) {
     this.state = cloneRutherford(initial);
@@ -80,9 +82,64 @@ export class RutherfordView implements PuzzleView {
     return `${left} nucle${left === 1 ? 'us' : 'i'} left · ${beams}${hitText}`;
   }
 
+  help(level: 1 | 2): Help | null {
+    const s = this.state;
+    if (this.won) return null;
+    const n = s.size;
+    const show = (cells: number[], port = -1) => {
+      this.mark = { state: s, cells, port };
+      if (cells.length) this.cursor = { r: Math.floor(cells[0] / n), c: cells[0] % n };
+    };
+    // A mark on a safe cell comes first: it blocks the cell and misleads every number around it.
+    const wrong = s.marked.findIndex((m, i) => m && !s.nuclei[i]);
+    if (wrong >= 0) {
+      if (level === 2) {
+        this.cursor = { r: Math.floor(wrong / n), c: wrong % n };
+        this.act(wrong, true);
+        return { text: 'Removed a mark from a safe cell.', moved: true };
+      }
+      show([wrong]);
+      return { text: 'This mark is on a safe cell.' };
+    }
+    const lead = nextLead(s);
+    if (!lead) {
+      // Nothing left to prove or learn from a beam (the solver never gets here on a dealt plate): point at a safe cell.
+      const i = s.nuclei.findIndex((x, j) => !x && !s.probed[j]);
+      if (level === 2) {
+        this.cursor = { r: Math.floor(i / n), c: i % n };
+        this.act(i, false);
+        return { text: 'Probed a safe cell.', moved: true };
+      }
+      show([i]);
+      return { text: 'This cell is safe to probe.' };
+    }
+    if (lead.kind === 'beam') {
+      if (level === 2) {
+        this.shoot(lead.port);
+        return { text: 'Fired a beam to learn more.', moved: true };
+      }
+      show([], lead.port);
+      return { text: 'No cell is certain yet, so a beam from this port will tell you more.' };
+    }
+    const { cell, nucleus, clues, pair } = lead;
+    if (level === 2) {
+      this.cursor = { r: Math.floor(cell / n), c: cell % n };
+      this.act(cell, nucleus);
+      return { text: nucleus ? 'Marked a cell that must hold a nucleus.' : 'Probed a cell the numbers prove safe.', moved: true };
+    }
+    show([cell, ...clues]);
+    const verdict = nucleus ? 'this cell holds a nucleus' : 'this cell is safe';
+    const text = pair ? (clues.length === 2 ? `Comparing these two numbers shows ${verdict}.` : `Comparing that number with the nuclei left shows ${verdict}.`)
+      : clues.length ? (nucleus ? `That number needs every cell it has left, so ${verdict}.` : `That number's nuclei are all marked or found, so ${verdict}.`)
+      : nucleus ? 'The nuclei left fill every unknown cell, so this one holds a nucleus.'
+      : `Every nucleus is marked or found, so ${verdict}.`;
+    return { text };
+  }
+
   restart(): void {
     this.state = cloneRutherford(this.initial);
     this.history = [];
+    this.mark = null;
     this.marking = false;
     this.armed = -1;
     this.everHit.clear();
@@ -99,6 +156,7 @@ export class RutherfordView implements PuzzleView {
     // Undo is free (the move count goes back too), but a hit or a fired beam stays on the record for a flawless run.
     this.state = prev;
     this.armed = -1;
+    this.mark = null;
     this.fx = [];
     this.reveal.clear();
     return true;
@@ -330,6 +388,16 @@ export class RutherfordView implements PuzzleView {
     for (let p = 0; p < 4 * n; p++) {
       const { x, y, side } = portPoint(L, n, p);
       portGlyph(ctx, x, y, side, c, s.fired[p] ? 'spent' : this.armed === p ? 'armed' : 'idle', won);
+    }
+
+    // Look here: the cell the numbers decide and the numbers that decide it, or the port to fire.
+    const m = this.mark?.state === s && !won ? this.mark : null;
+    if (m) {
+      for (const i of m.cells) drawHelpMark(ctx, L.x + (i % n) * c + 2, L.y + Math.floor(i / n) * c + 2, c - 4, c - 4, now, this.reduced, c * 0.2);
+      if (m.port >= 0) {
+        const q = portPoint(L, n, m.port);
+        drawHelpMark(ctx, q.x - c * 0.34, q.y - c * 0.34, c * 0.68, c * 0.68, now, this.reduced, c * 0.16);
+      }
     }
 
     // The long-press ring, then the cursor.

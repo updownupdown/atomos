@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { jammed, newMerge, slide, socketsFor, wanted, won, type MergeState, type Tile } from '../src/puzzles/merge';
-import { INSTRUCTIONS, RULES } from '../src/puzzles/mergeView';
+import { element } from '../src/core/elements';
+import { bestSwipe, inReach, jammed, newMerge, slide, socketsFor, wanted, won, type MergeState, type Tile } from '../src/puzzles/merge';
+import { INSTRUCTIONS, MergeView, RULES } from '../src/puzzles/mergeView';
 import { C } from '../src/puzzles/palette';
 import type { RuleCard } from '../src/puzzles/view';
 
@@ -110,6 +111,136 @@ describe('sliding', () => {
       }
       expect(won(s)).toBe(true);
     }
+  });
+});
+
+describe('hints', () => {
+  const ZS = [2, 3, 6, 8, 13, 20, 26, 30, 47, 56, 79, 92, 118];
+  const deal = (z: number, seed: number) => newMerge({ z, a: element(z).commonA }, seed * 977 + z);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const stateOf = (v: MergeView): MergeState => (v as any).state;
+  const press = (v: MergeView, key: string) => v.key({ key } as KeyboardEvent);
+  /** One short plain sentence: a capital, a full stop, no markup or dashes. */
+  const plain = (text: string) => {
+    expect(text).toMatch(/^[A-Z][^<>—–]*\.$/);
+    expect(text).not.toMatch(/\. /);
+    expect(text.length).toBeLessThanOrEqual(80);
+  };
+
+  it('Look here rings clusters and leaves the board and the count alone', () => {
+    for (const z of ZS) for (const seed of [1, 2, 3]) {
+      const v = new MergeView(deal(z, seed), true);
+      // On the fresh deal, and a few swipes in when the nucleus is not finished by then.
+      for (let k = 0; k < 3 && !v.won; k++, v.help(2)) {
+        const before = stateOf(v), cells = JSON.stringify(before.cells), moves = v.moves;
+        const h = v.help(1)!;
+        plain(h.text);
+        expect(h.moved).toBeUndefined();
+        expect(stateOf(v)).toBe(before);
+        expect(JSON.stringify(stateOf(v).cells)).toBe(cells);
+        expect(v.moves).toBe(moves);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const mark = (v as any).mark;
+        expect(mark.state).toBe(before);
+        for (const i of mark.cells) expect(before.cells[i]).not.toBeNull();
+      }
+    }
+  });
+
+  it('Show me plays one swipe at a time and finishes the nucleus within a few times par', () => {
+    for (const z of ZS) for (const seed of [1, 2, 3]) {
+      const v = new MergeView(deal(z, seed), true);
+      const limit = v.par! * 3 + 10;
+      let calls = 0;
+      while (!v.won && calls < limit) {
+        const moves = v.moves;
+        const h = v.help(2)!;
+        plain(h.text);
+        expect(h.moved).toBe(true);
+        expect(v.moves).toBe(moves + 1);
+        expect(v.canUndo()).toBe(true);
+        calls++;
+      }
+      expect(v.won, `z ${z} seed ${seed}`).toBe(true);
+      expect(v.help(1)).toBeNull();
+      expect(v.help(2)).toBeNull();
+    }
+  });
+
+  it('marks the merge the best swipe makes, and undo clears the mark', () => {
+    const s = board(C12, [t(4, 1), null, t(4, 2), null, ...empty(12)]);
+    const v = new MergeView(s, true);
+    expect(v.help(1)!.text).toBe('These two 4s can merge into the 8 the nucleus wants.');
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    expect([...(v as any).mark.cells].sort()).toEqual([0, 2]);
+    expect(v.help(2)!.text).toMatch(/^Swiped (left|right), and an 8 flew into the nucleus\.$/);
+    expect(v.moves).toBe(1);
+    v.undo();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    expect((v as any).mark).toBeNull();
+  });
+
+  it('draws the Look here rings and the Show me arrow inside the area', () => {
+    const area = { x: 0, y: 0, w: 360, h: 520 };
+    const v = new MergeView(deal(26, 1), false);
+    const drawn = () => record((ctx) => v.draw(ctx, area, performance.now())).pts;
+    const plainBoard = drawn().length;
+    for (const level of [1, 2] as const) {
+      v.help(level);
+      const pts = drawn();
+      // The rings (level 1) or the arrow (level 2) add to the picture, and stay in the area.
+      expect(pts.length).toBeGreaterThan(plainBoard);
+      for (const [x, y] of pts) {
+        expect(x).toBeGreaterThanOrEqual(area.x - 0.5);
+        expect(x).toBeLessThanOrEqual(area.x + area.w + 0.5);
+        expect(y).toBeGreaterThanOrEqual(area.y - 0.5);
+        expect(y).toBeLessThanOrEqual(area.y + area.h + 0.5);
+      }
+    }
+  });
+
+  it('counts back to the last board that can still be finished when a line of play jams', () => {
+    // A full board with no equal neighbors bar one gap. Swiping down leaves it unable to escape a jam
+    // (the board deals from its seed, so this is certain); swiping left then jams it outright.
+    const s = newMerge({ z: 26, a: 56 }, 1706);
+    s.cells = [4, 2, 1, 4, 0, 4, 2, 1, 4, 2, 1, 2, 1, 4, 2, 4].map((x, i) => (x ? t(x, i + 1) : null));
+    s.nextId = 100;
+    expect(inReach(s)).toBe(true);
+    const v = new MergeView(s, true);
+    expect(press(v, 'ArrowDown')).toBe(true);
+    expect(inReach(stateOf(v))).toBe(false);
+    expect(v.help(1)).toEqual({ text: 'Undo your last move to get back on track.' });
+    press(v, 'ArrowLeft');
+    expect(v.moves).toBe(2);
+    expect(v.stuck).toBe(true);
+    const before = stateOf(v);
+    expect(v.help(1)).toEqual({ text: 'Undo 2 moves to get back on track.' });
+    // Show me says so too, and does not undo for the player.
+    expect(v.help(2)).toEqual({ text: 'Undo 2 moves to get back on track.' });
+    expect(stateOf(v)).toBe(before);
+    expect(v.moves).toBe(2);
+    v.undo();
+    expect(v.help(2)).toEqual({ text: 'Undo your last move to get back on track.' });
+    v.undo();
+    // Back on track: the hint now picks a swipe that keeps the nucleus in reach.
+    expect(v.help(1)!.text).not.toMatch(/Undo/);
+    const d = bestSwipe(stateOf(v))!;
+    expect(d).not.toBe('down');
+    expect(inReach(slide(stateOf(v), d)!)).toBe(true);
+    expect(v.help(2)!.moved).toBe(true);
+  });
+
+  it('answers well within 200 ms on every element', () => {
+    let worst = 0;
+    const time = (f: () => void) => { const t0 = performance.now(); f(); worst = Math.max(worst, performance.now() - t0); };
+    for (let z = 2; z <= 118; z += 4) {
+      const v = new MergeView(deal(z, 5), true);
+      while (!v.won && v.moves < 200) {
+        time(() => v.help(1));
+        time(() => v.help(2));
+      }
+    }
+    expect(worst).toBeLessThan(150);
   });
 });
 

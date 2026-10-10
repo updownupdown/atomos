@@ -216,3 +216,122 @@ export function won(s: MergeState): boolean {
 export function jammed(s: MergeState): boolean {
   return !won(s) && (['up', 'down', 'left', 'right'] as Dir[]).every((d) => slide(s, d) === null);
 }
+
+// ---- the hint's look-ahead ------------------------------------------------------
+//
+// The board deals from its own seeded generator, so every swipe's outcome, new
+// nucleon and all, is known in advance. The hint tries every line of play a few
+// swipes deep and scores where each ends up; a line that jams is worth nothing.
+
+const DIRS: Dir[] = ['left', 'up', 'right', 'down'];
+/** Swipes the hint looks ahead when choosing one: 4^4 boards at most, a few milliseconds. */
+const LOOK = 4;
+/** Swipes some line of play must last for the nucleus to count as still in reach. */
+const SURVIVE = 6;
+const WIN = 1e9;
+
+/**
+ * How promising a board is: each filled socket outweighs everything else; then clusters
+ * that still fit the wanted size, bigger ones worth more (two halves are worth half a
+ * whole); then empty cells. Clusters too big to be wanted again only take up room, and
+ * every crack costs, since cracks spoil a flawless build.
+ */
+function worth(s: MergeState): number {
+  const want = wanted(s);
+  if (want === null) return WIN;
+  let v = s.filled * 1e6 - s.spoils * 2000;
+  for (const t of s.cells) {
+    if (!t || t.spoiled) v += 40;
+    else if (t.v > want) v -= 600;
+    else v += (t.v / want) ** 2 * 1000;
+  }
+  return v;
+}
+
+/** The best score any line of play reaches in `depth` more swipes; -Infinity when every line jams. */
+function lookAhead(s: MergeState, depth: number): number {
+  if (won(s)) return WIN + depth; // sooner is better
+  if (depth === 0) return worth(s);
+  let best = -Infinity;
+  for (const d of DIRS) {
+    const n = slide(s, d);
+    if (n) best = Math.max(best, lookAhead(n, depth - 1));
+  }
+  return best;
+}
+
+/** Some line of play lasts `depth` swipes without jamming, or wins on the way. */
+function survives(s: MergeState, depth: number): boolean {
+  if (won(s) || depth === 0) return true;
+  for (const d of DIRS) {
+    const n = slide(s, d);
+    if (n && survives(n, depth - 1)) return true;
+  }
+  return false;
+}
+
+/** The nucleus can still be finished: not won yet, and some line of play outlasts the look-ahead.
+ *  False means every line jams within a few swipes, so the board is a dead end. */
+export function inReach(s: MergeState): boolean {
+  return !won(s) && survives(s, SURVIVE);
+}
+
+/** Two clusters that merge, by the cells they sit in, and the size they make. */
+export interface MergePair {
+  cells: [number, number];
+  makes: number;
+}
+
+/** The biggest merge a swipe makes that still fits the wanted size (no crack), or null. */
+export function mergeOf(s: MergeState, dir: Dir): MergePair | null {
+  const n = slide(s, dir);
+  const want = wanted(s);
+  if (!n || want === null) return null;
+  let best: MergePair | null = null;
+  const into = new Map<number, number>();
+  for (const j of n.last) {
+    if (j.into === undefined) continue;
+    const other = into.get(j.into);
+    if (other === undefined) { into.set(j.into, j.from); continue; }
+    const makes = s.cells[j.from]!.v * 2;
+    if (makes <= want && (!best || makes > best.makes)) best = { cells: [other, j.from], makes };
+  }
+  return best;
+}
+
+/** The swipe that does the most for the nucleus over the next few swipes, or null on a won board
+ *  or when every line of play jams within the look-ahead. */
+export function bestSwipe(s: MergeState): Dir | null {
+  if (won(s)) return null;
+  let best: Dir | null = null;
+  let score = -Infinity;
+  for (const d of DIRS) {
+    const n = slide(s, d);
+    if (!n) continue;
+    const v = lookAhead(n, LOOK - 1);
+    if (v > score) { score = v; best = d; }
+  }
+  return best;
+}
+
+/** Two equal clusters that could merge toward the wanted size, the biggest first: a pair that
+ *  meets on some swipe (nothing between them on a row or column) before any other pair. */
+export function closestPair(s: MergeState): { cells: [number, number]; makes: number; lined: boolean } | null {
+  const want = wanted(s);
+  if (want === null) return null;
+  let best: { cells: [number, number]; makes: number; lined: boolean } | null = null;
+  const n = s.size;
+  for (let a = 0; a < s.cells.length; a++) {
+    for (let b = a + 1; b < s.cells.length; b++) {
+      const ta = s.cells[a], tb = s.cells[b];
+      if (!ta || !tb || ta.spoiled || tb.spoiled || ta.v !== tb.v || ta.v * 2 > want) continue;
+      const row = Math.floor(a / n) === Math.floor(b / n), col = a % n === b % n;
+      const step = row ? 1 : n;
+      let lined = row || col;
+      for (let i = a + step; lined && i < b; i += step) if (s.cells[i]) lined = false;
+      const better = !best || (lined && !best.lined) || (lined === best.lined && ta.v * 2 > best.makes);
+      if (better) best = { cells: [a, b], makes: ta.v * 2, lined };
+    }
+  }
+  return best;
+}

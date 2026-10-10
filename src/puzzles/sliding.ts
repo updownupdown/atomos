@@ -322,17 +322,30 @@ function blocksOf(sh: Shape, p: ArrayLike<number>): Block[] {
 
 /** Breadth-first search from a state; the fewest moves to free the key bar, or null. */
 export function solveSliding(s: SlidingState, limit = 200000): number | null {
-  if (solved(s)) return 0;
+  return slidingPath(s, limit)?.length ?? null;
+}
+
+/**
+ * Breadth-first search from a state, keeping each state's parent: the moves of
+ * a shortest way to free the key bar (empty when it is already free), or null
+ * when there is none within `limit` states.
+ */
+export function slidingPath(s: SlidingState, limit = 200000): SlideMove[] | null {
+  if (solved(s)) return [];
   const { sh, p } = shapeOf(s);
   const mult = mults(sh);
   const seen = new Set<number>([keyOf(p, mult)]);
-  let frontier: Int8Array[] = [Int8Array.from(p)];
+  // Every state met, with the state it came from and the piece that moved.
+  const states: Int8Array[] = [Int8Array.from(p)];
+  const parent: number[] = [-1];
+  const piece: number[] = [-1];
+  let frontier: number[] = [0];
   const occ = new Uint8Array(sh.w * sh.h);
   const goalX = sh.w - sh.len[0];
   for (let depth = 1; frontier.length && seen.size < limit; depth++) {
-    const next: Int8Array[] = [];
-    let found = false;
-    for (const cur of frontier) {
+    const next: number[] = [];
+    for (const at of frontier) {
+      const cur = states[at];
       const base = keyOf(cur, mult);
       const moves = listMoves(sh, cur, occ, moveI, moveP);
       for (let m = 0; m < moves; m++) {
@@ -342,14 +355,29 @@ export function solveSliding(s: SlidingState, limit = 200000): number | null {
         seen.add(key);
         const q = Int8Array.from(cur);
         q[i] = np;
-        if (q[0] === goalX) found = true;
-        next.push(q);
+        states.push(q);
+        parent.push(at);
+        piece.push(i);
+        if (q[0] === goalX) return pathTo(sh, states, parent, piece, states.length - 1);
+        next.push(states.length - 1);
       }
-      if (found) return depth;
     }
     frontier = next;
   }
   return null;
+}
+
+/** Walks the parents back from a state to the start, as moves in play order. */
+function pathTo(sh: Shape, states: Int8Array[], parent: number[], piece: number[], end: number): SlideMove[] {
+  const out: SlideMove[] = [];
+  for (let at = end; parent[at] >= 0; at = parent[at]) {
+    const i = piece[at], from = states[parent[at]][i], to = states[at][i];
+    if (sh.free[i]) {
+      const d = to - from;
+      out.push(Math.abs(d) < sh.w ? { id: i, dx: d, dy: 0 } : { id: i, dx: 0, dy: d / sh.w });
+    } else out.push(sh.horiz[i] ? { id: i, dx: to - from, dy: 0 } : { id: i, dx: 0, dy: to - from });
+  }
+  return out.reverse();
 }
 
 // ---- generation -----------------------------------------------------------------
