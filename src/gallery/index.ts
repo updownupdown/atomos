@@ -12,7 +12,7 @@ import { guideHTML } from './guide';
 import { icon, type IconName } from '../ui/icons';
 import { createSegments, createTabs, type Tabs } from '../ui/components';
 import { ISO_FILTERS, STRUCTURE_VIEWS } from './visuals';
-import { openElementPicker } from '../ui/picker';
+import { createAtomBar, type AtomBar } from './atombar';
 import { isLayoutId, LAYOUT_STORY, LAYOUTS, type LayoutId } from './layouts';
 import { setScienceHandler, setScienceOpen } from '../ui/science';
 import { openModal } from '../ui/modal';
@@ -47,6 +47,7 @@ export class GalleryApp {
   private rings = localStorage.getItem('atomos.gallery.rings') !== 'off';
   private isoOpen = false;
   private tabs!: Tabs;
+  private bar!: AtomBar;
 
   constructor(private handlers: GalleryHandlers) {
     this.gallery = new Gallery($('gal'), $('gal-labels'));
@@ -95,12 +96,9 @@ export class GalleryApp {
       + `<ul>${CLOUD_RINGS.map((r) => `<li><i class="${r.style}"></i>${r.pm * 2}</li>`).join('')}</ul><span class="unit">pm across</span>`;
     $('rings-toggle').onclick = () => this.setRings(!this.rings);
     this.paintRingsToggle();
-    // The bar: previous, the element's name (opens the science), next.
-    $('loupe-prev').innerHTML = icon('prev', { size: 28 });
-    $('loupe-next').innerHTML = icon('next', { size: 28 });
-    $('loupe-prev').onclick = () => this.step(-1);
-    $('loupe-next').onclick = () => this.step(1);
-    $('bar-pick').onclick = () => this.openPicker();
+    // The bar: previous, the element (opens the picker), next.
+    this.bar = createAtomBar({ onChange: (z) => this.open(elementAt(z)), locked: (z) => !this.collected(z) });
+    $('loupe-screen').append(this.bar.el);
     // Top right: the isotope summary opens a short list.
     $('dec-top-right').addEventListener('click', (ev) => {
       if ((ev.target as HTMLElement).closest('.iso-toggle')) this.setIsoOpen(!this.isoOpen);
@@ -110,11 +108,6 @@ export class GalleryApp {
     this.tabs.el.setAttribute('aria-controls', 'atom-panel');
     $('atom-tabs').append(this.tabs.el);
     this.bindTabSwipe();
-  }
-
-  /** The element picker opens from the number and symbol in the bar. */
-  private openPicker(): void {
-    openElementPicker((z) => this.open(elementAt(z)), { current: this.current?.z, locked: (z) => !this.collected(z) });
   }
 
   /** Swipe sideways on a page to move between tabs; tables that scroll sideways keep the gesture. The model turns instead. */
@@ -201,13 +194,7 @@ export class GalleryApp {
     $('dec-top-left').innerHTML = dec.topLeft;
     $('dec-top-right').innerHTML = `<button class="iso-toggle" aria-expanded="false" aria-controls="iso-list">${dec.isoSummary}<span class="chev"></span></button><div class="iso-list" id="iso-list">${dec.isoList}</div>`;
     this.setIsoOpen(this.isoOpen);
-    $('bar-pick').innerHTML = `<span class="bar-z">${e.z}<span class="bar-chev">${icon('chevron-up', { size: 18 })}</span></span>`
-      + `<span class="bar-name">${dec.name}</span><span class="bar-sym">${e.symbol}</span>`;
-    $('bar-pick').setAttribute('aria-label', `${e.name}, element ${e.z}. Choose another element`);
-    $<HTMLButtonElement>('loupe-prev').disabled = e.z === 1;
-    $<HTMLButtonElement>('loupe-next').disabled = e.z === MAX_Z;
-    $('loupe-prev').title = e.z > 1 ? elementAt(e.z - 1).name : '';
-    $('loupe-next').title = e.z < MAX_Z ? elementAt(e.z + 1).name : '';
+    this.bar.set(e.z);
     this.renderPanel();
     const screen = $('loupe-screen');
     if (screen.hidden) {

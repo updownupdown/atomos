@@ -66,6 +66,11 @@ export class Detail {
     this.view.setElement(e, animate && !this.reducedMotion);
   }
 
+  /** Paint the electrons one color (a CSS color), or null for the orbital block colors. */
+  setTint(color: string | null): void {
+    this.view.setTint(color);
+  }
+
   setCollected(collected: boolean): void {
     this.view.setDim(collected ? 1 : 0.45);
   }
