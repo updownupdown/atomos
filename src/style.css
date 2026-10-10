@@ -513,7 +513,8 @@ body.stage-nucleus #atom { opacity: 0.12; }
 .splash .grain { position: absolute; }
 .splash-mark { width: min(46vw, 210px); height: auto; position: relative; }
 .splash-word { font-family: var(--font); font-weight: 700; font-size: 15px; letter-spacing: 0.32em; text-transform: uppercase; margin-top: 18px; padding-left: 0.32em; }
-.splash-sub { font-family: var(--font); font-size: 11px; color: var(--muted); letter-spacing: 0.06em; }
+/* The mark's two electrons are cyan, in the header and on the splash; the rest stays white. */
+.nav-logo .electron, .splash-mark .electron { fill: var(--c-accent); }
 
 /* Starting states, only while playing: everything hidden or wound back. */
 .splash.play .nucleon { transform-box: fill-box; transform-origin: center; transform: scale(0); animation: splash-pop 0.42s cubic-bezier(0.2, 1.4, 0.4, 1) forwards; }
@@ -527,8 +528,7 @@ body.stage-nucleus #atom { opacity: 0.12; }
 .splash.play .electron { transform-box: fill-box; transform-origin: center; transform: scale(0); animation: splash-pop 0.36s cubic-bezier(0.2, 1.4, 0.4, 1) 0.5s forwards; }
 .splash.play .spin { transform-box: view-box; transform-origin: 50px 50px; transform: rotate(-200deg); animation: splash-swing 1.25s cubic-bezier(0.25, 0.8, 0.3, 1) 0.6s forwards; }
 .splash.play .shell { stroke-dasharray: 1; stroke-dashoffset: 1; animation: splash-draw 1.05s cubic-bezier(0.4, 0, 0.2, 1) 0.7s forwards; }
-.splash.play .splash-word, .splash.play .splash-sub { opacity: 0; animation: splash-fade 0.6s ease 1.35s forwards; }
-.splash.play .splash-sub { animation-delay: 1.55s; }
+.splash.play .splash-word { opacity: 0; animation: splash-fade 0.6s ease 1.35s forwards; }
 @keyframes splash-pop { to { transform: scale(1); } }
 @keyframes splash-draw { to { stroke-dashoffset: 0; } }
 @keyframes splash-swing { to { transform: rotate(0deg); } }
@@ -876,7 +876,8 @@ body.stage-nucleus #atom { opacity: 0.12; }
    The sections stay centred while the sides have room, and widen on bigger screens. */
 .nav {
   display: grid;
-  grid-template-columns: minmax(max-content, 1fr) auto minmax(0, 1fr);
+  /* The mark and wordmark on the left; the four sections together on the right. */
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--sp-2);
   height: calc(var(--safe-top) + var(--nav-h));
@@ -901,12 +902,16 @@ body.stage-nucleus #atom { opacity: 0.12; }
 .nav-word, .wordmark { font-family: var(--font); font-weight: var(--fw-bold); font-size: 12px; letter-spacing: 0.32em; text-transform: uppercase; line-height: 1; }
 .nav-word { margin-right: -0.32em; }
 /* The wordmark gives way when the header is short of room. */
-@media (max-width: 539px) { .nav-word { display: none; } }
+@media (max-width: 389px) {
+  .nav-tabs button { width: 52px; }
+  .nav-word { font-size: 11px; letter-spacing: 0.22em; margin-right: -0.22em; }
+}
+@media (max-width: 339px) { .nav-word { display: none; } }
 .nav-logo:hover { background: var(--c-surface-2); }
 .nav-tabs { flex: none; display: flex; gap: 2px; }
 .nav-tabs button {
-  /* 64 px on a phone, growing with the screen up to 104 px. */
-  width: clamp(64px, 22vw - 24px, 104px);
+  /* 56 px on a phone, so the wordmark fits beside them, growing up to 104 px. */
+  width: clamp(56px, 22vw - 30px, 104px);
   height: 46px;
   display: flex;
   flex-direction: column;
@@ -925,11 +930,10 @@ body.stage-nucleus #atom { opacity: 0.12; }
 .nav-lab { font-size: 11px; font-weight: var(--fw-semibold); line-height: 1.1; letter-spacing: 0.01em; }
 .nav-tabs button:hover { color: var(--c-text); }
 .nav-tabs button[aria-current='page'] { background: var(--c-pick); color: var(--c-accent); }
-.nav-end { justify-self: end; }
+.nav-end { display: none; }
 .nav-logo:focus-visible, .nav-tabs button:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
 @media (max-width: 359px) {
   .nav { padding-inline: var(--sp-2); gap: var(--sp-1); }
-  .nav-tabs button { width: 58px; }
 }
 
 /* Atom screens, top down: the header, the atom bar (View and Build each mount their own in the
