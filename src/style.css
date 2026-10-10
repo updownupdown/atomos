@@ -462,7 +462,9 @@ body.stage-nucleus #atom { opacity: 0.12; }
 .gal-labels span { position: absolute; left: 0; top: 0; font-family: var(--mono); font-size: 10px; color: var(--muted); white-space: nowrap; will-change: transform; transition: opacity 0.2s; }
 .gal-labels span.locked { color: #4d4840; }
 .gal-labels span.sel { color: var(--accent); }
-.gal-labels .marker { font-family: var(--sans); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+.gal-labels .marker { font-family: var(--sans); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+.gal-labels .marker.axis { font-family: var(--mono); font-size: 10px; letter-spacing: 0; color: #8a8478; }
+.gal-labels .marker.block { font-size: 10px; letter-spacing: 0.08em; text-transform: none; }
 .gal-top { position: absolute; left: 0; right: 0; top: 0; z-index: 2; display: flex; justify-content: space-between; align-items: flex-start; padding: calc(10px + var(--top)) 14px 0; pointer-events: none; }
 .gal-top > * { pointer-events: auto; }
 .gal-title { display: flex; flex-direction: column; gap: 2px; }

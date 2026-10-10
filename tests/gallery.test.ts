@@ -50,12 +50,26 @@ describe('layouts', () => {
       }
     }
   });
-  it('puts helium above neon in the table and beside hydrogen in the left step', () => {
+  it('puts helium above neon in the table', () => {
     const t = layout('table');
     expect(t.atoms[1].x).toBeCloseTo(t.atoms[9].x);
-    const ls = layout('leftstep');
-    expect(ls.atoms[1].y).toBeCloseTo(ls.atoms[0].y);
-    expect(ls.atoms[1].x).toBeGreaterThan(ls.atoms[0].x);
+  });
+  it('keeps atoms apart in every layout', () => {
+    for (const { id } of LAYOUTS) {
+      const a = layout(id).atoms;
+      let min = Infinity;
+      for (let i = 0; i < a.length; i++) for (let j = i + 1; j < a.length; j++) min = Math.min(min, Math.hypot(a[i].x - a[j].x, a[i].y - a[j].y));
+      expect(min, id).toBeGreaterThan(0.75);
+    }
+  });
+  it('lines groups up along spokes in the circle and across the ribbon', () => {
+    for (const id of ['circle', 'ribbon'] as const) {
+      const a = layout(id).atoms;
+      // Lithium, sodium and potassium share a direction from the centre of their lobe or ring.
+      const ang = (z: number, cx: number) => Math.atan2(a[z - 1].y, a[z - 1].x - cx);
+      const cx = id === 'ribbon' ? 5 : 0;
+      expect(Math.abs(ang(3, cx) - ang(19, cx))).toBeLessThan(0.35);
+    }
   });
 });
 

@@ -8,7 +8,7 @@ import { Detail } from './detail';
 import { Gallery } from './gallery';
 import { decoratorsHTML, TABS, tabHTML, type Tab } from './info';
 import { MICROSCOPE } from '../ui/icons';
-import { LAYOUTS, type LayoutId } from './layouts';
+import { isLayoutId, LAYOUTS, type LayoutId } from './layouts';
 import { loadSave, writeSave, type SaveData } from '../core/save';
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -27,7 +27,10 @@ export class GalleryApp {
   private current: Element | null = null;
   private tab: Tab = 'overview';
   private sheetOpen = false;
-  private layoutId: LayoutId = (localStorage.getItem('atomos.gallery.layout') as LayoutId) || 'spiral';
+  private layoutId: LayoutId = (() => {
+    const saved = localStorage.getItem('atomos.gallery.layout');
+    return isLayoutId(saved) ? saved : 'spiral';
+  })();
   private style: Style = (localStorage.getItem('atomos.gallery.style') as Style) || 'cloud';
 
   constructor(private handlers: GalleryHandlers) {
