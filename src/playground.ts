@@ -270,7 +270,7 @@ export class Playground {
 
   private aboutPuzzles(): void {
     openModal(`<h2>Puzzles and atoms</h2><div class="how">
-      <p>Every atom in the collection is won by solving puzzles. Building an atom takes two: one gathers its nucleus, the next places its electrons. That is <b>Build</b> mode, and it uses Merge (helium to iron), Sliding Block (cobalt on) and Orbital Grid (every element).</p>
+      <p>Every atom in the collection is won by solving puzzles. Building an atom takes two, in any order: one gathers its nucleus, the other places its electrons. Then its isotope vault opens, one Packing board per isotope. That is <b>Build</b> mode, and it uses Merge (helium to iron), Sliding Block (cobalt on) and Orbital Grid (every element).</p>
       <p><b>Facets</b> will unlock deeper layers of an atom you own, such as its isotopes or the shapes of its orbitals. <b>Gates</b> will open new parts of the game. <b>Reserve</b> puzzles are built to try out, without a place yet.</p>
       <p class="meta">Each puzzle is a game first. Where a mechanic bends the science for fun, its labels stay true, and the microscope above each puzzle says what is real and what is only a game rule.</p></div>`);
   }

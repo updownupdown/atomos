@@ -8,6 +8,7 @@ import {
 import { frontier, loadSave, writeSave, type SaveData, type StepId } from './core/save';
 import { atomProgress, isotopeCollected, segmentsOf, stepState, stepsOf, vaultIsotopes, type StepState } from './core/progress';
 import { Detail } from './gallery/detail';
+import { refreshModeProgress } from './ui/modebar';
 import { buildTracks, drawWitness, slowFactor } from './ui/witness';
 import { MERGE_UP_TO, mergeLevel, orbitalGridLevel, slidingLevel } from './puzzles/levels';
 import { MergeView } from './puzzles/mergeView';
@@ -221,6 +222,7 @@ export class Game {
   /** Saves, and tells the rest of the app (the mode row, the gallery) that progress changed. */
   private saveProgress(): void {
     writeSave(this.save);
+    refreshModeProgress();
     window.dispatchEvent(new CustomEvent('atomos:progress', { detail: { z: this.z } }));
   }
 
@@ -315,9 +317,9 @@ export class Game {
       const life = iso.stable ? `stable${iso.abundance ? `, ${formatPercent(iso.abundance)} of ${name} on Earth` : ''}` : `half-life ${formatDuration(iso.halfLife ?? 0)}`;
       return this.card({
         stage: `iso-${iso.a}`,
-        kicker: `Isotope · ${life}`,
+        kicker: 'Isotope',
         title: `${el.name}-${iso.a}`,
-        text: `${el.z} proton${el.z === 1 ? '' : 's'}, ${iso.a - el.z} neutron${iso.a - el.z === 1 ? '' : 's'}.`,
+        text: `${el.z} proton${el.z === 1 ? '' : 's'}, ${iso.a - el.z} neutron${iso.a - el.z === 1 ? '' : 's'}. ${life[0].toUpperCase()}${life.slice(1)}.`,
         done: have,
         flawless: false,
         locked: built ? undefined : `Opens once ${name} is built`,
@@ -336,7 +338,7 @@ export class Game {
       <section class="bh-group">
         <div class="bh-group-head">
           <h3>Build ${name}</h3>
-          <p>${z === 1 ? 'One puzzle: its nucleus is a lone proton, so you only settle its electron.' : 'Two puzzles, in any order. Solve both and it joins your collection.'}</p>
+          <p>${built ? 'Built. Replay either puzzle any time to beat your best.' : z === 1 ? 'One puzzle: its nucleus is a lone proton, so you only settle its electron.' : 'Two puzzles, in any order. Solve both and it joins your collection.'}</p>
         </div>
         <ol class="bh-steps">${z === 1 ? this.hydrogenNucleus() : ''}${stepCards}</ol>
       </section>
@@ -406,7 +408,7 @@ export class Game {
     const groups = [segs.filter((g) => g.kind === 'step'), segs.filter((g) => g.kind === 'isotope')].filter((g) => g.length);
     $('bh-progress').innerHTML = `
       <div class="bh-bar" role="img" aria-label="${done} of ${segs.length} built, ${pct}%">
-        ${groups.map((g) => `<span class="bh-bar-group">${g.map((x) => `<span class="bh-seg${x.done ? ' is-done' : ''}${x.kind === 'isotope' ? ' is-iso' : ''}" title="${x.label}${x.done ? ': built' : ''}"></span>`).join('')}</span>`).join('')}
+        ${groups.map((g) => `<span class="bh-bar-group" style="flex:${g.length}">${g.map((x) => `<span class="bh-seg${x.done ? ' is-done' : ''}${x.kind === 'isotope' ? ' is-iso' : ''}" title="${x.label}${x.done ? ': built' : ''}"></span>`).join('')}</span>`).join('')}
       </div>
       <div class="bh-bar-caption">
         <span>${built ? (built.flawless ? 'Built, flawless' : 'Built') : 'Not built yet'}</span>
@@ -698,7 +700,7 @@ export class Game {
     const restart = createHoldButton({ icon: icon('restart'), label: 'Restart', doneLabel: 'Restarted', onConfirm: () => this.restartPuzzle() });
     restart.id = 'btn-restart';
     const how = iconButton({ icon: icon('info'), label: 'Instructions', onClick: () => this.showHow() });
-    $('build-actions').append(undo, restart, how);
+    $('build-actions').append(undo, restart, how, scienceButton('ui-icon-btn science-btn'));
     window.addEventListener('keydown', (e) => this.onKey(e));
     window.addEventListener('blur', () => this.onCancel());
   }
