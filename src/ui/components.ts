@@ -556,3 +556,70 @@ export function openDrawer(o: DrawerOptions): Drawer {
 
 /** True while any drawer is open, so screens can ignore their own keys meanwhile. */
 export const drawerOpen = (): boolean => openDrawers > 0;
+
+// ---- Disclosure (expand / collapse) --------------------------------------------------------
+//
+// A card that folds detail away: a title row with an optional hint (a count, a unit) and a
+// round chevron that turns as it opens; the body slides open. It is a native <details>, so it
+// works in HTML strings, with the keyboard and without script; with script the height animates.
+//
+//   body.innerHTML = disclosureHTML({ title: 'All the numbers', hint: '32 rows', body: table });
+//   root.append(createDisclosure({ title: 'Why', body: node }));
+
+export interface DisclosureOptions {
+  title: string;
+  /** Short text at the right of the title row, before the chevron. */
+  hint?: string;
+  /** HTML string, or a Node for createDisclosure. */
+  body: string | Node;
+  open?: boolean;
+  /** Extra class on the <details>. */
+  className?: string;
+}
+
+/** The disclosure as an HTML string; animation is wired once for the whole page. */
+export function disclosureHTML(o: DisclosureOptions & { body: string }): string {
+  bindDisclosures();
+  return `<details class="ui-disclosure${o.className ? ' ' + o.className : ''}"${o.open ? ' open' : ''}>`
+    + `<summary class="ui-disclosure-head"><span class="ui-disclosure-title">${esc(o.title)}</span>`
+    + `${o.hint ? `<span class="ui-disclosure-hint">${esc(o.hint)}</span>` : ''}`
+    + `<span class="ui-disclosure-chev" aria-hidden="true">${ICON_CHEVRON}</span></summary>`
+    + `<div class="ui-disclosure-body"><div class="ui-disclosure-in">${o.body}</div></div></details>`;
+}
+
+/** The disclosure as an element. */
+export function createDisclosure(o: DisclosureOptions): HTMLDetailsElement {
+  const holder = document.createElement('div');
+  holder.innerHTML = disclosureHTML({ ...o, body: typeof o.body === 'string' ? o.body : '' });
+  const d = holder.firstElementChild as HTMLDetailsElement;
+  if (typeof o.body !== 'string') d.querySelector('.ui-disclosure-in')!.append(o.body);
+  return d;
+}
+
+let disclosuresBound = false;
+/** One listener animates every disclosure: the body grows from 0 to its height, or back. */
+export function bindDisclosures(): void {
+  if (disclosuresBound || typeof document === 'undefined') return;
+  disclosuresBound = true;
+  document.addEventListener('click', (e) => {
+    const head = (e.target as HTMLElement).closest?.('.ui-disclosure-head');
+    const d = head?.parentElement as HTMLDetailsElement | null;
+    if (!head || !d?.classList.contains('ui-disclosure')) return;
+    const body = d.querySelector<HTMLElement>('.ui-disclosure-body');
+    if (!body || !body.animate || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    e.preventDefault();
+    const opening = !d.open;
+    d.classList.toggle('is-opening', opening);
+    if (opening) d.open = true;
+    const full = body.scrollHeight;
+    const a = body.animate(
+      opening ? [{ height: '0px', opacity: 0 }, { height: `${full}px`, opacity: 1 }] : [{ height: `${full}px`, opacity: 1 }, { height: '0px', opacity: 0 }],
+      { duration: Math.min(420, 180 + full * 0.25), easing: 'cubic-bezier(0.2, 0.7, 0.2, 1)' },
+    );
+    if (!opening) d.classList.add('is-closing');
+    a.onfinish = () => {
+      if (!opening) d.open = false;
+      d.classList.remove('is-opening', 'is-closing');
+    };
+  });
+}

@@ -1,7 +1,7 @@
 // The gallery screen: the vitrine of all 118 atoms and the loupe over one of
 // them, wired to the page. The atom screen's View has tabs: the 3D model, with
 // a few white captions round the atom, then the element's science as pages.
-// The header microscope explains whichever tab is open.
+// Each page ends with a "How to read this" button that opens its guide.
 
 import { STYLES, type Style } from './atom';
 import { CLOUD_RINGS, ELEMENTS, MAX_Z, elementAt, type Element } from './data';
@@ -16,6 +16,7 @@ import { isLayoutId, LAYOUT_STORY, LAYOUTS, type LayoutId } from './layouts';
 import { setScienceHandler, setScienceOpen } from '../ui/science';
 import { openModal } from '../ui/modal';
 import { loadSave, writeSave, type SaveData } from '../core/save';
+import { atomProgress } from '../core/progress';
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -65,7 +66,8 @@ export class GalleryApp {
   refreshCollected(): void {
     this.save = loadSave();
     const got = this.save.settings.unlockAll ? ELEMENTS.map((e) => e.z) : Object.keys(this.save.built).map(Number);
-    this.gallery.setCollected(got);
+    const save = this.save;
+    this.gallery.setCollected(got, (z) => atomProgress(z, save));
     if (this.current) this.detail.setCollected(this.collected(this.current.z));
     $('gal-count').textContent = `${got.length} of ${MAX_Z}`;
   }
@@ -196,8 +198,9 @@ export class GalleryApp {
     $('dec-top-left').innerHTML = dec.topLeft;
     $('dec-top-right').innerHTML = `<button class="iso-toggle" aria-expanded="false" aria-controls="iso-list">${dec.isoSummary}<span class="chev"></span></button><div class="iso-list" id="iso-list">${dec.isoList}</div>`;
     this.setIsoOpen(this.isoOpen);
-    $('dec-name').innerHTML = dec.name;
-    $('bar-pick').innerHTML = `${dec.pick}<span class="bar-chev">${icon('chevron-up', { size: 18 })}</span>`;
+    $('bar-pick').innerHTML = `<span class="bar-z">${e.z}<span class="bar-chev">${icon('chevron-up', { size: 18 })}</span></span>`
+      + `<span class="bar-name">${dec.name}</span><span class="bar-sym">${e.symbol}</span>`;
+    $('bar-pick').setAttribute('aria-label', `${e.name}, element ${e.z}. Choose another element`);
     $<HTMLButtonElement>('loupe-prev').disabled = e.z === 1;
     $<HTMLButtonElement>('loupe-next').disabled = e.z === MAX_Z;
     $('loupe-prev').title = e.z > 1 ? elementAt(e.z - 1).name : '';
@@ -214,16 +217,17 @@ export class GalleryApp {
     this.handlers.onLoupe?.(e.z);
   }
 
-  /** The header microscope: how to read the open tab in the atom view, the arrangement's story on the map. */
+  /** The microscope: the arrangement's story on the map. In the atom view each page has its own
+   *  guide button at its foot instead, so the row's microscope stands down there. */
   private registerScience(): void {
     if ($('gallery-screen').hidden) return;
-    if (!$('loupe-screen').hidden && this.current) setScienceHandler(() => this.openGuide(), 'How to read this');
+    if (!$('loupe-screen').hidden && this.current) setScienceHandler(null);
     else setScienceHandler(() => this.openLayoutStory(), 'Why the atoms are arranged this way');
   }
 
   private openGuide(): void {
-    setScienceOpen(true);
-    openModal(guideHTML(this.tab), () => setScienceOpen(false));
+    if (!this.current || this.tab === 'model') return;
+    openModal(guideHTML(this.current, this.tab));
   }
 
   private openLayoutStory(): void {
@@ -276,7 +280,10 @@ export class GalleryApp {
   private renderPanel(): void {
     if (!this.current || this.tab === 'model') return;
     const panel = $('atom-panel');
-    panel.innerHTML = `<div class="atom-page">${tabHTML(this.current, this.tab, this.collected(this.current.z))}</div>`;
+    const label = VIEW_TABS.find((t) => t.id === this.tab)!.label.toLowerCase();
+    panel.innerHTML = `<div class="atom-page">${tabHTML(this.current, this.tab, this.collected(this.current.z))}`
+      + `<div class="page-guide"><button type="button" class="guide-btn" id="guide-btn">${icon('microscope')}<span><b>How to read this</b><small>A guide to the ${label} page, and more context</small></span></button></div></div>`;
+    $('guide-btn').onclick = () => this.openGuide();
     panel.scrollTop = 0;
     panel.setAttribute('aria-label', VIEW_TABS.find((t) => t.id === this.tab)!.label);
   }

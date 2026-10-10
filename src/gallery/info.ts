@@ -6,6 +6,7 @@ import { BLOCK_COLOUR, formatHalfLife, keyIsotope, shortConfiguration, sup, type
 import { ORBITAL_NAMES } from './orbital';
 import FACTS from '../data/element-facts.json';
 import IMAGES from '../data/element-images.json';
+import { disclosureHTML } from '../ui/components';
 import { blueprint, discoveryTimeline, isotopeAlbum, propertyAxes } from './visuals';
 
 export type Tab = 'overview' | 'structure' | 'isotopes' | 'properties' | 'story';
@@ -19,7 +20,7 @@ export const TABS: { id: Tab; label: string }[] = [
 
 /** The atom screen's View tabs: the 3D model first, then the text tabs. */
 export type ViewTab = 'model' | Tab;
-export const VIEW_TABS: { id: ViewTab; label: string }[] = [{ id: 'model', label: 'Model' }, ...TABS];
+export const VIEW_TABS: { id: ViewTab; label: string }[] = [{ id: 'model', label: '3D' }, ...TABS];
 
 const esc = (s: string | null | undefined) => (s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 const num = (v: number | null, unit = '', digits = 3) => (v == null ? '<span class="na">not known</span>' : `${Number(v.toPrecision(digits))}${unit}`);
@@ -119,7 +120,7 @@ function structure(e: Element): string {
   const key = keyIsotope(e);
   return `
     ${blueprint(e)}
-    <h4>All the numbers</h4>
+    ${disclosureHTML({ title: 'All the numbers', hint: `${e.subshells.length} layers`, body: `
     ${row('Configuration', `${e.configuration.split(' ').map((s) => s.slice(0, 2) + sup(s.slice(2))).join(' ')}`)}
     ${row('Short form', shortConfiguration(e))}
     <div class="shells">${shellRow}</div>
@@ -131,8 +132,7 @@ function structure(e: Element): string {
     ${row('Van der Waals radius', `${e.vdw} pm${e.vdwEstimated ? ' <span class="dim">(estimated from the element above it)</span>' : ''}`)}
     ${row('Covalent radius', num(e.covalent, ' pm'))}
     ${row('Nucleus', `${key ? `${e.z} protons, ${key.a - e.z} neutrons (${e.symbol}-${key.a})` : `${e.z} protons`}, radius about ${e.nucleusRadius.toFixed(1)} fm`)}
-    ${row('Cloud to nucleus', `about ${Math.round((e.vdw * 1e3) / e.nucleusRadius / 1000)},000 to 1`)}
-    <p class="note">The Model tab scales its outer layer to the van der Waals radius; spacing between layers follows hydrogen-like orbitals with Slater's effective charges. Lobes are sharpened a little for legibility.</p>`;
+    ${row('Cloud to nucleus', `about ${Math.round((e.vdw * 1e3) / e.nucleusRadius / 1000)},000 to 1`)}` })}`;
 }
 
 function isotopes(e: Element): string {
@@ -141,10 +141,9 @@ function isotopes(e: Element): string {
     <td>${i.abundance == null ? '' : i.abundance + '%'}</td><td>${i.stable ? 'stable' : i.halfLife == null ? '<span class="na">not known</span>' : formatHalfLife(i.halfLife)}</td><td>${i.spin ?? ''}</td></tr>`).join('');
   return `
     ${isotopeAlbum(e)}
-    <details class="more"><summary>All the numbers</summary>
-    <div class="tablewrap"><table>
+    ${disclosureHTML({ title: 'All the numbers', hint: `${e.isotopes.length} isotopes`, body: `<div class="tablewrap"><table>
       <thead><tr><th>Isotope</th><th>Neutrons</th><th>Mass</th><th>Abundance</th><th>Half-life</th><th>Spin</th></tr></thead>
-      <tbody>${rows}</tbody></table></div></details>
+      <tbody>${rows}</tbody></table></div>` })}
     <p class="note">Half-lives from the mendeleev dataset; stable means observationally stable.</p>`;
 }
 
