@@ -42,11 +42,6 @@ const isoA = (s: IsoStage): number => Number(s.slice(4));
 
 const STEP_LABEL: Record<StepId, string> = { nucleus: 'Nucleus', shells: 'Electrons' };
 
-/** Where an atom first meets a new orbital shape: Field Lines will discover it there. */
-const NEW_SHAPE: Record<number, string> = { 5: 'p', 21: 'd', 58: 'f' };
-/** The first element of each period after the first: Slide Until Stop will open it. */
-const PERIOD_START: Record<number, number> = { 3: 2, 11: 3, 19: 4, 37: 5, 55: 6, 87: 7 };
-
 export class Game {
   private save: SaveData = loadSave();
   private scene: AtomScene;
@@ -350,13 +345,6 @@ export class Game {
     }).join('');
     const live = this.save.specimens.some((sp) => sp.z === z);
 
-    const later = this.laterFor(z);
-    const laterBlock = later.length ? `
-      <section class="bh-section bh-later">
-        <h3>Coming later</h3>
-        <ul>${later.map((l) => `<li><b>${l.what}</b><span class="bh-later-by">${l.by}</span><span class="bh-later-text">${l.text}</span></li>`).join('')}</ul>
-      </section>` : '';
-
     $('bh-in').innerHTML = `
       <section class="bh-group">
         <div class="bh-group-head">
@@ -373,8 +361,7 @@ export class Game {
         </div>
         <ol class="bh-steps">${isoCards}</ol>
         ${live ? `<button class="text-btn bh-bench" id="bh-bench">Watch your unstable isotopes</button>` : ''}
-      </section>` : ''}
-      ${laterBlock}`;
+      </section>` : ''}`;
 
     const root = $('bh-in');
     root.querySelectorAll<HTMLButtonElement>('[data-stage]').forEach((b) => (b.onclick = () => this.enter(b.dataset.stage as Stage)));
@@ -512,15 +499,6 @@ export class Game {
     document.documentElement.style.setProperty('--el', c);
     this.tintDetail();
     this.renderPaintButton();
-  }
-
-  /** Puzzles on the progression map for this atom that the game does not have yet. */
-  private laterFor(z: number): { what: string; by: string; text: string }[] {
-    const el = element(z);
-    const out: { what: string; by: string; text: string }[] = [];
-    if (NEW_SHAPE[z]) out.push({ what: `The ${NEW_SHAPE[z]} orbital shape`, by: 'Flux', text: `${el.name} is the first atom with an electron in a ${NEW_SHAPE[z]} orbital; this puzzle will discover its shape.` });
-    if (PERIOD_START[z]) out.push({ what: `Period ${PERIOD_START[z]}`, by: 'Inertia', text: `${el.name} starts a new row of the table; this puzzle will open it.` });
-    return out;
   }
 
   private openRulesFor(t: PuzzleType): void {
