@@ -185,7 +185,7 @@ export function drawWitness(canvas: HTMLCanvasElement, tracks: Track[], progress
 }
 
 function label(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, colour: string): void {
-  ctx.font = "12px 'Courier Prime', 'Courier New', monospace";
+  ctx.font = "12px 'Outfit Variable', system-ui, sans-serif";
   ctx.fillStyle = colour;
   const w = ctx.measureText(text).width;
   const cw = ctx.canvas.clientWidth;

@@ -32,14 +32,6 @@ export default defineConfig(({ mode }) => ({
           },
           workbox: {
             globPatterns: ['**/*.{js,css,html,png,svg,woff2}'],
-            // Google Fonts: serve from cache once seen, so the typefaces survive offline.
-            runtimeCaching: [
-              {
-                urlPattern: /^https:\/\/fonts\.(googleapis|gstatic)\.com\/.*/i,
-                handler: 'StaleWhileRevalidate',
-                options: { cacheName: 'fonts', expiration: { maxEntries: 20, maxAgeSeconds: 60 * 60 * 24 * 365 } },
-              },
-            ],
           },
         }),
       ],

@@ -13,9 +13,6 @@
     <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
     <meta name="description" content="Every atom, up close. Atomos: a collection of the 118 elements, unlocked puzzle by puzzle." />
     <title>Atomos</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo+Narrow:wght@400;600&family=Courier+Prime:wght@400;700&display=swap" />
     <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
@@ -150,8 +147,8 @@
       </div>
     </section>
 
-    <div class="modal" id="modal" hidden>
-      <div class="sheet" id="modal-sheet" role="dialog" aria-modal="true"></div>
+    <div class="modal ui-modal" id="modal" hidden>
+      <div class="sheet ui-modal-card" id="modal-sheet" role="dialog" aria-modal="true"></div>
     </div>
     <div class="toasts" id="toasts" aria-live="polite"></div>
     <script type="module" src="/src/main.ts"></script>
