@@ -874,7 +874,8 @@ body.stage-nucleus #atom { opacity: 0.12; }
    The sections stay centred while the sides have room, and widen on bigger screens. */
 .nav {
   display: grid;
-  grid-template-columns: minmax(max-content, 1fr) auto minmax(0, 1fr);
+  /* The mark and wordmark on the left; the four sections together on the right. */
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--sp-2);
   height: calc(var(--safe-top) + var(--nav-h));
@@ -899,12 +900,16 @@ body.stage-nucleus #atom { opacity: 0.12; }
 .nav-word, .wordmark { font-family: var(--font); font-weight: var(--fw-bold); font-size: 12px; letter-spacing: 0.32em; text-transform: uppercase; line-height: 1; }
 .nav-word { margin-right: -0.32em; }
 /* The wordmark gives way when the header is short of room. */
-@media (max-width: 539px) { .nav-word { display: none; } }
+@media (max-width: 389px) {
+  .nav-tabs button { width: 52px; }
+  .nav-word { font-size: 11px; letter-spacing: 0.22em; margin-right: -0.22em; }
+}
+@media (max-width: 339px) { .nav-word { display: none; } }
 .nav-logo:hover { background: var(--c-surface-2); }
 .nav-tabs { flex: none; display: flex; gap: 2px; }
 .nav-tabs button {
-  /* 64 px on a phone, growing with the screen up to 104 px. */
-  width: clamp(64px, 22vw - 24px, 104px);
+  /* 56 px on a phone, so the wordmark fits beside them, growing up to 104 px. */
+  width: clamp(56px, 22vw - 30px, 104px);
   height: 46px;
   display: flex;
   flex-direction: column;
@@ -923,11 +928,10 @@ body.stage-nucleus #atom { opacity: 0.12; }
 .nav-lab { font-size: 11px; font-weight: var(--fw-semibold); line-height: 1.1; letter-spacing: 0.01em; }
 .nav-tabs button:hover { color: var(--c-text); }
 .nav-tabs button[aria-current='page'] { background: var(--c-pick); color: var(--c-accent); }
-.nav-end { justify-self: end; }
+.nav-end { display: none; }
 .nav-logo:focus-visible, .nav-tabs button:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
 @media (max-width: 359px) {
   .nav { padding-inline: var(--sp-2); gap: var(--sp-1); }
-  .nav-tabs button { width: 58px; }
 }
 
 /* Atom screens, top down: the header, the atom bar (View and Build each mount their own in the
