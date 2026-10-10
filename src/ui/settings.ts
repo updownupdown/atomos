@@ -6,7 +6,8 @@ import { ISOTOPES, isotopeKey } from '../core/isotopes';
 import { MAX_Z } from '../core/elements';
 import { clearSave, loadSave, writeSave, type Settings } from '../core/save';
 import { MICROSCOPE } from './icons';
-import { switchHtml } from './components';
+import { createSegments, switchHtml } from './components';
+import { applyProgressPreset, currentPreset, PROGRESS_PRESETS, type ProgressPreset } from '../core/testing';
 
 /** Taps needed after the first to erase everything. */
 const RESET_TAPS = 3;
@@ -34,7 +35,8 @@ export function renderSettings(sheet: HTMLElement): void {
     <h3>Keyboard</h3>
     <p class="muted">Arrow keys swipe or move in most puzzles; each puzzle's instructions list its own keys. U undoes and R restarts.</p>
     <h3>Testing</h3>
-    ${toggle('unlockAll', 'Unlock every element', 'Every atom counts as collected and can be built in any order.')}
+    <p class="muted">Set the whole game to a share of done, to see how screens look. This replaces your progress.</p>
+    <div id="set-preset"></div>
     <h3>Progress</h3>
     <p class="muted">${Object.keys(save.built).length} of ${MAX_Z} elements built · ${found} of ${ISOTOPES.length} isotopes found</p>
     <div class="actions reset-row"><button class="secondary" id="set-reset">Reset all progress</button><button class="secondary" id="set-cancel" hidden>Cancel</button></div>
@@ -45,6 +47,15 @@ export function renderSettings(sheet: HTMLElement): void {
     writeSave(save);
     listeners.forEach((fn) => fn());
   }));
+  const preset = createSegments(PROGRESS_PRESETS.map((p) => ({ id: String(p), label: `${p}%` })), {
+    active: String(currentPreset(save) ?? ''),
+    label: 'Progress for testing',
+    onChange: (id) => {
+      writeSave(applyProgressPreset(loadSave(), Number(id) as ProgressPreset));
+      location.reload();
+    },
+  });
+  sheet.querySelector('#set-preset')!.append(preset.el);
   const reset = sheet.querySelector<HTMLButtonElement>('#set-reset')!;
   const cancel = sheet.querySelector<HTMLButtonElement>('#set-cancel')!;
   let left = -1;
