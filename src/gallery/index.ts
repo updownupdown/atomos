@@ -18,6 +18,7 @@ import { setScienceHandler, setScienceOpen } from '../ui/science';
 import { openModal } from '../ui/modal';
 import { loadSave, writeSave, type SaveData } from '../core/save';
 import { atomProgress } from '../core/progress';
+import { createElementList, type ElementList } from '../ui/elementlist';
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -44,6 +45,9 @@ export class GalleryApp {
     const saved = localStorage.getItem('atomos.gallery.style');
     return STYLES.some((s) => s.id === saved) ? (saved as Style) : 'cloud';
   })();
+  /** The gallery shows the atoms on a map, or every element in a sortable Details table. */
+  private details = localStorage.getItem('atomos.gallery.view') === 'details';
+  private list: ElementList | null = null;
   private rings = localStorage.getItem('atomos.gallery.rings') !== 'off';
   private isoOpen = false;
   private tabs!: Tabs;
@@ -64,7 +68,8 @@ export class GalleryApp {
     window.addEventListener('keydown', (ev) => this.key(ev));
     // Build announces each change to an atom's progress so the tiles' bars stay current.
     window.addEventListener('atomos:progress', () => this.refreshCollected());
-    this.gallery.start();
+    this.paintDetails();
+    this.startMap();
     this.registerScience();
   }
 
@@ -76,6 +81,7 @@ export class GalleryApp {
     this.gallery.setCollected(got, (z) => atomProgress(z, save));
     if (this.current) this.detail.setCollected(this.collected(this.current.z));
     $('gal-count').textContent = `${got.length} of ${MAX_Z}`;
+    this.list?.refresh();
   }
 
   private collected(z: number): boolean {
@@ -84,9 +90,12 @@ export class GalleryApp {
 
   private buildControls(): void {
     const seg = $('layout-switch');
-    seg.innerHTML = LAYOUTS.map((l) => `<button data-id="${l.id}" aria-pressed="${l.id === this.layoutId}">${l.label}</button>`).join('');
-    seg.querySelectorAll<HTMLButtonElement>('button').forEach((b) => (b.onclick = () => this.setLayout(b.dataset.id as LayoutId)));
-    $('layout-note').textContent = LAYOUTS.find((l) => l.id === this.layoutId)!.note;
+    seg.innerHTML = LAYOUTS.map((l) => `<button data-id="${l.id}">${l.label}</button>`).join('')
+      + `<button data-id="details">Details</button>`;
+    seg.querySelectorAll<HTMLButtonElement>('button').forEach((b) => (b.onclick = () => {
+      if (b.dataset.id === 'details') this.setDetails(true);
+      else this.setLayout(b.dataset.id as LayoutId);
+    }));
     // Bottom right: how the atom is drawn, as three icons.
     const styleIcon: Record<Style, IconName> = { cloud: 'view-cloud', shapes: 'view-shapes', hybrid: 'view-hybrid' };
     const styles = $('style-switch');
@@ -166,11 +175,47 @@ export class GalleryApp {
   }
 
   private setLayout(id: LayoutId): void {
+    const animate = !this.details && !this.save.settings.reducedMotion;
     this.layoutId = id;
     localStorage.setItem('atomos.gallery.layout', id);
+    this.gallery.setLayout(id, animate);
+    this.setDetails(false);
+  }
+
+  /** Switch between the map and the Details table. */
+  private setDetails(on: boolean): void {
+    const was = this.details;
+    this.details = on;
+    try { localStorage.setItem('atomos.gallery.view', on ? 'details' : 'map'); } catch { /* storage off: the choice just resets */ }
+    this.paintDetails();
+    if (!$('gallery-screen').hidden && $('loupe-screen').hidden) {
+      if (on) this.gallery.stop();
+      else if (was) this.gallery.start();
+    }
+    this.registerScience();
+  }
+
+  /** The arrangement buttons, the note under them, and the table when Details is on. */
+  private paintDetails(): void {
+    const id = this.details ? 'details' : this.layoutId;
     $('layout-switch').querySelectorAll<HTMLButtonElement>('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.id === id)));
-    $('layout-note').textContent = LAYOUTS.find((l) => l.id === id)!.note;
-    this.gallery.setLayout(id, !this.save.settings.reducedMotion);
+    $('layout-note').textContent = this.details ? 'Every element in one table: tap a heading to sort, a row to open it' : LAYOUTS.find((l) => l.id === this.layoutId)!.note;
+    $('gallery-screen').classList.toggle('is-details', this.details);
+    $('gal-details').hidden = !this.details;
+    if (this.details && !this.list) {
+      this.list = createElementList({
+        variant: 'table',
+        onPick: (z) => this.open(elementAt(z)),
+        locked: (z) => !this.collected(z),
+        storageKey: 'atomos.details.sort',
+      });
+      $('gal-details').append(this.list.el);
+    }
+  }
+
+  /** Run the map's render loop, unless the Details table covers it. */
+  private startMap(): void {
+    if (!this.details) this.gallery.start();
   }
 
   private setStyle(style: Style): void {
@@ -213,7 +258,7 @@ export class GalleryApp {
    *  guide button at its foot instead, so the row's microscope stands down there. */
   private registerScience(): void {
     if ($('gallery-screen').hidden) return;
-    if (!$('loupe-screen').hidden && this.current) setScienceHandler(null);
+    if ((!$('loupe-screen').hidden && this.current) || this.details) setScienceHandler(null);
     else setScienceHandler(() => this.openLayoutStory(), 'Why the atoms are arranged this way');
   }
 
@@ -244,7 +289,7 @@ export class GalleryApp {
     screen.classList.remove('in');
     this.detail.stop();
     if (this.current) this.gallery.focus(this.current.z);
-    this.gallery.start();
+    this.startMap();
     window.setTimeout(() => { screen.hidden = true; this.registerScience(); }, 220);
     this.handlers.onLoupe?.(null);
   }
@@ -334,7 +379,7 @@ export class GalleryApp {
     $('gallery-screen').hidden = false;
     this.refreshCollected();
     this.registerScience();
-    if ($('loupe-screen').hidden) this.gallery.start(); else if (this.tab === 'model') this.detail.start();
+    if ($('loupe-screen').hidden) this.startMap(); else if (this.tab === 'model') this.detail.start();
   }
 
   hide(): void {
