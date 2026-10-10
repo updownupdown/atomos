@@ -783,9 +783,9 @@ function mini(w: number, h: number, cols: number, rows: number, bands = 0): { c:
 const at = (g: { c: number; x: number; y: number }, col: number, row: number) => ({ x: g.x + col * g.c, y: g.y + row * g.c });
 const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
 
-/** A 1 x len row with a port on the left, for the beam demos; returns its layout. */
-function beamRow(ctx: CanvasRenderingContext2D, w: number, h: number, len: number, opened: number, stopAt: number | null, foundAlpha: number): Pick<Layout, 'x' | 'y' | 'cell' | 'band'> {
-  const g = mini(w, h, len, 1.6, 1);
+/** A 1 x len row with a port on the left, for the beam pictures; `bands` widens the margin for a beam that leaves through the far side. Returns its layout. */
+function beamRow(ctx: CanvasRenderingContext2D, w: number, h: number, len: number, opened: number, stopAt: number | null, foundAlpha: number, bands = 1): Pick<Layout, 'x' | 'y' | 'cell' | 'band'> {
+  const g = mini(w, h, len, 1.6, bands);
   const L = { x: g.x, y: g.y + g.c * 0.3, cell: g.c, band: g.c * BAND };
   foilSheet(ctx, L.x, L.y, len, 1, g.c);
   for (let k = 0; k < len; k++) {
@@ -797,211 +797,301 @@ function beamRow(ctx: CanvasRenderingContext2D, w: number, h: number, len: numbe
 }
 
 const DEMO_ROW = [0, 1, 2];
+/** When a picture's probe lands, in seconds. */
+const TAP = 0.4;
+const opened = (t: number) => t > TAP + PROBE_IN / 1000;
+const probing = (t: number) => t > TAP && t < TAP + (PROBE_IN + 260) / 1000;
+
+/** An open, safe cell of a demo plate. */
+function openCell(ctx: CanvasRenderingContext2D, g: { c: number; x: number; y: number }, col: number, row: number, kind: CellKind, clue: number, active = false): void {
+  const q = at(g, col, row);
+  well(ctx, q.x, q.y, g.c);
+  cellFace(ctx, q.x, q.y, g.c, kind, clue, active);
+}
+
+/** An amber dashed square around a block of cells: what was misread or wrongly marked. */
+function warnCells(ctx: CanvasRenderingContext2D, g: { c: number; x: number; y: number }, col: number, row: number, cols: number, rows: number, alpha: number): void {
+  if (alpha <= 0) return;
+  const q = at(g, col, row);
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.setLineDash([4, 3]);
+  tile(ctx, q.x + 1.5, q.y + 1.5, cols * g.c - 3, rows * g.c - 3, g.c * 0.2, null, C.warn, 2);
+  ctx.restore();
+}
+
+/** Draws clipped to the picture's box: a beam's tail trails behind its port as it sets off, and a probe flies in from outside its cell. */
+function inBox(ctx: CanvasRenderingContext2D, w: number, h: number, draw: () => void): void {
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(0, 0, w, h);
+  ctx.clip();
+  draw();
+  ctx.restore();
+}
+
+/** The counters under the plate, scaled up and centered in a demo box. */
+function demoCounters(ctx: CanvasRenderingContext2D, w: number, h: number, left: number, used: number, par: number): void {
+  const k = Math.min(1.5, w / 110);
+  const span = -counters(ctx, 0, 0, left, 3, par, false);
+  ctx.save();
+  ctx.translate(w / 2 + (span * k) / 2, h / 2);
+  ctx.scale(k, k);
+  counters(ctx, 0, 0, left, used, par);
+  ctx.restore();
+}
+
+/** Clear around: a 1 with one mark in its eight, tapped. The mark is right (good) or on the wrong cell (bad). */
+function clearPicture(ctx: CanvasRenderingContext2D, w: number, h: number, t: number, markAt: number): void {
+  const g = mini(w, h, 3, 3);
+  foilSheet(ctx, g.x, g.y, 3, 3, g.c);
+  const faces = [0, 1, 1, 0, 1, 1, 0, 1, 0];
+  const nucleus = 8, cleared = t > 1.1;
+  for (let k = 0; k < 9; k++) {
+    const col = k % 3, row = Math.floor(k / 3), q = at(g, col, row);
+    if (k === markAt) { reticle(ctx, q.x + g.c / 2, q.y + g.c / 2, g.c * 0.27); continue; }
+    const d = Math.max(Math.abs(col - 1), Math.abs(row - 1));
+    if (k !== 4 && !(cleared && t > 1.1 + d * 0.08)) continue;
+    if (k === nucleus) nucleusCell(ctx, q.x, q.y, g.c, 'hit');
+    else openCell(ctx, g, col, row, 'plain', faces[k]);
+  }
+  const ctr = at(g, 1, 1);
+  if (t > 0.6 && t < 1.2) tile(ctx, ctr.x + 1, ctr.y + 1, g.c - 2, g.c - 2, g.c * 0.2, null, C.accent, 1.5);
+  if (markAt !== nucleus) warnCells(ctx, g, markAt % 3, Math.floor(markAt / 3), 1, 1, clamp01((t - 1.5) / 0.3));
+}
+
+/** A scatter 2 on a 5 x 5 plate, read along its row and column (good) or, wrongly, as its eight neighbors (bad). */
+function scatterPicture(ctx: CanvasRenderingContext2D, w: number, h: number, t: number, lines: boolean): void {
+  const g = mini(w, h, 5, 5);
+  foilSheet(ctx, g.x, g.y, 5, 5, g.c);
+  const reach = Math.min(2, Math.floor(clamp01((t - 0.3) / 1) * 3));
+  if (lines) {
+    for (let k = 1; k <= reach; k++) {
+      for (const [dc, dr] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const q = at(g, 2 + dc * k, 2 + dr * k); cellHighlight(ctx, q.x, q.y, g.c); }
+    }
+  } else if (reach >= 1) {
+    for (let k = 0; k < 9; k++) if (k !== 4) { const q = at(g, 1 + (k % 3), 1 + Math.floor(k / 3)); cellHighlight(ctx, q.x, q.y, g.c); }
+  }
+  const lit = lines ? (reach >= 2 ? 0.8 : 0.25) : 0.25;
+  for (const [cc, rr] of [[0, 2], [2, 4]]) { const q = at(g, cc, rr); nucleusGlyph(ctx, q.x + g.c / 2, q.y + g.c / 2, g.c * 0.3, lit); }
+  // The nucleus off its lines, on a diagonal: it does not count.
+  const off = at(g, 1, 1);
+  nucleusGlyph(ctx, off.x + g.c / 2, off.y + g.c / 2, g.c * 0.3, lines ? 0.25 : reach >= 1 ? 0.8 : 0.25);
+  openCell(ctx, g, 2, 2, 'scatter', 2, true);
+  if (!lines) warnCells(ctx, g, 1, 1, 3, 3, clamp01((t - 1.4) / 0.3));
+}
 
 export const RULES: RuleCard[] = [
   {
     title: 'Probe',
     text: 'Tap a cell of foil to probe it. An alpha particle passes through, and the cell opens to show its count.',
-    demo: (ctx, w, h, t) => {
-      const T = t % 3;
-      const g = mini(w, h, 3, 3);
-      foilSheet(ctx, g.x, g.y, 3, 3, g.c);
-      const p = at(g, 1, 1);
-      if (T > 0.4 + PROBE_IN / 1000) { well(ctx, p.x, p.y, g.c); cellFace(ctx, p.x, p.y, g.c, 'plain', 2); }
-      if (T > 0.4 && T < 0.4 + (PROBE_IN + 260) / 1000) probeFx(ctx, p.x + g.c / 2, p.y + g.c / 2, g.c, (T - 0.4) * 1000, false);
+    good: {
+      duration: 1.6,
+      caption: 'It opens to show its count',
+      draw: (ctx, w, h, t) => {
+        const g = mini(w, h, 3, 3);
+        foilSheet(ctx, g.x, g.y, 3, 3, g.c);
+        const p = at(g, 1, 1);
+        if (opened(t)) openCell(ctx, g, 1, 1, 'plain', 2);
+        if (probing(t)) inBox(ctx, w, h, () => probeFx(ctx, p.x + g.c / 2, p.y + g.c / 2, g.c, (t - TAP) * 1000, false));
+      },
     },
   },
   {
     title: 'Counts',
     text: 'A number is how many nuclei sit in the eight cells around it. A blank cell has none around it, so its neighbors open by themselves.',
-    demo: (ctx, w, h, t) => {
-      const T = t % 5;
-      const g = mini(w, h, 3, 3);
-      foilSheet(ctx, g.x, g.y, 3, 3, g.c);
-      const ctr = at(g, 1, 1);
-      if (T < 2.5) {
-        // Two hidden nuclei, faintly shown, are what the 2 counts.
-        const pulse = 0.35 + 0.25 * Math.sin(T * 4);
-        for (let k = 0; k < 9; k++) if (k !== 4) cellHighlight(ctx, g.x + (k % 3) * g.c, g.y + Math.floor(k / 3) * g.c, g.c);
-        for (const [cc, rr] of [[0, 0], [2, 1]]) { const q = at(g, cc, rr); nucleusGlyph(ctx, q.x + g.c / 2, q.y + g.c / 2, g.c * 0.3, pulse); }
-        well(ctx, ctr.x, ctr.y, g.c);
-        cellFace(ctx, ctr.x, ctr.y, g.c, 'plain', 2);
-      } else {
-        well(ctx, ctr.x, ctr.y, g.c);
-        const faces = [1, 1, 0, 2, 0, 1, 1, 1, 1];
-        for (let k = 0; k < 9; k++) {
-          if (k === 4 || T < 2.8 + 0.05 * (k % 3)) continue;
-          const q = at(g, k % 3, Math.floor(k / 3));
-          well(ctx, q.x, q.y, g.c);
-          cellFace(ctx, q.x, q.y, g.c, 'plain', faces[k]);
-        }
-      }
+    good: {
+      duration: 2,
+      caption: 'Two nuclei in the eight around',
+      draw: (ctx, w, h, t) => {
+        const g = mini(w, h, 3, 3);
+        foilSheet(ctx, g.x, g.y, 3, 3, g.c);
+        if (t > 0.5) for (let k = 0; k < 9; k++) if (k !== 4) cellHighlight(ctx, g.x + (k % 3) * g.c, g.y + Math.floor(k / 3) * g.c, g.c);
+        const shown = 0.75 * clamp01((t - 0.9) / 0.5);
+        for (const [cc, rr] of [[0, 0], [2, 1]]) { const q = at(g, cc, rr); nucleusGlyph(ctx, q.x + g.c / 2, q.y + g.c / 2, g.c * 0.3, shown); }
+        openCell(ctx, g, 1, 1, 'plain', 2);
+      },
     },
   },
   {
     title: 'Marks',
     text: 'Long-press a cell, or switch the tool under the plate to Mark, to flag a suspected nucleus. A mark is a note and keeps the cell from being probed.',
-    demo: (ctx, w, h, t) => {
-      const T = t % 3;
-      const g = mini(w, h, 3, 2);
-      foilSheet(ctx, g.x, g.y, 3, 2, g.c);
-      for (const [cc, rr, v] of [[0, 1, 1], [1, 1, 1], [2, 1, 1]]) { const q = at(g, cc, rr); well(ctx, q.x, q.y, g.c); cellFace(ctx, q.x, q.y, g.c, 'plain', v); }
-      const q = at(g, 1, 0), x = q.x + g.c / 2, y = q.y + g.c / 2;
-      if (T > 0.5 && T < 1.3) pressRing(ctx, x, y, g.c * 0.36, clamp01((T - 0.5) / 0.7));
-      if (T >= 1.2) reticle(ctx, x, y, g.c * 0.27);
+    good: {
+      duration: 1.8,
+      caption: 'A long press marks it',
+      draw: (ctx, w, h, t) => {
+        const g = mini(w, h, 3, 2);
+        foilSheet(ctx, g.x, g.y, 3, 2, g.c);
+        for (let k = 0; k < 3; k++) openCell(ctx, g, k, 1, 'plain', 1);
+        const q = at(g, 1, 0), x = q.x + g.c / 2, y = q.y + g.c / 2;
+        if (t > 0.4 && t < 1.2) pressRing(ctx, x, y, g.c * 0.36, clamp01((t - 0.4) / 0.7));
+        if (t >= 1.1) reticle(ctx, x, y, g.c * 0.27);
+      },
     },
   },
   {
     title: 'Clear around',
     text: 'Tap a number whose nuclei are all marked to probe every other cell it counts in one go.',
-    demo: (ctx, w, h, t) => {
-      const T = t % 4;
-      const g = mini(w, h, 3, 3);
-      foilSheet(ctx, g.x, g.y, 3, 3, g.c);
-      const faces = [0, 1, 1, 0, 1, 1, 0, 1, 0];
-      for (let k = 0; k < 9; k++) {
-        const q = at(g, k % 3, Math.floor(k / 3));
-        if (k === 8) { reticle(ctx, q.x + g.c / 2, q.y + g.c / 2, g.c * 0.27); continue; }
-        const d = Math.max(Math.abs((k % 3) - 1), Math.abs(Math.floor(k / 3) - 1));
-        if (k !== 4 && T < 1.3 + d * 0.05) continue;
-        well(ctx, q.x, q.y, g.c);
-        cellFace(ctx, q.x, q.y, g.c, 'plain', faces[k]);
-      }
-      const ctr = at(g, 1, 1);
-      if (T > 0.9 && T < 1.4) tile(ctx, ctr.x + 1, ctr.y + 1, g.c - 2, g.c - 2, g.c * 0.2, null, C.accent, 1.5);
+    good: {
+      duration: 2,
+      caption: 'Its nucleus marked: the rest opens',
+      draw: (ctx, w, h, t) => clearPicture(ctx, w, h, t, 8),
+    },
+    bad: {
+      duration: 2,
+      caption: 'A wrong mark: a direct hit',
+      draw: (ctx, w, h, t) => clearPicture(ctx, w, h, t, 6),
     },
   },
   {
     title: 'Scatter cells',
     text: 'A number with four outward ticks counts every nucleus in its whole row and column, not just its neighbors. The ticks point along the lines it counts.',
-    demo: (ctx, w, h, t) => {
-      const T = t % 4;
-      const g = mini(w, h, 5, 5);
-      foilSheet(ctx, g.x, g.y, 5, 5, g.c);
-      const reach = Math.min(2, Math.floor(clamp01((T - 0.5) / 1.5) * 3));
-      for (let k = 1; k <= reach; k++) {
-        for (const [dc, dr] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-          const q = at(g, 2 + dc * k, 2 + dr * k);
-          cellHighlight(ctx, q.x, q.y, g.c);
-        }
-      }
-      for (const [cc, rr] of [[0, 2], [2, 4]]) {
-        const lit = reach >= 2 ? 0.75 : 0.25;
-        const q = at(g, cc, rr);
-        nucleusGlyph(ctx, q.x + g.c / 2, q.y + g.c / 2, g.c * 0.3, lit);
-      }
-      // A nucleus off its lines does not count.
-      const off = at(g, 1, 1);
-      nucleusGlyph(ctx, off.x + g.c / 2, off.y + g.c / 2, g.c * 0.3, 0.25);
-      const ctr = at(g, 2, 2);
-      well(ctx, ctr.x, ctr.y, g.c);
-      cellFace(ctx, ctr.x, ctr.y, g.c, 'scatter', 2, true);
+    good: {
+      duration: 1.8,
+      caption: 'Its row and column hold 2',
+      draw: (ctx, w, h, t) => scatterPicture(ctx, w, h, t, true),
+    },
+    bad: {
+      duration: 1.8,
+      caption: 'Not the eight around it',
+      draw: (ctx, w, h, t) => scatterPicture(ctx, w, h, t, false),
     },
   },
   {
     title: 'Quiet cells',
     text: 'A cell showing ? holds no nucleus but gives no count. Work out the cells around it from other numbers.',
-    demo: (ctx, w, h, t) => {
-      const T = t % 3;
-      const g = mini(w, h, 3, 1);
-      foilSheet(ctx, g.x, g.y, 3, 1, g.c);
-      for (const [k, v] of [[0, 1], [2, 2]]) { const q = at(g, k, 0); well(ctx, q.x, q.y, g.c); cellFace(ctx, q.x, q.y, g.c, 'plain', v); }
-      const q = at(g, 1, 0);
-      if (T > 0.4 + PROBE_IN / 1000) { well(ctx, q.x, q.y, g.c); cellFace(ctx, q.x, q.y, g.c, 'quiet', 0); }
-      if (T > 0.4 && T < 0.4 + (PROBE_IN + 260) / 1000) probeFx(ctx, q.x + g.c / 2, q.y + g.c / 2, g.c, (T - 0.4) * 1000, false);
+    good: {
+      duration: 1.6,
+      caption: 'Safe, but no count',
+      draw: (ctx, w, h, t) => {
+        const g = mini(w, h, 3, 1);
+        foilSheet(ctx, g.x, g.y, 3, 1, g.c);
+        openCell(ctx, g, 0, 0, 'plain', 1);
+        openCell(ctx, g, 2, 0, 'plain', 2);
+        const q = at(g, 1, 0);
+        if (opened(t)) openCell(ctx, g, 1, 0, 'quiet', 0);
+        if (probing(t)) inBox(ctx, w, h, () => probeFx(ctx, q.x + g.c / 2, q.y + g.c / 2, g.c, (t - TAP) * 1000, false));
+      },
     },
   },
   {
     title: 'Alpha beams',
     text: 'Ports line the frame at the end of every row and column. Tap one to aim, tap it again to fire: the beam opens every cell it crosses, and passes straight through a line with no nucleus.',
-    demo: (ctx, w, h, t) => {
-      const T = t % 4.5, len = 3;
-      const tFire = 1.4, ms = (T - tFire) * 1000;
-      const opened = T < tFire ? 0 : Math.min(len, Math.floor(ms / BEAM_STEP));
-      const L = beamRow(ctx, w, h, len, opened, null, 0);
-      const fired = T >= tFire;
-      if (fired && ms > BEAM_STEP * (len + 1) + 300) track(ctx, L, len, 3 * len, len, false);
-      const { x: px, y: py } = portPoint(L, len, 3 * len);
-      portGlyph(ctx, px, py, 3, L.cell, fired ? 'spent' : T > 0.5 ? 'armed' : 'idle');
-      if (!fired && T > 0.5) {
-        ctx.save();
-        ctx.strokeStyle = C.accent;
-        ctx.lineWidth = 1.5;
-        ctx.setLineDash([3, 5]);
-        ctx.globalAlpha = 0.6;
-        ctx.beginPath();
-        ctx.moveTo(px + L.cell * 0.2, py);
-        ctx.lineTo(L.x + len * L.cell, py);
-        ctx.stroke();
-        ctx.restore();
-      }
-      if (fired) beamFx(ctx, px, py, 1, 0, L.cell, L.band, len, len, false, ms);
+    good: {
+      duration: 2.2,
+      caption: 'Fired down a clear line',
+      draw: (ctx, w, h, t) => {
+        const len = 3, tFire = 0.9, ms = (t - tFire) * 1000;
+        const open = t < tFire ? 0 : Math.min(len, Math.floor(ms / BEAM_STEP));
+        const L = beamRow(ctx, w, h, len, open, null, 0, 1.6);
+        const fired = t >= tFire, over = ms > BEAM_STEP * (len + 1) + 180;
+        if (over) track(ctx, L, len, 3 * len, len, false);
+        const { x: px, y: py } = portPoint(L, len, 3 * len);
+        portGlyph(ctx, px, py, 3, L.cell, fired ? 'spent' : t > 0.3 ? 'armed' : 'idle');
+        if (!fired && t > 0.3) {
+          ctx.save();
+          ctx.strokeStyle = C.accent;
+          ctx.lineWidth = 1.5;
+          ctx.setLineDash([3, 5]);
+          ctx.globalAlpha = 0.6;
+          ctx.beginPath();
+          ctx.moveTo(px + L.cell * 0.2, py);
+          ctx.lineTo(L.x + len * L.cell, py);
+          ctx.stroke();
+          ctx.restore();
+        }
+        if (fired && !over) inBox(ctx, w, h, () => beamFx(ctx, px, py, 1, 0, L.cell, L.band, len, len, false, ms));
+      },
     },
   },
   {
     title: 'Bounce back',
     text: 'A beam bounces straight back off the first nucleus in its way, which then shows as found. Its track stays on the plate.',
-    demo: (ctx, w, h, t) => {
-      const T = t % 4, len = 3, stop = 2;
-      const tFire = 0.5, ms = (T - tFire) * 1000;
-      const opened = T < tFire ? 0 : Math.min(stop, Math.floor(ms / BEAM_STEP));
-      const foundAt = BEAM_STEP * (stop + 1);
-      const L = beamRow(ctx, w, h, len, opened, stop, ms >= foundAt ? 1 : 0);
-      const { x: px, y: py } = portPoint(L, len, 3 * len);
-      const done = ms > foundAt + BEAM_STEP * 0.6 * (stop + 1);
-      if (done) track(ctx, L, len, 3 * len, stop, true);
-      portGlyph(ctx, px, py, 3, L.cell, T >= tFire ? 'spent' : 'armed');
-      if (T >= tFire && !done) beamFx(ctx, px, py, 1, 0, L.cell, L.band, len, stop, true, ms);
+    good: {
+      duration: 1.8,
+      caption: 'Back off the nucleus, now found',
+      draw: (ctx, w, h, t) => {
+        const len = 3, stop = 2, tFire = 0.4, ms = (t - tFire) * 1000;
+        const open = t < tFire ? 0 : Math.min(stop, Math.floor(ms / BEAM_STEP));
+        const foundAt = BEAM_STEP * (stop + 1);
+        const L = beamRow(ctx, w, h, len, open, stop, ms >= foundAt ? 1 : 0);
+        const { x: px, y: py } = portPoint(L, len, 3 * len);
+        const done = ms > foundAt + BEAM_STEP * 0.6 * (stop + 1);
+        if (done) track(ctx, L, len, 3 * len, stop, true);
+        portGlyph(ctx, px, py, 3, L.cell, t >= tFire ? 'spent' : 'armed');
+        if (t >= tFire && !done) inBox(ctx, w, h, () => beamFx(ctx, px, py, 1, 0, L.cell, L.band, len, stop, true, ms));
+      },
     },
   },
   {
     title: 'Beam par',
     text: 'Under the plate, beams used / granted. Firing more than granted costs the flawless run; undo reopens a port but the beam still counts.',
-    demo: (ctx, w, h, t) => {
-      const T = t % 4.4;
-      const used = T < 1 ? 0 : T < 2 ? 1 : T < 3 ? 2 : 3;
-      const k = Math.min(1.5, w / 110);
-      const span = -counters(ctx, 0, 0, 6, 3, 2, false);
-      ctx.save();
-      ctx.translate(w / 2 + (span * k) / 2, h / 2);
-      ctx.scale(k, k);
-      counters(ctx, 0, 0, 6, used, 2);
-      ctx.restore();
+    good: {
+      duration: 1.6,
+      caption: 'Two of two granted: flawless',
+      draw: (ctx, w, h, t) => demoCounters(ctx, w, h, 6, t < 0.5 ? 0 : t < 1 ? 1 : 2, 2),
+    },
+    bad: {
+      duration: 2,
+      caption: 'Three of two: not flawless',
+      draw: (ctx, w, h, t) => demoCounters(ctx, w, h, 6, t < 0.5 ? 0 : t < 1 ? 1 : t < 1.5 ? 2 : 3, 2),
     },
   },
   {
     title: 'Direct hit',
     text: 'Probe a nucleus and it is a direct hit, outlined in red. Play goes on, but the run is no longer flawless, even after undo.',
-    demo: (ctx, w, h, t) => {
-      const T = t % 3;
-      const g = mini(w, h, 3, 1);
-      foilSheet(ctx, g.x, g.y, 3, 1, g.c);
-      const q = at(g, 1, 0);
-      if (T > 0.4 + PROBE_IN / 1000) nucleusCell(ctx, q.x, q.y, g.c, 'hit');
-      if (T > 0.4 && T < 0.4 + (PROBE_IN + 260) / 1000) probeFx(ctx, q.x + g.c / 2, q.y + g.c / 2, g.c, (T - 0.4) * 1000, true);
+    good: {
+      duration: 1.8,
+      caption: 'Marked, and the safe cells probed',
+      draw: (ctx, w, h, t) => {
+        const g = mini(w, h, 3, 2);
+        foilSheet(ctx, g.x, g.y, 3, 2, g.c);
+        for (let k = 0; k < 3; k++) openCell(ctx, g, k, 1, 'plain', 1);
+        const q = at(g, 1, 0);
+        reticle(ctx, q.x + g.c / 2, q.y + g.c / 2, g.c * 0.27);
+        // The cells either side are safe: probed one after the other.
+        [0, 2].forEach((col, i) => {
+          const s = t - i * 0.6, p = at(g, col, 0);
+          if (opened(s)) openCell(ctx, g, col, 0, 'plain', 1);
+          if (probing(s)) inBox(ctx, w, h, () => probeFx(ctx, p.x + g.c / 2, p.y + g.c / 2, g.c, (s - TAP) * 1000, false));
+        });
+      },
+    },
+    bad: {
+      duration: 1.6,
+      caption: 'Probed: a direct hit',
+      draw: (ctx, w, h, t) => {
+        const g = mini(w, h, 3, 2);
+        foilSheet(ctx, g.x, g.y, 3, 2, g.c);
+        for (let k = 0; k < 3; k++) openCell(ctx, g, k, 1, 'plain', 1);
+        const q = at(g, 1, 0);
+        if (opened(t)) nucleusCell(ctx, q.x, q.y, g.c, 'hit');
+        if (probing(t)) inBox(ctx, w, h, () => probeFx(ctx, q.x + g.c / 2, q.y + g.c / 2, g.c, (t - TAP) * 1000, true));
+      },
     },
   },
   {
     title: 'Nuclei left',
     text: 'The counter under the plate shows how many nuclei are still neither marked nor found. Probe every other cell to finish.',
-    demo: (ctx, w, h, t) => {
-      const T = t % 4;
-      const marks = T < 1 ? 0 : T < 2 ? 1 : 2;
-      const g = mini(w, h * 0.62, 3, 1);
-      foilSheet(ctx, g.x, g.y, 3, 1, g.c);
-      for (let k = 0; k < marks; k++) { const q = at(g, k * 2, 0); reticle(ctx, q.x + g.c / 2, q.y + g.c / 2, g.c * 0.27); }
-      const q = at(g, 1, 0);
-      well(ctx, q.x, q.y, g.c);
-      cellFace(ctx, q.x, q.y, g.c, 'plain', 2);
-      ctx.save();
-      ctx.font = font(14, 500);
-      ctx.textAlign = 'right';
-      ctx.textBaseline = 'middle';
-      ctx.fillStyle = C.text2;
-      const y = h * 0.8;
-      ctx.fillText(String(5 - marks), w / 2 + 16, y + 1);
-      nucleusGlyph(ctx, w / 2 - 4, y, 8, 1);
-      ctx.restore();
+    good: {
+      duration: 1.8,
+      caption: 'Each mark takes one off',
+      draw: (ctx, w, h, t) => {
+        const marks = t < 0.5 ? 0 : t < 1.1 ? 1 : 2;
+        const g = mini(w, h * 0.62, 3, 1);
+        foilSheet(ctx, g.x, g.y, 3, 1, g.c);
+        for (let k = 0; k < marks; k++) { const q = at(g, k * 2, 0); reticle(ctx, q.x + g.c / 2, q.y + g.c / 2, g.c * 0.27); }
+        openCell(ctx, g, 1, 0, 'plain', 2);
+        ctx.save();
+        ctx.font = font(14, 500);
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = C.text2;
+        const y = h * 0.8;
+        ctx.fillText(String(5 - marks), w / 2 + 16, y + 1);
+        nucleusGlyph(ctx, w / 2 - 4, y, 8, 1);
+        ctx.restore();
+      },
     },
   },
 ];

@@ -3,6 +3,8 @@
 // where each one sits and the game can ask for a level by id.
 
 import { elementAt as element } from '../gallery/data';
+import { ICON_NAMES, icon } from '../ui/icons';
+import type { IconName } from '../ui/icons.gen';
 import { applyPlacement, configuration, newAtom, resolvePlacement } from '../core/physics';
 import { newMerge } from './merge';
 import { MergeView, sup, INSTRUCTIONS as MERGE_HOW } from './mergeView';
@@ -38,6 +40,18 @@ import { SUBSHELL_COLORS, type PuzzleView, type RuleCard } from './view';
 
 /** A view module's rule cards, once it exports them. */
 const rulesOf = (m: object): RuleCard[] | undefined => (m as { RULES?: RuleCard[] }).RULES;
+
+/** The icon file each puzzle type is drawn with (src/icons/puzzle-*.svg). */
+const ICON_SLUG: Record<string, string> = {
+  merge: 'merge', orbitalGrid: 'orbital-grid', sliding: 'sliding', packing: 'packing', lines: 'field-lines',
+  slideStop: 'slide-stop', light: 'light', rutherford: 'rutherford', codebreaker: 'codebreaker', colorCharge: 'color-charge',
+};
+
+/** A puzzle type's icon, or the generic puzzles icon until its own is drawn. */
+export function puzzleIcon(id: string, size = 24): string {
+  const name = `puzzle-${ICON_SLUG[id] ?? id}`;
+  return icon((ICON_NAMES as string[]).includes(name) ? (name as IconName) : 'puzzles', { size });
+}
 
 export type Tier = 'every' | 'facet' | 'gate' | 'reserve';
 
@@ -158,7 +172,8 @@ export const PUZZLES: PuzzleType[] = [
     use: 'Isotope vaults',
     get rules() { return rulesOf(PackingV); },
     blurb: 'Drag the pieces into the outline until it is filled exactly; tap a piece to turn it.',
-    role: 'Opens an element\'s isotope vault; later isotopes rotate Packing, Merge and Sliding Block.',
+    role: 'Builds the isotopes in each atom\'s vault, one board per isotope, once the atom is built.',
+    live: 'Build mode: every isotope in an atom\'s vault, once the atom is built.',
     instructions: PACKING_HOW,
     zRange: [1, 118],
     make: (z, deal, reduced) => new PackingView(newPacking(z, dealSeed('packing', z, deal)), reduced),

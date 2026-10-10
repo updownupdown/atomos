@@ -3,7 +3,7 @@ import { cellSides, check, clearPath, edgeKey, extend, INTRO, newLines, normaliz
 import { seeded } from '../src/puzzles/rng';
 import { INSTRUCTIONS, LinesView, RULES } from '../src/puzzles/linesView';
 import { C } from '../src/puzzles/palette';
-import type { RuleCard } from '../src/puzzles/view';
+import type { Illustration, RuleCard } from '../src/puzzles/view';
 
 const SPREAD = [1, 6, 12, 18, 26, 36, 44, 50, 60, 64, 80, 92, 118];
 
@@ -252,8 +252,8 @@ describe('view and rule cards', () => {
     }
   });
 
-  it('has a card with a demo for every mark, drawn inside its box', () => {
-    checkRules(RULES);
+  it('has a card with pictures for every mark, drawn inside its box', () => {
+    checkRules(RULES, ['Beads', 'Gaps', 'Orbitals', 'Bars', 'Pairs', 'Shapes']);
     expect(INSTRUCTIONS).toMatch(/^\s*<h3>In the game<\/h3>\s*<p class="meta">/);
     expect(INSTRUCTIONS).not.toMatch(/How to play/);
     expect(RULES.map((r) => r.title)).toEqual(['Start', 'End', 'Pockets', 'Beads', 'Gaps', 'Orbitals', 'Bars', 'Pairs', 'Shapes', 'Two starts or ends']);
@@ -291,21 +291,40 @@ function inside(pts: [number, number][], a: { x: number; y: number; w: number; h
 
 const AREAS_ALL = [{ x: 0, y: 0, w: 340, h: 430 }, { x: 10, y: 8, w: 1200, h: 700 }, { x: 0, y: 0, w: 600, h: 300 }];
 
-function checkRules(rules: RuleCard[]): void {
+function checkRules(rules: RuleCard[], withBad: string[]): void {
   expect(rules.length).toBeGreaterThan(3);
+  // Pictures in pairs where there is something to get wrong; a single kept one for the basics.
+  expect(rules.filter((r) => r.bad).map((r) => r.title)).toEqual(withBad);
   for (const r of rules) {
+    expect(r.title.trim().length, r.title).toBeGreaterThan(0);
     expect(r.title.length, r.title).toBeLessThanOrEqual(24);
+    expect(r.text.trim().length, r.title).toBeGreaterThan(0);
     expect(r.text, r.title).not.toMatch(/[<>]/);
     expect(r.text.split(/[.!?](\s|$)/).filter((x) => x && x.trim()).length, r.title).toBeLessThanOrEqual(2);
-    expect(r.demo, r.title).toBeTypeOf('function');
-    for (const [w, h] of [[120, 96], [240, 192]]) for (let t = 0; t < 7; t += 0.13) {
-      const { ctx, pts } = recCtx();
-      r.demo!(ctx, w, h, t);
-      expect(inside(pts, { x: 0, y: 0, w, h }), `${r.title} at ${t.toFixed(2)}s`).toBe(true);
+    expect(r.demo, r.title).toBeUndefined();
+    expect(r.good, r.title).toBeDefined();
+    const pics: [string, Illustration][] = [['good', r.good!]];
+    if (r.bad) pics.push(['bad', r.bad]);
+    for (const [kind, ill] of pics) {
+      const name = `${r.title} (${kind})`;
+      expect(ill.duration, name).toBeGreaterThanOrEqual(1.5);
+      expect(ill.duration, name).toBeLessThanOrEqual(4);
+      if (ill.caption !== undefined) expect(ill.caption.length, name).toBeLessThanOrEqual(21); // one line under a 140 px picture
+      const times: number[] = [];
+      for (let t = 0; t < ill.duration; t += 0.07) times.push(t);
+      times.push(ill.duration);
+      for (const [w, h] of [[140, 104], [120, 90]]) for (const t of times) {
+        const { ctx, pts } = recCtx();
+        ill.draw(ctx, w, h, t);
+        expect(inside(pts, { x: 0, y: 0, w, h }), `${name} at ${t.toFixed(2)}s, ${w}x${h}`).toBe(true);
+      }
+      // The still (its last frame): a kept rule has nothing flagged; a broken one has its mark flagged in amber, never red.
+      for (const [w, h] of [[140, 104], [120, 90]]) {
+        const { ctx, colors } = recCtx();
+        ill.draw(ctx, w, h, ill.duration);
+        expect(colors.has(C.warn), name).toBe(kind === 'bad');
+        expect(colors.has(C.bad), name).toBe(false);
+      }
     }
-    // The still frame shown under reduced motion is the passing case: nothing flagged red.
-    const { ctx, colors } = recCtx();
-    r.demo!(ctx, 120, 96, 2.5);
-    expect(colors.has(C.bad), r.title).toBe(false);
   }
 }

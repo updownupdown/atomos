@@ -24,22 +24,39 @@ export interface PuzzleView {
   hint(): string;
 }
 
+/** Draws into a w x h box (CSS pixels, the context already scaled). t is seconds from the start
+ *  of the illustration's play. Pure drawing: no shared state, no allocation-heavy work. */
+export type DemoFn = (ctx: CanvasRenderingContext2D, w: number, h: number, t: number) => void;
+
 /**
- * One rule of a puzzle for its Instructions modal: the symbol, what it means,
- * and a small looping example. Views export `RULES: RuleCard[]`, basics first;
- * the modal shows each card's demo beside its text.
+ * One still picture of a rule that can also play out. The modal shows it still, at t = `duration`
+ * (its finished state), and plays it from 0 to `duration` only when the player taps Play.
+ */
+export interface Illustration {
+  draw: DemoFn;
+  /** Seconds the play takes; the still shows its last frame. 1.5 to 4 s. */
+  duration: number;
+  /** A few words under the picture, e.g. "Every bead on the line". Optional. */
+  caption?: string;
+}
+
+/**
+ * One rule of a puzzle for its Instructions modal. Views export `RULES: RuleCard[]`, basics first.
+ * Each card shows its title and text, then its pictures side by side: a `good` one (the rule kept)
+ * and a `bad` one (the rule broken), or a single `good` one where there is nothing to get wrong.
+ * Nothing moves until the player taps the card's Play button, which plays good, then bad.
+ * `demo` is the older single looping example, still shown (as one still with Play) where a view
+ * has no pictures yet.
  */
 export interface RuleCard {
-  /** The symbol's or rule's short name, e.g. "Sparks". */
+  /** The symbol's or rule's short name, e.g. "Photons". */
   title: string;
   /** One or two plain sentences, no markup. */
   text: string;
-  /**
-   * Draws the symbol and a looping example into a w x h box (CSS pixels, the
-   * context is already scaled). t is seconds since the modal opened. Pure
-   * drawing: no shared state, no allocation-heavy work, loop length 2-6 s.
-   */
-  demo?: (ctx: CanvasRenderingContext2D, w: number, h: number, t: number) => void;
+  good?: Illustration;
+  bad?: Illustration;
+  /** Deprecated: a single looping example (2-6 s loop). */
+  demo?: DemoFn;
 }
 
 // Canvas text uses Outfit like the rest of the app (both names kept for existing callers).

@@ -472,135 +472,164 @@ function demoControls(ctx: CanvasRenderingContext2D, w: number, h: number, draft
 
 const CODE = [0, 1, 2, 3];
 
+/** An amber dashed outline: the thing that is missing or has run out. */
+function demoWarn(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, rad: number, alpha: number): void {
+  if (alpha <= 0) return;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.setLineDash([4, 3]);
+  tile(ctx, x, y, w, h, rad, null, C.warn, 2);
+  ctx.restore();
+}
+
+/** A code and one guess under it, with a link from each scoring symbol of the code to the one in the guess. */
+function scoring(ctx: CanvasRenderingContext2D, w: number, h: number, t: number, code: number[], guess: number[], links: [number, number][], exact: number, near: number): void {
+  const rh = compactRow(w, h);
+  const y0 = h / 2 - rh - 3, y1 = h / 2 + 3;
+  demoSealed(ctx, w, y0, rh, code, 1, false);
+  const R = demoRow(w, rh, false);
+  links.forEach(([a, b], i) => demoLink(ctx, R.symX(a), y0 + rh * 0.82, R.symX(b), y1 + rh * 0.18, clamp01((t - 0.3 - i * 0.5) / 0.5)));
+  demoGuess(ctx, w, y1, rh, 0, guess, exact, near, clamp01((t - 0.4 - links.length * 0.5) / 0.4));
+}
+
+/** A short history: the sealed row and three played guesses, numbered from `first`. */
+function history(ctx: CanvasRenderingContext2D, w: number, h: number, t: number, first: number, played: { g: number[]; e: number; n: number }[], open: number): { y0: number; rh: number } {
+  const rows = played.length + 1;
+  const rh = Math.min(h / (rows + 0.5), (w - 8) / 8.2);
+  const y0 = (h - rh * rows) / 2;
+  demoSealed(ctx, w, y0, rh, CODE, open);
+  played.forEach((p, r) => {
+    const k = clamp01((t - 0.2 - r * 0.5) / 0.3);
+    if (k > 0) demoGuess(ctx, w, y0 + rh * (r + 1), rh, first + r, p.g, p.e, p.n, k);
+  });
+  return { y0, rh };
+}
+
 export const RULES: RuleCard[] = [
   {
     title: 'The sealed code',
     text: 'Four symbols, drawn from the six in the palette, are sealed in the top row. Crack the code in ten guesses or fewer and the padlock opens.',
-    demo: (ctx, w, h, t) => {
-      const k = t % 4.5;
-      const rh = compactRow(w, h);
-      demoSealed(ctx, w, (h - rh) / 2, rh, CODE, clamp01((k - 1.8) / 0.4) * (k < 4 ? 1 : clamp01((4.4 - k) / 0.4)), false);
+    good: {
+      duration: 1.8,
+      caption: 'Cracked: the padlock opens',
+      draw: (ctx, w, h, t) => {
+        const rh = compactRow(w, h);
+        demoSealed(ctx, w, (h - rh) / 2, rh, CODE, clamp01((t - 0.7) / 0.5), false);
+      },
     },
   },
   {
     title: 'Make a guess',
     text: 'Tap a slot, then a symbol in the palette to fill it; the next empty slot is chosen for you, and tapping the chosen slot again empties it. With all four full, tap Guess.',
-    demo: (ctx, w, h, t) => {
-      const k = t % 5;
-      const guess = [1, 0, 3, 2];
-      const filled = Math.max(0, Math.min(4, Math.floor((k - 0.4) / 0.5) + 1));
-      const draft = guess.map((v, i) => (i < filled ? v : EMPTY));
-      const sent = k > 3.4;
-      const L = demoControls(ctx, w, h, sent ? [EMPTY, EMPTY, EMPTY, EMPTY] : draft, sent ? 0 : Math.min(3, filled), !sent && filled === 4);
-      if (k > 0.25 && filled < 4 && !sent) {
-        const r = L.keys[guess[filled]];
-        const near = ((k - 0.4) % 0.5) > 0.2;
-        if (near) demoFinger(ctx, r.x + r.w * 0.66, r.y + r.h * 0.7, r.w * 0.2);
-      }
-      if (filled === 4 && k > 2.6 && k < 3.4) demoFinger(ctx, L.button.x + L.button.w * 0.6, L.button.y + L.button.h * 0.7, L.button.h * 0.2);
+    good: {
+      duration: 2.8,
+      caption: 'All four filled, then Guess',
+      draw: (ctx, w, h, t) => guessPicture(ctx, w, h, t, [1, 0, 3, 2]),
+    },
+    bad: {
+      duration: 2.4,
+      caption: 'Guess waits for all four',
+      draw: (ctx, w, h, t) => guessPicture(ctx, w, h, t, [1, 0, 3]),
     },
   },
   {
     title: 'Filled dot',
     text: 'Each filled dot is one symbol that is right and in the right place. Faint dots score nothing, and no dot says which symbol it means.',
-    demo: (ctx, w, h, t) => {
-      const k = t % 4;
-      const rh = compactRow(w, h);
-      const y0 = h / 2 - rh - 3, y1 = h / 2 + 3;
-      const guess = [0, 4, 5, 4];
-      demoSealed(ctx, w, y0, rh, CODE, 1, false);
-      const R = demoRow(w, rh, false);
-      demoLink(ctx, R.symX(0), y0 + rh * 0.82, R.symX(0), y1 + rh * 0.18, clamp01((k - 0.6) / 0.5));
-      demoGuess(ctx, w, y1, rh, 0, guess, 1, 0, clamp01((k - 1.2) / 0.4));
+    good: {
+      duration: 1.8,
+      caption: 'Right symbol, right place',
+      draw: (ctx, w, h, t) => scoring(ctx, w, h, t, CODE, [0, 4, 5, 4], [[0, 0]], 1, 0),
     },
   },
   {
     title: 'Hollow dot',
     text: 'Each hollow dot is one symbol that is in the code but in another place.',
-    demo: (ctx, w, h, t) => {
-      const k = t % 4;
-      const rh = compactRow(w, h);
-      const y0 = h / 2 - rh - 3, y1 = h / 2 + 3;
-      const guess = [4, 0, 5, 5];
-      demoSealed(ctx, w, y0, rh, CODE, 1, false);
-      const R = demoRow(w, rh, false);
-      demoLink(ctx, R.symX(0), y0 + rh * 0.82, R.symX(1), y1 + rh * 0.18, clamp01((k - 0.6) / 0.5));
-      demoGuess(ctx, w, y1, rh, 0, guess, 0, 1, clamp01((k - 1.2) / 0.4));
+    good: {
+      duration: 1.8,
+      caption: 'Right symbol, wrong place',
+      draw: (ctx, w, h, t) => scoring(ctx, w, h, t, CODE, [4, 0, 5, 5], [[0, 1]], 0, 1),
     },
   },
   {
     title: 'Six symbols',
     text: 'Each of the six symbols has its own shape as well as its color, so color alone never carries the code.',
-    demo: (ctx, w, h, t) => {
-      const lit = Math.floor((t % 3) * 2);
-      const key = Math.min(28, (w - 8 - 5 * 4) / 6);
-      const x0 = (w - key * 6 - 20) / 2, y = (h - key) / 2;
-      for (let k = 0; k < SYMBOLS; k++) {
-        const x = x0 + k * (key + 4);
-        tile(ctx, x, y, key, key, key * 0.18, C.surface2, k === lit ? C.line3 : C.line2, 1);
-        symbol(ctx, x + key / 2, y + key / 2, key * (k === lit ? 0.34 : 0.28), k);
-      }
+    good: {
+      duration: 1.6,
+      caption: 'A shape and a color each',
+      draw: (ctx, w, h, t) => {
+        const key = Math.min(28, (w - 8 - 5 * 4) / 6);
+        const x0 = (w - key * 6 - 20) / 2, y = (h - key) / 2;
+        for (let k = 0; k < SYMBOLS; k++) {
+          const x = x0 + k * (key + 4), s = ease(clamp01((t - 0.1 - k * 0.2) / 0.3));
+          tile(ctx, x, y, key, key, key * 0.18, C.surface2, C.line2, 1);
+          if (s > 0) symbol(ctx, x + key / 2, y + key / 2, key * 0.28 * s, k);
+        }
+      },
     },
   },
   {
     title: 'Repeats',
     text: 'On the last few elements a symbol may appear more than once in the code, and each copy scores on its own.',
-    demo: (ctx, w, h, t) => {
-      const k = t % 4.5;
-      const rh = compactRow(w, h);
-      const y0 = h / 2 - rh - 3, y1 = h / 2 + 3;
-      const code = [1, 3, 1, 0], guess = [1, 1, 4, 4];
-      demoSealed(ctx, w, y0, rh, code, 1, false);
-      const R = demoRow(w, rh, false);
-      demoLink(ctx, R.symX(0), y0 + rh * 0.82, R.symX(0), y1 + rh * 0.18, clamp01((k - 0.6) / 0.5));
-      demoLink(ctx, R.symX(2), y0 + rh * 0.82, R.symX(1), y1 + rh * 0.18, clamp01((k - 1.1) / 0.5));
-      demoGuess(ctx, w, y1, rh, 0, guess, 1, 1, clamp01((k - 1.7) / 0.4));
+    good: {
+      duration: 2,
+      caption: 'Each copy scores on its own',
+      draw: (ctx, w, h, t) => scoring(ctx, w, h, t, [1, 3, 1, 0], [1, 1, 4, 4], [[0, 0], [2, 1]], 1, 1),
     },
   },
   {
     title: 'Ten guesses',
     text: 'Guesses fill the numbered rows from 1 to 10. Run out without cracking the code and only a restart helps; it deals the same code.',
-    demo: (ctx, w, h, t) => {
-      const k = t % 5;
-      const rows = 5;
-      const rh = Math.min(h / (rows + 0.4), (w - 8) / 8.2);
-      const y0 = (h - rh * rows) / 2;
-      const R = demoRow(w, rh);
-      const played = [
-        { g: [4, 5, 0, 1], e: 0, n: 2 },
-        { g: [0, 1, 5, 4], e: 2, n: 0 },
-        { g: [0, 1, 3, 2], e: 2, n: 2 },
-        { g: [0, 1, 2, 3], e: 4, n: 0 },
-      ];
-      const shown = Math.min(played.length, Math.floor(k / 0.8));
-      demoSealed(ctx, w, y0, rh, CODE, shown === played.length ? clamp01((k - 3.2) / 0.3) : 0);
-      for (let r = 0; r < played.length; r++) {
-        const y = y0 + rh * (r + 1);
-        if (r < shown) demoGuess(ctx, w, y, rh, r + 1, played[r].g, played[r].e, played[r].n, clamp01((k - (r + 1) * 0.8) / 0.3));
-        else {
-          ctx.fillStyle = C.text3;
-          ctx.font = font(Math.max(9, rh * 0.38), 500);
-          ctx.textAlign = 'right';
-          ctx.textBaseline = 'middle';
-          ctx.fillText(String(r + 1), R.hx + rh * 0.8, y + rh / 2 + 1);
-          ctx.strokeStyle = C.line;
-          ctx.lineWidth = 1;
-          ctx.beginPath();
-          ctx.moveTo(R.hx + rh * 1.15, y + rh / 2);
-          ctx.lineTo(R.hx + R.hw - rh * 0.3, y + rh / 2);
-          ctx.stroke();
-        }
-      }
+    good: {
+      duration: 2.2,
+      caption: 'Cracked on guess 3',
+      draw: (ctx, w, h, t) => {
+        history(ctx, w, h, t, 1, [
+          { g: [4, 5, 0, 1], e: 0, n: 2 },
+          { g: [0, 1, 5, 4], e: 2, n: 0 },
+          { g: [0, 1, 2, 3], e: 4, n: 0 },
+        ], clamp01((t - 1.5) / 0.4));
+      },
+    },
+    bad: {
+      duration: 2.2,
+      caption: 'Ten used, still sealed',
+      draw: (ctx, w, h, t) => {
+        const { y0, rh } = history(ctx, w, h, t, 8, [
+          { g: [0, 1, 5, 4], e: 2, n: 0 },
+          { g: [0, 1, 3, 2], e: 2, n: 2 },
+          { g: [0, 2, 1, 3], e: 2, n: 2 },
+        ], 0);
+        const R = demoRow(w, rh);
+        demoWarn(ctx, R.hx - 1, y0 + 1, R.hw + 2, rh - 2, rh * 0.28, clamp01((t - 1.6) / 0.3));
+      },
     },
   },
   {
     title: 'Keyboard',
     text: 'Keys 1 to 6 type a symbol, left and right move between slots, up and down change the symbol in a slot, Backspace clears and Enter guesses.',
-    demo: (ctx, w, h, t) => {
-      const k = t % 4;
-      const cursor = Math.min(3, Math.floor(k / 0.8));
-      const draft = [2, cursor >= 1 ? 4 : EMPTY, cursor >= 2 ? 0 : EMPTY, cursor >= 3 ? (Math.floor(k * 2.5) % SYMBOLS) : EMPTY];
-      demoControls(ctx, w, h, draft, cursor, draft.every((v) => v !== EMPTY));
-    },
   },
 ];
+
+/**
+ * The guess row filling: each symbol tapped in turn, then a tap on Guess. With all four
+ * symbols, Guess lights and takes the guess; with a slot still empty, it stays dim and the
+ * empty slot is flagged.
+ */
+function guessPicture(ctx: CanvasRenderingContext2D, w: number, h: number, t: number, symbols: number[]): void {
+  const step = 0.45, start = 0.25;
+  const filled = Math.max(0, Math.min(symbols.length, Math.floor((t - start) / step)));
+  const draft = [0, 1, 2, 3].map((i) => (i < filled ? symbols[i] : EMPTY));
+  const all = filled === SLOTS;
+  const L = demoControls(ctx, w, h, draft, Math.min(3, filled), all);
+  const tapping = t > start && filled < symbols.length && ((t - start) % step) > step * 0.35;
+  if (tapping) {
+    const r = L.keys[symbols[filled]];
+    demoFinger(ctx, r.x + r.w * 0.66, r.y + r.h * 0.7, r.w * 0.2);
+  }
+  const press = start + symbols.length * step + 0.2;
+  if (t > press) demoFinger(ctx, L.button.x + L.button.w * 0.86, L.button.y + L.button.h * 0.78, L.button.h * 0.18);
+  if (!all) {
+    const r = L.slots[filled];
+    demoWarn(ctx, r.x - 2, r.y - 2, r.w + 4, r.h + 4, r.w * 0.2, clamp01((t - press - 0.3) / 0.3));
+  }
+}

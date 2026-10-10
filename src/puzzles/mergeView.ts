@@ -301,127 +301,266 @@ export const INSTRUCTIONS = `
 <p class="meta">Builds the nucleus of every element from helium to iron (hydrogen has nothing to gather). The sockets are the mass number of the element's most common isotope written in powers of two, so the number of sockets and their sizes set the difficulty. Par is a nucleon budget (about 0.7 swipes per nucleon), still a first guess: light elements are easy enough that random swiping often beats it. No cracks means a flawless build.</p>`;
 
 // ---- rules ------------------------------------------------------------------------
+//
+// Each rule's pictures are stills of their last frame until the player taps Play. A swipe
+// leaves a faint arrow under the row so the still says which way it went; what went wrong is
+// flagged in amber (a crack keeps the board's own crack).
 
-/** A row of `n` dashed board cells, as on the board, centered at height cy. Returns the cell size and left edge. */
-function demoRow(ctx: CanvasRenderingContext2D, w: number, cy: number, n: number, cell: number): number {
-  const x0 = (w - n * cell) / 2;
+const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
+/** Progress through [a, b] seconds, eased. */
+const seg = (t: number, a: number, b: number) => ease(clamp01((t - a) / (b - a)));
+const mix = (a: number, b: number, k: number) => a + (b - a) * k;
+const cl = (v: number, spoiled = false) => ({ v, spoiled });
+
+/** A row of four dashed board cells, as on the board. */
+interface Row { cell: number; r: number; cy: number; x0: number; at: (n: number) => number }
+
+function demoRow(ctx: CanvasRenderingContext2D, w: number, h: number, cy: number, cell: number): Row {
+  const n = 4, x0 = (w - n * cell) / 2;
   ctx.save();
   ctx.strokeStyle = C.line2;
   ctx.lineWidth = 1;
   ctx.setLineDash([3, 5]);
   for (let i = 0; i < n; i++) ctx.strokeRect(x0 + i * cell + 3, cy - cell / 2 + 3, cell - 6, cell - 6);
   ctx.restore();
-  return x0;
+  return { cell, r: cell * 0.4, cy, x0, at: (i) => x0 + i * cell + cell / 2 };
 }
 
-/** A finger's swipe in the demos: a faint dot sliding along a short line. */
-function swipeMark(ctx: CanvasRenderingContext2D, x: number, y: number, dx: number, dy: number, k: number): void {
-  if (k <= 0 || k >= 1) return;
+/** A row alone, centered a little high to leave room for the swipe arrow. */
+const plainRow = (ctx: CanvasRenderingContext2D, w: number, h: number) => demoRow(ctx, w, h, h * 0.42, Math.min(w / 4.6, h / 2.4));
+/** Two sockets above, a row below. */
+function nucleusRow(ctx: CanvasRenderingContext2D, w: number, h: number): Row & { sr: number; sx: [number, number]; sy: number } {
+  const sr = Math.min(w / 9, h / 6.5);
+  const row = demoRow(ctx, w, h, h * 0.62, Math.min(w / 4.6, h / 3.3));
+  return { ...row, sr, sx: [w / 2 - sr * 1.4, w / 2 + sr * 1.4], sy: sr + 5 };
+}
+
+/** The swipe: a faint arrow under the row, with a fingertip running along it while k is between 0 and 1. */
+function swipeArrow(ctx: CanvasRenderingContext2D, row: Row, k: number): void {
+  const y = row.cy + row.cell * 0.62, x1 = row.at(3) + row.r * 0.6, x2 = row.at(0) - row.r * 0.6, hd = 4;
   ctx.save();
-  ctx.globalAlpha = 0.45 * Math.sin(Math.PI * k);
-  ctx.fillStyle = C.silver;
+  ctx.strokeStyle = C.line3;
+  ctx.lineWidth = 1.5;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
   ctx.beginPath();
-  ctx.arc(x + dx * ease(k), y + dy * ease(k), 6, 0, Math.PI * 2);
-  ctx.fill();
+  ctx.moveTo(x1, y);
+  ctx.lineTo(x2, y);
+  ctx.moveTo(x2 + hd, y - hd);
+  ctx.lineTo(x2, y);
+  ctx.lineTo(x2 + hd, y + hd);
+  ctx.stroke();
+  if (k > 0 && k < 1) {
+    ctx.globalAlpha = 0.6 * Math.sin(Math.PI * k);
+    ctx.fillStyle = C.silver;
+    ctx.beginPath();
+    ctx.arc(x1 + (x2 - x1) * ease(k), y, 5, 0, Math.PI * 2);
+    ctx.fill();
+  }
   ctx.restore();
 }
 
-const at = (n: number, x0: number, cell: number) => x0 + n * cell + cell / 2;
-const mix = (a: number, b: number, k: number) => a + (b - a) * ease(Math.max(0, Math.min(1, k)));
+/** A merged cluster's pop: a short swell as it forms. */
+const popScale = (t: number, at: number) => 1 + 0.18 * Math.sin(Math.PI * clamp01((t - at) / 0.26));
+
+/** The path a cluster flew from the board into its socket: a faint dotted arc. */
+function flightArc(ctx: CanvasRenderingContext2D, ax: number, ay: number, bx: number, by: number, lift: number): void {
+  ctx.save();
+  ctx.fillStyle = C.line3;
+  for (let k = 0.12; k < 0.9; k += 0.1) {
+    ctx.beginPath();
+    ctx.arc(mix(ax, bx, k), mix(ay, by, k) - Math.sin(Math.PI * k) * lift, 1.2, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+/** A cluster on its way from the board to a socket, shrinking to socket size. */
+function fly(ctx: CanvasRenderingContext2D, v: number, ax: number, ay: number, bx: number, by: number, r: number, sr: number, lift: number, k: number): void {
+  const e = ease(k);
+  drawCluster(ctx, cl(v), mix(ax, bx, e), mix(ay, by, e) - Math.sin(Math.PI * e) * lift, mix(r, sr, e), 1, true);
+}
+
+/** The amber flag for two clusters that will not merge: a not-equal sign over the seam between them. */
+function notEqual(ctx: CanvasRenderingContext2D, x: number, y: number, s: number): void {
+  ctx.save();
+  ctx.strokeStyle = C.warn;
+  ctx.lineWidth = 2;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(x - s, y - s * 0.4); ctx.lineTo(x + s, y - s * 0.4);
+  ctx.moveTo(x - s, y + s * 0.4); ctx.lineTo(x + s, y + s * 0.4);
+  ctx.moveTo(x + s * 0.5, y - s); ctx.lineTo(x - s * 0.5, y + s);
+  ctx.stroke();
+  ctx.restore();
+}
+
+/** The amber flag for a cluster that waits or has cracked: a dashed ring around it. */
+function waitRing(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, alpha: number): void {
+  if (alpha <= 0) return;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.strokeStyle = C.warn;
+  ctx.lineWidth = 2;
+  ctx.setLineDash([4, 3]);
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
+}
 
 export const RULES: RuleCard[] = [
   {
     title: 'Swipe',
     text: 'Swipe, or press an arrow key, to slide every cluster as far as it goes. A new nucleon drops in after each swipe.',
-    demo: (ctx, w, h, t) => {
-      const T = t % 3;
-      const cell = Math.min(w / 4.6, h / 2.4), cy = h * 0.42, r = cell * 0.4;
-      const x0 = demoRow(ctx, w, cy, 4, cell);
-      const k = (T - 0.6) / 0.4;
-      drawCluster(ctx, { v: 2, spoiled: false }, mix(at(1, x0, cell), at(0, x0, cell), k), cy, r);
-      drawCluster(ctx, { v: 1, spoiled: false }, mix(at(3, x0, cell), at(1, x0, cell), k), cy, r);
-      if (T > 1.2) drawCluster(ctx, { v: 1, spoiled: false }, at(2, x0, cell), cy, r * ease(Math.min(1, (T - 1.2) / 0.3)));
-      swipeMark(ctx, w * 0.7, cy + cell * 0.95, -w * 0.4, 0, (T - 0.3) / 0.7);
+    good: {
+      duration: 2,
+      caption: 'All slide left; a new 1 drops in',
+      draw: (ctx, w, h, t) => {
+        const row = plainRow(ctx, w, h), k = seg(t, 0.55, 0.95);
+        swipeArrow(ctx, row, (t - 0.25) / 0.8);
+        drawCluster(ctx, cl(2), mix(row.at(1), row.at(0), k), row.cy, row.r);
+        drawCluster(ctx, cl(1), mix(row.at(3), row.at(1), k), row.cy, row.r);
+        if (t > 1.2) drawCluster(ctx, cl(1), row.at(3), row.cy, row.r * seg(t, 1.2, 1.5));
+      },
     },
   },
   {
     title: 'Merge',
     text: 'Two clusters of the same size that meet merge into one twice as big: 1 + 1 makes 2, 2 + 2 makes 4, and so on.',
-    demo: (ctx, w, h, t) => {
-      const T = t % 3;
-      const cell = Math.min(w / 4.6, h / 2.4), cy = h * 0.5, r = cell * 0.4;
-      const x0 = demoRow(ctx, w, cy, 4, cell);
-      const k = (T - 0.6) / 0.4;
-      if (T < 1) {
-        drawCluster(ctx, { v: 2, spoiled: false }, mix(at(1, x0, cell), at(0, x0, cell), k), cy, r);
-        drawCluster(ctx, { v: 2, spoiled: false }, mix(at(3, x0, cell), at(0, x0, cell), k), cy, r);
-      } else {
-        const pop = Math.min(1, (T - 1) / 0.26);
-        drawCluster(ctx, { v: 4, spoiled: false }, at(0, x0, cell), cy, r * (1 + 0.18 * Math.sin(Math.PI * pop)));
-      }
+    good: {
+      duration: 1.8,
+      caption: 'Two 2s make a 4',
+      draw: (ctx, w, h, t) => {
+        const row = plainRow(ctx, w, h), k = seg(t, 0.55, 0.95);
+        swipeArrow(ctx, row, (t - 0.25) / 0.8);
+        if (t < 0.95) {
+          drawCluster(ctx, cl(2), mix(row.at(1), row.at(0), k), row.cy, row.r);
+          drawCluster(ctx, cl(2), mix(row.at(3), row.at(0), k), row.cy, row.r);
+        } else drawCluster(ctx, cl(4), row.at(0), row.cy, row.r * popScale(t, 0.95));
+      },
+    },
+    bad: {
+      duration: 1.8,
+      caption: "A 2 and a 1 don't merge",
+      draw: (ctx, w, h, t) => {
+        const row = plainRow(ctx, w, h), k = seg(t, 0.55, 0.95);
+        swipeArrow(ctx, row, (t - 0.25) / 0.8);
+        drawCluster(ctx, cl(2), mix(row.at(1), row.at(0), k), row.cy, row.r);
+        drawCluster(ctx, cl(1), mix(row.at(3), row.at(1), k), row.cy, row.r);
+        if (t > 1.1) {
+          ctx.save();
+          ctx.globalAlpha = seg(t, 1.1, 1.4);
+          notEqual(ctx, (row.at(0) + row.at(1)) / 2, row.cy - row.r - 6, 4);
+          ctx.restore();
+        }
+      },
     },
   },
   {
     title: 'Clusters',
     text: 'A lone nucleon is a gray disc. Bigger clusters show their protons and neutrons, with the size in the middle.',
-    demo: (ctx, w, h) => {
-      const sizes = [1, 2, 4, 8];
-      const cell = Math.min(w / 4.4, h / 2), cy = h / 2, r = cell * 0.42;
-      const x0 = (w - 4 * cell) / 2;
-      sizes.forEach((v, i) => drawCluster(ctx, { v, spoiled: false }, at(i, x0, cell), cy, r));
+    good: {
+      duration: 1.6,
+      caption: '1, 2, 4 and 8 nucleons',
+      draw: (ctx, w, h, t) => {
+        const cell = Math.min(w / 4.4, h / 2), cy = h / 2, r = cell * 0.42;
+        const x0 = (w - 4 * cell) / 2;
+        [1, 2, 4, 8].forEach((v, i) => {
+          const k = seg(t, 0.2 + i * 0.3, 0.45 + i * 0.3);
+          if (k > 0) drawCluster(ctx, cl(v), x0 + i * cell + cell / 2, cy, r * k);
+        });
+      },
     },
   },
   {
     title: 'The nucleus',
     text: 'The sockets at the top are the clusters the nucleus wants, largest first. The red one is wanted next; fill every socket to finish.',
-    demo: (ctx, w, h, t) => {
-      // Carbon-12: an 8, then a 4, filling in turn.
-      const filled = Math.floor((t % 4.5) / 1.5);
-      const sr = Math.min(w / 7, h / 3.4), gap = sr * 2 + sr * 0.8;
-      const x0 = w / 2 - gap / 2;
-      [8, 4].forEach((v, i) => drawSocket(ctx, x0 + i * gap, h / 2, sr, v, i < filled ? 'filled' : i === filled ? 'next' : 'later'));
+    good: {
+      duration: 2.2,
+      caption: 'Largest first, until all are full',
+      draw: (ctx, w, h, t) => {
+        // Carbon-12: the 8, then the 4.
+        const filled = t < 0.7 ? 0 : t < 1.5 ? 1 : 2;
+        const sr = Math.min(w / 7, h / 3.4), gap = sr * 2 + sr * 0.8;
+        const x0 = w / 2 - gap / 2;
+        [8, 4].forEach((v, i) => {
+          const state = i < filled ? 'filled' : i === filled ? 'next' : 'later';
+          const s = i === filled - 1 ? popScale(t, i === 0 ? 0.7 : 1.5) : 1;
+          drawSocket(ctx, x0 + i * gap, h / 2, sr * s, v, state);
+        });
+      },
     },
   },
   {
     title: 'Into the nucleus',
     text: 'A red ring marks clusters half the size wanted next. Merge two of them and the new cluster flies up into its socket.',
-    demo: (ctx, w, h, t) => {
-      const T = t % 3.6;
-      const sr = Math.min(w / 9, h / 6), cell = Math.min(w / 4.6, h / 3), r = cell * 0.4;
-      const cy = h * 0.7, x0 = demoRow(ctx, w, cy, 4, cell);
-      const sx = w / 2 - sr * 1.4, sy = sr + 4;
-      const done = T > 1.9;
-      drawSocket(ctx, sx, sy, sr, 8, done ? 'filled' : 'next');
-      drawSocket(ctx, sx + sr * 2.8, sy, sr, 4, done ? 'next' : 'later');
-      const k = (T - 0.6) / 0.4;
-      if (T < 1) {
-        drawCluster(ctx, { v: 4, spoiled: false }, mix(at(2, x0, cell), at(0, x0, cell), k), cy, r, 1, true);
-        drawCluster(ctx, { v: 4, spoiled: false }, at(0, x0, cell), cy, r, 1, true);
-      } else if (!done) {
-        const f = ease((T - 1.1) / 0.8);
-        const fx = at(0, x0, cell) + (sx - at(0, x0, cell)) * f, fy = cy + (sy - cy) * f - Math.sin(Math.PI * f) * h * 0.12;
-        drawCluster(ctx, { v: 8, spoiled: false }, fx, fy, r * (1 - 0.5 * f), 1, true);
-      }
+    good: {
+      duration: 2.4,
+      caption: 'Two ringed 4s fill the 8',
+      draw: (ctx, w, h, t) => {
+        const g = nucleusRow(ctx, w, h), k = seg(t, 0.55, 0.95), f = clamp01((t - 1.05) / 0.8);
+        const inside = f >= 1;
+        drawSocket(ctx, g.sx[0], g.sy, g.sr, 8, inside ? 'filled' : 'next');
+        drawSocket(ctx, g.sx[1], g.sy, g.sr, 4, inside ? 'next' : 'later');
+        swipeArrow(ctx, g, (t - 0.25) / 0.8);
+        if (t < 0.95) {
+          drawCluster(ctx, cl(4), mix(g.at(2), g.at(0), k), g.cy, g.r, 1, true);
+          drawCluster(ctx, cl(4), g.at(0), g.cy, g.r, 1, true);
+        } else if (!inside) fly(ctx, 8, g.at(0), g.cy, g.sx[0], g.sy, g.r, g.sr, h * 0.1, f);
+        else flightArc(ctx, g.at(0), g.cy - g.r, g.sx[0], g.sy + g.sr, h * 0.06);
+      },
+    },
+    bad: {
+      duration: 2,
+      caption: 'A 4 waits while the 8 is wanted',
+      draw: (ctx, w, h, t) => {
+        const g = nucleusRow(ctx, w, h), k = seg(t, 0.55, 0.95);
+        drawSocket(ctx, g.sx[0], g.sy, g.sr, 8, 'next');
+        drawSocket(ctx, g.sx[1], g.sy, g.sr, 4, 'later');
+        swipeArrow(ctx, g, (t - 0.25) / 0.8);
+        if (t < 0.95) {
+          drawCluster(ctx, cl(2), mix(g.at(2), g.at(0), k), g.cy, g.r);
+          drawCluster(ctx, cl(2), g.at(0), g.cy, g.r);
+        } else drawCluster(ctx, cl(4), g.at(0), g.cy, g.r * popScale(t, 0.95));
+        waitRing(ctx, g.at(0), g.cy, g.r + 4, seg(t, 1.3, 1.6));
+      },
     },
   },
   {
     title: 'Cracks',
     text: 'A cluster bigger than anything still wanted cracks, and crumbles away on your next swipe. No cracks means a flawless build.',
-    demo: (ctx, w, h, t) => {
-      const T = t % 4;
-      const sr = Math.min(w / 9, h / 6), cell = Math.min(w / 4.6, h / 3), r = cell * 0.4;
-      const cy = h * 0.7, x0 = demoRow(ctx, w, cy, 4, cell);
-      const sx = w / 2 - sr * 1.4, sy = sr + 4;
-      // The 8 is in; only a lone 1 is still wanted.
-      drawSocket(ctx, sx, sy, sr, 8, 'filled');
-      drawSocket(ctx, sx + sr * 2.8, sy, sr, 1, 'next');
-      if (T < 0.9) {
-        drawCluster(ctx, { v: 2, spoiled: false }, at(0, x0, cell), cy, r);
-        drawCluster(ctx, { v: 2, spoiled: false }, mix(at(2, x0, cell), at(0, x0, cell), (T - 0.5) / 0.4), cy, r);
-      } else if (T < 2.4) drawCluster(ctx, { v: 4, spoiled: true }, at(0, x0, cell), cy, r);
-      else if (T < 3) drawCluster(ctx, { v: 4, spoiled: true }, at(0, x0, cell), cy, r * (1 - (T - 2.4) / 0.6), 1 - (T - 2.4) / 0.6);
-      swipeMark(ctx, w * 0.7, cy - cell * 0.9, -w * 0.4, 0, (T - 0.2) / 0.6);
-      swipeMark(ctx, w * 0.7, cy - cell * 0.9, -w * 0.4, 0, (T - 2.1) / 0.6);
+    good: {
+      duration: 2.4,
+      caption: 'Two 1s make the 2 still wanted',
+      draw: (ctx, w, h, t) => {
+        // The 8 is in; only a 2 is still wanted.
+        const g = nucleusRow(ctx, w, h), k = seg(t, 0.55, 0.95), f = clamp01((t - 1.05) / 0.8);
+        const inside = f >= 1;
+        drawSocket(ctx, g.sx[0], g.sy, g.sr, 8, 'filled');
+        drawSocket(ctx, g.sx[1], g.sy, g.sr, 2, inside ? 'filled' : 'next');
+        swipeArrow(ctx, g, (t - 0.25) / 0.8);
+        if (t < 0.95) {
+          drawCluster(ctx, cl(1), mix(g.at(2), g.at(0), k), g.cy, g.r, 1, true);
+          drawCluster(ctx, cl(1), g.at(0), g.cy, g.r, 1, true);
+        } else if (!inside) fly(ctx, 2, g.at(0), g.cy, g.sx[1], g.sy, g.r, g.sr, h * 0.1, f);
+        else flightArc(ctx, g.at(0), g.cy - g.r, g.sx[1], g.sy + g.sr, h * 0.06);
+      },
+    },
+    bad: {
+      duration: 2,
+      caption: 'Two 2s make a 4: too big, it cracks',
+      draw: (ctx, w, h, t) => {
+        const g = nucleusRow(ctx, w, h), k = seg(t, 0.55, 0.95);
+        drawSocket(ctx, g.sx[0], g.sy, g.sr, 8, 'filled');
+        drawSocket(ctx, g.sx[1], g.sy, g.sr, 2, 'next');
+        swipeArrow(ctx, g, (t - 0.25) / 0.8);
+        if (t < 0.95) {
+          drawCluster(ctx, cl(2), mix(g.at(2), g.at(0), k), g.cy, g.r);
+          drawCluster(ctx, cl(2), g.at(0), g.cy, g.r);
+        } else drawCluster(ctx, cl(4, t > 1.25), g.at(0), g.cy, g.r * popScale(t, 0.95));
+        waitRing(ctx, g.at(0), g.cy, g.r + 4, seg(t, 1.3, 1.6));
+      },
     },
   },
 ];

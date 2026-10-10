@@ -56,6 +56,11 @@
   --c-orb-p: #2ea57a;
   --c-orb-d: #c07f1e;
   --c-orb-f: #a865d6;
+  /* Color Charge's three charges (red, green, blue quarks): a set of their own, kept clear of
+     the orbital colours, the target red, good/bad, the cyan accent and the amber warning. */
+  --c-charge-r: #f07a8e;
+  --c-charge-g: #a6d95b;
+  --c-charge-b: #9c98ff;
 
   /* Spacing (4 px grid). */
   --sp-1: 4px;

@@ -8,7 +8,7 @@
 
 import { adjacent, check, clearPath, cloneLines, edgeKey, edgeOf, extend, isEnd, isStart, pathEdges, regions, retract, same, solved, verdict, type Kind, type LinesState, type Mark, type Pt } from './lines';
 import { bead, C, fitGrid, tile } from './palette';
-import { ease, type Area, type Point, type PuzzleView, type RuleCard } from './view';
+import { ease, type Area, type Illustration, type Point, type PuzzleView, type RuleCard } from './view';
 
 const FLASH_MS = 700;
 const GRAB = 0.45;
@@ -51,8 +51,10 @@ interface Paint {
   picked: number;
   /** Soft glows on (off under reduced motion). */
   glow: boolean;
-  /** A fill per tile, for the pockets demo; null for the board's own. */
+  /** A fill per tile, for the pockets picture; null for the board's own. */
   tint?: (i: number) => string | null;
+  /** The color broken marks, a red line and a refused step are flagged in: the board's red, or amber in the rule pictures. */
+  flag?: string;
 }
 
 const px = (g: Grid, p: Pt): Point => ({ x: g.x + p.x * g.c, y: g.y + p.y * g.c });
@@ -78,6 +80,7 @@ function paintLines(ctx: CanvasRenderingContext2D, s: LinesState, g: Grid, o: Pa
   const covered = pathEdges(path);
   const lw = Math.max(4, c * 0.12);
   const last = path[path.length - 1];
+  const flagCol = o.flag ?? C.bad;
 
   ctx.save();
   ctx.lineCap = 'round';
@@ -130,7 +133,7 @@ function paintLines(ctx: CanvasRenderingContext2D, s: LinesState, g: Grid, o: Pa
     if (o.failed.has(i)) {
       ctx.save();
       ctx.globalAlpha = o.pulse;
-      tile(ctx, q.x - c * 0.36, q.y - c * 0.36, c * 0.72, c * 0.72, c * 0.16, null, C.bad, Math.max(1.5, c * 0.035));
+      tile(ctx, q.x - c * 0.36, q.y - c * 0.36, c * 0.72, c * 0.72, c * 0.16, null, flagCol, Math.max(1.5, c * 0.035));
       ctx.restore();
     }
     drawMark(ctx, m, q.x, q.y, c, markGlow);
@@ -142,7 +145,7 @@ function paintLines(ctx: CanvasRenderingContext2D, s: LinesState, g: Grid, o: Pa
     const on = covered.has(k);
     const r = Math.max(4, c * 0.09);
     const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
-    if (o.missed.has(k)) bead(ctx, mx, my, r * 1.15, C.bad, { alpha: 0.5 + 0.5 * o.pulse, glow: o.glow ? C.bad : undefined });
+    if (o.missed.has(k)) bead(ctx, mx, my, r * 1.15, flagCol, { alpha: 0.5 + 0.5 * o.pulse, glow: o.glow ? flagCol : undefined });
     else bead(ctx, mx, my, r, on ? C.silver : C.silverDim, { rim: on ? undefined : C.pewter, glow: on && o.glow ? C.silver : undefined });
   }
 
@@ -163,7 +166,7 @@ function paintLines(ctx: CanvasRenderingContext2D, s: LinesState, g: Grid, o: Pa
       }
     };
     ctx.save();
-    ctx.strokeStyle = o.red ? C.bad : C.silver;
+    ctx.strokeStyle = o.red ? flagCol : C.silver;
     ctx.globalAlpha = o.red ? 0.22 : 0.12 + 0.18 * o.wonT;
     ctx.lineWidth = c * (0.28 + 0.1 * o.wonT);
     trace();
@@ -171,7 +174,7 @@ function paintLines(ctx: CanvasRenderingContext2D, s: LinesState, g: Grid, o: Pa
     ctx.restore();
     ctx.save();
     if (o.won && o.glow) { ctx.shadowColor = C.silver; ctx.shadowBlur = c * 0.25 * o.wonT; }
-    ctx.strokeStyle = o.red ? C.bad : C.silver;
+    ctx.strokeStyle = o.red ? flagCol : C.silver;
     ctx.globalAlpha = o.red ? 0.55 + 0.45 * o.pulse : 1;
     ctx.lineWidth = lw;
     trace();
@@ -196,7 +199,7 @@ function paintLines(ctx: CanvasRenderingContext2D, s: LinesState, g: Grid, o: Pa
   // A nudge at the pen tip when a step was refused.
   if (o.bump > 0 && path.length) {
     const q = o.tip ?? px(g, path[path.length - 1]);
-    ctx.strokeStyle = C.bad;
+    ctx.strokeStyle = flagCol;
     ctx.globalAlpha = 0.8 * o.bump;
     ctx.lineWidth = 2;
     ctx.beginPath();
@@ -585,10 +588,14 @@ function boardGrid(area: Area, s: { cols: number; rows: number }, margin: number
   return { x: fit.x + 0.45 * c, y: fit.y + 0.45 * c, c };
 }
 
-// ---- rule cards ------------------------------------------------------------------------
+// ---- rule pictures ---------------------------------------------------------------------
 
-/** One stroke in a demo: a line drawn in, then judged (or refused at a gap). */
-interface Try { path: Pt[]; bump?: boolean }
+/** One stroke in a picture: a line drawn in, then judged; or pushed at a gap and refused. */
+interface Stroke {
+  path: Pt[];
+  /** The node the pen pushes toward from the end of `path` and is refused (a gap). */
+  blocked?: Pt;
+}
 
 const P = (...xy: number[]): Pt[] => {
   const out: Pt[] = [];
@@ -596,7 +603,7 @@ const P = (...xy: number[]): Pt[] => {
   return out;
 };
 
-/** A small demo board, 3 tiles by 2 unless told otherwise. */
+/** A small picture board, 3 tiles by 2 unless told otherwise. */
 function mini(o: Partial<LinesState> & { at?: Record<number, Mark> }): LinesState {
   const cols = o.cols ?? 3, rows = o.rows ?? 2;
   const marks: (Mark | null)[] = Array(cols * rows).fill(null);
@@ -604,78 +611,78 @@ function mini(o: Partial<LinesState> & { at?: Record<number, Mark> }): LinesStat
   return { cols, rows, starts: o.starts ?? P(0, 2), ends: o.ends ?? P(3, 0), dots: o.dots ?? [], gaps: o.gaps ?? [], marks, rules: [], path: [], moves: 0, par: 1, won: false, solution: [] };
 }
 
-const PRESS = 0.18;
-const STEP = 0.11;
-const HOLD_FAIL = 0.95;
-const HOLD_BUMP = 0.6;
-const HOLD_WIN = 1.5;
+/** Seconds: the finger lands, each node of the line, the verdict coming in, then a rest on the finished still. */
+const PRESS = 0.3;
+const STEP = 0.16;
+const VERDICT = 0.45;
+const REST = 0.5;
+/** How far along a broken channel the pen gets before it is refused: to the gap's near cap. */
+const PUSH = 0.26;
 
 /**
- * A looping demo: each try presses its start, draws its line in a node at a
- * time, then shows the verdict as the board would: broken marks flashing red,
- * or the whole line glowing. The last try holds longest.
+ * One rule picture: the + charge is pressed, the line draws in a node at a
+ * time, and the real verdict comes in as on the board: a kept line glows, a
+ * broken mark is flagged in amber (a missed bead, an outlined tile, or a ring
+ * where the pen was refused at a gap). The last frame is the finished verdict.
  */
-function scene(s: LinesState, tries: Try[], opts: { emph?: 'end'; pockets?: boolean } = {}): (ctx: CanvasRenderingContext2D, w: number, h: number, t: number) => void {
-  const judged = tries.map((tr, k) => {
-    const v = verdict(s, tr.path);
-    const draw = PRESS + STEP * (tr.path.length - 1);
-    const hold = tr.bump ? HOLD_BUMP : !v.ok ? HOLD_FAIL : k < tries.length - 1 ? HOLD_WIN * 0.6 : HOLD_WIN;
-    return { ...tr, ok: v.ok, failed: new Set(v.failed), missed: new Set(v.missed), draw, len: draw + hold };
-  });
-  // At least 3.4 s, so the still frame shown under reduced motion (2.5 s) has the last line finished.
-  const last = judged[judged.length - 1];
-  last.len += Math.max(0, 3.4 - judged.reduce((a, j) => a + j.len, 0));
-  const loop = judged.reduce((a, j) => a + j.len, 0);
+function picture(s: LinesState, st: Stroke, caption: string, opts: { emph?: 'end'; pockets?: boolean } = {}): Illustration {
+  const v = verdict(s, st.path);
+  const ok = v.ok && !st.blocked;
+  const failed = new Set(v.failed);
+  const missed = new Set(v.missed);
+  const n = st.path.length;
+  const draw = PRESS + STEP * (n - 1) + (st.blocked ? STEP : 0);
+  const duration = Math.min(4, Math.max(1.5, draw + VERDICT + REST));
   const none = new Set<never>();
-  const pocketOf = opts.pockets ? regions(s.cols, s.rows, last.path) : null;
-  return (ctx, w, h, t) => {
-    const g = boardGrid({ x: 0, y: 0, w, h }, s, 5, 999);
-    let u = ((t % loop) + loop) % loop;
-    let k = 0;
-    while (k < judged.length - 1 && u >= judged[k].len) u -= judged[k++].len;
-    const j = judged[k];
-    // How far the line has come: whole nodes, then a fraction toward the next.
-    const f = Math.max(0, (u - PRESS) / STEP);
-    const whole = Math.min(j.path.length - 1, Math.floor(f));
-    const path = j.path.slice(0, whole + 1);
-    let tip: Point | null = null;
-    if (whole < j.path.length - 1) {
-      const a = px(g, j.path[whole]), b = px(g, j.path[whole + 1]), r = f - whole;
-      tip = { x: a.x + (b.x - a.x) * r, y: a.y + (b.y - a.y) * r };
-    }
-    const done = u >= j.draw;
-    const since = (u - j.draw) * 1000;
-    const failNow = done && !j.ok && !j.bump;
-    const winNow = done && j.ok && !j.bump;
-    const tintOn = pocketOf && winNow;
-    paintLines(ctx, s, g, {
-      path: u < PRESS ? [] : path,
-      tip,
-      failed: failNow ? j.failed : none,
-      missed: failNow ? j.missed : none,
-      pulse: failNow ? flash(since) : 0,
-      red: failNow,
-      won: winNow,
-      wonT: winNow ? ease(since / 500) : 0,
-      bump: done && j.bump && since < 600 ? 1 - (since % 300) / 300 : 0,
-      picked: -1,
-      glow: true,
-      tint: tintOn ? (i) => (pocketOf![i] === pocketOf![0] ? C.surface3 : C.surface2) : undefined,
-    });
-    // A press: an accent ripple on the + charge as the finger lands.
-    if (u < PRESS + 0.25) press(ctx, px(g, j.path[0]), g.c, u / (PRESS + 0.25));
-    if (opts.emph === 'end' && !done) {
-      const end = s.ends[0];
-      const tm = terminal(g, px(g, end), tailDir(s, end));
-      ctx.save();
-      ctx.strokeStyle = C.accent;
-      ctx.globalAlpha = 0.35 + 0.35 * Math.sin(t * 6);
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.arc(tm.x, tm.y, tm.r + 2, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.restore();
-    }
+  const pocketOf = opts.pockets ? regions(s.cols, s.rows, st.path) : null;
+  return {
+    caption,
+    duration,
+    draw: (ctx, w, h, t) => {
+      const g = boardGrid({ x: 0, y: 0, w, h }, s, 4, 999);
+      // How far the line has come: whole nodes, then a fraction toward the next (or into the gap).
+      const f = Math.max(0, (t - PRESS) / STEP);
+      const whole = Math.min(n - 1, Math.floor(f));
+      let tip: Point | null = null;
+      if (whole < n - 1) {
+        const a = px(g, st.path[whole]), b = px(g, st.path[whole + 1]), r = f - whole;
+        tip = { x: a.x + (b.x - a.x) * r, y: a.y + (b.y - a.y) * r };
+      } else if (st.blocked && f > n - 1) {
+        const a = px(g, st.path[n - 1]), b = px(g, st.blocked), r = Math.min(PUSH, (f - (n - 1)) * PUSH * 1.6);
+        tip = { x: a.x + (b.x - a.x) * r, y: a.y + (b.y - a.y) * r };
+      }
+      const done = t >= draw;
+      const k = done ? ease((t - draw) / VERDICT) : 0;
+      paintLines(ctx, s, g, {
+        path: t < PRESS ? [] : st.path.slice(0, whole + 1),
+        tip,
+        failed: done && !ok ? failed : none,
+        missed: done && !ok ? missed : none,
+        pulse: k,
+        red: false,
+        won: done && ok,
+        wonT: done && ok ? k : 0,
+        bump: done && st.blocked ? k : 0,
+        picked: -1,
+        glow: true,
+        tint: pocketOf && done && ok ? (i) => (pocketOf[i] === pocketOf[0] ? C.surface3 : C.surface2) : undefined,
+        flag: C.warn,
+      });
+      // The finger landing: an accent ripple on the + charge.
+      if (t > 0 && t < PRESS + 0.25) press(ctx, px(g, st.path[0]), g.c, t / (PRESS + 0.25));
+      if (opts.emph === 'end' && !done) {
+        const end = st.path[n - 1];
+        const tm = terminal(g, px(g, end), tailDir(s, end));
+        ctx.save();
+        ctx.strokeStyle = C.accent;
+        ctx.globalAlpha = 0.35 + 0.35 * Math.sin(t * 6);
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(tm.x, tm.y, tm.r + 2, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
+    },
   };
 }
 
@@ -697,76 +704,69 @@ const SPLIT = P(1, 0, 1, 1, 2, 1, 2, 2);
 const SPLIT_WIDE = P(1, 0, 1, 1, 1, 2, 2, 2);
 const SPLIT_ENDS = { starts: P(1, 0), ends: P(2, 2) };
 
+const BEADS = mini({ dots: [edgeKey({ x: 1, y: 2 }, { x: 2, y: 2 })] });
+const GAPS = mini({ gaps: [edgeKey({ x: 1, y: 1 }, { x: 2, y: 1 })] });
+const ORBITALS = mini({ ...SPLIT_ENDS, at: { 0: { type: 'color', c: 's' }, 4: { type: 'color', c: 's' }, 2: { type: 'color', c: 'p' } } });
+const BARS = mini({ at: { 1: { type: 'count', n: 2 } } });
+// In s blue, well away from the amber the broken marks are flagged in.
+const PAIRS = mini({ ...SPLIT_ENDS, at: { 0: { type: 'pair', c: 's' }, 4: { type: 'pair', c: 's' }, 2: { type: 'pair', c: 's' }, 5: { type: 'color', c: 's' } } });
+const SHAPES = mini({ ...SPLIT_ENDS, at: { 3: { type: 'shape', cells: P(0, 0, 0, 1, 1, 1) } } });
+
 export const RULES: RuleCard[] = [
   {
     title: 'Start',
     text: 'Press a + charge and drag one line along the channels between the tiles. A line never crosses itself.',
-    demo: scene(mini({}), [{ path: P(0, 2, 1, 2, 1, 1, 2, 1, 2, 0, 3, 0) }]),
+    good: picture(mini({}), { path: P(0, 2, 1, 2, 1, 1, 2, 1, 2, 0, 3, 0) }, 'One line, + to −'),
   },
   {
     title: 'End',
     text: 'Let go on a − charge at the rim and the line is checked against every mark on the board.',
-    demo: scene(mini({ starts: P(0, 0), ends: P(3, 2) }), [{ path: P(0, 0, 1, 0, 1, 1, 2, 1, 3, 1, 3, 2) }], { emph: 'end' }),
+    good: picture(mini({ starts: P(0, 0), ends: P(3, 2) }), { path: P(0, 0, 1, 0, 1, 1, 2, 1, 3, 1, 3, 2) }, 'Let go on the −', { emph: 'end' }),
   },
   {
     title: 'Pockets',
     text: 'The line walls the tiles into pockets, and the rim is a wall too. Most marks are about the pocket they sit in.',
-    demo: scene(mini(SPLIT_ENDS), [{ path: SPLIT }], { pockets: true }),
+    good: picture(mini(SPLIT_ENDS), { path: SPLIT }, 'Two pockets of three', { pockets: true }),
   },
   {
     title: 'Beads',
     text: 'The line must run over every bead on a channel.',
-    demo: scene(mini({ dots: [edgeKey({ x: 1, y: 2 }, { x: 2, y: 2 })] }), [
-      { path: P(0, 2, 0, 1, 1, 1, 2, 1, 3, 1, 3, 0) },
-      { path: P(0, 2, 1, 2, 2, 2, 2, 1, 3, 1, 3, 0) },
-    ]),
+    good: picture(BEADS, { path: P(0, 2, 1, 2, 2, 2, 2, 1, 3, 1, 3, 0) }, 'Passes every bead'),
+    bad: picture(BEADS, { path: P(0, 2, 0, 1, 1, 1, 2, 1, 3, 1, 3, 0) }, 'Misses a bead'),
   },
   {
     title: 'Gaps',
     text: 'The line cannot cross a broken channel.',
-    demo: scene(mini({ gaps: [edgeKey({ x: 1, y: 1 }, { x: 2, y: 1 })] }), [
-      { path: P(0, 2, 0, 1, 1, 1), bump: true },
-      { path: P(0, 2, 0, 1, 1, 1, 1, 0, 2, 0, 3, 0) },
-    ]),
+    good: picture(GAPS, { path: P(0, 2, 0, 1, 1, 1, 1, 0, 2, 0, 3, 0) }, 'Goes round the gap'),
+    bad: picture(GAPS, { path: P(0, 2, 0, 1, 1, 1), blocked: { x: 2, y: 1 } }, 'Cannot cross a gap'),
   },
   {
     title: 'Orbitals',
     text: 'No pocket may hold two kinds of orbital. Wall the different shapes apart.',
-    demo: scene(mini({ ...SPLIT_ENDS, at: { 0: { type: 'color', c: 's' }, 4: { type: 'color', c: 's' }, 2: { type: 'color', c: 'p' } } }), [
-      { path: SPLIT_WIDE },
-      { path: SPLIT },
-    ]),
+    good: picture(ORBITALS, { path: SPLIT }, 'Kinds walled apart'),
+    bad: picture(ORBITALS, { path: SPLIT_WIDE }, 'Two kinds together'),
   },
   {
     title: 'Bars',
     text: 'The line runs along exactly as many of the tile\'s four sides as it has bars: one, two or three.',
-    demo: scene(mini({ at: { 1: { type: 'count', n: 2 } } }), [
-      { path: P(0, 2, 0, 1, 1, 1, 2, 1, 3, 1, 3, 0) },
-      { path: P(0, 2, 0, 1, 1, 1, 1, 0, 2, 0, 3, 0) },
-    ]),
+    good: picture(BARS, { path: P(0, 2, 0, 1, 1, 1, 1, 0, 2, 0, 3, 0) }, 'Two bars, two sides'),
+    bad: picture(BARS, { path: P(0, 2, 0, 1, 1, 1, 2, 1, 3, 1, 3, 0) }, 'Two bars, one side'),
   },
   {
     title: 'Pairs',
     text: 'A hollow orbital\'s pocket holds exactly two orbitals of its kind, hollow or filled, itself included.',
-    demo: scene(mini({ ...SPLIT_ENDS, at: { 0: { type: 'pair', c: 'd' }, 4: { type: 'pair', c: 'd' }, 2: { type: 'pair', c: 'd' }, 5: { type: 'color', c: 'd' } } }), [
-      { path: SPLIT_WIDE },
-      { path: SPLIT },
-    ]),
+    good: picture(PAIRS, { path: SPLIT }, 'Two in each pocket'),
+    bad: picture(PAIRS, { path: SPLIT_WIDE }, 'One here, three there'),
   },
   {
     title: 'Shapes',
     text: 'The pocket holding a shape must be exactly that shape, the same way up. Two shapes in one pocket fit together to fill it.',
-    demo: scene(mini({ ...SPLIT_ENDS, at: { 3: { type: 'shape', cells: P(0, 0, 0, 1, 1, 1) } } }), [
-      { path: SPLIT_WIDE },
-      { path: SPLIT },
-    ]),
+    good: picture(SHAPES, { path: SPLIT }, 'Pocket is the shape'),
+    bad: picture(SHAPES, { path: SPLIT_WIDE }, 'Pocket is too small'),
   },
   {
     title: 'Two starts or ends',
     text: 'Some boards have two + charges or two − charges. Use whichever you like.',
-    demo: scene(mini({ starts: P(0, 2, 3, 2), ends: P(1, 0, 3, 0) }), [
-      { path: P(0, 2, 0, 1, 1, 1, 1, 0) },
-      { path: P(3, 2, 2, 2, 2, 1, 3, 1, 3, 0) },
-    ]),
+    good: picture(mini({ starts: P(0, 2, 3, 2), ends: P(1, 0, 3, 0) }), { path: P(3, 2, 2, 2, 2, 1, 3, 1, 3, 0) }, 'Either one will do'),
   },
 ];

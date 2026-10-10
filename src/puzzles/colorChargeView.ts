@@ -2,22 +2,24 @@
 // one) to pick a group; a color-neutral group binds, its gluon strings snap
 // tight and it collapses into one white hadron. On gluon levels a gluon token
 // sits under the grid: tap it, then two neighboring tiles, to swap their
-// colors. Regions that can no longer all be bound get an amber rim, and a
-// tile no group could hold dims inside an amber ring.
+// colors. A swap stays provisional for a moment (washed colors, a dashed
+// silver outline, a gluon curl between the two); one that strands tiles shows
+// them and then undoes itself, handing the gluon and the move back. Regions
+// that can no longer all be bound glow inside a thick amber rim, and a tile no
+// group could hold dims under an amber ring with a "!" mark. Never red.
 //
 // Everything is painted from a Scene, a plain description of the board and its
 // running animations, so the rule cards replay the same drawing as the board.
 
 import { adjacent, bind, canBind, canSwap, cloneCharge, COLOR_LETTERS, gluonsLeft, groupKind, isolated, solved, stranded, swap, type ColorChargeState, type GroupKind, type Quark } from './colorCharge';
 import { C, fitGrid, font, tile } from './palette';
-import { ease, type Area, type Point, type PuzzleView, type RuleCard } from './view';
+import { ease, type Area, type Illustration, type Point, type PuzzleView, type RuleCard } from './view';
 
 /**
- * The three charge colors, read at draw time; the letters carry them too.
- * Stand-ins until the palette has charge tokens: C.s is an orbital color and
- * C.bad / C.good mean wrong and right elsewhere.
+ * The three charge colors, read at draw time from Color Charge's own tokens
+ * (--c-charge-r/g/b); the letters carry them too.
  */
-export const chargeColor = (k: number): string => [C.bad, C.good, C.s][k];
+export const chargeColor = (k: number): string => [C.chargeR, C.chargeG, C.chargeB][k];
 
 const FAIL_MS = 380;
 const BIND_MS = 560;
@@ -25,6 +27,14 @@ const SWAP_MS = 420;
 const LABEL_MS = 1100;
 const STRAND_MS = 320;
 const TOKEN = 44;
+/** A swap that keeps the grid clearable stays provisional this long after it lands, then settles. */
+const SETTLE_MS = 450;
+/** A swap that strands tiles shows them this long after it lands, then undoes itself. */
+const SNAP_MS = 1200;
+const SNAP_REDUCED_MS = 700;
+/** How long a settling swap takes to lose its provisional look, and how long "undone" stays in the hint. */
+const FADE_MS = 220;
+const SNAPPED_HINT_MS = 1600;
 
 export const INSTRUCTIONS = `
 <h3>In the game</h3>
@@ -33,6 +43,8 @@ export const INSTRUCTIONS = `
 // ---- the scene ------------------------------------------------------------------------
 
 interface BindAnim { cells: number[]; kind: GroupKind; at: number }
+/** A swap that has landed (at `at`) and settles or snaps back at `until`. */
+interface Provisional { a: number; b: number; at: number; until: number }
 
 /** Everything the board shows at one moment, with its animations' start times. */
 interface Scene {
@@ -52,10 +64,16 @@ interface Scene {
   strandedAt: number;
   binds: BindAnim[];
   swapAnim: { a: number; b: number; at: number } | null;
+  /** A swap not settled yet: drawn washed and dashed with a curl between, until `until`. */
+  provisional: Provisional | null;
   fail: { cells: number[]; at: number } | null;
   wonAt: number | null;
   /** Cells left out of the board altogether (rule-card boards that are not rectangles). */
   hidden?: boolean[];
+  /** Rule pictures: the pick was refused, so its rings and strings stay amber. */
+  rejected?: boolean;
+  /** Rule pictures: 'hold' keeps a new particle's name up once it has risen; 'off' shows no names. */
+  names?: 'hold' | 'off';
 }
 
 interface Geom { cell: number; x: number; y: number; tokens: Area[]; area: Area }
@@ -112,41 +130,73 @@ function paint(ctx: CanvasRenderingContext2D, sc: Scene, G: Geom, now: number, r
     hadron(ctx, grp.map(center), grp.map((i) => sc.tiles[i]), links(sc.cols, grp), w, rad, glow);
   });
 
-  // Free tiles; a tile no group could hold dims.
+  // Stranded regions glow amber underneath, so the gaps between their tiles read as one patch.
+  const pulse = reduced ? 1 : 0.5 + 0.5 * Math.sin(now / 380);
+  const rimIn = pad * 0.5;
+  const edges = (i: number) => {
+    const r = Math.floor(i / sc.cols), k = i % sc.cols;
+    const out = (j: number, ok: boolean) => !ok || !strandSet.has(j);
+    return { top: out(i - sc.cols, r > 0), bottom: out(i + sc.cols, r < sc.rows - 1), left: out(i - 1, k > 0), right: out(i + 1, k < sc.cols - 1) };
+  };
+  if (strandSet.size && strandT > 0) {
+    ctx.save();
+    ctx.globalAlpha = strandT * (0.13 + 0.09 * pulse);
+    ctx.fillStyle = C.warn;
+    for (const i of strandSet) {
+      const x0 = G.x + (i % sc.cols) * c, y0 = G.y + Math.floor(i / sc.cols) * c;
+      const o = edges(i);
+      const l = o.left ? rimIn : 0, t = o.top ? rimIn : 0, r = o.right ? rimIn : 0, b = o.bottom ? rimIn : 0;
+      ctx.fillRect(x0 + l, y0 + t, c - l - r, c - t - b);
+    }
+    ctx.restore();
+  }
+
+  // Free tiles; a tile no group could hold dims. A swap not settled yet is washed and dashed.
   const deadSet = new Set(sc.dead);
+  const prov = sc.provisional;
+  const provK = !prov ? 0 : now < prov.until ? 1 : reduced ? 0 : Math.max(0, 1 - (now - prov.until) / FADE_MS);
+  const dash = reduced ? 0 : -now / 45;
   for (let i = 0; i < sc.tiles.length; i++) {
     if (sc.bound[i] >= 0) continue;
     if (swapping && (i === swapping.a || i === swapping.b)) continue;
     const p = center(i);
     if (sc.fail?.cells.includes(i) && failT < 1) p.x += Math.sin(failT * Math.PI * 6) * c * 0.06 * (1 - failT);
-    quark(ctx, p.x, p.y, w, rad, sc.tiles[i], deadSet.has(i) ? 1 - 0.55 * strandT : 1);
+    const k = prov && (i === prov.a || i === prov.b) ? provK : 0;
+    quark(ctx, p.x, p.y, w, rad, sc.tiles[i], deadSet.has(i) ? 1 - 0.6 * strandT : 1, k, dash);
   }
 
-  // Stranded regions: an amber dashed rim around them, and a ring on each dead tile.
-  if (strandSet.size) {
-    const breathe = reduced ? 1 : 0.7 + 0.3 * Math.sin(now / 420);
+  // Stranded regions: a thick amber rim, gently pulsing, and on each dead tile an amber ring and a "!" mark.
+  if (strandSet.size && strandT > 0) {
     ctx.save();
-    ctx.globalAlpha = strandT * breathe;
+    ctx.globalAlpha = strandT * (reduced ? 1 : 0.72 + 0.28 * pulse);
     ctx.strokeStyle = C.warn;
-    ctx.lineWidth = 1.5;
+    ctx.lineWidth = Math.max(2.5, c * 0.05);
     ctx.lineCap = 'round';
-    ctx.setLineDash([4, 4]);
+    ctx.lineJoin = 'round';
+    ctx.shadowColor = C.warn;
+    ctx.shadowBlur = c * (reduced ? 0.12 : 0.06 + 0.14 * pulse);
     ctx.beginPath();
+    // One unbroken rim: each edge runs on into the next cell's, turns in at an outer corner
+    // and out at an inner one.
+    const has = (r: number, k: number) => r >= 0 && k >= 0 && r < sc.rows && k < sc.cols && strandSet.has(r * sc.cols + k);
+    const end = (out: boolean, diagonal: boolean) => (out ? rimIn : diagonal ? -rimIn : 0);
     for (const i of strandSet) {
-      const x0 = G.x + (i % sc.cols) * c, y0 = G.y + Math.floor(i / sc.cols) * c;
       const r = Math.floor(i / sc.cols), k = i % sc.cols;
-      const out = (j: number, ok: boolean) => !ok || !strandSet.has(j);
-      const e = pad * 0.5;
-      if (out(i - sc.cols, r > 0)) { ctx.moveTo(x0 + e, y0 + e); ctx.lineTo(x0 + c - e, y0 + e); }
-      if (out(i + sc.cols, r < sc.rows - 1)) { ctx.moveTo(x0 + e, y0 + c - e); ctx.lineTo(x0 + c - e, y0 + c - e); }
-      if (out(i - 1, k > 0)) { ctx.moveTo(x0 + e, y0 + e); ctx.lineTo(x0 + e, y0 + c - e); }
-      if (out(i + 1, k < sc.cols - 1)) { ctx.moveTo(x0 + c - e, y0 + e); ctx.lineTo(x0 + c - e, y0 + c - e); }
+      const x0 = G.x + k * c, y0 = G.y + r * c;
+      const o = edges(i);
+      if (o.top) { ctx.moveTo(x0 + end(o.left, has(r - 1, k - 1)), y0 + rimIn); ctx.lineTo(x0 + c - end(o.right, has(r - 1, k + 1)), y0 + rimIn); }
+      if (o.bottom) { ctx.moveTo(x0 + end(o.left, has(r + 1, k - 1)), y0 + c - rimIn); ctx.lineTo(x0 + c - end(o.right, has(r + 1, k + 1)), y0 + c - rimIn); }
+      if (o.left) { ctx.moveTo(x0 + rimIn, y0 + end(o.top, has(r - 1, k - 1))); ctx.lineTo(x0 + rimIn, y0 + c - end(o.bottom, has(r + 1, k - 1))); }
+      if (o.right) { ctx.moveTo(x0 + c - rimIn, y0 + end(o.top, has(r - 1, k + 1))); ctx.lineTo(x0 + c - rimIn, y0 + c - end(o.bottom, has(r + 1, k + 1))); }
     }
     ctx.stroke();
-    ctx.setLineDash([]);
+    ctx.shadowBlur = 0;
+    ctx.globalAlpha = strandT;
     for (const i of deadSet) {
       const p = center(i);
-      tile(ctx, p.x - w / 2 - 2.5, p.y - w / 2 - 2.5, w + 5, w + 5, rad * 1.1, null, C.warn, 2);
+      const lw = Math.max(2.5, c * 0.045), grow = lw * 1.4;
+      tile(ctx, p.x - w / 2 - grow, p.y - w / 2 - grow, w + grow * 2, w + grow * 2, rad * 1.15, null, C.warn, lw);
+      warnMark(ctx, p.x + w / 2 - w * 0.06, p.y - w / 2 + w * 0.06, Math.max(6, c * 0.13));
     }
     ctx.restore();
   }
@@ -167,8 +217,10 @@ function paint(ctx: CanvasRenderingContext2D, sc: Scene, G: Geom, now: number, r
     ctx.restore();
     // The tile now at a came from b, and the other way round.
     const ta = at(pb), tb = at(pa);
-    quark(ctx, ta.x, ta.y, size, rad * size / w, sc.tiles[swapping.a], 1);
-    quark(ctx, tb.x, tb.y, size, rad * size / w, sc.tiles[swapping.b], 1);
+    // Provisional from the start, unless this is a swap being taken back.
+    const k = prov && prov.a === swapping.a && prov.b === swapping.b ? 1 : 0;
+    quark(ctx, ta.x, ta.y, size, rad * size / w, sc.tiles[swapping.a], 1, k, dash);
+    quark(ctx, tb.x, tb.y, size, rad * size / w, sc.tiles[swapping.b], 1, k, dash);
   }
 
   // Groups binding right now: strings snap tight, the tiles pull in and turn white.
@@ -216,34 +268,46 @@ function paint(ctx: CanvasRenderingContext2D, sc: Scene, G: Geom, now: number, r
     }
   }
 
-  // Swaps already made: a small gluon across the edge the two tiles share.
+  // Swaps already made: a small gluon across the edge the two tiles share. While a swap is
+  // provisional the gluon is still live: a bigger curl, rolling, that shrinks to the mark as it settles.
   for (const [a, b] of sc.swaps) {
     const pa = center(a), pb = center(b);
     const t = swapping && swapping.a === a && swapping.b === b ? ease(swapT) : 1;
     const dx = (pb.x - pa.x) / c, dy = (pb.y - pa.y) / c;
     const mx = (pa.x + pb.x) / 2, my = (pa.y + pb.y) / 2;
     const both = sc.bound[a] >= 0 && sc.bound[b] >= 0;
+    const live = prov && prov.a === a && prov.b === b ? provK : 0;
+    const span = c * (0.24 + 0.08 * live), amp = c * (0.07 + 0.03 * live);
+    const phase = live && !reduced ? now / 110 : 0;
     ctx.save();
     ctx.globalAlpha = t;
-    ctx.strokeStyle = both ? C.pewter : C.silver;
-    ctx.lineWidth = Math.max(1.5, c * 0.03);
     ctx.lineCap = 'round';
-    coil(ctx, mx - dx * c * 0.24, my - dy * c * 0.24, mx + dx * c * 0.24, my + dy * c * 0.24, c * 0.07, 2, 0);
+    if (live) {
+      // A dark underlay keeps the curl readable where it crosses the tiles.
+      ctx.strokeStyle = C.bg;
+      ctx.lineWidth = Math.max(3.5, c * 0.075);
+      ctx.globalAlpha = t * live * 0.7;
+      coil(ctx, mx - dx * span, my - dy * span, mx + dx * span, my + dy * span, amp, 2, phase);
+      ctx.globalAlpha = t;
+    }
+    ctx.strokeStyle = both ? C.pewter : C.silver;
+    ctx.lineWidth = Math.max(1.5, c * (0.03 + 0.008 * live));
+    coil(ctx, mx - dx * span, my - dy * span, mx + dx * span, my + dy * span, amp, 2, phase);
     ctx.restore();
   }
 
   // The pick: an accent ring per tile, joined by strings that pull straight once the pick is neutral.
   if (sc.sel.length) {
-    const neutral = !sc.armed && sc.sel.length > 1 && groupKind(sc.tiles, sc.sel) !== null;
+    const neutral = !sc.armed && !sc.rejected && sc.sel.length > 1 && groupKind(sc.tiles, sc.sel) !== null;
+    const dead = sc.rejected || (!sc.armed && hopeless(sc.tiles, sc.sel));
     ctx.save();
-    ctx.strokeStyle = C.accent;
+    ctx.strokeStyle = dead ? C.warn : C.accent;
     ctx.lineCap = 'round';
     ctx.lineWidth = neutral ? 2.5 : 1.75;
     for (let k = 1; k < sc.sel.length; k++) {
       const p = center(sc.sel[k - 1]), q = center(sc.sel[k]);
       coil(ctx, p.x, p.y, q.x, q.y, neutral ? 0 : c * 0.09, 3, sc.armed ? now / 120 : 0);
     }
-    const dead = !sc.armed && hopeless(sc.tiles, sc.sel);
     for (const i of sc.sel) {
       const p = center(i);
       tile(ctx, p.x - w / 2 - 2.5, p.y - w / 2 - 2.5, w + 5, w + 5, rad * 1.1, null, dead ? C.warn : C.accent, 2);
@@ -261,10 +325,12 @@ function paint(ctx: CanvasRenderingContext2D, sc: Scene, G: Geom, now: number, r
   }
 
   // The name of each new particle, rising off it.
-  if (!reduced) {
+  if (!reduced && sc.names !== 'off') {
     for (const b of sc.binds) {
-      const t = (now - b.at - BIND_MS * 0.42) / LABEL_MS;
-      if (t < 0 || t >= 1) continue;
+      const raw = (now - b.at - BIND_MS * 0.42) / LABEL_MS;
+      const hold = sc.names === 'hold';
+      if (raw < 0 || (raw >= 1 && !hold)) continue;
+      const t = hold ? Math.min(raw, 0.5) : raw;
       const pts = b.cells.map(center);
       const x = pts.reduce((a, q) => a + q.x, 0) / pts.length;
       const px = Math.max(10, Math.min(14, c * 0.22));
@@ -300,19 +366,61 @@ function hopeless(tiles: Quark[], sel: number[]): boolean {
 
 // ---- pieces ---------------------------------------------------------------------------
 
-/** A free tile: a quark is a solid tile in its color, an antiquark a hollow one with a bar over its letter. */
-function quark(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, rad: number, q: Quark, alpha: number): void {
-  const color = chargeColor(q.color);
+/**
+ * A free tile: a quark is a solid tile in its color, an antiquark a hollow one
+ * with a bar over its letter. `provisional` (0-1) is a swap not settled yet: the
+ * color washes pale, an antiquark's rim breaks into dashes, and a
+ * dashed silver outline (marching by `dash`) rings the tile.
+ */
+function quark(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, rad: number, q: Quark, alpha: number, provisional = 0, dash = 0): void {
+  const full = chargeColor(q.color);
+  // Washed pale toward gray, never darker: dark is for a tile nothing can hold.
+  const color = provisional > 0 ? mix(full, C.silverDim, 0.42 * provisional) : full;
   ctx.save();
   ctx.globalAlpha *= alpha;
   if (q.anti) {
     const lw = Math.max(2, w * 0.045);
+    if (provisional > 0.5) ctx.setLineDash([w * 0.11, w * 0.07]);
     tile(ctx, x - w / 2 + lw / 2, y - w / 2 + lw / 2, w - lw, w - lw, rad, C.surface2, color, lw);
+    ctx.setLineDash([]);
     letter(ctx, x, y, w, COLOR_LETTERS[q.color], color, true);
   } else {
     tile(ctx, x - w / 2, y - w / 2, w, w, rad, color);
     letter(ctx, x, y, w, COLOR_LETTERS[q.color], C.tileInk, false);
   }
+  if (provisional > 0) {
+    const lw = Math.max(1.5, w * 0.04), grow = lw * 1.6;
+    ctx.globalAlpha *= provisional;
+    ctx.setLineDash([w * 0.1, w * 0.075]);
+    ctx.lineDashOffset = dash;
+    tile(ctx, x - w / 2 - grow, y - w / 2 - grow, w + grow * 2, w + grow * 2, rad * 1.15, null, C.silver, lw);
+  }
+  ctx.restore();
+}
+
+/** Blends two #rrggbb colors; any other form comes back unblended. */
+function mix(a: string, b: string, t: number): string {
+  const p = (h: string) => (/^#[0-9a-f]{6}$/i.test(h) ? [1, 3, 5].map((k) => parseInt(h.slice(k, k + 2), 16)) : null);
+  const x = p(a), y = p(b);
+  if (!x || !y) return a;
+  return `#${x.map((v, k) => Math.round(v + (y[k] - v) * t).toString(16).padStart(2, '0')).join('')}`;
+}
+
+/** A small amber warning mark: a disc with "!", pinned to a tile no group could hold. */
+function warnMark(ctx: CanvasRenderingContext2D, x: number, y: number, r: number): void {
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.fillStyle = C.warn;
+  ctx.fill();
+  ctx.strokeStyle = C.bg;
+  ctx.lineWidth = Math.max(1.5, r * 0.22);
+  ctx.stroke();
+  ctx.fillStyle = C.tileInk;
+  ctx.font = font(r * 1.45, 700);
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('!', x, y + r * 0.06);
   ctx.restore();
 }
 
@@ -516,6 +624,12 @@ export class ColorChargeView implements PuzzleView {
   private fail: { cells: number[]; at: number } | null = null;
   private binds: BindAnim[] = [];
   private swapAnim: { a: number; b: number; at: number } | null = null;
+  /** The last swap, while it still looks provisional. */
+  private provisional: Provisional | null = null;
+  /** That swap stranded tiles: it undoes itself when `provisional.until` comes. */
+  private snapBack = false;
+  /** When a stranding swap last undid itself, for the hint. */
+  private snappedAt = -Infinity;
   private lost: number[] = [];
   private dead: number[] = [];
   private lostAt = 0;
@@ -523,7 +637,11 @@ export class ColorChargeView implements PuzzleView {
   private geom: Geom = { cell: 1, x: 0, y: 0, tokens: [], area: { x: 0, y: 0, w: 0, h: 0 } };
   private reduced: boolean;
 
-  constructor(private readonly initial: ColorChargeState, reducedMotion: boolean) {
+  /**
+   * `clock` is the time base input is stamped with; it must match the `now`
+   * passed to draw (requestAnimationFrame's, by default). Tests inject one.
+   */
+  constructor(private readonly initial: ColorChargeState, reducedMotion: boolean, private readonly clock: () => number = () => performance.now()) {
     this.state = cloneCharge(initial);
     this.reduced = reducedMotion;
   }
@@ -537,7 +655,9 @@ export class ColorChargeView implements PuzzleView {
   hint(): string {
     const s = this.state;
     if (this.won) return 'All color-neutral';
+    if (this.snapBack) return 'That swap strands tiles: undoing';
     if (this.lost.length) return 'Stranded tiles: undo to free them';
+    if (this.clock() - this.snappedAt < SNAPPED_HINT_MS) return 'Swap undone: gluon back';
     if (this.armed) return 'Gluon ready: pick two neighbors';
     const left = gluonsLeft(s);
     const g = left ? `, ${left} gluon${left === 1 ? '' : 's'}` : '';
@@ -553,6 +673,8 @@ export class ColorChargeView implements PuzzleView {
   canUndo(): boolean { return this.history.length > 0; }
 
   undo(): boolean {
+    // Undo while a stranding swap waits to undo itself just takes it back now.
+    if (this.snapBack) { this.snap(this.clock()); return true; }
     const prev = this.history.pop();
     if (!prev) return false;
     this.state = prev;
@@ -565,6 +687,9 @@ export class ColorChargeView implements PuzzleView {
     this.armed = false;
     this.binds = [];
     this.swapAnim = null;
+    this.provisional = null;
+    this.snapBack = false;
+    this.snappedAt = -Infinity;
     this.fail = null;
     this.wonAt = null;
     this.judge();
@@ -579,21 +704,24 @@ export class ColorChargeView implements PuzzleView {
   }
 
   private commit(next: ColorChargeState): void {
+    const now = this.clock();
     this.history.push(this.state);
     if (this.history.length > 50) this.history.shift();
     this.state = next;
     this.sel = [];
+    // A new move settles the last swap for good.
+    if (this.provisional && this.provisional.until > now) this.provisional = { ...this.provisional, until: now };
     const was = this.lost.length;
     this.judge();
-    if (this.lost.length && !was) this.lostAt = performance.now() + (this.reduced ? 0 : BIND_MS * 0.6);
-    if (solved(next)) this.wonAt = performance.now() + (this.reduced ? 0 : BIND_MS * 0.5);
+    if (this.lost.length && !was) this.lostAt = now + (this.reduced ? 0 : BIND_MS * 0.6);
+    if (solved(next)) this.wonAt = now + (this.reduced ? 0 : BIND_MS * 0.5);
   }
 
   private tryBind(): void {
     const next = bind(this.state, this.sel);
     if (next) {
       const kind = groupKind(this.state.tiles, this.sel)!;
-      const now = performance.now();
+      const now = this.clock();
       this.binds = this.binds.filter((b) => now - b.at < BIND_MS + LABEL_MS);
       this.binds.push({ cells: [...this.sel], kind, at: now });
       this.commit(next);
@@ -605,13 +733,36 @@ export class ColorChargeView implements PuzzleView {
   private trySwap(a: number, b: number): void {
     const next = swap(this.state, a, b);
     if (!next) { this.flunk(); return; }
+    const now = this.clock();
+    const was = this.lost.length;
     this.armed = false;
-    this.swapAnim = { a, b, at: performance.now() };
+    this.swapAnim = { a, b, at: now };
     this.commit(next);
+    // The swap stays provisional for a moment after it lands; one that strands tiles shows them, then undoes itself.
+    const land = now + (this.reduced ? 0 : SWAP_MS);
+    this.snapBack = this.lost.length > 0 && !was;
+    if (this.snapBack) this.lostAt = land;
+    this.provisional = { a, b, at: land, until: land + (this.snapBack ? (this.reduced ? SNAP_REDUCED_MS : SNAP_MS) : SETTLE_MS) };
+  }
+
+  /** Takes back a swap that stranded tiles, like Undo (gluon and move refunded), and swings the tiles home. */
+  private snap(now: number): void {
+    const p = this.provisional;
+    const prev = this.history.pop();
+    if (!p || !prev) { this.snapBack = false; return; }
+    this.state = prev;
+    this.reset();
+    this.snappedAt = now;
+    if (!this.reduced) this.swapAnim = { a: p.a, b: p.b, at: now };
+  }
+
+  /** Lets a pending stranding swap undo itself once its time is up. */
+  private settle(now: number): void {
+    if (this.snapBack && this.provisional && now >= this.provisional.until) this.snap(now);
   }
 
   private flunk(): void {
-    this.fail = { cells: this.sel, at: performance.now() };
+    this.fail = { cells: this.sel, at: this.clock() };
     this.sel = [];
   }
 
@@ -648,6 +799,8 @@ export class ColorChargeView implements PuzzleView {
 
   down(p: Point): void {
     if (this.won) return;
+    // A stranding swap is on show: any touch takes it back at once and does nothing else.
+    if (this.snapBack) { this.snap(this.clock()); return; }
     if (this.tokenAt(p)) { this.tokenDown = true; return; }
     const t = this.tileAt(p, false);
     this.dragging = true;
@@ -702,6 +855,7 @@ export class ColorChargeView implements PuzzleView {
   }
 
   key(e: KeyboardEvent): boolean {
+    if (this.snapBack && (e.key === 'Escape' || e.key === 'g' || e.key === 'G')) { this.snap(this.clock()); return true; }
     if (e.key === 'Escape' && (this.sel.length || this.armed)) { this.sel = []; this.armed = false; return true; }
     if ((e.key === 'g' || e.key === 'G') && this.state.gluons) { this.toggleArmed(); return true; }
     return false;
@@ -710,48 +864,58 @@ export class ColorChargeView implements PuzzleView {
   // ---- drawing --------------------------------------------------------------------
 
   draw(ctx: CanvasRenderingContext2D, area: Area, now: number): void {
+    this.settle(now);
     const s = this.state;
     this.geom = boardGeom(area, s.cols, s.rows, s.gluons);
     paint(ctx, {
       cols: s.cols, rows: s.rows, tiles: s.tiles, bound: s.bound, groups: s.groups, swaps: s.swaps, gluons: s.gluons,
       sel: this.sel, armed: this.armed, stranded: this.lost, dead: this.dead, strandedAt: this.lostAt,
-      binds: this.binds, swapAnim: this.swapAnim, fail: this.fail, wonAt: this.wonAt !== null && now >= this.wonAt ? this.wonAt : null,
+      binds: this.binds, swapAnim: this.swapAnim, provisional: this.provisional, fail: this.fail, wonAt: this.wonAt !== null && now >= this.wonAt ? this.wonAt : null,
     }, this.geom, now, this.reduced);
   }
 }
 
 // ---- rule cards -----------------------------------------------------------------------
 
-type DemoEvent =
+type StoryEvent =
   | { at: number; pick: number }
   | { at: number; clear: true }
   | { at: number; arm: true }
   | { at: number; swap: [number, number] }
+  /** The pick is refused: its rings and strings turn amber and stay. */
+  | { at: number; reject: true }
   | { at: number; bind: number[] };
 
-interface Demo {
+interface Story {
   cols: number;
   rows: number;
   /** Tiles as letters, row by row: r g b for quarks, R G B for antiquarks, . for an empty cell. */
   tiles: string;
   gluons?: number;
-  /** Loop length in seconds; the board fades back to the start over its last half second. */
-  loop: number;
-  events: DemoEvent[];
+  /** Seconds the story takes; the still is its last frame. */
+  duration: number;
+  caption: string;
+  events: StoryEvent[];
   /** Show the board's real stranded marks as the story plays. */
   strands?: boolean;
+  /** Leave room above the board for a particle's name and keep it up once it has risen; otherwise no names. */
+  names?: boolean;
 }
 
 const parseTiles = (s: string): (Quark | null)[] =>
   [...s.replace(/\s/g, '')].map((ch) => (ch === '.' ? null : { color: 'rgb'.indexOf(ch.toLowerCase()) as 0 | 1 | 2, anti: ch !== ch.toLowerCase() }));
 
-/** Replays a short story on a tiny board with the board's own painter. */
-function playDemo(d: Demo): (ctx: CanvasRenderingContext2D, w: number, h: number, t: number) => void {
+/**
+ * A picture for the Instructions modal: a short story on a tiny board, drawn
+ * with the board's own painter. It plays from 0 to `duration`; the still is
+ * the last frame. A swap that strands tiles is caught at the moment it is on
+ * show (the board would undo it right after).
+ */
+function picture(d: Story): Illustration {
   const cells = parseTiles(d.tiles);
   const hidden = cells.map((q) => !q);
-  return (ctx, w, h, t) => {
-    const tt = t % d.loop;
-    const ms = tt * 1000;
+  const draw = (ctx: CanvasRenderingContext2D, w: number, h: number, t: number): void => {
+    const ms = Math.max(0, Math.min(t, d.duration)) * 1000;
     const gluons = d.gluons ?? 0;
     // Empty cells count as bound to a group that is never drawn, so the rules leave them alone.
     let s: ColorChargeState = {
@@ -760,41 +924,48 @@ function playDemo(d: Demo): (ctx: CanvasRenderingContext2D, w: number, h: number
     };
     let sel: number[] = [];
     let armed = false;
+    let rejected = false;
     let binds: BindAnim[] = [];
     let swapAnim: Scene['swapAnim'] = null;
-    let lastAt = 0;
+    let provisional: Provisional | null = null;
+    let strandAt = 0;
     for (const e of d.events) {
       if (e.at * 1000 > ms) break;
-      lastAt = e.at * 1000;
+      const at = e.at * 1000;
       if ('pick' in e) sel = [...sel, e.pick];
-      else if ('clear' in e) sel = [];
+      else if ('clear' in e) { sel = []; rejected = false; }
       else if ('arm' in e) armed = true;
+      else if ('reject' in e) rejected = true;
       else if ('swap' in e) {
-        s = swap(s, e.swap[0], e.swap[1]) ?? s;
+        const next = swap(s, e.swap[0], e.swap[1]);
+        const strands = !!next && stranded(next).length > 0;
+        s = next ?? s;
         armed = false;
         sel = [];
-        swapAnim = { a: e.swap[0], b: e.swap[1], at: e.at * 1000 };
+        swapAnim = { a: e.swap[0], b: e.swap[1], at };
+        // A stranding swap stays provisional to the end of the story; a good one settles.
+        provisional = { a: e.swap[0], b: e.swap[1], at: at + SWAP_MS, until: strands ? Infinity : at + SWAP_MS + SETTLE_MS };
+        strandAt = at + SWAP_MS;
       } else {
         const kind = groupKind(s.tiles, e.bind);
         if (kind && canBind(s, e.bind)) {
           s = bind(s, e.bind)!;
-          binds = [...binds, { cells: e.bind, kind, at: e.at * 1000 }];
+          binds = [...binds, { cells: e.bind, kind, at }];
+          strandAt = at + BIND_MS * 0.6;
         }
         sel = [];
       }
     }
     const lost = d.strands ? stranded(s) : [];
-    const G = boardGeom({ x: 0, y: 0, w, h }, d.cols, d.rows, gluons, { maxCell: Math.min(48, h * 0.42), margin: 4, top: d.events.some((e) => 'bind' in e) ? Math.min(26, h * 0.25) : 0, token: Math.min(TOKEN, Math.max(18, h * 0.24)), side: true });
-    const fade = tt > d.loop - 0.5 ? (d.loop - tt) / 0.5 : tt < 0.25 ? tt / 0.25 : 1;
+    const G = boardGeom({ x: 0, y: 0, w, h }, d.cols, d.rows, gluons, { maxCell: Math.min(48, h * 0.42), margin: 4, top: d.names ? Math.min(26, h * 0.25) : 0, token: Math.min(TOKEN, Math.max(18, h * 0.24)), side: true });
     ctx.save();
-    ctx.globalAlpha = Math.max(0, fade);
     paint(ctx, {
       cols: d.cols, rows: d.rows, tiles: s.tiles, bound: s.bound, groups: s.groups, swaps: s.swaps, gluons,
-      sel, armed, stranded: lost, dead: lost.filter((i) => isolated(s, i)), strandedAt: lastAt + BIND_MS * 0.6,
-      binds, swapAnim, fail: null, wonAt: null, hidden,
+      sel, armed, rejected, stranded: lost, dead: lost.filter((i) => isolated(s, i)), strandedAt: strandAt,
+      binds, swapAnim, provisional, fail: null, wonAt: null, hidden, names: d.names ? 'hold' : 'off',
     }, G, ms, false);
-    // The finger, on the last tile picked or on the gluon it just armed.
-    if (sel.length) {
+    // The finger, on the last tile picked or on the gluon it just armed; the still leaves it out.
+    if (ms >= d.duration * 1000) { /* the still */ } else if (sel.length) {
       const i = sel[sel.length - 1];
       finger(ctx, G.x + (i % d.cols + 0.68) * G.cell, G.y + (Math.floor(i / d.cols) + 0.7) * G.cell, G.cell * 0.14);
     } else if (armed && G.tokens.length) {
@@ -803,6 +974,7 @@ function playDemo(d: Demo): (ctx: CanvasRenderingContext2D, w: number, h: number
     }
     ctx.restore();
   };
+  return { draw, duration: d.duration, caption: d.caption };
 }
 
 /** A fingertip, for the demos only. */
@@ -819,56 +991,84 @@ function finger(ctx: CanvasRenderingContext2D, x: number, y: number, r: number):
   ctx.restore();
 }
 
+/**
+ * The rules, each with the rule kept (good) and, where something can go wrong,
+ * the rule broken (bad). Stills are the last frame; Play runs good, then bad.
+ */
 export const RULES: RuleCard[] = [
   {
     title: 'Baryon',
     text: 'Every tile is a quark with a color charge: red, green or blue. Drag across three in a line or an L, one of each color, and they bind into a white baryon; clear the whole grid.',
-    demo: playDemo({
-      cols: 2, rows: 2, tiles: 'rg.b', loop: 4,
-      events: [{ at: 0.5, pick: 0 }, { at: 0.9, pick: 1 }, { at: 1.3, pick: 3 }, { at: 1.6, bind: [0, 1, 3] }],
+    good: picture({
+      cols: 2, rows: 2, tiles: 'rg.b', duration: 2.6, names: true, caption: 'One of each: baryon',
+      events: [{ at: 0.3, pick: 0 }, { at: 0.65, pick: 1 }, { at: 1.0, pick: 3 }, { at: 1.3, bind: [0, 1, 3] }],
+    }),
+    bad: picture({
+      cols: 2, rows: 2, tiles: 'rg.g', duration: 1.8, names: true, caption: 'Two greens: no bind',
+      events: [{ at: 0.3, pick: 0 }, { at: 0.65, pick: 1 }, { at: 1.0, pick: 3 }, { at: 1.3, reject: true }],
     }),
   },
   {
     title: 'Stranded tiles',
-    text: 'Every tile must end up in a group. Tiles that can no longer all be bound get an amber dashed rim, and a tile nothing could bind dims in an amber ring; undo to free them.',
-    demo: playDemo({
-      cols: 3, rows: 2, tiles: 'rgb gbr', loop: 5, strands: true,
-      events: [{ at: 0.5, pick: 0 }, { at: 0.85, pick: 1 }, { at: 1.2, pick: 4 }, { at: 1.5, bind: [0, 1, 4] }],
+    text: 'Every tile must end up in a group. Tiles that can no longer all be bound glow inside a thick amber rim, and a tile nothing could bind also gets an amber ring and a ! mark; undo to free them.',
+    good: picture({
+      cols: 3, rows: 2, tiles: 'rgb gbr', duration: 2.4, caption: 'Two rows: all bound',
+      events: [{ at: 0.3, pick: 0 }, { at: 0.55, pick: 1 }, { at: 0.8, pick: 2 }, { at: 1.0, bind: [0, 1, 2] }, { at: 1.7, bind: [3, 4, 5] }],
+    }),
+    bad: picture({
+      cols: 3, rows: 2, tiles: 'rgb gbr', duration: 2.4, strands: true, caption: 'This L strands three',
+      events: [{ at: 0.3, pick: 0 }, { at: 0.6, pick: 1 }, { at: 0.9, pick: 4 }, { at: 1.1, bind: [0, 1, 4] }],
     }),
   },
   {
     title: 'Gluon',
-    text: 'Gluons carry color. Tap a gluon under the grid, then two neighboring quarks (or two antiquarks): they trade colors, for one move, and a small curl marks the swap.',
-    demo: playDemo({
-      cols: 3, rows: 2, tiles: 'rgg rbb', gluons: 1, loop: 6,
+    text: 'Gluons carry color. Tap a gluon, then two neighboring quarks (or two antiquarks): they trade colors, for one move. The swap looks dashed until it settles; one that strands tiles undoes itself and hands the gluon back.',
+    good: picture({
+      cols: 3, rows: 3, tiles: 'bgg bbr grr', gluons: 1, duration: 4, strands: true, caption: 'Swap, then three baryons',
       events: [
-        { at: 0.5, arm: true }, { at: 1.0, pick: 2 }, { at: 1.4, pick: 5 }, { at: 1.6, swap: [2, 5] },
-        { at: 2.6, bind: [0, 1, 2] }, { at: 3.4, bind: [3, 4, 5] },
+        { at: 0.3, arm: true }, { at: 0.6, pick: 2 }, { at: 0.9, pick: 5 }, { at: 1.1, swap: [2, 5] },
+        { at: 2.2, bind: [0, 1, 2] }, { at: 2.65, bind: [3, 6, 7] }, { at: 3.1, bind: [4, 5, 8] },
       ],
+    }),
+    bad: picture({
+      cols: 3, rows: 3, tiles: 'bgg bbr grr', gluons: 1, duration: 2.9, strands: true, caption: 'Strands tiles: undone',
+      events: [{ at: 0.3, arm: true }, { at: 0.6, pick: 0 }, { at: 0.9, pick: 1 }, { at: 1.1, swap: [0, 1] }],
     }),
   },
   {
     title: 'Antiquark',
-    text: 'A hollow tile with a bar over its letter is an antiquark, carrying an anticolor such as antigreen. It never joins quarks in a baryon, so a pick of a quark and a different antiquark rings amber.',
-    demo: playDemo({
-      cols: 3, rows: 1, tiles: 'rGB', loop: 3.6,
-      events: [{ at: 0.6, pick: 0 }, { at: 1.1, pick: 1 }, { at: 2.8, clear: true }],
+    text: 'A hollow tile with a bar over its letter is an antiquark, carrying an anticolor such as antigreen. It never joins quarks in a baryon.',
+    good: picture({
+      cols: 3, rows: 2, tiles: 'rgb RGB', duration: 1.6, caption: 'Hollow, barred: antiquarks',
+      events: [{ at: 0.3, pick: 3 }, { at: 0.6, pick: 4 }, { at: 0.9, pick: 5 }, { at: 1.4, clear: true }],
+    }),
+    bad: picture({
+      cols: 3, rows: 1, tiles: 'rgB', duration: 1.8, caption: 'No antiquark in a baryon',
+      events: [{ at: 0.3, pick: 0 }, { at: 0.65, pick: 1 }, { at: 1.0, pick: 2 }, { at: 1.3, reject: true }],
     }),
   },
   {
     title: 'Meson',
-    text: 'A quark binds with the antiquark of its own color beside it, such as red with antired, into a meson.',
-    demo: playDemo({
-      cols: 2, rows: 1, tiles: 'gG', loop: 3.6,
-      events: [{ at: 0.5, pick: 0 }, { at: 0.9, pick: 1 }, { at: 1.2, bind: [0, 1] }],
+    text: 'A quark binds with the antiquark of its own color beside it, such as green with antigreen, into a meson.',
+    good: picture({
+      cols: 2, rows: 1, tiles: 'gG', duration: 2.2, names: true, caption: 'Green, antigreen: meson',
+      events: [{ at: 0.3, pick: 0 }, { at: 0.7, pick: 1 }, { at: 1.0, bind: [0, 1] }],
+    }),
+    bad: picture({
+      cols: 2, rows: 1, tiles: 'gR', duration: 1.5, names: true, caption: 'Green, antired: amber',
+      events: [{ at: 0.3, pick: 0 }, { at: 0.7, pick: 1 }],
     }),
   },
   {
     title: 'Antibaryon',
     text: 'Three antiquarks in a line or an L, one of each anticolor, bind into an antibaryon, the antimatter partner of a baryon.',
-    demo: playDemo({
-      cols: 3, rows: 1, tiles: 'BRG', loop: 4,
-      events: [{ at: 0.5, pick: 0 }, { at: 0.85, pick: 1 }, { at: 1.2, pick: 2 }, { at: 1.5, bind: [0, 1, 2] }],
+    good: picture({
+      cols: 3, rows: 1, tiles: 'BRG', duration: 2.6, names: true, caption: 'Each anticolor: antibaryon',
+      events: [{ at: 0.3, pick: 0 }, { at: 0.65, pick: 1 }, { at: 1.0, pick: 2 }, { at: 1.3, bind: [0, 1, 2] }],
+    }),
+    bad: picture({
+      cols: 3, rows: 1, tiles: 'BRR', duration: 1.8, names: true, caption: 'Two antireds: no bind',
+      events: [{ at: 0.3, pick: 0 }, { at: 0.65, pick: 1 }, { at: 1.0, pick: 2 }, { at: 1.3, reject: true }],
     }),
   },
 ];

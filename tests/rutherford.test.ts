@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { choosePort, chord, cross, deduce, fire, neighbors, newRutherford, portLine, probe, remaining, scope, solved, specFor, toggleMark, traceBeam, type RutherfordState } from '../src/puzzles/rutherford';
 import { RULES, INSTRUCTIONS, RutherfordView } from '../src/puzzles/rutherfordView';
+import { C } from '../src/puzzles/palette';
+import type { RuleCard } from '../src/puzzles/view';
 
 const SPREAD = [1, 6, 20, 21, 50, 51, 79, 85, 86, 92, 118];
 
@@ -218,16 +220,93 @@ describe('levels', () => {
   });
 });
 
+/**
+ * Records every coordinate a picture draws (through translate and scale), and every color it
+ * paints with. Shapes drawn under a clip (a piece leaving through a gap, cut off at the edge)
+ * are cut by the clip, so they are skipped.
+ */
+function record(draw: (ctx: CanvasRenderingContext2D) => void): { pts: [number, number][]; colors: Set<unknown> } {
+  const pts: [number, number][] = [];
+  const colors = new Set<unknown>();
+  let m = { tx: 0, ty: 0, s: 1 };
+  const stack: { m: typeof m; clipped: boolean }[] = [];
+  let clipped = false;
+  const rec = (x: number, y: number) => { if (!clipped) pts.push([m.tx + x * m.s, m.ty + y * m.s]); };
+  const store: Record<string | symbol, unknown> = {};
+  const ctx = new Proxy(store, {
+    get(o, k) {
+      if (k in o) return o[k];
+      if (k === 'save') return () => { stack.push({ m: { ...m }, clipped }); };
+      if (k === 'restore') return () => { const top = stack.pop(); if (top) { m = top.m; clipped = top.clipped; } };
+      if (k === 'clip') return () => { clipped = true; };
+      if (k === 'translate') return (x: number, y: number) => { m = { ...m, tx: m.tx + x * m.s, ty: m.ty + y * m.s }; };
+      if (k === 'scale') return (sx: number) => { m = { ...m, s: m.s * sx }; };
+      if (k === 'moveTo' || k === 'lineTo') return rec;
+      if (k === 'arc') return (x: number, y: number, r: number) => { rec(x - r, y - r); rec(x + r, y + r); };
+      if (k === 'ellipse') return (x: number, y: number, rx: number, ry: number) => { rec(x - rx, y - ry); rec(x + rx, y + ry); };
+      if (k === 'rect' || k === 'roundRect' || k === 'fillRect' || k === 'strokeRect') return (x: number, y: number, w: number, h: number) => { rec(x, y); rec(x + w, y + h); };
+      if (k === 'measureText') return (s: string) => ({ width: s.length * 7 });
+      return () => {};
+    },
+    set(o, k, v) {
+      o[k] = v;
+      if (k === 'strokeStyle' || k === 'fillStyle') colors.add(v);
+      return true;
+    },
+  }) as unknown as CanvasRenderingContext2D;
+  draw(ctx);
+  return { pts, colors };
+}
+
+/** Every card has a title and plain text; every picture stays in its box all through its play. */
+function checkPictures(rules: RuleCard[]): void {
+  for (const r of rules) {
+    expect(r.title.length, r.title).toBeGreaterThan(0);
+    expect(r.text.length, r.title).toBeGreaterThan(0);
+    expect(r.text, r.title).not.toMatch(/[<>]/);
+    expect(r.demo, r.title).toBeUndefined();
+    if (r.bad) expect(r.good, r.title).toBeDefined();
+    for (const pic of [r.good, r.bad]) {
+      if (!pic) continue;
+      expect(pic.duration, r.title).toBeGreaterThanOrEqual(1.5);
+      expect(pic.duration, r.title).toBeLessThanOrEqual(4);
+      for (const [w, h] of [[140, 104], [120, 90]]) {
+        for (let i = 0; i <= 40; i++) {
+          const t = (pic.duration * i) / 40;
+          const { pts } = record((ctx) => pic.draw(ctx, w, h, t));
+          for (const [x, y] of pts) {
+            expect(x, `${r.title} ${w}x${h} at ${t.toFixed(2)}s`).toBeGreaterThanOrEqual(-0.5);
+            expect(x, `${r.title} ${w}x${h} at ${t.toFixed(2)}s`).toBeLessThanOrEqual(w + 0.5);
+            expect(y, `${r.title} ${w}x${h} at ${t.toFixed(2)}s`).toBeGreaterThanOrEqual(-0.5);
+            expect(y, `${r.title} ${w}x${h} at ${t.toFixed(2)}s`).toBeLessThanOrEqual(h + 0.5);
+          }
+        }
+      }
+    }
+  }
+}
+
 describe('view', () => {
-  it('has a rule card with a demo for every symbol and action', () => {
+  it('has a rule card with a picture for every symbol and action', () => {
     const titles = RULES.map((r) => r.title);
     expect(titles).toEqual(['Probe', 'Counts', 'Marks', 'Clear around', 'Scatter cells', 'Quiet cells', 'Alpha beams', 'Bounce back', 'Beam par', 'Direct hit', 'Nuclei left']);
+    checkPictures(RULES);
     for (const r of RULES) {
-      expect(r.demo).toBeTypeOf('function');
+      expect(r.good, r.title).toBeDefined();
       expect(r.text).not.toMatch(/<|>/);
       expect(r.text.split(/[.!](\s|$)/).filter((x) => x && x.trim()).length).toBeLessThanOrEqual(2);
     }
     expect(INSTRUCTIONS).toMatch(/^\s*<h3>In the game<\/h3>\s*<p class="meta">[^<]+<\/p>\s*$/);
+  });
+
+  it('shows the mistake beside the right move, flagged in amber or by the board\'s own direct hit', () => {
+    expect(RULES.filter((r) => r.bad).map((r) => r.title)).toEqual(['Clear around', 'Scatter cells', 'Beam par', 'Direct hit']);
+    for (const r of RULES.filter((x) => x.bad)) {
+      const bad = record((ctx) => r.bad!.draw(ctx, 140, 104, r.bad!.duration)).colors;
+      expect(bad.has(C.warn) || (r.title === 'Direct hit' && bad.has(C.bad)), r.title).toBe(true);
+      expect(record((ctx) => r.good!.draw(ctx, 140, 104, r.good!.duration)).colors.has(C.warn), r.title).toBe(false);
+      expect(record((ctx) => r.good!.draw(ctx, 140, 104, r.good!.duration)).colors.has(C.bad), r.title).toBe(false);
+    }
   });
 
   it('never calls the hidden objects anything but nuclei', () => {

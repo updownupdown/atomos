@@ -35,6 +35,10 @@ export const C = {
   p: '#2ea57a',
   d: '#c07f1e',
   f: '#a865d6',
+  /** Color Charge's charges (red, green, blue): their own set, never orbital, target or good/bad colors. */
+  chargeR: '#f07a8e',
+  chargeG: '#a6d95b',
+  chargeB: '#9c98ff',
   /** Play pieces with no science meaning (Packing): muted clay tones, kept well away from the orbital colors. */
   piece1: '#cfd6da',
   piece2: '#d6c4a2',
@@ -53,6 +57,7 @@ const TOKENS: Partial<Record<keyof typeof C, string>> = {
   tile: '--c-tile', tileInk: '--c-tile-ink', silver: '--c-silver',
   accent: '--c-accent', target: '--c-target', good: '--c-good', warn: '--c-warn', bad: '--c-bad',
   s: '--c-orb-s', p: '--c-orb-p', d: '--c-orb-d', f: '--c-orb-f',
+  chargeR: '--c-charge-r', chargeG: '--c-charge-g', chargeB: '--c-charge-b',
 };
 
 /** Re-reads the palette from the design tokens. Runs once on load; call again after a theme change. */
