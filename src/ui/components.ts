@@ -1,5 +1,5 @@
 // Shared interface pieces: icon buttons, the modal close button, tabs, switch toggles, a range
-// slider and a hold-to-confirm button. Every screen builds its controls from these so they look
+// slider, toasts and hold-to-confirm. Every screen builds its controls from these so they look
 // and behave the same everywhere. Styles live in components.css and read tokens.css.
 //
 // Each builder returns plain DOM, so it drops into code that renders with innerHTML too:
@@ -237,61 +237,124 @@ export function createSlider(o: SliderOptions): Slider {
   return { el: root, get value() { return value; }, set: (v: number) => { update(v, false); } };
 }
 
+// ---- Toasts -------------------------------------------------------------------------------
+
+export type ToastTone = 'info' | 'good' | 'warn' | 'bad';
+
+export interface ToastOptions {
+  tone?: ToastTone;
+  /** Milliseconds before it leaves on its own; 0 keeps it until close(). Default 2600. */
+  duration?: number;
+  /** Optional 24 px icon before the text. */
+  icon?: string;
+  /** Show a progress bar along the bottom, driven with setProgress(). */
+  progress?: boolean;
+}
+
+export interface Toast {
+  el: HTMLElement;
+  setText(text: string): void;
+  /** 0 to 1. */
+  setProgress(t: number): void;
+  setTone(tone: ToastTone): void;
+  /** Leaves after `ms`, or straight away. */
+  close(ms?: number): void;
+}
+
+function toastHost(): HTMLElement {
+  let host = document.getElementById('toasts');
+  if (!host) {
+    host = el('div', 'toasts');
+    host.id = 'toasts';
+    host.setAttribute('aria-live', 'polite');
+    document.body.append(host);
+  }
+  return host;
+}
+
+/** A pill at the top of the screen, clear of the thumb. Use it for confirmations, finds and
+ *  warnings, and (with `progress`) for hold-to-confirm actions. */
+export function showToast(text: string, o: ToastOptions = {}): Toast {
+  const t = el('div', `ui-toast ui-toast--${o.tone ?? 'info'}`,
+    `${o.icon ?? ''}<span class="ui-toast-text"></span>${o.progress ? '<span class="ui-toast-bar"><i></i></span>' : ''}`);
+  t.setAttribute('role', 'status');
+  const label = t.querySelector<HTMLElement>('.ui-toast-text')!;
+  const bar = t.querySelector<HTMLElement>('.ui-toast-bar i');
+  label.textContent = text;
+  toastHost().append(t);
+  let timer = 0;
+  let gone = false;
+  const close = (ms = 0) => {
+    clearTimeout(timer);
+    timer = window.setTimeout(() => {
+      if (gone) return;
+      gone = true;
+      t.classList.add('is-leaving');
+      setTimeout(() => t.remove(), 200);
+    }, ms);
+  };
+  const duration = o.duration ?? 2600;
+  if (duration > 0) close(duration);
+  return {
+    el: t,
+    setText: (s) => { label.textContent = s; },
+    setProgress: (p) => { if (bar) bar.style.transform = `scaleX(${Math.min(1, Math.max(0, p))})`; },
+    setTone: (tone) => { t.className = `ui-toast ui-toast--${tone}`; },
+    close,
+  };
+}
+
 // ---- Hold to confirm -----------------------------------------------------------------------
 
-export interface HoldButtonOptions {
-  icon: string;
-  /** What the hold does, e.g. "Restart"; spoken as "Hold to restart". */
+export interface HoldOptions {
+  /** Shown in the toast while holding, e.g. "Hold to restart". */
   label: string;
+  /** Shown once the hold completes, e.g. "Restarted"; omit to just close the toast. */
+  doneLabel?: string;
   /** How long to hold, in milliseconds. */
   holdMs?: number;
   onConfirm: () => void;
-  className?: string;
 }
 
-/** An icon button that only acts after being held: a ring fills round it while pressed and
- *  drains if let go early. A quick tap shows "Hold" so the rule is discoverable. Enter or
- *  Space held down works too. */
-export function createHoldButton(o: HoldButtonOptions): HTMLButtonElement {
-  const holdMs = o.holdMs ?? 800;
-  const R = 20;
-  const C = 2 * Math.PI * R;
-  const b = el('button', `ui-icon-btn ui-hold ${o.className ?? ''}`.trim(),
-    `<svg class="ui-hold-ring" viewBox="0 0 44 44" aria-hidden="true"><circle cx="22" cy="22" r="${R}" pathLength="${C.toFixed(2)}" style="stroke-dasharray:${C.toFixed(2)};stroke-dashoffset:${C.toFixed(2)}"/></svg>${o.icon}<span class="ui-hold-tip" aria-hidden="true">Hold</span>`);
-  b.type = 'button';
-  b.setAttribute('aria-label', `Hold to ${o.label.toLowerCase()}`);
-  b.title = `Hold to ${o.label.toLowerCase()}`;
-  const ring = b.querySelector('circle')!;
+/** Makes any button act only after being held. While pressed, a toast at the top of the screen
+ *  fills its progress bar (the button itself is under the thumb); letting go early drains it
+ *  and leaves the hint up briefly, so a plain tap teaches the rule. Enter or Space held down
+ *  works too. Returns a function that unbinds it. */
+export function bindHold(b: HTMLElement, o: HoldOptions): () => void {
+  const holdMs = o.holdMs ?? 900;
+  let toast: Toast | null = null;
   let progress = 0;
   let holding = false;
   let raf = 0;
   let last = 0;
-  let tipTimer = 0;
 
-  const draw = () => { ring.style.strokeDashoffset = String(C * (1 - progress)); };
   const tick = (now: number) => {
     const dt = now - last;
     last = now;
-    progress = holding ? Math.min(1, progress + dt / holdMs) : Math.max(0, progress - dt / (holdMs / 3));
-    draw();
+    progress = holding ? Math.min(1, progress + dt / holdMs) : Math.max(0, progress - dt / 150);
+    toast?.setProgress(progress);
     if (holding && progress >= 1) {
       holding = false;
       progress = 0;
-      draw();
       b.classList.remove('is-holding');
-      b.classList.add('is-done');
-      setTimeout(() => b.classList.remove('is-done'), 300);
+      if (o.doneLabel && toast) {
+        toast.setText(o.doneLabel);
+        toast.setTone('good');
+        toast.setProgress(1);
+        toast.close(900);
+      } else toast?.close();
+      toast = null;
       o.onConfirm();
       return;
     }
-    b.classList.toggle('is-draining', !holding && progress > 0);
     if (holding || progress > 0) raf = requestAnimationFrame(tick);
   };
   const start = () => {
     if (holding) return;
     holding = true;
     b.classList.add('is-holding');
-    b.classList.remove('show-tip');
+    if (!toast) toast = showToast(o.label, { progress: true, duration: 0 });
+    else { toast.close(60 * 60 * 1000); }
     cancelAnimationFrame(raf);
     last = performance.now();
     raf = requestAnimationFrame(tick);
@@ -300,18 +363,43 @@ export function createHoldButton(o: HoldButtonOptions): HTMLButtonElement {
     if (!holding) return;
     holding = false;
     b.classList.remove('is-holding');
-    if (progress < 0.25) {
-      b.classList.add('show-tip');
-      clearTimeout(tipTimer);
-      tipTimer = window.setTimeout(() => b.classList.remove('show-tip'), 1100);
-    }
+    const t = toast;
+    t?.close(holdMs);
+    setTimeout(() => { if (toast === t && !holding) toast = null; }, holdMs);
   };
-  b.addEventListener('pointerdown', (e) => { if (e.button === 0) { b.setPointerCapture(e.pointerId); start(); } });
+  const down = (e: PointerEvent) => { if (e.button === 0) { b.setPointerCapture(e.pointerId); start(); } };
+  const key = (e: KeyboardEvent) => { if ((e.key === 'Enter' || e.key === ' ') && !e.repeat) { e.preventDefault(); start(); } };
+  const keyUp = (e: KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') stop(); };
+  const menu = (e: Event) => e.preventDefault();
+  b.addEventListener('pointerdown', down);
   b.addEventListener('pointerup', stop);
   b.addEventListener('pointercancel', stop);
   b.addEventListener('lostpointercapture', stop);
-  b.addEventListener('keydown', (e) => { if ((e.key === 'Enter' || e.key === ' ') && !e.repeat) { e.preventDefault(); start(); } });
-  b.addEventListener('keyup', (e) => { if (e.key === 'Enter' || e.key === ' ') stop(); });
-  b.addEventListener('contextmenu', (e) => e.preventDefault());
+  b.addEventListener('keydown', key);
+  b.addEventListener('keyup', keyUp);
+  b.addEventListener('contextmenu', menu);
+  b.setAttribute('aria-label', o.label);
+  return () => {
+    for (const [ev, fn] of [['pointerdown', down], ['pointerup', stop], ['pointercancel', stop], ['lostpointercapture', stop], ['keydown', key], ['keyup', keyUp], ['contextmenu', menu]] as const) {
+      b.removeEventListener(ev, fn as EventListener);
+    }
+  };
+}
+
+export interface HoldButtonOptions {
+  icon: string;
+  /** What the hold does, e.g. "Restart"; the toast reads "Hold to restart". */
+  label: string;
+  /** Shown when the hold completes, e.g. "Restarted". */
+  doneLabel?: string;
+  holdMs?: number;
+  onConfirm: () => void;
+  className?: string;
+}
+
+/** An icon button wired with bindHold. */
+export function createHoldButton(o: HoldButtonOptions): HTMLButtonElement {
+  const b = iconButton({ icon: o.icon, label: `Hold to ${o.label.toLowerCase()}`, className: `ui-hold ${o.className ?? ''}`.trim() });
+  bindHold(b, { label: `Hold to ${o.label.toLowerCase()}`, doneLabel: o.doneLabel, holdMs: o.holdMs, onConfirm: o.onConfirm });
   return b;
 }

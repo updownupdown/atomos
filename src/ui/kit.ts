@@ -1,7 +1,7 @@
 // Dev-only page (open /kit.html on the dev server) showing every shared component working.
 
 import '@fontsource-variable/outfit';
-import { ICON_CHEVRON, closeButton, createHoldButton, createSlider, createSwitch, createTabs, iconButton } from './components';
+import { ICON_CHEVRON, closeButton, createHoldButton, createSlider, createSwitch, createTabs, iconButton, showToast } from './components';
 import { openModal } from './modal';
 import { MICROSCOPE } from './icons';
 
@@ -43,10 +43,25 @@ const holdOut = out('hold it');
 let n = 0;
 const restart = createHoldButton({
   label: 'Restart',
+  doneLabel: 'Restarted',
   icon: `<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12a7 7 0 1 0 2-4.9"/><path d="M5 4v4h4"/></svg>`,
   onConfirm: () => (holdOut.textContent = `restarted ×${++n}`),
 });
 section('Hold to confirm', restart, holdOut);
+
+const toastBtn = (text: string, tone: 'info' | 'good' | 'warn' | 'bad') => {
+  const b = document.createElement('button');
+  b.className = 'secondary';
+  b.textContent = tone;
+  b.onclick = () => showToast(text, { tone });
+  return b;
+};
+section('Toasts',
+  toastBtn('New isotope found: carbon-13', 'good'),
+  toastBtn('Saved', 'info'),
+  toastBtn('Only 3 moves left', 'warn'),
+  toastBtn('That block can\'t move there', 'bad'),
+);
 
 section('Icon buttons',
   iconButton({ icon: MICROSCOPE, label: 'The science' }),
