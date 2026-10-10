@@ -498,14 +498,14 @@ body.stage-nucleus #atom { opacity: 0.12; }
 .loupe-screen { position: absolute; inset: 0; z-index: 3; background: var(--c-bg); opacity: 0; transform: scale(1.04); transition: opacity 0.22s, transform 0.22s; display: flex; flex-direction: column; }
 .loupe-screen.in { opacity: 1; transform: none; }
 .loupe-screen[hidden] { display: none; }
-#loupe { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
+#loupe { position: absolute; left: 0; top: var(--chrome); width: 100%; height: calc(100% - var(--chrome)); display: block; touch-action: none; cursor: grab; }
 
 /* White captions round the atom. */
 .dec { position: absolute; z-index: 2; font-family: var(--font); font-size: var(--fs-sm); line-height: 1.5; color: var(--c-silver); display: flex; flex-direction: column; }
 .dec .dim { color: var(--c-text-2); }
-.dec-tl { left: var(--sp-4); top: calc(var(--sp-4) + var(--top) + var(--tabs-h)); align-items: flex-start; pointer-events: none; }
+.dec-tl { left: var(--sp-4); top: calc(var(--sp-4) + var(--chrome)); align-items: flex-start; pointer-events: none; }
 .dec-config { font-size: var(--fs-md); font-weight: var(--fw-medium); margin-bottom: 2px; }
-.dec-tr { right: var(--sp-3); top: calc(var(--sp-3) + var(--top) + var(--tabs-h)); align-items: flex-end; text-align: right; max-width: 52%; }
+.dec-tr { right: var(--sp-3); top: calc(var(--sp-3) + var(--chrome)); align-items: flex-end; text-align: right; max-width: 52%; }
 .iso-toggle { display: inline-flex; align-items: center; gap: 2px; min-height: var(--hit); padding: 0 0 0 var(--sp-2); background: none; border: 0; color: var(--c-silver); font: inherit; cursor: pointer; }
 .iso-toggle .chev { display: inline-flex; color: var(--c-text-2); }
 .iso-list { display: none; padding-right: var(--sp-1); }
@@ -516,7 +516,7 @@ body.stage-nucleus #atom { opacity: 0.12; }
 .iso-list p { margin: var(--sp-1) 0 0; color: var(--c-text-2); font-size: var(--fs-xs); }
 
 /* Above the bar: the scale legend on the left, the drawing style on the right. */
-.loupe-tools { position: absolute; left: 0; right: 0; bottom: calc(64px + var(--safe-bottom)); z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); padding: 0 var(--sp-2); }
+.loupe-tools { position: absolute; left: 0; right: 0; bottom: calc(var(--sp-2) + var(--safe-bottom)); z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); padding: 0 var(--sp-2); }
 .scale-legend { display: flex; align-items: center; gap: var(--sp-1); min-width: 0; color: var(--c-text-2); font-size: var(--fs-xs); font-variant-numeric: tabular-nums; }
 .scale-legend ul { display: flex; gap: var(--sp-2); list-style: none; margin: 0; padding: 0; transition: opacity var(--dur); }
 .scale-legend li { display: flex; align-items: center; gap: 4px; color: var(--c-silver); }
@@ -529,7 +529,11 @@ body.stage-nucleus #atom { opacity: 0.12; }
 .style-switch .ui-icon-btn { width: 40px; height: 40px; }
 
 /* The bar: full width; the element button fills the left, previous and next sit together on the right. */
-.atom-bar { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; display: flex; align-items: stretch; height: calc(60px + var(--safe-bottom)); padding-bottom: var(--safe-bottom); background: var(--c-plate); border-top: 1px solid var(--c-line); }
+/* The bar sits at the top of the atom screens, under the View/Build row; the host places it. */
+.atom-bar { display: flex; align-items: stretch; height: var(--bar-h, 60px); background: var(--c-plate); border-bottom: 1px solid var(--c-line); }
+.loupe-screen > .atom-bar { position: absolute; left: 0; right: 0; top: var(--top); z-index: 4; }
+/* Build still mounts it at the foot until its page moves it to the top. */
+.build-bar > .atom-bar { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; height: calc(60px + var(--safe-bottom)); padding-bottom: var(--safe-bottom); border-bottom: 0; border-top: 1px solid var(--c-line); }
 .bar-arrow { flex: none; width: 52px; display: flex; align-items: center; justify-content: center; background: none; border: 0; border-left: 1px solid var(--c-line); color: var(--c-silver); cursor: pointer; }
 .bar-arrow:hover { background: var(--c-surface-2); }
 .bar-arrow:disabled { opacity: 0.2; cursor: default; background: none; }
@@ -552,10 +556,10 @@ body.stage-nucleus #atom { opacity: 0.12; }
 .pill.core { background: transparent; color: var(--label-muted); border: 1px dashed var(--c-text-3); font-weight: 400; }
 
 /* View's tabs: a strip under the header; the model tab shows the canvas, the others a scrolling page. */
-.loupe-screen { --tabs-h: 48px; }
-.atom-tabs { position: absolute; left: 0; right: 0; top: var(--top); z-index: 3; height: var(--tabs-h); display: flex; align-items: flex-end; justify-content: center; padding: 0 var(--sp-3); background: var(--c-bg); }
+.loupe-screen { --tabs-h: 48px; --bar-h: 60px; --chrome: calc(var(--top) + var(--bar-h) + var(--tabs-h)); }
+.atom-tabs { position: absolute; left: 0; right: 0; top: calc(var(--top) + var(--bar-h)); z-index: 3; height: var(--tabs-h); display: flex; align-items: flex-end; justify-content: center; padding: 0 var(--sp-3); background: var(--c-bg); }
 .atom-tabs .ui-tabs { max-width: 100%; }
-.atom-panel { position: absolute; left: 0; right: 0; top: calc(var(--top) + var(--tabs-h)); bottom: calc(60px + var(--safe-bottom)); z-index: 2; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; background: var(--c-bg); }
+.atom-panel { position: absolute; left: 0; right: 0; top: var(--chrome); bottom: 0; padding-bottom: var(--safe-bottom); z-index: 2; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; background: var(--c-bg); }
 .atom-panel[hidden] { display: none; }
 .loupe-screen.on-page #loupe, .loupe-screen.on-page .dec, .loupe-screen.on-page .loupe-tools { visibility: hidden; }
 .atom-page { max-width: 720px; margin: 0 auto; padding: var(--sp-4) var(--sp-5) var(--sp-6); font-family: var(--font); font-size: var(--fs-sm); line-height: 1.5; }

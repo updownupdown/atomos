@@ -134,6 +134,9 @@ interface Layer {
   sub: Subshell;
   points: THREE.Points;
   material: THREE.ShaderMaterial;
+  /** The soft glow behind the sparks (loupe only): fewer, far larger, faint points. */
+  haze: THREE.Points | null;
+  hazeMaterial: THREE.ShaderMaterial | null;
   shapes: THREE.Mesh[];
   shapeMaterials: THREE.MeshStandardMaterial[];
   from: number;
@@ -156,7 +159,15 @@ export interface AtomViewOptions {
   live?: boolean;
   /** Crisp dots instead of soft glows. Defaults to on. */
   sharp?: boolean;
+  /** A soft nebula of light behind the sparks, so even hydrogen's one electron reads as a
+   *  luminous body. For the loupe; too costly for 118 atoms at once. */
+  haze?: boolean;
 }
+
+/** Points per electron in the haze, and how much larger and fainter they draw than the sparks. */
+const HAZE_PER_SLOT = 260;
+const HAZE_SIZE = 8;
+const HAZE_ALPHA = 0.085;
 
 export class AtomView {
   readonly group = new THREE.Group();
@@ -164,6 +175,8 @@ export class AtomView {
   private tint: [number, number, number] | null = null;
   private nucleus: THREE.Points;
   private nucleusMaterial: THREE.ShaderMaterial;
+  private halo: THREE.Points | null = null;
+  private haloMaterial: THREE.ShaderMaterial | null = null;
   private style: Style = 'cloud';
   private dim = 1;
   element: Element | null = null;
@@ -186,15 +199,27 @@ export class AtomView {
     this.nucleus = new THREE.Points(g, this.nucleusMaterial);
     this.nucleus.frustumCulled = false;
     this.group.add(this.nucleus);
+    if (opts.haze) {
+      // A warm glow round the nucleus: the eye's anchor at the center of the cloud.
+      this.haloMaterial = this.makeMaterial([1, 0.7, 0.45], true);
+      this.haloMaterial.uniforms.uTo.value = 1;
+      this.haloMaterial.uniforms.uT.value = 1;
+      this.haloMaterial.uniforms.uSize.value = opts.pointSize * 10;
+      this.haloMaterial.uniforms.uAlpha.value = 0.55;
+      this.halo = new THREE.Points(g, this.haloMaterial);
+      this.halo.frustumCulled = false;
+      this.group.add(this.halo);
+    }
   }
 
-  private makeMaterial(glow: [number, number, number]): THREE.ShaderMaterial {
+  /** A layer's point material; `soft` makes the steady, blurred kind the haze and halo use. */
+  private makeMaterial(glow: [number, number, number], soft = false): THREE.ShaderMaterial {
     return new THREE.ShaderMaterial({
       uniforms: {
         uScale: { value: 1 }, uFrom: { value: 0 }, uTo: { value: 0 }, uT: { value: 1 },
         uSize: { value: this.opts.pointSize }, uOrbitals: { value: 1 }, uDim: { value: 1 }, uAlpha: { value: 1 }, uSizeMul: { value: 1 },
         uColor: { value: new THREE.Vector3(...glow) },
-        uTime: { value: 0 }, uLive: { value: this.live ? 1 : 0 }, uSharp: { value: this.opts.sharp === false ? 0 : 1 },
+        uTime: { value: 0 }, uLive: { value: this.live && !soft ? 1 : 0 }, uSharp: { value: this.opts.sharp === false || soft ? 0 : 1 },
       },
       vertexShader: POINT_VERT, fragmentShader: POINT_FRAG,
       transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
@@ -205,6 +230,15 @@ export class AtomView {
     const material = this.makeMaterial(this.glow(sub.l));
     material.uniforms.uOrbitals.value = sub.capacity / 2;
     material.uniforms.uTime.value = this.time;
+    let haze: THREE.Points | null = null, hazeMaterial: THREE.ShaderMaterial | null = null;
+    if (this.opts.haze) {
+      hazeMaterial = this.makeMaterial(this.glow(sub.l), true);
+      hazeMaterial.uniforms.uOrbitals.value = sub.capacity / 2;
+      hazeMaterial.uniforms.uSize.value = this.opts.pointSize * HAZE_SIZE;
+      haze = new THREE.Points(pointGeometry(sub.n, sub.l, HAZE_PER_SLOT), hazeMaterial);
+      haze.frustumCulled = false;
+      this.group.add(haze);
+    }
     const points = new THREE.Points(pointGeometry(sub.n, sub.l, this.opts.perSlot), material);
     points.frustumCulled = false;
     this.group.add(points);
@@ -231,7 +265,7 @@ export class AtomView {
       }
     }
     const edge = radialTable(sub.n, L_OF[sub.l]).edge;
-    return { sub, points, material, shapes, shapeMaterials, from: 0, to: 0, scaleFrom: 1, scaleTo: 1, t: 1, edge };
+    return { sub, points, material, haze, hazeMaterial, shapes, shapeMaterials, from: 0, to: 0, scaleFrom: 1, scaleTo: 1, t: 1, edge };
   }
 
   /** Scene units per sampled unit (a0 / zeff) for each layer, so the outermost edge lands on the vdW radius. */
@@ -287,8 +321,12 @@ export class AtomView {
   /** Point size in device pixels at unit distance (perspective divides it by depth). */
   setPointSize(px: number): void {
     this.opts.pointSize = px;
-    for (const layer of this.layers.values()) layer.material.uniforms.uSize.value = px;
+    for (const layer of this.layers.values()) {
+      layer.material.uniforms.uSize.value = px;
+      if (layer.hazeMaterial) layer.hazeMaterial.uniforms.uSize.value = px * HAZE_SIZE;
+    }
     this.nucleusMaterial.uniforms.uSize.value = px * 1.6;
+    if (this.haloMaterial) this.haloMaterial.uniforms.uSize.value = px * 10;
   }
 
   /** Overall brightness, used to dim atoms the player has not collected yet. */
@@ -308,6 +346,7 @@ export class AtomView {
     for (const layer of this.layers.values()) {
       const g = this.glow(layer.sub.l);
       (layer.material.uniforms.uColor.value as THREE.Vector3).set(...g);
+      if (layer.hazeMaterial) (layer.hazeMaterial.uniforms.uColor.value as THREE.Vector3).set(...g);
       for (const m of layer.shapeMaterials) m.color.setRGB(...g);
     }
     this.apply();
@@ -363,6 +402,15 @@ export class AtomView {
       u.uSizeMul.value = 0.4 + 0.6 * rel;
       u.uAlpha.value = cloudAlpha * this.dim;
       const count = this.currentCount(layer);
+      if (layer.hazeMaterial) {
+        const h = layer.hazeMaterial.uniforms;
+        h.uFrom.value = u.uFrom.value; h.uTo.value = u.uTo.value; h.uT.value = u.uT.value; h.uScale.value = u.uScale.value;
+        h.uDim.value = u.uDim.value;
+        // Inner layers are small and dense: their haze shrinks with them. Many electrons in one
+        // layer overlap into a bright mass, so each one's share of glow falls as the layer fills.
+        h.uSizeMul.value = 0.25 + 0.75 * rel;
+        h.uAlpha.value = (this.style === 'shapes' ? 0.35 : 1) * this.dim * HAZE_ALPHA / Math.sqrt(Math.max(1, count));
+      }
       const lo = Math.min(layer.from, layer.to), hi = Math.max(layer.from, layer.to);
       layer.shapes.forEach((mesh, oi) => {
         // An orbital's surface appears with its first electron and brightens with its second.
@@ -382,11 +430,14 @@ export class AtomView {
       });
     }
     this.nucleusMaterial.uniforms.uAlpha.value = this.dim;
+    if (this.haloMaterial) this.haloMaterial.uniforms.uAlpha.value = 0.55 * this.dim;
   }
 
   private disposeLayer(layer: Layer): void {
     this.group.remove(layer.points);
     layer.material.dispose();
+    if (layer.haze) this.group.remove(layer.haze);
+    layer.hazeMaterial?.dispose();
     for (const mesh of layer.shapes) this.group.remove(mesh);
     for (const m of layer.shapeMaterials) m.dispose();
   }
@@ -396,6 +447,8 @@ export class AtomView {
     this.layers.clear();
     this.group.remove(this.nucleus);
     this.nucleusMaterial.dispose();
+    if (this.halo) this.group.remove(this.halo);
+    this.haloMaterial?.dispose();
     this.nucleus.geometry.dispose();
   }
 }
