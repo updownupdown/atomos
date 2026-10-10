@@ -99,7 +99,7 @@ function guide(e: Element, tab: Tab): { title: string; html: string } {
         section('The tile', tileAnatomy(e))
         + section('Blocks and colors', p('Every element sits in one of four blocks, named after the kind of electron layer it is filling. The same four colors mark the layers in the 3D view, the blueprint and the puzzles.') + blockLegend())
         + section('The 3D view', p('Each colored cloud is one layer of electrons. Where the dots are dense, an electron is more likely to be found. Nothing is orbiting: the dots are samples of a probability, which is why they fade and reappear somewhere else. The bright dot in the middle marks the nucleus; at true scale it would be tens of thousands of times too small to see.')
-          + p('The edge of the cloud sits at the atom\'s van der Waals radius, and the scale circles are 300, 400, 500 and 600 pm across (a picometer is a trillionth of a meter). Cloud shows only the dots, Shapes the textbook orbital surfaces, Hybrid both.')
+          + p('The edge of the cloud sits at the atom\'s van der Waals radius, and the scale circles are 300, 400, 500 and 600 pm across (a picometer is a trillionth of a meter). Show or hide the circles at the bottom left. Under Draw as, Cloud shows only the dots, Shapes the textbook orbital surfaces, Hybrid both. Pinch (or scroll) to look closer; the view drifts back to the shared scale after a moment, so every element stays comparable.')
           + disclosureHTML({ title: 'How the clouds are made', body: p('The shapes are the hydrogen-like orbitals, the exact solutions for a single electron, spaced by Slater\'s rules for how much the inner electrons shield the outer ones from the nucleus. Real many-electron atoms differ in the detail, and the lobes are sharpened a little so they read on a phone. Stepping to a neighbor keeps the layers both atoms share; added electrons fade in white and removed ones fade out red.') }))
         + section('Facts and photos', p(`The headline and facts were written for Atomos and spot-checked against standard references. Photos come from Wikimedia Commons, credited under each one with the author and license; a few radioactive elements have no photo of a real sample.${e.z >= 104 ? ` Elements from rutherfordium on, ${name} among them, have only been made a few atoms at a time, so much of what we show of them is prediction.` : ''}`)),
     };
@@ -135,7 +135,7 @@ function guide(e: Element, tab: Tab): { title: string; html: string } {
       title: 'Reading the story',
       html:
         section('The timeline', p(`Each dot is one element, stacked by the decade it was identified, from 1650 on; elements known before then sit together at the left. ${esc(e.name)} is the bright dot.`))
-        + section('Where the text comes from', p('The name\'s origin, the discoverers and place, where the element comes from today and what it is used for all come from the open-source mendeleev dataset Atomos is built on.'))
+        + section('Where the text comes from', p('The name\'s origin, the discoverers and the place come from the open-source mendeleev dataset Atomos is built on. Origins (how the element is made in the cosmos, where it is found and how it is obtained) and Uses were written for Atomos and checked against standard references.'))
         + disclosureHTML({ title: 'Five eras of discovery', body: `<dl class="gd-defs">${ERAS.map(([t, d]) => `<dt>${t}</dt><dd>${d}</dd>`).join('')}</dl>` }),
     };
   }

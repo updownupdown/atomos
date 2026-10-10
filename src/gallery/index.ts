@@ -49,7 +49,6 @@ export class GalleryApp {
   private details = localStorage.getItem('atomos.gallery.view') === 'details';
   private list: ElementList | null = null;
   private rings = localStorage.getItem('atomos.gallery.rings') !== 'off';
-  private isoOpen = false;
   private tabs!: Tabs;
   private bar!: AtomBar;
 
@@ -96,24 +95,24 @@ export class GalleryApp {
       if (b.dataset.id === 'details') this.setDetails(true);
       else this.setLayout(b.dataset.id as LayoutId);
     }));
-    // Bottom right: how the atom is drawn, as three icons.
+    // The two corner tools speak the same way: a small caption, then chips with an icon and a
+    // plain label. Bottom right: how the atom is drawn.
     const styleIcon: Record<Style, IconName> = { cloud: 'view-cloud', shapes: 'view-shapes', hybrid: 'view-hybrid' };
     const styles = $('style-switch');
-    styles.innerHTML = STYLES.map((s) => `<button class="ui-icon-btn ui-icon-btn--ghost" data-id="${s.id}" aria-pressed="${s.id === this.style}" aria-label="${s.label}" title="${s.label}">${icon(styleIcon[s.id])}</button>`).join('');
+    styles.innerHTML = `<span class="tool-cap">Draw as</span>`
+      + STYLES.map((s) => `<button class="tool-chip" data-id="${s.id}" aria-pressed="${s.id === this.style}">${icon(styleIcon[s.id], { size: 18 })}<span>${s.label}</span></button>`).join('');
     styles.querySelectorAll<HTMLButtonElement>('button').forEach((b) => (b.onclick = () => this.setStyle(b.dataset.id as Style)));
-    // Bottom left: the scale legend, one short line per reference circle with its diameter, and the toggle.
+    // Bottom left: the scale circles, one line per circle with its diameter, and the switch.
+    const line = (style: string) => `<svg width="18" height="4" aria-hidden="true"><line x1="1" y1="2" x2="17" y2="2" stroke="currentColor" stroke-width="1.5"${style === 'dashed' ? ' stroke-dasharray="3 2.5"' : ''}/></svg>`;
     const legend = $('scale-legend');
-    legend.innerHTML = `<button class="ui-icon-btn ui-icon-btn--ghost scale-toggle" id="rings-toggle" aria-pressed="${this.rings}"></button>`
-      + `<ul>${CLOUD_RINGS.map((r) => `<li><i class="${r.style}"></i>${r.pm * 2}</li>`).join('')}</ul><span class="unit">pm across</span>`;
+    legend.innerHTML = `<span class="tool-cap">Scale circles</span>`
+      + `<ul>${CLOUD_RINGS.map((r, i) => `<li>${line(r.style)}<span>${r.pm * 2}${i === CLOUD_RINGS.length - 1 ? ' pm' : ''}</span></li>`).join('')}</ul>`
+      + `<button class="tool-chip" id="rings-toggle" aria-pressed="${this.rings}"></button>`;
     $('rings-toggle').onclick = () => this.setRings(!this.rings);
     this.paintRingsToggle();
     // The bar: previous, the element (opens the picker), next.
     this.bar = createAtomBar({ onChange: (z) => this.open(elementAt(z)), locked: (z) => !this.collected(z) });
     $('loupe-screen').append(this.bar.el);
-    // Top right: the isotope summary opens a short list.
-    $('dec-top-right').addEventListener('click', (ev) => {
-      if ((ev.target as HTMLElement).closest('.iso-toggle')) this.setIsoOpen(!this.isoOpen);
-    });
     // View's tabs: the model, then the element's science as pages.
     this.tabs = createTabs(VIEW_TABS, { active: this.tab, label: 'About this element', onChange: (id) => this.setTab(id as ViewTab) });
     this.tabs.el.setAttribute('aria-controls', 'atom-panel');
@@ -155,23 +154,10 @@ export class GalleryApp {
 
   private paintRingsToggle(): void {
     const b = $('rings-toggle');
-    b.innerHTML = icon(this.rings ? 'scale' : 'scale-off');
-    b.setAttribute('aria-pressed', String(this.rings));
-    const label = this.rings ? 'Hide the scale circles' : 'Show the scale circles';
-    b.setAttribute('aria-label', label);
-    b.title = label;
+    // The chip names what tapping it does, like the drawing chips name what they draw.
+    b.innerHTML = `${icon(this.rings ? 'scale-off' : 'scale', { size: 18 })}<span>${this.rings ? 'Hide' : 'Show'}</span>`;
+    b.setAttribute('aria-label', this.rings ? 'Hide the scale circles' : 'Show the scale circles');
     $('scale-legend').classList.toggle('off', !this.rings);
-  }
-
-  private setIsoOpen(open: boolean): void {
-    this.isoOpen = open;
-    const tr = $('dec-top-right');
-    tr.classList.toggle('open', open);
-    const t = tr.querySelector('.iso-toggle');
-    if (t) {
-      t.setAttribute('aria-expanded', String(open));
-      t.querySelector('.chev')!.innerHTML = icon(open ? 'chevron-up' : 'chevron-down', { size: 18 });
-    }
   }
 
   private setLayout(id: LayoutId): void {
@@ -237,10 +223,9 @@ export class GalleryApp {
     this.gallery.select(e.z);
     this.detail.show(e, !first);
     this.detail.setCollected(this.collected(e.z));
-    const dec = decoratorsHTML(e, this.collected(e.z));
+    const dec = decoratorsHTML(e);
     $('dec-top-left').innerHTML = dec.topLeft;
-    $('dec-top-right').innerHTML = `<button class="iso-toggle" aria-expanded="false" aria-controls="iso-list">${dec.isoSummary}<span class="chev"></span></button><div class="iso-list" id="iso-list">${dec.isoList}</div>`;
-    this.setIsoOpen(this.isoOpen);
+    $('dec-top-right').innerHTML = dec.topRight;
     this.bar.set(e.z);
     this.renderPanel();
     const screen = $('loupe-screen');

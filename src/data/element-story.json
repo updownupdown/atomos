@@ -1,0 +1,1695 @@
+[
+{
+"z": 1,
+"origins": [
+"Almost all hydrogen nuclei date from the Big Bang, and hydrogen still makes up about three quarters of ordinary matter by mass.",
+"Stars burn hydrogen into helium for most of their lives, slowly using up the cosmic supply.",
+"On Earth it is mostly bound in water and in hydrocarbons such as natural gas, and free hydrogen gas is rare.",
+"Most industrial hydrogen comes from steam reforming of natural gas, with a small but growing share from electrolysis of water."
+],
+"uses": [
+"Making ammonia for fertilizer through the Haber-Bosch process is the largest use of hydrogen.",
+"Oil refineries use hydrogen to strip sulfur from fuels and to crack heavy oils into lighter products.",
+"Liquid hydrogen burned with liquid oxygen powers many rocket engines and upper stages.",
+"Fuel cells combine hydrogen with oxygen to make electricity for some cars, buses, forklifts and backup generators.",
+"Historical: hydrogen lifted passenger airships until the Hindenburg fire of 1937 ended that era."
+]
+},
+{
+"z": 2,
+"origins": [
+"Most helium formed in the first minutes after the Big Bang, and stars add more by fusing hydrogen in their cores.",
+"On Earth, helium comes from alpha decay of uranium and thorium in rocks and collects in some natural gas reservoirs.",
+"Helium in the air is scarce because the light gas slowly escapes into space.",
+"It is separated from natural gas by cryogenic distillation, with the United States and Qatar the leading producers."
+],
+"uses": [
+"Liquid helium cools the superconducting magnets in MRI scanners and many research instruments.",
+"Chipmakers and optical fiber producers use helium as an inert, heat-conducting atmosphere.",
+"Helium purges and pressurizes rocket fuel tanks and helps detect tiny leaks in vacuum systems.",
+"Deep-sea divers breathe helium-oxygen mixtures to avoid nitrogen narcosis.",
+"Balloons and blimps use helium for lift because it is light and does not burn."
+]
+},
+{
+"z": 3,
+"origins": [
+"A little lithium-7 formed in the Big Bang, and cosmic rays striking interstellar gas add more, while stars mostly destroy it.",
+"It is found in brines beneath Andean salt flats and in hard-rock minerals such as spodumene.",
+"Australia mines the most lithium, followed by Chile and China, and China refines most of the world's supply.",
+"Brines are concentrated by evaporation, while the metal itself is made by electrolysis of molten lithium chloride."
+],
+"uses": [
+"Lithium-ion batteries in phones, laptops and electric vehicles are now by far the largest use.",
+"Lithium compounds lower melting temperatures in glass and ceramics, including heat-resistant cookware.",
+"Lithium greases keep machinery lubricated over a wide range of temperatures.",
+"Lithium carbonate is a long-standing treatment for bipolar disorder.",
+"Aluminum-lithium alloys make aircraft structures lighter."
+]
+},
+{
+"z": 4,
+"origins": [
+"Beryllium is not made in stellar fusion; it forms when cosmic rays shatter carbon, nitrogen and oxygen nuclei in space.",
+"It is rare in Earth's crust and is mined mainly from the minerals bertrandite and beryl.",
+"The United States produces most of the world's beryllium, largely from a mine in Utah.",
+"Ore is converted to beryllium fluoride, which is reduced with magnesium to give the metal."
+],
+"uses": [
+"Copper-beryllium alloys make strong, conductive springs and connectors and spark-free tools for explosive environments.",
+"Its lightness and stiffness suit space optics; the James Webb Space Telescope mirrors are gold-coated beryllium.",
+"Thin beryllium windows let X-rays pass through in medical and scientific equipment.",
+"Beryllium reflects neutrons in some research reactors and nuclear weapons.",
+"Beryllium oxide ceramics carry heat away from high-power electronics while insulating electrically."
+]
+},
+{
+"z": 5,
+"origins": [
+"Like lithium and beryllium, most boron is made by cosmic-ray spallation rather than inside stars.",
+"It concentrates in dry-lake evaporite deposits as borate minerals such as borax, kernite, colemanite and ulexite.",
+"Turkey holds the largest reserves and leads production, followed by the United States.",
+"Borates are mined and refined directly, while pure elemental boron is hard to make and seldom needed."
+],
+"uses": [
+"Borosilicate glass, fiberglass insulation and glass fiber reinforcement use a large share of mined boron.",
+"Boron is an essential plant micronutrient, so borates are added to fertilizers.",
+"Neodymium-iron-boron magnets, the strongest permanent magnets, power motors, wind turbines and headphones.",
+"Boron carbide is extremely hard and serves in body armor, while boron-10 absorbs neutrons in reactor control rods.",
+"Tiny amounts of boron dope silicon to make p-type semiconductors."
+]
+},
+{
+"z": 6,
+"origins": [
+"Carbon is forged in red giant stars by the triple-alpha process, which fuses three helium nuclei.",
+"Stellar winds and planetary nebulae spread it into space, where it joins new stars, planets and organic molecules.",
+"On Earth it occurs in limestone and other carbonates, coal, oil, natural gas, graphite, diamond and all living things.",
+"Coal and graphite are mined, diamonds come from kimberlite pipes, and both graphite and diamond are also made synthetically."
+],
+"uses": [
+"Fossil fuels made of carbon compounds supply most of the world's energy, releasing carbon dioxide when burned.",
+"Coke reduces iron ore in blast furnaces, and a small amount of carbon turns iron into steel.",
+"Graphite forms lithium-ion battery anodes, pencil cores and electrodes for electric arc furnaces.",
+"Activated carbon filters water and air, and carbon fiber makes light, stiff aircraft parts and sports gear.",
+"Radiocarbon dating with carbon-14 measures the age of organic remains up to about 50,000 years old."
+]
+},
+{
+"z": 7,
+"origins": [
+"Nitrogen is made mainly by the CNO cycle, which fuses hydrogen into helium in stars heavier than the Sun.",
+"It makes up about 78 percent of Earth's atmosphere and is found in nitrate minerals and all proteins.",
+"Pure nitrogen is separated from air by cryogenic distillation, or by membranes and pressure-swing adsorption."
+],
+"uses": [
+"Ammonia made from nitrogen and hydrogen is the basis of most nitrogen fertilizer.",
+"Nitrogen gas blankets packaged food, chemical tanks and electronics factories to keep oxygen out.",
+"Liquid nitrogen flash-freezes food and preserves cells, embryos and other biological samples.",
+"Nitrogen compounds are building blocks for explosives, nylon, dyes and many medicines.",
+"Historical: Chilean saltpeter was the main nitrate source for fertilizer and explosives before the Haber-Bosch process."
+]
+},
+{
+"z": 8,
+"origins": [
+"Oxygen forms in massive stars by helium capture on carbon, and supernovae scatter it widely.",
+"It is the most abundant element in Earth's crust, bound in silicates, oxides and water.",
+"Photosynthesis by plants and microbes produced the free oxygen that makes up about 21 percent of air.",
+"Industrial oxygen is separated from liquefied air by fractional distillation."
+],
+"uses": [
+"Steelmaking blows pure oxygen through molten iron to burn off excess carbon, the largest single use.",
+"Hospitals give medical oxygen to patients with breathing difficulties.",
+"Oxyacetylene torches use oxygen to cut and weld metal.",
+"Liquid oxygen is the oxidizer for many rocket engines.",
+"Oxygen helps treat wastewater and is a feedstock for chemicals such as ethylene oxide."
+]
+},
+{
+"z": 9,
+"origins": [
+"Fluorine is cosmically scarce because fusion easily destroys it; it is thought to be made mainly in aging giant stars.",
+"Its main mineral is fluorite, calcium fluoride, and China is the leading producer.",
+"Phosphate rock also contains fluorine, which is recovered during fertilizer production.",
+"Henri Moissan first isolated it in 1886 by electrolysis, still the method used today."
+],
+"uses": [
+"Hydrofluoric acid made from fluorite is the starting point for refrigerants and nonstick PTFE coatings.",
+"Uranium hexafluoride gas makes it possible to enrich uranium for nuclear fuel.",
+"Fluoride in toothpaste and drinking water helps prevent tooth decay.",
+"Many medicines and pesticides contain fluorine atoms that make them more stable in the body or environment.",
+"Lithium-ion battery electrolytes and binders rely on fluorine compounds."
+]
+},
+{
+"z": 10,
+"origins": [
+"Neon forms in massive stars by carbon burning and is released in supernovae, making it common in the cosmos.",
+"Earth's atmosphere holds only about 18 parts per million of neon.",
+"It is collected as a byproduct of large air separation plants that produce oxygen and nitrogen."
+],
+"uses": [
+"Excimer lasers used to pattern computer chips use neon as their main buffer gas.",
+"Neon signs glow red-orange when electricity passes through the gas.",
+"Helium-neon lasers serve in labs and alignment tools, and once read barcodes at checkouts.",
+"Liquid neon is a compact refrigerant for cryogenic equipment."
+]
+},
+{
+"z": 11,
+"origins": [
+"Sodium is made by carbon burning in massive stars and released in supernovae.",
+"It is the sixth most abundant element in Earth's crust and the main metal dissolved in seawater.",
+"Rock salt is mined and sea salt is evaporated from seawater, while soda ash comes from trona deposits.",
+"Metallic sodium is made by electrolysis of molten sodium chloride."
+],
+"uses": [
+"Sodium chloride seasons and preserves food, de-ices roads and is the raw material for chlorine and caustic soda.",
+"Sodium hydroxide and sodium carbonate are used to make paper, soap, glass and many chemicals.",
+"Low-pressure sodium vapor lamps give some streetlights their yellow-orange glow.",
+"Liquid sodium cools some fast nuclear reactors.",
+"Sodium-ion batteries are emerging as a cheaper alternative to lithium-ion for stationary storage."
+]
+},
+{
+"z": 12,
+"origins": [
+"Magnesium forms in massive stars by carbon and neon burning and is spread by supernovae.",
+"It is abundant in Earth's mantle and crust, in minerals such as dolomite and magnesite, and dissolved in seawater.",
+"China produces most magnesium metal, mainly by the Pidgeon process, which reduces roasted dolomite with ferrosilicon.",
+"Electrolysis of molten magnesium chloride from brines or seawater is the other main route."
+],
+"uses": [
+"Alloying aluminum for beverage cans and car parts is the largest use of magnesium.",
+"Magnesium alloys make light car parts, laptop cases and power tool housings.",
+"It removes sulfur from molten iron and reduces titanium and zirconium compounds to metal.",
+"Magnesium oxide lines furnaces, and magnesium compounds are used in antacids and laxatives.",
+"Flares and fireworks use burning magnesium for brilliant white light."
+]
+},
+{
+"z": 13,
+"origins": [
+"Aluminum forms in massive stars during carbon and neon burning, and radioactive aluminum-26 traces recent star formation.",
+"It is the most abundant metal in Earth's crust, but it is extracted mostly from bauxite.",
+"Australia, Guinea and China lead bauxite mining, and China makes more than half of the world's aluminum.",
+"The Bayer process refines bauxite to alumina, which the Hall-Héroult process electrolyzes into metal."
+],
+"uses": [
+"Cars, trucks, aircraft and trains use aluminum to save weight.",
+"Beverage cans, foil and food packaging are made from aluminum and are widely recycled.",
+"Window frames, siding and curtain walls use aluminum for its corrosion resistance.",
+"Overhead power lines use aluminum conductors because they are light and inexpensive.",
+"Historical: before cheap electrolysis in 1886, aluminum was costlier than silver and showcased like a precious metal."
+]
+},
+{
+"z": 14,
+"origins": [
+"Silicon is made by oxygen burning in massive stars and released by supernovae.",
+"It is the second most abundant element in Earth's crust, forming quartz and silicate minerals.",
+"Quartz is reduced with carbon in electric arc furnaces, and China produces most of the world's silicon.",
+"Electronic-grade silicon is purified chemically and grown into large single crystals by the Czochralski method."
+],
+"uses": [
+"Silicon is alloyed with aluminum for castings and with iron as ferrosilicon for steelmaking.",
+"Ultrapure silicon wafers are the basis of computer chips and most solar panels.",
+"Silicones, polymers with silicon-oxygen backbones, make sealants, lubricants, cookware and medical devices.",
+"Silica sand is the main ingredient of glass and an essential component of concrete."
+]
+},
+{
+"z": 15,
+"origins": [
+"Phosphorus is produced in massive stars during neon and oxygen burning and released by supernovae.",
+"Its main source is phosphate rock; Morocco holds most known reserves, and China is the largest producer.",
+"Phosphate rock is treated with sulfuric acid to make phosphoric acid, or heated with coke and silica to free the element.",
+"Hennig Brand first isolated it in 1669 from boiled-down urine."
+],
+"uses": [
+"Most mined phosphate becomes fertilizer, since plants cannot grow without phosphorus.",
+"Phosphoric acid and phosphates are food additives, flavoring cola drinks and leavening baking powder.",
+"Red phosphorus coats the striking surface of safety matchboxes.",
+"Lithium iron phosphate is a common cathode in batteries for electric vehicles and grid storage.",
+"Historical: phosphates softened water in laundry detergents until algae blooms led many places to restrict them."
+]
+},
+{
+"z": 16,
+"origins": [
+"Sulfur forms in massive stars by oxygen burning and is scattered by supernovae.",
+"It occurs as native sulfur near volcanoes and in salt domes, and in sulfide and sulfate minerals.",
+"Most sulfur now comes from removing hydrogen sulfide from natural gas and crude oil.",
+"Historical: the Frasch process melted underground sulfur with superheated water and pumped it to the surface."
+],
+"uses": [
+"Most sulfur is turned into sulfuric acid, one of the most produced industrial chemicals.",
+"Sulfuric acid makes phosphate fertilizers, leaches copper ores and fills lead-acid batteries.",
+"Vulcanization with sulfur makes rubber tires tough and elastic.",
+"Sulfur is a fungicide for crops and an ingredient of gunpowder.",
+"Sulfites preserve wine and dried fruit."
+]
+},
+{
+"z": 17,
+"origins": [
+"Chlorine forms in massive stars during oxygen burning and is released in supernovae.",
+"On Earth it is found almost entirely as chloride, in seawater, salt lakes and rock salt deposits.",
+"Chlorine gas is made by electrolysis of brine in the chlor-alkali process, which also yields sodium hydroxide."
+],
+"uses": [
+"Making PVC plastic is the largest single use of chlorine.",
+"Chlorine and its compounds disinfect drinking water and swimming pools.",
+"Sodium hypochlorite solution is household bleach.",
+"Chlorine is an intermediate in making many solvents, medicines and titanium dioxide pigment.",
+"Historical: chlorine gas was used as a chemical weapon in World War I."
+]
+},
+{
+"z": 18,
+"origins": [
+"Argon-36 and argon-38 form in massive stars, but nearly all argon on Earth is argon-40.",
+"Argon-40 comes from the slow radioactive decay of potassium-40 in rocks and makes up nearly 1 percent of air.",
+"It is obtained as a byproduct of the fractional distillation of liquid air."
+],
+"uses": [
+"Argon shields molten metal from air in welding, steelmaking and metal refining.",
+"Light bulbs and fluorescent tubes are filled with argon to protect their electrodes and filaments.",
+"Insulated double-glazed windows use argon between the panes to slow heat loss.",
+"Argon provides an inert atmosphere for growing silicon crystals and producing titanium.",
+"Argon-argon dating measures the ages of volcanic rocks and meteorites."
+]
+},
+{
+"z": 19,
+"origins": [
+"Potassium forms in massive stars during oxygen burning and is released in supernovae.",
+"It is common in feldspars and micas, while soluble salts such as sylvite are mined as potash.",
+"Canada is the leading potash producer, followed by Russia and Belarus.",
+"Humphry Davy first isolated it in 1807 by electrolysis; today the metal is made by reducing potassium chloride with sodium."
+],
+"uses": [
+"Most potash goes into fertilizer, since potassium is a major plant nutrient.",
+"Potassium hydroxide makes soft soaps and is the electrolyte in alkaline batteries.",
+"Potassium nitrate is an oxidizer in gunpowder, fireworks and some food curing.",
+"Potassium chloride serves as a salt substitute and a medical supplement.",
+"Potassium carbonate is used to make specialty glass, such as for older TV screens and lab glassware."
+]
+},
+{
+"z": 20,
+"origins": [
+"Calcium forms in massive stars during oxygen and silicon burning, and some calcium-40 comes from decay of potassium-40.",
+"It is the fifth most abundant element in the crust, found in limestone, chalk, marble, gypsum and fluorite.",
+"Limestone is quarried worldwide and heated to make lime, calcium oxide.",
+"The metal is produced by reducing lime with aluminum in a vacuum or by electrolysis of calcium chloride."
+],
+"uses": [
+"Limestone is the main raw material for cement and is crushed for construction aggregate.",
+"Lime removes impurities in steelmaking and neutralizes acidic soils and water.",
+"Gypsum, calcium sulfate, makes plaster and drywall.",
+"Calcium carbonate fills paper, plastics and paint and is sold as an antacid and dietary supplement.",
+"Calcium metal deoxidizes steel and helps reduce other metals such as uranium."
+]
+},
+{
+"z": 21,
+"origins": [
+"Scandium is made in supernovae but only in small amounts, so it is relatively scarce in the cosmos.",
+"It is widely scattered in Earth's crust and seldom concentrated, with thortveitite one of few scandium-rich minerals.",
+"Most scandium is recovered as a byproduct from residues of rare earth, uranium, titanium and nickel processing.",
+"Mendeleev predicted it as eka-boron, and Lars Fredrik Nilson discovered it in 1879."
+],
+"uses": [
+"Small additions of scandium refine the grain of aluminum alloys for aerospace parts and sports gear such as bike frames.",
+"Scandium-stabilized zirconia is the electrolyte in some solid oxide fuel cells.",
+"Scandium iodide in metal halide lamps gives a light close to sunlight for stadiums and film sets."
+]
+},
+{
+"z": 22,
+"origins": [
+"Titanium is made in supernovae, and radioactive titanium-44 glowing in remnants such as Cassiopeia A traces its creation.",
+"It is the ninth most abundant element in the crust, occurring in ilmenite and rutile, often in beach sands.",
+"China, Mozambique, South Africa and Australia are large producers of titanium minerals.",
+"The Kroll process turns ore into titanium tetrachloride and reduces it with magnesium to porous titanium sponge."
+],
+"uses": [
+"Most titanium ore becomes titanium dioxide, the bright white pigment in paint, paper, plastics and sunscreen.",
+"Strong, light titanium alloys are used in jet engines and airframes.",
+"Its corrosion resistance and compatibility with bone suit hip, knee and dental implants.",
+"Desalination plants, chemical equipment and ship parts use titanium to resist seawater.",
+"Watches, eyeglass frames and bicycles use titanium for its lightness."
+]
+},
+{
+"z": 23,
+"origins": [
+"Vanadium forms in supernova explosions, both of collapsing massive stars and of exploding white dwarfs.",
+"It occurs in titanium-rich magnetite ores, in minerals such as vanadinite and carnotite, and in crude oil.",
+"China, Russia and South Africa produce most vanadium, largely from slag left after smelting titanomagnetite ore.",
+"It is recovered as vanadium pentoxide, then reduced to make ferrovanadium for steelmakers."
+],
+"uses": [
+"Most vanadium strengthens steel for rebar, tools, pipelines and axles.",
+"Titanium alloy with aluminum and vanadium is a standard material for aircraft and medical implants.",
+"Vanadium redox flow batteries store energy for electric grids.",
+"Vanadium pentoxide catalyzes the production of sulfuric acid."
+]
+},
+{
+"z": 24,
+"origins": [
+"Chromium comes from supernovae of both massive stars and white dwarfs, forged in the intense heat of the explosion.",
+"Its only commercial ore is chromite, an iron-chromium oxide.",
+"South Africa mines the most chromite, followed by Kazakhstan, Turkey and India.",
+"Chromite is smelted with carbon to make ferrochromium, while pure chromium comes from aluminothermic reduction or electrolysis."
+],
+"uses": [
+"Most chromium goes into stainless steel, where it forms a thin, self-healing oxide film that blocks rust.",
+"Chrome plating gives faucets, car trim and tools a hard, shiny finish.",
+"Chromium compounds tan most of the world's leather.",
+"Chromium pigments such as chrome green and chrome yellow color paints and ceramics.",
+"Chromite bricks line high-temperature furnaces."
+]
+},
+{
+"z": 25,
+"origins": [
+"Manganese forms in supernovae, with a large share from thermonuclear explosions of white dwarfs.",
+"Its main ores are pyrolusite and other manganese oxides, and nodules on the deep sea floor also hold large amounts.",
+"South Africa, Gabon and Australia are leading producers.",
+"Ore is smelted with carbon to make ferromanganese and silicomanganese, while pure manganese is made by electrolysis."
+],
+"uses": [
+"About 90 percent of manganese is used in steelmaking to remove sulfur and oxygen and add strength.",
+"Manganese dioxide is the cathode material in alkaline and zinc-carbon batteries.",
+"Some lithium-ion battery cathodes contain manganese.",
+"Aluminum beverage cans contain manganese for strength and corrosion resistance.",
+"Manganese is an essential trace nutrient added to animal feed and fertilizers."
+]
+},
+{
+"z": 26,
+"origins": [
+"Iron is built in massive stars by silicon burning, largely as nickel-56 that decays to iron-56 after a supernova.",
+"Exploding white dwarfs, called type Ia supernovae, produce much of the galaxy's iron.",
+"Iron dominates Earth's core and is the fourth most abundant crustal element, mined mainly as hematite and magnetite.",
+"Australia and Brazil lead iron ore mining, and blast furnaces reduce the ore with coke to make iron."
+],
+"uses": [
+"Steel, iron alloyed with a little carbon, is the most used metal, forming buildings, bridges, cars, ships and machinery.",
+"Cast iron is used for engine blocks, pipes and cookware.",
+"Silicon steel cores in transformers and motors channel magnetic fields efficiently.",
+"Iron oxides are pigments in paints, bricks, concrete and cosmetics.",
+"Iron supplements treat anemia, since hemoglobin needs iron to carry oxygen in blood."
+]
+},
+{
+"z": 27,
+"origins": [
+"Stable cobalt-59 is forged in supernovae, while radioactive cobalt-56 powers their fading glow for months.",
+"It usually occurs with copper and nickel ores rather than in its own deposits.",
+"The Democratic Republic of the Congo produces most mined cobalt, largely as a byproduct of copper mining.",
+"Cobalt is recovered by leaching and refining, and China does most of the world's refining."
+],
+"uses": [
+"Lithium-ion battery cathodes are now the largest use of cobalt.",
+"Cobalt superalloys withstand heat in jet engine and gas turbine parts.",
+"Cobalt binds tungsten carbide grains in hard cutting tools.",
+"Cobalt blue pigments have colored glass and ceramics for centuries.",
+"Cobalt-60 gamma rays sterilize medical equipment and treat cancer."
+]
+},
+{
+"z": 28,
+"origins": [
+"Nickel is forged alongside iron in supernovae, and iron meteorites contain it in large amounts.",
+"Much of Earth's nickel is in the core, but crustal deposits occur as sulfides such as pentlandite and as laterites.",
+"Indonesia is now by far the leading producer, followed by the Philippines and Russia.",
+"It is refined by smelting and electrolysis, or by the Mond process using nickel carbonyl gas."
+],
+"uses": [
+"About two thirds of nickel goes into stainless steel.",
+"Nickel-rich cathodes boost the energy density of electric vehicle batteries.",
+"Nickel superalloys survive extreme heat in jet engine turbines.",
+"Nickel plating protects metal parts, and nickel alloys appear in many coins.",
+"Nickel-metal hydride batteries power many hybrid cars."
+]
+},
+{
+"z": 29,
+"origins": [
+"Copper forms partly in supernovae and partly by slow neutron capture in massive stars.",
+"Its main ores are sulfides such as chalcopyrite and chalcocite, and native copper also occurs.",
+"Chile is the largest producer, with Peru, the Democratic Republic of the Congo and China also major sources.",
+"Ores are smelted and refined by electrolysis, or leached and recovered by electrowinning."
+],
+"uses": [
+"Electrical wiring and power cables are the largest use, thanks to copper's high conductivity.",
+"Electric motors, transformers and generators rely on copper windings.",
+"Copper pipes carry water, and copper tubing moves refrigerant in air conditioners.",
+"Brass and bronze alloys make valves, fittings, musical instruments and statues.",
+"Historical: copper was the first metal people widely shaped into tools and ornaments, many thousands of years ago."
+]
+},
+{
+"z": 30,
+"origins": [
+"Zinc forms in massive stars through the slow neutron-capture process and in supernovae.",
+"Its main ore is sphalerite, a zinc sulfide often found with lead.",
+"China is the largest producer, followed by Peru and Australia.",
+"Concentrates are roasted and leached, then zinc is recovered by electrolysis."
+],
+"uses": [
+"Galvanizing coats steel with zinc to prevent rust and is the largest use.",
+"Zinc alloys are die-cast into hardware, and brass is copper alloyed with zinc.",
+"Zinc oxide is used in rubber manufacturing, sunscreen and skin ointments.",
+"Zinc is the anode in alkaline and zinc-air batteries.",
+"Zinc is an essential nutrient included in supplements and fertilizers."
+]
+},
+{
+"z": 31,
+"origins": [
+"Gallium comes from neutron capture on iron-group nuclei, both in massive stars and in supernovae.",
+"It has no ores of its own and occurs at trace levels in bauxite and zinc ores.",
+"Most gallium is recovered as a byproduct of alumina refining, and China produces the great majority.",
+"Mendeleev predicted it as eka-aluminum before Paul-Émile Lecoq de Boisbaudran discovered it in 1875."
+],
+"uses": [
+"Gallium nitride makes blue and white LEDs, laser diodes and compact fast chargers.",
+"Gallium arsenide chips handle radio signals in phones and radar and make efficient solar cells for satellites.",
+"Galinstan, an alloy of gallium, indium and tin, replaces mercury in some thermometers.",
+"Gallium-67 and gallium-68 are used in nuclear medicine imaging."
+]
+},
+{
+"z": 32,
+"origins": [
+"Germanium builds up as massive stars slowly capture neutrons on iron seed nuclei, with supernovae adding more.",
+"It is scattered through zinc ores and some coal deposits rather than forming ores of its own.",
+"It is recovered from zinc refining residues and coal fly ash, and China is the leading producer.",
+"Mendeleev predicted it as eka-silicon, and Clemens Winkler isolated it in 1886."
+],
+"uses": [
+"Germanium dioxide raises the refractive index of the light-carrying core of optical fibers.",
+"Germanium lenses and windows transmit infrared light in thermal imaging cameras.",
+"Multijunction solar cells on satellites are built on germanium wafers.",
+"Germanium detectors measure gamma-ray energies with high precision.",
+"Historical: the first transistor, built at Bell Labs in 1947, used germanium."
+]
+},
+{
+"z": 33,
+"origins": [
+"Arsenic, which has a single stable isotope, is built by neutron capture in stars and stellar explosions.",
+"It occurs in minerals such as arsenopyrite, realgar and orpiment, often alongside copper, gold and lead ores.",
+"It is recovered as arsenic trioxide from smelter dust, and China is a leading producer.",
+"Natural arsenic contaminates groundwater in some regions, notably Bangladesh and parts of India."
+],
+"uses": [
+"Gallium arsenide semiconductors are used in microwave electronics, LEDs and solar cells.",
+"Small amounts of arsenic harden lead alloys in batteries and ammunition.",
+"Arsenic trioxide is an approved drug for acute promyelocytic leukemia.",
+"Historical: arsenic compounds were widely used as pesticides, wood preservatives and a notorious poison.",
+"Historical: Scheele's green and Paris green, arsenic pigments, colored wallpaper and paint in the 1800s."
+]
+},
+{
+"z": 34,
+"origins": [
+"Selenium is built by neutron capture, mostly in massive stars and their explosions.",
+"It occurs mostly in copper sulfide ores, where it substitutes for sulfur.",
+"It is recovered from the anode slimes left after electrolytic refining of copper.",
+"Jöns Jacob Berzelius discovered it in 1817 and named it after the Moon."
+],
+"uses": [
+"Selenium removes the green tint from glass, and larger amounts give glass a red color.",
+"Selenium dioxide improves the electrolytic production of manganese metal.",
+"Selenium is an essential trace nutrient added to animal feed and dietary supplements.",
+"Selenium sulfide is an active ingredient in anti-dandruff shampoos.",
+"Historical: selenium-coated drums were the light-sensitive heart of early photocopiers and laser printers."
+]
+},
+{
+"z": 35,
+"origins": [
+"Bromine, unlike the lighter halogens, comes mainly from neutron capture in stars and stellar explosions.",
+"It occurs as bromide salts in seawater and is especially concentrated in the Dead Sea and some underground brines.",
+"The United States, Israel, Jordan and China are leading producers.",
+"Chlorine oxidizes the bromide in brine to bromine, which is stripped out with air or steam."
+],
+"uses": [
+"Brominated flame retardants reduce the fire risk of plastics in electronics, furniture and insulation.",
+"Dense calcium and zinc bromide brines are used as fluids in oil and gas wells.",
+"Bromine compounds disinfect hot tubs and treat industrial cooling water.",
+"Silver bromide is the light-sensitive compound in most photographic film.",
+"Historical: ethylene dibromide was added to leaded gasoline to clear lead deposits from engines."
+]
+},
+{
+"z": 36,
+"origins": [
+"Krypton is made by slow neutron capture in giant stars and by supernovae.",
+"It is a trace gas in the atmosphere, at about one part per million.",
+"It is extracted as a byproduct of liquid air distillation.",
+"Some radioactive krypton-85 in air comes from reprocessing of nuclear fuel."
+],
+"uses": [
+"Krypton fills high-performance insulated windows and some light bulbs.",
+"Krypton fluoride excimer lasers are used in chipmaking and laser fusion research.",
+"Krypton is a cheaper propellant than xenon for some satellite ion thrusters.",
+"Historical: from 1960 to 1983 the meter was defined by a wavelength of light from krypton-86."
+]
+},
+{
+"z": 37,
+"origins": [
+"Rubidium is made by both slow and rapid neutron capture, and part of it is radioactive rubidium-87.",
+"It has no ores of its own and occurs in lepidolite and pollucite, alongside lithium and cesium.",
+"It is recovered in small quantities as a byproduct of lithium and cesium processing.",
+"Robert Bunsen and Gustav Kirchhoff discovered it in 1861 from its deep red spectral lines."
+],
+"uses": [
+"Rubidium atomic clocks keep precise time in cell towers, networks and GPS satellites.",
+"Laser-cooled rubidium atoms formed the first Bose-Einstein condensate in 1995.",
+"Rubidium-strontium dating measures the ages of very old rocks and meteorites.",
+"Rubidium-82 is used in PET scans of blood flow in the heart."
+]
+},
+{
+"z": 38,
+"origins": [
+"Strontium is made mostly by slow neutron capture in giant stars.",
+"Astronomers reported strontium in the debris of a neutron star merger observed in 2017.",
+"Its main ores are celestine, strontium sulfate, and strontianite, strontium carbonate.",
+"It is named after Strontian, the Scottish village where its mineral was first found."
+],
+"uses": [
+"Strontium salts give fireworks and road flares a bright red color.",
+"Strontium ferrite forms permanent magnets in small motors and loudspeakers.",
+"Strontium aluminate makes long-lasting glow-in-the-dark paints and signs.",
+"Strontium-89 relieves pain from cancer that has spread to bone.",
+"Historical: strontium in color TV glass blocked X-rays from cathode ray tubes."
+]
+},
+{
+"z": 39,
+"origins": [
+"Yttrium belongs to the first abundance peak of slow neutron capture, building up in aging giant stars.",
+"It occurs with rare earths in xenotime, monazite and ion-adsorption clays.",
+"China dominates production, especially from ion-adsorption clays in the south.",
+"It is named after Ytterby, a Swedish village whose quarry gave names to four elements."
+],
+"uses": [
+"Yttria-stabilized zirconia is used in thermal barrier coatings, dental crowns and oxygen sensors.",
+"Yttrium aluminum garnet crystals host neodymium in widely used industrial and medical lasers.",
+"Yttrium compounds in phosphors turn blue LED light into white light.",
+"Yttrium barium copper oxide was the first superconductor to work above the boiling point of liquid nitrogen.",
+"Yttrium-90 beads deliver radiation therapy to liver tumors."
+]
+},
+{
+"z": 40,
+"origins": [
+"Zirconium is made mainly by slow neutron capture, and giant stars rich in zirconium oxide show the process at work.",
+"Its main mineral is zircon, found in heavy mineral beach sands; Australia and South Africa lead production.",
+"Zircon grains from Western Australia over 4 billion years old are the oldest known pieces of Earth.",
+"The metal is made by the Kroll process, and hafnium must be removed for nuclear uses."
+],
+"uses": [
+"Zircon makes ceramic tiles and sinks opaque white and lines foundry molds.",
+"Zircaloy tubes clad nuclear fuel because zirconium barely absorbs neutrons.",
+"Cubic zirconia is a diamond-like gemstone, and zirconia makes tough ceramic knives and dental crowns.",
+"Zirconium resists corrosion in chemical plant equipment."
+]
+},
+{
+"z": 41,
+"origins": [
+"Niobium comes mainly from slow neutron capture, partly through the decay of radioactive zirconium-93.",
+"Its main ore is pyrochlore, often found in carbonatite rocks.",
+"Brazil produces about 90 percent of the world's niobium, with Canada a distant second.",
+"Pyrochlore concentrate is reduced with aluminum to make ferroniobium for steelmakers."
+],
+"uses": [
+"Tiny additions of niobium strengthen steel for pipelines, car bodies and bridges.",
+"Niobium-titanium wire forms the superconducting magnets in MRI scanners and particle accelerators.",
+"Niobium alloys are used in jet engine parts and rocket nozzles.",
+"Pure niobium makes superconducting radio-frequency cavities that accelerate particle beams."
+]
+},
+{
+"z": 42,
+"origins": [
+"Molybdenum comes from slow and rapid neutron capture, plus an unusually large share of proton-rich isotopes of debated origin.",
+"Its chief ore is molybdenite, molybdenum disulfide, often found in porphyry copper deposits.",
+"China is the leading producer, followed by Peru, Chile and the United States.",
+"Molybdenite is roasted to molybdenum trioxide, which is reduced to ferromolybdenum or pure metal."
+],
+"uses": [
+"Most molybdenum alloys steel, improving strength, heat resistance and corrosion resistance.",
+"Molybdenum catalysts remove sulfur from petroleum products.",
+"Molybdenum disulfide is a slippery solid lubricant for engines and machinery.",
+"Molybdenum-99 decays into technetium-99m, the workhorse isotope of medical imaging.",
+"It is an essential trace element for enzymes, including those that let bacteria fix nitrogen."
+]
+},
+{
+"z": 43,
+"origins": [
+"Every technetium isotope is radioactive, so any present when Earth formed has long since decayed.",
+"Its spectral lines in some red giant stars showed in 1952 that stars make heavy elements.",
+"Tiny traces form on Earth from spontaneous fission of uranium.",
+"Carlo Perrier and Emilio Segrè identified it in 1937 in cyclotron-bombarded molybdenum; it now comes from reactors."
+],
+"uses": [
+"Technetium-99m is the most widely used medical radioisotope, used in tens of millions of scans each year.",
+"Chemists attach it to many carrier molecules to image bones, heart, thyroid, kidneys and lungs.",
+"Research: long-lived technetium-99 from spent fuel is studied because it moves easily through groundwater."
+]
+},
+{
+"z": 44,
+"origins": [
+"Ruthenium is made mostly by the rapid neutron-capture process in neutron star mergers and supernovae.",
+"It occurs with other platinum group metals, mainly in South Africa's Bushveld Complex and Russian nickel ores.",
+"It is separated as a byproduct of platinum and nickel refining.",
+"Karl Ernst Claus isolated it in 1844 and named it after Ruthenia, a Latin name for Russia."
+],
+"uses": [
+"Ruthenium is used in chip resistors, electrical contacts and thin layers in hard disk drives.",
+"Ruthenium-coated titanium anodes produce chlorine in chlor-alkali plants.",
+"Ruthenium catalysts are used in ammonia synthesis and fine chemical production.",
+"Small additions harden platinum and palladium jewelry alloys."
+]
+},
+{
+"z": 45,
+"origins": [
+"Rhodium's single stable isotope, rhodium-103, is made mostly by rapid neutron capture.",
+"It is one of the rarest stable elements in Earth's crust, found with platinum and nickel ores.",
+"South Africa supplies most of the world's rhodium as a byproduct of platinum mining.",
+"William Hyde Wollaston discovered it in 1803 and named it for the rose color of its salts."
+],
+"uses": [
+"Catalytic converters use rhodium to break down nitrogen oxides in car exhaust; this is its largest use.",
+"Rhodium catalysts help make chemicals such as acetic acid and the aldehydes used in plastics.",
+"Rhodium plating gives white gold jewelry a bright, durable finish.",
+"Platinum-rhodium alloys make thermocouples and the bushings used to spin glass fiber."
+]
+},
+{
+"z": 46,
+"origins": [
+"Palladium is made by slow and rapid neutron capture, and meteorites record its extinct radioactive isotope palladium-107.",
+"It occurs with platinum and nickel ores; Russia and South Africa are the leading producers.",
+"It is refined as a byproduct of nickel mining at Norilsk and platinum mining in the Bushveld Complex.",
+"Wollaston discovered it in 1802 and named it after the newly found asteroid Pallas."
+],
+"uses": [
+"Catalytic converters in gasoline cars use most of the world's palladium.",
+"Multilayer ceramic capacitors and connectors in electronics use palladium.",
+"Dental alloys and white gold jewelry contain palladium.",
+"Palladium-catalyzed coupling reactions, honored by the 2010 Nobel Prize in Chemistry, help make many drugs.",
+"Palladium absorbs large amounts of hydrogen and is used to purify it."
+]
+},
+{
+"z": 47,
+"origins": [
+"Silver is produced mostly by rapid neutron capture, though its exact cosmic sources are still debated.",
+"It occurs as native silver and in sulfide minerals, often alongside lead, zinc, copper and gold ores.",
+"Mexico is the largest producer, followed by China and Peru.",
+"Most silver is recovered as a byproduct of mining other metals and refined by electrolysis."
+],
+"uses": [
+"Silver paste forms the electrical contacts on most solar cells, now a leading use.",
+"Electronics use silver in contacts, switches and conductive inks because it conducts best of all metals.",
+"Jewelry, silverware, coins and bullion remain major uses.",
+"Silver compounds kill bacteria and are used in wound dressings and water filters.",
+"Historical: film photography consumed huge amounts of silver before digital cameras took over."
+]
+},
+{
+"z": 48,
+"origins": [
+"Cadmium is built largely by slow neutron capture in aging giant stars.",
+"It occurs in small amounts in zinc ores, and greenockite is its only notable mineral.",
+"It is recovered almost entirely as a byproduct of zinc refining.",
+"Friedrich Stromeyer discovered it in 1817 as an impurity in zinc carbonate."
+],
+"uses": [
+"Cadmium telluride thin-film solar panels are made on a large scale.",
+"Nickel-cadmium rechargeable batteries were long its main use but are being phased out.",
+"Cadmium pigments give bright yellows, oranges and reds to artists' paints and plastics.",
+"Cadmium absorbs neutrons and is used in some nuclear reactor control rods.",
+"Cadmium plating protects steel aircraft parts from corrosion."
+]
+},
+{
+"z": 49,
+"origins": [
+"Indium comes from neutron capture in stars, and most natural indium is the extremely slowly decaying indium-115.",
+"It occurs in trace amounts in zinc sulfide ores.",
+"It is recovered as a byproduct of zinc refining, and China is the leading producer, followed by South Korea.",
+"Ferdinand Reich and Theodor Richter discovered it in 1863 from its indigo spectral line."
+],
+"uses": [
+"Indium tin oxide forms the transparent conducting layer in touchscreens and flat-panel displays.",
+"Indium solders and alloys bond at low temperatures and seal cryogenic equipment.",
+"Indium phosphide lasers and detectors carry signals in fiber optic networks.",
+"Copper indium gallium selenide makes thin-film solar cells."
+]
+},
+{
+"z": 50,
+"origins": [
+"Tin is built by neutron capture in stars and has ten stable isotopes, more than any other element.",
+"Its main ore is cassiterite, tin oxide, often found in river gravels.",
+"China, Indonesia and Myanmar are leading producers.",
+"Cassiterite is smelted with carbon to make tin metal."
+],
+"uses": [
+"Solder for joining electronic components is the largest use of tin.",
+"Tinplate coats steel food cans to prevent corrosion.",
+"Tin compounds stabilize PVC plastic and act as industrial catalysts.",
+"Molten tin is the bath on which float glass is formed into flat window panes.",
+"Bronze, an alloy of copper and tin, gave its name to the Bronze Age."
+]
+},
+{
+"z": 51,
+"origins": [
+"Antimony comes from a blend of slow neutron capture in giant stars and rapid capture in explosive events.",
+"Its main ore is stibnite, antimony sulfide.",
+"China produces about half of the world's antimony, with Russia and Tajikistan also significant.",
+"Stibnite is roasted to an oxide and reduced with carbon, or melted and reduced with iron."
+],
+"uses": [
+"Antimony trioxide boosts halogenated flame retardants in plastics and textiles.",
+"Antimony hardens lead in car batteries, bullets and cable sheathing.",
+"Antimony compounds catalyze the production of PET plastic for bottles.",
+"Antimony is added to some glass to remove bubbles, including in solar panel cover glass.",
+"Historical: ancient peoples used powdered stibnite as a black eye cosmetic."
+]
+},
+{
+"z": 52,
+"origins": [
+"Tellurium is made mostly by rapid neutron capture, and astronomers detected it in a neutron star merger in 2023.",
+"It is one of the rarest stable elements in Earth's crust and is sometimes found in gold telluride minerals.",
+"Most tellurium is recovered from anode slimes in copper refining, and China is the leading producer."
+],
+"uses": [
+"Cadmium telluride solar panels are now a leading use.",
+"Bismuth telluride thermoelectric devices turn heat into electricity or cool small devices.",
+"Small tellurium additions make steel and copper easier to machine.",
+"Tellurium compounds have been used in rewritable optical discs and rubber vulcanization."
+]
+},
+{
+"z": 53,
+"origins": [
+"Iodine is made mainly by rapid neutron capture in neutron star mergers and supernovae.",
+"It is found in seawater, seaweed, underground brines and as iodate in Chile's nitrate deposits.",
+"Chile produces most of the world's iodine, with Japan second from natural gas brines.",
+"Bernard Courtois discovered it in 1811 in seaweed ash."
+],
+"uses": [
+"Iodine-based contrast agents make blood vessels and organs visible in X-ray and CT scans.",
+"Iodized salt prevents iodine deficiency, which can cause goiter and impaired brain development.",
+"Iodine solutions and povidone-iodine disinfect skin and wounds.",
+"Radioactive iodine-131 treats thyroid cancer and an overactive thyroid.",
+"Iodine is used in LCD polarizing films and as an industrial catalyst."
+]
+},
+{
+"z": 54,
+"origins": [
+"Xenon's nine natural isotopes come from slow and rapid neutron capture, plus rare proton-rich processes.",
+"It is very rare in the atmosphere, less than a tenth of a part per million.",
+"It is extracted from liquid air in large air separation plants.",
+"Some xenon isotopes come from decay of iodine and plutonium, helping date events in the early solar system."
+],
+"uses": [
+"Xenon ion thrusters propel many satellites and deep-space probes.",
+"Xenon arc lamps make bright white light for cinema projectors and some car headlights.",
+"Xenon can act as a general anesthetic with few side effects, though cost limits its use.",
+"Large tanks of liquid xenon serve as dark matter detectors deep underground."
+]
+},
+{
+"z": 55,
+"origins": [
+"Cesium's only stable isotope, cesium-133, is made mostly by rapid neutron capture.",
+"Its main ore is pollucite, mined chiefly at the Tanco mine in Manitoba, Canada, and in Zimbabwe and Australia.",
+"Pollucite is processed into cesium salts, and the metal is made by reducing them.",
+"Bunsen and Kirchhoff discovered it in 1860 in mineral water from its blue spectral lines."
+],
+"uses": [
+"Cesium formate brine is a dense, low-toxicity drilling fluid for high-pressure oil and gas wells.",
+"Cesium atomic clocks define the second as 9,192,631,770 oscillations of cesium-133.",
+"Cesium-137 is used in industrial gauges, well logging and some radiation therapy devices.",
+"Cesium compounds are used in photoelectric cells and specialty glass."
+]
+},
+{
+"z": 56,
+"origins": [
+"Barium is made mostly by slow neutron capture, and so-called barium stars inherited extra barium from giant companions.",
+"Its main mineral is barite, barium sulfate; China and India are leading producers.",
+"Barite is mostly mined and ground for direct use, and other barium compounds are made by reducing it with carbon."
+],
+"uses": [
+"Ground barite weights drilling mud to control pressure in oil and gas wells, its dominant use.",
+"Barium sulfate coats the digestive tract so it shows up in X-ray examinations.",
+"Barium compounds give fireworks a green color.",
+"Barium titanate is the dielectric in many ceramic capacitors.",
+"Barium ferrite makes cheap permanent magnets and has been used in magnetic stripe cards."
+]
+},
+{
+"z": 57,
+"origins": [
+"Lanthanum builds up mostly through slow neutron capture in aging giant stars.",
+"It is a light rare earth element found in bastnäsite and monazite.",
+"China produces most rare earths, and Bayan Obo in Inner Mongolia is the largest deposit.",
+"Rare earths are separated from each other by many stages of solvent extraction."
+],
+"uses": [
+"Lanthanum catalysts help crack crude oil into gasoline in refineries.",
+"Nickel-metal hydride batteries in hybrid cars use lanthanum-rich alloys.",
+"Lanthanum oxide makes high-refractive-index glass for camera lenses.",
+"Lanthanum carbonate is a drug that controls high phosphate levels in kidney disease.",
+"Lanthanum hexaboride cathodes emit electrons in electron microscopes."
+]
+},
+{
+"z": 58,
+"origins": [
+"Cerium is made mainly by slow neutron capture, near an abundance peak at the magic neutron number 82.",
+"It is the most abundant rare earth element, about as common in the crust as copper.",
+"It is extracted from bastnäsite and monazite, mostly in China.",
+"Cerium is easily separated from other rare earths because it can be oxidized to the +4 state."
+],
+"uses": [
+"Cerium oxide polishes glass, lenses, mirrors and silicon wafers.",
+"Catalytic converters use cerium oxide to store and release oxygen.",
+"Ferrocerium sparks in lighter flints and camping fire starters.",
+"Cerium oxide decolorizes glass and blocks ultraviolet light."
+]
+},
+{
+"z": 59,
+"origins": [
+"Praseodymium's single stable isotope comes from a mix of slow and rapid neutron capture.",
+"It occurs in bastnäsite and monazite with other light rare earths, and China dominates its mining and separation.",
+"Carl Auer von Welsbach split it from neodymium in 1885, from a supposed element called didymium."
+],
+"uses": [
+"Praseodymium is blended with neodymium in strong neodymium-iron-boron magnets.",
+"Praseodymium gives glass and ceramic glazes a yellow color.",
+"Didymium glass in welders' and glassblowers' goggles filters out the bright yellow glare of hot glass."
+]
+},
+{
+"z": 60,
+"origins": [
+"Neodymium forms by neutron capture in stars, and some neodymium-143 comes from the decay of samarium-147.",
+"It is concentrated in bastnäsite, monazite and ion-adsorption clays.",
+"China mines and refines most neodymium, with the United States, Australia and Myanmar also producing it.",
+"Purified neodymium oxide is reduced to metal by molten salt electrolysis."
+],
+"uses": [
+"Neodymium magnets power electric vehicle motors, wind turbines, hard drives and earbuds.",
+"Neodymium-doped YAG lasers cut metal, treat eyes and remove tattoos.",
+"Neodymium gives glass a violet tint and is used in some lamp bulbs to improve color."
+]
+},
+{
+"z": 61,
+"origins": [
+"Promethium has no stable isotopes, so almost none survives in nature.",
+"Minute traces form in uranium ores through spontaneous fission.",
+"It was identified in 1945 at Oak Ridge among the fission products of a nuclear reactor.",
+"Promethium-147 is obtained from spent nuclear fuel or by irradiating neodymium with neutrons."
+],
+"uses": [
+"Promethium-147 serves as a beta source in industrial thickness gauges and research.",
+"Historical: promethium-based luminous paint replaced radium on some watch dials and switches.",
+"Historical: promethium betavoltaic batteries powered some early pacemakers."
+]
+},
+{
+"z": 62,
+"origins": [
+"Samarium is made mostly by rapid neutron capture, with a smaller share from giant stars.",
+"It is extracted from monazite and bastnäsite, mainly in China.",
+"It is named after the mineral samarskite, which honors a Russian mining official.",
+"Paul-Émile Lecoq de Boisbaudran discovered it in 1879."
+],
+"uses": [
+"Samarium-cobalt magnets stay strong at high temperatures in aerospace and military motors.",
+"Samarium-153 relieves pain from cancer that has spread to bone.",
+"Samarium iodide is a widely used reducing agent in organic chemistry labs.",
+"The slow decay of samarium-147 to neodymium-143 dates ancient rocks and meteorites."
+]
+},
+{
+"z": 63,
+"origins": [
+"Europium is made almost entirely by rapid neutron capture, so astronomers use it to track that process in old stars.",
+"It occurs in bastnäsite and monazite and is one of the scarcer rare earths.",
+"Unlike most rare earths it readily takes a +2 charge, which makes it easier to separate.",
+"Eugène-Anatole Demarçay isolated it in 1901 and named it after Europe."
+],
+"uses": [
+"Europium phosphors made the red in color TV screens and fluorescent lamps.",
+"Europium fluorescence provides anti-counterfeiting marks on euro banknotes.",
+"Europium-doped strontium aluminate is the active ingredient in many glow-in-the-dark products.",
+"Europium absorbs neutrons and has been used in reactor control rods."
+]
+},
+{
+"z": 64,
+"origins": [
+"Gadolinium comes mainly from rapid neutron capture in events such as neutron star mergers.",
+"It is extracted from monazite, bastnäsite and ion-adsorption clays.",
+"It is named after the mineral gadolinite, which honors Finnish chemist Johan Gadolin.",
+"Jean Charles Galissard de Marignac detected it in 1880."
+],
+"uses": [
+"Gadolinium contrast agents sharpen MRI scans of blood vessels and tumors.",
+"Gadolinium captures neutrons extremely well, so it is mixed into reactor fuel as a burnable poison.",
+"Gadolinium compounds are used in X-ray imaging screens.",
+"Gadolinium added to the Super-Kamiokande water detector helps it spot neutrinos."
+]
+},
+{
+"z": 65,
+"origins": [
+"Terbium, with just one stable isotope, is made almost entirely by rapid neutron capture.",
+"It is extracted mainly from ion-adsorption clays in southern China and from xenotime.",
+"Carl Gustaf Mosander discovered it in 1843 and named it after Ytterby, Sweden."
+],
+"uses": [
+"Terbium is added to neodymium magnets to keep them strong at high temperatures in electric vehicle motors.",
+"Terbium phosphors produce green light in fluorescent lamps and displays.",
+"Terfenol-D, an alloy of terbium, dysprosium and iron, changes shape in a magnetic field for sonar and actuators."
+]
+},
+{
+"z": 66,
+"origins": [
+"Dysprosium is made mainly by rapid neutron capture, with a modest contribution from giant stars.",
+"It is mined mainly from ion-adsorption clays in southern China and Myanmar.",
+"Lecoq de Boisbaudran identified it in 1886, but pure samples were made only in the 1950s.",
+"Its name comes from a Greek word meaning hard to get at."
+],
+"uses": [
+"Dysprosium raises the heat tolerance of neodymium magnets in wind turbines and electric vehicles.",
+"Dysprosium iodide in metal halide lamps gives intense light for film and stage lighting.",
+"Dysprosium oxide absorbs neutrons in some reactor control rods."
+]
+},
+{
+"z": 67,
+"origins": [
+"Holmium-165, its only stable isotope, comes overwhelmingly from rapid neutron capture.",
+"It is extracted in small amounts from monazite, xenotime and ion-adsorption clays.",
+"Per Teodor Cleve isolated its oxide in 1879 and named it after Holmia, the Latin name for Stockholm."
+],
+"uses": [
+"Holmium-doped YAG lasers break up kidney stones and treat enlarged prostates.",
+"Holmium has an exceptionally high magnetic moment and is used in pole pieces that concentrate strong magnetic fields.",
+"Holmium oxide glass and solutions are standards for calibrating spectrophotometers.",
+"Holmium tints cubic zirconia and glass yellow or red."
+]
+},
+{
+"z": 68,
+"origins": [
+"Erbium is forged mostly by rapid neutron capture in violent events such as neutron star mergers.",
+"Its sources include xenotime and euxenite, and it is separated along with other heavy rare earths.",
+"Carl Gustaf Mosander discovered it in 1843 in ore from Ytterby, Sweden."
+],
+"uses": [
+"Erbium-doped fiber amplifiers boost signals in long-distance optical fiber cables, including undersea links.",
+"Erbium lasers are used in dermatology and dentistry.",
+"Erbium oxide gives glass, glazes and some sunglasses a pink color."
+]
+},
+{
+"z": 69,
+"origins": [
+"Thulium, made mostly by rapid neutron capture, is one of the least abundant rare earths.",
+"It occurs in monazite, xenotime and ion-adsorption clays, mostly processed in China.",
+"Per Teodor Cleve discovered it in 1879 and named it after Thule, a legendary far-northern land."
+],
+"uses": [
+"Thulium fiber lasers are used in surgery, including treatment of kidney stones and prostate disease.",
+"Thulium-170 made in reactors serves as a portable X-ray source."
+]
+},
+{
+"z": 70,
+"origins": [
+"Ytterbium comes from a mix of slow neutron capture in giant stars and rapid capture in explosive events.",
+"It is separated from heavy rare earth concentrates, mainly from Chinese ion-adsorption clays.",
+"Jean Charles Galissard de Marignac discovered it in 1878 and named it after Ytterby."
+],
+"uses": [
+"Ytterbium optical lattice clocks are among the most precise clocks ever built.",
+"Ytterbium-doped fiber lasers cut and weld metal in factories.",
+"Ytterbium ions are used as qubits in some trapped-ion quantum computers.",
+"Ytterbium-169 is a gamma-ray source for portable radiography."
+]
+},
+{
+"z": 71,
+"origins": [
+"Lutetium is one of the rarest rare earths, and its isotope lutetium-176 forms only by slow neutron capture.",
+"It is recovered in small amounts from monazite and xenotime ores.",
+"Georges Urbain discovered it in 1907 and named it after Lutetia, the Latin name for Paris."
+],
+"uses": [
+"Lutetium-177 linked to targeting molecules treats advanced prostate cancer and neuroendocrine tumors.",
+"Lutetium-based scintillator crystals detect gamma rays in PET scanners.",
+"Lutetium-hafnium dating measures the ages of rocks and meteorites."
+]
+},
+{
+"z": 72,
+"origins": [
+"Hafnium is made largely by slow neutron capture, and extinct hafnium-182 records when Earth's core formed.",
+"It always occurs with zirconium, typically a few percent of the zirconium in zircon.",
+"It is a byproduct of making nuclear-grade zirconium, which must be hafnium-free.",
+"Dirk Coster and George de Hevesy discovered it in 1923 and named it after Hafnia, Latin for Copenhagen."
+],
+"uses": [
+"Hafnium absorbs neutrons and is used in control rods, especially in naval reactors.",
+"Hafnium oxide is the gate insulator in modern transistors.",
+"Small amounts of hafnium strengthen nickel superalloys in jet engines.",
+"Plasma cutting torches use hafnium electrode tips."
+]
+},
+{
+"z": 73,
+"origins": [
+"Tantalum is made by neutron capture, and its rare isotope tantalum-180m is a nuclear isomer never seen to decay.",
+"Its main ore is tantalite, part of the mineral series traded as coltan.",
+"The Democratic Republic of the Congo and Rwanda produce much of the world's tantalum, with Brazil also significant.",
+"Ore is dissolved in hydrofluoric acid, purified by solvent extraction, and reduced with sodium."
+],
+"uses": [
+"Tantalum capacitors are small and reliable, used in phones, computers and car electronics.",
+"Tantalum strengthens superalloys for jet engines and gas turbines.",
+"Its corrosion resistance suits chemical equipment and surgical implants.",
+"Thin tantalum layers act as diffusion barriers in computer chips."
+]
+},
+{
+"z": 74,
+"origins": [
+"Tungsten builds up through both slow and rapid neutron capture, in giant stars and in explosive events.",
+"Its main ores are wolframite and scheelite.",
+"China produces most of the world's tungsten.",
+"Ores are converted to ammonium paratungstate, and the resulting oxide is reduced with hydrogen to metal powder."
+],
+"uses": [
+"Tungsten carbide, nearly as hard as diamond, forms drill bits and cutting tools; this is the largest use.",
+"Tungsten has the highest melting point of any metal, ideal for welding electrodes and furnace parts.",
+"Dense tungsten alloys make radiation shielding, balance weights and armor-piercing projectiles.",
+"Historical: tungsten filaments lit incandescent light bulbs for about a century."
+]
+},
+{
+"z": 75,
+"origins": [
+"Rhenium comes mostly from rapid neutron capture, and its isotope rhenium-187 decays very slowly to osmium-187.",
+"It is among the rarest elements in Earth's crust and is recovered from molybdenite in porphyry copper deposits.",
+"Chile is the leading producer.",
+"Walter Noddack, Ida Tacke and Otto Berg discovered it in 1925, the last stable element to be found."
+],
+"uses": [
+"Rhenium-containing nickel superalloys in jet engine turbine blades are its main use.",
+"Platinum-rhenium catalysts produce high-octane gasoline components.",
+"Tungsten-rhenium alloys are used in thermocouples and X-ray tube targets.",
+"Rhenium-osmium dating measures the ages of ores and meteorites."
+]
+},
+{
+"z": 76,
+"origins": [
+"Osmium is made mainly by rapid neutron capture, and some osmium-187 comes from decay of rhenium-187.",
+"It occurs with other platinum group metals in ores and natural alloys such as osmiridium.",
+"It is recovered during platinum and nickel refining.",
+"Smithson Tennant discovered it in 1803; it is the densest naturally occurring element."
+],
+"uses": [
+"Hard osmium alloys tip fountain pen nibs and instrument pivots.",
+"Osmium tetroxide stains fats in tissue for electron microscopy.",
+"Osmium tetroxide is a reagent in organic synthesis, adding two hydroxyl groups across double bonds.",
+"Historical: osmium filaments lit some early electric lamps before tungsten replaced them."
+]
+},
+{
+"z": 77,
+"origins": [
+"Iridium is made mainly by rapid neutron capture in neutron star mergers and supernovae.",
+"It is extremely rare in Earth's crust because most of it sank into the core.",
+"A worldwide iridium-rich clay layer marks the asteroid impact that ended the age of dinosaurs 66 million years ago.",
+"It is recovered during platinum group metal refining, largely in South Africa."
+],
+"uses": [
+"Iridium oxide catalyzes oxygen production in PEM electrolyzers that make green hydrogen.",
+"Iridium crucibles grow single crystals for electronics and lasers.",
+"Iridium-tipped spark plugs last longer in car engines.",
+"Iridium-192 is a gamma source for industrial radiography and cancer brachytherapy.",
+"Historical: the international prototype meter and kilogram were made of platinum-iridium alloy."
+]
+},
+{
+"z": 78,
+"origins": [
+"Platinum, like gold, comes almost entirely from rapid neutron capture in neutron-rich cosmic explosions.",
+"South Africa's Bushveld Complex supplies most of the world's platinum.",
+"Russia and Zimbabwe are the next largest producers.",
+"Concentrates are smelted and refined chemically, often alongside nickel and copper."
+],
+"uses": [
+"Catalytic converters, especially in diesel vehicles, use the largest share of platinum.",
+"Platinum jewelry is prized for its whiteness and durability.",
+"Platinum catalysts refine oil, make nitric acid and drive fuel cells.",
+"Cisplatin and carboplatin are chemotherapy drugs used against many cancers.",
+"Platinum is used in hard disks, glass fiber production and investment bars."
+]
+},
+{
+"z": 79,
+"origins": [
+"Gold is made by rapid neutron capture, and neutron star mergers are thought to be a major source.",
+"It occurs mostly as native metal in quartz veins and river placers, often in particles too small to see.",
+"China, Russia and Australia are the leading producers.",
+"Ore is usually leached with cyanide solution, then gold is recovered and refined."
+],
+"uses": [
+"Jewelry consumes about half of newly supplied gold.",
+"Central banks and investors hold gold as bars and coins.",
+"Gold plating on connectors and fine gold bonding wires keep electronics reliable.",
+"Thin gold films reflect infrared light on astronaut visors and spacecraft.",
+"Gold nanoparticles produce the colored line in many rapid diagnostic tests, including pregnancy tests."
+]
+},
+{
+"z": 80,
+"origins": [
+"Mercury is made mostly by slow neutron capture in giant stars, with a share from rapid capture.",
+"Its main ore is cinnabar, mercury sulfide; Almadén in Spain was the largest mine in history.",
+"Cinnabar is roasted in air and the mercury vapor is condensed.",
+"China is the leading producer, and much mercury is also recovered from recycled products."
+],
+"uses": [
+"The largest use today is small-scale gold mining, where mercury binds gold but causes serious pollution.",
+"Mercury vapor in fluorescent lamps emits ultraviolet light that phosphors turn into visible light.",
+"Dental amalgam fillings contain mercury, though their use is declining.",
+"Historical: mercury cells produced chlorine and caustic soda; most have been phased out.",
+"Historical: mercury thermometers and barometers were standard for centuries."
+]
+},
+{
+"z": 81,
+"origins": [
+"Thallium is made mostly by slow neutron capture, near the end of the process's path at lead and bismuth.",
+"It occurs in trace amounts in sulfide ores of zinc, lead and copper, and in rare minerals such as lorándite.",
+"It is recovered as a byproduct of roasting zinc and lead sulfide ores.",
+"William Crookes discovered it in 1861 from its bright green spectral line."
+],
+"uses": [
+"Thallium-201 is used in nuclear medicine heart stress tests.",
+"Thallium-doped sodium iodide crystals detect gamma rays.",
+"Thallium compounds are used in some infrared optics and specialty glasses.",
+"Historical: thallium sulfate was a rat poison and insecticide until its toxicity led to bans in many countries."
+]
+},
+{
+"z": 82,
+"origins": [
+"Lead is made by slow neutron capture in giant stars, and it is also the end point of uranium and thorium decay.",
+"Its main ore is galena, lead sulfide, often found with zinc and silver.",
+"China and Australia mine the most lead, but most lead used today comes from recycled batteries.",
+"Galena is roasted and smelted, while old batteries are melted down and refined."
+],
+"uses": [
+"Lead-acid batteries for cars and backup power use most of the world's lead.",
+"Lead shields people from X-rays and gamma rays in hospitals and nuclear facilities.",
+"Lead is used in ammunition, cable sheathing, roofing and weights.",
+"Historical: leaded gasoline and lead paint spread lead widely, harming health before being phased out.",
+"Historical: Romans used lead water pipes, and the word plumbing comes from its Latin name, plumbum."
+]
+},
+{
+"z": 83,
+"origins": [
+"Bismuth is the heaviest element made by slow neutron capture, and it is also made by rapid neutron capture.",
+"Bismuth-209 is radioactive, but its half-life is more than a billion times the age of the universe.",
+"Its main minerals are bismuthinite and native bismuth.",
+"It is mostly a byproduct of lead, tungsten and copper refining, and China is the leading producer."
+],
+"uses": [
+"Bismuth subsalicylate soothes upset stomachs in common over-the-counter remedies.",
+"Bismuth replaces toxic lead in solders, plumbing brass, shot and fishing weights.",
+"Low-melting bismuth alloys trigger fire sprinklers and safety plugs.",
+"Bismuth oxychloride gives cosmetics a pearly shimmer."
+]
+},
+{
+"z": 84,
+"origins": [
+"Polonium forms in the uranium and thorium decay chains, so traces occur in uranium ores.",
+"Marie and Pierre Curie discovered it in 1898 and named it after Poland, Marie's homeland.",
+"It is made in nuclear reactors by bombarding bismuth-209 with neutrons, yielding polonium-210."
+],
+"uses": [
+"Polonium-210 static eliminators remove dust and static charge in industry.",
+"Historical: polonium-beryllium sources supplied neutrons to trigger early atomic bombs.",
+"Historical: polonium-210 heaters kept Soviet Lunokhod moon rovers warm through lunar nights."
+]
+},
+{
+"z": 85,
+"origins": [
+"Astatine is one of the rarest natural elements, formed briefly in uranium and thorium decay chains.",
+"Less than a gram is estimated to exist in Earth's crust at any moment.",
+"It was first made in 1940 at Berkeley by bombarding bismuth-209 with alpha particles, still the main method.",
+"A visible amount has never been gathered, because its own radioactive heat would vaporize it."
+],
+"uses": [
+"Astatine-211 is being tested in targeted alpha therapy for cancer.",
+"Research only: chemists study its poorly understood chemistry, which mixes halogen and metal behavior."
+]
+},
+{
+"z": 86,
+"origins": [
+"Radon forms continuously from the decay of radium in the uranium and thorium decay chains.",
+"It seeps from soil and rock into basements and mines and is a leading cause of lung cancer after smoking.",
+"Its longest-lived isotope, radon-222, has a half-life of about 3.8 days.",
+"Friedrich Ernst Dorn identified it in 1900 as a gas given off by radium."
+],
+"uses": [
+"Radon serves as a natural tracer for studying groundwater flow and air movement.",
+"Historical: radon sealed in tiny gold seeds was implanted to treat tumors."
+]
+},
+{
+"z": 87,
+"origins": [
+"Francium forms fleetingly in the decay chain of uranium-235, and its longest-lived isotope lasts only about 22 minutes.",
+"Marguerite Perey discovered it in 1939 at the Curie Institute in Paris.",
+"Researchers make it by bombarding gold with oxygen ions and catch small clouds of atoms in laser traps.",
+"A weighable amount has never been produced."
+],
+"uses": [
+"Research only: laser-trapped francium atoms test atomic theory and the weak nuclear force."
+]
+},
+{
+"z": 88,
+"origins": [
+"Radium forms in the uranium and thorium decay chains, and radium-226 from uranium-238 is the most common isotope.",
+"Uranium ores hold only about a third of a gram of radium for every metric ton of uranium.",
+"Marie and Pierre Curie discovered it in 1898 in pitchblende, and Marie Curie isolated the metal in 1910."
+],
+"uses": [
+"Radium-223 treats prostate cancer that has spread to bone.",
+"Radium-226 targets are irradiated to produce actinium-225 for cancer therapy.",
+"Historical: radium paint made glowing watch dials, and many dial painters suffered radiation poisoning.",
+"Historical: radium was used in early radiotherapy and sold in dangerous health tonics."
+]
+},
+{
+"z": 89,
+"origins": [
+"Actinium occurs in trace amounts in uranium ores as a decay product of uranium-235.",
+"André-Louis Debierne discovered it in 1899 in residues left after extracting uranium from pitchblende.",
+"Actinium-227 is made by neutron irradiation of radium-226 in reactors.",
+"Actinium-225 is obtained from decaying thorium-229 or made with accelerators."
+],
+"uses": [
+"Actinium-225 is a promising alpha emitter in clinical trials of targeted cancer therapy.",
+"Actinium-beryllium sources have supplied neutrons for well logging and research."
+]
+},
+{
+"z": 90,
+"origins": [
+"Thorium is made by rapid neutron capture, and its 14-billion-year half-life lets astronomers estimate the ages of old stars.",
+"It is about three times as abundant as uranium in the crust and occurs mainly in monazite.",
+"It is recovered as a byproduct of rare earth extraction from monazite sands, notably in India.",
+"Jöns Jacob Berzelius discovered it in 1829 and named it after Thor, the Norse god of thunder."
+],
+"uses": [
+"Thorium is being developed as a nuclear fuel, notably in India's long-term program and molten salt reactors.",
+"Thoriated tungsten electrodes are used in TIG welding.",
+"Thorium oxide has been used in high-temperature ceramics and high-quality camera lenses.",
+"Historical: thorium oxide made gas lantern mantles glow brightly."
+]
+},
+{
+"z": 91,
+"origins": [
+"Protactinium occurs in traces in uranium ores, produced by the decay of uranium-235 and uranium-238.",
+"Its longest-lived isotope, protactinium-231, has a half-life of about 32,800 years.",
+"Otto Hahn and Lise Meitner identified protactinium-231 in 1918.",
+"In 1961 British chemists extracted about 125 grams from some 60 metric tons of uranium processing waste."
+],
+"uses": [
+"Research only: comparing protactinium-231 with thorium-230 in ocean sediments reveals past ocean circulation.",
+"Research only: protactinium-233 is a step in the thorium fuel cycle, decaying to fissile uranium-233."
+]
+},
+{
+"z": 92,
+"origins": [
+"Uranium is made by rapid neutron capture in neutron star mergers and possibly rare supernovae.",
+"Its main ore is uraninite, also called pitchblende, and uranium is dissolved in small amounts in seawater.",
+"Kazakhstan is the largest producer, followed by Canada, Namibia and Australia.",
+"Much uranium is extracted by in-situ leaching and concentrated into a powder called yellowcake."
+],
+"uses": [
+"Enriched uranium fuels nuclear power plants, which generate about a tenth of the world's electricity.",
+"Highly enriched uranium powers naval reactors and is used in nuclear weapons.",
+"Depleted uranium is used in armor-piercing ammunition, tank armor and aircraft counterweights.",
+"Uranium-lead dating gives the ages of the oldest rocks and of Earth itself.",
+"Historical: uranium oxides gave glass and ceramic glazes a yellow-green color."
+]
+},
+{
+"z": 93,
+"origins": [
+"Tiny traces of neptunium form in uranium ores when uranium-238 captures neutrons.",
+"Edwin McMillan and Philip Abelson first made it in 1940 at Berkeley by bombarding uranium with neutrons.",
+"Kilogram quantities build up in spent nuclear fuel and can be separated during reprocessing."
+],
+"uses": [
+"Neptunium-237 is irradiated in reactors to produce plutonium-238 for spacecraft power.",
+"Research only: neptunium-237 is studied as a long-lived and mobile part of nuclear waste."
+]
+},
+{
+"z": 94,
+"origins": [
+"Trace plutonium forms in uranium ores through neutron capture.",
+"Glenn Seaborg's team first made it in 1940 at Berkeley by bombarding uranium-238 with deuterons.",
+"Plutonium-239 builds up in reactors when uranium-238 absorbs neutrons, and many tons exist in spent fuel.",
+"Reprocessing separates plutonium chemically from spent fuel."
+],
+"uses": [
+"Plutonium-239 is the fissile core of most nuclear weapons.",
+"Mixed oxide fuel recycles plutonium in some nuclear power reactors.",
+"Plutonium-238 generators power deep-space probes and the Mars rovers Curiosity and Perseverance.",
+"Historical: some early pacemakers ran on plutonium-238 batteries."
+]
+},
+{
+"z": 95,
+"origins": [
+"Americium is produced in reactors when plutonium absorbs neutrons and then decays.",
+"Glenn Seaborg's team first identified it in 1944 at the University of Chicago's Metallurgical Laboratory.",
+"Americium-241 builds up in stored plutonium from the decay of plutonium-241 and is separated chemically."
+],
+"uses": [
+"Tiny amounts of americium-241 ionize the air in household smoke detectors.",
+"Americium-beryllium sources supply neutrons for oil well logging and soil moisture gauges.",
+"Americium-241 is being developed as a long-lived heat source for European space missions."
+]
+},
+{
+"z": 96,
+"origins": [
+"Curium is made in reactors by repeated neutron capture in plutonium and americium.",
+"Glenn Seaborg, Ralph James and Albert Ghiorso first made it in 1944 by bombarding plutonium-239 with alpha particles.",
+"It was named after Marie and Pierre Curie."
+],
+"uses": [
+"Curium-244 provides the alpha particles in X-ray spectrometers on Mars rovers.",
+"Curium-248 targets bombarded with calcium-48 were used to create livermorium."
+]
+},
+{
+"z": 97,
+"origins": [
+"Berkelium is made in high-flux reactors by long neutron irradiation of curium.",
+"Stanley Thompson, Albert Ghiorso and Glenn Seaborg first made it in 1949 at Berkeley by bombarding americium-241 with alpha particles.",
+"Only milligram amounts exist, mostly produced at Oak Ridge's High Flux Isotope Reactor."
+],
+"uses": [
+"Berkelium-249 targets bombarded with calcium-48 created tennessine.",
+"Research only: chemists study its compounds to understand how heavy actinides form bonds."
+]
+},
+{
+"z": 98,
+"origins": [
+"Californium is made by prolonged neutron irradiation of curium and plutonium in high-flux reactors.",
+"It was first made in 1950 at Berkeley by bombarding curium-242 with alpha particles.",
+"Oak Ridge's High Flux Isotope Reactor produces most of the world's small supply."
+],
+"uses": [
+"Californium-252 is an intense neutron source used to start up nuclear reactors.",
+"Its neutrons are used in oil well logging, moisture gauges and scanners that detect explosives.",
+"Californium-249 targets bombarded with calcium-48 produced oganesson."
+]
+},
+{
+"z": 99,
+"origins": [
+"Einsteinium was discovered in debris from Ivy Mike, the first hydrogen bomb test, in 1952.",
+"In the blast, uranium captured many neutrons almost instantly, briefly mimicking the rapid neutron-capture process.",
+"It is now made in tiny amounts in high-flux reactors by irradiating lighter actinides.",
+"It was named after Albert Einstein."
+],
+"uses": [
+"Research only: einsteinium-253 targets were used in 1955 to make the first atoms of mendelevium.",
+"Research only: microgram samples let scientists measure basic chemical properties such as its bond lengths."
+]
+},
+{
+"z": 100,
+"origins": [
+"Fermium was found alongside einsteinium in the debris of the 1952 Ivy Mike test.",
+"It is the heaviest element that can be made by neutron capture in reactors, and only in tiny amounts.",
+"Fermium-258 fissions spontaneously in a fraction of a millisecond, blocking further neutron capture.",
+"It was named after Enrico Fermi."
+],
+"uses": [
+"Research only: its isotopes help physicists understand how very heavy nuclei split."
+]
+},
+{
+"z": 101,
+"origins": [
+"Mendelevium was first made in 1955 at Berkeley by bombarding einsteinium-253 with alpha particles.",
+"The discovery experiments detected only 17 atoms.",
+"It is still made in accelerators a few atoms at a time.",
+"It is named after Dmitri Mendeleev, creator of the periodic table."
+],
+"uses": [
+"Research only: chemists probe its chemistry one atom at a time, including its +2 oxidation state."
+]
+},
+{
+"z": 102,
+"origins": [
+"Nobelium's discovery was disputed for years; Soviet scientists at Dubna are credited with conclusive work in the 1960s.",
+"It is commonly made today by bombarding lead-208 with calcium-48 ions.",
+"It is named after Alfred Nobel."
+],
+"uses": [
+"Research only: laser spectroscopy of single nobelium atoms tests theories of how electrons behave in heavy atoms."
+]
+},
+{
+"z": 103,
+"origins": [
+"Lawrencium was first reported in 1961 at Berkeley by bombarding californium with boron ions.",
+"It is made atom by atom in accelerators.",
+"It is named after Ernest Lawrence, inventor of the cyclotron."
+],
+"uses": [
+"Research only: measuring its ionization energy in 2015 helped settle debates about its place in the periodic table."
+]
+},
+{
+"z": 104,
+"origins": [
+"Rutherfordium was claimed by Dubna in 1964 and by Berkeley in 1969, which bombarded californium-249 with carbon-12.",
+"It is made atom by atom by fusing heavy targets with beams of lighter ions.",
+"It is named after Ernest Rutherford."
+],
+"uses": [
+"Research only: single-atom chemistry experiments show it behaves much like hafnium and zirconium."
+]
+},
+{
+"z": 105,
+"origins": [
+"Dubnium was made between 1968 and 1970 at Dubna and Berkeley, using americium and californium targets.",
+"Its longest-lived isotopes last for hours, unusually long for a superheavy element.",
+"It is named after Dubna, Russia, home of the Joint Institute for Nuclear Research."
+],
+"uses": [
+"Research only: chemists compare it with niobium and tantalum to test how relativity alters chemistry."
+]
+},
+{
+"z": 106,
+"origins": [
+"Seaborgium was first made in 1974 at Berkeley by bombarding californium-249 with oxygen-18.",
+"Only a few atoms are made at a time in accelerators.",
+"It is named after Glenn Seaborg, who was alive when the name was chosen."
+],
+"uses": [
+"Research only: experiments show seaborgium forms compounds similar to those of tungsten."
+]
+},
+{
+"z": 107,
+"origins": [
+"Bohrium was first made in 1981 at GSI in Darmstadt, Germany, by bombarding bismuth-209 with chromium-54.",
+"Only small numbers of atoms have ever been made.",
+"It is named after Niels Bohr."
+],
+"uses": [
+"Research only: gas-phase studies of bohrium oxychloride show it behaves like rhenium."
+]
+},
+{
+"z": 108,
+"origins": [
+"Hassium was first made in 1984 at GSI by bombarding lead-208 with iron-58.",
+"It is produced only a few atoms at a time.",
+"It is named after the German state of Hesse, home of GSI."
+],
+"uses": [
+"Research only: experiments in 2001 made hassium tetroxide, confirming it as a heavier relative of osmium."
+]
+},
+{
+"z": 109,
+"origins": [
+"Meitnerium was first made in 1982 at GSI by bombarding bismuth-209 with iron-58, yielding a single atom.",
+"Few atoms have been made since, and its chemistry has never been studied.",
+"It is named after Lise Meitner, who helped explain nuclear fission."
+],
+"uses": [
+"Research only: its short-lived isotopes help map the stability of superheavy nuclei."
+]
+},
+{
+"z": 110,
+"origins": [
+"Darmstadtium was first made in 1994 at GSI by bombarding lead-208 with nickel-62.",
+"Its known isotopes decay within seconds or less.",
+"It is named after Darmstadt, the German city where GSI is located."
+],
+"uses": [
+"Research only: physicists study its decay chains to understand the structure of superheavy nuclei."
+]
+},
+{
+"z": 111,
+"origins": [
+"Roentgenium was first made in 1994 at GSI by bombarding bismuth-209 with nickel-64.",
+"Heavier, longer-lived isotopes appear in the decay chains of elements made at Dubna.",
+"It is named after Wilhelm Röntgen, discoverer of X-rays."
+],
+"uses": [
+"Research only: theory predicts a gold-like metal whose properties are strongly shaped by relativity."
+]
+},
+{
+"z": 112,
+"origins": [
+"Copernicium was first made in 1996 at GSI by bombarding lead-208 with zinc-70.",
+"Heavier isotopes made through calcium-48 reactions last up to about half a minute.",
+"It is named after Nicolaus Copernicus."
+],
+"uses": [
+"Research only: one-atom chemistry suggests it is a very volatile metal, possibly liquid near room temperature."
+]
+},
+{
+"z": 113,
+"origins": [
+"Nihonium was first created at RIKEN in Japan by bombarding bismuth-209 with zinc-70, starting in 2003.",
+"RIKEN detected only three atoms over nine years of experiments.",
+"Dubna also observed it as a decay product of moscovium.",
+"It is named after Nihon, a Japanese name for Japan, and is the first element discovered in Asia."
+],
+"uses": [
+"Research only: chemists are beginning to compare its behavior with thallium, its lighter relative."
+]
+},
+{
+"z": 114,
+"origins": [
+"Flerovium was first made around 1999 at Dubna by bombarding plutonium-244 with calcium-48.",
+"Its isotopes lie near the predicted island of stability and last up to a few seconds.",
+"It is named after the Flerov Laboratory of Nuclear Reactions, which honors Georgy Flerov."
+],
+"uses": [
+"Research only: experiments test whether it behaves like a volatile metal or nearly like a noble gas."
+]
+},
+{
+"z": 115,
+"origins": [
+"Moscovium was first reported in 2004 by Dubna and Livermore, bombarding americium-243 with calcium-48.",
+"Each atom lasts well under a second before undergoing alpha decay.",
+"It is named after the Moscow region, home of Dubna."
+],
+"uses": [
+"Research only: moscovium decay chains helped confirm the discovery of nihonium."
+]
+},
+{
+"z": 116,
+"origins": [
+"Livermorium was first made in 2000 at Dubna by bombarding curium-248 with calcium-48.",
+"It is named after Lawrence Livermore National Laboratory, which collaborated with Dubna.",
+"In 2024 Berkeley made it with a titanium-50 beam, a step toward creating element 120."
+],
+"uses": [
+"Research only: its isotopes help map nuclear stability near the island of stability."
+]
+},
+{
+"z": 117,
+"origins": [
+"Tennessine was first made in 2010 at Dubna by bombarding berkelium-249 with calcium-48.",
+"The rare berkelium target was produced at Oak Ridge National Laboratory's High Flux Isotope Reactor in Tennessee.",
+"It is named after Tennessee, home of Oak Ridge, Vanderbilt University and the University of Tennessee."
+],
+"uses": [
+"Research only: its decay chains extend knowledge of the heaviest isotopes and test predictions of nuclear stability."
+]
+},
+{
+"z": 118,
+"origins": [
+"Oganesson was first made at Dubna in 2002 and 2005 by bombarding californium-249 with calcium-48 ions.",
+"Only a handful of atoms have been detected, each decaying in under a millisecond.",
+"It is named after physicist Yuri Oganessian, one of only two people honored by an element while alive.",
+"It is the heaviest known element and sits at the bottom of the noble gas column."
+],
+"uses": [
+"Research only: theory predicts relativistic effects make it a reactive solid, unlike the other noble gases.",
+"Research only: it completes the seventh row of the periodic table, and searches for elements 119 and 120 continue."
+]
+}
+]
