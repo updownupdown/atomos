@@ -209,6 +209,7 @@ export const PUZZLES: PuzzleType[] = [
     get rules() { return rulesOf(SlideStopV); },
     blurb: 'Swipe and the electron slides until something stops it. Absorb every photon, then stop on the red ring.',
     role: 'Opens each new period of the table.',
+    live: 'Build mode: opens rows 2 to 7 of the table, played on lithium, sodium, potassium, rubidium, cesium and francium.',
     instructions: SLIDESTOP_HOW,
     zRange: [1, 118],
     make: (z, deal, reduced) => new SlideStopView(newSlideStop(z, dealSeed('slideStop', z, deal)), reduced),
