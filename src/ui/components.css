@@ -1,4 +1,5 @@
-/* Shared components (see components.ts). Flat: no gradients, hairline borders, Outfit. */
+/* Shared components (see components.ts). Card Table shapes (rounded tiles, pills, bold labels,
+   big targets) in Instrument colours. Flat: no gradients. */
 
 /* ---- Icon buttons ---- */
 .ui-icon-btn {
@@ -10,28 +11,29 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid var(--c-line-2);
-  border-radius: var(--r-pill);
-  background: transparent;
+  border: 0;
+  border-radius: var(--r-md);
+  background: var(--c-surface-2);
   color: var(--c-text);
-  transition: border-color var(--dur-fast), background-color var(--dur-fast), color var(--dur-fast);
+  transition: background-color var(--dur-fast), color var(--dur-fast), transform var(--dur-fast);
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
   user-select: none;
   -webkit-user-select: none;
 }
 .ui-icon-btn svg { width: 24px; height: 24px; display: block; }
-.ui-icon-btn:hover { border-color: var(--c-line-3); }
-.ui-icon-btn:active { background: rgba(226, 220, 207, 0.08); }
-.ui-icon-btn:disabled { opacity: 0.35; cursor: default; }
-.ui-icon-btn[aria-pressed='true'] { background: var(--c-text); color: var(--c-bg); border-color: var(--c-text); }
-.ui-icon-btn--ghost { border-color: transparent; }
-.ui-icon-btn--ghost:hover { border-color: var(--c-line); }
+.ui-icon-btn:hover { background: var(--c-surface-3); }
+.ui-icon-btn:active, .ui-icon-btn.is-holding { transform: scale(0.94); }
+.ui-icon-btn:disabled { opacity: 0.35; cursor: default; transform: none; }
+.ui-icon-btn[aria-pressed='true'] { background: var(--c-tile); color: var(--c-tile-ink); }
+.ui-icon-btn--ghost { background: transparent; }
+.ui-icon-btn--ghost:hover { background: var(--c-surface-2); }
 .ui-icon-btn:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
+.ui-hold.is-holding { background: var(--c-surface-3); color: var(--c-accent); }
 
 /* The X in a modal or panel corner. */
-.ui-close { position: absolute; top: var(--sp-2); right: var(--sp-2); z-index: 1; color: var(--c-text-2); }
-.ui-close:hover { color: var(--c-text); }
+.ui-close { position: absolute; top: var(--sp-3); right: var(--sp-3); z-index: 1; background: var(--c-surface-2); border-radius: 50%; color: var(--c-text); }
+.ui-close:hover { background: var(--c-surface-3); }
 
 /* ---- Modal frame: the card floats with the page visible all round it ---- */
 .ui-modal {
@@ -60,18 +62,18 @@
   animation: ui-rise var(--dur) var(--ease);
 }
 /* Room for the X beside a heading at the top of the card. */
-.ui-modal-card > h2:first-of-type, .ui-modal-card > .ui-modal-head { padding-right: 40px; }
+.ui-modal-card > h2:first-of-type, .ui-modal-card > .ui-modal-head { padding-right: 52px; }
 @keyframes ui-fade { from { opacity: 0; } }
 @keyframes ui-rise { from { opacity: 0; transform: translateY(8px) scale(0.99); } }
 
-/* ---- Tabs ---- */
+/* ---- Tabs: a row of pills; the active one is a light tile ---- */
 .ui-tabs {
   position: relative;
   display: flex;
   gap: var(--sp-1);
   overflow-x: auto;
   scrollbar-width: none;
-  border-bottom: 1px solid var(--c-line);
+  padding: 2px 0;
 }
 .ui-tabs::-webkit-scrollbar { display: none; }
 .ui-tab {
@@ -79,31 +81,24 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  min-height: var(--hit);
+  min-height: 36px;
   padding: 0 var(--sp-3);
   border: 0;
-  background: transparent;
+  border-radius: var(--r-pill);
+  background: var(--c-surface-2);
   color: var(--c-text-2);
   font-family: var(--font);
   font-size: var(--fs-sm);
-  font-weight: var(--fw-medium);
+  font-weight: var(--fw-semibold);
   white-space: nowrap;
-  transition: color var(--dur-fast);
+  transition: color var(--dur-fast), background-color var(--dur-fast);
 }
 .ui-tab svg { width: 18px; height: 18px; }
 .ui-tab:hover { color: var(--c-text); }
-.ui-tab[aria-selected='true'] { color: var(--c-text); }
-.ui-tab:focus-visible { outline: 2px solid var(--c-accent); outline-offset: -2px; border-radius: var(--r-sm); }
-.ui-tabs-bar {
-  position: absolute;
-  left: 0;
-  bottom: 0;
-  height: 2px;
-  border-radius: 2px;
-  background: var(--c-text);
-  transition: transform var(--dur) var(--ease), width var(--dur) var(--ease);
-  pointer-events: none;
-}
+.ui-tab[aria-selected='true'] { background: var(--c-tile); color: var(--c-tile-ink); }
+.ui-tab:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
+/* The sliding marker isn't drawn in this style; the filled pill marks the active tab. */
+.ui-tabs-bar { display: none; }
 
 /* ---- Switch toggle (a styled checkbox with role=switch) ---- */
 .ui-switch-row {
@@ -116,7 +111,7 @@
   border-bottom: 1px solid var(--c-line);
   cursor: pointer;
 }
-.ui-switch-text { font-size: var(--fs-md); font-weight: var(--fw-medium); }
+.ui-switch-text { font-size: var(--fs-md); font-weight: var(--fw-semibold); }
 .ui-switch-text small { display: block; margin-top: 2px; font-size: var(--fs-sm); font-weight: var(--fw-regular); color: var(--c-text-2); }
 .ui-switch {
   appearance: none;
@@ -127,24 +122,24 @@
   height: 28px;
   margin: 0;
   border-radius: var(--r-pill);
-  border: 1px solid var(--c-line-2);
-  background: transparent;
+  border: 0;
+  background: var(--c-surface-3);
   cursor: pointer;
-  transition: background-color var(--dur), border-color var(--dur);
+  transition: background-color var(--dur);
 }
 .ui-switch::after {
   content: '';
   position: absolute;
-  top: 3px;
-  left: 3px;
+  top: 4px;
+  left: 4px;
   width: 20px;
   height: 20px;
   border-radius: 50%;
   background: var(--c-text-2);
   transition: transform var(--dur) var(--ease), background-color var(--dur);
 }
-.ui-switch:checked { background: var(--c-text); border-color: var(--c-text); }
-.ui-switch:checked::after { transform: translateX(18px); background: var(--c-bg); }
+.ui-switch:checked { background: var(--c-accent); }
+.ui-switch:checked::after { transform: translateX(18px); background: var(--c-accent-ink); }
 .ui-switch:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
 .ui-switch:disabled { opacity: 0.4; cursor: default; }
 
@@ -162,31 +157,31 @@
 }
 .ui-slider-track {
   position: absolute;
-  left: 10px;
-  right: 10px;
+  left: 11px;
+  right: 11px;
   top: 50%;
-  height: 2px;
-  margin-top: -1px;
-  border-radius: 2px;
-  background: var(--c-line-2);
+  height: 6px;
+  margin-top: -3px;
+  border-radius: 3px;
+  background: var(--c-surface-3);
 }
 .ui-slider-fill {
   position: absolute;
   inset: 0 auto 0 0;
   width: calc(var(--t) * 100%);
   border-radius: inherit;
-  background: var(--c-text);
+  background: var(--c-accent);
 }
 .ui-slider-thumb {
   position: absolute;
   top: 50%;
-  left: calc(10px + var(--t) * (100% - 20px));
-  width: 18px;
-  height: 18px;
-  margin: -9px 0 0 -9px;
+  left: calc(11px + var(--t) * (100% - 22px));
+  width: 22px;
+  height: 22px;
+  margin: -11px 0 0 -11px;
   border-radius: 50%;
-  background: var(--c-text);
-  box-shadow: 0 0 0 4px var(--c-bg);
+  background: var(--c-tile);
+  box-shadow: var(--shadow-tile);
   transition: transform var(--dur-fast) var(--ease);
 }
 .ui-slider:focus-visible .ui-slider-thumb { outline: 2px solid var(--c-accent); outline-offset: 3px; }
@@ -210,31 +205,50 @@
 }
 .ui-slider.is-active .ui-slider-bubble, .ui-slider:focus-visible .ui-slider-bubble { opacity: 1; transform: translate(-50%, 0); }
 
-/* ---- Hold to confirm ---- */
-.ui-hold { overflow: visible; }
-.ui-hold-ring { position: absolute; inset: -1px; width: calc(100% + 2px) !important; height: calc(100% + 2px) !important; transform: rotate(-90deg); pointer-events: none; }
-.ui-hold-ring circle { fill: none; stroke: var(--c-accent); stroke-width: 2; stroke-linecap: round; opacity: 0; }
-.ui-hold.is-holding .ui-hold-ring circle, .ui-hold.is-draining .ui-hold-ring circle { opacity: 1; }
-.ui-hold.is-holding { border-color: transparent; }
-.ui-hold.is-done { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); }
-.ui-hold-tip {
-  position: absolute;
-  bottom: calc(100% + 6px);
+/* ---- Toasts: pills at the top of the screen, clear of the thumb ---- */
+.toasts {
+  position: fixed;
+  top: calc(var(--safe-top, 0px) + var(--nav-h, 46px) + var(--sp-2));
   left: 50%;
-  transform: translate(-50%, 4px);
-  padding: 2px 8px;
-  border-radius: var(--r-sm);
-  background: var(--c-text);
-  color: var(--c-bg);
-  font-size: var(--fs-xs);
-  font-weight: var(--fw-semibold);
-  white-space: nowrap;
-  opacity: 0;
+  transform: translateX(-50%);
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-2);
+  width: min(420px, calc(100% - 32px));
   pointer-events: none;
-  transition: opacity var(--dur-fast), transform var(--dur-fast);
 }
-.ui-hold.show-tip .ui-hold-tip { opacity: 1; transform: translate(-50%, 0); }
+.ui-toast {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  max-width: 100%;
+  min-height: var(--hit);
+  padding: var(--sp-2) var(--sp-4);
+  overflow: hidden;
+  border-radius: var(--r-pill);
+  background: var(--c-surface-2);
+  color: var(--c-text);
+  box-shadow: var(--shadow-toast);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+  animation: ui-toast-in var(--dur) var(--ease);
+  transition: opacity var(--dur), transform var(--dur);
+}
+.ui-toast svg { width: 20px; height: 20px; flex: none; }
+.ui-toast--good svg { color: var(--c-good); }
+.ui-toast--warn { box-shadow: var(--shadow-toast), inset 0 0 0 1.5px var(--c-warn); }
+.ui-toast--bad { box-shadow: var(--shadow-toast), inset 0 0 0 1.5px var(--c-bad); }
+.ui-toast.is-leaving { opacity: 0; transform: translateY(-6px); }
+.ui-toast-text { position: relative; }
+/* The progress bar is the whole pill filling from the left, under the text. */
+.ui-toast-bar { position: absolute; inset: 0; }
+.ui-toast-bar i { position: absolute; inset: 0; background: color-mix(in srgb, var(--c-accent) 34%, transparent); transform: scaleX(0); transform-origin: left; }
+.ui-toast--good .ui-toast-bar i { background: color-mix(in srgb, var(--c-good) 34%, transparent); }
+@keyframes ui-toast-in { from { opacity: 0; transform: translateY(-8px); } }
 
 @media (prefers-reduced-motion: reduce) {
-  .ui-modal, .ui-modal-card { animation: none; }
+  .ui-modal, .ui-modal-card, .ui-toast { animation: none; }
 }
