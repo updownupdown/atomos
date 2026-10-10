@@ -1,7 +1,9 @@
-// The loupe: one atom, large, with its fixed scale rings. Drag to turn it in
+// The loupe: one atom, large, at a fixed scale with its reference circles, so
+// stepping from element to element compares them fairly. Drag to turn it in
 // 3D; the arrows step to the neighbouring element and the same atom stays in
 // place while its layers morph. Three looks: the probability cloud, the
-// idealised orbital surfaces, or both.
+// idealised orbital surfaces, or both. The cloud is live: electrons blink in
+// and out at new places, as a probability cloud is meant to be read.
 
 import * as THREE from 'three';
 import { AtomView, type Style } from './atom';
@@ -13,7 +15,6 @@ export class Detail {
   private camera = new THREE.PerspectiveCamera(32, 1, 0.1, 100);
   private spin = new THREE.Group();
   private rings = new THREE.Group();
-  private ringLines: { line: THREE.Line; pm: number }[] = [];
   view: AtomView;
   private width = 1;
   private height = 1;
@@ -26,7 +27,7 @@ export class Detail {
   private style: Style = 'cloud';
   onTap: (() => void) | null = null;
 
-  constructor(private canvas: HTMLCanvasElement, private ringLabels: HTMLElement) {
+  constructor(private canvas: HTMLCanvasElement) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' });
     this.renderer.setPixelRatio(Math.min(2, window.devicePixelRatio));
     this.scene.add(new THREE.AmbientLight(0xffffff, 0.55));
@@ -36,22 +37,24 @@ export class Detail {
     const rim = new THREE.DirectionalLight(0xbcd0ff, 0.5);
     rim.position.set(-4, -2, -5);
     this.scene.add(rim);
-    this.view = new AtomView({ perSlot: 300, shapes: true, pointSize: 1 });
+    this.view = new AtomView({ perSlot: 300, shapes: true, pointSize: 1, live: true });
     this.spin.add(this.view.group);
     this.spin.rotation.x = 0.3;
     this.scene.add(this.spin);
-    for (const r of CLOUD_RINGS) {
-      const line = ring(r.pm / 100, r.style);
-      this.rings.add(line);
-      this.ringLines.push({ line, pm: r.pm });
-    }
+    for (const r of CLOUD_RINGS) this.rings.add(ring(r.pm / 100, r.style));
     this.scene.add(this.rings);
     this.bind();
     new ResizeObserver(() => this.resize()).observe(canvas);
     this.resize();
   }
 
-  setReducedMotion(on: boolean): void { this.reducedMotion = on; }
+  setReducedMotion(on: boolean): void {
+    this.reducedMotion = on;
+    this.view.setLive(!on);
+  }
+
+  /** Show or hide the reference circles drawn round the atom. */
+  setRings(on: boolean): void { this.rings.visible = on; }
 
   setStyle(style: Style): void {
     this.style = style;
@@ -60,8 +63,6 @@ export class Detail {
 
   show(e: Element, animate: boolean): void {
     this.view.setElement(e, animate && !this.reducedMotion);
-    for (const r of this.ringLines) r.line.visible = e.vdw >= r.pm;
-    this.placeRingLabels(e);
   }
 
   setCollected(collected: boolean): void {
@@ -93,23 +94,8 @@ export class Detail {
     this.camera.position.set(0, 0, dist);
     this.camera.lookAt(0, 0, 0);
     this.camera.updateProjectionMatrix();
-    this.view.setPointSize(this.height * this.renderer.getPixelRatio() * 0.11 * (dist / 14));
-    if (this.view.element) this.placeRingLabels(this.view.element);
-  }
-
-  private placeRingLabels(e: Element): void {
-    this.ringLabels.innerHTML = '';
-    const v = new THREE.Vector3();
-    for (const r of this.ringLines) {
-      if (e.vdw < r.pm) continue;
-      const a = -0.6;
-      v.set(Math.cos(a) * (r.pm / 100), Math.sin(a) * (r.pm / 100), 0).project(this.camera);
-      const s = document.createElement('span');
-      s.textContent = `${r.pm} pm`;
-      s.style.left = `${((v.x + 1) / 2) * this.width + 5}px`;
-      s.style.top = `${((1 - v.y) / 2) * this.height}px`;
-      this.ringLabels.appendChild(s);
-    }
+    // Small, crisp electrons: a pixel or two on a phone, whatever the element.
+    this.view.setPointSize(this.height * this.renderer.getPixelRatio() * 0.075 * (dist / 14));
   }
 
   private bind(): void {

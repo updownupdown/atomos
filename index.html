@@ -47,30 +47,17 @@
 
       <section id="loupe-screen" class="loupe-screen" hidden aria-label="One atom, up close">
         <canvas id="loupe" aria-label="The selected atom. Drag to turn it; the arrows below step to the neighbouring elements."></canvas>
-        <div id="ring-labels" class="ring-labels" aria-hidden="true"></div>
-        <header class="loupe-top">
-          <div class="seg style-switch" id="style-switch" role="group" aria-label="How the atom is drawn"></div>
-          <button class="science-btn" id="loupe-science" aria-expanded="false" aria-controls="sheet" aria-label="Open the science of this element"></button>
-        </header>
-        <div class="dec dec-tl" id="dec-top-left" aria-label="Shells, layers, electrons and size"></div>
+        <div class="dec dec-tl" id="dec-top-left" aria-label="Electron configuration, shells, layers, electrons and size"></div>
         <div class="dec dec-tr" id="dec-top-right" aria-label="Isotopes"></div>
-        <footer class="loupe-bottom">
-          <div class="dec dec-shells" id="dec-shells" aria-label="Electron configuration"></div>
-          <div class="name-row">
-            <button class="arrow" id="loupe-prev" aria-label="Previous element">‹</button>
-            <div class="dec-name-row" id="dec-name"></div>
-            <button class="arrow" id="loupe-next" aria-label="Next element">›</button>
-          </div>
-        </footer>
-        <div class="data-sheet" id="sheet" hidden role="dialog" aria-label="Everything about this element">
-          <div class="sheet-head">
-            <h2 id="sheet-title"></h2>
-            <button class="text-btn" id="sheet-build">Build it</button>
-            <button class="icon-btn" id="sheet-close" aria-label="Close">Close</button>
-          </div>
-          <div class="seg sheet-tabs" id="sheet-tabs" role="tablist"></div>
-          <div class="sheet-body" id="sheet-body"></div>
+        <div class="loupe-tools">
+          <div class="scale-legend" id="scale-legend" aria-label="Scale circles round the atom, by diameter"></div>
+          <div class="style-switch" id="style-switch" role="group" aria-label="How the atom is drawn"></div>
         </div>
+        <footer class="loupe-bar">
+          <button class="bar-arrow" id="loupe-prev" aria-label="Previous element"></button>
+          <button class="bar-name" id="dec-name" aria-label="Open the science of this element"></button>
+          <button class="bar-arrow" id="loupe-next" aria-label="Next element"></button>
+        </footer>
       </section>
     </div>
 
@@ -152,5 +139,15 @@
     </div>
     <div class="toasts" id="toasts" aria-live="polite"></div>
     <script type="module" src="/src/main.ts"></script>
+    <div class="ui-modal atom-modal" id="sheet" hidden role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+      <div class="ui-modal-card atom-card" id="sheet-card">
+        <div class="ui-modal-head atom-head">
+          <h2 id="sheet-title"></h2>
+          <button class="text-btn" id="sheet-build">Build it</button>
+        </div>
+        <div id="sheet-tabs"></div>
+        <div class="sheet-body" id="sheet-body"></div>
+      </div>
+    </div>
   </body>
 </html>

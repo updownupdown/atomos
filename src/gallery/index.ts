@@ -1,14 +1,15 @@
 // The gallery screen: the vitrine of all 118 atoms and the loupe over one of
 // them, wired to the page. The top layer is visual, with a few white captions
-// round the atom; every number lives in the sheet behind the microscope.
+// round the atom; every number lives in the modal behind the microscope.
 
 import { STYLES, type Style } from './atom';
-import { ELEMENTS, MAX_Z, elementAt, type Element } from './data';
+import { CLOUD_RINGS, ELEMENTS, MAX_Z, elementAt, type Element } from './data';
 import { Detail } from './detail';
 import { Gallery } from './gallery';
 import { decoratorsHTML, TABS, tabHTML, type Tab } from './info';
-import { MICROSCOPE } from '../ui/icons';
-import { LAYOUTS, type LayoutId } from './layouts';
+import { icon, MICROSCOPE, type IconName } from '../ui/icons';
+import { closeButton, createTabs, type Tabs } from '../ui/components';
+import { isLayoutId, LAYOUTS, type LayoutId } from './layouts';
 import { loadSave, writeSave, type SaveData } from '../core/save';
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -27,18 +28,28 @@ export class GalleryApp {
   private current: Element | null = null;
   private tab: Tab = 'overview';
   private sheetOpen = false;
-  private layoutId: LayoutId = (localStorage.getItem('atomos.gallery.layout') as LayoutId) || 'spiral';
-  private style: Style = (localStorage.getItem('atomos.gallery.style') as Style) || 'cloud';
+  private layoutId: LayoutId = (() => {
+    const saved = localStorage.getItem('atomos.gallery.layout');
+    return isLayoutId(saved) ? saved : 'spiral';
+  })();
+  private style: Style = (() => {
+    const saved = localStorage.getItem('atomos.gallery.style');
+    return STYLES.some((s) => s.id === saved) ? (saved as Style) : 'cloud';
+  })();
+  private rings = localStorage.getItem('atomos.gallery.rings') !== 'off';
+  private isoOpen = false;
+  private tabs!: Tabs;
 
   constructor(private handlers: GalleryHandlers) {
     this.gallery = new Gallery($('gal'), $('gal-labels'));
-    this.detail = new Detail($('loupe'), $('ring-labels'));
+    this.detail = new Detail($('loupe'));
     this.gallery.setReducedMotion(this.save.settings.reducedMotion);
     this.detail.setReducedMotion(this.save.settings.reducedMotion);
     this.buildControls();
     this.refreshCollected();
     this.gallery.setLayout(this.layoutId, false);
     this.detail.setStyle(this.style);
+    this.detail.setRings(this.rings);
     this.gallery.onPick = (e) => this.open(e);
     this.gallery.onHover = (e) => this.hover(e);
     this.detail.onTap = () => this.toggleSheet(false);
@@ -64,18 +75,63 @@ export class GalleryApp {
     seg.innerHTML = LAYOUTS.map((l) => `<button data-id="${l.id}" aria-pressed="${l.id === this.layoutId}">${l.label}</button>`).join('');
     seg.querySelectorAll<HTMLButtonElement>('button').forEach((b) => (b.onclick = () => this.setLayout(b.dataset.id as LayoutId)));
     $('layout-note').textContent = LAYOUTS.find((l) => l.id === this.layoutId)!.note;
+    // Bottom right: how the atom is drawn, as three icons.
+    const styleIcon: Record<Style, IconName> = { cloud: 'view-cloud', shapes: 'view-shapes', hybrid: 'view-hybrid' };
     const styles = $('style-switch');
-    styles.innerHTML = STYLES.map((s) => `<button data-id="${s.id}" aria-pressed="${s.id === this.style}">${s.label}</button>`).join('');
+    styles.innerHTML = STYLES.map((s) => `<button class="ui-icon-btn ui-icon-btn--ghost" data-id="${s.id}" aria-pressed="${s.id === this.style}" aria-label="${s.label}" title="${s.label}">${icon(styleIcon[s.id])}</button>`).join('');
     styles.querySelectorAll<HTMLButtonElement>('button').forEach((b) => (b.onclick = () => this.setStyle(b.dataset.id as Style)));
+    // Bottom left: the scale legend, one short line per reference circle with its diameter, and the toggle.
+    const legend = $('scale-legend');
+    legend.innerHTML = `<button class="ui-icon-btn ui-icon-btn--ghost scale-toggle" id="rings-toggle" aria-pressed="${this.rings}"></button>`
+      + `<ul>${CLOUD_RINGS.map((r) => `<li><i class="${r.style}"></i>${r.pm * 2}</li>`).join('')}</ul><span class="unit">pm across</span>`;
+    $('rings-toggle').onclick = () => this.setRings(!this.rings);
+    this.paintRingsToggle();
+    // The bar: previous, the element's name (opens the science), next.
+    $('loupe-prev').innerHTML = icon('prev', { size: 28 });
+    $('loupe-next').innerHTML = icon('next', { size: 28 });
     $('loupe-prev').onclick = () => this.step(-1);
     $('loupe-next').onclick = () => this.step(1);
-    $('loupe-science').innerHTML = MICROSCOPE;
-    $('loupe-science').onclick = () => this.toggleSheet();
-    $('sheet-close').onclick = () => this.toggleSheet(false);
-    $('sheet-build').onclick = () => { if (this.current) this.handlers.onBuild(this.current.z); };
-    const tabs = $('sheet-tabs');
-    tabs.innerHTML = TABS.map((t) => `<button data-id="${t.id}" aria-pressed="${t.id === this.tab}">${t.label}</button>`).join('');
-    tabs.querySelectorAll<HTMLButtonElement>('button').forEach((b) => (b.onclick = () => this.setTab(b.dataset.id as Tab)));
+    $('dec-name').onclick = () => this.toggleSheet();
+    // Top right: the isotope summary opens a short list.
+    $('dec-top-right').addEventListener('click', (ev) => {
+      if ((ev.target as HTMLElement).closest('.iso-toggle')) this.setIsoOpen(!this.isoOpen);
+    });
+    // The science modal: floating card, tabs, an X; tapping the dimmed page behind closes it.
+    const card = $('sheet-card');
+    card.prepend(closeButton(() => this.toggleSheet(false)));
+    $('sheet').addEventListener('click', (ev) => { if (ev.target === $('sheet')) this.toggleSheet(false); });
+    $('sheet-build').onclick = () => { if (this.current) { this.toggleSheet(false); this.handlers.onBuild(this.current.z); } };
+    this.tabs = createTabs(TABS.map((t) => ({ id: t.id, label: t.label })), { active: this.tab, label: 'About this element', onChange: (id) => this.setTab(id as Tab) });
+    $('sheet-tabs').replaceWith(this.tabs.el);
+    this.tabs.el.id = 'sheet-tabs';
+  }
+
+  private setRings(on: boolean): void {
+    this.rings = on;
+    localStorage.setItem('atomos.gallery.rings', on ? 'on' : 'off');
+    this.detail.setRings(on);
+    this.paintRingsToggle();
+  }
+
+  private paintRingsToggle(): void {
+    const b = $('rings-toggle');
+    b.innerHTML = icon(this.rings ? 'scale' : 'scale-off');
+    b.setAttribute('aria-pressed', String(this.rings));
+    const label = this.rings ? 'Hide the scale circles' : 'Show the scale circles';
+    b.setAttribute('aria-label', label);
+    b.title = label;
+    $('scale-legend').classList.toggle('off', !this.rings);
+  }
+
+  private setIsoOpen(open: boolean): void {
+    this.isoOpen = open;
+    const tr = $('dec-top-right');
+    tr.classList.toggle('open', open);
+    const t = tr.querySelector('.iso-toggle');
+    if (t) {
+      t.setAttribute('aria-expanded', String(open));
+      t.querySelector('.chev')!.innerHTML = icon(open ? 'chevron-up' : 'chevron-down', { size: 18 });
+    }
   }
 
   private setLayout(id: LayoutId): void {
@@ -107,9 +163,9 @@ export class GalleryApp {
     this.detail.setCollected(this.collected(e.z));
     const dec = decoratorsHTML(e, this.collected(e.z));
     $('dec-top-left').innerHTML = dec.topLeft;
-    $('dec-top-right').innerHTML = dec.topRight;
-    $('dec-shells').textContent = dec.bottom;
-    $('dec-name').innerHTML = dec.name;
+    $('dec-top-right').innerHTML = `<button class="iso-toggle" aria-expanded="false" aria-controls="iso-list">${dec.isoSummary}<span class="chev"></span></button><div class="iso-list" id="iso-list">${dec.isoList}</div>`;
+    this.setIsoOpen(this.isoOpen);
+    $('dec-name').innerHTML = `${dec.name}<span class="bar-science" aria-hidden="true">${MICROSCOPE}</span>`;
     $<HTMLButtonElement>('loupe-prev').disabled = e.z === 1;
     $<HTMLButtonElement>('loupe-next').disabled = e.z === MAX_Z;
     $('loupe-prev').title = e.z > 1 ? elementAt(e.z - 1).name : '';
@@ -158,13 +214,15 @@ export class GalleryApp {
     this.sheetOpen = open;
     const sheet = $('sheet');
     sheet.hidden = !open;
-    $('loupe-science').setAttribute('aria-expanded', String(open));
-    if (open) this.renderSheet();
+    $('dec-name').setAttribute('aria-expanded', String(open));
+    if (open) {
+      this.renderSheet();
+      this.tabs.select(this.tab);
+    }
   }
 
   private setTab(tab: Tab): void {
     this.tab = tab;
-    $('sheet-tabs').querySelectorAll<HTMLButtonElement>('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.id === tab)));
     this.renderSheet();
   }
 
@@ -172,12 +230,14 @@ export class GalleryApp {
     if (!this.current) return;
     const e = this.current;
     $('sheet-title').innerHTML = `<b>${e.symbol}</b> ${e.name} <span class="dim">${e.z}</span>`;
+    $('sheet-build').hidden = false;
     $('sheet-body').innerHTML = tabHTML(e, this.tab, this.collected(e.z));
     $('sheet-body').scrollTop = 0;
   }
 
   private key(ev: KeyboardEvent): void {
     if ($('gallery-screen').hidden || $('loupe-screen').hidden) return;
+    if (this.sheetOpen && ev.key !== 'Escape') return;
     if (ev.key === 'ArrowRight') this.step(1);
     else if (ev.key === 'ArrowLeft') this.step(-1);
     else if (ev.key === 'Escape') { if (this.sheetOpen) this.toggleSheet(false); else this.close(); }
