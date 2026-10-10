@@ -18,7 +18,7 @@ import { isLayoutId, LAYOUT_STORY, LAYOUTS, type LayoutId } from './layouts';
 import { setScienceHandler, setScienceOpen } from '../ui/science';
 import { openModal } from '../ui/modal';
 import { loadSave, writeSave, type SaveData } from '../core/save';
-import { atomProgress, orbitalShapeUnlocked, SHAPE_AT } from '../core/progress';
+import { atomProgress, orbitalShapeUnlocked, rowOf, rowOpen, SHAPE_AT } from '../core/progress';
 import { createElementList, type ElementList } from '../ui/elementlist';
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -81,6 +81,7 @@ export class GalleryApp {
     const got = this.save.settings.unlockAll ? ELEMENTS.map((e) => e.z) : Object.keys(this.save.built).map(Number);
     const save = this.save;
     this.gallery.setCollected(got, (z) => atomProgress(z, save));
+    this.gallery.setLocked((z) => this.buildLocked(z));
     if (this.current) this.detail.setCollected(this.collected(this.current.z));
     // Flux discovers the p, d and f shapes; until then Shapes and Hybrid draw those layers as cloud.
     this.hiddenShapes = (Object.keys(SHAPE_AT) as OrbitalShape[]).filter((l) => !orbitalShapeUnlocked(l, save));
@@ -88,6 +89,11 @@ export class GalleryApp {
     this.paintShapeNote();
     $('gal-count').textContent = `${got.length} of ${MAX_Z}`;
     this.list?.refresh();
+  }
+
+  /** Whether this atom's row is still shut by its Inertia gate. It stays viewable; only Build waits. */
+  private buildLocked(z: number): boolean {
+    return !rowOpen(rowOf(z), this.save);
   }
 
   private collected(z: number): boolean {
@@ -119,7 +125,7 @@ export class GalleryApp {
     $('rings-toggle').onclick = () => this.setRings(!this.rings);
     this.paintRingsToggle();
     // The bar: previous, the element (opens the picker), next.
-    this.bar = createAtomBar({ onChange: (z) => this.open(elementAt(z)), locked: (z) => !this.collected(z) });
+    this.bar = createAtomBar({ onChange: (z) => this.open(elementAt(z)), locked: (z) => this.buildLocked(z) });
     $('loupe-screen').append(this.bar.el);
     // View's tabs: the model, then the element's science as pages.
     this.tabs = createTabs(VIEW_TABS, { active: this.tab, label: 'About this element', onChange: (id) => this.setTab(id as ViewTab) });
@@ -200,7 +206,7 @@ export class GalleryApp {
       this.list = createElementList({
         variant: 'table',
         onPick: (z) => this.open(elementAt(z)),
-        locked: (z) => !this.collected(z),
+        locked: (z) => this.buildLocked(z),
         storageKey: 'atomos.details.sort',
       });
       $('gal-details').append(this.list.el);

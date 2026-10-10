@@ -7,6 +7,7 @@ import * as THREE from 'three';
 import { BLOCK_COLOUR, ELEMENTS, elementAt, type Element } from './data';
 import { layout, type LayoutId, type Placed, type Tone } from './layouts';
 import { token } from './tokens';
+import { icon } from '../ui/icons';
 
 const TONE: Record<Tone, { color: string; opacity: number }> = {
   rule: { color: token('--c-text-2', '#8a9296'), opacity: 0.7 },
@@ -72,7 +73,7 @@ export class Gallery {
       const tile = document.createElement('div');
       tile.className = 'gtile';
       tile.style.setProperty('--b', BLOCK_COLOUR[e.block]);
-      tile.innerHTML = `<span class="gt-z">${e.z}</span><b class="gt-sym">${e.symbol}</b><i class="gt-bar"></i>`;
+      tile.innerHTML = `<span class="gt-z">${e.z}</span><b class="gt-sym">${e.symbol}</b><i class="gt-bar"></i><i class="gt-lock" aria-hidden="true">${icon('lock', { size: 24 })}</i>`;
       labels.appendChild(tile);
       this.nodes.push({ e, pos: new THREE.Vector3(), from: new THREE.Vector3(), to: new THREE.Vector3(), tile, bar: tile.querySelector<HTMLElement>('.gt-bar')! });
     }
@@ -94,6 +95,16 @@ export class Gallery {
       n.tile.classList.toggle('is-started', !got && p > 0);
       n.bar.style.setProperty('--p', p.toFixed(3));
       n.tile.setAttribute('aria-label', `${n.e.z} ${n.e.name}, ${got ? 'collected' : p > 0 ? `${Math.round(p * 100)}% of the way` : 'not collected yet'}`);
+    }
+  }
+
+  /** Mark the atoms whose Build is still locked (their row's gate is unsolved). They stay viewable. */
+  setLocked(locked: (z: number) => boolean): void {
+    for (const n of this.nodes) {
+      const on = locked(n.e.z);
+      n.tile.classList.toggle('is-locked', on);
+      const label = n.tile.getAttribute('aria-label')?.replace(/, Build locked$/, '') ?? `${n.e.z} ${n.e.name}`;
+      n.tile.setAttribute('aria-label', on ? `${label}, Build locked` : label);
     }
   }
 
