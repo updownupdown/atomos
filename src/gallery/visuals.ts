@@ -169,7 +169,7 @@ const AXES: Axis[] = [
   { label: 'Melting point', get: (e) => e.melt, unit: ' K', more: 'highest melting point', less: 'lowest melting point', fmt: (v) => `${Math.round(v)}` },
   { label: 'Boiling point', get: (e) => e.boil, unit: ' K', more: 'highest boiling point', less: 'lowest boiling point', fmt: (v) => `${Math.round(v)}` },
   { label: 'Electronegativity', get: (e) => e.electronegativity, unit: '', more: 'most electronegative', less: 'least electronegative' },
-  { label: 'First ionisation energy', get: (e) => e.ionisation, unit: ' eV', more: 'hardest to ionise', less: 'easiest to ionise' },
+  { label: 'First ionization energy', get: (e) => e.ionisation, unit: ' eV', more: 'hardest to ionize', less: 'easiest to ionize' },
   { label: 'Size (van der Waals)', get: (e) => e.vdw, unit: ' pm', more: 'largest', less: 'smallest', fmt: (v) => `${Math.round(v)}` },
   { label: 'In the crust', get: (e) => e.crust, unit: ' mg/kg', log: true, more: 'most common in the crust', less: 'rarest in the crust' },
   { label: 'In seawater', get: (e) => e.sea, unit: ' mg/L', log: true, more: 'most common in seawater', less: 'rarest in seawater' },
