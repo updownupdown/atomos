@@ -328,8 +328,13 @@ export class Game {
   /** The mode row's details while Build shows: the atom and how far its Build has got. */
   private setDetail(): void {
     if (this.paused) return;
+    // Short, to fit beside View and Build on a phone: the symbol, then built or steps done.
     const el = element(this.z);
-    setModeDetail(`<span class="mode-z">${el.z}</span><span class="mode-name">${el.name}</span><span class="mode-progress">${this.statusText()}</span>`);
+    const built = this.save.built[this.z];
+    const steps = stepsOf(this.z);
+    const done = steps.filter((id) => this.stepState(this.z, id).done).length;
+    const progress = built ? (built.flawless ? 'Flawless' : 'Built') : `${done} of ${steps.length}`;
+    setModeDetail(`<span class="mode-name" title="${el.name}">${el.symbol}</span><span class="mode-progress" title="${this.statusText()}">${progress}</span>`);
   }
 
   /** Puzzles on the progression map for this atom that the game does not have yet. */
