@@ -1,12 +1,13 @@
 // Drawing and touch for Lumen: the tray of mirrors (and a splitter) sits under
 // the grid. Tap an empty cell to set a piece there; tap it again to turn it, a
-// third time to take it back. The beam redraws at once, growing from the lamp.
-// Keyboard: arrows move a cursor, Space or Enter taps under it, Tab switches
-// between mirrors and splitters.
+// third time to take it back. Pieces can also be dragged: from the tray onto a
+// cell, from one cell to another, or off the board back to the tray. The beam
+// redraws at once, growing from the lamp. Keyboard: arrows move a cursor, Space
+// or Enter taps under it, Tab switches between mirrors and splitters.
 
-import { applyFix, cloneLight, DELTA, filterHue, isSplitter, left, nextFix, open, slant, status, tap, targetLit, trace, turnable, type Cell, type Dir, type Hue, type LightState, type PieceKind, type Target } from './light';
+import { applyFix, cloneLight, DELTA, filterHue, isSplitter, left, lift, nextFix, open, place, relocate, slant, status, tap, targetLit, trace, turnable, type Cell, type Dir, type Hue, type LightState, type PieceKind, type Target } from './light';
 import { bead, C, fitGrid, font, tile } from './palette';
-import { drawHelpMark, type Area, type Help, type Illustration, type Point, type PuzzleView, type RuleCard } from './view';
+import { drawHelpMark, type Area, type Help, type Illustration, type Point, type PuzzleView, type RuleCard, type Stat } from './view';
 
 /** Milliseconds for the light to cross one cell as it grows after a change. */
 const STEP_MS = 40;
@@ -16,7 +17,7 @@ const COUNT_H = 20;
 
 export const INSTRUCTIONS = `
 <h3>In the game</h3>
-<p class="meta">Builds fleeting isotopes: pick Lumen when you build one. Every board has exactly one answer, and it uses every piece in the tray, so par is the tray's size. Only placing a piece counts as a move; turning a piece or taking it back is free.</p>
+<p class="meta">Builds fleeting isotopes: pick Lumen when you build one. Every board has exactly one answer, and it uses every piece in the tray, so par is the tray's size. Only placing a piece from the tray counts as a move; turning a piece, dragging it to another square or taking it back is free.</p>
 <p class="meta">The tray grows with the atom: one mirror (H to B), two (C to Mn, sometimes with fixed mirrors on the board), three with dark sensors (Fe to Zr), a splitter and two mirrors (Nb to Nd), color filters fixed on the board with colored rings (Pm to Hg), four pieces (Tl to Fm), and 7×7 boards from Md. Keyboard: arrows move a cursor, Space or Enter taps under it, Tab switches between mirrors and splitters.</p>
 `;
 
@@ -39,6 +40,9 @@ export class LightView implements PuzzleView {
   private chips: { kind: PieceKind; x: number; y: number; w: number; h: number }[] = [];
   /** Look here: the cell to ring, for the board it was asked on. */
   private mark: { state: LightState; cell: number } | null = null;
+  /** A piece under the finger: picked up from a cell, or from the tray (from = -1). It counts as
+   *  a drag once the finger has moved past the slop; until then the press is still a tap. */
+  private grab: { from: number; kind: PieceKind; cell: Cell; start: Point; at: Point; active: boolean } | null = null;
 
   constructor(private readonly initial: LightState, reducedMotion: boolean) {
     this.state = cloneLight(initial);
@@ -51,6 +55,7 @@ export class LightView implements PuzzleView {
   get stuck(): boolean { return false; }
   get moves(): number { return this.state.moves; }
   get par(): number | null { return this.state.par; }
+  stats(): { progress: Stat } { const st = status(this.state); return { progress: { label: 'Lit', value: `${st.lit}/${st.total}` } }; }
   get clean(): boolean { return this.state.moves <= this.state.par; }
 
   hint(): string {
@@ -86,6 +91,7 @@ export class LightView implements PuzzleView {
     this.kind = this.initial.tray.mirrors ? 'mirror' : 'splitter';
     this.flashAt = performance.now();
     this.bump = null;
+    this.grab = null;
   }
 
   canUndo(): boolean { return this.history.length > 0; }
@@ -94,6 +100,7 @@ export class LightView implements PuzzleView {
     const prev = this.history.pop();
     if (!prev) return false;
     this.state = prev;
+    this.grab = null;
     this.flashAt = performance.now();
     return true;
   }
@@ -149,20 +156,100 @@ export class LightView implements PuzzleView {
     return { x: this.origin.x + ((i % n) + 0.5) * this.cell, y: this.origin.y + (Math.floor(i / n) + 0.5) * this.cell };
   }
 
+  private chipAt(p: Point): { kind: PieceKind; x: number; y: number; w: number; h: number } | undefined {
+    return this.chips.find((c) => p.x >= c.x && p.x <= c.x + c.w && p.y >= c.y && p.y <= c.y + c.h);
+  }
+
+  /** Clearly off the board: more than half a cell past its rim, or on the tray. A drop just past
+   *  the rim is a near miss, not a throw back to the tray. */
+  private offBoard(p: Point): boolean {
+    const span = this.state.size * this.cell, slack = this.cell * 0.5;
+    const x = p.x - this.origin.x, y = p.y - this.origin.y;
+    return !!this.chipAt(p) || x < -slack || y < -slack || x > span + slack || y > span + slack;
+  }
+
   // ---- input ----------------------------------------------------------------------
 
-  down(p: Point): void { this.pressed = p; }
-  move(): void { /* taps only */ }
-  cancel(): void { this.pressed = null; }
+  /** How far a press may wander and still be a tap. */
+  private tapSlop(): number { return Math.max(14, this.cell * 0.35); }
+  /** How far a press on a piece moves before it becomes a drag. */
+  private dragSlop(): number { return Math.max(9, this.cell * 0.18); }
+
+  down(p: Point): void {
+    this.pressed = p;
+    this.grab = null;
+    if (this.won) return;
+    const chip = this.chipAt(p);
+    if (chip) {
+      if (left(this.state)[chip.kind] > 0) this.grab = { from: -1, kind: chip.kind, cell: chip.kind === 'mirror' ? '/' : 'H/', start: p, at: p, active: false };
+      return;
+    }
+    const i = this.cellAt(p);
+    const c = i >= 0 ? this.state.cells[i] : '.';
+    if (turnable(c)) this.grab = { from: i, kind: isSplitter(c) ? 'splitter' : 'mirror', cell: c, start: p, at: p, active: false };
+  }
+
+  move(p: Point): void {
+    const g = this.grab;
+    if (!g) return;
+    g.at = p;
+    if (!g.active && Math.hypot(p.x - g.start.x, p.y - g.start.y) > this.dragSlop()) {
+      g.active = true;
+      this.showCursor = false;
+    }
+  }
+
+  cancel(): void {
+    this.pressed = null;
+    this.grab = null;
+  }
 
   up(p: Point): void {
     const s = this.pressed;
+    const g = this.grab;
     this.pressed = null;
-    if (!s || Math.hypot(p.x - s.x, p.y - s.y) > Math.max(14, this.cell * 0.35)) return;
+    this.grab = null;
+    if (g?.active) { this.drop(g, p); return; }
+    if (!s || Math.hypot(p.x - s.x, p.y - s.y) > this.tapSlop()) return;
     this.showCursor = false;
-    const chip = this.chips.find((c) => s.x >= c.x && s.x <= c.x + c.w && s.y >= c.y && s.y <= c.y + c.h);
+    const chip = this.chipAt(s);
     if (chip) { this.choose(chip.kind); return; }
     this.tryTap(this.cellAt(s));
+  }
+
+  /** Where a carried piece would land at p: a cell it can go on, or -1. */
+  private dropCell(g: { from: number; kind: PieceKind }, p: Point): number {
+    const to = this.cellAt(p);
+    if (to < 0 || to === g.from || !open(this.state, to)) return -1;
+    return g.from < 0 && left(this.state)[g.kind] <= 0 ? -1 : to;
+  }
+
+  /**
+   * Lets go of a carried piece. On an open cell it lands there: from the tray that is a placement
+   * (one move), from another cell a free move. Dropped off the board it goes back to the tray (a
+   * tray piece simply stays there). Dropped on a cell that cannot take it, it snaps back where it
+   * came from, with the refused cell nudged. Every change is one undo step.
+   */
+  private drop(g: NonNullable<LightView['grab']>, p: Point): void {
+    if (this.won) return;
+    const s = this.state;
+    const to = this.dropCell(g, p);
+    if (g.from < 0) {
+      this.choose(g.kind);
+      if (to >= 0) this.commit(place(s, to, g.kind), to);
+      else if (!this.offBoard(p)) this.refuse(this.cellAt(p));
+      return;
+    }
+    if (to >= 0) { this.commit(relocate(s, g.from, to), to); return; }
+    const at = this.cellAt(p);
+    // A short wobble that ends on its own cell is still a tap.
+    if (at === g.from) { if (Math.hypot(p.x - g.start.x, p.y - g.start.y) <= this.tapSlop()) this.tryTap(at); return; }
+    if (this.offBoard(p)) { this.commit(lift(s, g.from), g.from); return; }
+    this.refuse(at);
+  }
+
+  private refuse(i: number): void {
+    if (i >= 0) this.bump = { cell: i, at: performance.now() };
   }
 
   key(e: KeyboardEvent): boolean {
@@ -200,8 +287,20 @@ export class LightView implements PuzzleView {
     const c = this.cell;
     const half = c / 2;
     const st = status(s);
+    const g = this.grab?.active ? this.grab : null;
     ctx.save();
-    paintLight(ctx, s, { x: this.origin.x, y: this.origin.y, c, rows: s.size }, this.reduced ? Infinity : (now - this.flashAt) / STEP_MS, now, !this.reduced);
+    paintLight(ctx, s, { x: this.origin.x, y: this.origin.y, c, rows: s.size }, this.reduced ? Infinity : (now - this.flashAt) / STEP_MS, now, !this.reduced, g ? g.from : -1);
+
+    // A carried piece: the cell it would land on, lit in the accent.
+    const to = g ? this.dropCell(g, g.at) : -1;
+    if (to >= 0) {
+      const p = this.center(to);
+      ctx.save();
+      ctx.globalAlpha = 0.16;
+      tile(ctx, p.x - half + 1.5, p.y - half + 1.5, c - 3, c - 3, c * 0.18, C.accent, null);
+      ctx.restore();
+      tile(ctx, p.x - half + 1.5, p.y - half + 1.5, c - 3, c - 3, c * 0.18, null, C.accent, 2);
+    }
 
     // Keyboard cursor and a nudge where a tap does nothing.
     if (this.showCursor && !st.won) {
@@ -222,14 +321,29 @@ export class LightView implements PuzzleView {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
     ctx.fillText(`${st.lit} / ${st.total} lit`, area.x + area.w / 2, statusY);
-    this.drawTray(ctx, area.x + area.w / 2, statusY + COUNT_H);
+    this.drawTray(ctx, area.x + area.w / 2, statusY + COUNT_H, g);
+
+    // The carried piece itself, lifted, under the finger.
+    if (g) {
+      const side = c * 0.9;
+      ctx.save();
+      ctx.globalAlpha = 0.92;
+      if (!this.reduced) { ctx.shadowColor = 'rgba(0, 0, 0, 0.55)'; ctx.shadowBlur = c * 0.3; ctx.shadowOffsetY = c * 0.06; }
+      tile(ctx, g.at.x - side / 2, g.at.y - side / 2, side, side, c * 0.18, C.surface3, null);
+      ctx.restore();
+      tile(ctx, g.at.x - side / 2, g.at.y - side / 2, side, side, c * 0.18, null, to >= 0 ? C.accent : C.line2, 1.5);
+      piece(ctx, g.cell, g.at, c, true);
+    }
     ctx.restore();
   }
 
   /** The tray: a chip per piece kind, a drawing of the piece and how many are left; the kind an
    *  empty cell takes is raised. */
-  private drawTray(ctx: CanvasRenderingContext2D, cx: number, y: number): void {
+  private drawTray(ctx: CanvasRenderingContext2D, cx: number, y: number, g: LightView['grab']): void {
     const l = left(this.state);
+    // A piece carried out of the tray is not in it; one carried off the board is on its way back.
+    if (g && g.from < 0) l[g.kind] -= 1;
+    const home = g && g.from >= 0 && this.offBoard(g.at) ? g.kind : null;
     const kinds = (['mirror', 'splitter'] as PieceKind[]).filter((k) => this.state.tray[k === 'mirror' ? 'mirrors' : 'splitters'] > 0);
     const w = 92, h = 44, gap = 10;
     let x = cx - (kinds.length * w + (kinds.length - 1) * gap) / 2;
@@ -239,7 +353,7 @@ export class LightView implements PuzzleView {
       const empty = l[k] <= 0;
       ctx.save();
       ctx.globalAlpha = empty ? 0.45 : 1;
-      tile(ctx, x, y, w, h, 8, on ? C.surface3 : C.surface, null);
+      tile(ctx, x, y, w, h, 8, on ? C.surface3 : C.surface, home === k ? C.accent : null, 2);
       const pc = 30;
       piece(ctx, k === 'mirror' ? '/' : 'H/', { x: x + 8 + pc / 2, y: y + h / 2 }, pc * 1.3, true);
       ctx.font = font(15, 600);
@@ -273,8 +387,9 @@ function nudge(ctx: CanvasRenderingContext2D, p: Point, c: number, k: number, mo
  * Paints the tiles, the beam grown `progress` cells out from the lamp, the
  * pieces, the sensors and the lamp. Rows past `g.rows` are hidden (the rule
  * cards' boards are cut short): light running into them leaves as at the rim.
+ * The piece on cell `ghost` (one being carried) shows faintly, still in place.
  */
-function paintLight(ctx: CanvasRenderingContext2D, s: LightState, g: Geo, progress: number, now: number, motion: boolean): void {
+function paintLight(ctx: CanvasRenderingContext2D, s: LightState, g: Geo, progress: number, now: number, motion: boolean, ghost = -1): void {
   const n = s.size;
   const c = g.c;
   const half = c / 2;
@@ -283,73 +398,149 @@ function paintLight(ctx: CanvasRenderingContext2D, s: LightState, g: Geo, progre
   const beam = trace(s);
   ctx.save();
 
-  // Tiles: raised where a tap does something.
+  // Tiles: raised where a tap does something. The lamp's own cell has none: nothing can go there,
+  // and the lamp's barrel reaches into it.
   for (let i = 0; i < n * g.rows; i++) {
+    if (i === s.entry && s.cells[i] === '.') continue;
     const p = center(i);
-    const raised = turnable(s.cells[i]);
+    const raised = turnable(s.cells[i]) && i !== ghost;
     const inset = c * 0.05;
     tile(ctx, p.x - half + inset, p.y - half + inset, c - inset * 2, c - inset * 2, c * 0.18, raised ? C.surface3 : C.surface, raised ? C.line2 : null, 1);
   }
 
-  // The beam, grown out from the lamp by steps since the last change, one stroke per color.
+  // The beam, grown out from the lamp by steps since the last change: per color, runs of
+  // (from, to, distance along the beam at `from`), the distance keeping the shimmer's waves in step.
   const segs = new Map<Hue, number[]>();
-  const seg = (h: Hue, a: Point, b: Point, f: number) => {
+  const seg = (h: Hue, a: Point, bx: number, by: number, f: number, d: number) => {
     if (f <= 0) return;
     const k = Math.min(1, f);
-    (segs.get(h) ?? segs.set(h, []).get(h)!).push(a.x, a.y, a.x + (b.x - a.x) * k, a.y + (b.y - a.y) * k);
+    (segs.get(h) ?? segs.set(h, []).get(h)!).push(a.x, a.y, a.x + (bx - a.x) * k, a.y + (by - a.y) * k, d);
   };
-  const e = center(s.entry);
-  const [edx, edy] = DELTA[s.entryDir];
-  const lamp = { x: e.x - edx * c * 0.85, y: e.y - edy * c * 0.85 };
-  seg('w', lamp, { x: e.x - edx * half, y: e.y - edy * half }, 1);
   for (const v of beam.visits) {
     const f = progress - v.depth;
     if (f <= 0 || !shown(v.cell)) continue;
     const p = center(v.cell);
     const [dx, dy] = DELTA[v.dir];
     const edge = { x: p.x - dx * half, y: p.y - dy * half };
-    if (v.stop === 'edge') { seg(v.hue, edge, { x: edge.x + dx * c * 0.12, y: edge.y + dy * c * 0.12 }, f * 2); continue; }
-    seg(v.hue, edge, p, f * 2);
+    const d = v.depth * c;
+    if (v.stop === 'edge') { seg(v.hue, edge, edge.x + dx * c * 0.12, edge.y + dy * c * 0.12, f * 2, d); continue; }
+    seg(v.hue, edge, p.x, p.y, f * 2, d);
     for (const o of v.outs) {
       const [ox, oy] = DELTA[o];
       const out = v.exits.includes(o) || !shown(v.cell + oy * n + ox);
       const reach = out ? half + c * 0.4 : half;
-      seg(v.outHue, p, { x: p.x + ox * reach, y: p.y + oy * reach }, f * 2 - 1);
+      seg(v.outHue, p, p.x + ox * reach, p.y + oy * reach, f * 2 - 1, d + half);
     }
   }
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  for (const [h, pts] of segs) {
-    const col = hueColor(h);
-    const trace = () => {
-      ctx.beginPath();
-      for (let k = 0; k < pts.length; k += 4) { ctx.moveTo(pts[k], pts[k + 1]); ctx.lineTo(pts[k + 2], pts[k + 3]); }
-    };
-    ctx.save();
-    ctx.strokeStyle = col;
-    ctx.globalAlpha = 0.22;
-    ctx.lineWidth = Math.max(5, c * 0.14);
-    if (motion) { ctx.shadowColor = col; ctx.shadowBlur = c * 0.18; }
-    trace();
-    ctx.stroke();
-    ctx.restore();
-    ctx.strokeStyle = col;
-    ctx.lineWidth = Math.max(2, c * 0.045);
-    trace();
-    ctx.stroke();
-  }
+  drawBeam(ctx, segs, c, motion ? now / 1000 : 0);
 
   // Pieces.
   const lit = beam.lit;
-  for (let i = 0; i < n * g.rows; i++) piece(ctx, s.cells[i], center(i), c, lit.has(i));
+  for (let i = 0; i < n * g.rows; i++) {
+    if (i !== ghost) { piece(ctx, s.cells[i], center(i), c, lit.has(i)); continue; }
+    ctx.save();
+    ctx.globalAlpha = 0.3;
+    piece(ctx, s.cells[i], center(i), c, false);
+    ctx.restore();
+  }
 
   // Sensors: target rings and dark discs.
   for (const t of s.targets) if (shown(t.cell)) targetRing(ctx, t, center(t.cell), c, targetLit(t, lit), motion);
   for (const d of s.darks) if (shown(d)) darkSensor(ctx, center(d), c, lit.has(d), now, motion);
 
-  // The lamp.
-  bead(ctx, lamp.x, lamp.y, Math.max(4, c * 0.13), C.silver, { glow: motion ? C.silver : undefined });
+  lamp(ctx, center(s.entry), s.entryDir, c, motion);
   ctx.restore();
+}
+
+/**
+ * The laser: per color a soft wide glow, the beam in its color, a hot thin core, and two fine
+ * strands winding round it as sine waves that drift slowly along the light (still when `t` is 0,
+ * under reduced motion). The strands stay within the glow, so a tinted beam still reads as its
+ * color. `segs` holds runs as from x, y, to x, y and the distance along the beam at the start.
+ */
+function drawBeam(ctx: CanvasRenderingContext2D, segs: Map<Hue, number[]>, c: number, t: number): void {
+  const amp = Math.max(1.2, c * 0.05);
+  const step = Math.max(3, c * 0.06);
+  // Two strands of unlike wavelengths and speeds, on opposite sides, so they never settle into a
+  // regular chain: about a wave a cell, drifting a little over half a cell a second.
+  const k1 = (Math.PI * 2) / (c * 0.85), k2 = (Math.PI * 2) / (c * 1.2);
+  const ph1 = t * Math.PI * 2 * 0.7, ph2 = t * Math.PI * 2 * 0.45;
+  ctx.save();
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  for (const [h, pts] of segs) {
+    const col = hueColor(h);
+    const white = h === 'w';
+    const path = () => {
+      ctx.beginPath();
+      for (let q = 0; q < pts.length; q += 5) { ctx.moveTo(pts[q], pts[q + 1]); ctx.lineTo(pts[q + 2], pts[q + 3]); }
+    };
+    ctx.strokeStyle = col;
+    ctx.globalAlpha = 0.1;
+    ctx.lineWidth = Math.max(8, c * 0.26);
+    path();
+    ctx.stroke();
+    ctx.globalAlpha = 0.22;
+    ctx.lineWidth = Math.max(4, c * 0.12);
+    ctx.stroke();
+    ctx.globalAlpha = white ? 0.75 : 1;
+    ctx.lineWidth = Math.max(1.8, c * 0.038);
+    ctx.stroke();
+    // The hot core: white, fainter on a tinted beam so its color holds.
+    ctx.strokeStyle = C.silver;
+    ctx.globalAlpha = white ? 1 : 0.45;
+    ctx.lineWidth = Math.max(1, c * 0.016);
+    ctx.stroke();
+    // The strands.
+    ctx.strokeStyle = col;
+    ctx.globalAlpha = white ? 0.35 : 0.6;
+    ctx.lineWidth = Math.max(0.8, c * 0.013);
+    ctx.beginPath();
+    for (let side = -1; side <= 1; side += 2) {
+      const k = side < 0 ? k1 : k2, phase = side < 0 ? ph1 : ph2;
+      for (let q = 0; q < pts.length; q += 5) {
+        const ax = pts[q], ay = pts[q + 1], len = Math.hypot(pts[q + 2] - ax, pts[q + 3] - ay);
+        if (len < 0.5) continue;
+        const ux = (pts[q + 2] - ax) / len, uy = (pts[q + 3] - ay) / len, d0 = pts[q + 4];
+        const m = Math.max(2, Math.ceil(len / step));
+        for (let j = 0; j <= m; j++) {
+          const sd = (len * j) / m;
+          const o = side * amp * Math.sin((d0 + sd) * k - phase);
+          const x = ax + ux * sd - uy * o, y = ay + uy * sd + ux * o;
+          if (j) ctx.lineTo(x, y); else ctx.moveTo(x, y);
+        }
+      }
+    }
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+/**
+ * The lamp: a short barrel outside the grid that reaches a little way into the cell the beam
+ * enters, its lens glowing where the light comes out. That cell is part of the lamp, not a slot.
+ */
+function lamp(ctx: CanvasRenderingContext2D, e: Point, dir: Dir, c: number, motion: boolean): void {
+  const [dx, dy] = DELTA[dir];
+  // Along the beam, from the barrel's back (0.45 of a cell outside the grid) to its lens, most of
+  // the way across the cell.
+  const back = -c * 0.95, front = -c * 0.14, w = c * 0.36;
+  const x0 = e.x + dx * back, y0 = e.y + dy * back, x1 = e.x + dx * front, y1 = e.y + dy * front;
+  const bx = Math.min(x0, x1) - (dx ? 0 : w / 2), by = Math.min(y0, y1) - (dy ? 0 : w / 2);
+  const bw = dx ? Math.abs(x1 - x0) : w, bh = dy ? Math.abs(y1 - y0) : w;
+  ctx.save();
+  tile(ctx, bx, by, bw, bh, c * 0.09, C.surface3, C.line2, 1);
+  // A ridge across the barrel, two thirds of the way back.
+  ctx.strokeStyle = C.line2;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  const r = back + (front - back) * 0.38;
+  const rx = e.x + dx * r, ry = e.y + dy * r;
+  ctx.moveTo(rx - dy * w * 0.32, ry - dx * w * 0.32);
+  ctx.lineTo(rx + dy * w * 0.32, ry + dx * w * 0.32);
+  ctx.stroke();
+  ctx.restore();
+  bead(ctx, x1, y1, Math.max(3, c * 0.09), C.silver, { glow: motion ? C.silver : undefined });
 }
 
 /** A target ring: red, or its light's color with a small red heart; filled while lit. */
@@ -573,7 +764,7 @@ const DARKS = board([['.', '.', '.'], ['.', '.', '.']], [1, 0, 'down'], [[0, 1, 
 export const RULES: RuleCard[] = [
   {
     title: 'Mirrors',
-    text: 'Tap an empty square to set a mirror from the tray there; it turns the beam through a right angle. Tap it again to turn it, and a third time to put it back.',
+    text: 'Tap an empty square, or drag a mirror there from the tray; it turns the beam through a right angle. Tap it to turn it, tap again to put it back, or drag it to another square.',
     good: picture(board([['.', '.', '.'], ['.', '.', '.']], [0, 1, 'right'], [[1, 0, 'w']]), 'Set a mirror', { tap: [1, 1], to: '/' }),
   },
   {
@@ -584,7 +775,7 @@ export const RULES: RuleCard[] = [
   },
   {
     title: 'The tray',
-    text: 'The tray under the board holds exactly the pieces the answer needs. Only setting a piece down counts as a move; turning it or putting it back is free.',
+    text: 'The tray under the board holds exactly the pieces the answer needs. Only setting a piece down from the tray counts as a move; turning, moving or putting it back is free.',
     good: picture(board([['.', '.', '.'], ['.', '.', '.']], [0, 0, 'right'], [[2, 1, 'w']]), 'Every piece used', { tap: [2, 0], to: '\\' }),
   },
   {

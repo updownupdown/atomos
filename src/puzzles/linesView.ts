@@ -8,10 +8,12 @@
 
 import { adjacent, check, clearPath, cloneLines, completeLine, edgeKey, edgeOf, extend, isEnd, isStart, nextStretch, pathEdges, regions, retract, same, sharedPrefix, solved, verdict, type Kind, type LinesState, type Mark, type Near, type Pt } from './lines';
 import { bead, C, fitGrid, tile } from './palette';
-import { drawHelpMark, ease, type Area, type Help, type Illustration, type Point, type PuzzleView, type RuleCard } from './view';
+import { drawHelpMark, ease, type Area, type Help, type Illustration, type Point, type PuzzleView, type RuleCard, type Stat } from './view';
 
 const FLASH_MS = 700;
 const GRAB = 0.45;
+/** One slow breath of the glow on the line's head, in ms. */
+const BREATH_MS = 2400;
 
 interface Failure {
   /** The state the failure belongs to; any edit retires it. */
@@ -51,6 +53,11 @@ interface Paint {
   picked: number;
   /** Soft glows on (off under reduced motion). */
   glow: boolean;
+  /**
+   * The glowing dot on the line's head, where it can be picked up and drawn on:
+   * how bright its glow breathes (0 to 1), or null for none.
+   */
+  head: number | null;
   /** A fill per tile, for the pockets picture; null for the board's own. */
   tint?: (i: number) => string | null;
   /** The color broken marks, a red line and a refused step are flagged in: the board's red, or amber in the rule pictures. */
@@ -196,6 +203,12 @@ function paintLines(ctx: CanvasRenderingContext2D, s: LinesState, g: Grid, o: Pa
     startCharge(ctx, q.x, q.y, c, begun, k === o.picked, o.glow);
   });
 
+  // The head of the line: a glowing dot in the line's color, to pick up and draw on from.
+  if (o.head !== null && path.length > 1) {
+    const q = o.tip ?? px(g, last);
+    lineHead(ctx, q.x, q.y, c, o.red ? flagCol : C.silver, o.head);
+  }
+
   // A nudge at the pen tip when a step was refused.
   if (o.bump > 0 && path.length) {
     const q = o.tip ?? px(g, path[path.length - 1]);
@@ -210,17 +223,40 @@ function paintLines(ctx: CanvasRenderingContext2D, s: LinesState, g: Grid, o: Pa
   ctx.restore();
 }
 
-/** A + charge: a warm proton-colored bead with a plus, where a line begins. */
+/**
+ * The head of a line: a dot in the line's color with a soft glow that breathes
+ * with `breath` (0 to 1), and a faint halo, so it reads as a handle to pick up.
+ */
+function lineHead(ctx: CanvasRenderingContext2D, x: number, y: number, c: number, col: string, breath: number): void {
+  const r = Math.max(5, c * 0.12);
+  ctx.save();
+  ctx.fillStyle = col;
+  ctx.globalAlpha = 0.14 + 0.1 * breath;
+  ctx.beginPath();
+  ctx.arc(x, y, r * (1.75 + 0.15 * breath), 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalAlpha = 1;
+  ctx.shadowColor = col;
+  ctx.shadowBlur = c * (0.22 + 0.16 * breath);
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.fill();
+  // Twice over, so the glow carries on a dark board.
+  ctx.fill();
+  ctx.restore();
+}
+
+/** A + charge: a warm proton-colored bead with a bold plus, where a line begins. */
 function startCharge(ctx: CanvasRenderingContext2D, x: number, y: number, c: number, begun: boolean, picked: boolean, glow: boolean): void {
-  const r = Math.max(7, c * 0.16);
+  const r = Math.max(11, c * 0.26);
   bead(ctx, x, y, r, C.proton, { rim: begun ? C.silver : undefined, glow: begun && glow ? C.proton : undefined });
   ctx.save();
   ctx.strokeStyle = C.tileInk;
-  ctx.lineWidth = Math.max(1.5, r * 0.22);
+  ctx.lineWidth = Math.max(2, r * 0.2);
   ctx.lineCap = 'round';
   ctx.beginPath();
-  ctx.moveTo(x - r * 0.5, y); ctx.lineTo(x + r * 0.5, y);
-  ctx.moveTo(x, y - r * 0.5); ctx.lineTo(x, y + r * 0.5);
+  ctx.moveTo(x - r * 0.52, y); ctx.lineTo(x + r * 0.52, y);
+  ctx.moveTo(x, y - r * 0.52); ctx.lineTo(x, y + r * 0.52);
   ctx.stroke();
   if (picked) {
     // Keyboard pick between two starts.
@@ -374,6 +410,12 @@ export class LinesView implements PuzzleView {
   get stuck(): boolean { return false; }
   get moves(): number { return this.state.moves; }
   get par(): number | null { return this.state.par; }
+  stats(): { progress?: Stat } {
+    const s = this.state;
+    if (!s.dots.length) return {};
+    const edges = pathEdges(s.path);
+    return { progress: { label: 'Dots', value: `${s.dots.filter((k) => edges.has(k)).length}/${s.dots.length}` } };
+  }
   get clean(): boolean { return this.state.moves <= this.state.par; }
 
   hint(): string {
@@ -630,6 +672,7 @@ export class LinesView implements PuzzleView {
       bump: this.reduced ? 0 : Math.max(0, 1 - (now - this.bumpAt) / 300),
       picked: !path.length && s.starts.length > 1 ? this.startPick % s.starts.length : -1,
       glow: !this.reduced,
+      head: won ? null : this.reduced ? 1 : 0.5 + 0.5 * Math.sin((now / BREATH_MS) * Math.PI * 2),
     });
 
     // Look here: the stretch of line, and the mark it passes.
@@ -770,6 +813,7 @@ function picture(s: LinesState, st: Stroke, caption: string, opts: { emph?: 'end
         bump: done && st.blocked ? k : 0,
         picked: -1,
         glow: true,
+        head: done && ok ? null : 1,
         tint: pocketOf && done && ok ? (i) => (pocketOf[i] === pocketOf[0] ? C.surface3 : C.surface2) : undefined,
         flag: C.warn,
       });

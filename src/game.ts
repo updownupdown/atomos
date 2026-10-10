@@ -31,6 +31,7 @@ import { closeModal, modalOpen, openModal } from './ui/modal';
 import { createTabs, iconButton, nextButton, playButton } from './ui/components';
 import { askRestart, confirming, restartButton } from './puzzles/restart';
 import { HintControl } from './puzzles/hints';
+import { clearOffers, createGameBar, offerRules, type GameBar } from './puzzles/gamebar';
 import { countPlay, GOAL_PLAYS } from './core/plays';
 import { icon, type IconName } from './ui/icons';
 import { scienceButton, setScienceHandler } from './ui/science';
@@ -85,6 +86,8 @@ export class Game {
   private goal = '';
   /** The Hint button: Look here, then Show me. */
   private hints = new HintControl(() => (this.busy ? null : this.puzzle), () => { this.refresh(); this.ensureLoop(); });
+  /** The bar at the top of a puzzle: tools, stats and the message line. */
+  private gbar!: GameBar;
 
   constructor(private hooks: { onElement?: (z: number) => void; onView?: (z: number) => void } = {}) {
     this.scene = new AtomScene($<HTMLCanvasElement>('atom'));
@@ -197,6 +200,7 @@ export class Game {
     this.shownHint = '';
     if (stage === 'home') {
       this.puzzle = null;
+      clearOffers(this.gbar);
     } else {
       const resumed = this.suspended[stage];
       this.puzzle = resumed ?? this.makePuzzle(stage);
@@ -255,13 +259,13 @@ export class Game {
     return new MergeView(mergeLevel(z), reduced);
   }
 
-  /** A game's first plays: its rules open by themselves the first time, and its goal leads the
-   *  status line for the first three, until the first move. */
+  /** A game's first plays: Nu offers its rules the first time, and its goal leads the message
+   *  line for the first three, until the first move. */
   private firstPlays(stage: Exclude<Stage, 'home'>): void {
     const t = this.stagePuzzle(stage);
     const before = countPlay(t.id);
     this.goal = before < GOAL_PLAYS ? t.goal : '';
-    if (before === 0) window.setTimeout(() => { if (this.stage === stage && !this.paused) this.openRulesFor(t); }, 350);
+    offerRules(this.gbar, t, () => this.openRulesFor(t));
   }
 
   /** The element a fleeting isotope's board is dealt for: harder the shorter it lives. */
@@ -341,22 +345,20 @@ export class Game {
   }
 
   private renderStage(): void {
-    const p = this.puzzle;
-    const text = !p ? '' : this.goal && p.moves === 0 ? this.goal : `${p.moves} move${p.moves === 1 ? '' : 's'}${p.par !== null ? ` · par ${p.par}` : ''}`;
-    const box = $('stage');
-    if (box.textContent !== text) box.textContent = text;
+    this.sayHint();
   }
 
   /** The header inside a puzzle: Back to the Build page, the puzzle's name, and what it builds. */
   private renderHead(): void {
     const stage = this.stage as Exclude<Stage, 'home'>;
     const t = this.stagePuzzle(stage);
-    const head = $('build-head');
+    const head = $('build-head-row');
     head.innerHTML = `
       <button class="back-plate" id="build-back" aria-label="Back to ${element(this.z).name}">${icon('chevron-left', { size: 20 })}<span>Back</span></button>
-      <h2 class="pg-title">${t.name}</h2>
-      <span class="pg-use">${this.stageLabel(stage)}</span>`;
+      <h2 class="pg-title" title="${this.stageLabel(stage)}">${t.name}</h2>
+      <span></span>`;
     head.querySelector<HTMLButtonElement>('#build-back')!.onclick = () => this.toHome();
+    this.gbar.setDifficulty(difficulty(t.id, this.dealtFor(stage)));
   }
 
   /** What a puzzle builds, for the header: "Nucleus", "Electrons" or "Isotope · Li-6". */
@@ -661,22 +663,22 @@ export class Game {
     // text lives behind the i).
     const help = this.hints.line(p);
     const raw = p ? p.hint().replace(/<[^>]+>/g, '') : '';
-    const text = help ?? (raw.length > 60 ? '' : raw);
-    if (text === this.shownHint) return;
+    const goal = p && this.goal && p.moves === 0 ? this.goal : '';
+    const text = help ?? (goal || (raw.length > 60 ? '' : raw));
     this.shownHint = text;
-    $('message').innerHTML = text;
+    this.gbar.update(p, text);
   }
 
-  private say(html: string): void {
-    this.shownHint = html;
-    $('message').innerHTML = html;
+  private say(text: string): void {
+    this.shownHint = text;
+    this.gbar.msg.textContent = text;
   }
 
   // ---- the puzzle loop --------------------------------------------------------------
 
   private area(): Area {
-    const top = $('stage').getBoundingClientRect().bottom + 8;
-    const bottom = $('message').getBoundingClientRect().top - 8;
+    const top = $('build-head').getBoundingClientRect().bottom + 8;
+    const bottom = $('build-foot').getBoundingClientRect().top - 8;
     const w = window.innerWidth;
     const narrow = w < 900;
     // On wide screens the puzzle keeps to a column so the atom can sit beside it.
@@ -955,7 +957,8 @@ export class Game {
     restart.id = 'btn-restart';
     this.hints.button.id = 'btn-hint';
     const how = iconButton({ icon: icon('info'), label: 'Instructions', onClick: () => this.showHow() });
-    $('build-actions').append(undo, restart, this.hints.button, how, scienceButton('ui-icon-btn science-btn'));
+    this.gbar = createGameBar([undo, restart, this.hints.button, how, scienceButton('ui-icon-btn science-btn')]);
+    $('build-head').append(this.gbar.el);
     window.addEventListener('keydown', (e) => this.onKey(e));
     window.addEventListener('blur', () => this.onCancel());
   }

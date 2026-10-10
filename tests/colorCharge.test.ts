@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  bind, canBind, canFinish, canSwap, countClearances, gluonsLeft, groupKind, newColorCharge, nextStep, onTrack, solved, specFor, stranded, swap,
+  bind, canBind, canFinish, canSwap, countClearances, gluonsLeft, groupKind, newColorCharge, nextStep, onTrack, solved, specFor, stranded, swap, tally,
   type ColorChargeState, type Quark,
 } from '../src/puzzles/colorCharge';
 import { undoHelp } from '../src/puzzles/view';
@@ -254,6 +254,27 @@ describe('view', () => {
     }
   });
 
+  it('never draws a negative size, even squeezed to a few pixels', () => {
+    // roundRect throws on a negative radius, as the browser's does, which would stop the frame loop.
+    const strict = (): CanvasRenderingContext2D => {
+      const c = ctx() as unknown as Record<string, unknown>;
+      c.roundRect = (_x: number, _y: number, w: number, h: number, r: number) => {
+        if (r < 0 || w < 0 || h < 0) throw new RangeError(`roundRect ${w} ${h} ${r}`);
+      };
+      return c as unknown as CanvasRenderingContext2D;
+    };
+    for (const z of [1, 60, 110]) {
+      const s = newColorCharge(z, 2);
+      const v = new ColorChargeView(s, false, () => 0);
+      const inside = v as unknown as { sel: number[]; tryBind(): void };
+      inside.sel = [...s.solution.find((g) => canBind(s, g))!];
+      inside.tryBind();
+      for (const area of [{ x: 0, y: 0, w: 0, h: 0 }, { x: 0, y: 0, w: 12, h: 9 }, { x: 0, y: 0, w: 40, h: 30 }, { x: 0, y: 0, w: 340, h: 430 }]) {
+        for (const t of [0, 200, 400, 2000]) expect(() => v.draw(strict(), area, t)).not.toThrow();
+      }
+    }
+  });
+
   it('keeps the board and the gluons inside the area', () => {
     for (const z of [1, 25, 60, 110]) {
       const s = newColorCharge(z, 2);
@@ -308,8 +329,9 @@ describe('view', () => {
       expect(v.hint().length).toBeLessThanOrEqual(40);
       frame(400);
       frame(1000);
+      frame(590);
       expect(v.moves).toBe(1);
-      frame(400); // past the swap's flight (420 ms) and its 1.2 s on show
+      frame(10); // two seconds after the swap
       expect(v.moves).toBe(0);
       expect(gluonsLeft(inside.state)).toBe(1);
       expect(inside.state.tiles).toEqual(s.tiles);
@@ -319,12 +341,12 @@ describe('view', () => {
       expect(v.hint()).not.toMatch(/undo/i);
     });
 
-    it('is shorter with reduced motion', () => {
+    it('takes as long with reduced motion', () => {
       const { v, wrong, doSwap, frame } = setup(true);
       doSwap(wrong);
-      frame(600);
+      frame(1990);
       expect(v.moves).toBe(1);
-      frame(150);
+      frame(10);
       expect(v.moves).toBe(0);
     });
 
@@ -368,6 +390,119 @@ describe('view', () => {
       frame(3000);
       expect(v.moves).toBe(1);
     });
+  });
+
+  describe('a group that strands tiles', () => {
+    const area = { x: 0, y: 0, w: 340, h: 430 };
+    type Inside = { state: ColorChargeState; sel: number[]; tryBind(): void; pending: { group: number } | null };
+    /** A neutral group of free tiles that is not one of the clearance's (so it strands tiles). */
+    const wrongGroup = (s: ColorChargeState): number[] | null => {
+      const keys = new Set(s.solution.map((g) => [...g].sort((a, b) => a - b).join()));
+      for (let a = 0; a < s.tiles.length; a++) for (let b = a + 1; b < s.tiles.length; b++) {
+        for (const g of [[a, b], ...Array.from({ length: s.tiles.length }, (_, c) => [a, b, c]).filter(([, , c]) => c > b)]) {
+          if (canBind(s, g) && !keys.has(g.join())) return g;
+        }
+      }
+      return null;
+    };
+    function setup(z: number, reduced: boolean) {
+      for (let seed = 1; seed < 40; seed++) {
+        const s = newColorCharge(z, seed);
+        const g = wrongGroup(s);
+        if (!g) continue;
+        const clock = { now: 1000 };
+        const v = new ColorChargeView(s, reduced, () => clock.now);
+        v.draw(ctx(), area, clock.now);
+        const inside = v as unknown as Inside;
+        const frame = (ms: number) => { clock.now += ms; v.draw(ctx(), area, clock.now); };
+        const bindIt = (cells: number[]) => { inside.sel = [...cells]; inside.tryBind(); };
+        return { s, v, g, inside, frame, bindIt };
+      }
+      throw new Error(`no wrong group at z ${z}`);
+    }
+
+    for (const reduced of [false, true]) {
+      it(`shows it not quite bound for two seconds, then undoes it${reduced ? ' (reduced motion)' : ''}`, () => {
+        const { s, v, g, inside, frame, bindIt } = setup(1, reduced);
+        bindIt(g);
+        expect(v.moves).toBe(1);
+        expect(stranded(inside.state).length).toBeGreaterThan(0);
+        expect(inside.pending?.group).toBe(0);
+        expect(v.hint()).toMatch(/^That (baryon|antibaryon|meson) strands tiles: undoing$/);
+        expect(v.hint().length).toBeLessThanOrEqual(40);
+        frame(1000);
+        frame(990);
+        expect(v.moves).toBe(1);
+        frame(10);
+        expect(v.moves).toBe(0);
+        expect(inside.pending).toBeNull();
+        expect(inside.state).toEqual(s);
+        expect(v.canUndo()).toBe(false);
+        expect(v.hint()).toMatch(/^(Baryon|Antibaryon|Meson) undone: it stranded tiles$/);
+        frame(2000);
+        expect(v.hint()).not.toMatch(/undo/i);
+      });
+    }
+
+    it('keeps the moves before it, and goes at once on Undo or a touch', () => {
+      const { s, v, inside, frame, bindIt } = setup(60, false);
+      // One good group first, then a wrong one: only the wrong one is taken back.
+      const good = s.solution.find((c) => canBind(s, c))!;
+      bindIt(good);
+      const g = wrongGroup(inside.state)!;
+      bindIt(g);
+      expect(v.moves).toBe(2);
+      frame(2000);
+      expect(v.moves).toBe(1);
+      expect(inside.state.groups).toEqual([good]);
+      bindIt(g);
+      expect(v.undo()).toBe(true);
+      expect(v.moves).toBe(1);
+      expect(v.canUndo()).toBe(true);
+      bindIt(g);
+      v.down({ x: 1, y: 1 });
+      v.up({ x: 1, y: 1 });
+      expect(v.moves).toBe(1);
+      expect(inside.sel).toEqual([]);
+    });
+
+    it('leaves a good group alone', () => {
+      const { s, v, frame, bindIt } = setup(1, false);
+      bindIt(s.solution.find((c) => canBind(s, c))!);
+      expect(v.hint()).not.toMatch(/strands/);
+      frame(5000);
+      expect(v.moves).toBe(1);
+    });
+  });
+
+  it('tallies the particles to make, by kind, leaving out one about to be undone', () => {
+    for (const z of [1, 31, 60, 110]) {
+      const s = newColorCharge(z, 2);
+      const spec = specFor(z);
+      const t0 = tally(s);
+      expect(t0.map((t) => t.kind)).toEqual(['baryon', ...(spec.antibaryons ? ['antibaryon'] : []), ...(spec.mesons ? ['meson'] : [])]);
+      expect(t0.reduce((a, t) => a + t.need, 0)).toBe(s.solution.length);
+      expect(t0.find((t) => t.kind === 'meson')?.need ?? 0).toBe(spec.mesons);
+      expect(t0.find((t) => t.kind === 'antibaryon')?.need ?? 0).toBe(spec.antibaryons);
+      expect(t0.every((t) => t.done === 0)).toBe(true);
+      const done = playAnswer(s);
+      expect(tally(done).every((t) => t.done === t.need)).toBe(true);
+      expect(tally(done, 0).reduce((a, t) => a + t.done, 0)).toBe(s.solution.length - 1);
+    }
+  });
+
+  it('keeps the tally under the board and inside the area', () => {
+    for (const z of [1, 25, 60, 110]) {
+      for (const area of [{ x: 0, y: 0, w: 358, h: 430 }, { x: 0, y: 0, w: 1200, h: 700 }]) {
+        const s = newColorCharge(z, 2);
+        const v = new ColorChargeView(s, true);
+        v.draw(ctx(), area, 0);
+        const g = (v as unknown as { geom: { cell: number; y: number; legend: number; tokens: { y: number; h: number }[] } }).geom;
+        expect(g.legend).toBeGreaterThanOrEqual(g.y + g.cell * s.rows);
+        for (const t of g.tokens) expect(g.legend).toBeGreaterThan(t.y + t.h);
+        expect(g.legend + 23).toBeLessThanOrEqual(area.y + area.h);
+      }
+    }
   });
 
   it('has rule cards with a good and a bad picture each, and only the meta in the instructions', () => {

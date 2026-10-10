@@ -12,6 +12,8 @@ import { showWin } from './puzzles/winPanel';
 import type { Area } from './puzzles/view';
 import { createSlider, iconButton, type Slider } from './ui/components';
 import { countPlay, GOAL_PLAYS } from './core/plays';
+import { clearOffers, createGameBar, offerRules, type GameBar } from './puzzles/gamebar';
+import { difficulty } from './puzzles/difficulty';
 import { askRestart, confirming, restartButton } from './puzzles/restart';
 import { icon } from './ui/icons';
 import { scienceButton, setScienceHandler } from './ui/science';
@@ -35,10 +37,11 @@ export class Playground {
   private next: HTMLButtonElement;
   private undoBtn: HTMLButtonElement;
   private restartBtn: HTMLButtonElement;
+  private gbar: GameBar;
 
   constructor() {
     this.host = new PuzzleHost($('pg-canvas'), () => this.area());
-    this.host.onFrame = (v) => this.tick(v.moves, v.par, this.host.status());
+    this.host.onFrame = () => this.tick(this.host.status());
     this.host.onWon = (v) => this.won(v.moves, v.par, v.clean);
     this.renderHome();
     this.renderHead();
@@ -64,13 +67,14 @@ export class Playground {
     this.undoBtn = iconButton({ icon: icon('undo'), label: 'Undo', onClick: () => this.host.undo() });
     this.restartBtn = restartButton(this.restartOptions());
     this.host.onRestartKey = () => void askRestart(this.restartOptions());
-    $('pg-actions').append(
+    this.gbar = createGameBar([
       this.undoBtn,
       this.restartBtn,
       this.host.hints.button,
       iconButton({ icon: icon('info'), label: 'Instructions', onClick: () => this.instructions() }),
       scienceButton('ui-icon-btn science-btn'),
-    );
+    ]);
+    $('pg-gbar').append(this.gbar.el);
     $('pg-home-head').append(scienceButton());
 
     window.addEventListener('keydown', (e) => this.key(e));
@@ -97,10 +101,10 @@ export class Playground {
     $('pg-home').hidden = true;
     $('pg-game').hidden = false;
     this.select(id);
-    // A game's rules open by themselves the first time it is played, and its goal leads for three.
+    // Nu offers a game's rules the first time it is played, and its goal leads for three.
     const before = countPlay(this.type.id);
     this.goal = before < GOAL_PLAYS ? this.type.goal : '';
-    if (before === 0) window.setTimeout(() => { if (this.inPuzzle) this.instructions(); }, 350);
+    if (this.type.make) offerRules(this.gbar, this.type, () => this.instructions());
     this.host.wake();
     this.registerScience();
     window.dispatchEvent(new Event('resize'));
@@ -110,6 +114,7 @@ export class Playground {
   /** Back to the list of puzzles. */
   back(): void {
     this.closeWin();
+    clearOffers(this.gbar);
     this.host.pause();
     $('pg-game').hidden = true;
     $('pg-home').hidden = false;
@@ -164,16 +169,12 @@ export class Playground {
     const title = document.createElement('h2');
     title.className = 'pg-title';
     title.id = 'pg-name';
-    const use = document.createElement('span');
-    use.className = 'pg-use';
-    use.id = 'pg-use';
-    head.append(back, title, use);
+    head.append(back, title, document.createElement('span'));
   }
 
   private select(id: string): void {
     this.type = PUZZLES.find((p) => p.id === id) ?? PUZZLES[0];
     $('pg-name').textContent = this.type.name;
-    $('pg-use').textContent = this.type.use;
     const [lo, hi] = this.type.zRange;
     this.z = Math.min(hi, Math.max(lo, this.z));
     this.rebuildSlider();
@@ -210,10 +211,10 @@ export class Playground {
     this.next.disabled = this.z >= hi;
     $('pg-dealno').textContent = `#${deal + 1}`;
     this.shownHint = '';
-    $('pg-hint').textContent = '';
+    this.gbar.setDifficulty(difficulty(this.type.id, this.z));
+    this.gbar.update(null, '');
     if (!this.type.make) {
       this.host.set(null);
-      $('pg-count').textContent = '';
       this.undoBtn.disabled = true;
       return;
     }
@@ -221,14 +222,15 @@ export class Playground {
     this.host.set(this.type.make(this.z, deal, reduced));
   }
 
-  private tick(moves: number, par: number | null, hint: string): void {
-    $('pg-count').textContent = this.goal && moves === 0 ? this.goal : `${moves} move${moves === 1 ? '' : 's'}${par !== null ? ` · par ${par}` : ''}`;
-    this.undoBtn.disabled = !this.host.current?.canUndo();
-    // Status only, kept to one line; the Hint button's line may run longer.
-    if (hint !== this.shownHint) {
-      this.shownHint = hint;
-      $('pg-hint').textContent = hint.length > 60 && hint !== this.host.hints.line(this.host.current) ? '' : hint;
-    }
+  private tick(hint: string): void {
+    const v = this.host.current;
+    this.undoBtn.disabled = !v?.canUndo();
+    // The goal before the first move of a game's first plays; then the Hint button's line or the
+    // game's short status.
+    const help = this.host.hints.line(v);
+    const text = this.goal && v?.moves === 0 && !help ? this.goal : help ?? (hint.length > 60 ? '' : hint);
+    this.shownHint = text;
+    this.gbar.update(v, text);
   }
 
   private closeWin: () => void = () => {};

@@ -30,7 +30,14 @@ export interface PuzzleView {
    *  level says how far to go back instead: "Undo 2 moves to get back on track." Null when
    *  there is nothing to say (a won board). */
   help(level: 1 | 2): Help | null;
+  /** The stats row's game-specific columns (src/puzzles/gamebar.ts): `progress`, how far the
+   *  board has got ("Placed", "3/12"), and rarely `par`, for a game whose par is not in moves
+   *  (Aurum's beams). Without it the row reads "N / M word" from the status line. */
+  stats?(): { progress?: Stat; par?: Stat };
 }
+
+/** One column of the stats row: a short label over a value. */
+export interface Stat { label: string; value: string }
 
 export interface Help {
   /** One plain sentence for the message line, no markup. */

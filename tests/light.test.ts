@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cfgFor, left, lift, newLight, open, place, reflect, solved, status, tap, trace, turn, turnable, type Cell, type LightState } from '../src/puzzles/light';
+import { cfgFor, left, lift, newLight, open, place, reflect, relocate, solved, status, tap, trace, turn, turnable, type Cell, type LightState } from '../src/puzzles/light';
 import { seeded } from '../src/puzzles/rng';
 import { generate, solve, type Cfg, type NBoard } from '../src/puzzles/lightSolver';
 import { INSTRUCTIONS, LightView, RULES } from '../src/puzzles/lightView';
@@ -64,6 +64,22 @@ describe('beam', () => {
     // An empty cell takes the other kind once the chosen one is used up.
     const both = grid(['.', '.', '.', '.', '.', '.', '.', '.', '.'], { tray: { mirrors: 0, splitters: 1 } });
     expect(tap(both, 3, 'mirror')!.cells[3]).toBe('H/');
+  });
+
+  it('moves a placed piece to another open cell for free, keeping its slant', () => {
+    const one = turn(place(g, 3, 'mirror')!, 3)!;
+    const moved = relocate(one, 3, 7)!;
+    expect(moved.cells[3]).toBe('.');
+    expect(moved.cells[7]).toBe('\\');
+    expect(moved.moves).toBe(one.moves);
+    expect(left(moved)).toEqual(left(one));
+    expect(one.cells[3]).toBe('\\');
+    expect(relocate(one, 3, 3)).toBeNull();
+    expect(relocate(one, 3, 5)).toBeNull(); // a blocker
+    expect(relocate(one, 3, 4)).toBeNull(); // a ring
+    expect(relocate(one, 3, 0)).toBeNull(); // the lamp's cell
+    expect(relocate(one, 6, 7)).toBeNull(); // nothing to move
+    expect(relocate(grid(['F/', '.', '.', '.']), 0, 1)).toBeNull();
   });
 
   it('splits at a half-silvered pane: straight on and reflected', () => {
@@ -286,6 +302,76 @@ describe('hints', () => {
       }
     }
     expect(worst).toBeLessThan(200);
+  });
+});
+
+describe('dragging', () => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const priv = (v: LightView) => v as any;
+  const st = (v: LightView) => priv(v).state as LightState;
+  const level = newLight(30, 5); // three mirrors
+  const setUp = () => {
+    const v = new LightView(level, true);
+    v.draw(recCtx().ctx, AREAS_ALL[0], 0);
+    return v;
+  };
+  const at = (v: LightView, i: number) => priv(v).center(i) as { x: number; y: number };
+  const drag = (v: LightView, a: { x: number; y: number }, b: { x: number; y: number }) => {
+    v.down(a);
+    v.move({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+    v.move(b);
+    v.draw(recCtx().ctx, AREAS_ALL[0], 0); // draws the carried piece and its target
+    v.up(b);
+  };
+  const opens = level.cells.map((_, i) => i).filter((i) => open(level, i));
+  const chip = (v: LightView) => { const c = priv(v).chips[0]; return { x: c.x + c.w / 2, y: c.y + c.h / 2 }; };
+
+  it('drags a mirror from the tray onto a cell: one move, undoable', () => {
+    const v = setUp();
+    drag(v, chip(v), at(v, opens[0]));
+    expect(st(v).cells[opens[0]]).toBe('/');
+    expect(v.moves).toBe(1);
+    expect(left(st(v)).mirror).toBe(level.tray.mirrors - 1);
+    expect(v.undo()).toBe(true);
+    expect(st(v).cells).toEqual(level.cells);
+    // Onto a cell that cannot take it: nothing changes.
+    drag(v, chip(v), at(v, level.entry));
+    expect(st(v).cells).toEqual(level.cells);
+    expect(v.canUndo()).toBe(false);
+  });
+
+  it('moves a placed piece to another cell for free, snaps back from a bad one, and goes home off the board', () => {
+    const v = setUp();
+    priv(v).tryTap(opens[0]);
+    priv(v).tryTap(opens[0]); // turned to \
+    drag(v, at(v, opens[0]), at(v, opens[1]));
+    expect(st(v).cells[opens[0]]).toBe('.');
+    expect(st(v).cells[opens[1]]).toBe('\\');
+    expect(v.moves).toBe(1);
+    // Undo puts it back where it was.
+    v.undo();
+    expect(st(v).cells[opens[0]]).toBe('\\');
+    expect(st(v).cells[opens[1]]).toBe('.');
+    // A cell that cannot take it: it stays put.
+    const before = st(v);
+    drag(v, at(v, opens[0]), at(v, level.entry));
+    expect(st(v)).toBe(before);
+    // Off the board (onto the tray): back to the tray, free.
+    drag(v, at(v, opens[0]), chip(v));
+    expect(st(v).cells[opens[0]]).toBe('.');
+    expect(left(st(v)).mirror).toBe(level.tray.mirrors);
+    expect(v.moves).toBe(1);
+  });
+
+  it('still taps: a press that barely moves turns the piece', () => {
+    const v = setUp();
+    priv(v).tryTap(opens[0]);
+    const p = at(v, opens[0]);
+    v.down(p);
+    v.move({ x: p.x + 3, y: p.y + 2 });
+    v.up({ x: p.x + 3, y: p.y + 2 });
+    expect(st(v).cells[opens[0]]).toBe('\\');
+    expect(v.moves).toBe(1);
   });
 });
 
