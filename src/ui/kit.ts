@@ -1,7 +1,7 @@
 // Dev-only page (open /kit.html on the dev server) showing every shared component working.
 
 import '@fontsource-variable/outfit';
-import { ICON_CHEVRON, closeButton, createHoldButton, createSlider, createSwitch, createTabs, iconButton, showToast } from './components';
+import { ICON_CHEVRON, closeButton, confirmDialog, createSlider, createSwitch, createTabs, iconButton, nextButton, playButton, showToast } from './components';
 import { openModal } from './modal';
 import { openElementPicker } from './picker';
 import { MICROSCOPE } from './icons';
@@ -40,15 +40,33 @@ sw.append(
 );
 section('Switches', sw);
 
-const holdOut = out('hold it');
-let n = 0;
-const restart = createHoldButton({
-  label: 'Restart',
-  doneLabel: 'Restarted',
-  icon: `<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12a7 7 0 1 0 2-4.9"/><path d="M5 4v4h4"/></svg>`,
-  onConfirm: () => (holdOut.textContent = `restarted ×${++n}`),
-});
-section('Hold to confirm', restart, holdOut);
+const goOut = out();
+section('Next and Play',
+  nextButton({ label: 'Build hydrogen', onClick: () => (goOut.textContent = 'next') }),
+  playButton({ label: 'Play', onClick: () => (goOut.textContent = 'play') }),
+  playButton({ ariaLabel: 'Play Tessera', compact: true, onClick: () => (goOut.textContent = 'play') }),
+  goOut,
+);
+
+const confirmOut = out();
+const board = document.createElement('div');
+board.className = 'kit-board';
+board.innerHTML = Array.from({ length: 24 }, () => '<i></i>').join('');
+const ask = (label: string, run: () => Promise<boolean>) => {
+  const b = document.createElement('button');
+  b.className = 'secondary';
+  b.textContent = label;
+  b.onclick = async () => (confirmOut.textContent = String(await run()));
+  return b;
+};
+const tiles = [...board.children] as HTMLElement[];
+const fade = (p: number) => tiles.forEach((t, i) => (t.style.opacity = String((i % 8) / 8 < p ? 0.15 : 1)));
+section('Confirm',
+  ask('Restart', () => confirmDialog({ title: 'Restart this board?', body: 'Your moves so far are cleared.', confirmLabel: 'Restart', nu: 'restart', sweepOver: board, onSweep: fade })
+    .then((yes) => { setTimeout(() => fade(-1), 400); return yes; })),
+  ask('Reset everything', () => confirmDialog({ title: 'Reset everything?', body: 'Every atom, isotope and discovery goes back to locked. This can\'t be undone.', confirmLabel: 'Reset everything', tone: 'problem', nu: 'reset' })),
+  confirmOut,
+).append(board);
 
 const toastBtn = (text: string, tone: 'info' | 'good' | 'warn' | 'bad') => {
   const b = document.createElement('button');

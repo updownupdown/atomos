@@ -1,11 +1,12 @@
 // Shared interface pieces: icon buttons, the modal close button, tabs, switch toggles, a range
-// slider, toasts, hold-to-confirm and the drawer. Every screen builds its controls from these so they look
+// slider, toasts, hold-to-confirm, the drawer, the Next and Play buttons and the confirm dialog. Every screen builds its controls from these so they look
 // and behave the same everywhere. Styles live in components.css and read tokens.css.
 //
 // Each builder returns plain DOM, so it drops into code that renders with innerHTML too:
 // render a placeholder, then replace it with the element (or use switchHtml, which is a string).
 
 import { icon } from './icons';
+import { landNu, nuIconHtml, nuOrbit, nuStreak, reducedMotion } from './nu';
 
 // Stand-in glyphs from before the icon library; drawn on the 24 px grid with 2 px padding.
 export const ICON_CLOSE = `<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>`;
@@ -461,6 +462,153 @@ export function createHoldButton(o: HoldButtonOptions): HTMLButtonElement {
   const b = iconButton({ icon: o.icon, label: `Hold to ${o.label.toLowerCase()}`, className: `ui-hold ${o.className ?? ''}`.trim() });
   bindHold(b, { label: `Hold to ${o.label.toLowerCase()}`, doneLabel: o.doneLabel, holdMs: o.holdMs, onConfirm: o.onConfirm });
   return b;
+}
+
+// ---- Next and Play ---------------------------------------------------------------------------
+
+export interface NextButtonOptions {
+  /** What happens next, e.g. "Build hydrogen" or "Next: helium's nucleus". */
+  label: string;
+  onClick: () => void;
+  /** A shorter button for cards and rows (36 px tall instead of 48). */
+  compact?: boolean;
+  /** Nu lands on the button the first time it shows for each key in a visit; by default the
+   *  key is the screen, so re-rendering a screen doesn't replay it. */
+  landKey?: string;
+  className?: string;
+}
+
+const landed = new Set<string>();
+let nextSeen: IntersectionObserver | null = null;
+
+/** Watches Next buttons: the ring pulses only while one is on screen, and Nu lands on it the
+ *  first time it shows. More than one Next on screen is a mistake, so it says so in the console. */
+function watchNext(b: HTMLButtonElement): void {
+  nextSeen ??= new IntersectionObserver((entries) => {
+    for (const e of entries) {
+      const btn = e.target as HTMLButtonElement;
+      btn.classList.toggle('is-live', e.isIntersecting);
+      btn.classList.toggle('is-still', reducedMotion());
+      if (!e.isIntersecting) continue;
+      const key = btn.dataset.landKey!;
+      if (!landed.has(key)) {
+        landed.add(key);
+        void landNu(btn);
+      }
+    }
+    const live = document.querySelectorAll('.ui-next.is-live').length;
+    if (live > 1) console.warn(`Atomos: ${live} Next buttons on screen; there should be one.`);
+  }, { threshold: 0.6 });
+  nextSeen.observe(b);
+}
+
+/** The Next button: the one way forward on a screen. Rose magenta, the Nu icon and a label, with
+ *  a slow ring pulse while it is on screen (a still ring under Reduce motion). Use one per screen;
+ *  every other play action is a playButton. */
+export function nextButton(o: NextButtonOptions): HTMLButtonElement {
+  const b = el('button', `ui-next${o.compact ? ' ui-next--compact' : ''} ${o.className ?? ''}`.trim(), `${nuIconHtml(o.compact ? 18 : 20)}<span>${esc(o.label)}</span>`);
+  b.type = 'button';
+  b.dataset.landKey = o.landKey ?? `screen:${document.body.dataset.screen ?? ''}`;
+  b.onclick = () => o.onClick();
+  watchNext(b);
+  return b;
+}
+
+export interface PlayButtonOptions {
+  /** Shown beside the triangle; omit for a round icon-only button (then give `ariaLabel`). */
+  label?: string;
+  ariaLabel?: string;
+  onClick: () => void;
+  compact?: boolean;
+  className?: string;
+}
+
+/** Plain Play, for every step that is not the next one: a gray plate with a white triangle. */
+export function playButton(o: PlayButtonOptions): HTMLButtonElement {
+  const b = el('button', `ui-play${o.compact ? ' ui-play--compact' : ''}${o.label ? '' : ' ui-play--icon'} ${o.className ?? ''}`.trim(), `${icon('play', { size: o.compact ? 16 : 18 })}${o.label ? `<span>${esc(o.label)}</span>` : ''}`);
+  b.type = 'button';
+  if (!o.label) b.setAttribute('aria-label', o.ariaLabel ?? 'Play');
+  b.onclick = () => o.onClick();
+  return b;
+}
+
+// ---- Confirm dialog ------------------------------------------------------------------------
+
+export interface ConfirmOptions {
+  title: string;
+  /** One plain line on what happens. */
+  body: string;
+  confirmLabel: string;
+  cancelLabel?: string;
+  /** 'problem' gives the confirm button the amber fill, for actions that lose progress. */
+  tone?: 'normal' | 'problem';
+  /** Nu circles this action's icon while the dialog waits: the restart arrow, or an atom for
+   *  resetting everything. Omit for a dialog without Nu. */
+  nu?: 'restart' | 'reset';
+  /** On confirm, Nu streaks across this element (the board, or the screen when omitted). */
+  sweepOver?: Element | null;
+  /** Runs every frame of the streak with p from 0 to 1, so the caller can fade what lies behind
+   *  Nu's trail. Called once with 1 under Reduce motion. */
+  onSweep?: (p: number) => void;
+}
+
+/** Asks before an action that can't be undone: a title, one line, Cancel and the action. It
+ *  floats over everything, open modals included (Settings asks from inside its sheet).
+ *  Resolves true once the player confirms and Nu has crossed (with `nu`), false on Cancel, the
+ *  X, Escape or a tap outside.
+ *
+ *    if (await confirmDialog({ title: 'Restart this board?', body: 'Your moves so far are cleared.',
+ *      confirmLabel: 'Restart', nu: 'restart', sweepOver: board, onSweep: (p) => fade(p) })) restart();
+ */
+export function confirmDialog(o: ConfirmOptions): Promise<boolean> {
+  const scrim = el('div', 'ui-modal ui-confirm');
+  const titleId = `confirm-${Math.random().toString(36).slice(2, 8)}`;
+  const card = el('div', 'ui-modal-card ui-confirm-card');
+  card.setAttribute('role', 'alertdialog');
+  card.setAttribute('aria-modal', 'true');
+  card.setAttribute('aria-labelledby', titleId);
+  const orbit = o.nu ? nuOrbit(o.nu === 'reset' ? 'atom' : 'restart') : null;
+  card.innerHTML = `<h2 id="${titleId}">${esc(o.title)}</h2><p>${esc(o.body)}</p>`;
+  if (orbit) card.prepend(orbit.el);
+  const actions = el('div', 'ui-confirm-actions');
+  const cancel = el('button', 'secondary', esc(o.cancelLabel ?? 'Cancel'));
+  const ok = el('button', o.tone === 'problem' ? 'primary ui-confirm-problem' : 'primary', esc(o.confirmLabel));
+  cancel.type = ok.type = 'button';
+  actions.append(cancel, ok);
+  card.append(actions);
+  scrim.append(card);
+  const before = document.activeElement as HTMLElement | null;
+  document.body.append(scrim);
+  ok.focus();
+  return new Promise((resolve) => {
+    let done = false;
+    const close = () => {
+      window.removeEventListener('keydown', key, true);
+      scrim.remove();
+      before?.focus?.();
+    };
+    const finish = async (yes: boolean) => {
+      if (done) return;
+      done = true;
+      if (!yes) {
+        await orbit?.settle();
+        close();
+        resolve(false);
+        return;
+      }
+      close();
+      if (o.nu || o.onSweep) await nuStreak(o.sweepOver, o.onSweep);
+      resolve(true);
+    };
+    const key = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { e.stopPropagation(); e.preventDefault(); void finish(false); }
+    };
+    window.addEventListener('keydown', key, true);
+    card.prepend(closeButton(() => void finish(false), 'Cancel'));
+    cancel.onclick = () => void finish(false);
+    ok.onclick = () => void finish(true);
+    scrim.addEventListener('click', (e) => { if (e.target === scrim) void finish(false); });
+  });
 }
 
 // ---- Drawer --------------------------------------------------------------------------------
