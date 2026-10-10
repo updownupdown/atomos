@@ -836,16 +836,23 @@ body[data-screen^='atom'] { --top: calc(var(--safe-top) + var(--nav-h) + var(--m
   display: flex;
   align-items: center;
   gap: var(--sp-3);
-  padding: 0 var(--sp-2) 0 var(--sp-3);
+  padding: 0 var(--sp-3);
   background: var(--c-bg);
   box-shadow: inset 0 -1px 0 var(--c-line);
 }
 .mode-row[hidden] { display: none; }
-.mode-seg { flex: 0 1 240px; min-width: 0; }
-.mode-detail { flex: 1; min-width: 0; display: flex; align-items: baseline; justify-content: flex-end; gap: var(--sp-2); overflow: hidden; white-space: nowrap; color: var(--c-text-2); font-size: var(--fs-sm); }
-.mode-detail .mode-z { font-size: var(--fs-sm); font-variant-numeric: tabular-nums; color: var(--c-text-3); }
-.mode-detail .mode-name { font-size: var(--fs-md); font-weight: var(--fw-semibold); color: var(--c-text); overflow: hidden; text-overflow: ellipsis; }
-.mode-row .science-btn { flex: none; }
+.mode-seg { flex: 1; min-width: 0; }
+.mode-seg .ui-seg { width: 100%; }
+.mode-seg .ui-seg-opt { min-height: 42px; }
+/* Build's progress: a ring and a percentage, in the option's own color so it reads on both
+   the light (picked) and dark (not picked) option. */
+.mode-prog { display: inline-flex; align-items: center; gap: 5px; margin-left: var(--sp-1); font-variant-numeric: tabular-nums; }
+.mode-prog svg { width: 20px; height: 20px; transform: rotate(-90deg); }
+.mode-prog circle { fill: none; stroke-width: 2.5; }
+.mode-prog-track { stroke: currentColor; opacity: 0.22; }
+.mode-prog-arc { stroke: var(--c-accent); stroke-linecap: round; transition: stroke-dasharray var(--dur) var(--ease); }
+.ui-seg-opt[aria-checked='true'] .mode-prog-arc { stroke: var(--c-accent-ink); }
+.mode-prog b { font-size: var(--fs-sm); font-weight: var(--fw-semibold); }
 
 /* The microscope, wherever a screen puts it. Dimmed when there is nothing to open. */
 .science-btn[aria-expanded='true'] { background: var(--c-tile); color: var(--c-tile-ink); }
@@ -917,16 +924,44 @@ body[data-screen^='atom'] { --top: calc(var(--safe-top) + var(--nav-h) + var(--m
 .iso-head b { font-size: var(--fs-xl); font-weight: var(--fw-semibold); color: var(--c-text); }
 .iso-head span { font-size: var(--fs-xs); color: var(--c-text-2); }
 .iso-intro { color: var(--c-text-2); }
-.iso-album { display: grid; grid-template-columns: repeat(auto-fill, minmax(68px, 1fr)); gap: 6px; margin: var(--sp-3) 0; }
-.iso-tile { position: relative; display: flex; flex-direction: column; align-items: flex-start; padding: 6px 7px 9px; border: 1px dashed var(--c-line-3); border-radius: var(--r-sm); color: var(--c-text-2); min-height: 66px; overflow: hidden; }
-.iso-tile .iso-a { font-size: 10px; line-height: 1; }
-.iso-tile .iso-sym { font-size: var(--fs-lg); font-weight: var(--fw-semibold); line-height: 1.1; color: var(--c-text); }
-.iso-tile .iso-cap { font-size: 10px; line-height: 1.2; margin-top: auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
-.iso-tile .iso-meter { position: absolute; left: 0; bottom: 0; height: 3px; width: calc(var(--v) * 100%); background: var(--c-text-3); }
-.iso-tile.is-stable { border-style: solid; border-color: var(--c-silver); background: var(--c-surface); color: var(--c-text); }
-.iso-tile.is-stable .iso-sym { color: var(--c-silver); }
-.iso-tile.is-stable .iso-meter { background: var(--c-accent); }
-.iso-tile.is-key { box-shadow: 0 0 0 1px var(--c-accent) inset; }
+/* Isotopes: the neutron chart, the filter, and the table with lifetime bars and share rings. */
+.ic { margin: var(--sp-4) 0 var(--sp-2); }
+.ic svg { display: block; width: 100%; height: auto; }
+.ic-base { stroke: var(--c-line-2); }
+.ic-bar { fill: color-mix(in srgb, var(--c-silver) calc(25% + var(--v) * 45%), var(--c-surface-3)); }
+.ic-bar.is-stable { fill: var(--c-accent); }
+.ic-bar.is-key { stroke: var(--c-silver); stroke-width: 1.5; }
+.ic text { fill: var(--c-text-3); font-family: var(--font); font-size: 9px; text-anchor: middle; }
+.ic figcaption { display: flex; justify-content: space-between; gap: var(--sp-2); font-size: var(--fs-xs); color: var(--c-text-3); }
+.ic figcaption span:nth-child(2) { color: var(--c-text-2); text-align: center; }
+.it-filter { margin: var(--sp-4) 0 var(--sp-2); overflow-x: auto; scrollbar-width: none; }
+.it-filter::-webkit-scrollbar { display: none; }
+.it-filter .ui-seg { width: max-content; min-width: 100%; }
+.it-filter .ui-seg-dot { display: none; }
+.it-filter .ui-seg-opt { padding: 0 var(--sp-3); font-size: var(--fs-sm); }
+.it { display: flex; flex-direction: column; }
+.it-row { display: grid; grid-template-columns: minmax(78px, 0.8fr) minmax(0, 1.6fr) minmax(64px, 0.7fr); gap: var(--sp-3); align-items: center; padding: var(--sp-3) var(--sp-2); border-bottom: 1px solid var(--c-line); }
+.it-row[hidden] { display: none; }
+.it-headrow { padding-top: var(--sp-2); padding-bottom: var(--sp-2); font-size: var(--fs-xs); color: var(--c-text-3); text-transform: uppercase; letter-spacing: var(--tracking-caps); }
+.it-row.is-key { background: var(--c-surface); border-radius: var(--r-sm); }
+.it-name { display: flex; flex-direction: column; gap: 1px; }
+.it-name b { font-size: var(--fs-lg); font-weight: var(--fw-semibold); color: var(--c-text-2); line-height: 1.1; }
+.it-name b sup { font-size: 0.6em; margin-right: 1px; font-weight: var(--fw-medium); }
+.it-row.is-stable .it-name b { color: var(--c-silver); }
+.it-name span { font-size: var(--fs-xs); color: var(--c-text-3); }
+.it-life { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.it-track { position: relative; height: 8px; border-radius: 4px; background: var(--c-surface-2); overflow: hidden; }
+.it-track i { position: absolute; inset: 0 auto 0 0; width: calc(var(--v) * 100%); border-radius: 4px; background: color-mix(in srgb, var(--c-accent) calc(var(--v) * 70%), var(--c-orb-d)); }
+.it-row.is-stable .it-track i { background: var(--c-accent); }
+.it-life-lab { font-size: var(--fs-sm); color: var(--c-text-2); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.it-row.is-stable .it-life-lab { color: var(--c-accent); }
+.it-share { display: flex; align-items: center; gap: 6px; font-size: var(--fs-sm); color: var(--c-text); font-variant-numeric: tabular-nums; }
+.it-ring { width: 24px; height: 24px; flex: none; }
+.it-ring-bg { fill: none; stroke: var(--c-surface-3); stroke-width: 4; }
+.it-ring-fg { fill: none; stroke: var(--c-accent); stroke-width: 4; stroke-linecap: round; }
+.it-empty { display: none; color: var(--c-text-2); padding: var(--sp-4) var(--sp-2); }
+.it.is-empty .it-empty { display: block; }
+.it.is-empty .it-headrow { display: none; }
 
 /* Properties: one axis per property, every element a faint tick. */
 /* Properties: label and value on the left, every element as a colored dot on the right. */
@@ -1030,3 +1065,36 @@ body[data-screen='atom-view'] .mode-row .science-btn { visibility: hidden; }
 .gd-defs { margin: 0; display: grid; gap: var(--sp-3); }
 .gd-defs dt { font-weight: var(--fw-semibold); color: var(--c-text); }
 .gd-defs dd { margin: 2px 0 0; color: var(--c-text-2); line-height: 1.5; }
+
+/* Structure: three ways to see the atom. */
+.st-switch { margin: var(--sp-2) 0 var(--sp-4); }
+.st-switch .ui-seg-dot { display: none; }
+.st-switch .ui-seg-opt { font-size: var(--fs-sm); padding: 0 var(--sp-3); }
+.sp { margin: var(--sp-2) 0; }
+.sp svg { display: block; width: 100%; height: auto; overflow: visible; }
+.sp-layer { fill: color-mix(in srgb, var(--b) 38%, transparent); stroke: var(--b); stroke-width: 1.2; stroke-linejoin: round; }
+.sp-layer.is-core { fill: color-mix(in srgb, var(--b) 20%, transparent); stroke-opacity: 0.6; }
+.sp-sum { fill: none; stroke: var(--c-silver); stroke-width: 1.4; stroke-linejoin: round; }
+.sp-base { stroke: var(--c-line-2); }
+.sp-tick { stroke: var(--c-line-2); }
+.sp-tl, .sp-unit { fill: var(--c-text-3); font-family: var(--font); font-size: 9px; text-anchor: middle; }
+.sp-unit { text-anchor: end; }
+.sp-shell { fill: var(--c-text); font-family: var(--font); font-size: 12px; font-weight: 700; text-anchor: middle; }
+.sp-vdw { stroke: var(--c-accent); stroke-width: 1; stroke-dasharray: 3 3; }
+.sp-vdw-l { fill: var(--c-accent); font-family: var(--font); font-size: 9px; text-anchor: end; }
+.sp figcaption { color: var(--c-text-2); font-size: var(--fs-sm); margin-top: var(--sp-2); }
+.ob { display: flex; flex-direction: column; gap: var(--sp-2); margin: var(--sp-2) 0 var(--sp-3); }
+.ob-row { display: grid; grid-template-columns: 22px 1fr; gap: var(--sp-2); align-items: center; }
+.ob-shell { font-weight: var(--fw-bold); color: var(--c-text-2); text-align: center; }
+.ob-groups { display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-3); }
+.ob-group { display: flex; flex-direction: column; gap: 3px; }
+.ob-key { font-size: var(--fs-xs); font-weight: var(--fw-semibold); color: var(--b); }
+.ob-boxes { display: flex; }
+.ob-box { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; gap: 1px; border: 1.5px solid var(--b); margin-left: -1.5px; font-style: normal; color: var(--c-text); background: color-mix(in srgb, var(--b) 14%, transparent); }
+.ob-box:first-child { margin-left: 0; border-radius: 5px 0 0 5px; }
+.ob-box:last-child { border-radius: 0 5px 5px 0; }
+.ob-box:only-child { border-radius: 5px; }
+.ob-box b { font-size: 13px; line-height: 1; font-weight: 700; }
+.ob-box.is-lone b { color: var(--c-accent); }
+.ob-group.is-core { opacity: 0.45; }
+@media (max-width: 420px) { .ob-box { width: 25px; height: 26px; } .ob-box b { font-size: 12px; } }
