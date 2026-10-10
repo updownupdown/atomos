@@ -273,11 +273,117 @@ describe('view', () => {
     }
   });
 
-  it('has rule cards with demos, and only the meta in the instructions', () => {
+  describe('a swap that strands tiles', () => {
+    const area = { x: 0, y: 0, w: 340, h: 430 };
+    type Inside = { state: ColorChargeState; geom: { cell: number; x: number; y: number } };
+    /** A gluon level, a view on a hand-driven clock, and a swap that strands tiles on it. */
+    function setup(reduced: boolean) {
+      const s = newColorCharge(25, 3);
+      const clock = { now: 1000 };
+      const v = new ColorChargeView(s, reduced, () => clock.now);
+      v.draw(ctx(), area, clock.now);
+      const inside = v as unknown as Inside;
+      const at = (i: number) => ({ x: inside.geom.x + (i % s.cols + 0.5) * inside.geom.cell, y: inside.geom.y + (Math.floor(i / s.cols) + 0.5) * inside.geom.cell });
+      const tap = (i: number) => { v.down(at(i)); v.up(at(i)); };
+      let wrong: [number, number] | null = null;
+      for (let a = 0; a < s.tiles.length && !wrong; a++) {
+        for (const b of [a + 1, a + s.cols]) if (canSwap(s, a, b) && stranded(swap(s, a, b)!).length) { wrong = [a, b]; break; }
+      }
+      const doSwap = ([a, b]: [number, number]) => {
+        expect(v.key({ key: 'g' } as KeyboardEvent)).toBe(true);
+        tap(a);
+        tap(b);
+      };
+      const frame = (ms: number) => { clock.now += ms; v.draw(ctx(), area, clock.now); };
+      return { s, v, inside, at, tap, wrong: wrong!, doSwap, frame };
+    }
+
+    it('shows it, then undoes it on its own, refunding the gluon and the move', () => {
+      const { s, v, inside, wrong, doSwap, frame } = setup(false);
+      doSwap(wrong);
+      expect(v.moves).toBe(1);
+      expect(gluonsLeft(inside.state)).toBe(0);
+      expect(v.hint()).toBe('That swap strands tiles: undoing');
+      expect(v.hint().length).toBeLessThanOrEqual(40);
+      frame(400);
+      frame(1000);
+      expect(v.moves).toBe(1);
+      frame(400); // past the swap's flight (420 ms) and its 1.2 s on show
+      expect(v.moves).toBe(0);
+      expect(gluonsLeft(inside.state)).toBe(1);
+      expect(inside.state.tiles).toEqual(s.tiles);
+      expect(v.canUndo()).toBe(false);
+      expect(v.hint()).toBe('Swap undone: gluon back');
+      frame(2000);
+      expect(v.hint()).not.toMatch(/undo/i);
+    });
+
+    it('is shorter with reduced motion', () => {
+      const { v, wrong, doSwap, frame } = setup(true);
+      doSwap(wrong);
+      frame(600);
+      expect(v.moves).toBe(1);
+      frame(150);
+      expect(v.moves).toBe(0);
+    });
+
+    it('takes it back at once on any touch, Undo or key, and does nothing else', () => {
+      const { s, v, inside, at, wrong, doSwap } = setup(false);
+      doSwap(wrong);
+      v.down(at(0));
+      v.move(at(1));
+      v.up(at(1));
+      expect(v.moves).toBe(0);
+      expect(inside.state.tiles).toEqual(s.tiles);
+      expect((v as unknown as { sel: number[] }).sel).toEqual([]);
+      doSwap(wrong);
+      expect(v.undo()).toBe(true);
+      expect(v.moves).toBe(0);
+      expect(v.canUndo()).toBe(false);
+      doSwap(wrong);
+      expect(v.key({ key: 'Escape' } as KeyboardEvent)).toBe(true);
+      expect(v.moves).toBe(0);
+      expect(gluonsLeft(inside.state)).toBe(1);
+    });
+
+    it('leaves the right swap alone', () => {
+      const { s, v, doSwap, frame } = setup(false);
+      doSwap(s.solutionSwaps[0]);
+      expect(v.hint()).not.toMatch(/strands/);
+      frame(5000);
+      expect(v.moves).toBe(1);
+    });
+
+    it('takes back only the swap, not the moves before it', () => {
+      const { s, v, wrong, doSwap, frame } = setup(false);
+      // Earlier moves stay: only the swap is taken back.
+      const free = s.solution.find((g) => !g.includes(wrong[0]) && !g.includes(wrong[1]) && canBind(s, g));
+      expect(free).toBeDefined();
+      (v as unknown as { sel: number[] }).sel = [...free!];
+      (v as unknown as { tryBind: () => void }).tryBind();
+      expect(v.moves).toBe(1);
+      doSwap(wrong);
+      expect(v.moves).toBe(2);
+      frame(3000);
+      expect(v.moves).toBe(1);
+    });
+  });
+
+  it('has rule cards with a good and a bad picture each, and only the meta in the instructions', () => {
     expect(RULES.map((r) => r.title)).toEqual(['Baryon', 'Stranded tiles', 'Gluon', 'Antiquark', 'Meson', 'Antibaryon']);
     for (const r of RULES) {
       expect(r.text).not.toMatch(/</);
-      for (const t of [0, 0.7, 1.4, 1.9, 2.5, 3.3, 4.2, 5.7, 8.1]) r.demo!(ctx(), 120, 96, t);
+      expect(r.demo).toBeUndefined();
+      for (const pic of [r.good, r.bad]) {
+        expect(pic).toBeDefined();
+        expect(pic!.duration).toBeGreaterThanOrEqual(1.5);
+        expect(pic!.duration).toBeLessThanOrEqual(4);
+        expect(pic!.caption!.length).toBeGreaterThan(0);
+        expect(pic!.caption!.length).toBeLessThanOrEqual(28);
+        for (const [w, h] of [[140, 104], [120, 90]]) {
+          for (const t of [0, 0.4, 0.9, 1.4, 2.1, 2.9, 3.6, pic!.duration, pic!.duration + 2]) pic!.draw(ctx(), w, h, t);
+        }
+      }
     }
     expect(INSTRUCTIONS).toMatch(/<h3>In the game<\/h3>\s*<p class="meta">/);
     expect(INSTRUCTIONS).not.toMatch(/How to play/);
