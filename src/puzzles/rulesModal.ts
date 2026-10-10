@@ -1,7 +1,8 @@
 // The Instructions modal for any puzzle: its goal, then one card per rule. Each card has its
 // title and text, then its pictures side by side, the rule kept and the rule broken, drawn as
-// stills. Nothing moves until the player taps a card's Play, which plays the kept picture and
-// then the broken one; only one card plays at a time. Shared by Build and the Puzzles screen.
+// stills as wide as the sheet allows. Nothing moves until the player taps a card's Play, which
+// plays the kept picture and then the broken one, or taps a picture, which plays that one; only
+// one plays at a time. Shared by Build and the Puzzles screen.
 
 import { openModal } from '../ui/modal';
 import { icon } from '../ui/icons';
@@ -71,31 +72,46 @@ function wire(root: HTMLElement, rules: RuleCard[], reduced: boolean): void {
   const dpr = Math.min(2, window.devicePixelRatio || 1);
   const pics = new Map<string, Pic[]>();
   root.querySelectorAll<HTMLCanvasElement>('canvas.rule-demo').forEach((canvas) => {
-    canvas.width = PIC_W * dpr;
-    canvas.height = PIC_H * dpr;
+    // Pictures are drawn in a 140 x 104 box and scaled to the size they show at, kept sharp.
+    const w = Math.max(PIC_W, canvas.clientWidth || PIC_W);
+    canvas.width = Math.round(w * dpr);
+    canvas.height = Math.round((w * PIC_H / PIC_W) * dpr);
     const i = canvas.dataset.i!;
     const ill = picsOf(rules[Number(i)])[Number(canvas.dataset.k)].ill;
     const list = pics.get(i) ?? [];
     list.push({ canvas, ill });
     pics.set(i, list);
-    paint(canvas, ill, ill.duration, dpr);
+    paint(canvas, ill, ill.duration);
   });
 
   let playing: { btn: HTMLButtonElement; stop: () => void } | null = null;
+  const start = (btn: HTMLButtonElement, list: Pic[]) => {
+    const run = play(list, btn, reduced, root, () => { if (playing?.btn === btn) playing = null; });
+    playing = { btn, stop: run };
+  };
   root.querySelectorAll<HTMLButtonElement>('.rule-play').forEach((btn) => {
     btn.onclick = () => {
       const same = playing?.btn === btn;
       playing?.stop();
       if (same) return;
-      const list = pics.get(btn.dataset.i!) ?? [];
-      const run = play(list, btn, reduced, dpr, root, () => { if (playing?.btn === btn) playing = null; });
-      playing = { btn, stop: run };
+      start(btn, pics.get(btn.dataset.i!) ?? []);
     };
   });
+  // Tapping a picture plays just that picture.
+  for (const [i, list] of pics) {
+    const btn = root.querySelector<HTMLButtonElement>(`.rule-play[data-i="${i}"]`);
+    if (!btn) continue;
+    for (const pic of list) {
+      pic.canvas.onclick = () => {
+        playing?.stop();
+        start(btn, [pic]);
+      };
+    }
+  }
 }
 
 /** Plays a card's pictures one after the other, each from its start to its finished still. */
-function play(list: Pic[], btn: HTMLButtonElement, reduced: boolean, dpr: number, root: HTMLElement, done: () => void): () => void {
+function play(list: Pic[], btn: HTMLButtonElement, reduced: boolean, root: HTMLElement, done: () => void): () => void {
   let raf = 0;
   let timer = 0;
   let k = 0;
@@ -109,13 +125,13 @@ function play(list: Pic[], btn: HTMLButtonElement, reduced: boolean, dpr: number
     window.clearTimeout(timer);
     btn.classList.remove('is-playing');
     label.textContent = 'Play';
-    list.forEach((p) => { p.canvas.classList.remove('is-live'); paint(p.canvas, p.ill, p.ill.duration, dpr); });
+    list.forEach((p) => { p.canvas.classList.remove('is-live'); paint(p.canvas, p.ill, p.ill.duration); });
     done();
   };
   btn.classList.add('is-playing');
   label.textContent = 'Stop';
   // Every picture starts from its first frame, so the sequence reads in order.
-  list.forEach((p) => paint(p.canvas, p.ill, 0, dpr));
+  list.forEach((p) => paint(p.canvas, p.ill, 0));
   if (reduced) {
     // No motion: the first frames for a beat, then the finished stills.
     timer = window.setTimeout(end, 1200);
@@ -126,7 +142,7 @@ function play(list: Pic[], btn: HTMLButtonElement, reduced: boolean, dpr: number
     const p = list[k];
     const t = (now - t0) / 1000;
     p.canvas.classList.add('is-live');
-    paint(p.canvas, p.ill, Math.min(t, p.ill.duration), dpr);
+    paint(p.canvas, p.ill, Math.min(t, p.ill.duration));
     if (t >= p.ill.duration + 0.6) {
       p.canvas.classList.remove('is-live');
       k += 1;
@@ -139,10 +155,11 @@ function play(list: Pic[], btn: HTMLButtonElement, reduced: boolean, dpr: number
   return end;
 }
 
-function paint(canvas: HTMLCanvasElement, ill: Illustration, t: number, dpr: number): void {
+function paint(canvas: HTMLCanvasElement, ill: Illustration, t: number): void {
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const k = canvas.width / PIC_W;
+  ctx.setTransform(k, 0, 0, k, 0, 0);
   ctx.clearRect(0, 0, PIC_W, PIC_H);
   try {
     ill.draw(ctx, PIC_W, PIC_H, t);

@@ -31,7 +31,7 @@ import { closeModal, modalOpen, openModal } from './ui/modal';
 import { createTabs, iconButton, nextButton, playButton } from './ui/components';
 import { askRestart, confirming, restartButton } from './puzzles/restart';
 import { HintControl } from './puzzles/hints';
-import { clearOffers, createGameBar, offerRules, type GameBar } from './puzzles/gamebar';
+import { clearOffers, createGameBar, gameFooter, offerRules, type GameBar, type GameFooter } from './puzzles/gamebar';
 import { countPlay, GOAL_PLAYS } from './core/plays';
 import { icon, type IconName } from './ui/icons';
 import { scienceButton, setScienceHandler } from './ui/science';
@@ -88,6 +88,8 @@ export class Game {
   private hints = new HintControl(() => (this.busy ? null : this.puzzle), () => { this.refresh(); this.ensureLoop(); });
   /** The bar at the top of a puzzle: tools, stats and the message line. */
   private gbar!: GameBar;
+  /** Under a puzzle: Back to the atom's Build page. */
+  private foot!: GameFooter;
 
   constructor(private hooks: { onElement?: (z: number) => void; onView?: (z: number) => void } = {}) {
     this.scene = new AtomScene($<HTMLCanvasElement>('atom'));
@@ -352,21 +354,19 @@ export class Game {
   private renderHead(): void {
     const stage = this.stage as Exclude<Stage, 'home'>;
     const t = this.stagePuzzle(stage);
-    const head = $('build-head-row');
-    head.innerHTML = `
-      <button class="back-plate" id="build-back" aria-label="Back to ${element(this.z).name}">${icon('chevron-left', { size: 20 })}<span>Back</span></button>
-      <h2 class="pg-title" title="${this.stageLabel(stage)}">${t.name}</h2>
-      <span></span>`;
-    head.querySelector<HTMLButtonElement>('#build-back')!.onclick = () => this.toHome();
+    this.gbar.setTitle(t.name, this.stageLabel(stage));
+    this.foot.setLabel(`Back to ${element(this.z).name}`);
     this.gbar.setDifficulty(difficulty(t.id, this.dealtFor(stage)));
   }
 
-  /** What a puzzle builds, for the header: "Nucleus", "Electrons" or "Isotope · Li-6". */
+  /** What a puzzle is for, beside its name: "Building Lithium", "Building Lithium-6" or
+   *  "Discovering p orbitals". */
   private stageLabel(stage: Exclude<Stage, 'home'>): string {
-    if (isIso(stage)) return `Isotope · ${element(this.z).symbol}-${isoA(stage)}`;
-    if (isFleet(stage)) return `Fleeting isotope · ${element(this.z).symbol}-${fleetA(stage)}`;
-    if (stage === 'shape') return `Discovery · ${shapeAt(this.z)} orbitals`;
-    return stage === 'nucleus' ? 'Nucleus' : 'Electrons';
+    const name = element(this.z).name;
+    if (isIso(stage)) return `Building ${name}-${isoA(stage)}`;
+    if (isFleet(stage)) return `Building ${name}-${fleetA(stage)}`;
+    if (stage === 'shape') return `Discovering ${shapeAt(this.z)} orbitals`;
+    return `Building ${name}`;
   }
 
   /** The catalog entry for a puzzle on this atom. */
@@ -959,6 +959,8 @@ export class Game {
     const how = iconButton({ icon: icon('info'), label: 'Instructions', onClick: () => this.showHow() });
     this.gbar = createGameBar([undo, restart, this.hints.button, how, scienceButton('ui-icon-btn science-btn')]);
     $('build-head').append(this.gbar.el);
+    this.foot = gameFooter('Back', () => this.toHome());
+    $('build-foot').append(this.foot.el);
     window.addEventListener('keydown', (e) => this.onKey(e));
     window.addEventListener('blur', () => this.onCancel());
   }

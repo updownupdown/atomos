@@ -11,7 +11,7 @@ import { modalOpen } from '../ui/modal';
 import { puzzleType } from './catalog';
 import { PuzzleHost } from './host';
 import { difficulty } from './difficulty';
-import { createGameBar, offerRules } from './gamebar';
+import { createGameBar, gameFooter, offerRules } from './gamebar';
 import { openRules } from './rulesModal';
 import { showWin } from './winPanel';
 import type { Area } from './view';
@@ -46,11 +46,6 @@ function run(id: UnlockId, info: UnlockInfo): Promise<boolean> {
     root.setAttribute('aria-modal', 'true');
     root.setAttribute('aria-label', `${t.name}: unlock ${info.title}`);
     root.innerHTML = `
-      <div class="pg-head">
-        <button class="back-plate" data-back aria-label="Back without unlocking">${icon('chevron-left', { size: 20 })}<span>Back</span></button>
-        <h2 class="pg-title" title="Unlock: ${info.title}">${t.name}</h2>
-        <span></span>
-      </div>
       <div class="pg-play"><canvas aria-label="The puzzle."></canvas></div>`;
     document.body.append(root);
 
@@ -79,7 +74,10 @@ function run(id: UnlockId, info: UnlockInfo): Promise<boolean> {
       iconButton({ icon: icon('info'), label: 'Instructions', onClick: rules }),
     ]);
     bar.setDifficulty(difficulty(t.id, z));
+    bar.setTitle(t.name, `Unlocking ${info.title}`);
     play.before(bar.el);
+    const foot = gameFooter('Back', () => finish(Boolean(loadSave().unlocks[id])));
+    play.after(foot.el);
     offerRules(bar, t, rules);
 
     host.onFrame = (v) => {
@@ -122,11 +120,10 @@ function run(id: UnlockId, info: UnlockInfo): Promise<boolean> {
       if (host.key(e)) { e.preventDefault(); e.stopPropagation(); }
     }
     window.addEventListener('keydown', key, true);
-    root.querySelector<HTMLButtonElement>('[data-back]')!.onclick = () => finish(Boolean(loadSave().unlocks[id]));
 
     host.set(t.make!(z, 0, reduced));
     window.dispatchEvent(new Event('resize'));
-    root.querySelector<HTMLButtonElement>('[data-back]')!.focus({ preventScroll: true });
+    foot.back.focus({ preventScroll: true });
   });
 }
 
