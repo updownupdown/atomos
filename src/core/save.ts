@@ -21,6 +21,8 @@ export interface Settings {
   reducedMotion: boolean;
   sound: boolean;
   haptics: boolean;
+  /** Nu, the guide, flies and speaks; off leaves only its still icon on Next. */
+  nu: boolean;
 }
 
 export interface Built {
@@ -71,6 +73,8 @@ export interface SaveData {
   specimens: Specimen[];
   log: { at: number; text: string }[];
   settings: Settings;
+  /** First-time lines already shown and acted on, by id, with when (src/ui/nu.ts). */
+  seenLines: Record<string, number>;
 }
 
 const KEY = 'atomos.save.v1';
@@ -87,7 +91,8 @@ export function defaultSave(): SaveData {
     unlocks: {},
     specimens: [],
     log: [],
-    settings: { unlockAll: false, reducedMotion: reduced, sound: true, haptics: true },
+    seenLines: {},
+    settings: { unlockAll: false, reducedMotion: reduced, sound: true, haptics: true, nu: true },
   };
 }
 
@@ -127,10 +132,17 @@ export function loadSave(): SaveData {
     for (const [id, r] of Object.entries(data.unlocks ?? {})) {
       if (r && Number.isFinite(r.at) && Number.isFinite(r.z)) unlocks[id] = { at: r.at, z: r.z, ...(Number.isFinite(r.best) ? { best: r.best } : {}) };
     }
-    return { ...base, built, steps, shapes, rows, unlocks, isotopes: data.isotopes ?? {}, specimens: data.specimens ?? [], log: data.log ?? [], settings };
+    return { ...base, built, steps, shapes, rows, unlocks, isotopes: data.isotopes ?? {}, specimens: data.specimens ?? [], log: data.log ?? [], settings, seenLines: seenLinesOf(data.seenLines) };
   } catch {
     return defaultSave();
   }
+}
+
+/** Keeps only well-formed entries: id → timestamp. */
+function seenLinesOf(raw: unknown): Record<string, number> {
+  const out: Record<string, number> = {};
+  if (raw && typeof raw === 'object') for (const [k, v] of Object.entries(raw)) if (Number.isFinite(v)) out[k] = v as number;
+  return out;
 }
 
 export function writeSave(data: SaveData): void {
