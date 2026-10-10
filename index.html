@@ -17,17 +17,20 @@
   </head>
   <body>
     <header class="nav" id="nav" aria-label="Main">
-      <nav class="nav-tabs">
-        <button id="nav-gallery" aria-current="page">Gallery</button>
-        <button id="nav-atom" aria-current="false">Atom</button>
-        <button id="nav-puzzles" aria-current="false">Puzzles</button>
+      <button class="nav-logo" id="nav-logo" aria-label="Atomos: back to the gallery" title="Atomos"></button>
+      <nav class="nav-tabs" aria-label="Sections">
+        <button id="nav-gallery" aria-current="page" aria-label="Gallery" title="Gallery"></button>
+        <button id="nav-atom" aria-current="false" aria-label="Atom" title="Atom"></button>
+        <button id="nav-puzzles" aria-current="false" aria-label="Puzzles" title="Puzzles"></button>
       </nav>
-      <div class="seg nav-mode" id="nav-mode" role="group" aria-label="Atom mode" hidden>
-        <button id="mode-view" aria-pressed="true">View</button>
-        <button id="mode-build" aria-pressed="false">Build</button>
+      <div class="nav-end">
+        <div class="nav-mode" id="nav-mode" role="group" aria-label="Atom mode" hidden>
+          <button id="mode-view" aria-pressed="true">View</button>
+          <button id="mode-build" aria-pressed="false">Build</button>
+        </div>
+        <button class="nav-icon" id="nav-science" aria-label="More about what is on screen" aria-expanded="false" disabled></button>
+        <button class="nav-icon" id="nav-settings" aria-label="Settings" title="Settings"></button>
       </div>
-      <button class="nav-icon" id="nav-science" aria-label="More about what is on screen" aria-expanded="false" hidden></button>
-      <button class="nav-icon" id="nav-settings" aria-label="Settings" title="Settings"></button>
     </header>
 
     <div id="gallery-screen">

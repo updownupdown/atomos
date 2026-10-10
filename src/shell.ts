@@ -10,6 +10,7 @@ import type { Playground } from './playground';
 import { onSettingsChange, openSettings } from './ui/settings';
 import { icon } from './ui/icons';
 import { setScienceHandler } from './ui/science';
+import { markSvg } from './ui/mark';
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -33,6 +34,14 @@ export class AppShell {
         if (this.screen === 'gallery' || this.screen === 'atom') this.setNav(z === null ? 'gallery' : 'atom', 'view');
       },
     });
+    // Header: the mark (home) on the left, the three sections as icons in the middle, the
+    // microscope and Settings on the right.
+    $('nav-logo').innerHTML = markSvg();
+    $('nav-logo').onclick = () => void this.go('gallery');
+    $('nav-gallery').innerHTML = icon('gallery');
+    $('nav-atom').innerHTML = icon('atom');
+    $('nav-puzzles').innerHTML = icon('puzzles');
+    $('nav-science').innerHTML = icon('microscope');
     $('nav-gallery').onclick = () => void this.go('gallery');
     $('nav-atom').onclick = () => void this.go('atom', this.mode);
     $('nav-puzzles').onclick = () => void this.go('puzzles');
