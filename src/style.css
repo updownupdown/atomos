@@ -496,9 +496,9 @@ body.stage-nucleus #atom { opacity: 0.12; }
 /* White captions round the atom. */
 .dec { position: absolute; z-index: 2; font-family: var(--font); font-size: var(--fs-sm); line-height: 1.5; color: var(--c-silver); display: flex; flex-direction: column; }
 .dec .dim { color: var(--c-text-2); }
-.dec-tl { left: var(--sp-4); top: calc(var(--sp-4) + var(--top)); align-items: flex-start; pointer-events: none; }
+.dec-tl { left: var(--sp-4); top: calc(var(--sp-4) + var(--top) + var(--tabs-h)); align-items: flex-start; pointer-events: none; }
 .dec-config { font-size: var(--fs-md); font-weight: var(--fw-medium); margin-bottom: 2px; }
-.dec-tr { right: var(--sp-3); top: calc(var(--sp-3) + var(--top)); align-items: flex-end; text-align: right; max-width: 52%; }
+.dec-tr { right: var(--sp-3); top: calc(var(--sp-3) + var(--top) + var(--tabs-h)); align-items: flex-end; text-align: right; max-width: 52%; }
 .iso-toggle { display: inline-flex; align-items: center; gap: 2px; min-height: var(--hit); padding: 0 0 0 var(--sp-2); background: none; border: 0; color: var(--c-silver); font: inherit; cursor: pointer; }
 .iso-toggle .chev { display: inline-flex; color: var(--c-text-2); }
 .iso-list { display: none; padding-right: var(--sp-1); }
@@ -536,38 +536,37 @@ body.stage-nucleus #atom { opacity: 0.12; }
 .pill { font-size: 10px; padding: 1px 5px; border-radius: 4px; color: var(--c-bg); font-weight: 700; }
 .pill.core { background: transparent; color: var(--label-muted); border: 1px dashed var(--c-text-3); font-weight: 400; }
 
-/* The science modal: a floating card over the dimmed page, tabs along the top. */
-.atom-card { display: flex; flex-direction: column; height: min(720px, 100%); padding: var(--sp-5) 0 0; }
-.atom-head { display: flex; align-items: center; gap: var(--sp-3); padding: 0 68px var(--sp-2) var(--sp-5); }
-.atom-head h2 { margin: 0; font-family: var(--font); font-weight: var(--fw-medium); font-size: var(--fs-xl); flex: 1; min-width: 0; }
-.atom-head h2 b { font-weight: var(--fw-semibold); margin-right: 6px; }
-.atom-head h2 .dim { color: var(--c-text-2); font-size: var(--fs-md); font-weight: var(--fw-regular); }
-.atom-head .text-btn { font-family: var(--font); }
-.atom-card .ui-tabs { padding: 0 var(--sp-4); flex: none; }
-.sheet-body { flex: 1; min-height: 0; overflow-y: auto; touch-action: pan-y; padding: var(--sp-3) var(--sp-5) var(--sp-5); font-family: var(--font); font-size: var(--fs-sm); line-height: 1.5; }
-.sheet-body .lead { font-size: 14px; margin: 6px 0 14px; max-width: 64ch; }
-.sheet-body .kv { display: grid; grid-template-columns: minmax(120px, 38%) 1fr; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--line); }
-.sheet-body .kv span { color: var(--muted); }
-.sheet-body .kv b { font-weight: 400; min-width: 0; overflow-wrap: anywhere; }
-.sheet-body .na { color: var(--muted); font-style: italic; }
-.sheet-body .dim { color: var(--muted); }
-.sheet-body .note { color: var(--muted); font-size: 12px; margin: 14px 0 0; max-width: 64ch; }
-.sheet-body h4 { margin: 18px 0 4px; font-family: var(--sans); font-weight: 600; font-size: 14px; }
-.sheet-body p { margin: 4px 0; max-width: 64ch; }
-.sheet-body .shells { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
-.sheet-body .shell { border: 1px solid var(--line); border-radius: 2px; padding: 4px 8px; font-size: 11px; color: var(--muted); display: flex; flex-direction: column; align-items: center; }
-.sheet-body .shell b { font-family: var(--sans); font-size: 16px; color: var(--text); }
-.sheet-body .tablewrap { overflow-x: auto; margin: 10px 0; border: 1px solid var(--line); border-radius: 2px; }
-.sheet-body table { border-collapse: collapse; width: 100%; font-size: 12px; font-variant-numeric: tabular-nums; }
-.sheet-body th, .sheet-body td { padding: 5px 8px; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--line); }
-.sheet-body th { font-family: var(--sans); font-weight: 500; color: var(--muted); letter-spacing: 0.04em; }
-.sheet-body th.l, .sheet-body td.l { text-align: left; }
-.sheet-body td:first-child, .sheet-body th:first-child { text-align: left; }
-.sheet-body tr.core td { color: var(--muted); }
-.sheet-body tr.stable td { color: var(--text); font-weight: 700; }
-.sheet-body tr:not(.stable) td { color: var(--muted); }
-.sheet-body .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
-.sheet-body .swatch { display: inline-block; width: 12px; height: 12px; border-radius: 2px; margin-right: 6px; vertical-align: middle; border: 1px solid var(--line); }
+/* View's tabs: a strip under the header; the model tab shows the canvas, the others a scrolling page. */
+.loupe-screen { --tabs-h: 48px; }
+.atom-tabs { position: absolute; left: 0; right: 0; top: var(--top); z-index: 3; height: var(--tabs-h); display: flex; align-items: center; justify-content: center; padding: 0 var(--sp-3); background: var(--c-bg); border-bottom: 1px solid var(--c-line); }
+.atom-tabs .ui-tabs { max-width: 100%; }
+.atom-panel { position: absolute; left: 0; right: 0; top: calc(var(--top) + var(--tabs-h)); bottom: calc(60px + var(--safe-bottom)); z-index: 2; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; background: var(--c-bg); }
+.atom-panel[hidden] { display: none; }
+.loupe-screen.on-page #loupe, .loupe-screen.on-page .dec, .loupe-screen.on-page .loupe-tools { visibility: hidden; }
+.atom-page { max-width: 720px; margin: 0 auto; padding: var(--sp-4) var(--sp-5) var(--sp-6); font-family: var(--font); font-size: var(--fs-sm); line-height: 1.5; }
+.atom-page .lead { font-size: 14px; margin: 6px 0 14px; max-width: 64ch; }
+.atom-page .kv { display: grid; grid-template-columns: minmax(120px, 38%) 1fr; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--line); }
+.atom-page .kv span { color: var(--muted); }
+.atom-page .kv b { font-weight: 400; min-width: 0; overflow-wrap: anywhere; }
+.atom-page .na { color: var(--muted); font-style: italic; }
+.atom-page .dim { color: var(--muted); }
+.atom-page .note { color: var(--muted); font-size: 12px; margin: 14px 0 0; max-width: 64ch; }
+.atom-page h4 { margin: 18px 0 4px; font-family: var(--sans); font-weight: 600; font-size: 14px; }
+.atom-page p { margin: 4px 0; max-width: 64ch; }
+.atom-page .shells { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
+.atom-page .shell { border: 1px solid var(--line); border-radius: 2px; padding: 4px 8px; font-size: 11px; color: var(--muted); display: flex; flex-direction: column; align-items: center; }
+.atom-page .shell b { font-family: var(--sans); font-size: 16px; color: var(--text); }
+.atom-page .tablewrap { overflow-x: auto; margin: 10px 0; border: 1px solid var(--line); border-radius: 2px; }
+.atom-page table { border-collapse: collapse; width: 100%; font-size: 12px; font-variant-numeric: tabular-nums; }
+.atom-page th, .atom-page td { padding: 5px 8px; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--line); }
+.atom-page th { font-family: var(--sans); font-weight: 500; color: var(--muted); letter-spacing: 0.04em; }
+.atom-page th.l, .atom-page td.l { text-align: left; }
+.atom-page td:first-child, .atom-page th:first-child { text-align: left; }
+.atom-page tr.core td { color: var(--muted); }
+.atom-page tr.stable td { color: var(--text); font-weight: 700; }
+.atom-page tr:not(.stable) td { color: var(--muted); }
+.atom-page .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+.atom-page .swatch { display: inline-block; width: 12px; height: 12px; border-radius: 2px; margin-right: 6px; vertical-align: middle; border: 1px solid var(--line); }
 
 /* The Puzzles screen: a playground for every puzzle type on its own. */
 #puzzles-screen {
@@ -819,11 +818,11 @@ body.stage-nucleus #atom { opacity: 0.12; }
 .nav-mode + #nav-science, .nav-mode + .nav-icon { margin-left: var(--sp-1); }
 
 /* ---- Science sheet: one picture per tab ---- */
-.sheet-body figure { margin: var(--sp-2) 0 var(--sp-3); }
-.sheet-body details.more { margin: var(--sp-3) 0 0; }
-.sheet-body details.more summary { cursor: pointer; color: var(--c-text-2); padding: var(--sp-2) 0; list-style: none; }
-.sheet-body details.more summary::before { content: '+ '; color: var(--c-accent); }
-.sheet-body details.more[open] summary::before { content: '− '; }
+.atom-page figure { margin: var(--sp-2) 0 var(--sp-3); }
+.atom-page details.more { margin: var(--sp-3) 0 0; }
+.atom-page details.more summary { cursor: pointer; color: var(--c-text-2); padding: var(--sp-2) 0; list-style: none; }
+.atom-page details.more summary::before { content: '+ '; color: var(--c-accent); }
+.atom-page details.more[open] summary::before { content: '− '; }
 
 /* Structure: an assembly blueprint, drawn in accent ink on a faint grid. */
 .bp-figure { border: 1px solid var(--c-line-2); border-radius: var(--r-md); overflow: hidden; background: var(--c-plate); }
