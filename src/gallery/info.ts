@@ -150,7 +150,7 @@ function properties(e: Element): string {
     <h4>More</h4>
     ${row('Electron affinity', num(e.electronAffinity, ' eV'))}
     ${row('Geochemical class', e.geochemical ? esc(e.geochemical) : '<span class="na">not classed</span>')}
-    ${row('CPK colour', e.cpk ? `<span class="swatch" style="background:${e.cpk}"></span>${e.cpk}` : '<span class="na">none</span>')}
+    ${row('CPK color', e.cpk ? `<span class="swatch" style="background:${e.cpk}"></span>${e.cpk}` : '<span class="na">none</span>')}
     ${row('Melting point', kelvin(e.melt))}
     ${row('Boiling point', kelvin(e.boil))}`;
 }
