@@ -1,4 +1,5 @@
-// The atom navigator: the bar along the foot of the atom screens. On the left, one button that
+// The atom navigator: the bar across the top of the atom screens, under the View/Build row. The
+// host places it (the element is a plain flex row 60px tall). On the left, one button that
 // reads like a periodic-table cell laid on its side: the atomic number large with the atomic
 // weight small beneath it, then the symbol, then the name in the wordmark's tracked capitals,
 // and a cyan "Select" that says the whole button opens the element picker. Previous and next
