@@ -532,8 +532,9 @@ body.stage-nucleus #atom { opacity: 0.12; }
 .gal-hover[hidden] { display: none; }
 .gal-bottom { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 8px 12px calc(10px + var(--safe-bottom)); pointer-events: none; }
 .gal-bottom > * { pointer-events: auto; }
-.layout-switch { flex-wrap: wrap; justify-content: center; }
-.layout-switch button { font-size: 12px; padding: 0 10px; min-height: 36px; }
+.layout-switch { flex-wrap: nowrap; justify-content: center; max-width: 100%; }
+.layout-switch button { flex: none; font-size: 12px; padding: 0 12px; min-height: 36px; }
+.lens-switch[hidden] { display: none; }
 /* Details: every element in the shared sortable table, filling the space between the count and the switch. */
 .gal-details { position: absolute; inset: 0; z-index: 1; display: flex; flex-direction: column; padding: calc(var(--top) + 40px) var(--sp-3) calc(var(--safe-bottom) + 84px); background: var(--c-bg); }
 .gal-details[hidden] { display: none; }
@@ -541,6 +542,14 @@ body.stage-nucleus #atom { opacity: 0.12; }
 .gal-details .el-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .gal-details .el-scroll { flex: 0 1 auto; min-height: 0; }
 #gallery-screen.is-details .gal-labels, #gallery-screen.is-details .gal-hover { display: none; }
+/* The Collection: every atom as a row with its progress, over the map. The list scrolls under
+   its own search, pills and sort. */
+.gal-collection { position: absolute; inset: 0; z-index: 1; display: flex; flex-direction: column; padding: calc(var(--top) + 40px) var(--sp-3) 0; background: var(--c-bg); }
+.gal-collection[hidden] { display: none; }
+.gal-collection .el-list { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-bottom: calc(var(--safe-bottom) + 112px); }
+.gal-collection .el-tools { background: var(--c-bg); padding-top: var(--sp-2); }
+#gallery-screen.is-collection .gal-labels, #gallery-screen.is-collection .gal-hover, #gallery-screen.is-collection .look-chip, #gallery-screen.is-collection .look-legend { display: none; }
+#gallery-screen.is-collection .gal-bottom { background: linear-gradient(to top, var(--c-bg) 70%, transparent); padding-top: var(--sp-5); }
 .layout-note { margin: 0; font-family: var(--mono); font-size: 11px; color: var(--muted); text-align: center; }
 
 .loupe-screen { position: absolute; inset: 0; z-index: 3; background: var(--c-bg); opacity: 0; transform: scale(1.04); transition: opacity 0.22s, transform 0.22s; display: flex; flex-direction: column; }
