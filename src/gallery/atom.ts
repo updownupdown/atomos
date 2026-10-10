@@ -168,6 +168,8 @@ export interface AtomViewOptions {
 const HAZE_PER_SLOT = 260;
 const HAZE_SIZE = 8;
 const HAZE_ALPHA = 0.085;
+/** How strongly an undiscovered orbital shape still shows, as a ghost over its cloud. */
+const GHOST = 0.12;
 
 export class AtomView {
   readonly group = new THREE.Group();
@@ -178,6 +180,8 @@ export class AtomView {
   private halo: THREE.Points | null = null;
   private haloMaterial: THREE.ShaderMaterial | null = null;
   private style: Style = 'cloud';
+  /** Orbital kinds whose shapes the player has not discovered yet (Flux). */
+  private hidden = new Set<Block>();
   private dim = 1;
   element: Element | null = null;
   /** True when a transition is still running. */
@@ -318,6 +322,13 @@ export class AtomView {
     this.apply();
   }
 
+  /** Orbital kinds whose shapes are still undiscovered. Shapes and Hybrid draw those layers as
+   *  their cloud with only a faint ghost of the shape; Cloud is unchanged. */
+  setHiddenShapes(kinds: Iterable<Block>): void {
+    this.hidden = new Set(kinds);
+    this.apply();
+  }
+
   /** Point size in device pixels at unit distance (perspective divides it by depth). */
   setPointSize(px: number): void {
     this.opts.pointSize = px;
@@ -391,6 +402,7 @@ export class AtomView {
     let outer = 0;
     for (const layer of this.layers.values()) outer = Math.max(outer, this.currentScale(layer) * layer.edge);
     for (const layer of this.layers.values()) {
+      const hidden = this.hidden.has(layer.sub.l);
       const u = layer.material.uniforms;
       u.uFrom.value = layer.from;
       u.uTo.value = layer.to;
@@ -400,7 +412,7 @@ export class AtomView {
       const rel = Math.min(1, (u.uScale.value * layer.edge) / Math.max(1e-6, outer));
       u.uDim.value = (layer.sub.core ? 0.5 : 1) * (layer.sub.l === 's' && !layer.sub.core ? 1.5 : 1) * Math.max(0.05, Math.pow(rel, 1.4));
       u.uSizeMul.value = 0.4 + 0.6 * rel;
-      u.uAlpha.value = cloudAlpha * this.dim;
+      u.uAlpha.value = (hidden ? 1 : cloudAlpha) * this.dim;
       const count = this.currentCount(layer);
       if (layer.hazeMaterial) {
         const h = layer.hazeMaterial.uniforms;
@@ -409,21 +421,21 @@ export class AtomView {
         // Inner layers are small and dense: their haze shrinks with them. Many electrons in one
         // layer overlap into a bright mass, so each one's share of glow falls as the layer fills.
         h.uSizeMul.value = 0.25 + 0.75 * rel;
-        h.uAlpha.value = (this.style === 'shapes' ? 0.35 : 1) * this.dim * HAZE_ALPHA / Math.sqrt(Math.max(1, count));
+        h.uAlpha.value = (this.style === 'shapes' && !hidden ? 0.35 : 1) * this.dim * HAZE_ALPHA / Math.sqrt(Math.max(1, count));
       }
       const lo = Math.min(layer.from, layer.to), hi = Math.max(layer.from, layer.to);
       layer.shapes.forEach((mesh, oi) => {
         // An orbital's surface appears with its first electron and brightens with its second.
         const have = Math.max(0, Math.min(1, count - oi)) + Math.max(0, Math.min(1, count - oi - layer.sub.capacity / 2)) * 0.5;
         const changing = (oi >= lo && oi < hi) || (oi + layer.sub.capacity / 2 >= lo && oi + layer.sub.capacity / 2 < hi);
-        const flash = changing ? Math.sin(ease(layer.t) * Math.PI) : 0;
+        const flash = changing && !hidden ? Math.sin(ease(layer.t) * Math.PI) : 0;
         const radius = u.uScale.value * layer.edge;
         mesh.visible = have > 0 && shapeAlpha > 0;
         mesh.scale.setScalar(radius * (0.6 + 0.4 * Math.min(1, have)));
         const m = layer.shapeMaterials[oi];
         // s shells are drawn as thin glass so the lobes inside stay visible; core layers fainter still.
         const base = layer.sub.l === 's' ? 0.12 : 0.6;
-        m.opacity = shapeAlpha * base * Math.min(1, have) * (layer.sub.core ? 0.45 : 1) * this.dim;
+        m.opacity = shapeAlpha * base * Math.min(1, have) * (layer.sub.core ? 0.45 : 1) * (hidden ? GHOST : 1) * this.dim;
         m.emissiveIntensity = 0.25 + flash * 1.2;
         m.emissive.setRGB(...this.glow(layer.sub.l));
         if (flash > 0) m.emissive.lerp(layer.to > layer.from ? new THREE.Color(1, 1, 1) : new THREE.Color(1, 0.3, 0.2), flash * 0.8);

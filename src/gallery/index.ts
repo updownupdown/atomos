@@ -5,6 +5,7 @@
 
 import { STYLES, type Style } from './atom';
 import { CLOUD_RINGS, ELEMENTS, MAX_Z, elementAt, type Element } from './data';
+import type { OrbitalShape } from '../core/save';
 import { Detail } from './detail';
 import { Gallery } from './gallery';
 import { decoratorsHTML, tabHTML, VIEW_TABS, type ViewTab } from './info';
@@ -17,7 +18,7 @@ import { isLayoutId, LAYOUT_STORY, LAYOUTS, type LayoutId } from './layouts';
 import { setScienceHandler, setScienceOpen } from '../ui/science';
 import { openModal } from '../ui/modal';
 import { loadSave, writeSave, type SaveData } from '../core/save';
-import { atomProgress } from '../core/progress';
+import { atomProgress, orbitalShapeUnlocked, SHAPE_AT } from '../core/progress';
 import { createElementList, type ElementList } from '../ui/elementlist';
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -41,6 +42,8 @@ export class GalleryApp {
     const saved = localStorage.getItem('atomos.gallery.layout');
     return isLayoutId(saved) ? saved : 'spiral';
   })();
+  /** Orbital kinds whose shapes Flux has not discovered yet. */
+  private hiddenShapes: OrbitalShape[] = [];
   private style: Style = (() => {
     const saved = localStorage.getItem('atomos.gallery.style');
     return STYLES.some((s) => s.id === saved) ? (saved as Style) : 'cloud';
@@ -79,6 +82,10 @@ export class GalleryApp {
     const save = this.save;
     this.gallery.setCollected(got, (z) => atomProgress(z, save));
     if (this.current) this.detail.setCollected(this.collected(this.current.z));
+    // Flux discovers the p, d and f shapes; until then Shapes and Hybrid draw those layers as cloud.
+    this.hiddenShapes = (Object.keys(SHAPE_AT) as OrbitalShape[]).filter((l) => !orbitalShapeUnlocked(l, save));
+    this.detail.setHiddenShapes(this.hiddenShapes);
+    this.paintShapeNote();
     $('gal-count').textContent = `${got.length} of ${MAX_Z}`;
     this.list?.refresh();
   }
@@ -100,7 +107,8 @@ export class GalleryApp {
     const styleIcon: Record<Style, IconName> = { cloud: 'view-cloud', shapes: 'view-shapes', hybrid: 'view-hybrid' };
     const styles = $('style-switch');
     styles.innerHTML = `<span class="tool-cap">Draw as</span>`
-      + STYLES.map((s) => `<button class="tool-chip" data-id="${s.id}" aria-pressed="${s.id === this.style}">${icon(styleIcon[s.id], { size: 18 })}<span>${s.label}</span></button>`).join('');
+      + STYLES.map((s) => `<button class="tool-chip" data-id="${s.id}" aria-pressed="${s.id === this.style}">${icon(styleIcon[s.id], { size: 18 })}<span>${s.label}</span></button>`).join('')
+      + `<p class="tool-note" id="shape-note" hidden></p>`;
     styles.querySelectorAll<HTMLButtonElement>('button').forEach((b) => (b.onclick = () => this.setStyle(b.dataset.id as Style)));
     // Bottom left: the scale circles, one line per circle with its diameter, and the switch.
     const line = (style: string) => `<svg width="18" height="4" aria-hidden="true"><line x1="1" y1="2" x2="17" y2="2" stroke="currentColor" stroke-width="1.5"${style === 'dashed' ? ' stroke-dasharray="3 2.5"' : ''}/></svg>`;
@@ -209,6 +217,19 @@ export class GalleryApp {
     localStorage.setItem('atomos.gallery.style', style);
     $('style-switch').querySelectorAll<HTMLButtonElement>('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.id === style)));
     this.detail.setStyle(style);
+    this.paintShapeNote();
+  }
+
+  /** Under the style chips: which of this atom's shapes are still undiscovered, and where to find them. */
+  private paintShapeNote(): void {
+    const note = document.getElementById('shape-note');
+    if (!note) return;
+    const kinds = this.current && this.style !== 'cloud'
+      ? this.hiddenShapes.filter((l) => this.current!.subshells.some((s) => s.l === l)) : [];
+    note.hidden = !kinds.length;
+    if (!kinds.length) return;
+    const and = (xs: string[]) => xs.length > 1 ? `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}` : xs[0];
+    note.textContent = `The ${and(kinds)} shapes are still undiscovered. Find them with Flux on ${and(kinds.map((l) => elementAt(SHAPE_AT[l]).name.toLowerCase()))}.`;
   }
 
   private hover(e: Element | null): void {
@@ -226,6 +247,7 @@ export class GalleryApp {
     const dec = decoratorsHTML(e);
     $('dec-top-left').innerHTML = dec.topLeft;
     $('dec-top-right').innerHTML = dec.topRight;
+    this.paintShapeNote();
     this.bar.set(e.z);
     this.renderPanel();
     const screen = $('loupe-screen');
