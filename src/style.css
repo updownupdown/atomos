@@ -1,26 +1,26 @@
 @import './ui/tokens.css';
 @import './ui/components.css';
 
-/* Cloud Chamber: the look of a 1930s particle-physics photographic plate. Silver droplets on
-   grainy black, curling tracks, film-edge markings and typed paper labels. Interface text
-   sits on solid label stock so it stays readable over the plate. */
+/* The app's base styles. Colours and shapes come from ui/tokens.css (Card Table shapes in
+   Instrument colours); the names below are the older aliases screens still use. The
+   "Direction" block at the end of this file restyles shared chrome to match. */
 :root {
-  --bg: #0c0b0a;
-  --plate: #16140f;
-  --panel: rgba(12, 11, 10, 0.72);
-  --panel-solid: #141210;
-  --line: rgba(226, 220, 207, 0.28);
-  --line-strong: rgba(226, 220, 207, 0.55);
-  --text: #e2dccf;
-  --muted: #9a9284;
-  --label: #dcd5c4;
-  --label-ink: #1b1813;
-  --label-muted: #5c5547;
-  --accent: #e0503a;
-  --silver: #f3eee2;
-  --warn: #e0a24a;
-  --bad: #e0503a;
-  --good: #9fc98a;
+  --bg: var(--c-bg);
+  --plate: var(--c-plate);
+  --panel: rgba(16, 17, 18, 0.78);
+  --panel-solid: var(--c-surface);
+  --line: var(--c-line-2);
+  --line-strong: var(--c-line-3);
+  --text: var(--c-text);
+  --muted: var(--c-text-2);
+  --label: var(--c-tile);
+  --label-ink: var(--c-tile-ink);
+  --label-muted: #5b6366;
+  --accent: var(--c-accent);
+  --silver: var(--c-silver);
+  --warn: var(--c-warn);
+  --bad: var(--c-bad);
+  --good: var(--c-good);
   /* Both names now mean Outfit; new code should use --font from tokens.css. */
   --mono: var(--font);
   --sans: var(--font);
@@ -397,37 +397,20 @@ body.stage-nucleus #atom { opacity: 0.12; }
 .witness-clock { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 13px; color: var(--muted); margin-top: 8px; min-height: 1.5em; }
 .stamp { display: inline-block; border: 1.5px solid var(--accent); color: var(--accent); border-radius: 1px; padding: 2px 10px; font-family: var(--mono); font-size: 12px; text-transform: uppercase; letter-spacing: 0.12em; margin-top: 8px; transform: rotate(-3deg); }
 
-/* Toasts are small paper labels. */
-.toasts {
-  position: fixed;
-  top: calc(var(--safe-top) + 72px);
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  width: min(480px, calc(100% - 32px));
-  pointer-events: none;
-  z-index: 35;
-}
-
+/* Toasts: the container and the pill itself live in ui/components.css (.toasts, .ui-toast).
+   Older code still adds plain .toast elements; they get the same pill. */
 .toast {
-  background: var(--label);
-  color: var(--label-ink);
-  border: 0;
-  border-left: 3px solid var(--accent);
-  border-radius: 1px;
-  padding: 10px 14px;
-  font-family: var(--mono);
-  font-size: 13px;
-  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.45), 0 10px 30px rgba(0, 0, 0, 0.5);
-  animation: toast-in 0.25s ease-out;
-}
-
-@keyframes toast-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
-
-@media (prefers-reduced-motion: reduce) {
-  .toast { animation: none; }
+  display: flex;
+  align-items: center;
+  min-height: var(--hit);
+  padding: var(--sp-2) var(--sp-4);
+  border-radius: var(--r-pill);
+  background: var(--c-surface-2);
+  color: var(--c-text);
+  box-shadow: var(--shadow-toast);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+  animation: ui-toast-in var(--dur) var(--ease);
 }
 
 /* ---- Gallery: the vitrine of all 118 atoms, and the loupe over one ---------------------- */
@@ -621,3 +604,121 @@ body.stage-nucleus #atom { opacity: 0.12; }
 .loupe-tools .ui-icon-btn { color: var(--c-text-3); }
 .loupe-tools .ui-icon-btn:hover { color: var(--c-text); }
 .loupe-tools .ui-icon-btn[aria-pressed='true'] { background: var(--c-surface-2); color: var(--c-silver); border-color: var(--c-line-2); }
+
+/* ---- Direction: Card Table shapes in Instrument colours (James, 2026-10-10) ----------------
+   Restyles the shared chrome every screen uses. Screen-specific rules stay with their owners;
+   anything here reads tokens from ui/tokens.css. Flat: no radial gradients. */
+#gallery-screen, .loupe-screen, #puzzles-screen { background: var(--c-bg); }
+.vignette { display: none; }
+.grain { opacity: 0.035; }
+.edge { display: none; }
+
+.nav { background: var(--c-bg); border-bottom: 0; gap: var(--sp-1); }
+.nav-tabs { gap: var(--sp-1); }
+.nav-tabs button, .nav-settings {
+  height: 34px;
+  padding: 0 var(--sp-3);
+  border: 0;
+  border-radius: var(--r-pill);
+  font-family: var(--font);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--c-text-2);
+}
+.nav-tabs button:hover, .nav-settings:hover { color: var(--c-text); background: var(--c-surface-2); }
+.nav-tabs button[aria-current='page'] { color: var(--c-tile-ink); background: var(--c-tile); }
+
+.seg { gap: var(--sp-1); padding: var(--sp-1); border-radius: var(--r-md); background: var(--c-surface); }
+.seg button {
+  min-height: 36px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--c-text-2);
+  font-family: var(--font);
+  font-weight: var(--fw-semibold);
+}
+.seg button:hover { color: var(--c-text); }
+.seg button[aria-pressed='true'] { background: var(--c-tile); color: var(--c-tile-ink); }
+
+.primary, .secondary {
+  min-height: var(--hit-lg);
+  padding: 0 var(--sp-5);
+  border: 0;
+  border-radius: var(--r-md);
+  font-family: var(--font);
+  font-weight: var(--fw-semibold);
+  box-shadow: var(--shadow-tile);
+}
+.primary { background: var(--c-accent); color: var(--c-accent-ink); }
+.secondary { background: var(--c-surface-2); color: var(--c-text); }
+.secondary:hover { background: var(--c-surface-3); }
+
+.text-btn, .icon-btn {
+  min-height: 40px;
+  padding: 0 var(--sp-3);
+  border: 0;
+  border-radius: var(--r-pill);
+  background: var(--c-surface-2);
+  color: var(--c-text);
+  font-family: var(--font);
+  font-weight: var(--fw-semibold);
+  text-transform: none;
+}
+.text-btn:hover, .icon-btn:hover { background: var(--c-surface-3); }
+
+.science-btn, .arrow, .arrow-sm {
+  border: 0;
+  border-radius: var(--r-md);
+  background: var(--c-surface-2);
+  color: var(--c-text);
+}
+.science-btn:hover, .arrow:hover, .arrow-sm:hover { background: var(--c-surface-3); }
+.science-btn[aria-expanded='true'] { background: var(--c-tile); color: var(--c-tile-ink); }
+
+.badge { border-radius: var(--r-md); transform: none; box-shadow: var(--shadow-tile); font-family: var(--font); }
+.card-sym { border-radius: var(--r-md); transform: none; }
+.stamp { border-radius: var(--r-pill); transform: none; letter-spacing: var(--tracking-caps); font-weight: var(--fw-semibold); }
+.tier, .iso, .pg-tier button { border-radius: var(--r-sm); }
+.pg-tier button { border: 0; background: var(--c-surface-2); font-weight: var(--fw-semibold); }
+.pg-tier button[aria-pressed='true'] { background: var(--c-tile); color: var(--c-tile-ink); }
+
+.sheet h2 { font-weight: var(--fw-semibold); }
+.sheet h3 {
+  border-bottom: 0;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-caps);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  color: var(--c-accent);
+}
+
+/* Settings rows still use checkboxes; draw them as switches until they move to switchHtml. */
+.toggle input[type='checkbox'] {
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  width: 46px;
+  height: 28px;
+  margin: 0;
+  border-radius: var(--r-pill);
+  background: var(--c-surface-3);
+  cursor: pointer;
+  transition: background-color var(--dur);
+}
+.toggle input[type='checkbox']::after {
+  content: '';
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--c-text-2);
+  transition: transform var(--dur) var(--ease), background-color var(--dur);
+}
+.toggle input[type='checkbox']:checked { background: var(--c-accent); }
+.toggle input[type='checkbox']:checked::after { transform: translateX(18px); background: var(--c-accent-ink); }
+

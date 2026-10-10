@@ -1,6 +1,7 @@
-/* Design tokens shared by every screen. Outfit is the one typeface; the palette is still the
-   Cloud Chamber plate (silver on black, one red accent) until a new style is picked. Screens
-   should read these rather than hard-code values, so a restyle is a change here.
+/* Design tokens shared by every screen. The direction James picked (2026-10-10): Card Table's
+   shapes (chunky rounded tiles, pill bars, bold Outfit, big targets) in Instrument's colours
+   (graphite, cool white, one cyan accent). Screens read these rather than hard-coding values,
+   so a restyle is a change here.
 
    The legacy names in style.css (--text, --muted, --line, --mono, --sans ...) are aliases of
    these and keep working. */
@@ -24,25 +25,30 @@
   --fs-3xl: 36px;
   --lh-tight: 1.15;
   --lh: 1.45;
-  --tracking-caps: 0.12em;
+  --tracking-caps: 0.14em;
 
-  /* Colour: the plate. */
-  --c-bg: #0c0b0a;
-  --c-plate: #16140f;
-  --c-surface: #17150f;
-  --c-surface-2: #201d17;
-  --c-scrim: rgba(4, 3, 2, 0.62);
-  --c-text: #e2dccf;
-  --c-text-2: #9a9284;
-  --c-text-3: #6d665a;
-  --c-line: rgba(226, 220, 207, 0.16);
-  --c-line-2: rgba(226, 220, 207, 0.28);
-  --c-line-3: rgba(226, 220, 207, 0.55);
-  --c-silver: #f3eee2;
-  --c-accent: #e0503a;
-  --c-good: #9fc98a;
-  --c-warn: #e0a24a;
-  --c-bad: #e0503a;
+  /* Colour: graphite, cool white, cyan. Red is kept only for the active target in an atom. */
+  --c-bg: #101112;
+  --c-plate: #131416;
+  --c-surface: #17191b;
+  --c-surface-2: #1f2225;
+  --c-surface-3: #2a2e32;
+  --c-tile: #e4e8ea;
+  --c-tile-ink: #101112;
+  --c-scrim: rgba(5, 6, 7, 0.62);
+  --c-text: #e4e8ea;
+  --c-text-2: #8a9296;
+  --c-text-3: #50575b;
+  --c-line: rgba(228, 232, 234, 0.12);
+  --c-line-2: rgba(228, 232, 234, 0.26);
+  --c-line-3: rgba(228, 232, 234, 0.5);
+  --c-silver: #eef1f2;
+  --c-accent: #6fd0e6;
+  --c-accent-ink: #06232a;
+  --c-target: #e0503a;
+  --c-good: #8fd19e;
+  --c-warn: #e8b45c;
+  --c-bad: #ef6a55;
   /* Orbital colours: the same in every atom and every puzzle. */
   --c-orb-s: #5f8ae0;
   --c-orb-p: #2ea57a;
@@ -58,16 +64,19 @@
   --sp-6: 32px;
 
   /* Radius. */
-  --r-sm: 6px;
-  --r-md: 10px;
-  --r-lg: 16px;
+  --r-sm: 10px;
+  --r-md: 14px;
+  --r-lg: 22px;
   --r-pill: 999px;
 
-  /* Touch: the smallest comfortable target. */
+  /* Touch: the smallest comfortable target, and the chunkier one Card Table uses for tiles. */
   --hit: 44px;
+  --hit-lg: 48px;
 
   /* Elevation and motion. Flat by default: shadows only lift modals off the page. */
   --shadow-modal: 0 18px 48px rgba(0, 0, 0, 0.55);
+  --shadow-tile: 0 3px 0 rgba(0, 0, 0, 0.35);
+  --shadow-toast: 0 8px 28px rgba(0, 0, 0, 0.5);
   --dur-fast: 120ms;
   --dur: 200ms;
   --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
