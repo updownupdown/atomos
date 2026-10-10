@@ -19,7 +19,7 @@ import { isLayoutId, LAYOUT_STORY, LAYOUTS, type LayoutId } from './layouts';
 import { setScienceHandler, setScienceOpen } from '../ui/science';
 import { closeModal, openModal } from '../ui/modal';
 import { loadSave, writeSave, type SaveData } from '../core/save';
-import { atomProgress, orbitalShapeUnlocked, rowOf, rowOpen, SHAPE_AT, stepState } from '../core/progress';
+import { fleetingTotal, atomProgress, orbitalShapeUnlocked, rowOf, rowOpen, SHAPE_AT, stepState } from '../core/progress';
 import { createElementList, type ElementList } from '../ui/elementlist';
 import { isUnlocked, unlockPuzzle, type UnlockId } from '../core/unlocks';
 import { PUZZLES } from '../puzzles/catalog';
@@ -27,6 +27,7 @@ import { playUnlock } from '../puzzles/unlock';
 import { isLookId, lensUnlock, lookOf, lookUnlock, LOOKS, type LookId } from './looks';
 import { atomThumb } from './thumbs';
 import { rowLockNote } from './locks';
+import { progressHtml } from '../ui/modebar';
 
 type GalleryMode = 'collection' | 'map' | 'details';
 
@@ -123,11 +124,11 @@ export class GalleryApp {
   /** The whole collection's progress, beside the views: every atom's share built, averaged. */
   private paintOverall(): void {
     const save = this.save;
-    const n = Math.round((ELEMENTS.reduce((t, e) => t + atomProgress(e.z, save), 0) / MAX_Z) * 100);
-    $('gal-ring').classList.toggle('is-done', n >= 100);
-    $('gal-ring').innerHTML = `<svg viewBox="0 0 20 20"><circle class="mode-prog-track" cx="10" cy="10" r="7.5"/><circle class="mode-prog-arc" cx="10" cy="10" r="7.5" pathLength="100" stroke-dasharray="${n} 100"/></svg>`;
-    $('gal-pct').textContent = `${n}%`;
-    $('gal-prog').setAttribute('aria-label', `Collection ${n}% built`);
+    const main = ELEMENTS.reduce((t, e) => t + atomProgress(e.z, save), 0) / MAX_Z;
+    const n = Math.round(main * 100);
+    const f = fleetingTotal(save);
+    $('gal-prog').innerHTML = progressHtml(main, f.total ? { label: 'fleeting', pct: f.built / f.total } : null);
+    $('gal-prog').setAttribute('aria-label', `Collection ${n}% built; ${f.built} of ${f.total} fleeting isotopes`);
   }
 
   /** Whether this atom's row is not open yet (two thirds of the row above unbuilt). It stays
