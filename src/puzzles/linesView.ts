@@ -6,9 +6,9 @@
 // The board is painted by `paintLines`, which the rule cards' demos share, so
 // every symbol in the Instructions modal is drawn exactly as on the board.
 
-import { adjacent, check, clearPath, cloneLines, edgeKey, edgeOf, extend, isEnd, isStart, pathEdges, regions, retract, same, solved, verdict, type Kind, type LinesState, type Mark, type Pt } from './lines';
+import { adjacent, check, clearPath, cloneLines, completeLine, edgeKey, edgeOf, extend, isEnd, isStart, nextStretch, pathEdges, regions, retract, same, sharedPrefix, solved, verdict, type Kind, type LinesState, type Mark, type Near, type Pt } from './lines';
 import { bead, C, fitGrid, tile } from './palette';
-import { ease, type Area, type Illustration, type Point, type PuzzleView, type RuleCard } from './view';
+import { drawHelpMark, ease, type Area, type Help, type Illustration, type Point, type PuzzleView, type RuleCard } from './view';
 
 const FLASH_MS = 700;
 const GRAB = 0.45;
@@ -359,6 +359,11 @@ export class LinesView implements PuzzleView {
   private startPick = 0;
   private grid: Grid = { x: 0, y: 0, c: 40 };
   private reduced: boolean;
+  /** The whole line the hints last steered by, kept while the drawn line follows it. */
+  private route: Pt[] | null = null;
+  private steered: { state: LinesState; route: Pt[]; off: number; sure: boolean } | null = null;
+  /** Look here: the nodes to ring and the mark they pass, for the board it was asked on. */
+  private mark: { state: LinesState; nodes: Pt[]; near: Near | null } | null = null;
 
   constructor(private readonly initial: LinesState, reducedMotion: boolean) {
     this.state = cloneLines(initial);
@@ -379,6 +384,71 @@ export class LinesView implements PuzzleView {
       return n ? `${n} mark${n === 1 ? '' : 's'} broken` : 'Not a lawful line';
     }
     return '';
+  }
+
+  help(level: 1 | 2): Help | null {
+    const s = this.state;
+    if (this.won) return null;
+    const { route, off, sure } = this.steer();
+    if (off >= 0) {
+      // No finish of the line turned up: back to where it leaves the hidden walk, which surely works.
+      const restart = off === 0;
+      if (level === 2) {
+        this.drawing = false;
+        this.pointer = null;
+        this.remember();
+        this.state = { ...cloneLines(s), path: (restart ? [route[0]] : s.path.slice(0, off)).map((q) => ({ ...q })) };
+        return { text: restart ? 'Moved the line to the other start.' : sure ? 'Took the line back to where it went wrong.' : 'Took the line back to a point that works.', moved: true };
+      }
+      this.mark = { state: s, nodes: restart ? [s.path[0], route[0]] : s.path.slice(off - 1, off + 1), near: null };
+      if (restart) return { text: sure ? 'The line has to start from the other charge.' : 'The line may not work from this start, so try the other one.' };
+      return { text: sure ? 'The line goes the wrong way here.' : 'The line may not work past here, so try another way.' };
+    }
+    const drawn = s.path.length;
+    if (drawn === route.length) {
+      // The whole line is down, only not checked yet.
+      if (level === 2) { this.drawing = false; this.judge(); return { text: 'Checked the line.', moved: true }; }
+      this.mark = { state: s, nodes: [route[route.length - 1]], near: null };
+      return { text: 'The line is done, so check it.' };
+    }
+    const { nodes, near } = nextStretch(s, route, drawn);
+    if (level === 2) {
+      this.stroke(nodes);
+      return { text: this.won ? 'Finished the line.' : 'Drew the next stretch of the line.', moved: true };
+    }
+    this.mark = { state: s, nodes: drawn ? [s.path[drawn - 1], ...nodes] : nodes, near };
+    return { text: nearText(s, near, isEnd(s, nodes[nodes.length - 1]) && drawn + nodes.length === route.length) };
+  }
+
+  /**
+   * The line the hints steer by, and where the drawn line leaves it (-1 while
+   * it follows). The hidden walk comes first, then the last route, then any
+   * lawful finish of the line as drawn. When none turns up, the line has gone
+   * wrong, and `off` is where it leaves the hidden walk; `sure` says the
+   * search proved there is no finish, rather than giving up.
+   */
+  private steer(): { route: Pt[]; off: number; sure: boolean } {
+    const s = this.state;
+    if (this.steered?.state === s) return this.steered;
+    const keep = (route: Pt[], off: number, sure: boolean) => (this.steered = { state: s, route, off, sure });
+    for (const r of [s.solution, this.route]) if (r && sharedPrefix(s.path, r) === s.path.length) return keep(r, -1, true);
+    const found = completeLine(s, s.path, undefined, s.solution);
+    if (found.line) return keep(this.route = found.line, -1, true);
+    return keep(s.solution, sharedPrefix(s.path, s.solution), found.sure);
+  }
+
+  /** Draws on through `nodes` as one stroke of the pen, and checks the line if it lets go on a − charge. */
+  private stroke(nodes: Pt[]): void {
+    this.drawing = false;
+    this.pointer = null;
+    this.remember();
+    let st = this.state;
+    const fresh = !st.path.length;
+    if (fresh) st = { ...cloneLines(st), path: [{ ...nodes[0] }] };
+    for (const n of fresh ? nodes.slice(1) : nodes) st = extend(st, n) ?? st;
+    this.state = st;
+    const last = st.path[st.path.length - 1];
+    if (st.path.length > 1 && isEnd(st, last)) this.judge();
   }
 
   restart(): void {
@@ -561,6 +631,26 @@ export class LinesView implements PuzzleView {
       picked: !path.length && s.starts.length > 1 ? this.startPick % s.starts.length : -1,
       glow: !this.reduced,
     });
+
+    // Look here: the stretch of line, and the mark it passes.
+    const m = this.mark?.state === s && !won ? this.mark : null;
+    if (m) {
+      const { c } = this.grid;
+      const pts = m.nodes.map((q) => this.px(q));
+      const x0 = Math.min(...pts.map((q) => q.x)), x1 = Math.max(...pts.map((q) => q.x));
+      const y0 = Math.min(...pts.map((q) => q.y)), y1 = Math.max(...pts.map((q) => q.y));
+      const pad = c * 0.22;
+      drawHelpMark(ctx, x0 - pad, y0 - pad, x1 - x0 + pad * 2, y1 - y0 + pad * 2, now, this.reduced, pad);
+      if (m.near && 'bead' in m.near) {
+        const [a, b] = edgeOf(m.near.bead).map((q) => this.px(q));
+        const r = c * 0.16;
+        drawHelpMark(ctx, (a.x + b.x) / 2 - r, (a.y + b.y) / 2 - r, r * 2, r * 2, now, this.reduced, r);
+      } else if (m.near) {
+        const q = this.px({ x: m.near.cell % s.cols, y: Math.floor(m.near.cell / s.cols) });
+        const inset = c * 0.1;
+        drawHelpMark(ctx, q.x + inset, q.y + inset, c - inset * 2, c - inset * 2, now, this.reduced, c * 0.18);
+      }
+    }
   }
 
   /** Where the live segment from the pen's last node should end: toward the pointer, along one axis. */
@@ -573,6 +663,21 @@ export class LinesView implements PuzzleView {
     if (!adjacent(node, step) || !extend(this.state, step)) return null;
     const len = Math.min(c * 0.5, horizontal ? Math.abs(dx) : Math.abs(dy));
     return horizontal ? { x: last.x + Math.sign(dx) * len, y: last.y } : { x: last.x, y: last.y + Math.sign(dy) * len };
+  }
+}
+
+const WORDS = ['no', 'one', 'two', 'three', 'four'];
+
+/** Why a stretch of line goes where it goes, from the mark it passes. */
+function nearText(s: LinesState, near: Near | null, finishing: boolean): string {
+  if (near && 'bead' in near) return 'The line runs over this bead next.';
+  const m = near ? s.marks[near.cell] : null;
+  switch (m?.type) {
+    case 'count': return `This tile needs the line along ${WORDS[m.n]} of its sides.`;
+    case 'color': return 'The line keeps this orbital apart from the other colors.';
+    case 'pair': return 'The line closes this pair in with its partner.';
+    case 'shape': return 'The line traces the outline of this shape.';
+    default: return finishing ? 'The line ends at this charge.' : 'The line runs this way next.';
   }
 }
 

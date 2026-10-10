@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { applyMove, bounds, canonical, canPlace, cellsLeft, cellsOf, mirrored, newPacking, normalize, occupancy, rotated, sizeFor, solved, solvedState, type PackingState } from '../src/puzzles/packing';
+import { applyMove, bounds, canonical, canPlace, cellsLeft, cellsOf, completion, mirrored, newPacking, normalize, occupancy, rotated, sizeFor, solved, solvedState, type PackingMove, type PackingState, type Rot } from '../src/puzzles/packing';
 import { INSTRUCTIONS, PackingView, RULES } from '../src/puzzles/packingView';
 import { C } from '../src/puzzles/palette';
-import type { Area, RuleCard } from '../src/puzzles/view';
+import { undoHelp, type Area, type RuleCard } from '../src/puzzles/view';
 
 const SPREAD = [1, 6, 12, 26, 30, 40, 50, 80, 92, 118];
 
@@ -308,6 +308,138 @@ function checkPictures(rules: RuleCard[]): void {
     }
   }
 }
+
+describe('hints', () => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const st = (v: PackingView) => (v as any).state as PackingState;
+  /** A move played the way a drag, tap or key plays it. */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const play = (v: PackingView, m: PackingMove) => (v as any).apply(m) as boolean;
+  const plain = (text: string) => {
+    expect(text).toMatch(/^[A-Z][^—<>]*\.$/);
+    expect(text.length).toBeLessThanOrEqual(60);
+  };
+  /** Every placement of every tray piece, in every orientation and corner. */
+  const placements = (s: PackingState): PackingMove[] => {
+    const out: PackingMove[] = [];
+    for (const p of s.pieces) if (!p.at) for (const flip of s.flips ? [false, true] : [false]) for (let r = 0; r < 4; r++)
+      for (let y = 0; y < s.h; y++) for (let x = 0; x < s.w; x++) {
+        const m: PackingMove = { kind: 'place', piece: p.id, at: { x, y }, rot: r as Rot, flip };
+        if (applyMove(s, m)) out.push(m);
+      }
+    return out;
+  };
+
+  it('places a piece turned (and flipped where offered) as one move', () => {
+    const s = newPacking(118, 3);
+    const p = s.pieces.find((q) => s.solution[q.id])!;
+    const home = s.solution[p.id]!;
+    const next = applyMove(s, { kind: 'place', piece: p.id, at: home, rot: 0, flip: false })!;
+    expect(next.moves).toBe(1);
+    expect(next.pieces[p.id]).toMatchObject({ at: home, rot: 0, flip: false });
+    const plainLevel = newPacking(30, 3);
+    const q = plainLevel.pieces[0];
+    expect(applyMove(plainLevel, { kind: 'place', piece: q.id, at: { x: 0, y: 0 }, flip: true })).toBeNull();
+  });
+
+  it('Look here outlines where one piece goes and changes nothing', () => {
+    for (const z of SPREAD) for (const seed of [1, 2]) {
+      const v = new PackingView(newPacking(z, seed), true);
+      const before = st(v);
+      const snap = JSON.stringify(before);
+      const h = v.help(1)!;
+      plain(h.text);
+      expect(h.text).toMatch(/^This piece fits here( once turned| once flipped over)?\.$/);
+      expect(h.moved).toBeUndefined();
+      expect(st(v)).toBe(before);
+      expect(JSON.stringify(st(v))).toBe(snap);
+      expect(v.moves).toBe(0);
+      // The marked place is part of a way to finish.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const m = (v as any).mark;
+      expect(m.state).toBe(before);
+      const after = applyMove(before, { kind: 'place', ...m.place })!;
+      expect(completion(after)).not.toBeNull();
+      for (const area of [AREAS[0], AREAS[2]]) {
+        const { ctx, pts } = mockCtx();
+        v.draw(ctx, area, 0);
+        for (const [x, y] of pts) expect(x >= area.x - 0.5 && x <= area.x + area.w + 0.5 && y >= area.y - 0.5 && y <= area.y + area.h + 0.5).toBe(true);
+      }
+    }
+  });
+
+  it('Show me fills the outline, one counted, undoable placement per call', () => {
+    for (const z of SPREAD) for (const seed of [1, 2, 3]) {
+      const level = newPacking(z, seed);
+      const v = new PackingView(level, true);
+      let calls = 0;
+      while (!v.won && calls < level.par * 3 + 10) {
+        const before = v.moves;
+        const h = v.help(2)!;
+        expect(h).toEqual({ text: 'Placed a piece where it fits.', moved: true });
+        expect(v.moves).toBe(before + 1);
+        calls++;
+      }
+      expect(v.won).toBe(true);
+      expect(v.moves).toBe(st(v).pieces.filter((p) => p.at).length);
+      expect(v.help(1)).toBeNull();
+      expect(v.help(2)).toBeNull();
+      expect(v.undo()).toBe(true);
+      expect(v.moves).toBe(calls - 1);
+      expect(v.won).toBe(false);
+    }
+  });
+
+  it('counts the undos back to a board that can still be filled', () => {
+    let found = 0;
+    for (const z of SPREAD) for (const seed of [1, 2]) {
+      const level = newPacking(z, seed);
+      const v = new PackingView(level, true);
+      // One good piece first, so there is a board worth going back to.
+      v.help(2);
+      const bad = placements(st(v)).find((m) => !completion(applyMove(st(v), m)!));
+      if (!bad) continue;
+      found++;
+      expect(play(v, bad)).toBe(true);
+      const moves = v.moves;
+      expect(v.help(1)).toEqual(undoHelp(1));
+      expect(v.help(2)).toEqual(undoHelp(1));
+      expect(v.moves).toBe(moves);
+      // Turning a tray piece is one more step to undo.
+      const tray = st(v).pieces.find((p) => !p.at);
+      if (tray && play(v, { kind: 'rotate', piece: tray.id })) {
+        expect(v.help(1)).toEqual(undoHelp(2));
+        v.undo();
+      }
+      v.undo();
+      expect(v.help(1)!.text).toMatch(/^This piece fits here/);
+      expect(v.help(2)!.moved).toBe(true);
+    }
+    expect(found).toBeGreaterThanOrEqual(10);
+  });
+
+  it('answers well within 200 ms, dead ends included', () => {
+    let worst = 0;
+    const time = (v: PackingView, level: 1 | 2) => {
+      const t0 = performance.now();
+      v.help(level);
+      worst = Math.max(worst, performance.now() - t0);
+    };
+    for (let z = 1; z <= 118; z += 9) for (const seed of [1, 2]) {
+      const v = new PackingView(newPacking(z, seed), true);
+      time(v, 1);
+      time(v, 2);
+      // A few placements that leave the board unfillable, then the walk back.
+      for (let k = 0; k < 4; k++) {
+        const ms = placements(st(v));
+        if (!ms.length) break;
+        play(v, ms[(k * 7919 + z) % ms.length]);
+        time(v, 1);
+      }
+    }
+    expect(worst).toBeLessThan(200);
+  });
+});
 
 describe('rule cards', () => {
   it('have a title, plain text and pictures that stay in their box', () => {

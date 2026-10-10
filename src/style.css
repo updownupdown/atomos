@@ -1368,3 +1368,6 @@ body[data-screen^='atom'].build-home .science-fab, body[data-screen='atom-view']
 .mode-seg .ui-seg-dot { display: none; }
 .mode-seg .ui-seg-opt { padding: 0 var(--sp-3); }
 .nowrap { white-space: nowrap; }
+
+/* The Hint button when the player seems stuck: a soft white outline, still (only Next pulses). */
+.hint-btn.is-nudge { box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.55); }

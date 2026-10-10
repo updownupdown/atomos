@@ -235,6 +235,45 @@ export function tap(s: LightState, i: number, kind: PieceKind): LightState | nul
   return place(s, i, k);
 }
 
+// ---- hints ----------------------------------------------------------------------
+
+/** One step toward the level's answer. */
+export interface Fix {
+  cell: number;
+  /** Set the answer's piece on an empty cell, turn a piece that only faces the wrong way, or take one back. */
+  kind: 'place' | 'turn' | 'lift';
+  /** The answer's cell ('.' where nothing goes). */
+  want: Cell;
+}
+
+/**
+ * The next step toward the one answer: a placed piece that is wrong comes first (turned when only
+ * its slant is wrong, taken back otherwise), then a cell the answer puts a piece on. Within each,
+ * cells the beam reaches come first, nearest the lamp. Null when every piece is where it belongs.
+ */
+export function nextFix(s: LightState): Fix | null {
+  const depth = new Map<number, number>();
+  for (const v of trace(s).visits) if (!depth.has(v.cell)) depth.set(v.cell, v.depth);
+  const near = (a: number, b: number) => (depth.get(a) ?? Infinity) - (depth.get(b) ?? Infinity) || a - b;
+  const all = s.cells.map((_, i) => i);
+  const wrong = all.filter((i) => turnable(s.cells[i]) && s.cells[i] !== s.solution[i]).sort(near);
+  if (wrong.length) {
+    const i = wrong[0], want = s.solution[i];
+    const turns = turnable(want) && isSplitter(want) === isSplitter(s.cells[i]);
+    return { cell: i, kind: turns ? 'turn' : 'lift', want };
+  }
+  const need = all.filter((i) => s.cells[i] === '.' && turnable(s.solution[i])).sort(near);
+  return need.length ? { cell: need[0], kind: 'place', want: s.solution[need[0]] } : null;
+}
+
+/** Plays a fix: setting a piece is one move (and it goes down already turned the answer's way); turning and taking back are free. */
+export function applyFix(s: LightState, f: Fix): LightState | null {
+  if (f.kind === 'turn') return turn(s, f.cell);
+  if (f.kind === 'lift') return lift(s, f.cell);
+  const next = place(s, f.cell, isSplitter(f.want) ? 'splitter' : 'mirror');
+  return next && slant(f.want) !== slant(next.cells[f.cell]) ? turn(next, f.cell) : next;
+}
+
 // ---- generation ------------------------------------------------------------------
 
 const clampZ = (z: number) => Math.min(118, Math.max(1, Math.round(z)));

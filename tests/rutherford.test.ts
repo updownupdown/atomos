@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { choosePort, chord, cross, deduce, fire, neighbors, newRutherford, portLine, probe, remaining, scope, solved, specFor, toggleMark, traceBeam, type RutherfordState } from '../src/puzzles/rutherford';
+import { choosePort, chord, cloneRutherford, cross, deduce, fire, neighbors, newRutherford, nextLead, portLine, probe, remaining, scope, solved, specFor, toggleMark, traceBeam, type RutherfordState } from '../src/puzzles/rutherford';
 import { RULES, INSTRUCTIONS, RutherfordView } from '../src/puzzles/rutherfordView';
 import { C } from '../src/puzzles/palette';
 import type { RuleCard } from '../src/puzzles/view';
@@ -355,5 +355,123 @@ describe('view', () => {
     expect(w.clean).toBe(true);
     fireAt(s.beamPar);
     expect(w.clean).toBe(false);
+  });
+});
+
+describe('help', () => {
+  type Inside = { state: RutherfordState; mark: { state: RutherfordState; cells: number[]; port: number } | null; act(i: number, m: boolean): void };
+  const inside = (v: RutherfordView) => v as unknown as Inside;
+  const DEALS = [1, 20, 21, 50, 51, 85, 86, 118].flatMap((z) => [1, 2, 3].map((seed) => ({ z, seed })));
+
+  /** One plain sentence: no markup, no em dash. */
+  const plain = (text: string) => {
+    expect(text).toMatch(/^[A-Z][^<>\u2014]*\.$/);
+    expect(text.split(/[.!?](\s|$)/).filter((x) => x && x.trim()).length).toBe(1);
+  };
+
+  /** The player's own move that turns a into b, if there is one: a probe, a mark or a beam. */
+  const playerMove = (a: RutherfordState, b: RutherfordState): string | null => {
+    for (let i = 0; i < a.nuclei.length; i++) {
+      if (JSON.stringify(probe(a, i)) === JSON.stringify(b)) return 'probe';
+      if (JSON.stringify(toggleMark(a, i)) === JSON.stringify(b)) return 'mark';
+    }
+    for (let p = 0; p < a.fired.length; p++) if (JSON.stringify(fire(a, p)) === JSON.stringify(b)) return 'beam';
+    return null;
+  };
+
+  it('Look here marks a decided cell or a port and leaves the plate alone', () => {
+    for (const { z, seed } of DEALS) {
+      const v = new RutherfordView(newRutherford(z, seed), true);
+      // On the fresh plate, then again a few moves in.
+      for (let round = 0; round < 2; round++) {
+        const before = inside(v).state, snap = JSON.stringify(before), moves = v.moves;
+        const h = v.help(1)!;
+        plain(h.text);
+        expect(h.moved).toBeUndefined();
+        expect(inside(v).state).toBe(before);
+        expect(JSON.stringify(inside(v).state)).toBe(snap);
+        expect(v.moves).toBe(moves);
+        const m = inside(v).mark!;
+        expect(m.state).toBe(before);
+        expect(m.cells.length + (m.port >= 0 ? 1 : 0)).toBeGreaterThan(0);
+        // The decided cell is still unknown; the numbers beside it are open.
+        if (m.cells.length) {
+          expect(before.probed[m.cells[0]]).toBe(false);
+          for (const c of m.cells.slice(1)) expect(before.probed[c] && !before.nuclei[c]).toBe(true);
+        } else expect(before.fired[m.port]).toBe(false);
+        for (let k = 0; k < 4; k++) v.help(2);
+        // Any move clears the mark.
+        expect(inside(v).mark?.state).not.toBe(inside(v).state);
+      }
+    }
+  });
+
+  it('Show me finishes every plate with no hit, one player move at a time', () => {
+    for (const { z, seed } of DEALS) {
+      const s = newRutherford(z, seed);
+      const v = new RutherfordView(s, true);
+      let calls = 0;
+      while (!v.won) {
+        const a = inside(v).state;
+        const h = v.help(2)!;
+        plain(h.text);
+        expect(h.moved).toBe(true);
+        const b = inside(v).state;
+        const kind = playerMove(a, b);
+        expect(kind, `z ${z} seed ${seed} call ${calls}`).not.toBeNull();
+        expect(v.moves - a.moves).toBe(kind === 'mark' ? 0 : 1);
+        expect(++calls).toBeLessThanOrEqual(s.size * s.size);
+      }
+      expect(v.help(1)).toBeNull();
+      expect(v.help(2)).toBeNull();
+      // Never a direct hit, and no more beams than the plate grants.
+      expect(v.clean, `z ${z} seed ${seed}`).toBe(true);
+      // Each step can be undone like the player's own.
+      expect(v.undo()).toBe(true);
+      expect(v.won).toBe(false);
+    }
+  });
+
+  it('points at a mark on a safe cell, and Show me takes it off', () => {
+    for (const { z, seed } of DEALS) {
+      const s = newRutherford(z, seed);
+      const v = new RutherfordView(s, true);
+      const wrong = s.nuclei.findIndex((x, i) => !x && !s.probed[i]);
+      inside(v).act(wrong, true);
+      const marked = inside(v).state;
+      expect(marked.marked[wrong]).toBe(true);
+      const h = v.help(1)!;
+      expect(h.text).toBe('This mark is on a safe cell.');
+      expect(inside(v).mark!.cells).toEqual([wrong]);
+      expect(inside(v).state).toBe(marked);
+      const fix = v.help(2)!;
+      expect(fix.moved).toBe(true);
+      expect(inside(v).state.marked[wrong]).toBe(false);
+      expect(JSON.stringify(inside(v).state)).toBe(JSON.stringify(toggleMark(marked, wrong)));
+      expect(v.moves).toBe(marked.moves);
+    }
+  });
+
+  it('trusts a mark only once the numbers prove it, and steps past a proved one', () => {
+    for (const { z, seed } of DEALS) {
+      const s = newRutherford(z, seed);
+      const lead = nextLead(s)!;
+      expect(lead).not.toBeNull();
+      // A right but unproved mark changes nothing about what the numbers say.
+      const j = s.nuclei.findIndex((x, i) => x && !s.probed[i] && !(lead.kind === 'cell' && lead.cell === i));
+      expect(nextLead(toggleMark(s, j)!)).toEqual(lead);
+      // Once a proved nucleus is marked, the lead moves on.
+      if (lead.kind === 'cell' && lead.nucleus) expect(nextLead(toggleMark(s, lead.cell)!)).not.toEqual(lead);
+    }
+  });
+
+  it('answers in well under 200 ms on every element', () => {
+    let worst = 0;
+    const time = (f: () => void) => { const t = performance.now(); f(); worst = Math.max(worst, performance.now() - t); };
+    for (let z = 1; z <= 118; z++) {
+      const v = new RutherfordView(newRutherford(z, z), true);
+      for (let k = 0; k < 6 && !v.won; k++) { time(() => v.help(1)); time(() => v.help(2)); }
+    }
+    expect(worst).toBeLessThan(50);
   });
 });

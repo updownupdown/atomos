@@ -4,9 +4,9 @@
 // Keyboard: arrows move a cursor, Space or Enter taps under it, Tab switches
 // between mirrors and splitters.
 
-import { cloneLight, DELTA, filterHue, isSplitter, left, open, slant, status, tap, targetLit, trace, turnable, type Cell, type Dir, type Hue, type LightState, type PieceKind, type Target } from './light';
+import { applyFix, cloneLight, DELTA, filterHue, isSplitter, left, nextFix, open, slant, status, tap, targetLit, trace, turnable, type Cell, type Dir, type Hue, type LightState, type PieceKind, type Target } from './light';
 import { bead, C, fitGrid, font, tile } from './palette';
-import { type Area, type Illustration, type Point, type PuzzleView, type RuleCard } from './view';
+import { drawHelpMark, type Area, type Help, type Illustration, type Point, type PuzzleView, type RuleCard } from './view';
 
 /** Milliseconds for the light to cross one cell as it grows after a change. */
 const STEP_MS = 40;
@@ -37,6 +37,8 @@ export class LightView implements PuzzleView {
   private kind: PieceKind;
   /** Where the tray's chips were drawn, for taps. */
   private chips: { kind: PieceKind; x: number; y: number; w: number; h: number }[] = [];
+  /** Look here: the cell to ring, for the board it was asked on. */
+  private mark: { state: LightState; cell: number } | null = null;
 
   constructor(private readonly initial: LightState, reducedMotion: boolean) {
     this.state = cloneLight(initial);
@@ -57,6 +59,25 @@ export class LightView implements PuzzleView {
     if (st.darkLit.length) return st.darkLit.length === 1 ? 'A dark sensor is lit' : `${st.darkLit.length} dark sensors are lit`;
     if (st.wrongHue.length) return st.wrongHue.length === 1 ? 'A ring has the wrong color' : `${st.wrongHue.length} rings have the wrong color`;
     return '';
+  }
+
+  help(level: 1 | 2): Help | null {
+    if (this.won) return null;
+    const s = this.state;
+    const f = nextFix(s);
+    if (!f) return null;
+    const name = isSplitter(f.kind === 'place' ? f.want : s.cells[f.cell]) ? 'splitter' : 'mirror';
+    if (level === 2) {
+      this.commit(applyFix(s, f), f.cell);
+      const text = f.kind === 'place' ? `Placed a ${name}.` : f.kind === 'turn' ? `Turned the ${name}.` : `Took the ${name} back.`;
+      return { text, moved: true };
+    }
+    this.mark = { state: s, cell: f.cell };
+    const text = f.kind === 'place' ? `This cell needs a ${name}.`
+      : f.kind === 'turn' ? `This ${name} faces the wrong way.`
+      : turnable(f.want) ? `This cell needs a ${name === 'mirror' ? 'splitter' : 'mirror'}, not a ${name}.`
+      : `This ${name} doesn't belong here.`;
+    return { text };
   }
 
   restart(): void {
@@ -84,6 +105,12 @@ export class LightView implements PuzzleView {
       this.bump = { cell: i, at: performance.now() };
       return;
     }
+    this.commit(next, i);
+  }
+
+  /** Takes a tap's (or Show me's) new board: one undo step, the beam regrown from the lamp. */
+  private commit(next: LightState | null, i: number): void {
+    if (!next) return;
     this.history.push(this.state);
     if (this.history.length > 50) this.history.shift();
     this.state = next;
@@ -180,6 +207,11 @@ export class LightView implements PuzzleView {
     if (this.showCursor && !st.won) {
       const p = this.center(this.cursor);
       tile(ctx, p.x - half + 1.5, p.y - half + 1.5, c - 3, c - 3, c * 0.18, null, C.accent, 2);
+    }
+    // Look here: the cell to change.
+    if (this.mark?.state === s && !st.won) {
+      const p = this.center(this.mark.cell);
+      drawHelpMark(ctx, p.x - half + 2, p.y - half + 2, c - 4, c - 4, now, this.reduced, c * 0.18);
     }
     const bumpT = this.bump ? Math.max(0, 1 - (now - this.bump.at) / 350) : 0;
     if (this.bump && bumpT > 0) nudge(ctx, this.center(this.bump.cell), c, bumpT, !this.reduced);

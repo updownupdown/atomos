@@ -2,14 +2,16 @@
 // of the wanted size flies up into the nucleus.
 
 import { ALL_SYMBOLS } from '../core/elements';
-import { cloneMerge, jammed, slide, wanted, won, type Dir, type MergeState, type Tile } from './merge';
-import { ease, MONO, type Area, type Point, type PuzzleView, type RuleCard } from './view';
+import { bestSwipe, cloneMerge, closestPair, inReach, jammed, mergeOf, slide, wanted, won, type Dir, type MergeState, type Tile } from './merge';
+import { drawHelpMark, ease, MONO, undoHelp, type Area, type Help, type Point, type PuzzleView, type RuleCard } from './view';
 import { C, font } from './palette';
 
 const SLIDE_MS = 150;
 const POP_MS = 260;
 const FLY_MS = 520;
 const SWIPE = 22;
+/** How long Show me's arrow stays on the board after its swipe. */
+const ARROW_MS = 900;
 
 const symbolOf = (z: number) => ALL_SYMBOLS[z - 1] ?? '?';
 
@@ -22,6 +24,10 @@ export class MergeView implements PuzzleView {
   private reduced: boolean;
   /** Where each socket sits on screen, for the flight animation. */
   private socketAt: Point[] = [];
+  /** Look here: the clusters to ring, for the board it was asked on. */
+  private mark: { state: MergeState; cells: number[] } | null = null;
+  /** Show me: the way it swiped, shown as an arrow over the board that swipe made. */
+  private shown: { state: MergeState; dir: Dir; at: number } | null = null;
 
   constructor(private readonly initial: MergeState, reducedMotion: boolean) {
     this.state = cloneMerge(initial);
@@ -42,9 +48,52 @@ export class MergeView implements PuzzleView {
     return want === null ? '' : `Next: a ${want}`;
   }
 
+  help(level: 1 | 2): Help | null {
+    const s = this.state;
+    if (this.won) return null;
+    if (!inReach(s)) return this.backOnTrack();
+    const want = wanted(s)!;
+    const dir = bestSwipe(s)!;
+    const merge = mergeOf(s, dir);
+    if (level === 2) {
+      this.swipe(dir);
+      this.shown = { state: this.state, dir, at: performance.now() };
+      const flew = this.state.flown[0]?.tile.v;
+      const text = flew ? `Swiped ${dir}, and ${flew === 8 ? 'an' : 'a'} ${flew} flew into the nucleus.`
+        : merge ? `Swiped ${dir} to merge two ${merge.makes / 2}s.`
+        : `Swiped ${dir} to set up the next merge.`;
+      return { text, moved: true };
+    }
+    // Ring the merge the best swipe makes, or else the best pair still to bring together.
+    const pair = merge ? { ...merge, lined: true } : closestPair(s);
+    if (pair) {
+      this.mark = { state: s, cells: pair.cells };
+      const v = pair.makes / 2;
+      const text = pair.makes === want ? `These two ${v}s can merge into the ${want} the nucleus wants.`
+        : pair.lined ? `These two ${v}s can merge toward the target.`
+        : `These two ${v}s can merge once they line up.`;
+      return { text };
+    }
+    // No two clusters match: point at the biggest one still worth growing.
+    let big = -1;
+    s.cells.forEach((t, i) => { if (t && !t.spoiled && t.v < want && (big < 0 || t.v > s.cells[big]!.v)) big = i; });
+    if (big < 0) return { text: `Swipe to gather clusters toward the ${want} the nucleus wants.` };
+    this.mark = { state: s, cells: [big] };
+    return { text: `Grow this ${s.cells[big]!.v} toward the ${want} the nucleus wants.` };
+  }
+
+  /** The fewest undos back to a board the nucleus can still be finished from. */
+  private backOnTrack(): Help | null {
+    const h = this.history;
+    for (let n = 1; n <= h.length; n++) if (inReach(h[h.length - n])) return undoHelp(n);
+    // Further back than the undo history keeps: only a restart helps.
+    return inReach(this.initial) ? { text: 'Restart to get back on track.' } : null;
+  }
+
   restart(): void {
     this.state = cloneMerge(this.initial);
     this.history = [];
+    this.mark = null;
     this.animAt = 0;
   }
 
@@ -55,6 +104,8 @@ export class MergeView implements PuzzleView {
     if (!prev) return false;
     this.state = prev;
     this.animAt = 0;
+    // Undo hands back the very board a Look here may have been asked on; the mark stays cleared.
+    this.mark = null;
     return true;
   }
 
@@ -152,6 +203,18 @@ export class MergeView implements PuzzleView {
         this.drawTile(ctx, f.tile, p.x, p.y, r * (1 - 0.5 * e), 1, true);
       });
     }
+
+    // Look here: a ring round each cluster it points at, until the board changes.
+    if (this.mark?.state === this.state) {
+      for (const i of this.mark.cells) {
+        const c = center(i);
+        drawHelpMark(ctx, c.x - r, c.y - r, r * 2, r * 2, now, this.reduced, r);
+      }
+    }
+    // Show me: an arrow the way it swiped, fading out.
+    const shown = this.shown?.state === this.state ? this.shown : null;
+    const k = shown ? (now - shown.at) / ARROW_MS : 1;
+    if (shown && k < 1) drawSwipeArrow(ctx, x0 + side / 2, y0 + side / 2, side * 0.32, shown.dir, this.reduced ? 0.7 : 0.7 * (1 - ease(k)));
   }
 
   /** Tiles that merged last move are gone from the board; remember what they looked like for the slide. */
@@ -283,6 +346,30 @@ export function drawSocket(ctx: CanvasRenderingContext2D, cx: number, cy: number
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(String(v), cx, cy + 1);
+  ctx.restore();
+}
+
+/** Show me's swipe: a soft white arrow through (x, y), half length l, pointing the way the board slid. */
+function drawSwipeArrow(ctx: CanvasRenderingContext2D, x: number, y: number, l: number, dir: Dir, alpha: number): void {
+  const [ux, uy] = dir === 'left' ? [-1, 0] : dir === 'right' ? [1, 0] : dir === 'up' ? [0, -1] : [0, 1];
+  const hd = l * 0.35;
+  const tx = x + ux * l, ty = y + uy * l;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+  ctx.shadowColor = 'rgba(255, 255, 255, 0.8)';
+  ctx.shadowBlur = 10;
+  ctx.lineWidth = 5;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  ctx.moveTo(x - ux * l, y - uy * l);
+  ctx.lineTo(tx, ty);
+  // The head: two strokes back from the tip, either side of the shaft.
+  ctx.moveTo(tx - ux * hd - uy * hd, ty - uy * hd + ux * hd);
+  ctx.lineTo(tx, ty);
+  ctx.lineTo(tx - ux * hd + uy * hd, ty - uy * hd - ux * hd);
+  ctx.stroke();
   ctx.restore();
 }
 

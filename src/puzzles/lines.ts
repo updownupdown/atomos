@@ -222,6 +222,23 @@ function validSteps(s: LinesState, path: Pt[]): boolean {
   return true;
 }
 
+/** Adds to `failed` the cells of one pocket whose orbital, pair or shape mark it breaks. */
+function pocketFailures(s: LinesState, cells: number[], failed: Set<number>): void {
+  // Colors: one color of tile per pocket.
+  const tilesIn = cells.filter((i) => s.marks[i]?.type === 'color');
+  if (new Set(tilesIn.map((i) => (s.marks[i] as { c: Kind }).c)).size > 1) tilesIn.forEach((i) => failed.add(i));
+  // Pairs: each ring's color appears exactly twice in its pocket.
+  for (const i of cells) {
+    const m = s.marks[i];
+    if (m?.type !== 'pair') continue;
+    const n = cells.filter((j) => { const o = s.marks[j]; return (o?.type === 'pair' || o?.type === 'color') && o.c === m.c; }).length;
+    if (n !== 2) failed.add(i);
+  }
+  // Shapes: the pocket is exactly its shapes fitted together.
+  const shapeCells = cells.filter((i) => s.marks[i]?.type === 'shape');
+  if (shapeCells.length && !tiles(s.cols, s.rows, cells, shapeCells.map((i) => (s.marks[i] as { cells: Pt[] }).cells))) shapeCells.forEach((i) => failed.add(i));
+}
+
 /** How a path measures up against every mark: which ones it breaks. */
 export function verdict(s: LinesState, path: Pt[]): Verdict {
   const edges = pathEdges(path);
@@ -232,21 +249,7 @@ export function verdict(s: LinesState, path: Pt[]): Verdict {
   const pockets = new Map<number, number[]>();
   reg.forEach((r, i) => (pockets.get(r) ?? pockets.set(r, []).get(r)!).push(i));
   const failed = new Set<number>();
-  for (const cells of pockets.values()) {
-    // Colors: one color of tile per pocket.
-    const tilesIn = cells.filter((i) => s.marks[i]?.type === 'color');
-    if (new Set(tilesIn.map((i) => (s.marks[i] as { c: Kind }).c)).size > 1) tilesIn.forEach((i) => failed.add(i));
-    // Pairs: each ring's color appears exactly twice in its pocket.
-    for (const i of cells) {
-      const m = s.marks[i];
-      if (m?.type !== 'pair') continue;
-      const n = cells.filter((j) => { const o = s.marks[j]; return (o?.type === 'pair' || o?.type === 'color') && o.c === m.c; }).length;
-      if (n !== 2) failed.add(i);
-    }
-    // Shapes: the pocket is exactly its shapes fitted together.
-    const shapeCells = cells.filter((i) => s.marks[i]?.type === 'shape');
-    if (shapeCells.length && !tiles(s.cols, s.rows, cells, shapeCells.map((i) => (s.marks[i] as { cells: Pt[] }).cells))) shapeCells.forEach((i) => failed.add(i));
-  }
+  for (const cells of pockets.values()) pocketFailures(s, cells, failed);
   // Counts: exactly n sides of the cell on the path.
   s.marks.forEach((m, i) => {
     if (m?.type !== 'count') return;
@@ -623,4 +626,241 @@ export function newLines(z: number, seed: number): LinesState {
   marks[cols * (rows - 1)] = { type: 'color', c: 's' };
   marks[cols * rows - 1] = { type: 'color', c: 'p' };
   return { cols, rows, starts: [path[0]], ends: [path[path.length - 1]], dots: [edgeKey(path[1], path[2])], gaps: [], marks, rules: ['dots', 'colors'], path: [], moves: 0, par: 1, won: false, solution: path };
+}
+
+// ---- hints -----------------------------------------------------------------------
+
+/** How many leading nodes a drawn line shares with a route. */
+export function sharedPrefix(path: Pt[], route: Pt[]): number {
+  let k = 0;
+  while (k < path.length && k < route.length && same(path[k], route[k])) k++;
+  return k;
+}
+
+/**
+ * A whole line meeting every mark that begins with `prefix` (a lawful start
+ * of a line), or null when none turns up within `budget` steps; `sure` says
+ * the search ran its course, so there is none at all. A depth-first
+ * search that drops a branch as soon as a bead or a bar can no longer be met,
+ * a pocket the line has closed for good breaks its marks, or no end can be
+ * reached any more. With a `guide` (the hidden walk), it tries the nodes
+ * nearest that line first.
+ */
+export function completeLine(s: LinesState, prefix: Pt[], budget = 6000, guide?: Pt[]): { line: Pt[] | null; sure: boolean } {
+  const none = { line: null, sure: true };
+  if (!prefix.length || !isStart(s, prefix[0])) return none;
+  const { cols, rows } = s;
+  const W = cols + 1, H = rows + 1;
+  // Edges by number: across ones first, then down ones; each knows its nodes and the tiles either side (-1 off the grid).
+  const across = H * cols;
+  const E = across + rows * W;
+  const ea = new Int32Array(E), eb = new Int32Array(E), left = new Int32Array(E), right = new Int32Array(E);
+  for (let y = 0; y < H; y++) for (let x = 0; x < cols; x++) {
+    const e = y * cols + x;
+    ea[e] = y * W + x; eb[e] = y * W + x + 1;
+    left[e] = y > 0 ? (y - 1) * cols + x : -1; right[e] = y < rows ? y * cols + x : -1;
+  }
+  for (let y = 0; y < rows; y++) for (let x = 0; x < W; x++) {
+    const e = across + y * W + x;
+    ea[e] = y * W + x; eb[e] = (y + 1) * W + x;
+    left[e] = x > 0 ? y * cols + x - 1 : -1; right[e] = x < cols ? y * cols + x : -1;
+  }
+  const edgeAt = (a: number, b: number): number => {
+    const [p, q] = a < b ? [a, b] : [b, a];
+    return q === p + 1 ? Math.floor(p / W) * cols + (p % W) : across + p;
+  };
+  const toEdge = (k: string) => { const [p, q] = edgeOf(k); return edgeAt(p.y * W + p.x, q.y * W + q.x); };
+  const gap = new Uint8Array(E);
+  for (const k of s.gaps) gap[toEdge(k)] = 1;
+  const dots = s.dots.map(toEdge);
+  const nbrs: number[][] = Array.from({ length: W * H }, (_, i) => {
+    const x = i % W, y = (i - x) / W;
+    return [x + 1 < W ? i + 1 : -1, x > 0 ? i - 1 : -1, y + 1 < H ? i + W : -1, y > 0 ? i - W : -1].filter((j) => j >= 0 && !gap[edgeAt(i, j)]);
+  });
+  const counts = s.marks.flatMap((m, i) => {
+    if (m?.type !== 'count') return [];
+    const x = i % cols, y = (i - x) / cols;
+    return [{ n: m.n, sides: [y * cols + x, (y + 1) * cols + x, across + y * W + x, across + y * W + x + 1] }];
+  });
+  const pocketMarks = s.marks.some((m) => m && m.type !== 'count');
+  const isEndId = new Uint8Array(W * H);
+  for (const p of s.ends) isEndId[p.y * W + p.x] = 1;
+
+  const seen = new Uint8Array(W * H);
+  const on = new Uint8Array(E);
+  const ids = prefix.map((p) => p.y * W + p.x);
+  for (let i = 0; i < ids.length; i++) {
+    seen[ids[i]] = 1;
+    if (i) on[edgeAt(ids[i - 1], ids[i])] = 1;
+  }
+  let tip = ids[ids.length - 1];
+  /** An edge the line may still take: not broken, and both nodes free or the pen. */
+  const open = (e: number) => !on[e] && !gap[e] && (!seen[ea[e]] || ea[e] === tip) && (!seen[eb[e]] || eb[e] === tip);
+
+  // Pockets, by union-find over the tiles across inner edges the line does not run on.
+  const inner: number[] = [];
+  for (let e = 0; e < E; e++) if (left[e] >= 0 && right[e] >= 0) inner.push(e);
+  const N = cols * rows;
+  const parent = new Int32Array(N);
+  const find = (i: number): number => { while (parent[i] !== i) i = parent[i] = parent[parent[i]]; return i; };
+  const live = new Uint8Array(N);
+  const checked = new Uint8Array(N);
+  const marked = s.marks.flatMap((m, i) => (m && m.type !== 'count' ? [i] : []));
+  const broken = new Set<number>();
+  const judged = new Map<number, boolean>();
+  /** Every pocket the line has closed for good (or every pocket, when it stops here) keeps its marks. */
+  const pocketsOk = (done = false): boolean => {
+    for (let i = 0; i < N; i++) parent[i] = i;
+    for (const e of inner) if (!on[e]) parent[find(left[e])] = find(right[e]);
+    live.fill(0);
+    checked.fill(0);
+    // A pocket is still open while the line could yet run through it, unless the line stops here.
+    if (!done) for (const e of inner) if (open(e)) live[find(left[e])] = 1;
+    for (const i of marked) {
+      const r = find(i);
+      if (live[r] || checked[r]) continue;
+      checked[r] = 1;
+      // The same pocket closes on many branches: judge each one once, by its tiles as a bit set.
+      const cells: number[] = [];
+      let key = 0;
+      for (let j = 0; j < N; j++) if (find(j) === r) { cells.push(j); key += 2 ** j; }
+      let ok = judged.get(key);
+      if (ok === undefined) {
+        broken.clear();
+        pocketFailures(s, cells, broken);
+        judged.set(key, ok = !broken.size);
+      }
+      if (!ok) return false;
+    }
+    return true;
+  };
+  /** Beads and bars can all still be met. */
+  const marksOk = (): boolean => {
+    for (const e of dots) if (!on[e] && !open(e)) return false;
+    for (const c of counts) {
+      let have = 0, could = 0;
+      for (const e of c.sides) { if (on[e]) have++; else if (open(e)) could++; }
+      if (have > c.n || have + could < c.n) return false;
+    }
+    return true;
+  };
+  /** Every bead and bar met exactly, as a finished line needs. */
+  const finished = (): boolean => {
+    for (const e of dots) if (!on[e]) return false;
+    for (const c of counts) {
+      let have = 0;
+      for (const e of c.sides) have += on[e];
+      if (have !== c.n) return false;
+    }
+    return true;
+  };
+  const mark = new Int32Array(W * H);
+  let stamp = 0;
+  const stack: number[] = [];
+  /**
+   * The pen can still reach an end, and every bead and bar still short of the
+   * line, without crossing the line or a gap.
+   */
+  const reachable = (): boolean => {
+    stamp++;
+    stack.length = 0;
+    stack.push(tip);
+    mark[tip] = stamp;
+    let end = false;
+    while (stack.length) {
+      for (const j of nbrs[stack.pop()!]) {
+        if (seen[j] || mark[j] === stamp) continue;
+        mark[j] = stamp;
+        stack.push(j);
+      }
+    }
+    for (const p of s.ends) if (mark[p.y * W + p.x] === stamp) end = true;
+    if (!end) return false;
+    const near = (e: number) => mark[ea[e]] === stamp && mark[eb[e]] === stamp;
+    for (const e of dots) if (!on[e] && !near(e)) return false;
+    for (const c of counts) {
+      let have = 0, could = 0;
+      for (const e of c.sides) { if (on[e]) have++; else if (!gap[e] && near(e)) could++; }
+      if (have + could < c.n) return false;
+    }
+    return true;
+  };
+  if (!marksOk() || (pocketMarks && !pocketsOk())) return none;
+  // How far each node is from the nearest node of the guide the prefix has not used; on the
+  // guide itself, earlier nodes come first, so the search runs along it where it can.
+  let toward: Int32Array | null = null;
+  if (guide?.length) {
+    const aim = guide.map((p) => p.y * W + p.x).filter((i) => !seen[i]);
+    toward = new Int32Array(W * H).map((_, i) => {
+      const k = aim.indexOf(i);
+      if (k >= 0) return k;
+      return aim.length * (1 + Math.min(W + H, ...aim.map((j) => Math.abs((i % W) - (j % W)) + Math.abs(Math.floor(i / W) - Math.floor(j / W)))));
+    });
+  }
+  const toPts = () => ids.map((i) => ({ x: i % W, y: Math.floor(i / W) }));
+  const go = (): boolean => {
+    if (--budget < 0) return false;
+    if (isEndId[tip] && ids.length > 1 && finished() && (!pocketMarks || pocketsOk(true)) && satisfies(s, toPts())) return true;
+    const from = tip;
+    // Nodes nearest the guide first: most lawful lines keep close to it.
+    const next = toward ? [...nbrs[from]].sort((a, b) => toward[a] - toward[b]) : nbrs[from];
+    for (const n of next) {
+      if (seen[n]) continue;
+      const e = edgeAt(from, n);
+      seen[n] = 1;
+      on[e] = 1;
+      ids.push(n);
+      tip = n;
+      if (marksOk() && reachable() && (!pocketMarks || pocketsOk()) && go()) return true;
+      tip = from;
+      ids.pop();
+      on[e] = 0;
+      seen[n] = 0;
+      if (budget < 0) return false;
+    }
+    return false;
+  };
+  return go() ? { line: toPts(), sure: true } : { line: null, sure: budget >= 0 };
+}
+
+/** What a stretch of line passes: a bead on one of its edges, or a marked tile beside one. */
+export type Near = { bead: string } | { cell: number };
+
+/** The fewest edges a hinted stretch of line runs before it may stop at a mark. */
+const STRETCH = 3;
+
+/**
+ * The next stretch of `route` once its first `drawn` nodes are on the board:
+ * on to the first mark it passes after at least a few edges (or a few more
+ * edges with no mark), or to the end. It never stops on a − charge short of
+ * the route's own end, where letting go would check the line too early.
+ * `near` is the mark it stops at, else the first one it passes.
+ */
+export function nextStretch(s: LinesState, route: Pt[], drawn: number): { nodes: Pt[]; near: Near | null } {
+  const dots = new Set(s.dots);
+  const nodes: Pt[] = [];
+  let first: Near | null = null;
+  const from = Math.max(drawn, 1);
+  if (drawn === 0) nodes.push(route[0]);
+  for (let i = from; i < route.length; i++) {
+    nodes.push(route[i]);
+    const k = edgeKey(route[i - 1], route[i]);
+    let here: Near | null = dots.has(k) ? { bead: k } : null;
+    if (!here) {
+      const [a, b] = [route[i - 1], route[i]];
+      // The tiles either side of the edge.
+      const sides = a.x === b.x
+        ? [{ x: a.x - 1, y: Math.min(a.y, b.y) }, { x: a.x, y: Math.min(a.y, b.y) }]
+        : [{ x: Math.min(a.x, b.x), y: a.y - 1 }, { x: Math.min(a.x, b.x), y: a.y }];
+      const t = sides.find((p) => p.x >= 0 && p.y >= 0 && p.x < s.cols && p.y < s.rows && s.marks[p.y * s.cols + p.x]);
+      if (t) here = { cell: t.y * s.cols + t.x };
+    }
+    first ??= here;
+    const run = i - from + 1;
+    // Two edges or fewer left: finish the line rather than leave a stub.
+    if (route.length - 1 - i <= 2 || isEnd(s, route[i])) continue;
+    if (run >= STRETCH && here) return { nodes, near: here };
+    if (run >= STRETCH * 2) break;
+  }
+  return { nodes, near: first };
 }

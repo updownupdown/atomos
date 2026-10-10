@@ -5,9 +5,9 @@
 // tall area, beside on a wide one), and the tray scales its pieces down until
 // they all fit, so nothing ever spills.
 
-import { applyMove, bounds, canPlace, cellsLeft, cellsOf, clonePacking, occupancy, solved, type Cell, type PackingMove, type PackingState, type Piece, type Rot } from './packing';
+import { applyMove, bounds, canPlace, cellsLeft, cellsOf, clonePacking, completion, nextPlacement, occupancy, oriented, solved, type Cell, type PackingMove, type PackingState, type Piece, type Placement, type Rot } from './packing';
 import { C, tile } from './palette';
-import { ease, type Area, type Point, type PuzzleView, type RuleCard } from './view';
+import { drawHelpMark, ease, undoHelp, type Area, type Help, type Point, type PuzzleView, type RuleCard } from './view';
 
 const TAP = 8;
 const GLOW_MS = 520;
@@ -56,6 +56,8 @@ export class PackingView implements PuzzleView {
   private wonAt = 0;
   private lay: Layout | null = null;
   private reduced: boolean;
+  /** Look here: where one piece goes, for the board it was asked on. */
+  private mark: { state: PackingState; place: Placement } | null = null;
 
   constructor(private readonly initial: PackingState, reducedMotion: boolean) {
     this.state = clonePacking(initial);
@@ -72,6 +74,34 @@ export class PackingView implements PuzzleView {
     if (this.won) return 'The outline is full';
     const n = cellsLeft(this.state);
     return n === 1 ? '1 cell to fill' : `${n} cells to fill`;
+  }
+
+  help(level: 1 | 2): Help | null {
+    if (this.won) return null;
+    const s = this.state;
+    const pl = nextPlacement(s);
+    if (!pl) return this.backOnTrack();
+    const q = this.piece(pl.piece);
+    if (level === 2) {
+      this.apply({ kind: 'place', piece: pl.piece, at: pl.at, rot: pl.rot, flip: pl.flip });
+      this.selected = pl.piece;
+      return { text: 'Placed a piece where it fits.', moved: true };
+    }
+    this.mark = { state: s, place: pl };
+    this.selected = pl.piece;
+    // Say whether it has to be turned or flipped first, by the shape it shows now, not its numbers.
+    const want = oriented(q.shape, pl.rot, pl.flip);
+    const turns = ([0, 1, 2, 3] as Rot[]).some((r) => same(oriented(q.shape, r, q.flip), want));
+    const how = same(cellsOf(q), want) ? '' : turns ? ' once turned' : ' once flipped over';
+    return { text: `This piece fits here${how}.` };
+  }
+
+  /** On a board that can no longer be filled: the fewest undos back to one that can. */
+  private backOnTrack(): Help {
+    const h = this.history;
+    for (let k = 1; k <= h.length; k++) if (completion(h[h.length - k])) return undoHelp(k);
+    // Only when the way back is older than the undo history keeps.
+    return { text: 'Restart to get back on track.' };
   }
 
   restart(): void {
@@ -410,6 +440,17 @@ export class PackingView implements PuzzleView {
       if (lay.flip) this.drawFlip(ctx, lay.flip);
     }
 
+    // Look here: the piece in the tray and the cells it goes on.
+    const m = this.mark?.state === s && !won && !d ? this.mark : null;
+    if (m) {
+      const q = this.piece(m.place.piece);
+      for (const c of oriented(q.shape, m.place.rot, m.place.flip)) {
+        drawHelpMark(ctx, bx + (m.place.at.x + c.x) * cell + 4, by + (m.place.at.y + c.y) * cell + 4, cell - 8, cell - 8, now, this.reduced, cell * 0.16);
+      }
+      const sl = lay.slots.find((x) => x.id === q.id);
+      if (sl && !q.at) drawHelpMark(ctx, sl.x, sl.y, sl.side, sl.side, now, this.reduced, 10);
+    }
+
     // The piece in hand, at board size, under the finger.
     if (d) {
       const p = this.piece(d.id);
@@ -454,6 +495,8 @@ export class PackingView implements PuzzleView {
 }
 
 // ---- pieces and blocks ----------------------------------------------------------------
+
+const same = (a: Cell[], b: Cell[]): boolean => a.length === b.length && a.every((c, i) => c.x === b[i].x && c.y === b[i].y);
 
 /** Color by size: a quick way to tell the pieces apart on the board. */
 function colorOf(p: Piece): string {

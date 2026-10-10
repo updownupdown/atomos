@@ -11,6 +11,7 @@ import { openRules } from './puzzles/rulesModal';
 import { showWin } from './puzzles/winPanel';
 import type { Area } from './puzzles/view';
 import { createSlider, iconButton, type Slider } from './ui/components';
+import { countPlay, GOAL_PLAYS } from './core/plays';
 import { askRestart, confirming, restartButton } from './puzzles/restart';
 import { icon } from './ui/icons';
 import { scienceButton, setScienceHandler } from './ui/science';
@@ -26,6 +27,8 @@ export class Playground {
   private z = 6;
   private deal = 0;
   private shownHint = '';
+  /** The game's goal, shown before the first move of its first plays. */
+  private goal = '';
   private solved = false;
   private slider: Slider;
   private prev: HTMLButtonElement;
@@ -35,7 +38,7 @@ export class Playground {
 
   constructor() {
     this.host = new PuzzleHost($('pg-canvas'), () => this.area());
-    this.host.onFrame = (v) => this.tick(v.moves, v.par, v.hint());
+    this.host.onFrame = (v) => this.tick(v.moves, v.par, this.host.status());
     this.host.onWon = (v) => this.won(v.moves, v.par, v.clean);
     this.renderHome();
     this.renderHead();
@@ -64,6 +67,7 @@ export class Playground {
     $('pg-actions').append(
       this.undoBtn,
       this.restartBtn,
+      this.host.hints.button,
       iconButton({ icon: icon('info'), label: 'Instructions', onClick: () => this.instructions() }),
       scienceButton('ui-icon-btn science-btn'),
     );
@@ -93,6 +97,10 @@ export class Playground {
     $('pg-home').hidden = true;
     $('pg-game').hidden = false;
     this.select(id);
+    // A game's rules open by themselves the first time it is played, and its goal leads for three.
+    const before = countPlay(this.type.id);
+    this.goal = before < GOAL_PLAYS ? this.type.goal : '';
+    if (before === 0) window.setTimeout(() => { if (this.inPuzzle) this.instructions(); }, 350);
     this.host.wake();
     this.registerScience();
     window.dispatchEvent(new Event('resize'));
@@ -214,13 +222,12 @@ export class Playground {
   }
 
   private tick(moves: number, par: number | null, hint: string): void {
-    $('pg-count').textContent = `${moves} move${moves === 1 ? '' : 's'}${par !== null ? ` · par ${par}` : ''}`;
+    $('pg-count').textContent = this.goal && moves === 0 ? this.goal : `${moves} move${moves === 1 ? '' : 's'}${par !== null ? ` · par ${par}` : ''}`;
     this.undoBtn.disabled = !this.host.current?.canUndo();
-    // Status only: strip any markup a view still returns, and keep it to one line.
-    const plain = hint.replace(/<[^>]+>/g, '');
-    if (plain !== this.shownHint) {
-      this.shownHint = plain;
-      $('pg-hint').textContent = plain.length > 60 ? '' : plain;
+    // Status only, kept to one line; the Hint button's line may run longer.
+    if (hint !== this.shownHint) {
+      this.shownHint = hint;
+      $('pg-hint').textContent = hint.length > 60 && hint !== this.host.hints.line(this.host.current) ? '' : hint;
     }
   }
 
@@ -255,7 +262,7 @@ export class Playground {
 
   private instructions(): void {
     const t = this.type;
-    openRules(t, { reducedMotion: loadSave().settings.reducedMotion, footer: `<h3>Where it sits</h3><p class="meta">${t.live ?? t.role}</p>` });
+    openRules(t, { reducedMotion: loadSave().settings.reducedMotion });
   }
 
   private science(): void {

@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
-  bind, canBind, canFinish, canSwap, countClearances, gluonsLeft, groupKind, newColorCharge, solved, specFor, stranded, swap,
+  bind, canBind, canFinish, canSwap, countClearances, gluonsLeft, groupKind, newColorCharge, nextStep, onTrack, solved, specFor, stranded, swap,
   type ColorChargeState, type Quark,
 } from '../src/puzzles/colorCharge';
+import { undoHelp } from '../src/puzzles/view';
 import { ColorChargeView, INSTRUCTIONS, RULES } from '../src/puzzles/colorChargeView';
 
 const SPREAD = [1, 10, 11, 20, 21, 30, 31, 44, 45, 54, 55, 70, 71, 86, 87, 103, 104, 118];
@@ -388,6 +389,174 @@ describe('view', () => {
     expect(INSTRUCTIONS).toMatch(/<h3>In the game<\/h3>\s*<p class="meta">/);
     expect(INSTRUCTIONS).not.toMatch(/How to play/);
   });
+});
+
+describe('hints', () => {
+  const SEEDS = [1, 2, 5, 9];
+  const ctx = (): CanvasRenderingContext2D => {
+    const noop = () => {};
+    return new Proxy({ measureText: () => ({ width: 30 }) } as Record<string, unknown>, {
+      get: (t, k) => (k in t ? t[k as string] : noop),
+      set: (t, k, v) => { t[k as string] = v; return true; },
+    }) as unknown as CanvasRenderingContext2D;
+  };
+  type Inside = { state: ColorChargeState; history: ColorChargeState[]; tryBind(): void; sel: number[] };
+  const inside = (v: ColorChargeView) => v as unknown as Inside;
+  const snapshot = (v: ColorChargeView) => JSON.stringify(inside(v).state);
+  /** Binds a group as the player would, by picking its tiles. */
+  const pick = (v: ColorChargeView, cells: number[]) => { inside(v).sel = [...cells]; inside(v).tryBind(); };
+  /** A neutral group of free tiles that is not one of the clearance's. */
+  const wrongGroup = (s: ColorChargeState): number[] | null => {
+    const keys = new Set(s.solution.map((g) => [...g].sort((a, b) => a - b).join()));
+    for (let a = 0; a < s.tiles.length; a++) for (let b = 0; b < s.tiles.length; b++) {
+      if (b <= a) continue;
+      for (const g of [[a, b], ...Array.from({ length: s.tiles.length }, (_, c) => [a, b, c]).filter(([, , c]) => c > b)]) {
+        if (canBind(s, g) && !keys.has(g.join())) return g;
+      }
+    }
+    return null;
+  };
+
+  it('Look here rings a group that must bind and says why, leaving the board alone', () => {
+    for (const z of SPREAD) for (const seed of SEEDS) {
+      const v = new ColorChargeView(newColorCharge(z, seed), false);
+      const before = snapshot(v);
+      const h = v.help(1)!;
+      expect(h.text, `z ${z} seed ${seed}`).toMatch(/^(This (quark|antiquark) can join only this (baryon|antibaryon|meson)|This (baryon|antibaryon|meson) is part of the only way to clear the grid|These two need to trade colors with a gluon)\.$/);
+      expect(h.moved).toBeUndefined();
+      expect(snapshot(v)).toBe(before);
+      expect(v.moves).toBe(0);
+      expect(v.canUndo()).toBe(false);
+      v.draw(ctx(), { x: 0, y: 0, w: 340, h: 430 }, 0);
+    }
+  });
+
+  it('Show me plays the clearance one move at a time, each counted and undoable', () => {
+    for (const z of SPREAD) for (const seed of SEEDS) {
+      const s = newColorCharge(z, seed);
+      const v = new ColorChargeView(s, true);
+      let calls = 0;
+      while (!v.won && calls < s.par * 3 + 10) {
+        const before = v.moves;
+        const h = v.help(2)!;
+        calls++;
+        expect(h.moved).toBe(true);
+        expect(h.text).toMatch(/^(Bound an? (baryon|antibaryon|meson)|Swapped their colors with a gluon)\.$/);
+        expect(v.moves).toBe(before + 1);
+        expect(v.canUndo()).toBe(true);
+      }
+      expect(v.won, `z ${z} seed ${seed}`).toBe(true);
+      // The one clearance, so exactly par moves.
+      expect(calls).toBe(s.par);
+      expect(v.clean).toBe(true);
+      expect(v.help(1)).toBeNull();
+      expect(v.help(2)).toBeNull();
+      // Undo takes back Show me's moves like any other.
+      expect(v.undo()).toBe(true);
+      expect(v.won).toBe(false);
+      expect(v.moves).toBe(s.par - 1);
+    }
+  });
+
+  it('Show me picks up from a board played partway', () => {
+    for (const z of [21, 60, 104]) {
+      const s = newColorCharge(z, 3);
+      const v = new ColorChargeView(s, true);
+      // The player binds a group that needs no swap first.
+      const g = s.solution.find((c) => canBind(s, c));
+      if (g) pick(v, g);
+      for (let k = 0; k < s.par * 3 + 10 && !v.won; k++) v.help(2);
+      expect(v.won).toBe(true);
+      expect(v.moves).toBe(s.par);
+    }
+  });
+
+  it('says how far to undo from a dead end, at either level, and moves nothing', () => {
+    let tried = 0;
+    for (const z of SPREAD) for (const seed of SEEDS) {
+      const s = newColorCharge(z, seed);
+      const v = new ColorChargeView(s, true);
+      // One good move, then a wrong group.
+      v.help(2);
+      const g = wrongGroup(inside(v).state);
+      if (!g) continue;
+      tried++;
+      pick(v, g);
+      expect(onTrack(inside(v).state)).toBe(false);
+      const before = snapshot(v);
+      expect(v.help(1)).toEqual(undoHelp(1));
+      expect(v.help(2)).toEqual(undoHelp(1));
+      expect(snapshot(v)).toBe(before);
+      expect(v.moves).toBe(2);
+      // Another group on top of the dead end: now two undos.
+      const more = s.solution.find((c) => canBind(inside(v).state, c)) ?? wrongGroup(inside(v).state);
+      if (more) {
+        pick(v, more);
+        expect(v.help(1)).toEqual(undoHelp(2));
+        expect(v.help(2)).toEqual(undoHelp(2));
+        v.undo();
+      }
+      v.undo();
+      // Back on track: Show me finishes.
+      for (let k = 0; k < s.par * 3 + 10 && !v.won; k++) v.help(2);
+      expect(v.won).toBe(true);
+    }
+    expect(tried).toBeGreaterThan(30);
+  });
+
+  it('says to undo a swap that strands tiles while it waits to undo itself', () => {
+    const s = newColorCharge(25, 3);
+    const v = new ColorChargeView(s, true, () => 1000);
+    let wrong: [number, number] | null = null;
+    for (let a = 0; a < s.tiles.length && !wrong; a++) {
+      for (const b of [a + 1, a + s.cols]) if (canSwap(s, a, b) && stranded(swap(s, a, b)!).length) { wrong = [a, b]; break; }
+    }
+    (v as unknown as { trySwap(a: number, b: number): void }).trySwap(...wrong!);
+    expect(v.help(1)).toEqual(undoHelp(1));
+    expect(v.help(2)).toEqual(undoHelp(1));
+    expect(v.undo()).toBe(true);
+    expect(v.help(1)!.text).not.toMatch(/Undo/);
+  });
+
+  it('knows a board is on track exactly when it can still be cleared', () => {
+    for (const z of SPREAD) {
+      const s = newColorCharge(z, 7);
+      // Random play: any neutral group or swap, until nothing is left to do.
+      let t = s;
+      let seed = z;
+      const rnd = (n: number) => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed % n; };
+      for (let k = 0; k < 20; k++) {
+        expect(onTrack(t), `z ${z} step ${k}`).toBe(canFinish(t));
+        expect(nextStep(t) !== null).toBe(onTrack(t) && !solved(t));
+        const moves: ColorChargeState[] = [];
+        for (let a = 0; a < t.tiles.length; a++) for (let b = a + 1; b < t.tiles.length; b++) {
+          const w = swap(t, a, b);
+          if (w) moves.push(w);
+          for (const g of [[a, b], [a, b, b + 1], [a, b, b + t.cols], [a, b, a + t.cols]]) { const u = bind(t, g); if (u) moves.push(u); }
+        }
+        if (!moves.length) break;
+        t = moves[rnd(moves.length)];
+      }
+    }
+  });
+
+  it('answers quickly, even deep in a dead end', () => {
+    let worst = 0;
+    const time = (f: () => unknown) => { const t0 = performance.now(); f(); worst = Math.max(worst, performance.now() - t0); };
+    for (const z of SPREAD) for (const seed of SEEDS) {
+      const s = newColorCharge(z, seed);
+      const v = new ColorChargeView(s, true);
+      time(() => v.help(1));
+      time(() => v.help(2));
+      // A wrong group, then as many more as will bind, so the walk back is long.
+      const g = wrongGroup(inside(v).state);
+      if (g) pick(v, g);
+      for (let more = wrongGroup(inside(v).state); more; more = wrongGroup(inside(v).state)) pick(v, more);
+      time(() => v.help(1));
+      time(() => v.help(2));
+    }
+    expect(worst).toBeLessThan(200);
+  }, 30000);
 });
 
 function adjacentPair(cols: number, a: number, b: number): boolean {

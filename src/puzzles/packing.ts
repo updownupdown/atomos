@@ -53,7 +53,8 @@ export interface PackingState {
 }
 
 export type PackingMove =
-  | { kind: 'place'; piece: number; at: Cell }
+  /** Turned (and flipped) to rot and flip on the way down when they are given; still one placement. */
+  | { kind: 'place'; piece: number; at: Cell; rot?: Rot; flip?: boolean }
   | { kind: 'lift'; piece: number }
   | { kind: 'rotate'; piece: number }
   | { kind: 'flip'; piece: number };
@@ -153,9 +154,13 @@ export function applyMove(s: PackingState, m: PackingMove): PackingState | null 
   const p = next.pieces.find((q) => q.id === m.piece);
   if (!p) return null;
   if (m.kind === 'place') {
-    if (!canPlace(s, m.piece, m.at)) return null;
-    if (p.at && p.at.x === m.at.x && p.at.y === m.at.y) return null;
+    const rot = m.rot ?? p.rot, flip = m.flip ?? p.flip;
+    if (flip !== p.flip && !s.flips) return null;
+    if (!canPlace(s, m.piece, m.at, rot, flip)) return null;
+    if (p.at && p.at.x === m.at.x && p.at.y === m.at.y && rot === p.rot && flip === p.flip) return null;
     p.at = { ...m.at };
+    p.rot = rot;
+    p.flip = flip;
     next.moves += 1;
     return next;
   }
@@ -394,4 +399,126 @@ export function solvedState(s: PackingState): PackingState {
     p.at = home ? { ...home } : null;
   });
   return next;
+}
+
+// ---- hints ------------------------------------------------------------------------
+
+/** Where a piece goes: its top-left corner and its orientation. */
+export interface Placement { piece: number; at: Cell; rot: Rot; flip: boolean }
+
+interface Form { rot: Rot; flip: boolean; cells: Cell[] }
+
+/** A piece's distinct orientations: its four turns, and their mirror images where flipping is offered. */
+function formsOf(s: PackingState, p: Piece): Form[] {
+  const out: Form[] = [];
+  const seen = new Set<string>();
+  for (const flip of s.flips ? [false, true] : [p.flip]) for (let r = 0; r < 4; r++) {
+    const cells = oriented(p.shape, r as Rot, flip);
+    const k = cells.map(key).join(';');
+    if (!seen.has(k)) { seen.add(k); out.push({ rot: r as Rot, flip, cells }); }
+  }
+  return out;
+}
+
+/** The open cells not yet covered, as a w*h mask. */
+function freeCells(s: PackingState): boolean[] {
+  const occ = occupancy(s);
+  return s.outline.map((on, i) => on && !s.blocked[i] && occ[i] === -1);
+}
+
+const fits = (s: PackingState, free: ArrayLike<boolean | number>, cells: Cell[], ax: number, ay: number): boolean =>
+  cells.every((c) => { const x = ax + c.x, y = ay + c.y; return x >= 0 && y >= 0 && x < s.w && y < s.h && free[y * s.w + x]; });
+
+/**
+ * One way to fill the open cells left with tray pieces, every placed piece staying where it is, or
+ * null when there is none. A depth-first search that always covers the first open cell, row by
+ * row, trying each distinct shape there once; it backs off as soon as a lone open cell is cut off
+ * (every piece has at least two cells) and remembers the positions it has seen fail. The decoy may
+ * stay in the tray, like any piece.
+ */
+export function completion(s: PackingState): Placement[] | null {
+  const { w, h } = s;
+  const free = Uint8Array.from(freeCells(s), Number);
+  const tray = s.pieces.filter((p) => !p.at).map((p) => {
+    const forms = formsOf(s, p);
+    return { id: p.id, forms, kind: forms.map((f) => f.cells.map(key).join(';')).sort().join('|') };
+  });
+  const used = tray.map(() => false);
+  const out: Placement[] = [];
+  const failed = new Set<string>();
+  // The cells covered so far and the pieces used, as bit masks (a grid has at most 49 cells).
+  let lo = 0, hi = 0, usedBits = 0;
+  const flipCell = (i: number) => { if (i < 30) lo ^= 1 << i; else hi ^= 1 << (i - 30); };
+  const lone = (i: number) => {
+    const x = i % w, y = (i - x) / w;
+    return !((x > 0 && free[i - 1]) || (x < w - 1 && free[i + 1]) || (y > 0 && free[i - w]) || (y < h - 1 && free[i + w]));
+  };
+  // A free neighbor of a cell the piece just covered, walled in alone.
+  const cutOff = (cells: number[]) => cells.some((i) => {
+    const x = i % w;
+    return (x > 0 && free[i - 1] && lone(i - 1)) || (x < w - 1 && free[i + 1] && lone(i + 1))
+      || (i >= w && free[i - w] && lone(i - w)) || (i + w < w * h && free[i + w] && lone(i + w));
+  });
+  const go = (from: number): boolean => {
+    let i = from;
+    while (i < free.length && !free[i]) i++;
+    if (i === free.length) return true;
+    if (lone(i)) return false;
+    const memo = `${lo}:${hi}:${usedBits}`;
+    if (failed.has(memo)) return false;
+    const x = i % w, y = (i - x) / w;
+    const tried = new Set<string>();
+    for (let k = 0; k < tray.length; k++) {
+      if (used[k] || tried.has(tray[k].kind)) continue;
+      tried.add(tray[k].kind);
+      for (const f of tray[k].forms) {
+        // The form's first cell (row by row) lands on the first open cell: anything earlier is covered.
+        const ax = x - f.cells[0].x, ay = y - f.cells[0].y;
+        if (!fits(s, free, f.cells, ax, ay)) continue;
+        const cells = f.cells.map((c) => (ay + c.y) * w + ax + c.x);
+        for (const j of cells) { free[j] = 0; flipCell(j); }
+        used[k] = true;
+        usedBits ^= 1 << k;
+        out.push({ piece: tray[k].id, at: { x: ax, y: ay }, rot: f.rot, flip: f.flip });
+        if (!cutOff(cells) && go(i + 1)) return true;
+        out.pop();
+        usedBits ^= 1 << k;
+        used[k] = false;
+        for (const j of cells) { free[j] = 1; flipCell(j); }
+      }
+    }
+    failed.add(memo);
+    return false;
+  };
+  return go(0) ? out : null;
+}
+
+/** How many ways a tray piece could go down on the board as it is: every corner, every orientation. */
+export function placesFor(s: PackingState, id: number): number {
+  const p = s.pieces.find((q) => q.id === id);
+  if (!p) return 0;
+  const free = freeCells(s);
+  let n = 0;
+  for (const f of formsOf(s, p)) {
+    const b = bounds(f.cells);
+    for (let y = 0; y + b.h <= s.h; y++) for (let x = 0; x + b.w <= s.w; x++) if (fits(s, free, f.cells, x, y)) n++;
+  }
+  return n;
+}
+
+/**
+ * The next piece to set, for the Hint: of one way to finish the board, the piece with the fewest
+ * places it could go right now (the larger on a tie), where that way puts it. Null when the board
+ * is full or can no longer be finished.
+ */
+export function nextPlacement(s: PackingState): Placement | null {
+  const done = completion(s);
+  if (!done?.length) return null;
+  const size = (pl: Placement) => s.pieces.find((q) => q.id === pl.piece)!.shape.length;
+  let best = done[0], bestN = Infinity;
+  for (const pl of done) {
+    const n = placesFor(s, pl.piece);
+    if (n < bestN || (n === bestN && size(pl) > size(best))) { best = pl; bestN = n; }
+  }
+  return best;
 }

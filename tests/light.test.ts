@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cfgFor, left, lift, newLight, place, reflect, solved, status, tap, trace, turn, type Cell, type LightState } from '../src/puzzles/light';
+import { cfgFor, left, lift, newLight, open, place, reflect, solved, status, tap, trace, turn, turnable, type Cell, type LightState } from '../src/puzzles/light';
 import { seeded } from '../src/puzzles/rng';
 import { generate, solve, type Cfg, type NBoard } from '../src/puzzles/lightSolver';
 import { INSTRUCTIONS, LightView, RULES } from '../src/puzzles/lightView';
@@ -181,6 +181,111 @@ describe('levels', () => {
       newLight(z, 7);
       expect(performance.now() - t0).toBeLessThan(3000); // well under a second on a desktop; CI is slower
     }
+  });
+});
+
+describe('hints', () => {
+  // One deal per band of the ladder, dealt once: dealing is the slow part.
+  const levels = [1, 12, 30, 45, 65, 75, 85, 95, 110, 118].map((z) => newLight(z, 5));
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const st = (v: LightView) => (v as any).state as LightState;
+  const plain = (text: string) => {
+    expect(text).toMatch(/^[A-Z][^—<>]*\.$/);
+    expect(text.length).toBeLessThanOrEqual(60);
+  };
+  /** Taps cell i the way a player would. */
+  const tapAt = (v: LightView, i: number) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (v as any).tryTap(i);
+  };
+
+  it('Look here rings a cell the answer needs and changes nothing', () => {
+    for (const level of levels) {
+      const v = new LightView(level, true);
+      const before = st(v);
+      const h = v.help(1)!;
+      plain(h.text);
+      expect(h.text).toMatch(/^This cell needs a (mirror|splitter)\.$/);
+      expect(h.moved).toBeUndefined();
+      expect(st(v)).toBe(before);
+      expect(st(v).cells).toEqual(level.cells);
+      expect(v.moves).toBe(0);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const m = (v as any).mark;
+      expect(turnable(level.solution[m.cell])).toBe(true);
+      expect(level.cells[m.cell]).toBe('.');
+      const { ctx, pts } = recCtx();
+      v.draw(ctx, AREAS_ALL[0], 0);
+      expect(inside(pts, AREAS_ALL[0])).toBe(true);
+    }
+  });
+
+  it('Show me solves a fresh deal at par, one undoable placement per call', () => {
+    for (const level of levels) {
+      const v = new LightView(level, true);
+      let calls = 0;
+      while (!v.won && calls < level.par * 3 + 10) {
+        const before = v.moves;
+        const h = v.help(2)!;
+        plain(h.text);
+        expect(h.text).toMatch(/^Placed a (mirror|splitter)\.$/);
+        expect(h.moved).toBe(true);
+        expect(v.moves).toBe(before + 1);
+        calls++;
+      }
+      expect(v.won).toBe(true);
+      expect(v.moves).toBe(level.par);
+      expect(st(v).cells).toEqual(level.solution);
+      expect(v.help(1)).toBeNull();
+      expect(v.help(2)).toBeNull();
+      // One undo takes back the last placement whole.
+      v.undo();
+      expect(v.moves).toBe(level.par - 1);
+      expect(st(v).cells.filter((c, i) => c !== level.solution[i])).toHaveLength(1);
+    }
+  });
+
+  it('points out a wrong piece first, and Show me turns it or takes it back for free', () => {
+    for (const level of levels) {
+      const v = new LightView(level, true);
+      // A piece where the answer has none, and every needed cell tapped once (set slanted /).
+      const stray = level.cells.findIndex((c, i) => open(level, i) && !turnable(level.solution[i]));
+      tapAt(v, stray);
+      for (let i = 0; i < level.cells.length; i++) if (turnable(level.solution[i]) && left(st(v)).mirror + left(st(v)).splitter > 0) tapAt(v, i);
+      const before = st(v);
+      const h1 = v.help(1)!;
+      plain(h1.text);
+      expect(h1.text).toMatch(/faces the wrong way|doesn't belong here|not a/);
+      expect(st(v)).toBe(before);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const m = (v as any).mark;
+      expect(turnable(before.cells[m.cell]) && before.cells[m.cell] !== level.solution[m.cell]).toBe(true);
+      let calls = 0;
+      while (!v.won && calls < level.par * 3 + 10) {
+        const moves = v.moves;
+        const h = v.help(2)!;
+        plain(h.text);
+        expect(h.moved).toBe(true);
+        // Only setting a piece counts, as for a player.
+        expect(v.moves).toBe(moves + (h.text.startsWith('Placed') ? 1 : 0));
+        calls++;
+      }
+      expect(v.won).toBe(true);
+      expect(st(v).cells).toEqual(level.solution);
+    }
+  });
+
+  it('answers well within 200 ms', () => {
+    let worst = 0;
+    for (const level of levels) {
+      const v = new LightView(level, true);
+      for (let k = 0; k < 3; k++) for (const lv of [1, 2] as const) {
+        const t0 = performance.now();
+        v.help(lv);
+        worst = Math.max(worst, performance.now() - t0);
+      }
+    }
+    expect(worst).toBeLessThan(200);
   });
 });
 

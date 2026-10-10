@@ -3,6 +3,7 @@
 
 import { syncPalette } from './palette';
 import { confirming } from './restart';
+import { HintControl } from './hints';
 import type { Area, Point, PuzzleView } from './view';
 
 export class PuzzleHost {
@@ -15,6 +16,8 @@ export class PuzzleHost {
   /** Called once when the view reports a win. */
   onWon: ((view: PuzzleView) => void) | null = null;
   private wonReported = false;
+  /** The Hint button for this canvas: Look here, then Show me. */
+  readonly hints = new HintControl(() => this.view, () => this.wake());
   /** The R key: asks before restarting when set (see askRestart); restarts at once otherwise. */
   onRestartKey: (() => void) | null = null;
 
@@ -51,14 +54,22 @@ export class PuzzleHost {
   }
 
   undo(): void {
-    if (this.view?.undo()) this.wonReported = false;
+    if (this.view?.undo()) { this.wonReported = false; this.hints.undone(); }
     this.wake();
   }
 
   restart(): void {
     this.view?.restart();
+    this.hints.restarted(this.view);
     this.wonReported = false;
     this.wake();
+  }
+
+  /** The status line: the Hint button's line while its board is on screen, else the view's own. */
+  status(): string {
+    const v = this.view;
+    if (!v) return '';
+    return this.hints.line(v) ?? v.hint().replace(/<[^>]+>/g, '');
   }
 
   /** Feeds a key to the view; true when it was used. */
@@ -66,7 +77,8 @@ export class PuzzleHost {
     if (!this.view || this.paused || confirming()) return false;
     if (e.key === 'u' || (e.key === 'z' && (e.ctrlKey || e.metaKey))) { this.undo(); return true; }
     if (e.key === 'r' && !e.ctrlKey && !e.metaKey) { if (this.onRestartKey) this.onRestartKey(); else this.restart(); return true; }
-    if (this.view.key(e)) { this.wake(); return true; }
+    if (e.key === 'h' && !e.ctrlKey && !e.metaKey) { this.hints.ask(); return true; }
+    if (this.view.key(e)) { this.hints.touched(); this.wake(); return true; }
     return false;
   }
 
@@ -75,6 +87,7 @@ export class PuzzleHost {
     const v = this.view;
     if (!v || this.paused) return;
     v.draw(this.ctx(), this.area(), now);
+    this.hints.watch(v, now);
     this.onFrame?.(v);
     if (v.won && !this.wonReported) {
       this.wonReported = true;
@@ -129,6 +142,7 @@ export class PuzzleHost {
     if (e.pointerId !== this.pointerId) return;
     this.pointerId = null;
     this.view?.up(this.point(e));
+    this.hints.touched();
     this.wake();
   }
 

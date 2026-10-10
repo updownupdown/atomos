@@ -35,7 +35,7 @@ export function renderSettings(sheet: HTMLElement): void {
     <h3>Around the app</h3>
     <p class="muted"><span class="inline-icon">${MICROSCOPE}</span> The microscope opens the science behind whatever is on screen. It stays out of the way until you tap it.</p>
     <h3>Keyboard</h3>
-    <p class="muted">Arrow keys swipe or move in most puzzles; each puzzle's instructions list its own keys. U undoes and R restarts.</p>
+    <p class="muted">Arrow keys swipe or move in most puzzles; each puzzle's instructions list its own keys. U undoes, R restarts and H gives a hint.</p>
     <h3>Testing</h3>
     <p class="muted">Set the whole game to a share of done, to see how screens look. This replaces your progress.</p>
     <div id="set-preset"></div>
