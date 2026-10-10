@@ -173,7 +173,7 @@ body.build-home #atom { display: none; }
 #app:has(.build-bar:not(:empty)) { --build-bar-h: 60px; }
 /* The atom bar sits at the top of Build, under the View/Build row, as it does in View. */
 .build-bar { position: absolute; top: var(--top); left: 0; right: 0; height: var(--build-bar-h); z-index: 3; }
-.build-bar .atom-bar { position: relative; inset: auto; height: 100%; padding-bottom: 0; border-top: 0; border-bottom: 1px solid var(--c-line); }
+.build-bar > .atom-bar { height: 100%; }
 .build-bar:empty { display: none; }
 body:not(.build-home) .build-bar { display: none; }
 
@@ -544,8 +544,6 @@ body.stage-nucleus #atom { opacity: 0.12; }
 /* The bar sits at the top of the atom screens, under the View/Build row; the host places it. */
 .atom-bar { display: flex; align-items: stretch; height: var(--bar-h, 60px); background: var(--c-plate); border-bottom: 1px solid var(--c-line); }
 .loupe-screen > .atom-bar { position: absolute; left: 0; right: 0; top: var(--top); z-index: 4; }
-/* Build still mounts it at the foot until its page moves it to the top. */
-.build-bar > .atom-bar { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; height: calc(60px + var(--safe-bottom)); padding-bottom: var(--safe-bottom); border-bottom: 0; border-top: 1px solid var(--c-line); }
 .bar-arrow { flex: none; width: 52px; display: flex; align-items: center; justify-content: center; background: none; border: 0; border-left: 1px solid var(--c-line); color: var(--c-silver); cursor: pointer; }
 .bar-arrow:hover { background: var(--c-surface-2); }
 .bar-arrow:disabled { opacity: 0.2; cursor: default; background: none; }
