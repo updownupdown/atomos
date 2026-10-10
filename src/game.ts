@@ -23,6 +23,7 @@ import { PackingView } from './puzzles/packingView';
 import { newPacking, solvedState, type PackingState } from './puzzles/packing';
 import { type Area, type PuzzleView } from './puzzles/view';
 import { dealSeed, puzzleIcon, puzzleType, type PuzzleType } from './puzzles/catalog';
+import { difficulty, difficultyWord } from './puzzles/difficulty';
 import { openRules } from './puzzles/rulesModal';
 import { showWin } from './puzzles/winPanel';
 import { closeModal, modalOpen, openModal } from './ui/modal';
@@ -293,8 +294,8 @@ export class Game {
   // ---- the Build page ---------------------------------------------------------------
 
   /** The atom's Build page: the atom up top, the bar of everything there is to build (which
-   *  stays in view), then a row per thing to build: what it builds on the left, the puzzle that
-   *  builds it in a box on the right. Nucleus and electrons in any order, then the isotopes. */
+   *  stays in view), then a section per part, each under a full-width heading: Nucleus and
+   *  Electrons (in any order), then the stable and unstable isotopes once the atom is built. */
   private renderHome(): void {
     const z = this.z;
     const el = element(z);
@@ -304,43 +305,35 @@ export class Game {
 
     const row = rowOf(z);
     const open = rowOpen(row, this.save);
-    const stepRows = stepsOf(z).map((id) => {
+    const step = (id: StepId) => {
       const st = this.stepState(z, id);
-      return this.card({
-        stage: id,
-        label: STEP_LABEL[id],
-        labelIcon: id === 'nucleus' ? 'nucleus' : 'electrons',
-        text: this.adds(id),
-        done: st.done,
-        flawless: st.flawless,
-        best: st.best,
-        locked: open ? undefined : `Opens with row ${row}'s gate`,
-      });
-    }).join('');
+      return this.card({ stage: id, text: this.adds(id), done: st.done, flawless: st.flawless, best: st.best, locked: open ? undefined : `Opens with row ${row}'s gate` });
+    };
 
     const vault = vaultIsotopes(z);
-    const isoRows = vault.map((iso) => {
+    const isoCard = (iso: (typeof vault)[number]) => {
       const life = iso.stable ? `stable${iso.abundance ? `, ${formatPercent(iso.abundance)} on Earth` : ''}` : `half-life ${formatDuration(iso.halfLife ?? 0)}`;
       const n = iso.a - el.z;
       return this.card({
         stage: `iso-${iso.a}`,
-        label: `${el.symbol}-${iso.a}`,
-        sub: 'Isotope',
+        title: `${el.symbol}-${iso.a}`,
         text: `${n} neutron${n === 1 ? '' : 's'} · ${life}`,
         done: isotopeCollected(this.save, z, iso.a),
         flawless: false,
         locked: built ? undefined : `Opens once ${name} is built`,
       });
-    }).join('');
+    };
+    const stable = vault.filter((i) => i.stable);
+    const unstable = vault.filter((i) => !i.stable);
+    const got = (list: typeof vault) => list.filter((i) => isotopeCollected(this.save, z, i.a)).length;
     const live = this.save.specimens.some((sp) => sp.z === z);
+    const later = built ? '' : ` They open once ${name} is built.`;
 
     // Where an orbital shape first appears, Flux discovers it: until then it is a locked extra.
     const shape = shapeAt(z);
-    const shapeRow = shape ? this.card({
+    const shapeCard = shape ? this.card({
       stage: 'shape',
-      label: `${shape} orbitals`,
-      sub: 'Discovery',
-      text: `Their shape, for the 3D Shapes view`,
+      text: `The shape of ${shape} orbitals, for the 3D Shapes view`,
       done: Boolean(this.save.shapes[shape]),
       flawless: false,
       best: this.save.shapes[shape]?.best,
@@ -350,32 +343,47 @@ export class Game {
     // Each row of the table after the first opens with Inertia. While it is shut, the gate leads
     // the page on every atom of the row; once open, it stays on the row's first atom to replay.
     const [first] = rowSpan(row);
-    const gateRow = row > 1 && (!open || z === first) ? this.card({
+    const gateCard = row > 1 && (!open || z === first) ? this.card({
       stage: 'row',
-      label: `Row ${row}`,
-      sub: 'Gate',
-      text: `Opens ${this.rowRange(row)}`,
+      text: `Opens row ${row}: ${this.rowRange(row)}`,
       done: open,
       flawless: false,
       best: this.save.rows[row]?.best,
       gate: `Each row of the table is a new electron shell. Solve Inertia once to open all ${rowSpan(row)[1] - first + 1} of row ${row}'s atoms.`,
     }) : '';
 
-    $('bh-in').innerHTML = `
-      ${gateRow && !open ? `<ol class="bh-steps" aria-label="Row ${row} gate">${gateRow}</ol>` : ''}
-      <ol class="bh-steps" aria-label="Build ${name}">${z === 1 ? this.hydrogenNucleus() : ''}${stepRows}</ol>
-      ${vault.length ? `
-      <div class="bh-head">
-        <span class="bh-head-icon" aria-hidden="true">${icon('isotopes', { size: 28 })}</span>
-        <div><h3>Isotopes</h3><p>${el.name} with other numbers of neutrons. ${built ? `One Tessera board each.` : `They open once ${name} is built.`}</p></div>
-      </div>
-      <ol class="bh-steps" aria-label="${el.name} isotopes">${isoRows}</ol>
-      ${live ? `<button class="text-btn bh-bench" id="bh-bench">Watch your unstable isotopes</button>` : ''}` : ''}
-      ${shapeRow || (gateRow && open) ? `<ol class="bh-steps" aria-label="Discoveries">${open ? gateRow : ''}${shapeRow}</ol>` : ''}`;
+    const steps = stepsOf(z);
+    $('bh-in').innerHTML = [
+      gateCard && !open ? this.section('lock', `Row ${row}`, '', gateCard) : '',
+      this.section('nucleus', STEP_LABEL.nucleus, '', z === 1 ? this.hydrogenNucleus() : step('nucleus')),
+      steps.includes('shells') ? this.section('electrons', STEP_LABEL.shells, '', step('shells')) : '',
+      stable.length ? this.section('isotope-stable', 'Stable isotopes', `${got(stable)} of ${stable.length}`, stable.map(isoCard).join(''),
+        `${el.name} with other numbers of neutrons that never decay.${later}`) : '',
+      unstable.length ? this.section('isotope-unstable', 'Unstable isotopes', `${got(unstable)} of ${unstable.length}`, unstable.map(isoCard).join(''),
+        `Ones that decay, each with its half-life.${later}`,
+        live ? `<button class="text-btn bh-bench" id="bh-bench">Watch your unstable isotopes</button>` : '') : '',
+      shapeCard || (gateCard && open) ? this.section('unlock', 'Discoveries', '', `${open ? gateCard : ''}${shapeCard}`) : '',
+    ].join('');
 
     const root = $('bh-in');
     root.querySelectorAll<HTMLButtonElement>('[data-stage]').forEach((b) => (b.onclick = () => this.enter(b.dataset.stage as Stage)));
     root.querySelector<HTMLButtonElement>('#bh-bench')?.addEventListener('click', () => this.showBench(z));
+  }
+
+  /** One part of the Build page under a full-width heading: icon, name, how far it has got on
+   *  the right, a line on what it is, then its puzzles. */
+  private section(glyph: IconName, title: string, count: string, cards: string, blurb = '', after = ''): string {
+    return `
+      <section class="bh-sec" aria-label="${title}">
+        <div class="bh-sec-head">
+          <span class="bh-sec-icon" aria-hidden="true">${icon(glyph, { size: 26 })}</span>
+          <h3>${title}</h3>
+          ${count ? `<span class="bh-sec-count">${count}</span>` : ''}
+        </div>
+        ${blurb ? `<p class="bh-sec-blurb">${blurb}</p>` : ''}
+        <ol class="bh-steps">${cards}</ol>
+        ${after}
+      </section>`;
   }
 
   /** A row's atoms, first to last: "lithium to neon". */
@@ -384,16 +392,21 @@ export class Game {
     return `${element(first).name.toLowerCase()} to ${element(last).name.toLowerCase()}`;
   }
 
-  /** What a step adds, in a few words: the label to its left says which part it builds. */
+  /** What a step adds, in a few words: the heading above says which part it builds. */
   private adds(stage: StepId): string {
     const el = element(this.z);
     if (stage === 'shells') return `${el.z} electron${el.z === 1 ? '' : 's'} · <span class="nowrap">${shortConfiguration(elementAt(this.z))}</span>`;
     return `${el.z} proton${el.z === 1 ? '' : 's'}, ${this.neutrons} neutron${this.neutrons === 1 ? '' : 's'}`;
   }
 
-  /** One row of the Build page: what it builds on the left; in the box, the puzzle's icon and name
-   *  in one color, what it adds, and on the right its state over a round Play or Replay button. */
-  private card(o: { stage: Exclude<Stage, 'home'>; label: string; labelIcon?: IconName; sub?: string; text: string; done: boolean; flawless: boolean; best?: number; locked?: string; gate?: string }): string {
+  /** The element a stage's board is dealt for, which sets how hard it is. */
+  private dealtFor(stage: Exclude<Stage, 'home'>): number {
+    return stage === 'row' ? rowSpan(rowOf(this.z))[0] : this.z;
+  }
+
+  /** One puzzle card: the puzzle's icon, its name (or, for an isotope, the isotope's), a rough
+   *  difficulty, what it adds, and on the right its state over a Play or Replay button. */
+  private card(o: { stage: Exclude<Stage, 'home'>; title?: string; text: string; done: boolean; flawless: boolean; best?: number; locked?: string; gate?: string }): string {
     const t = this.stagePuzzle(o.stage);
     const paused = this.suspended[o.stage];
     const gated = Boolean(o.gate) && !o.done;
@@ -406,16 +419,18 @@ export class Game {
       : '';
     const badge = o.done ? `<span class="bh-badge">${icon(o.flawless ? 'star' : 'check', { size: 14 })}</span>` : '';
     const verb = paused ? 'Resume' : o.done ? 'Replay' : gated ? 'Unlock' : 'Play';
-    const glyph = o.done && !paused ? icon('restart', { size: 22 }) : gated && !paused ? icon('unlock', { size: 22 }) : icon('play', { size: 22 });
-    const play = o.locked ? `<span class="bh-lock" aria-hidden="true">${icon('lock', { size: 22 })}</span>`
-      : `<button class="${o.done && !paused ? 'secondary' : 'primary'} bh-play" data-stage="${o.stage}" aria-label="${verb} ${t.name}: ${o.label}" title="${verb}">${glyph}</button>`;
+    const glyph = o.done && !paused ? icon('restart', { size: 20 }) : gated && !paused ? icon('unlock', { size: 20 }) : icon('play', { size: 20 });
+    const play = o.locked ? `<span class="bh-lock" aria-hidden="true">${icon('lock', { size: 20 })}</span>`
+      : `<button class="${o.done && !paused ? 'secondary' : 'primary'} bh-play" data-stage="${o.stage}" aria-label="${verb} ${t.name}${o.title ? `: ${o.title}` : ''}" title="${verb}">${glyph}</button>`;
+    const rating = difficulty(t.id, this.dealtFor(o.stage));
+    const pips = Array.from({ length: 5 }, (_, i) => `<i class="${i < Math.ceil(rating / 2) ? 'on' : ''}"></i>`).join('');
     return `
       <li class="bh-row ${cls}">
-        <div class="bh-label">${o.labelIcon ? `<span class="bh-label-icon" aria-hidden="true">${icon(o.labelIcon, { size: 28 })}</span>` : ''}<b>${o.label}</b>${o.sub ? `<span>${o.sub}</span>` : ''}</div>
         <div class="bh-step">
-          <span class="bh-mark" aria-hidden="true">${puzzleIcon(t.id, 32)}${badge}</span>
+          <span class="bh-mark" aria-hidden="true">${puzzleIcon(t.id, 38)}${badge}</span>
           <div class="bh-step-body">
-            <h4 class="bh-step-name">${t.name}</h4>
+            <h4 class="bh-step-name">${o.title ?? t.name}</h4>
+            <p class="bh-diff"><span class="bh-pips" aria-hidden="true">${pips}</span>${o.title ? `${t.name} · ` : ''}${difficultyWord(rating)}</p>
             <p class="bh-adds">${o.text}</p>
             ${note ? `<p class="bh-where">${note}</p>` : ''}
           </div>
@@ -431,9 +446,8 @@ export class Game {
   private hydrogenNucleus(): string {
     return `
       <li class="bh-row is-done">
-        <div class="bh-label"><b>${STEP_LABEL.nucleus}</b></div>
         <div class="bh-step">
-          <span class="bh-mark" aria-hidden="true">${icon('atom', { size: 32 })}<span class="bh-badge">${icon('check', { size: 14 })}</span></span>
+          <span class="bh-mark" aria-hidden="true">${icon('atom', { size: 38 })}<span class="bh-badge">${icon('check', { size: 14 })}</span></span>
           <div class="bh-step-body">
             <h4 class="bh-step-name">A lone proton</h4>
             <p class="bh-adds">Ready from the start</p>
@@ -443,16 +457,27 @@ export class Game {
       </li>`;
   }
 
-  /** The bar under the atom: one segment per thing to build, filled as each is done. */
+  /** The bar under the atom: one segment per thing to build, filled as each is done, in groups
+   *  for the nucleus and electrons, the stable isotopes and the unstable ones. The isotope groups
+   *  are sized roughly by how many isotopes of each kind the element has, within limits. */
   private renderProgress(): void {
-    const segs = segmentsOf(this.z, this.save);
+    const z = this.z;
+    const segs = segmentsOf(z, this.save);
     const done = segs.filter((g) => g.done).length;
-    const pct = Math.round(atomProgress(this.z, this.save) * 100);
-    const built = this.save.built[this.z];
-    const groups = [segs.filter((g) => g.kind === 'step'), segs.filter((g) => g.kind === 'isotope')].filter((g) => g.length);
+    const pct = Math.round(atomProgress(z, this.save) * 100);
+    const built = this.save.built[z];
+    const el = elementAt(z);
+    const stableA = new Set(vaultIsotopes(z).filter((i) => i.stable).map((i) => String(i.a)));
+    const known = { stable: el.isotopes.filter((i) => i.stable).length, unstable: el.isotopes.filter((i) => !i.stable).length };
+    const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+    const groups = [
+      { segs: segs.filter((g) => g.kind === 'step'), flex: segs.filter((g) => g.kind === 'step').length },
+      { segs: segs.filter((g) => g.kind === 'isotope' && stableA.has(g.id)), flex: clamp(known.stable / 2, 1, 3) },
+      { segs: segs.filter((g) => g.kind === 'isotope' && !stableA.has(g.id)), flex: clamp(known.unstable / 8, 1, 4) },
+    ].filter((g) => g.segs.length);
     $('bh-progress').innerHTML = `
       <div class="bh-bar" role="img" aria-label="${done} of ${segs.length} built, ${pct}%">
-        ${groups.map((g) => `<span class="bh-bar-group" style="flex:${g.length}">${g.map((x) => `<span class="bh-seg${x.done ? ' is-done' : ''}${x.kind === 'isotope' ? ' is-iso' : ''}" title="${x.label}${x.done ? ': built' : ''}"></span>`).join('')}</span>`).join('')}
+        ${groups.map((g) => `<span class="bh-bar-group" style="flex:${Math.max(g.flex, g.segs.length * 0.5)}">${g.segs.map((x) => `<span class="bh-seg${x.done ? ' is-done' : ''}${x.kind === 'isotope' ? ' is-iso' : ''}" title="${x.label}${x.done ? ': built' : ''}"></span>`).join('')}</span>`).join('')}
       </div>
       <div class="bh-bar-caption">
         <span>${built ? (built.flawless ? 'Built, flawless' : 'Built') : 'Not built'}</span>
