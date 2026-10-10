@@ -648,13 +648,22 @@ body.stage-nucleus #atom { opacity: 0.12; }
 /* Instructions: one card per rule, with its symbol and a small looping example. */
 .how-goal { font-size: var(--fs-md); color: var(--c-text); line-height: var(--lh); }
 .how .rules { list-style: none; padding: 0; margin: var(--sp-3) 0 0; display: flex; flex-direction: column; gap: var(--sp-2); }
-.how .rule { display: flex; gap: var(--sp-3); align-items: center; margin: 0; padding: var(--sp-2); border-radius: var(--r-md); background: var(--c-surface-2); }
-.rule-demo { flex: none; width: 120px; height: 96px; border-radius: var(--r-sm); background: var(--c-bg); }
-.rule-demo--none { display: none; }
-.rule-text { min-width: 0; }
-.rule-text b { display: block; font-size: var(--fs-md); font-weight: var(--fw-semibold); }
-.rule-text p { margin: 2px 0 0; font-size: var(--fs-sm); color: var(--c-text-2); line-height: var(--lh); }
-@media (max-width: 360px) { .rule-demo { width: 96px; height: 77px; } }
+.how .rule { margin: 0; padding: var(--sp-3); border-radius: var(--r-md); background: var(--c-surface-2); }
+.rule-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
+.rule-head b { font-size: var(--fs-md); font-weight: var(--fw-semibold); }
+.how .rule > p { margin: 2px 0 0; font-size: var(--fs-sm); color: var(--c-text-2); line-height: var(--lh); }
+.rule-play { flex: none; display: inline-flex; align-items: center; gap: 4px; min-height: 36px; padding: 0 var(--sp-3) 0 var(--sp-2); border: 0; border-radius: var(--r-pill); background: var(--c-surface-3); color: var(--c-text); font: inherit; font-size: var(--fs-sm); font-weight: var(--fw-semibold); cursor: pointer; }
+.rule-play:hover { color: var(--c-accent); }
+.rule-play.is-playing { background: var(--c-accent); color: var(--c-accent-ink); }
+.rule-play:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
+.rule-pics { display: grid; grid-template-columns: minmax(0, 140px); gap: var(--sp-2); margin-top: var(--sp-2); }
+.rule-pics--pair { grid-template-columns: repeat(2, minmax(0, 140px)); }
+.rule-pic { margin: 0; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.rule-demo { width: 100%; height: auto; aspect-ratio: 140 / 104; border-radius: var(--r-sm); background: var(--c-bg); box-shadow: inset 0 0 0 1px var(--c-line); transition: box-shadow var(--dur-fast) var(--ease); }
+.rule-demo.is-live { box-shadow: inset 0 0 0 2px var(--c-accent); }
+.rule-pic figcaption { display: flex; align-items: center; gap: 4px; font-size: var(--fs-xs); color: var(--c-text-2); }
+.rule-pic--good figcaption { color: var(--c-good); }
+.rule-pic--bad figcaption { color: var(--c-warn); }
 
 /* The win panel: a burst of light, what was won, the numbers, and what next. */
 .win { position: absolute; inset: 0; z-index: 5; display: flex; align-items: center; justify-content: center; padding: var(--sp-4); background: var(--c-scrim); animation: win-in var(--dur) var(--ease); }
