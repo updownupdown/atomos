@@ -24,7 +24,20 @@ import { newOrbitalGrid } from './orbitalGrid';
 import { OrbitalGridView, INSTRUCTIONS as GRID_HOW } from './orbitalGridView';
 import { newColorCharge } from './colorCharge';
 import { ColorChargeView, INSTRUCTIONS as CHARGE_HOW } from './colorChargeView';
-import { SUBSHELL_COLORS, type PuzzleView } from './view';
+import * as MergeV from './mergeView';
+import * as SlidingV from './slidingView';
+import * as PackingV from './packingView';
+import * as LinesV from './linesView';
+import * as SlideStopV from './slideStopView';
+import * as LightV from './lightView';
+import * as CodeV from './codebreakerView';
+import * as RutherfordV from './rutherfordView';
+import * as GridV from './orbitalGridView';
+import * as ChargeV from './colorChargeView';
+import { SUBSHELL_COLORS, type PuzzleView, type RuleCard } from './view';
+
+/** A view module's rule cards, once it exports them. */
+const rulesOf = (m: object): RuleCard[] | undefined => (m as { RULES?: RuleCard[] }).RULES;
 
 export type Tier = 'every' | 'facet' | 'gate' | 'reserve';
 
@@ -53,6 +66,10 @@ export interface PuzzleType {
   role: string;
   /** Where the game actually uses it today; absent while it lives only in the playground. Keep this true to the code. */
   live?: string;
+  /** What it is for, in two or three words, for the puzzle header. */
+  use: string;
+  /** One card per rule and symbol, with a small animated example, for the Instructions modal. */
+  rules?: RuleCard[];
   /** Elements it makes sense for (inclusive). */
   zRange: [number, number];
   /** Present once the puzzle is built; planned types have none. */
@@ -82,6 +99,8 @@ function groundConfiguration(z: number): string {
 export const PUZZLES: PuzzleType[] = [
   {
     id: 'merge', name: 'Merge', tier: 'every',
+    use: 'Nucleus · He to Fe',
+    get rules() { return rulesOf(MergeV); },
     blurb: 'Swipe to slide the board; two clusters of the same size merge. Gather the clusters the nucleus wants.',
     role: 'Builds the nucleus of every element up to iron.',
     live: 'Build mode: every nucleus from helium to iron.',
@@ -100,6 +119,8 @@ export const PUZZLES: PuzzleType[] = [
   },
   {
     id: 'orbitalGrid', name: 'Orbital Grid', tier: 'every',
+    use: 'Electrons · every atom',
+    get rules() { return rulesOf(GridV); },
     blurb: 'Fill the grid so every row, column and outlined block holds each orbital once.',
     role: 'Settles the electrons of every element, standing in for Shell Rings until a better electron puzzle is found.',
     live: 'Build mode: the electrons of every element.',
@@ -116,6 +137,8 @@ export const PUZZLES: PuzzleType[] = [
   },
   {
     id: 'sliding', name: 'Sliding Block', tier: 'every',
+    use: 'Nucleus · Co onward',
+    get rules() { return rulesOf(SlidingV); },
     blurb: 'Slide the bars and blocks out of the way so the red key bar can slide out.',
     role: 'Builds the nucleus of every element past iron, where fusion stops paying.',
     live: 'Build mode: every nucleus from cobalt on.',
@@ -132,6 +155,8 @@ export const PUZZLES: PuzzleType[] = [
   },
   {
     id: 'packing', name: 'Packing', tier: 'facet',
+    use: 'Isotope vaults',
+    get rules() { return rulesOf(PackingV); },
     blurb: 'Drag the pieces into the outline until it is filled exactly; tap a piece to turn it.',
     role: 'Opens an element\'s isotope vault; later isotopes rotate Packing, Merge and Sliding Block.',
     instructions: PACKING_HOW,
@@ -147,6 +172,8 @@ export const PUZZLES: PuzzleType[] = [
   },
   {
     id: 'lines', name: 'Field Lines', tier: 'facet',
+    use: 'Orbital shapes',
+    get rules() { return rulesOf(LinesV); },
     blurb: 'Draw one line from a start to an end that keeps every mark on the board happy.',
     role: 'Discovers each new orbital shape (19) and a chapter per particle (17).',
     instructions: LINES_HOW,
@@ -162,6 +189,8 @@ export const PUZZLES: PuzzleType[] = [
   },
   {
     id: 'slideStop', name: 'Slide Until Stop', tier: 'gate',
+    use: 'Period gates',
+    get rules() { return rulesOf(SlideStopV); },
     blurb: 'Swipe to skate: the droplet slides until something stops it. Collect every spark, then stop on the red ring.',
     role: 'Opens each new period of the table.',
     instructions: SLIDESTOP_HOW,
@@ -174,6 +203,8 @@ export const PUZZLES: PuzzleType[] = [
   },
   {
     id: 'light', name: 'Light Routing', tier: 'gate',
+    use: 'Gallery lenses',
+    get rules() { return rulesOf(LightV); },
     blurb: 'Flip the mirrors and splitters until light reaches every ring and none touches a dark sensor.',
     role: 'Opens each new lens (arrangement) of the gallery.',
     instructions: LIGHT_HOW,
@@ -187,6 +218,8 @@ export const PUZZLES: PuzzleType[] = [
   },
   {
     id: 'rutherford', name: 'Rutherford Probe', tier: 'gate',
+    use: 'Nucleus view',
+    get rules() { return rulesOf(RutherfordV); },
     blurb: 'Probe the plate cell by cell; each count says how many nuclei sit around it. Find them all without a direct hit.',
     role: 'Played once; opens the nucleus view.',
     instructions: RUTHERFORD_HOW,
@@ -199,6 +232,8 @@ export const PUZZLES: PuzzleType[] = [
   },
   {
     id: 'codebreaker', name: 'Codebreaker', tier: 'gate',
+    use: 'Synthetic elements',
+    get rules() { return rulesOf(CodeV); },
     blurb: 'Guess the sealed sequence of four; each guess earns clues about what was right.',
     role: 'Guards the 15 synthetic elements.',
     instructions: CODE_HOW,
@@ -214,6 +249,8 @@ export const PUZZLES: PuzzleType[] = [
   },
   {
     id: 'colorCharge', name: 'Color Charge', tier: 'reserve',
+    use: 'Reserve',
+    get rules() { return rulesOf(ChargeV); },
     blurb: 'Bind the quarks into color-neutral groups until the grid is clear.',
     role: 'In reserve for the quark chapter of the particles, if it earns a place.',
     instructions: CHARGE_HOW,
