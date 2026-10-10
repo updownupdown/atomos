@@ -577,7 +577,9 @@ body.stage-nucleus #atom { opacity: 0.12; }
 .pg-tier button.planned { border-style: dashed; color: var(--c-text-3); }
 .pg-tier button[aria-selected='true'] { border-color: var(--c-text); background: var(--c-text); color: var(--c-bg); font-weight: var(--fw-medium); }
 .pg-bar { display: flex; align-items: center; gap: var(--sp-2); padding: 0 var(--sp-3) var(--sp-2); flex: none; min-width: 0; border-bottom: 1px solid var(--c-line); }
-.pg-el { font-size: var(--fs-md); white-space: nowrap; text-align: center; min-width: 7.5em; }
+.pg-el { font-size: var(--fs-md); white-space: nowrap; text-align: center; min-width: 0; flex: 0 1 11em; overflow: hidden; text-overflow: ellipsis; }
+.pg-bar > .ui-icon-btn, .pg-bar .pg-deal { flex: none; }
+@media (max-width: 400px) { .pg-el small { display: none; } }
 .pg-el b { font-weight: var(--fw-semibold); margin-right: 6px; }
 .pg-el span { color: var(--c-text-2); }
 .pg-el small { color: var(--c-text-3); margin-right: 6px; font-size: var(--fs-xs); }

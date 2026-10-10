@@ -133,9 +133,9 @@ export class Playground {
     $<HTMLButtonElement>('pg-nextel').disabled = this.z >= hi;
     $('pg-dealno').textContent = `#${deal + 1}`;
     this.shownHint = '';
+    $('pg-hint').textContent = '';
     if (!this.type.make) {
       this.host.set(null);
-      $('pg-hint').textContent = '';
       $('pg-count').textContent = '';
       this.undoBtn.disabled = true;
       return;
