@@ -1,7 +1,8 @@
 // The loupe: one atom, large, at a fixed scale with its reference circles, so
 // stepping from element to element compares them fairly. Drag to turn it in
 // 3D; the arrows step to the neighbouring element and the same atom stays in
-// place while its layers morph. Three looks: the probability cloud, the
+// place while its layers morph. Three looks: the probability cloud (bright sparks over a soft
+// nebula of the same orbitals, round a warm glowing nucleus), the
 // idealised orbital surfaces, or both. The cloud is live: electrons blink in
 // and out at new places, as a probability cloud is meant to be read.
 
@@ -38,7 +39,7 @@ export class Detail {
     const rim = new THREE.DirectionalLight(0xbcd0ff, 0.5);
     rim.position.set(-4, -2, -5);
     this.scene.add(rim);
-    this.view = new AtomView({ perSlot: 480, shapes: true, pointSize: 1, live: true });
+    this.view = new AtomView({ perSlot: 480, shapes: true, pointSize: 1, live: true, haze: true });
     this.spin.add(this.view.group);
     this.spin.rotation.x = 0.3;
     this.scene.add(this.spin);
@@ -72,7 +73,7 @@ export class Detail {
   }
 
   setCollected(collected: boolean): void {
-    this.view.setDim(collected ? 1 : 0.45);
+    this.view.setDim(collected ? 1 : 0.7);
   }
 
   start(): void {
@@ -93,8 +94,8 @@ export class Detail {
     this.height = Math.max(1, r.height);
     this.renderer.setSize(this.width, this.height, false);
     this.camera.aspect = this.width / this.height;
-    // Fit 3.8 units (a 380 pm sphere) in the shorter dimension.
-    const half = 3.9;
+    // Fit a 370 pm radius in the shorter dimension: the largest atoms (Cs, Fr) and their glow fit.
+    const half = 3.7;
     const vfov = (this.camera.fov * Math.PI) / 360;
     const dist = half / Math.tan(vfov) / Math.min(1, this.camera.aspect);
     this.camera.position.set(0, 0, dist);
