@@ -4,7 +4,7 @@
 
 import { applySlide, cellsOf, reach, solved, type Block, type Reach, type SlidingState } from './sliding';
 import { C, fitGrid, tile } from './palette';
-import { ease, type Area, type Point, type PuzzleView } from './view';
+import { ease, type Area, type Point, type PuzzleView, type RuleCard } from './view';
 
 const SNAP_MS = 140;
 const EXIT_MS = 520;
@@ -15,21 +15,8 @@ const LANE = 0.7;
 const LEFT = 0.15;
 
 export const INSTRUCTIONS = `
-<h3>How to play</h3>
-<p>Get the <b>red key bar</b> out through the gap in the right-hand wall.</p>
-<ul>
-  <li><b>Drag a bar along its length.</b> Bars lying across only slide left and right; bars standing up only slide up and down. A bar follows your finger until something stops it, then snaps to the nearest cell.</li>
-  <li>One slide is one move, however far it goes.</li>
-  <li><b>Hatched squares are walls.</b> They never move.</li>
-  <li><b>Round pieces are loose:</b> they slide any of the four ways, one way per move.</li>
-  <li>When nothing stands between the key bar and the gap, drag it to the wall and it slides out.</li>
-</ul>
-<p>Keyboard: Tab picks a piece, the arrow keys slide it one cell.</p>
 <h3>In the game</h3>
-<p>Sliding Block builds the nucleus of every element past iron (z 27 to 118). The board is 6 by 6, with one extra row from z 106.</p>
-<p>Par is the solver's fewest moves for the deal: about 4 at cobalt rising steadily to about 21 at the end of the table. Walls appear from z 45 (two from z 92), loose round pieces from z 75.</p>
-<p>Below z 60 each board is dealt fresh: the generator deals boards around a solved position, explores every position each one can reach and starts you from the one farthest from any solution. From z 60 it starts from a bank of deep boards found offline the same way, flips it at random and remixes it with a few changes that keep it deep enough, so every deal is different. Finishing within par counts as clean.</p>
-`;
+<p class="meta">Sliding Block builds the nucleus of every element past iron (z 27 to 118). The board is 6 by 6, with one extra row from z 106. Par is the solver's fewest moves for the deal: about 4 at cobalt rising steadily to about 21 at the end of the table, and finishing within par counts as clean. Walls appear from z 45 (two from z 92), loose round pieces from z 75. Below z 60 each board is dealt fresh: the generator deals boards around a solved position, explores every position each one can reach and starts you from the one farthest from any solution. From z 60 it starts from a bank of deep boards found offline the same way, flips it at random and remixes it with a few changes that keep it deep enough, so every deal is different.</p>`;
 
 interface Drag {
   id: number;
@@ -195,43 +182,10 @@ export class SlidingView implements PuzzleView {
     this.origin = { x: fit.x + LEFT * c, y: fit.y };
     const { x: x0, y: y0 } = this.origin;
     const W = s.w * c, H = s.h * c;
-    const rad = c * 0.18;
 
-    // The tray: a plate with faint cell sockets and a frame broken at the exit.
-    tile(ctx, x0, y0, W, H, rad, C.surface);
-    ctx.save();
-    ctx.globalAlpha = 0.9;
-    for (let i = 0; i < s.w * s.h; i++) {
-      tile(ctx, x0 + (i % s.w) * c + c * 0.12, y0 + Math.floor(i / s.w) * c + c * 0.12, c * 0.76, c * 0.76, c * 0.14, null, C.line, 1);
-    }
-    ctx.restore();
-    const ey = y0 + s.exitRow * c;
-    ctx.strokeStyle = C.line3;
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.moveTo(x0 + W, ey);
-    ctx.lineTo(x0 + W, y0 + rad);
-    ctx.arcTo(x0 + W, y0, x0 + W - rad, y0, rad);
-    ctx.arcTo(x0, y0, x0, y0 + rad, rad);
-    ctx.arcTo(x0, y0 + H, x0 + rad, y0 + H, rad);
-    ctx.arcTo(x0 + W, y0 + H, x0 + W, y0 + H - rad, rad);
-    ctx.lineTo(x0 + W, ey + c);
-    ctx.stroke();
-    // The exit marker: a small red chevron just outside the gap.
-    const mx = x0 + W + LANE * c * 0.45, my = ey + c / 2, mk = c * 0.13;
-    ctx.strokeStyle = C.target;
-    ctx.lineWidth = Math.max(1.5, c * 0.045);
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.beginPath();
-    ctx.moveTo(mx - mk * 0.6, my - mk);
-    ctx.lineTo(mx + mk * 0.4, my);
-    ctx.lineTo(mx - mk * 0.6, my + mk);
-    ctx.stroke();
-    ctx.lineCap = 'butt';
-    ctx.lineJoin = 'miter';
+    drawTray(ctx, x0, y0, s.w, s.h, c, s.exitRow, LANE);
 
-    for (const i of s.walls) this.drawWall(ctx, x0 + (i % s.w) * c, y0 + Math.floor(i / s.w) * c, c);
+    for (const i of s.walls) drawWall(ctx, x0 + (i % s.w) * c, y0 + Math.floor(i / s.w) * c, c);
 
     const exitT = this.won ? (this.reduced ? 1 : ease((now - this.wonAt) / EXIT_MS)) : 0;
     for (const b of s.blocks) {
@@ -253,70 +207,110 @@ export class SlidingView implements PuzzleView {
         ctx.rect(x0, y0, W + LANE * c, H);
         ctx.clip();
         ctx.globalAlpha = 1 - exitT;
-        this.drawBlock(ctx, b, bx + exitT * (b.len + LANE) * c, by, c, false);
+        drawBlock(ctx, b, bx + exitT * (b.len + LANE) * c, by, c, false);
         ctx.restore();
         continue;
       }
       const active = !this.won && (d ? d.id === b.id : this.selected === b.id && this.keyboard);
-      this.drawBlock(ctx, b, bx, by, c, active);
+      drawBlock(ctx, b, bx, by, c, active);
     }
   }
 
 
-  private drawWall(ctx: CanvasRenderingContext2D, x: number, y: number, c: number): void {
-    const g = c * 0.06;
-    tile(ctx, x + g, y + g, c - 2 * g, c - 2 * g, c * 0.1, C.surface3, C.line2, 1);
-    hatch(ctx, x + g, y + g, c - 2 * g, c * 0.22);
-  }
+}
 
-  private drawBlock(ctx: CanvasRenderingContext2D, b: Block, x: number, y: number, c: number, active: boolean): void {
-    const g = c * 0.07;
-    const key = b.id === 0;
-    if (b.free) {
-      // A loose piece: a round tile with a small four-way mark.
-      const cx = x + c / 2, cy = y + c / 2, r = c / 2 - g;
-      ctx.fillStyle = C.silverDim;
-      ctx.beginPath();
-      ctx.arc(cx, cy, r, 0, Math.PI * 2);
-      ctx.fill();
-      if (active) { ctx.strokeStyle = C.accent; ctx.lineWidth = 2; ctx.stroke(); }
-      ctx.save();
-      ctx.globalAlpha = 0.45;
-      ctx.strokeStyle = C.tileInk;
-      ctx.lineWidth = Math.max(1, c * 0.035);
-      const k = r * 0.42;
-      ctx.beginPath();
-      ctx.moveTo(cx - k, cy); ctx.lineTo(cx + k, cy);
-      ctx.moveTo(cx, cy - k); ctx.lineTo(cx, cy + k);
-      ctx.stroke();
-      ctx.restore();
-      return;
-    }
-    const w = (b.horiz ? b.len : 1) * c - 2 * g, h = (b.horiz ? 1 : b.len) * c - 2 * g;
-    const bx = x + g, by = y + g;
-    tile(ctx, bx, by, w, h, c * 0.18, key ? C.target : C.tile, active ? C.accent : null, 2);
-    // A groove along the bar shows which way it slides.
-    ctx.save();
-    ctx.globalAlpha = key ? 0.5 : 0.28;
-    ctx.strokeStyle = C.tileInk;
-    ctx.lineWidth = Math.max(1.5, c * 0.05);
-    ctx.lineCap = 'round';
+/** The tray: a plate with faint cell sockets, a frame broken at the exit and a red chevron just outside the gap. */
+export function drawTray(ctx: CanvasRenderingContext2D, x0: number, y0: number, cols: number, rows: number, c: number, exitRow: number, lane: number): void {
+  const W = cols * c, H = rows * c;
+  const rad = c * 0.18;
+  tile(ctx, x0, y0, W, H, rad, C.surface);
+  ctx.save();
+  ctx.globalAlpha = 0.9;
+  for (let i = 0; i < cols * rows; i++) {
+    tile(ctx, x0 + (i % cols) * c + c * 0.12, y0 + Math.floor(i / cols) * c + c * 0.12, c * 0.76, c * 0.76, c * 0.14, null, C.line, 1);
+  }
+  ctx.restore();
+  const ey = y0 + exitRow * c;
+  ctx.save();
+  ctx.strokeStyle = C.line3;
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(x0 + W, ey);
+  ctx.lineTo(x0 + W, y0 + rad);
+  ctx.arcTo(x0 + W, y0, x0 + W - rad, y0, rad);
+  ctx.arcTo(x0, y0, x0, y0 + rad, rad);
+  ctx.arcTo(x0, y0 + H, x0 + rad, y0 + H, rad);
+  ctx.arcTo(x0 + W, y0 + H, x0 + W, y0 + H - rad, rad);
+  ctx.lineTo(x0 + W, ey + c);
+  ctx.stroke();
+  const mx = x0 + W + lane * c * 0.45, my = ey + c / 2, mk = c * 0.13;
+  ctx.strokeStyle = C.target;
+  ctx.lineWidth = Math.max(1.5, c * 0.045);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  ctx.moveTo(mx - mk * 0.6, my - mk);
+  ctx.lineTo(mx + mk * 0.4, my);
+  ctx.lineTo(mx - mk * 0.6, my + mk);
+  ctx.stroke();
+  ctx.restore();
+}
+
+/** A wall cell: a hatched square. */
+export function drawWall(ctx: CanvasRenderingContext2D, x: number, y: number, c: number): void {
+  const g = c * 0.06;
+  tile(ctx, x + g, y + g, c - 2 * g, c - 2 * g, c * 0.1, C.surface3, C.line2, 1);
+  hatch(ctx, x + g, y + g, c - 2 * g, c * 0.22);
+}
+
+/** A piece: a bar with a groove along its axis (the key bar red, with a chevron), or a round loose piece with a four-way mark. */
+export function drawBlock(ctx: CanvasRenderingContext2D, b: Block, x: number, y: number, c: number, active: boolean): void {
+  const g = c * 0.07;
+  const key = b.id === 0;
+  if (b.free) {
+    // A loose piece: a round tile with a small four-way mark.
+    const cx = x + c / 2, cy = y + c / 2, r = c / 2 - g;
+    ctx.fillStyle = C.silverDim;
     ctx.beginPath();
-    const inset = c * 0.32;
-    if (b.horiz) { ctx.moveTo(bx + inset, by + h / 2); ctx.lineTo(bx + w - inset, by + h / 2); }
-    else { ctx.moveTo(bx + w / 2, by + inset); ctx.lineTo(bx + w / 2, by + h - inset); }
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fill();
+    if (active) { ctx.strokeStyle = C.accent; ctx.lineWidth = 2; ctx.stroke(); }
+    ctx.save();
+    ctx.globalAlpha = 0.45;
+    ctx.strokeStyle = C.tileInk;
+    ctx.lineWidth = Math.max(1, c * 0.035);
+    const k = r * 0.42;
+    ctx.beginPath();
+    ctx.moveTo(cx - k, cy); ctx.lineTo(cx + k, cy);
+    ctx.moveTo(cx, cy - k); ctx.lineTo(cx, cy + k);
     ctx.stroke();
-    if (key) {
-      // The key bar points the way out.
-      const tx = bx + w - inset * 0.55, ty = by + h / 2, k = c * 0.1;
-      ctx.beginPath();
-      ctx.moveTo(tx - k, ty - k);
-      ctx.lineTo(tx, ty);
-      ctx.lineTo(tx - k, ty + k);
-      ctx.stroke();
-    }
     ctx.restore();
+    return;
   }
+  const w = (b.horiz ? b.len : 1) * c - 2 * g, h = (b.horiz ? 1 : b.len) * c - 2 * g;
+  const bx = x + g, by = y + g;
+  tile(ctx, bx, by, w, h, c * 0.18, key ? C.target : C.tile, active ? C.accent : null, 2);
+  // A groove along the bar shows which way it slides.
+  ctx.save();
+  ctx.globalAlpha = key ? 0.5 : 0.28;
+  ctx.strokeStyle = C.tileInk;
+  ctx.lineWidth = Math.max(1.5, c * 0.05);
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  const inset = c * 0.32;
+  if (b.horiz) { ctx.moveTo(bx + inset, by + h / 2); ctx.lineTo(bx + w - inset, by + h / 2); }
+  else { ctx.moveTo(bx + w / 2, by + inset); ctx.lineTo(bx + w / 2, by + h - inset); }
+  ctx.stroke();
+  if (key) {
+    // The key bar points the way out.
+    const tx = bx + w - inset * 0.55, ty = by + h / 2, k = c * 0.1;
+    ctx.beginPath();
+    ctx.moveTo(tx - k, ty - k);
+    ctx.lineTo(tx, ty);
+    ctx.lineTo(tx - k, ty + k);
+    ctx.stroke();
+  }
+  ctx.restore();
 }
 
 /** Fine diagonal hatching inside a square, computed to stay inside it. */
@@ -330,3 +324,118 @@ function hatch(ctx: CanvasRenderingContext2D, x0: number, y0: number, side: numb
   }
   ctx.stroke();
 }
+
+// ---- rules ------------------------------------------------------------------------
+
+/** Fits a cols x rows tray (with the exit lane) in a demo box; returns the cell size and the tray's top left. */
+function demoTray(w: number, h: number, cols: number, rows: number): { c: number; x: number; y: number } {
+  const c = Math.min((w * 0.9) / (cols + LANE + LEFT), (h * 0.88) / rows);
+  return { c, x: (w - (cols + LANE + LEFT) * c) / 2 + LEFT * c, y: (h - rows * c) / 2 };
+}
+
+const bar = (id: number, x: number, y: number, len: number, horiz: boolean): Block => ({ id, x, y, len, horiz, free: false });
+
+/** 0 to 1 and back over a loop: rest, go, rest, return. */
+function shuttle(T: number, loop: number): number {
+  const k = (T % loop) / loop;
+  return k < 0.15 ? 0 : k < 0.4 ? ease((k - 0.15) / 0.25) : k < 0.65 ? 1 : k < 0.9 ? 1 - ease((k - 0.65) / 0.25) : 0;
+}
+
+/** The key bar leaving through the gap into the lane, fading as it goes. */
+function keyOut(ctx: CanvasRenderingContext2D, x0: number, y0: number, cols: number, rows: number, c: number, key: Block, k: number): void {
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(x0, y0, (cols + LANE) * c, rows * c);
+  ctx.clip();
+  ctx.globalAlpha = 1 - k;
+  drawBlock(ctx, key, x0 + (key.x + k * LANE) * c, y0 + key.y * c, c, false);
+  ctx.restore();
+}
+
+export const RULES: RuleCard[] = [
+  {
+    title: 'The key bar',
+    text: 'Get the red key bar out through the gap in the right wall, marked by a red chevron.',
+    demo: (ctx, w, h, t) => {
+      const T = t % 3.2;
+      const cols = 4, rows = 2, { c, x, y } = demoTray(w, h, cols, rows);
+      drawTray(ctx, x, y, cols, rows, c, 0, LANE);
+      drawBlock(ctx, bar(1, 1, 1, 3, true), x + c, y + c, c, false);
+      const key = bar(0, 0, 0, 2, true);
+      if (T < 1.6) drawBlock(ctx, key, x + ease(Math.max(0, (T - 0.5) / 0.6)) * 2 * c, y, c, T > 0.5 && T < 1.1);
+      else if (T < 2.4) keyOut(ctx, x, y, cols, rows, c, { ...key, x: 2 }, ease((T - 1.6) / 0.8));
+    },
+  },
+  {
+    title: 'Bars slide lengthwise',
+    text: 'Drag a bar along its length: bars lying across slide left and right, standing bars slide up and down. One slide is one move, however far it goes.',
+    demo: (ctx, w, h, t) => {
+      const cols = 5, rows = 3, { c, x, y } = demoTray(w, h, cols, rows);
+      drawTray(ctx, x, y, cols, rows, c, 0, LANE);
+      const a = shuttle(t, 4), b = shuttle(t + 2, 4);
+      drawBlock(ctx, bar(1, 0, 2, 2, true), x + a * 2 * c, y + 2 * c, c, a > 0 && a < 1);
+      drawBlock(ctx, bar(2, 4, 0, 2, false), x + 4 * c, y + b * c, c, b > 0 && b < 1);
+    },
+  },
+  {
+    title: 'Walls',
+    text: 'Hatched squares are walls. They never move, and nothing slides through them.',
+    demo: (ctx, w, h, t) => {
+      const T = t % 3;
+      const cols = 4, rows = 2, { c, x, y } = demoTray(w, h, cols, rows);
+      drawTray(ctx, x, y, cols, rows, c, 0, LANE);
+      drawWall(ctx, x + 3 * c, y + c, c);
+      // Pulled hard to the right, the bar stops at the wall and leans a little.
+      const k = T < 0.4 ? 0 : T < 1.2 ? ease((T - 0.4) / 0.8) * 1.12 : T < 1.6 ? 1.12 : T < 1.8 ? 1.12 - 0.12 * ease((T - 1.6) / 0.2) : T < 2.4 ? 1 - ease((T - 1.8) / 0.6) : 0;
+      drawBlock(ctx, bar(1, 0, 1, 2, true), x + k * c, y + c, c, T > 0.4 && T < 1.6);
+    },
+  },
+  {
+    title: 'Loose pieces',
+    text: 'Round pieces are loose: they slide any of the four ways, one way per move.',
+    demo: (ctx, w, h, t) => {
+      const cols = 3, rows = 3, { c, x, y } = demoTray(w, h, cols, rows);
+      drawTray(ctx, x, y, cols, rows, c, 1, LANE);
+      // Round the edge: right, down, left, up.
+      const T = (t % 4) / 4, side = Math.floor(T * 4), k = ease(Math.min(1, ((T * 4) % 1) / 0.6));
+      const corners = [[0, 0], [2, 0], [2, 2], [0, 2]];
+      const [ax, ay] = corners[side], [bx, by] = corners[(side + 1) % 4];
+      drawWall(ctx, x + c, y + c, c);
+      const loose: Block = { id: 1, x: 0, y: 0, len: 1, horiz: true, free: true };
+      drawBlock(ctx, loose, x + (ax + (bx - ax) * k) * c, y + (ay + (by - ay) * k) * c, c, k > 0 && k < 1);
+    },
+  },
+  {
+    title: 'Clear the way',
+    text: 'Slide whatever stands in the key bar\'s row out of its way, then drag the key bar to the gap and it slides out.',
+    demo: (ctx, w, h, t) => {
+      const T = t % 5;
+      const cols = 4, rows = 4, { c, x, y } = demoTray(w, h, cols, rows);
+      drawTray(ctx, x, y, cols, rows, c, 1, LANE);
+      const down = T < 0.5 ? 0 : T < 1.1 ? ease((T - 0.5) / 0.6) * 2 : T < 4.4 ? 2 : 2 - ease((T - 4.4) / 0.5) * 2;
+      drawBlock(ctx, bar(1, 2, 0, 2, false), x + 2 * c, y + down * c, c, T > 0.5 && T < 1.1);
+      const key = bar(0, 0, 1, 2, true);
+      if (T < 2.1) drawBlock(ctx, key, x + ease(Math.max(0, (T - 1.5) / 0.6)) * 2 * c, y + c, c, T > 1.5);
+      else if (T < 2.9) keyOut(ctx, x, y, cols, rows, c, { ...key, x: 2 }, ease((T - 2.1) / 0.8));
+      else if (T > 4.4) {
+        ctx.save();
+        ctx.globalAlpha = ease((T - 4.4) / 0.5);
+        drawBlock(ctx, key, x, y + c, c, false);
+        ctx.restore();
+      }
+    },
+  },
+  {
+    title: 'Keyboard',
+    text: 'Tab picks a piece, ringed in cyan; the arrow keys slide it one cell.',
+    demo: (ctx, w, h, t) => {
+      const T = t % 4;
+      const cols = 4, rows = 3, { c, x, y } = demoTray(w, h, cols, rows);
+      drawTray(ctx, x, y, cols, rows, c, 1, LANE);
+      const pick = T < 1.2 ? 0 : 1;
+      const shift = pick === 1 ? (T < 1.8 ? 0 : T < 2.1 ? ease((T - 1.8) / 0.3) : T < 3.4 ? 1 : 1 - ease((T - 3.4) / 0.3)) : 0;
+      drawBlock(ctx, bar(0, 0, 1, 2, true), x, y + c, c, pick === 0);
+      drawBlock(ctx, bar(1, 3, 0, 2, false), x + 3 * c, y + shift * c, c, pick === 1);
+    },
+  },
+];

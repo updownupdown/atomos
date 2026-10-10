@@ -121,7 +121,7 @@ export const PUZZLES: PuzzleType[] = [
     id: 'orbitalGrid', name: 'Orbital Grid', tier: 'every',
     use: 'Electrons · every atom',
     get rules() { return rulesOf(GridV); },
-    blurb: 'Fill the grid so every row, column and outlined block holds each orbital once.',
+    blurb: 'Fill the grid so every row, column and outlined block holds each orbital once. Drag symbols from the stacks under the grid.',
     role: 'Settles the electrons of every element, standing in for Shell Rings until a better electron puzzle is found.',
     live: 'Build mode: the electrons of every element.',
     instructions: GRID_HOW,

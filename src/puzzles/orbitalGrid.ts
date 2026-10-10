@@ -137,6 +137,30 @@ export function place(s: OrbitalGridState, i: number, v: number): OrbitalGridSta
   return next;
 }
 
+/**
+ * Moves a placed tile to another cell (replacing what that cell held), as one
+ * placement; free when the tile is the one placed last, since that only adjusts
+ * the same placement. Null for a given at either end, an empty source or no change.
+ */
+export function moveTile(s: OrbitalGridState, from: number, to: number): OrbitalGridState | null {
+  const n = s.cells.length;
+  if (from === to || from < 0 || to < 0 || from >= n || to >= n) return null;
+  if (s.givens[from] || s.givens[to] || s.cells[from] === EMPTY) return null;
+  const next = cloneGrid(s);
+  next.cells[to] = s.cells[from];
+  next.cells[from] = EMPTY;
+  if (s.lastCell !== from) next.moves = s.moves + 1;
+  next.lastCell = to;
+  return next;
+}
+
+/** How many more of each symbol the grid needs: each appears `size` times in a full grid. Never below 0. */
+export function remaining(s: OrbitalGridState): number[] {
+  const out = Array(s.size).fill(s.size);
+  for (const v of s.cells) if (v !== EMPTY) out[v] = Math.max(0, out[v] - 1);
+  return out;
+}
+
 /** The next symbol for a tap-to-cycle: empty, then each symbol in turn, then empty again. */
 export function cycleValue(s: OrbitalGridState, i: number): number {
   const v = s.cells[i];
