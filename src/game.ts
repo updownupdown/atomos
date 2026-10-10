@@ -11,6 +11,7 @@ import './puzzles/unlock';
 import { atomProgress, fleetingCount, fleetingDealZ, fleetingIsotopes, isotopeCollected, isotopeGame, ISOTOPE_GAMES_LIST, lastingIsotopes, rowNeed, rowOf, rowOpen, rowSpan, segmentsOf, shapeAt, stepState, stepsOf, type IsotopeGame, type StepState } from './core/progress';
 import { SHAPE_GLYPH_Z } from './core/unlocks';
 import { nextLabel, nextStep, notePaused, type NextStep } from './core/next';
+import { firstTimeLine } from './ui/nu';
 import { tableColour } from './core/paint';
 import { Detail } from './gallery/detail';
 import type { AtomLit } from './gallery/atom';
@@ -445,7 +446,19 @@ export class Game {
     });
     root.querySelectorAll<HTMLButtonElement>('[data-stage]').forEach((b) => (b.onclick = () => this.enter(b.dataset.stage as Stage)));
     root.querySelector<HTMLButtonElement>('#bh-bench')?.addEventListener('click', () => this.showBench(z));
+    this.firstLines();
     root.querySelectorAll<HTMLButtonElement>('[data-fleet]').forEach((b) => (b.onclick = () => this.pickFleeting(Number(b.dataset.fleet))));
+  }
+
+  /** Nu's lines the first time: on the first Build page, and once an atom is built, above its
+   *  isotopes. Not while a win panel is up, whose tap would dismiss them unseen. */
+  private firstLines(): void {
+    if (this.paused || $('app').querySelector('.win')) return;
+    const root = $('bh-in');
+    const first = root.querySelector('.bh-sec');
+    if (first) firstTimeLine('build-page', 'Each atom is two puzzles: its nucleus and its electrons. Play either one.', first);
+    const iso = this.save.built[this.z] ? root.querySelector('[aria-label="Stable isotopes"], [aria-label="Long-lived isotopes"], [aria-label="Fleeting isotopes"]') : null;
+    if (iso) firstTimeLine('first-built', "Its isotopes are open. They're optional, for when you want more.", iso);
   }
 
   /** How many atoms a row of the table holds. */

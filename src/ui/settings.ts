@@ -31,6 +31,7 @@ export function renderSettings(sheet: HTMLElement): void {
     ${toggle('reducedMotion', 'Reduce motion', 'Calmer clouds, shorter animations, no auto-rotation.')}
     ${toggle('sound', 'Sound', 'Tones for fusions, hops and finished atoms.')}
     ${toggle('haptics', 'Vibration', 'Taps on supported phones.')}
+    ${toggle('nu', 'Nu', 'The point of light that flies to what to do next and says a line the first time something happens.')}
     <h3>Around the app</h3>
     <p class="muted"><span class="inline-icon">${MICROSCOPE}</span> The microscope opens the science behind whatever is on screen. It stays out of the way until you tap it.</p>
     <h3>Keyboard</h3>
