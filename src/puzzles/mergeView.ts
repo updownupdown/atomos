@@ -151,7 +151,8 @@ export class MergeView implements PuzzleView {
   draw(ctx: CanvasRenderingContext2D, area: Area, now: number): void {
     this.area = area;
     const n = this.state.size;
-    const goalH = 84;
+    const goal = this.goalLayout(ctx, Math.min(area.w, Math.max(1, area.h - 60)));
+    const goalH = goal.h + 12;
     const outer = Math.max(1, Math.min(area.w, area.h - goalH) * 0.96);
     // Room inside for the frame, which sits framePad outside the cells.
     const pad = framePad(outer / n);
@@ -162,7 +163,7 @@ export class MergeView implements PuzzleView {
     const center = (i: number): Point => ({ x: x0 + (i % n) * cell + cell / 2, y: y0 + Math.floor(i / n) * cell + cell / 2 });
     const r = cell * 0.43;
 
-    this.drawGoal(ctx, x0 - pad, y0 - pad - goalH + 10, side + 2 * pad, Math.min(r, 30));
+    this.drawGoal(ctx, x0 - pad, y0 - pad - goalH, side + 2 * pad);
 
     // The board: the shared frame, and a faint dot at each empty cell's center.
     drawFrame(ctx, { x: x0 - pad, y: y0 - pad, w: side + 2 * pad, h: side + 2 * pad }, { width: frameWidth(cell), radius: cell * 0.2 + pad });
@@ -238,45 +239,44 @@ export class MergeView implements PuzzleView {
     return tile;
   }
 
-  /** The nucleus being gathered: its name, and a socket per wanted cluster. */
-  private drawGoal(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, r: number): void {
+  /** The goal row's shape for a width: the nucleus's name with its sockets beside it when they
+   *  fit, or on a row of their own below it. */
+  private goalLayout(ctx: CanvasRenderingContext2D, w: number): { h: number; beside: boolean; sr: number; gap: number; labelW: number } {
+    const n = this.state.sockets.length;
+    ctx.font = font(26, 700);
+    const labelW = ctx.measureText(`${sup(String(this.state.target.a))}${symbolOf(this.state.target.z)}`).width;
+    let sr = 20, gap = sr * 2 + 12;
+    const beside = n * gap <= w - labelW - 20;
+    if (!beside) {
+      gap = Math.min(gap, w / n);
+      sr = Math.max(10, Math.min(sr, gap / 2 - 4));
+    }
+    return { h: beside ? sr * 2 + 8 : 34 + sr * 2 + 8, beside, sr, gap, labelW };
+  }
+
+  /** The nucleus being gathered: its name, and a socket per wanted cluster (the next one white). */
+  private drawGoal(ctx: CanvasRenderingContext2D, x: number, y: number, w: number): void {
     const s = this.state;
     const t = s.target;
-    let sr = Math.min(r * 0.7, 26);
+    const L = this.goalLayout(ctx, w);
+    ctx.save();
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
-    const label = `${sup(String(t.a))}${symbolOf(t.z)}`;
-    const info = `${t.a} nucleons · ${t.z} p · ${t.a - t.z} n`;
-    ctx.font = `700 22px ${MONO}`;
-    const labelW = ctx.measureText(label).width;
-    ctx.font = `12px ${MONO}`;
-    const infoW = ctx.measureText(info).width;
-    // Sockets sit right of the name when they fit; a heavy nucleus wants more of them, so its
-    // name and counts share the top line and the sockets get a row of their own below.
-    let gap = sr * 2 + 14;
-    const beside = s.sockets.length * gap <= w - Math.max(labelW, infoW) - 16;
-    ctx.font = `700 22px ${MONO}`;
+    ctx.font = font(26, 700);
     ctx.fillStyle = this.won ? C.accent : C.text;
-    ctx.fillText(label, x + 4, beside ? y + 22 : y + 12);
-    ctx.font = `12px ${MONO}`;
-    ctx.fillStyle = C.text2;
-    if (beside) ctx.fillText(info, x + 4, y + 46);
-    else ctx.fillText(info, x + labelW + 14, y + 14);
-    if (!beside) {
-      gap = Math.min(gap, (w - 8) / s.sockets.length);
-      sr = Math.min(sr, gap / 2 - 4, 20);
-    }
+    ctx.fillText(`${sup(String(t.a))}${symbolOf(t.z)}`, x + 2, L.beside ? y + L.sr + 4 : y + 16);
+    ctx.restore();
     // Sockets, right-aligned, largest first.
-    const total = s.sockets.length * gap;
-    let cx = x + w - total + gap / 2 - 3;
-    const cy = beside ? y + 34 : y + 52;
+    const total = s.sockets.length * L.gap;
+    let cx = x + w - total + L.gap / 2;
+    const cy = L.beside ? y + L.sr + 4 : y + 34 + L.sr + 4;
     this.socketAt = [];
     s.sockets.forEach((v, i) => {
       this.socketAt.push({ x: cx, y: cy });
       const filled = i < s.filled;
       const next = i === s.filled;
-      drawSocket(ctx, cx, cy, sr, v, filled ? 'filled' : next ? 'next' : 'later');
-      cx += gap;
+      drawSocket(ctx, cx, cy, L.sr, v, filled ? 'filled' : next ? 'next' : 'later');
+      cx += L.gap;
     });
   }
 
@@ -291,7 +291,7 @@ const TILE_RADIUS = 0.24;
 /**
  * Cluster colors climb the spectrum as clusters grow, the way a plasma glows hotter: a lone
  * nucleon is gray, then orange, yellow, lime, green, cyan, blue, violet and orchid. Pure red
- * stays kept for the target ring, amber for warnings and rose for Next.
+ * stays kept for targets, amber for warnings and rose for Next.
  */
 const SPECTRUM = ['#7d868a', '#f08a4b', '#ecd24f', '#a6d95b', '#3fcf8e', '#3fc3dc', '#5b8cff', '#9b7bff', '#cf72ec', '#e7a3f5'];
 
@@ -302,7 +302,7 @@ export function clusterColor(v: number): string {
 
 /**
  * A cluster: a rounded tile in its spectrum color with its size in dark ink, a soft glow of its
- * own color, a crack when spoiled and a red ring when it is the one wanted (lit). (x, y) is its
+ * own color and a crack when spoiled (`lit` is kept for callers and draws nothing extra). (x, y) is its
  * center and r half its side.
  */
 export function drawCluster(ctx: CanvasRenderingContext2D, tile: Pick<Tile, 'v' | 'spoiled'>, x: number, y: number, r: number, alpha = 1, lit = false): void {
@@ -331,10 +331,6 @@ export function drawCluster(ctx: CanvasRenderingContext2D, tile: Pick<Tile, 'v' 
     ctx.lineTo(x + r * 0.8, y + r * 0.1);
     ctx.stroke();
   }
-  if (lit) {
-    const g = Math.max(3, r * 0.12);
-    roundTile(ctx, x - r - g, y - r - g, side + 2 * g, side + 2 * g, rad + g, null, C.target, Math.max(2, r * 0.07));
-  }
   const label = String(tile.v);
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
@@ -344,15 +340,15 @@ export function drawCluster(ctx: CanvasRenderingContext2D, tile: Pick<Tile, 'v' 
   ctx.restore();
 }
 
-/** A socket of the nucleus: filled with its cluster, a red ring when it is wanted next, dashed while it waits. */
+/** A socket of the nucleus: filled with its cluster, a white ring when it is wanted next, dashed while it waits. */
 export function drawSocket(ctx: CanvasRenderingContext2D, cx: number, cy: number, sr: number, v: number, state: 'filled' | 'next' | 'later'): void {
   if (state === 'filled') { drawCluster(ctx, { v, spoiled: false }, cx, cy, sr); return; }
   const next = state === 'next';
   ctx.save();
   ctx.setLineDash(next ? [] : [3, 4]);
-  roundTile(ctx, cx - sr, cy - sr, sr * 2, sr * 2, sr * 2 * TILE_RADIUS, null, next ? C.target : C.line2, next ? 2 : 1.25);
+  roundTile(ctx, cx - sr, cy - sr, sr * 2, sr * 2, sr * 2 * TILE_RADIUS, null, next ? C.text : C.line3, next ? 2.5 : 1.25);
   ctx.setLineDash([]);
-  ctx.fillStyle = next ? C.target : C.text3;
+  ctx.fillStyle = next ? C.text : C.text2;
   ctx.font = font(sr * (String(v).length > 1 ? 0.75 : 0.9), 700);
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
@@ -568,7 +564,7 @@ export const RULES: RuleCard[] = [
   },
   {
     title: 'The nucleus',
-    text: 'The sockets at the top are the clusters the nucleus wants, largest first. The red one is wanted next; fill every socket to finish.',
+    text: 'The sockets at the top are the clusters the nucleus wants, largest first. The white one is wanted next; fill every socket to finish.',
     good: {
       duration: 2.2,
       caption: 'Largest first, until all are full',
@@ -587,10 +583,10 @@ export const RULES: RuleCard[] = [
   },
   {
     title: 'Into the nucleus',
-    text: 'A red ring marks clusters half the size wanted next. Merge two of them and the new cluster flies up into its socket.',
+    text: 'Merge two clusters of half the size wanted next, and the new cluster flies up into its socket.',
     good: {
       duration: 2.4,
-      caption: 'Two ringed 4s fill the 8',
+      caption: 'Two 4s fill the 8',
       draw: (ctx, w, h, t) => {
         const g = nucleusRow(ctx, w, h), k = seg(t, 0.55, 0.95), f = clamp01((t - 1.05) / 0.8);
         const inside = f >= 1;
