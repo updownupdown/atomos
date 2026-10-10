@@ -1,7 +1,8 @@
-// The mode row on Atom screens, under the atom bar: a choice between View and Build, then the
-// atom's progress on the right, whichever mode is showing. The progress reads as a ring and a
-// large percentage for the atom itself (nucleus, electrons and its lasting isotopes, the 100%
-// that counts), with a small second line for its fleeting isotopes, which are extra.
+// The mode row on Atom screens, under the atom bar: a choice between Build and View (Build first,
+// since that is where the game moves forward), then the atom's progress on the right, whichever
+// mode is showing. The progress reads as a ring and a large percentage for the atom itself
+// (nucleus, electrons and its lasting isotopes, the 100% that counts), with a small second line
+// for its fleeting isotopes, which are extra.
 //
 // The microscope is not here: each screen places its own with scienceButton().
 
@@ -31,8 +32,8 @@ export function initModeBar(onPick: (mode: AtomMode) => void, z: () => number): 
   if (seg) return;
   currentZ = z;
   seg = createSegments([
-    { id: 'view', label: 'View', icon: icon('mode-view', { size: 20 }) },
     { id: 'build', label: 'Build', icon: icon('mode-build', { size: 20 }) },
+    { id: 'view', label: 'View', icon: icon('mode-view', { size: 20 }) },
   ], {
     label: 'Atom mode',
     onChange: (id) => onPick(id as AtomMode),

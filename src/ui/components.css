@@ -422,3 +422,82 @@
 .ui-disclosure[open]:not(.is-closing) .ui-disclosure-chev { transform: rotate(180deg); background: var(--c-accent); color: var(--c-accent-ink); }
 .ui-disclosure-body { overflow: hidden; }
 .ui-disclosure-in { padding: var(--sp-1) var(--sp-4) var(--sp-4); }
+
+/* ---- Next and Play ---- */
+/* Next: the one way forward on a screen, in rose magenta with the Nu icon. A slow ring breathes
+   out of it only while it is on screen (.is-live); under Reduce motion the ring stays still. */
+.ui-next, .ui-play {
+  position: relative;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  min-height: var(--hit-lg);
+  padding: 0 var(--sp-5) 0 var(--sp-4);
+  border: 0;
+  border-radius: var(--r-pill);
+  font-family: var(--font);
+  font-size: var(--fs-md);
+  font-weight: var(--fw-semibold);
+  white-space: nowrap;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.ui-next { background: var(--c-go); color: var(--c-go-ink); }
+.ui-next:hover { filter: brightness(1.06); }
+.ui-next:active { transform: scale(0.97); }
+.ui-next:focus-visible, .ui-play:focus-visible { outline: 2px solid var(--c-text); outline-offset: 3px; }
+.ui-next::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: 0 0 0 0 var(--c-go-ring);
+  pointer-events: none;
+}
+.ui-next.is-live::after { animation: ui-next-ring 2.4s ease-out infinite; }
+@keyframes ui-next-ring {
+  0% { box-shadow: 0 0 0 0 var(--c-go-ring); }
+  70%, 100% { box-shadow: 0 0 0 12px rgba(255, 90, 168, 0); }
+}
+.ui-next--compact, .ui-play--compact { min-height: 36px; padding: 0 var(--sp-4) 0 var(--sp-3); font-size: var(--fs-sm); }
+.nu-icon { flex: none; overflow: visible; }
+.nu-dot, .nu-mask { transform-box: fill-box; }
+.nu-dot { transform-origin: center; }
+.nu-mask { transform-origin: left center; }
+/* Play: any other step. A gray plate, a white triangle. */
+.ui-play { background: var(--c-pick); color: var(--c-text); }
+.ui-play:hover { background: var(--c-surface-3); }
+.ui-play:active { transform: scale(0.97); }
+.ui-play svg { flex: none; }
+.ui-play--icon { width: var(--hit-lg); padding: 0; }
+.ui-play--icon.ui-play--compact { width: 36px; }
+
+/* ---- Confirm dialog: a small card over everything, modals included ---- */
+.ui-confirm { z-index: 40; }
+.ui-confirm-card { width: min(380px, 100%); text-align: center; padding: var(--sp-6) var(--sp-5) var(--sp-5); }
+.ui-confirm-card h2 { margin: 0 0 var(--sp-2); font-size: var(--fs-xl); font-weight: var(--fw-semibold); line-height: var(--lh-tight); }
+.ui-confirm-card p { margin: 0 0 var(--sp-5); font-size: var(--fs-md); line-height: var(--lh); color: var(--c-text-2); }
+.ui-confirm-actions { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-2); }
+.ui-confirm-actions button { min-width: 0; padding: 0 var(--sp-3); }
+.ui-confirm-actions .ui-confirm-problem { background: var(--c-warn); color: #2a1c02; }
+
+/* Nu circles the action's icon while the dialog waits. */
+.nu-orbit { position: relative; width: 76px; height: 76px; margin: 0 auto var(--sp-3); display: grid; place-items: center; }
+.nu-orbit-icon { color: var(--c-text); display: grid; place-items: center; }
+.nu-orbit-arm { position: absolute; inset: 0; animation: nu-orbit 2.6s linear infinite; }
+.nu-orbit-dot { position: absolute; top: 50%; right: 4px; width: 8px; height: 8px; margin-top: -4px; border-radius: 50%; background: var(--c-go); box-shadow: 0 0 10px 2px var(--c-go-ring); }
+@keyframes nu-orbit { to { transform: rotate(360deg); } }
+
+/* Nu streaking across a board: the dot and its fading trail, above everything, untouchable. */
+.nu-streak { position: fixed; z-index: 45; height: 0; pointer-events: none; }
+.nu-streak-dot { position: absolute; left: -5px; top: -5px; width: 10px; height: 10px; border-radius: 50%; background: var(--c-go); box-shadow: 0 0 14px 4px var(--c-go-ring); }
+.nu-streak-trail { position: absolute; left: 0; top: -1.5px; height: 3px; width: 0; border-radius: 2px; background: linear-gradient(90deg, rgba(255, 90, 168, 0), var(--c-go)); }
+
+.ui-next.is-live.is-still::after { animation: none; box-shadow: 0 0 0 4px var(--c-go-ring); }
+.nu-orbit.is-still .nu-orbit-arm { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  .ui-next.is-live::after { animation: none; box-shadow: 0 0 0 4px var(--c-go-ring); }
+  .nu-orbit-arm { animation: none; }
+}
