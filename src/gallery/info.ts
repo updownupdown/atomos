@@ -42,7 +42,7 @@ export function decoratorsHTML(e: Element): { topLeft: string; topRight: string 
   const shown = [...stable, ...unstable].slice(0, ISO_SHOWN);
   const moreStable = stable.length - shown.filter((i) => i.stable).length;
   const moreUnstable = unstable.length - shown.filter((i) => !i.stable).length;
-  const rows = shown.map((i) => `<li class="${i.stable ? 'is-stable' : ''}"><span>${e.symbol}-${i.a}</span><b>${i.stable
+  const rows = shown.map((i) => `<li class="${i.stable ? 'is-stable' : ''}"${!i.stable && i.halfLife != null ? ` style="--fade:${fadeSeconds(i.halfLife).toFixed(2)}s"` : ''}><span>${e.symbol}-${i.a}</span><b>${i.stable
     ? (i.abundance == null ? 'trace' : `${Number(i.abundance.toPrecision(3))}%`)
     : i.halfLife == null ? 'unknown' : formatHalfLife(i.halfLife, true)}</b></li>`).join('');
   const more = [moreStable ? `+${moreStable} stable` : '', moreUnstable ? `+${moreUnstable} unstable` : ''].filter(Boolean);
@@ -57,6 +57,13 @@ export function decoratorsHTML(e: Element): { topLeft: string; topRight: string 
   };
 }
 const ISO_SHOWN = 8;
+
+/** How long a tapped isotope's line takes to fade back: a step per power of ten of its half-life,
+ *  so a millisecond isotope blinks out, one of a few minutes fades over several seconds and one of
+ *  millions of years lingers. Stable ones never fade (see .dec-tr.read). */
+export function fadeSeconds(halfLife: number): number {
+  return Math.min(30, Math.max(0.25, 3 + 1.4 * Math.log10(halfLife)));
+}
 
 export function layerPills(e: Element): string {
   return e.subshells.map((s) => s.core

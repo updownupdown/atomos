@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ELEMENTS, MAX_Z, elementAt, formatHalfLife, shortConfiguration } from '../src/gallery/data';
 import { LAYOUTS, layout } from '../src/gallery/layouts';
+import { fadeSeconds } from '../src/gallery/info';
 import { harmonic, orbitalSurface, radial, radialTable, sampleSubshell } from '../src/gallery/orbital';
 
 describe('element dataset', () => {
@@ -108,6 +109,19 @@ describe('orbitals', () => {
     }
     expect(along).toBeGreaterThan(across);
     expect(harmonic(1, 0, 0, 0, 1)).toBe(1);
+  });
+  it('keeps a body sample inside the drawn edge', () => {
+    const edge = radialTable(3, 2).edge;
+    const c = sampleSubshell(3, 'd', 100, 3, 0.85);
+    for (let i = 0; i < c.positions.length; i += 3) {
+      expect(Math.hypot(c.positions[i], c.positions[i + 1], c.positions[i + 2])).toBeLessThanOrEqual(edge * 1.001);
+    }
+  });
+  it('fades a tapped isotope by its half-life, a step per power of ten', () => {
+    expect(fadeSeconds(1e-6)).toBe(0.25);
+    expect(fadeSeconds(1)).toBe(3);
+    expect(fadeSeconds(3600)).toBeGreaterThan(fadeSeconds(60));
+    expect(fadeSeconds(1e20)).toBe(30);
   });
   it('builds closed surfaces for every orbital kind', () => {
     for (const [block, count] of [['s', 1], ['p', 3], ['d', 5], ['f', 7]] as const) {

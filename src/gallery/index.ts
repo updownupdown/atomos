@@ -221,7 +221,8 @@ export class GalleryApp {
       const dec = $(id);
       let timer = 0;
       dec.onclick = () => {
-        dec.classList.add('lit');
+        // The isotopes decay back at their own pace; the stable ones stay lit while the atom is up.
+        dec.classList.add('lit', 'read');
         clearTimeout(timer);
         timer = window.setTimeout(() => dec.classList.remove('lit'), 400);
       };
@@ -553,6 +554,7 @@ export class GalleryApp {
     const dec = decoratorsHTML(e);
     $('dec-top-left').innerHTML = dec.topLeft;
     $('dec-top-right').innerHTML = dec.topRight;
+    $('dec-top-right').classList.remove('read');
     this.paintShapeNote();
     this.paintNucleus();
     this.bar.set(e.z);

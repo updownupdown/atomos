@@ -142,9 +142,10 @@ export function radialTable(n: number, l: number): RadialTable {
   return table;
 }
 
-export function sampleRadius(n: number, l: number, rand: Rand): number {
+/** A radius drawn from the radial density; `within` keeps it inside that share of the density. */
+export function sampleRadius(n: number, l: number, rand: Rand, within = 1): number {
   const t = radialTable(n, l);
-  const u = rand() * 1024;
+  const u = rand() * 1024 * within;
   const i = Math.min(1023, Math.floor(u));
   const next = Math.min(1023, i + 1);
   return t.quantiles[i] + (t.quantiles[next] - t.quantiles[i]) * (u - i);
@@ -165,9 +166,11 @@ export interface OrbitalCloud {
  * Point samples of a whole subshell: `perSlot` points for each of its 2(2l+1)
  * electron slots, each slot drawn from |R_nl|^2 |Y_lm|^2 for the orbital it
  * fills in order (Hund's rule: one per orbital, then pairing). Lobes are
- * sharpened slightly (|Y|^2 raised to a power) so shapes read on a phone.
+ * sharpened slightly (|Y|^2 raised to a power) so shapes read on a phone. `within` keeps every
+ * point inside that share of the radial density (0.85 is the drawn edge), for a body with a
+ * clear outline rather than a fading tail.
  */
-export function sampleSubshell(n: number, block: Block, perSlot: number, sharpen = 1.6): OrbitalCloud {
+export function sampleSubshell(n: number, block: Block, perSlot: number, sharpen = 1.6, within = 1): OrbitalCloud {
   const l = L_OF[block];
   const orbitals = 2 * l + 1;
   const slots = 2 * orbitals;
@@ -176,7 +179,7 @@ export function sampleSubshell(n: number, block: Block, perSlot: number, sharpen
   const slot = new Float32Array(total);
   const orbital = new Float32Array(total);
   const sign = new Float32Array(total);
-  const rand = mulberry32(1000 * n + 37 * l + 11 * perSlot);
+  const rand = mulberry32(1000 * n + 37 * l + 11 * perSlot + (within < 1 ? 7 : 0));
   let p = 0;
   for (let s = 0; s < slots; s++) {
     const oi = s % orbitals;
@@ -192,7 +195,7 @@ export function sampleSubshell(n: number, block: Block, perSlot: number, sharpen
           if (rand() < Math.pow((y * y) / ymax, sharpen)) break;
         }
       }
-      const r = sampleRadius(n, l, rand);
+      const r = sampleRadius(n, l, rand, within);
       positions[p * 3] = v[0] * r;
       positions[p * 3 + 1] = v[2] * r; // z up on screen
       positions[p * 3 + 2] = v[1] * r;

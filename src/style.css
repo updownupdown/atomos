@@ -597,9 +597,12 @@ body:not([data-screen='gallery']) .gal-modes { display: none; }
 /* The true width of the view while diving between the atom and its nucleus. */
 .dive-readout { position: absolute; z-index: 2; left: 0; right: 0; top: calc(var(--chrome) + (100% - var(--chrome)) * 0.7); text-align: center; pointer-events: none; font-family: var(--font); font-size: var(--fs-lg); font-weight: var(--fw-medium); letter-spacing: 0.04em; color: var(--c-silver); font-variant-numeric: tabular-nums; opacity: 0; transition: opacity 0.4s; }
 .dive-readout.on { opacity: 0.85; transition-duration: 0.15s; }
-/* Tap a corner to read it: its text lights to near-white at once, then fades back over ten seconds. */
+/* Tap a corner to read it: its text lights to near-white at once, then fades back over ten seconds.
+   Each unstable isotope fades over its own --fade, set from its half-life; a stable one stays lit. */
 .dec, .dec * { transition: color 10s ease-out; }
+.dec-iso li[style], .dec-iso li[style] * { transition: color var(--fade) cubic-bezier(0.3, 0.45, 0.6, 1); }
 .loupe-screen .dec.lit, .loupe-screen .dec.lit * { color: var(--c-silver); transition: color 0.15s ease-out; }
+.loupe-screen .dec-tr.read .dec-iso li.is-stable * { color: var(--c-silver); }
 .dec-tl, .dec-tr { cursor: pointer; -webkit-tap-highlight-color: transparent; user-select: none; }
 .dec-cap { margin-bottom: 2px; }
 .dec-iso { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 1px; }
