@@ -414,15 +414,15 @@ body.stage-nucleus #atom { opacity: 0.12; }
 }
 
 /* ---- Gallery: the vitrine of all 118 atoms, and the loupe over one ---------------------- */
-#gallery-screen { position: fixed; inset: 0; background: radial-gradient(ellipse at 50% 45%, #1a1714 0%, var(--plate) 55%, var(--bg) 100%); }
+#gallery-screen { position: fixed; inset: 0; background: var(--c-bg); }
 #gallery-screen[hidden] { display: none; }
 #gal { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
 .gal-labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 1; }
 .gal-labels span { position: absolute; left: 0; top: 0; font-family: var(--mono); font-size: 10px; color: var(--muted); white-space: nowrap; will-change: transform; transition: opacity 0.2s; }
-.gal-labels span.locked { color: #4d4840; }
-.gal-labels span.sel { color: var(--accent); }
+.gal-labels span.locked { color: var(--c-text-3); }
+.gal-labels span.sel { color: var(--c-target, var(--c-accent)); }
 .gal-labels .marker { font-family: var(--sans); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
-.gal-labels .marker.axis { font-family: var(--mono); font-size: 10px; letter-spacing: 0; color: #8a8478; }
+.gal-labels .marker.axis { font-family: var(--mono); font-size: 10px; letter-spacing: 0; color: var(--c-text-2); }
 .gal-labels .marker.block { font-size: 10px; letter-spacing: 0.08em; text-transform: none; }
 .gal-top { position: absolute; left: 0; right: 0; top: 0; z-index: 2; display: flex; justify-content: space-between; align-items: flex-start; padding: calc(10px + var(--top)) 14px 0; pointer-events: none; }
 .gal-top > * { pointer-events: auto; }
@@ -484,12 +484,12 @@ body.stage-nucleus #atom { opacity: 0.12; }
 #loupe { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
 
 /* White captions round the atom. */
-.dec { position: absolute; z-index: 2; font-family: var(--font); font-size: var(--fs-sm); line-height: 1.5; color: #fff; display: flex; flex-direction: column; }
+.dec { position: absolute; z-index: 2; font-family: var(--font); font-size: var(--fs-sm); line-height: 1.5; color: var(--c-silver); display: flex; flex-direction: column; }
 .dec .dim { color: var(--c-text-2); }
 .dec-tl { left: var(--sp-4); top: calc(var(--sp-4) + var(--top)); align-items: flex-start; pointer-events: none; }
 .dec-config { font-size: var(--fs-md); font-weight: var(--fw-medium); margin-bottom: 2px; }
 .dec-tr { right: var(--sp-3); top: calc(var(--sp-3) + var(--top)); align-items: flex-end; text-align: right; max-width: 52%; }
-.iso-toggle { display: inline-flex; align-items: center; gap: 2px; min-height: var(--hit); padding: 0 0 0 var(--sp-2); background: none; border: 0; color: #fff; font: inherit; cursor: pointer; }
+.iso-toggle { display: inline-flex; align-items: center; gap: 2px; min-height: var(--hit); padding: 0 0 0 var(--sp-2); background: none; border: 0; color: var(--c-silver); font: inherit; cursor: pointer; }
 .iso-toggle .chev { display: inline-flex; color: var(--c-text-2); }
 .iso-list { display: none; padding-right: var(--sp-1); }
 .dec-tr.open .iso-list { display: block; }
@@ -502,8 +502,8 @@ body.stage-nucleus #atom { opacity: 0.12; }
 .loupe-tools { position: absolute; left: 0; right: 0; bottom: calc(64px + var(--safe-bottom)); z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); padding: 0 var(--sp-2); }
 .scale-legend { display: flex; align-items: center; gap: var(--sp-1); min-width: 0; color: var(--c-text-2); font-size: var(--fs-xs); font-variant-numeric: tabular-nums; }
 .scale-legend ul { display: flex; gap: var(--sp-2); list-style: none; margin: 0; padding: 0; transition: opacity var(--dur); }
-.scale-legend li { display: flex; align-items: center; gap: 4px; color: #fff; }
-.scale-legend i { display: block; width: 14px; height: 0; border-top: 1.5px solid rgba(220, 213, 196, 0.8); }
+.scale-legend li { display: flex; align-items: center; gap: 4px; color: var(--c-silver); }
+.scale-legend i { display: block; width: 14px; height: 0; border-top: 1.5px solid var(--c-text-2); }
 .scale-legend i.dashed { border-top-style: dashed; }
 .scale-legend .unit { margin-left: 2px; white-space: nowrap; }
 .scale-legend.off ul, .scale-legend.off .unit { opacity: 0.35; }
@@ -513,21 +513,21 @@ body.stage-nucleus #atom { opacity: 0.12; }
 
 /* The bar: full width, previous and next at the ends, the element between. */
 .loupe-bar { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; display: flex; align-items: stretch; height: calc(60px + var(--safe-bottom)); padding-bottom: var(--safe-bottom); background: var(--c-plate); border-top: 1px solid var(--c-line); }
-.bar-arrow { flex: none; width: 64px; display: flex; align-items: center; justify-content: center; background: none; border: 0; color: #fff; cursor: pointer; }
-.bar-arrow:hover { background: rgba(226, 220, 207, 0.05); }
+.bar-arrow { flex: none; width: 64px; display: flex; align-items: center; justify-content: center; background: none; border: 0; color: var(--c-silver); cursor: pointer; }
+.bar-arrow:hover { background: var(--c-surface-2); }
 .bar-arrow:disabled { opacity: 0.2; cursor: default; background: none; }
-.bar-name { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center; gap: var(--sp-2); background: none; border: 0; border-left: 1px solid var(--c-line); border-right: 1px solid var(--c-line); color: #fff; font-family: var(--font); cursor: pointer; white-space: nowrap; overflow: hidden; }
-.bar-name:hover { background: rgba(226, 220, 207, 0.04); }
+.bar-name { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center; gap: var(--sp-2); background: none; border: 0; border-left: 1px solid var(--c-line); border-right: 1px solid var(--c-line); color: var(--c-silver); font-family: var(--font); cursor: pointer; white-space: nowrap; overflow: hidden; }
+.bar-name:hover { background: var(--c-surface); }
 .dec-z { font-size: var(--fs-sm); color: var(--c-text-2); font-variant-numeric: tabular-nums; }
 .dec-sym { font-weight: var(--fw-semibold); font-size: var(--fs-2xl); line-height: 1; }
 .dec-name { font-weight: var(--fw-regular); font-size: var(--fs-lg); overflow: hidden; text-overflow: ellipsis; }
 .bar-science { display: inline-flex; color: var(--c-text-2); margin-left: var(--sp-1); }
-.pill { font-size: 10px; padding: 1px 5px; border-radius: 4px; color: #0c0b0a; font-weight: 700; }
-.pill.core { background: transparent; color: var(--label-muted); border: 1px dashed #9a927f; font-weight: 400; }
+.pill { font-size: 10px; padding: 1px 5px; border-radius: 4px; color: var(--c-bg); font-weight: 700; }
+.pill.core { background: transparent; color: var(--label-muted); border: 1px dashed var(--c-text-3); font-weight: 400; }
 
 /* The science modal: a floating card over the dimmed page, tabs along the top. */
 .atom-card { display: flex; flex-direction: column; height: min(720px, 100%); padding: var(--sp-5) 0 0; }
-.atom-head { display: flex; align-items: baseline; gap: var(--sp-3); padding: 0 56px var(--sp-2) var(--sp-5); }
+.atom-head { display: flex; align-items: center; gap: var(--sp-3); padding: 0 68px var(--sp-2) var(--sp-5); }
 .atom-head h2 { margin: 0; font-family: var(--font); font-weight: var(--fw-medium); font-size: var(--fs-xl); flex: 1; min-width: 0; }
 .atom-head h2 b { font-weight: var(--fw-semibold); margin-right: 6px; }
 .atom-head h2 .dim { color: var(--c-text-2); font-size: var(--fs-md); font-weight: var(--fw-regular); }
@@ -603,7 +603,7 @@ body.stage-nucleus #atom { opacity: 0.12; }
 /* In the loupe, a chosen icon is lit rather than filled, so the atom stays the brightest thing. */
 .loupe-tools .ui-icon-btn { color: var(--c-text-3); }
 .loupe-tools .ui-icon-btn:hover { color: var(--c-text); }
-.loupe-tools .ui-icon-btn[aria-pressed='true'] { background: rgba(226, 220, 207, 0.08); color: #fff; border-color: var(--c-line-2); }
+.loupe-tools .ui-icon-btn[aria-pressed='true'] { background: var(--c-surface-2); color: var(--c-silver); border-color: var(--c-line-2); }
 
 /* ---- Direction: Card Table shapes in Instrument colours (James, 2026-10-10) ----------------
    Restyles the shared chrome every screen uses. Screen-specific rules stay with their owners;
@@ -722,3 +722,12 @@ body.stage-nucleus #atom { opacity: 0.12; }
 .toggle input[type='checkbox']:checked { background: var(--c-accent); }
 .toggle input[type='checkbox']:checked::after { transform: translateX(18px); background: var(--c-accent-ink); }
 
+
+/* Header icons, right-hand end: the microscope (what am I looking at?) then Settings, last. */
+.nav-icon { flex: none; width: 40px; height: 34px; display: inline-flex; align-items: center; justify-content: center; padding: 0; border: 0; border-radius: var(--r-pill); background: transparent; color: var(--c-text-2); cursor: pointer; }
+.nav-icon:hover { color: var(--c-text); background: var(--c-surface-2); }
+.nav-icon[aria-expanded='true'] { color: var(--c-tile-ink); background: var(--c-tile); }
+.nav-icon[hidden] { display: none; }
+.nav-icon svg { width: 24px; height: 24px; }
+#nav-science { margin-left: auto; }
+.nav-mode + #nav-science, .nav-mode + .nav-icon { margin-left: var(--sp-1); }
