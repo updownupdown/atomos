@@ -21,8 +21,7 @@ export function showSplash(): void {
   el.innerHTML = `
     <div class="grain"></div>
     <svg class="splash-mark" viewBox="0 0 100 100">${inner.slice(0, cut)}<g class="spin">${inner.slice(cut)}</g></svg>
-    <div class="splash-word">Atomos</div>
-    <div class="splash-sub">every atom, up close</div>`;
+    <div class="splash-word">Atomos</div>`;
   document.body.appendChild(el);
 
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;

@@ -513,7 +513,8 @@ body.stage-nucleus #atom { opacity: 0.12; }
 .splash .grain { position: absolute; }
 .splash-mark { width: min(46vw, 210px); height: auto; position: relative; }
 .splash-word { font-family: var(--font); font-weight: 700; font-size: 15px; letter-spacing: 0.32em; text-transform: uppercase; margin-top: 18px; padding-left: 0.32em; }
-.splash-sub { font-family: var(--font); font-size: 11px; color: var(--muted); letter-spacing: 0.06em; }
+/* The mark's two electrons are cyan, in the header and on the splash; the rest stays white. */
+.nav-logo .electron, .splash-mark .electron { fill: var(--c-accent); }
 
 /* Starting states, only while playing: everything hidden or wound back. */
 .splash.play .nucleon { transform-box: fill-box; transform-origin: center; transform: scale(0); animation: splash-pop 0.42s cubic-bezier(0.2, 1.4, 0.4, 1) forwards; }
@@ -527,8 +528,7 @@ body.stage-nucleus #atom { opacity: 0.12; }
 .splash.play .electron { transform-box: fill-box; transform-origin: center; transform: scale(0); animation: splash-pop 0.36s cubic-bezier(0.2, 1.4, 0.4, 1) 0.5s forwards; }
 .splash.play .spin { transform-box: view-box; transform-origin: 50px 50px; transform: rotate(-200deg); animation: splash-swing 1.25s cubic-bezier(0.25, 0.8, 0.3, 1) 0.6s forwards; }
 .splash.play .shell { stroke-dasharray: 1; stroke-dashoffset: 1; animation: splash-draw 1.05s cubic-bezier(0.4, 0, 0.2, 1) 0.7s forwards; }
-.splash.play .splash-word, .splash.play .splash-sub { opacity: 0; animation: splash-fade 0.6s ease 1.35s forwards; }
-.splash.play .splash-sub { animation-delay: 1.55s; }
+.splash.play .splash-word { opacity: 0; animation: splash-fade 0.6s ease 1.35s forwards; }
 @keyframes splash-pop { to { transform: scale(1); } }
 @keyframes splash-draw { to { stroke-dashoffset: 0; } }
 @keyframes splash-swing { to { transform: rotate(0deg); } }
