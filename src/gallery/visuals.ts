@@ -162,12 +162,12 @@ export function isotopeAlbum(e: Element): string {
 
 // ---------- Properties: where this element sits among all of them ----------
 
-interface Axis { label: string; get: (e: Element) => number | null; unit: string; log?: boolean; more: string; less: string; fmt?: (v: number) => string }
+interface Axis { label: string; get: (e: Element) => number | null; unit: string; log?: boolean; more: string; less: string; fmt?: (v: number) => string; temp?: boolean }
 
 const AXES: Axis[] = [
   { label: 'Density', get: (e) => e.density, unit: ' g/cm³', log: true, more: 'densest', less: 'lightest' },
-  { label: 'Melting point', get: (e) => e.melt, unit: ' K', more: 'highest melting point', less: 'lowest melting point', fmt: (v) => `${Math.round(v)}` },
-  { label: 'Boiling point', get: (e) => e.boil, unit: ' K', more: 'highest boiling point', less: 'lowest boiling point', fmt: (v) => `${Math.round(v)}` },
+  { label: 'Melting point', get: (e) => e.melt, unit: ' K', more: 'highest melting point', less: 'lowest melting point', fmt: (v) => `${Math.round(v)}`, temp: true },
+  { label: 'Boiling point', get: (e) => e.boil, unit: ' K', more: 'highest boiling point', less: 'lowest boiling point', fmt: (v) => `${Math.round(v)}`, temp: true },
   { label: 'Electronegativity', get: (e) => e.electronegativity, unit: '', more: 'most electronegative', less: 'least electronegative' },
   { label: 'First ionization energy', get: (e) => e.ionisation, unit: ' eV', more: 'hardest to ionize', less: 'easiest to ionize' },
   { label: 'Size (van der Waals)', get: (e) => e.vdw, unit: ' pm', more: 'largest', less: 'smallest', fmt: (v) => `${Math.round(v)}` },
@@ -182,32 +182,47 @@ export function rankOf(v: number, values: number[]): number {
   return values.filter((x) => x > v).length + 1;
 }
 
+/** "the densest", "4th densest", "3rd lightest": the rank from whichever end is nearer. */
+export function rankWords(r: number, count: number, more: string, less: string): string {
+  if (r <= count / 2) return r === 1 ? `the ${more}` : `${ordinal(r)} ${more}`;
+  const fromBottom = count - r + 1;
+  return fromBottom === 1 ? `the ${less}` : `${ordinal(fromBottom)} ${less}`;
+}
+
+const LANES = ['s', 'p', 'd', 'f'] as const;
+/** From rutherfordium on, only a few atoms have ever been made; bulk properties are predicted. */
+const PREDICTED_FROM = 104;
+
+/** One property: the label and value on the left; on the right every measured element as a dot
+ *  in its block's lane and color, this element ringed, the extremes named at the ends. */
 function axisStrip(e: Element, a: Axis): string {
-  const all = ELEMENTS.map((x) => ({ x, v: a.get(x) })).filter((p): p is { x: Element; v: number } => p.v != null && (!a.log || p.v > 0));
+  // Values for the superheavy elements are predictions, so they are left out of the crowd.
+  const all = ELEMENTS.map((x) => ({ x, v: a.get(x) })).filter((p): p is { x: Element; v: number } => p.v != null && (!a.log || p.v > 0) && (p.x.z < PREDICTED_FROM || p.x.z === e.z));
   const v = a.get(e);
-  const W = 300, pad = 8;
+  const W = 240, pad = 10, laneH = 9, top = 4, H = top * 2 + laneH * 4;
   const t = (x: number) => (a.log ? Math.log10(x) : x);
   const lo = Math.min(...all.map((p) => t(p.v))), hi = Math.max(...all.map((p) => t(p.v)));
   const X = (x: number) => pad + ((t(x) - lo) / (hi - lo || 1)) * (W - pad * 2);
-  const ticks = all.map((p) => `<path d="M ${f1(X(p.v))} 12 v 10"/>`).join('');
+  const Y = (b: Element['block']) => top + LANES.indexOf(b) * laneH + laneH / 2;
+  const lanes = LANES.map((b) => `<path class="pr-lane" d="M ${pad} ${Y(b)} H ${W - pad}"/>`).join('');
+  const dots = all.filter((p) => p.x.z !== e.z).map((p) => `<circle cx="${f1(X(p.v))}" cy="${Y(p.x.block)}" r="2.3" fill="${BLOCK_COLOUR[p.x.block]}"/>`).join('');
   const minE = all.reduce((m, p) => (p.v < m.v ? p : m)), maxE = all.reduce((m, p) => (p.v > m.v ? p : m));
   const fmt = a.fmt ?? fmtNum;
-  let mark = '', caption = '<span class="na">not measured</span>';
-  if (v != null && (!a.log || v > 0)) {
-    const x = X(v);
-    const r = rankOf(v, all.map((p) => p.v));
-    const fromBottom = all.length - r + 1;
-    caption = r <= all.length / 2
-      ? (r === 1 ? `the ${a.more} of all ${all.length} measured` : `${ordinal(r)} ${a.more} of ${all.length}`)
-      : (fromBottom === 1 ? `the ${a.less} of all ${all.length} measured` : `${ordinal(fromBottom)} ${a.less} of ${all.length}`);
-    mark = `<path class="ax-mark" d="M ${f1(x)} 8 v 18"/><circle class="ax-dot" cx="${f1(x)}" cy="17" r="3.5"/>`;
+  const has = v != null && (!a.log || v > 0);
+  let mark = '', rank = '';
+  if (has) {
+    const x = f1(X(v)), y = Y(e.block);
+    rank = e.z >= PREDICTED_FROM ? 'a prediction' : rankWords(rankOf(v, all.map((p) => p.v)), all.length, a.more, a.less);
+    mark = `<path class="pr-guide" d="M ${x} 1 V ${H - 1}"/><circle class="pr-me" cx="${x}" cy="${y}" r="4.6" fill="${BLOCK_COLOUR[e.block]}"/>`;
   }
-  return `<div class="ax">
-    <div class="ax-top"><span>${a.label}</span><b>${v == null ? '<span class="na">not known</span>' : fmt(v) + a.unit}</b></div>
-    <svg class="ax-svg" viewBox="0 0 ${W} 36" preserveAspectRatio="none" aria-hidden="true">
-      <path class="ax-base" d="M ${pad} 17 H ${W - pad}"/><g class="ax-ticks">${ticks}</g>${mark}
-    </svg>
-    <div class="ax-ends"><span>${minE.x.symbol} ${fmt(minE.v)}</span><em>${caption}</em><span>${maxE.x.symbol} ${fmt(maxE.v)}</span></div>
+  const value = v == null ? '<span class="na">not known</span>'
+    : a.temp ? `${fmt(v)} K<small>${Math.round(v - 273.15)} °C</small>` : `${fmt(v)}${a.unit}`;
+  return `<div class="pr">
+    <div class="pr-text"><span class="pr-label">${a.label}</span><b class="pr-value">${value}</b>${rank ? `<em class="pr-rank">${rank}</em>` : ''}</div>
+    <div class="pr-vis">
+      <svg viewBox="0 0 ${W} ${H}" aria-hidden="true">${lanes}<g class="pr-dots">${dots}</g>${mark}</svg>
+      <div class="pr-ends"><span>${minE.x.symbol} ${fmt(minE.v)}</span><span>${maxE.x.symbol} ${fmt(maxE.v)}</span></div>
+    </div>
   </div>`;
 }
 
@@ -222,29 +237,28 @@ function oxidationStrip(e: Element): string {
   const counts = oxidationCounts();
   const states = Array.from({ length: 15 }, (_, i) => i - 5);
   const max = Math.max(...counts.values());
-  const W = 300, colW = W / states.length, H = 64;
+  const W = 240, colW = W / states.length, H = 58;
   const mine = new Set(e.oxidation);
   const bars = states.map((s, i) => {
     const c = counts.get(s) ?? 0;
-    const h = c ? 4 + (c / max) * (H - 24) : 0;
-    const x = i * colW + 3;
-    return `<rect class="${mine.has(s) ? 'ox-bar is-mine' : 'ox-bar'}" x="${f1(x)}" y="${f1(H - 16 - h)}" width="${f1(colW - 6)}" height="${f1(h)}" rx="1.5"/>`
-      + `<text class="${mine.has(s) ? 'ox-lab is-mine' : 'ox-lab'}" x="${f1(x + (colW - 6) / 2)}" y="${H - 3}">${s > 0 ? '+' + s : s}</text>`;
+    const h = c ? 3 + (c / max) * (H - 20) : 0;
+    const x = i * colW + 2;
+    const cls = `${s < 0 ? 'ox-neg' : s > 0 ? 'ox-pos' : 'ox-zero'}${mine.has(s) ? ' is-mine' : ''}`;
+    return `<rect class="ox-bar ${cls}" x="${f1(x)}" y="${f1(H - 14 - h)}" width="${f1(colW - 4)}" height="${f1(h)}" rx="1.5"/>`
+      + `<text class="ox-lab${mine.has(s) ? ' is-mine' : ''}" x="${f1(x + (colW - 4) / 2)}" y="${H - 2}">${s > 0 ? '+' + s : s}</text>`;
   }).join('');
   const most = [...e.oxidation].sort((a, b) => (counts.get(b) ?? 0) - (counts.get(a) ?? 0))[0];
-  const words = e.oxidation.length
-    ? `${esc(e.name)} shows ${e.oxidation.map((o) => (o > 0 ? '+' + o : String(o))).join(', ')}. ${most != null ? `${most > 0 ? '+' + most : most} is shared by ${counts.get(most)} elements.` : ''}`
-    : `No common oxidation states are listed for ${esc(e.name.toLowerCase())}.`;
-  return `<div class="ax ox">
-    <div class="ax-top"><span>Oxidation states</span><b>${e.oxidation.length ? e.oxidation.map((o) => (o > 0 ? '+' + o : String(o))).join(', ') : '<span class="na">none listed</span>'}</b></div>
-    <svg class="ox-svg" viewBox="0 0 ${W} ${H}" aria-hidden="true">${bars}</svg>
-    <p class="ax-note">${words} Bars count how many elements use each state.</p>
+  const words = most != null ? `${most > 0 ? '+' + most : most} is shared by ${counts.get(most)} elements` : '';
+  return `<div class="pr pr-ox">
+    <div class="pr-text"><span class="pr-label">Oxidation states</span><b class="pr-value">${e.oxidation.length ? e.oxidation.map((o) => (o > 0 ? '+' + o : String(o))).join(', ') : '<span class="na">none listed</span>'}</b>${words ? `<em class="pr-rank">${words}</em>` : ''}</div>
+    <div class="pr-vis"><svg viewBox="0 0 ${W} ${H}" aria-hidden="true">${bars}</svg><div class="pr-ends"><span>← electrons gained</span><span>electrons given →</span></div></div>
   </div>`;
 }
 
 export function propertyAxes(e: Element): string {
-  return `<div class="axes">${AXES.slice(0, 6).map((a) => axisStrip(e, a)).join('')}${oxidationStrip(e)}${AXES.slice(6).map((a) => axisStrip(e, a)).join('')}</div>
-    <p class="note">Each faint tick is another element; the bright one is ${esc(e.name.toLowerCase())}. Density and abundance use a log scale.</p>`;
+  const legend = LANES.map((b) => `<span><i style="background:${BLOCK_COLOUR[b]}"></i>${b}</span>`).join('');
+  return `<p class="pr-legend">Every dot is an element, in its block's lane and color: ${legend}. The ringed dot is ${esc(e.name.toLowerCase())}.</p>
+    <div class="prs">${AXES.slice(0, 6).map((a) => axisStrip(e, a)).join('')}${oxidationStrip(e)}${AXES.slice(6).map((a) => axisStrip(e, a)).join('')}</div>`;
 }
 
 // ---------- Story: a timeline of discoveries ----------

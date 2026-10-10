@@ -929,23 +929,33 @@ body[data-screen^='atom'] { --top: calc(var(--safe-top) + var(--nav-h) + var(--m
 .iso-tile.is-key { box-shadow: 0 0 0 1px var(--c-accent) inset; }
 
 /* Properties: one axis per property, every element a faint tick. */
-.axes { display: flex; flex-direction: column; gap: var(--sp-3); margin: var(--sp-2) 0; }
-.ax-top { display: flex; justify-content: space-between; gap: var(--sp-2); }
-.ax-top span { color: var(--c-text-2); }
-.ax-top b { font-weight: var(--fw-semibold); color: var(--c-text); text-align: right; }
-.ax-svg { display: block; width: 100%; height: 30px; }
-.ax-base { stroke: var(--c-line-2); stroke-width: 1; vector-effect: non-scaling-stroke; }
-.ax-ticks path { stroke: var(--c-text-3); stroke-width: 1; vector-effect: non-scaling-stroke; opacity: 0.8; }
-.ax-mark { stroke: var(--c-accent); stroke-width: 2; vector-effect: non-scaling-stroke; }
-.ax-dot { fill: var(--c-accent); }
-.ax-ends { display: flex; justify-content: space-between; gap: var(--sp-2); font-size: var(--fs-xs); color: var(--c-text-3); }
-.ax-ends em { font-style: normal; color: var(--c-accent); text-align: center; }
-.ox-svg { display: block; width: 100%; height: auto; margin-top: 4px; }
+/* Properties: label and value on the left, every element as a colored dot on the right. */
+.pr-legend { color: var(--c-text-2); font-size: var(--fs-sm); margin: var(--sp-2) 0 var(--sp-4); }
+.pr-legend span { display: inline-flex; align-items: center; gap: 4px; margin: 0 2px; color: var(--c-text); font-weight: var(--fw-semibold); }
+.pr-legend i { width: 9px; height: 9px; border-radius: 50%; }
+.prs { display: flex; flex-direction: column; }
+.pr { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.25fr); gap: var(--sp-4); align-items: center; padding: var(--sp-5) 0; border-top: 1px solid var(--c-line); }
+.pr:first-child { border-top: 0; padding-top: var(--sp-2); }
+.pr-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.pr-label { font-size: var(--fs-md); font-weight: var(--fw-semibold); color: var(--c-text); line-height: 1.25; }
+.pr-value { font-size: var(--fs-md); font-weight: var(--fw-regular); color: var(--c-silver); font-variant-numeric: tabular-nums; }
+.pr-value small { display: block; font-size: var(--fs-sm); color: var(--c-text-2); }
+.pr-rank { font-style: normal; font-size: var(--fs-sm); color: var(--c-accent); line-height: 1.3; }
+.pr-vis svg { display: block; width: 100%; height: auto; overflow: visible; }
+.pr-lane { stroke: var(--c-line); stroke-width: 1; }
+.pr-dots circle { opacity: 0.6; }
+.pr-guide { stroke: var(--c-silver); stroke-width: 1; opacity: 0.5; }
+.pr-me { stroke: var(--c-silver); stroke-width: 2; }
+.pr-ends { display: flex; justify-content: space-between; gap: var(--sp-2); margin-top: 4px; font-size: var(--fs-xs); color: var(--c-text-3); font-variant-numeric: tabular-nums; }
 .ox-bar { fill: var(--c-surface-3); }
-.ox-bar.is-mine { fill: var(--c-accent); }
-.ox-lab { fill: var(--c-text-3); font-size: 8.5px; text-anchor: middle; font-family: var(--font); }
-.ox-lab.is-mine { fill: var(--c-accent); font-weight: 600; }
-.ax-note { color: var(--c-text-2); font-size: var(--fs-xs); }
+.ox-bar.ox-neg { fill: color-mix(in srgb, var(--c-orb-s) 40%, var(--c-surface-3)); }
+.ox-bar.ox-pos { fill: color-mix(in srgb, var(--c-orb-d) 40%, var(--c-surface-3)); }
+.ox-bar.is-mine.ox-neg { fill: var(--c-orb-s); }
+.ox-bar.is-mine.ox-pos { fill: var(--c-orb-d); }
+.ox-bar.is-mine.ox-zero { fill: var(--c-silver); }
+.ox-lab { fill: var(--c-text-3); font-size: 8px; text-anchor: middle; font-family: var(--font); }
+.ox-lab.is-mine { fill: var(--c-text); font-weight: 600; }
+@media (min-width: 720px) { .pr { grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr); gap: var(--sp-5); } }
 
 /* Story: a timeline of discoveries, then the name. */
 .tl { margin: var(--sp-2) 0 var(--sp-3); }

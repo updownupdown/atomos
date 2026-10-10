@@ -122,8 +122,9 @@ function guide(e: Element, tab: Tab): { title: string; html: string } {
     case 'properties': return {
       title: 'Reading the properties',
       html:
-        section('Ticks and ranks', p(`Each line is one property. Every faint tick is another element with a measured value; the bright one is ${name}, with its rank. Elements with no measurement are left off rather than guessed.`))
-        + section('Scales', p('Density and the two abundances use a log scale, because they span many powers of ten: from a gas lighter than air to osmium, from oxygen at nearly half the crust to traces measured in billionths. The other properties are linear.'))
+        section('Dots and ranks', p(`Each row is one property: its name and ${name}'s value on the left, and on the right every element with a measured value as a dot. Dots sit in four lanes by block, in the block colors, so patterns show at a glance: the p block holds the most electronegative elements, the d block the densest and hardest to melt. ${esc(e.name)} is the ringed dot, and its rank is counted from whichever end is nearer.`))
+        + section('Scales', p('Density and the two abundances use a log scale, because they span many powers of ten: from a gas lighter than air to osmium, from oxygen at nearly half the crust to traces measured in billionths. The other properties are linear. Temperatures are given in kelvin and in degrees Celsius.'))
+        + section('What is left out', p('Elements with no measurement are left off rather than guessed. From rutherfordium on, only a few atoms have ever been made, so their values are predictions: they are shown on their own page but kept out of everyone else\'s ranks.'))
         + disclosureHTML({ title: 'What each property means', body: `<dl class="gd-defs">${PROPERTY_WORDS.map(([t, d]) => `<dt>${t}</dt><dd>${d}</dd>`).join('')}</dl>` }),
     };
     case 'story': return {
