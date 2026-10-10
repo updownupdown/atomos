@@ -72,7 +72,7 @@ export class Game {
     this.scene = new AtomScene($<HTMLCanvasElement>('atom'));
     this.detail = new Detail($<HTMLCanvasElement>('bh-atom'));
     this.detail.setRings(false);
-    this.bar = createAtomBar({ onChange: (z) => this.start(z) });
+    this.bar = createAtomBar({ onChange: (z) => this.start(z), locked: (z) => !rowOpen(rowOf(z), this.save) });
     $('build-bar').append(this.bar.el);
     $('bh-sci').append(scienceButton());
     $('bh-paint').onclick = () => this.openPaint();
