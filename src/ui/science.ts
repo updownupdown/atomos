@@ -1,6 +1,7 @@
 // The microscope in the header: "tell me more about what I am looking at". It sits left of
 // Settings on every screen. Whatever screen is showing registers what the microscope opens;
-// with nothing registered the button hides. A screen clears its handler when it is put away.
+// with nothing registered the button stays in place, dimmed, so the header never shifts.
+// A screen clears its handler when it is put away.
 //
 //   setScienceHandler(() => openMyDetails());   // when the screen shows
 //   setScienceHandler(null);                     // when it hides
@@ -27,7 +28,7 @@ export function setScienceHandler(fn: (() => void) | null, label = 'More about w
   const b = button();
   if (!b) return;
   bind(b);
-  b.hidden = !fn;
+  b.disabled = !fn;
   b.setAttribute('aria-label', label);
   b.title = label;
 }
