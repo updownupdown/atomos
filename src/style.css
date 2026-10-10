@@ -618,6 +618,10 @@ body.stage-nucleus #atom { opacity: 0.12; }
 }
 #puzzles-screen[hidden] { display: none; }
 
+/* A gate puzzle that opens part of the gallery (src/puzzles/unlock.ts), over everything but modals. */
+.unlock-screen { position: fixed; inset: 0; z-index: 20; padding-top: var(--safe-top); display: flex; flex-direction: column; background: var(--c-bg); font-family: var(--font); }
+.unlock-screen .pg-play canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+
 /* Puzzles home: every puzzle, what it is for, and whether the game uses it yet. */
 .pg-home { flex: 1; min-height: 0; overflow-y: auto; padding: var(--sp-4) var(--sp-4) calc(var(--safe-bottom) + var(--sp-6)); }
 .pg-home[hidden], .pg-game[hidden] { display: none; }

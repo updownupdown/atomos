@@ -49,6 +49,11 @@ export interface ShapeRecord {
   best?: number;
 }
 
+export interface UnlockRecord extends ShapeRecord {
+  /** The element the puzzle was dealt for, so a replay is the same board. */
+  z: number;
+}
+
 export interface SaveData {
   version: 1;
   built: Record<number, Built>;
@@ -59,6 +64,8 @@ export interface SaveData {
   shapes: Partial<Record<OrbitalShape, ShapeRecord>>;
   /** Rows of the table opened with Inertia, by row number (2 to 7); row 1 is open from the start. */
   rows: Partial<Record<number, ShapeRecord>>;
+  /** Parts of the gallery opened with a gate puzzle (Lumen, Aurum, Glyph), by unlock id. */
+  unlocks: Record<string, UnlockRecord>;
   specimens: Specimen[];
   log: { at: number; text: string }[];
   settings: Settings;
@@ -75,6 +82,7 @@ export function defaultSave(): SaveData {
     isotopes: {},
     shapes: {},
     rows: {},
+    unlocks: {},
     specimens: [],
     log: [],
     settings: { unlockAll: false, reducedMotion: reduced, sound: true, haptics: true },
@@ -113,7 +121,11 @@ export function loadSave(): SaveData {
       const r = data.rows?.[n];
       if (r && Number.isFinite(r.at)) rows[n] = { at: r.at, ...(Number.isFinite(r.best) ? { best: r.best } : {}) };
     }
-    return { ...base, built, steps, shapes, rows, isotopes: data.isotopes ?? {}, specimens: data.specimens ?? [], log: data.log ?? [], settings };
+    const unlocks: SaveData['unlocks'] = {};
+    for (const [id, r] of Object.entries(data.unlocks ?? {})) {
+      if (r && Number.isFinite(r.at) && Number.isFinite(r.z)) unlocks[id] = { at: r.at, z: r.z, ...(Number.isFinite(r.best) ? { best: r.best } : {}) };
+    }
+    return { ...base, built, steps, shapes, rows, unlocks, isotopes: data.isotopes ?? {}, specimens: data.specimens ?? [], log: data.log ?? [], settings };
   } catch {
     return defaultSave();
   }
