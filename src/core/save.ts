@@ -39,7 +39,7 @@ export interface StepRecord {
 
 export type StepId = 'nucleus' | 'shells';
 
-/** The orbital shapes Flux discovers; s is known from the start. */
+/** The orbital shapes Glyph discovers; s is known from the start. */
 export type OrbitalShape = 'p' | 'd' | 'f';
 
 export interface ShapeRecord {
@@ -59,8 +59,10 @@ export interface SaveData {
   built: Record<number, Built>;
   /** Build steps solved so far, per atom. An atom in `built` has both, even if not listed here. */
   steps: Record<number, Partial<Record<StepId, StepRecord>>>;
-  isotopes: Record<string, { collected?: boolean; witnessed?: WitnessRecord[] }>;
-  /** Orbital shapes discovered with Flux; the 3D Shapes view draws only these (and s). */
+  /** Isotopes by "z-A": built (collected), witnessed decays, and for a fleeting isotope the
+   *  puzzle it was last built with (catalog id), for display only. */
+  isotopes: Record<string, { collected?: boolean; witnessed?: WitnessRecord[]; game?: string }>;
+  /** Orbital shapes discovered with Glyph; the 3D Shapes view draws only these (and s). */
   shapes: Partial<Record<OrbitalShape, ShapeRecord>>;
   /** Rows of the table opened with Inertia, by row number (2 to 7); row 1 is open from the start. */
   rows: Partial<Record<number, ShapeRecord>>;

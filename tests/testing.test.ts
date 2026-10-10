@@ -35,7 +35,8 @@ describe('progress presets for testing', () => {
     expect(s.built[31]).toBeUndefined();
     expect(s.steps[31]?.nucleus).toBeTruthy();
     expect(rowOpen(4, s)).toBe(true);
-    expect(rowOpen(5, s)).toBe(false);
+    expect(rowOpen(5, s)).toBe(true);
+    expect(rowOpen(6, s)).toBe(false);
     expect(currentPreset(s)).toBe(25);
   });
 });

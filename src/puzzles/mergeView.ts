@@ -169,23 +169,34 @@ export class MergeView implements PuzzleView {
   private drawGoal(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, r: number): void {
     const s = this.state;
     const t = s.target;
-    const sr = Math.min(r * 0.7, 26);
-    ctx.font = `13px ${MONO}`;
-    ctx.fillStyle = C.text2;
+    let sr = Math.min(r * 0.7, 26);
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
     const label = `${sup(String(t.a))}${symbolOf(t.z)}`;
+    const info = `${t.a} nucleons · ${t.z} p · ${t.a - t.z} n`;
+    ctx.font = `700 22px ${MONO}`;
+    const labelW = ctx.measureText(label).width;
+    ctx.font = `12px ${MONO}`;
+    const infoW = ctx.measureText(info).width;
+    // Sockets sit right of the name when they fit; a heavy nucleus wants more of them, so its
+    // name and counts share the top line and the sockets get a row of their own below.
+    let gap = sr * 2 + 14;
+    const beside = s.sockets.length * gap <= w - Math.max(labelW, infoW) - 16;
     ctx.font = `700 22px ${MONO}`;
     ctx.fillStyle = this.won ? C.accent : C.text;
-    ctx.fillText(label, x + 4, y + 22);
+    ctx.fillText(label, x + 4, beside ? y + 22 : y + 12);
     ctx.font = `12px ${MONO}`;
     ctx.fillStyle = C.text2;
-    ctx.fillText(`${t.a} nucleons · ${t.z} p · ${t.a - t.z} n`, x + 4, y + 46);
+    if (beside) ctx.fillText(info, x + 4, y + 46);
+    else ctx.fillText(info, x + labelW + 14, y + 14);
+    if (!beside) {
+      gap = Math.min(gap, (w - 8) / s.sockets.length);
+      sr = Math.min(sr, gap / 2 - 4, 20);
+    }
     // Sockets, right-aligned, largest first.
-    const gap = sr * 2 + 14;
     const total = s.sockets.length * gap;
-    let cx = x + w - total + sr + 4;
-    const cy = y + 34;
+    let cx = x + w - total + gap / 2 - 3;
+    const cy = beside ? y + 34 : y + 52;
     this.socketAt = [];
     s.sockets.forEach((v, i) => {
       this.socketAt.push({ x: cx, y: cy });

@@ -1,6 +1,7 @@
-// Every puzzle type the game will have, in one list: the two that are built,
-// and the rest from the locked progression map, so the playground can show
-// where each one sits and the game can ask for a level by id.
+// Every puzzle type in the game, in one list, so the Puzzles home can show where each one sits
+// and the game can ask for a board by id. Every game has one job: Tokamak builds every nucleus
+// and Quanta every atom's electrons; Tessera, Chroma, Flux, Nova, Inertia and Aurum build
+// isotopes; Glyph opens the display unlocks; Lumen waits in reserve for its redesign.
 
 import { elementAt as element } from '../gallery/data';
 import { ICON_NAMES, icon } from '../ui/icons';
@@ -57,16 +58,16 @@ export type Tier = 'every' | 'facet' | 'gate' | 'reserve';
 
 /** What each tier means, for the Puzzles home. */
 export const TIER_NOTE: Record<Tier, string> = {
-  every: 'Played for every atom you build.',
-  facet: 'Unlock extra layers of an atom: isotopes, orbital shapes, particles.',
-  gate: 'Open new parts of the game: periods, gallery lenses, the synthetic elements.',
+  every: 'Played for every atom you build: its nucleus and its electrons.',
+  facet: 'Build isotopes. Each lasting isotope has its own puzzle; for a fleeting one you pick.',
+  gate: 'Open new ways to see the collection: gallery lenses, looks, the nucleus view and orbital shapes.',
   reserve: 'Built to try out; no place in the game yet.',
 };
 
 export const TIER_LABEL: Record<Tier, string> = {
   every: 'Every atom',
-  facet: 'Facets',
-  gate: 'Gates',
+  facet: 'Isotopes',
+  gate: 'Display unlocks',
   reserve: 'Reserve',
 };
 
@@ -86,8 +87,11 @@ export interface PuzzleType {
   rules?: RuleCard[];
   /** Elements it makes sense for (inclusive). */
   zRange: [number, number];
-  /** Present once the puzzle is built; planned types have none. */
+  /** Present once the puzzle is built; planned types have none. Deal number n of element z. */
   make?: (z: number, deal: number, reducedMotion: boolean) => PuzzleView;
+  /** The board for element z from a given seed; `a` is the mass number, for puzzles that build a
+   *  particular isotope's nucleus (Tokamak). */
+  deal?: (z: number, seed: number, reducedMotion: boolean, a?: number) => PuzzleView;
   /** How to play, and notes for playtesting, as sheet HTML for the Instructions modal. */
   instructions?: string;
   /** The science behind it, as sheet HTML. */
@@ -113,21 +117,22 @@ function groundConfiguration(z: number): string {
 export const PUZZLES: PuzzleType[] = [
   {
     id: 'merge', name: 'Tokamak', tier: 'every',
-    use: 'Nucleus · He to Fe',
+    use: 'Nucleus · every atom',
     get rules() { return rulesOf(MergeV); },
     blurb: 'Swipe to slide the board; two clusters of the same size merge. Gather the clusters the nucleus wants.',
-    role: 'Builds the nucleus of every element up to iron.',
-    live: 'Build mode: every nucleus from helium to iron.',
+    role: 'Builds the nucleus of every element, and is one of the puzzles a fleeting isotope can be built with.',
+    live: 'Build mode: every nucleus from helium to oganesson; any fleeting isotope, by choice.',
     instructions: MERGE_HOW,
-    zRange: [2, 26],
-    make: (z, deal, reduced) => new MergeView(newMerge({ z, a: element(z).commonA }, dealSeed('merge', z, deal)), reduced),
+    zRange: [2, 118],
+    deal: (z, seed, reduced, a) => new MergeView(newMerge({ z, a: a ?? element(z).commonA }, seed), reduced),
     science: (z) => {
       const el = element(z);
       const parts = [];
-      for (let b = 64; b >= 1; b >>= 1) if (el.commonA & b) parts.push(b);
+      for (let b = 256; b >= 1; b >>= 1) if (el.commonA & b) parts.push(b);
       return `<h2>Tokamak: the science</h2>
         <p>A nucleus is protons and neutrons, its <b>nucleons</b>, held together by the strong force. ${sup(String(el.commonA))}${el.symbol}, ${el.name}'s most common isotope, has ${el.commonA} of them: ${z} protons and ${el.commonA - z} neutrons.</p>
-        <p>Stars build the elements up to iron by <b>fusion</b>: light nuclei slam together and stick, releasing energy. Hydrogen fuses to helium in the Sun; three heliums make carbon in red giants. Past iron, fusion costs more energy than it gives, which is why the heavier elements need a different puzzle.</p>
+        <p>Stars build the elements up to iron by <b>fusion</b>: light nuclei slam together and stick, releasing energy. Hydrogen fuses to helium in the Sun; three heliums make carbon in red giants.</p>
+        ${z > 26 ? `<p>Past iron, fusion costs more energy than it gives, so ${el.name} was never made this way. Heavy nuclei are built by <b>neutron capture</b>: slowly inside old giant stars, or in seconds when neutron stars collide, with some of the captured neutrons turning into protons. Here the board is just a game, dealing bigger clusters so a heavy nucleus takes about as long as iron's.</p>` : ''}
         <p class="muted">Game rule: the board counts nucleons in clusters that double when two of a size meet, and ${el.commonA} written that way is ${parts.join(' + ')}. Real nuclei are not assembled by pairing clusters, and nothing slides about inside a star.</p>`;
     },
   },
@@ -140,7 +145,7 @@ export const PUZZLES: PuzzleType[] = [
     live: 'Build mode: the electrons of every element.',
     instructions: GRID_HOW,
     zRange: [1, 118],
-    make: (z, deal, reduced) => new OrbitalGridView(newOrbitalGrid(z, dealSeed('orbitalGrid', z, deal)), reduced),
+    deal: (z, seed, reduced) => new OrbitalGridView(newOrbitalGrid(z, seed), reduced),
     science: (z) => {
       const el = element(z);
       return `<h2>Quanta: the science</h2>
@@ -150,33 +155,34 @@ export const PUZZLES: PuzzleType[] = [
     },
   },
   {
-    id: 'sliding', name: 'Nova', tier: 'every',
-    use: 'Nucleus · Co onward',
+    id: 'sliding', name: 'Nova', tier: 'facet',
+    use: 'Isotopes',
     get rules() { return rulesOf(SlidingV); },
     blurb: 'Slide the bars and blocks out of the way so the red key bar can slide out.',
-    role: 'Builds the nucleus of every element past iron, where fusion stops paying.',
-    live: 'Build mode: every nucleus from cobalt on.',
+    role: 'Builds isotopes, leaning toward the heavy atoms, where its deepest boards are.',
+    live: 'Build mode: 41 lasting isotopes, and any fleeting isotope by choice.',
     instructions: SLIDING_HOW,
     zRange: [27, 118],
-    make: (z, deal, reduced) => new SlidingView(newSliding(z, dealSeed('sliding', z, deal)), reduced),
+    deal: (z, seed, reduced) => new SlidingView(newSliding(z, seed), reduced),
     science: (z) => {
       const el = element(z);
       return `<h2>Nova: the science</h2>
         <p>Fusion stops paying at iron: its nucleus is the most tightly bound of all, so sticking more nuclei to it costs energy instead of releasing it. The elements past iron, ${el.name} among them, are made another way: a nucleus <b>captures neutrons</b> one at a time, and some of those neutrons turn into protons by beta decay, nudging it up the table.</p>
         <p>The slow version (the <b>s-process</b>) happens over thousands of years inside old red giants. The rapid version (the <b>r-process</b>) happens in seconds, when neutron stars collide or a massive star explodes, and makes the heaviest elements of all: gold, platinum, uranium.</p>
+        <p>Each captured neutron makes a heavier <b>isotope</b> of the same element, until one decays and the nucleus moves up a place.</p>
         <p class="muted">Game rule: the crowded tray and the key bar are a picture of a nucleus squeezing in one more piece, not a model of neutron capture. ${el.name}'s most common isotope has ${el.commonA} nucleons.</p>`;
     },
   },
   {
     id: 'packing', name: 'Tessera', tier: 'facet',
-    use: 'Isotope vaults',
+    use: 'Isotopes',
     get rules() { return rulesOf(PackingV); },
     blurb: 'Drag the pieces into the outline until it is filled exactly; tap a piece to turn it.',
-    role: 'Builds the isotopes in each atom\'s vault, one board per isotope, once the atom is built.',
-    live: 'Build mode: every isotope in an atom\'s vault, once the atom is built.',
+    role: 'Builds isotopes, leaning toward the lighter atoms.',
+    live: 'Build mode: 72 lasting isotopes, and any fleeting isotope by choice.',
     instructions: PACKING_HOW,
     zRange: [1, 118],
-    make: (z, deal, reduced) => new PackingView(newPacking(z, dealSeed('packing', z, deal)), reduced),
+    deal: (z, seed, reduced) => new PackingView(newPacking(z, seed), reduced),
     science: (z) => {
       const el = element(z);
       return `<h2>Tessera: the science</h2>
@@ -187,14 +193,14 @@ export const PUZZLES: PuzzleType[] = [
   },
   {
     id: 'lines', name: 'Flux', tier: 'facet',
-    use: 'Orbital shapes',
+    use: 'Isotopes',
     get rules() { return rulesOf(LinesV); },
     blurb: 'Draw one line from a + charge to a − charge that keeps every mark on the board happy.',
-    role: 'Discovers each new orbital shape (19) and a chapter per particle (17).',
-    live: 'Build mode: discovers the p, d and f orbital shapes on boron, scandium and cerium.',
+    role: 'Builds isotopes, leaning toward the heavy atoms; planned for a chapter per particle (17).',
+    live: 'Build mode: 41 lasting isotopes, and any fleeting isotope by choice.',
     instructions: LINES_HOW,
     zRange: [1, 118],
-    make: (z, deal, reduced) => new LinesView(newLines(z, dealSeed('lines', z, deal)), reduced),
+    deal: (z, seed, reduced) => new LinesView(newLines(z, seed), reduced),
     science: (z) => {
       const el = element(z);
       return `<h2>Flux: the science</h2>
@@ -204,29 +210,29 @@ export const PUZZLES: PuzzleType[] = [
     },
   },
   {
-    id: 'slideStop', name: 'Inertia', tier: 'gate',
-    use: 'Period gates',
+    id: 'slideStop', name: 'Inertia', tier: 'facet',
+    use: 'Isotopes',
     get rules() { return rulesOf(SlideStopV); },
     blurb: 'Swipe and the electron slides until something stops it. Absorb every photon, then stop on the red ring.',
-    role: 'Opens each new period of the table.',
-    live: 'Build mode: opens rows 2 to 7 of the table, played on lithium, sodium, potassium, rubidium, cesium and francium.',
+    role: 'Builds isotopes. (Rows of the table now open by progress instead.)',
+    live: 'Build mode: 38 lasting isotopes, and any fleeting isotope by choice.',
     instructions: SLIDESTOP_HOW,
     zRange: [1, 118],
-    make: (z, deal, reduced) => new SlideStopView(newSlideStop(z, dealSeed('slideStop', z, deal)), reduced),
+    deal: (z, seed, reduced) => new SlideStopView(newSlideStop(z, seed), reduced),
     science: () => `<h2>Inertia: the science</h2>
       <p>A thing in motion keeps moving until a force acts on it: Newton's first law. On the lattice the nuclei are the only obstacles, so the electron slides until one stops it.</p>
       <p>Electrons in a metal behave a little like this. They move freely through the lattice and are scattered only by defects and vibrations; the colder and purer the metal, the further they travel between collisions, which is why resistance falls with temperature.</p>
       <p class="muted">Game rule: the maze is a maze. Real electrons do not skate from nucleus to nucleus.</p>`,
   },
   {
-    id: 'light', name: 'Lumen', tier: 'gate',
-    use: 'Gallery lenses',
+    id: 'light', name: 'Lumen', tier: 'reserve',
+    use: 'Being redesigned',
     get rules() { return rulesOf(LightV); },
     blurb: 'Flip the mirrors and splitters until light reaches every ring and none touches a dark sensor.',
-    role: 'Opens each new lens (arrangement) of the gallery.',
+    role: 'Being redesigned around placing the optics yourself; it joins the isotope puzzles once ready.',
     instructions: LIGHT_HOW,
     zRange: [1, 118],
-    make: (z, deal, reduced) => new LightView(newLight(z, dealSeed('light', z, deal)), reduced),
+    deal: (z, seed, reduced) => new LightView(newLight(z, seed), reduced),
     science: () => `<h2>Lumen: the science</h2>
       <p>Light reflects from a mirror at the angle it arrived, and its path runs the same backwards: ray optics. Everything we know about atoms began with light: the sharp colored lines in an element's spectrum are photons released as electrons drop between energy levels, and each element has its own set.</p>
       <p>A spectrometer is exactly this puzzle made serious: slits, mirrors and a prism or grating steering light onto a detector.</p>
@@ -234,14 +240,15 @@ export const PUZZLES: PuzzleType[] = [
       <p class="muted">Game rule: no atom contains mirrors.</p>`,
   },
   {
-    id: 'rutherford', name: 'Aurum', tier: 'gate',
-    use: 'Nucleus view',
+    id: 'rutherford', name: 'Aurum', tier: 'facet',
+    use: 'Isotopes',
     get rules() { return rulesOf(RutherfordV); },
     blurb: 'Probe the foil cell by cell and fire a few alpha beams from the rim; counts and beam tracks reveal where every nucleus sits. Find them all without a direct hit.',
-    role: 'Played once; opens the nucleus view.',
+    role: 'Builds isotopes, leaning toward the lighter atoms.',
+    live: 'Build mode: 30 lasting isotopes, and any fleeting isotope by choice.',
     instructions: RUTHERFORD_HOW,
     zRange: [1, 118],
-    make: (z, deal, reduced) => new RutherfordView(newRutherford(z, dealSeed('rutherford', z, deal)), reduced),
+    deal: (z, seed, reduced) => new RutherfordView(newRutherford(z, seed), reduced),
     science: () => `<h2>Aurum: the science</h2>
       <p>In 1909 Hans Geiger and Ernest Marsden fired alpha particles at a sheet of gold foil. Nearly all passed straight through, but about one in eight thousand bounced back, which Rutherford said was as surprising as a shell rebounding off tissue paper. The only explanation: almost all of the atom's mass and all its positive charge sit in a <b>nucleus</b> tens of thousands of times smaller than the atom.</p>
       <p>The lesson was that an atom is almost entirely empty: probe it at random and you nearly always pass straight through.</p>
@@ -249,13 +256,14 @@ export const PUZZLES: PuzzleType[] = [
   },
   {
     id: 'codebreaker', name: 'Glyph', tier: 'gate',
-    use: 'Atom looks · 6 times',
+    use: 'Display unlocks · 12 in all',
     get rules() { return rulesOf(CodeV); },
     blurb: 'Guess the sealed sequence of four; each guess earns clues about what was right.',
-    role: 'Played six times in all, never more: each solve opens a new way to draw the atoms (a look or an overlay in the gallery).',
+    role: 'Played twelve times in all, never more: each solve opens a way to see the collection (two gallery lenses, six looks, the nucleus view, and the p, d and f orbital shapes).',
+    live: 'Gallery: the Ribbon and Circle lenses, six looks and the nucleus view. Build mode: the p, d and f orbital shapes on boron, scandium and cerium.',
     instructions: CODE_HOW,
     zRange: [104, 118],
-    make: (z, deal, reduced) => new CodebreakerView(newCodebreaker(z, dealSeed('codebreaker', z, deal)), reduced),
+    deal: (z, seed, reduced) => new CodebreakerView(newCodebreaker(z, seed), reduced),
     science: (z) => {
       const el = element(z);
       return `<h2>Glyph: the science</h2>
@@ -265,14 +273,15 @@ export const PUZZLES: PuzzleType[] = [
     },
   },
   {
-    id: 'colorCharge', name: 'Chroma', tier: 'reserve',
-    use: 'Quark chapters (planned)',
+    id: 'colorCharge', name: 'Chroma', tier: 'facet',
+    use: 'Isotopes',
     get rules() { return rulesOf(ChargeV); },
     blurb: 'Bind the quarks into color-neutral groups until the grid is clear; on heavier elements a gluon can swap two colors.',
-    role: 'Planned for the quark and gluon chapters of the particles (up, down, gluon, strange, charm, bottom, top): each brings in its own mechanic.',
+    role: 'Builds isotopes, leaning toward the lighter atoms; planned for the quark and gluon chapters of the particles too.',
+    live: 'Build mode: 72 lasting isotopes, and any fleeting isotope by choice.',
     instructions: CHARGE_HOW,
     zRange: [1, 118],
-    make: (z, deal, reduced) => new ColorChargeView(newColorCharge(z, dealSeed('colorCharge', z, deal)), reduced),
+    deal: (z, seed, reduced) => new ColorChargeView(newColorCharge(z, seed), reduced),
     science: () => `<h2>Chroma: the science</h2>
       <p>Protons and neutrons are each made of three <b>quarks</b>, held by the strong force. Quarks carry a kind of charge physicists call <b>color</b>, with three values nicknamed red, green and blue. A quark is never found alone: quarks only exist in groups whose colors cancel to "white".</p>
       <p>There are two ways to cancel. Three quarks, one of each color, make a <b>baryon</b> such as the proton. A quark and an antiquark carrying the matching anticolor make a <b>meson</b>, such as the pion. Three antiquarks make an <b>antibaryon</b>, such as the antiproton.</p>
@@ -280,6 +289,8 @@ export const PUZZLES: PuzzleType[] = [
       <p class="muted">Game rule: color charge has nothing to do with real color, and quarks do not sit on a grid; the shapes on the board are only for play.</p>`,
   },
 ];
+
+for (const p of PUZZLES) if (p.deal) p.make = (z, n, reduced) => p.deal!(z, dealSeed(p.id, z, n), reduced);
 
 export function puzzleType(id: string): PuzzleType {
   return PUZZLES.find((p) => p.id === id)!;
