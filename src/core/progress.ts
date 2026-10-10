@@ -6,7 +6,7 @@
 
 import { elementAt, type Isotope } from '../gallery/data';
 import { isotopeKey } from './isotopes';
-import { loadSave, type SaveData, type StepId } from './save';
+import { loadSave, type OrbitalShape, type SaveData, type StepId } from './save';
 
 export interface StepState {
   done: boolean;
@@ -69,4 +69,18 @@ export function segmentsOf(z: number, save: SaveData = loadSave()): Segment[] {
 export function atomProgress(z: number, save: SaveData = loadSave()): number {
   const segs = segmentsOf(z, save);
   return segs.length ? segs.filter((s) => s.done).length / segs.length : 0;
+}
+
+/** Where each orbital shape is discovered: the first atom with an electron in it. Flux runs there. */
+export const SHAPE_AT: Record<OrbitalShape, number> = { p: 5, d: 21, f: 58 };
+
+/** The orbital shape discovered on this atom's Build page, if any. */
+export function shapeAt(z: number): OrbitalShape | undefined {
+  return (Object.keys(SHAPE_AT) as OrbitalShape[]).find((l) => SHAPE_AT[l] === z);
+}
+
+/** Whether the 3D Shapes view may draw this kind of orbital: s always; p, d and f once Flux has
+ *  discovered them (or with "Unlock every element" on). Changes fire 'atomos:progress'. */
+export function orbitalShapeUnlocked(l: 's' | OrbitalShape, save: SaveData = loadSave()): boolean {
+  return l === 's' || save.settings.unlockAll || Boolean(save.shapes[l]);
 }

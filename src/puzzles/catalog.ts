@@ -191,6 +191,7 @@ export const PUZZLES: PuzzleType[] = [
     get rules() { return rulesOf(LinesV); },
     blurb: 'Draw one line from a + charge to a − charge that keeps every mark on the board happy.',
     role: 'Discovers each new orbital shape (19) and a chapter per particle (17).',
+    live: 'Build mode: discovers the p, d and f orbital shapes on boron, scandium and cerium.',
     instructions: LINES_HOW,
     zRange: [1, 118],
     make: (z, deal, reduced) => new LinesView(newLines(z, dealSeed('lines', z, deal)), reduced),

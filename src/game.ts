@@ -5,8 +5,8 @@ import {
   MODE_LABEL, decayProducts, findIsotope, formatDuration, isFleeting, isStable,
   isotopeKey, isotopesOf, sampleLifetime, type Isotope,
 } from './core/isotopes';
-import { frontier, loadSave, writeSave, type SaveData, type StepId } from './core/save';
-import { atomProgress, isotopeCollected, segmentsOf, stepState, stepsOf, vaultIsotopes, type StepState } from './core/progress';
+import { frontier, loadSave, writeSave, type OrbitalShape, type SaveData, type StepId } from './core/save';
+import { atomProgress, isotopeCollected, segmentsOf, shapeAt, stepState, stepsOf, vaultIsotopes, type StepState } from './core/progress';
 import { SILVER, atomColour, hexToHue, hslToHex } from './core/paint';
 import { Detail } from './gallery/detail';
 import { createAtomBar, type AtomBar } from './gallery/atombar';
@@ -35,7 +35,7 @@ const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as 
 /** 'home' is the atom's Build page; the others are its puzzles: the nucleus, the electrons, and
  *  one Tessera board per isotope in its vault ('iso-7' builds the isotope with mass number 7). */
 type IsoStage = `iso-${number}`;
-type Stage = 'home' | StepId | IsoStage;
+type Stage = 'home' | StepId | 'shape' | IsoStage;
 
 const isIso = (s: Stage): s is IsoStage => s.startsWith('iso-');
 const isoA = (s: IsoStage): number => Number(s.slice(4));
@@ -192,6 +192,7 @@ export class Game {
   private makePuzzle(stage: Exclude<Stage, 'home'>): PuzzleView {
     const reduced = this.save.settings.reducedMotion;
     if (isIso(stage)) return new PackingView(newPacking(this.z, dealSeed('isotope', this.z, isoA(stage))), reduced);
+    if (stage === 'shape') return puzzleType('lines').make!(this.z, 0, reduced);
     if (stage === 'shells') return new OrbitalGridView(orbitalGridLevel(this.z), reduced);
     return this.z <= MERGE_UP_TO ? new MergeView(mergeLevel(this.z), reduced) : new SlidingView(slidingLevel(this.z), reduced);
   }
@@ -263,12 +264,14 @@ export class Game {
   /** What a puzzle builds, for the header: "Nucleus", "Electrons" or "Isotope · Li-6". */
   private stageLabel(stage: Exclude<Stage, 'home'>): string {
     if (isIso(stage)) return `Isotope · ${element(this.z).symbol}-${isoA(stage)}`;
+    if (stage === 'shape') return `Discovery · ${shapeAt(this.z)} orbitals`;
     return stage === 'nucleus' ? 'Nucleus' : 'Electrons';
   }
 
   /** The catalog entry for a puzzle on this atom. */
   private stagePuzzle(stage: Exclude<Stage, 'home'>, z = this.z): PuzzleType {
     if (isIso(stage)) return puzzleType('packing');
+    if (stage === 'shape') return puzzleType('lines');
     return puzzleType(stage === 'nucleus' ? (z <= MERGE_UP_TO ? 'merge' : 'sliding') : 'orbitalGrid');
   }
 
@@ -280,6 +283,7 @@ export class Game {
       const a = isoA(stage);
       return `Builds ${name}-${a}: ${el.z} proton${el.z === 1 ? '' : 's'} with ${a - el.z} neutron${a - el.z === 1 ? '' : 's'}.`;
     }
+    if (stage === 'shape') return `Discovers the shape of ${shapeAt(this.z)} orbitals, so the 3D Shapes view can draw them in every atom.`;
     if (stage === 'shells') return `Settles ${el.z} electron${el.z === 1 ? '' : 's'} into ${name}'s orbitals: ${shortConfiguration(elementAt(this.z))}.`;
     if (this.z === 1) return 'Hydrogen\'s nucleus is a single proton, so there is nothing to gather.';
     return `Gathers ${el.z} protons and ${this.neutrons} neutrons into ${name}'s nucleus.`;
@@ -327,11 +331,25 @@ export class Game {
     }).join('');
     const live = this.save.specimens.some((sp) => sp.z === z);
 
+    // Where an orbital shape first appears, Flux discovers it: until then it is a locked extra.
+    const shape = shapeAt(z);
+    const shapeRow = shape ? this.card({
+      stage: 'shape',
+      label: `${shape} orbitals`,
+      sub: 'Discovery',
+      text: `Their shape, for the 3D Shapes view`,
+      done: Boolean(this.save.shapes[shape]),
+      flawless: false,
+      best: this.save.shapes[shape]?.best,
+      gate: `${el.name} is the first atom with ${shape} orbitals. Trace their field to see their shape.`,
+    }) : '';
+
     $('bh-in').innerHTML = `
       <ol class="bh-steps" aria-label="Build ${name}">${z === 1 ? this.hydrogenNucleus() : ''}${stepRows}</ol>
       ${vault.length ? `
       <ol class="bh-steps" aria-label="${el.name} isotopes">${isoRows}</ol>
-      ${live ? `<button class="text-btn bh-bench" id="bh-bench">Watch your unstable isotopes</button>` : ''}` : ''}`;
+      ${live ? `<button class="text-btn bh-bench" id="bh-bench">Watch your unstable isotopes</button>` : ''}` : ''}
+      ${shapeRow ? `<ol class="bh-steps" aria-label="Discoveries">${shapeRow}</ol>` : ''}`;
 
     const root = $('bh-in');
     root.querySelectorAll<HTMLButtonElement>('[data-stage]').forEach((b) => (b.onclick = () => this.enter(b.dataset.stage as Stage)));
@@ -347,19 +365,22 @@ export class Game {
 
   /** One row of the Build page: what it builds on the left; in the box, the puzzle's icon and name
    *  in one color, what it adds, and on the right its state over a round Play or Replay button. */
-  private card(o: { stage: Exclude<Stage, 'home'>; label: string; sub?: string; text: string; done: boolean; flawless: boolean; best?: number; locked?: string }): string {
+  private card(o: { stage: Exclude<Stage, 'home'>; label: string; sub?: string; text: string; done: boolean; flawless: boolean; best?: number; locked?: string; gate?: string }): string {
     const t = this.stagePuzzle(o.stage);
     const paused = this.suspended[o.stage];
-    const cls = o.locked ? 'is-locked' : o.done ? (o.flawless ? 'is-flawless' : 'is-done') : 'is-next';
-    const state = o.locked ? 'Locked' : paused ? 'In progress' : o.done ? (o.flawless && !isIso(o.stage) ? 'Flawless' : 'Built') : 'Not built';
+    const gated = Boolean(o.gate) && !o.done;
+    const cls = o.locked ? 'is-locked' : gated ? 'is-gate is-next' : o.done ? (o.flawless ? 'is-flawless' : 'is-done') : 'is-next';
+    const state = o.locked || (gated && !paused) ? 'Locked' : paused ? 'In progress' : o.done ? (o.gate ? 'Discovered' : o.flawless && !isIso(o.stage) ? 'Flawless' : 'Built') : 'Not built';
     const note = o.locked ? o.locked
+      : gated && !paused ? o.gate
       : paused ? `${paused.moves} move${paused.moves === 1 ? '' : 's'} so far`
       : o.done && o.best !== undefined ? `Best ${o.best} move${o.best === 1 ? '' : 's'}`
       : '';
     const badge = o.done ? `<span class="bh-badge">${icon(o.flawless ? 'star' : 'check', { size: 14 })}</span>` : '';
-    const verb = paused ? 'Resume' : o.done ? 'Replay' : 'Play';
+    const verb = paused ? 'Resume' : o.done ? 'Replay' : gated ? 'Unlock' : 'Play';
+    const glyph = o.done && !paused ? icon('restart', { size: 22 }) : gated && !paused ? icon('unlock', { size: 22 }) : icon('play', { size: 22 });
     const play = o.locked ? ''
-      : `<button class="${o.done && !paused ? 'secondary' : 'primary'} bh-play" data-stage="${o.stage}" aria-label="${verb} ${t.name}: ${o.label}" title="${verb}">${o.done && !paused ? icon('restart', { size: 22 }) : icon('play', { size: 22 })}</button>`;
+      : `<button class="${o.done && !paused ? 'secondary' : 'primary'} bh-play" data-stage="${o.stage}" aria-label="${verb} ${t.name}: ${o.label}" title="${verb}">${glyph}</button>`;
     return `
       <li class="bh-row ${cls}">
         <div class="bh-label"><b>${o.label}</b>${o.sub ? `<span>${o.sub}</span>` : ''}</div>
@@ -556,6 +577,10 @@ export class Game {
     this.puzzle = null;
     document.body.classList.remove('puzzling', 'stage-nucleus');
     this.clearOverlay();
+    if (stage === 'shape') {
+      this.discoverShape(p);
+      return;
+    }
     if (isIso(stage)) {
       this.collectIsotope(isoA(stage));
       sfx.harmonySound();
@@ -584,6 +609,26 @@ export class Game {
     const bothDone = stepsOf(this.z).every((id) => this.stepState(this.z, id).done);
     if (bothDone) this.finish(p, stage, wasBuilt);
     else this.stepWon(stage, p);
+  }
+
+  /** Flux solved on the atom where an orbital shape first appears: the shape is discovered, and
+   *  the 3D Shapes view draws it in every atom from now on. */
+  private discoverShape(p: PuzzleView): void {
+    const l = shapeAt(this.z)!;
+    const prev = this.save.shapes[l];
+    const best = prev?.best === undefined ? p.moves : Math.min(prev.best, p.moves);
+    this.save.shapes[l] = { at: prev?.at ?? Date.now(), best };
+    this.saveProgress();
+    sfx.completeSound();
+    this.busy = false;
+    this.closeWin = showWin($('app'), {
+      kicker: prev ? 'Solved again' : 'Discovered',
+      title: `The ${l} orbital shape`,
+      flawless: false,
+      stats: this.winStats(p),
+      note: prev ? `Your best is ${best} move${best === 1 ? '' : 's'}.` : `The Shapes view in 3D now draws ${l} orbitals in every atom that has them.`,
+      actions: [this.backAction()],
+    }, this.save.settings.reducedMotion);
   }
 
   /** Moves and par for the win panel. */
@@ -1045,6 +1090,10 @@ export class Game {
     const p = this.puzzle as unknown as { state: unknown };
     if (isIso(this.stage)) {
       p.state = solvedState(p.state as PackingState);
+    } else if (this.stage === 'shape') {
+      const s = p.state as { path: unknown[]; solution: unknown[]; won: boolean };
+      s.path = [...s.solution];
+      s.won = true;
     } else if (this.stage === 'nucleus') {
       const s = p.state as { sockets?: number[]; filled?: number; blocks?: { x: number; len: number }[]; w?: number };
       if (s.sockets) s.filled = s.sockets.length;
