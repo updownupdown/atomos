@@ -17,8 +17,11 @@ import { initModeBar, refreshModeProgress, showModeBar, type AtomMode } from './
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
-export type Screen = 'gallery' | 'atom' | 'puzzles' | 'settings' | 'icons';
+import { readPlace, type Screen } from './core/place';
+export type { Screen };
 export type { AtomMode };
+
+const PLACE_KEY = 'atomos.place';
 
 export class AppShell {
   private screen: Screen = 'gallery';
@@ -30,6 +33,9 @@ export class AppShell {
   private playground: Playground | null = null;
 
   constructor() {
+    // Read where the player was before anything below records the gallery as the new place.
+    let saved: string | null = null;
+    try { saved = localStorage.getItem(PLACE_KEY); } catch { /* storage off: start at the gallery */ }
     this.gallery = new GalleryApp({
       onBuild: (z) => { this.z = z; void this.go('atom', 'build'); },
       onLoupe: (z) => {
@@ -59,7 +65,21 @@ export class AppShell {
     this.setNav('gallery', 'view');
     const route = () => { if (location.hash === '#icons') void this.go('icons'); };
     window.addEventListener('hashchange', route);
-    route();
+    if (location.hash === '#icons') route();
+    else this.restore(saved);
+  }
+
+  /** Reopen the screen the player left, or stay on the gallery if that is not possible. */
+  private restore(raw: string | null): void {
+    const place = readPlace(raw);
+    this.z = place.z;
+    this.mode = place.mode;
+    if (place.screen === 'gallery') return;
+    this.go(place.screen, place.mode).catch(() => void this.go('gallery'));
+  }
+
+  private remember(screen: Screen, mode: AtomMode): void {
+    try { localStorage.setItem(PLACE_KEY, JSON.stringify({ screen, mode, z: this.z })); } catch { /* not remembered */ }
   }
 
   get atomZ(): number { return this.z; }
@@ -119,6 +139,7 @@ export class AppShell {
   private setZ(z: number): void {
     this.z = z;
     if (this.screen === 'atom') refreshModeProgress();
+    if (document.body.dataset.screen?.startsWith('atom')) this.remember('atom', this.mode);
   }
 
 
@@ -130,5 +151,6 @@ export class AppShell {
     on('nav-settings', screen === 'settings');
     showModeBar(screen === 'atom', mode);
     document.body.dataset.screen = screen === 'atom' ? `atom-${mode}` : screen;
+    this.remember(screen, mode);
   }
 }
