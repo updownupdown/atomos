@@ -252,6 +252,49 @@ describe('view and rule cards', () => {
     }
   });
 
+  it('marks the head of the line with a glowing dot, picked up to draw on, and gone once won', () => {
+    const area = { x: 0, y: 0, w: 340, h: 430 };
+    /** Every circle drawn, with the shadow blur it was drawn under. */
+    const circles = (v: LinesView) => {
+      const out: { x: number; y: number; blur: number }[] = [];
+      const store: Record<string | symbol, unknown> = { shadowBlur: 0 };
+      const ctx = new Proxy(store, {
+        get(t, k) {
+          if (k in t) return t[k];
+          if (k === 'arc') return (x: number, y: number) => out.push({ x, y, blur: Number(t.shadowBlur) || 0 });
+          if (k === 'restore') return () => { t.shadowBlur = 0; };
+          return () => {};
+        },
+      }) as unknown as CanvasRenderingContext2D;
+      v.draw(ctx, area, 1234);
+      return out;
+    };
+    const grid = (v: LinesView) => (v as unknown as { grid: { x: number; y: number; c: number } }).grid;
+    const at = (v: LinesView, p: Pt) => ({ x: grid(v).x + p.x * grid(v).c, y: grid(v).y + p.y * grid(v).c });
+    const glowsAt = (v: LinesView, p: Pt) => { const drawn = circles(v), q = at(v, p); return drawn.some((o) => o.blur > 0 && Math.hypot(o.x - q.x, o.y - q.y) < 0.5); };
+
+    const s = board({ 0: { type: 'color', c: 's' }, 2: { type: 'color', c: 'p' } }, { solution: HOOK });
+    // Only the + charge before the line leaves it; then the head, still glowing under reduced motion.
+    expect(glowsAt(new LinesView(drawPath(s, HOOK.slice(0, 1)), true), HOOK[0])).toBe(false);
+    expect(glowsAt(new LinesView(drawPath(s, HOOK.slice(0, 3)), true), HOOK[2])).toBe(true);
+    const v = new LinesView(drawPath(s, HOOK.slice(0, 3)), false);
+    expect(glowsAt(v, HOOK[2])).toBe(true);
+    circles(v);
+    // Pressing the head and dragging on extends the same line.
+    v.down(at(v, HOOK[2]));
+    v.move(at(v, HOOK[3]));
+    v.up(at(v, HOOK[3]));
+    expect((v as unknown as { state: LinesState }).state.path).toEqual(HOOK.slice(0, 4));
+    expect(glowsAt(v, HOOK[3])).toBe(true);
+    expect(glowsAt(v, HOOK[2])).toBe(false);
+    // Drawn to the − charge and kept: the head is gone.
+    v.down(at(v, HOOK[3]));
+    for (const p of HOOK.slice(4)) v.move(at(v, p));
+    v.up(at(v, HOOK[HOOK.length - 1]));
+    expect(v.won).toBe(true);
+    expect(glowsAt(v, HOOK[HOOK.length - 1])).toBe(false);
+  });
+
   it('has a card with pictures for every mark, drawn inside its box', () => {
     checkRules(RULES, ['Beads', 'Gaps', 'Orbitals', 'Bars', 'Pairs', 'Shapes']);
     expect(INSTRUCTIONS).toMatch(/^\s*<h3>In the game<\/h3>\s*<p class="meta">/);

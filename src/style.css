@@ -144,22 +144,28 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .text-btn { padding: 8px 4px; min-height: 40px; color: var(--muted); }
 .text-btn:disabled { opacity: 0.4; cursor: default; }
 
-/* Inside a Build puzzle: the header (Back, the puzzle, which step), then the move count. */
-.build-head { position: absolute; top: var(--top); left: 0; right: 0; }
+/* Inside a Build puzzle: the header (Back, the puzzle), then the game bar; the board fills the rest. */
+.build-head { position: absolute; top: var(--top); left: 0; right: 0; z-index: 2; }
 .build-head[hidden] { display: none; }
-.stage {
-  position: absolute;
-  top: calc(var(--top) + 58px);
-  left: 0;
-  right: 0;
-  text-align: center;
-  font-size: var(--fs-sm);
-  color: var(--c-text-2);
-  font-variant-numeric: tabular-nums;
-  pointer-events: none;
-  min-height: 1.4em;
-}
-body.build-home .stage, body.build-home #app .bottom { display: none; }
+body.build-home #app .bottom { display: none; }
+
+/* The bar at the top of every game (src/puzzles/gamebar.ts): tools, then four equal stat
+   columns, then one message line. The same in Build, Practice and the gate puzzles. */
+.gbar { position: relative; display: flex; flex-direction: column; gap: var(--sp-2); width: 100%; max-width: 560px; margin: 0 auto; padding: 0 var(--sp-3) var(--sp-1); box-sizing: border-box; font-family: var(--font); }
+.gbar-tools { display: flex; justify-content: space-between; align-items: center; gap: var(--sp-1); }
+.gbar .gbar-tools > * { margin: 0; flex: none; }
+.gbar-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--sp-1); }
+.gbar-stat { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 0; }
+.gbar-k { font-size: var(--fs-xs); color: var(--c-text-3); white-space: nowrap; }
+.gbar-v { font-size: var(--fs-md); font-weight: var(--fw-semibold); color: var(--c-text); font-variant-numeric: tabular-nums; white-space: nowrap; line-height: 1.3; min-height: 1.3em; }
+.gbar-pips { display: inline-flex; align-items: center; gap: 4px; }
+.gbar-pips i { width: 7px; height: 7px; border-radius: 50%; background: var(--c-surface-3); }
+.gbar-pips i.on { background: var(--c-text-2); }
+.gbar-msg { margin: 0; min-height: 1.45em; text-align: center; font-size: var(--fs-sm); line-height: 1.45; color: var(--c-text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gbar .nu-line.gbar-nu { position: absolute; top: 100%; left: var(--sp-3); right: var(--sp-3); z-index: 5; margin: var(--sp-2) 0 0; flex-wrap: wrap; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6); }
+.nu-acts { display: flex; gap: var(--sp-2); width: 100%; justify-content: flex-end; }
+.nu-act { min-height: 36px; padding: 0 var(--sp-4); border-radius: var(--r-pill); font: inherit; font-size: var(--fs-sm); font-weight: var(--fw-medium); cursor: pointer; }
+.nu-act-quiet { background: transparent; border: 0; color: var(--c-text-2); }
 #app > .win { top: var(--top); }
 
 /* The Build page of one atom: its puzzles, how far each has got, and what is still to come. */

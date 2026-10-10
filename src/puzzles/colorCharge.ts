@@ -211,6 +211,26 @@ export function solved(s: ColorChargeState): boolean {
   return s.bound.every((g) => g >= 0);
 }
 
+export interface Tally { kind: GroupKind; done: number; need: number }
+
+/**
+ * The particles the clearance makes, by kind (baryons, antibaryons, mesons, in
+ * that order, only the kinds the grid holds), and how many of each are bound
+ * so far, leaving out bound group `skip`. A tile is a quark or an antiquark
+ * for good (gluons trade colors only), so a group's kind never changes.
+ */
+export function tally(s: ColorChargeState, skip = -1): Tally[] {
+  const kindOf = (g: number[]): GroupKind => (g.length === 2 ? 'meson' : s.tiles[g[0]].anti ? 'antibaryon' : 'baryon');
+  const kinds: GroupKind[] = ['baryon', 'antibaryon', 'meson'];
+  return kinds
+    .map((kind) => ({
+      kind,
+      need: s.solution.filter((g) => kindOf(g) === kind).length,
+      done: s.groups.filter((g, k) => k !== skip && kindOf(g) === kind).length,
+    }))
+    .filter((t) => t.need > 0);
+}
+
 /** Every pair a gluon could act on among the tiles not yet used. */
 function swapPairs(tiles: Quark[], cols: number, rows: number, used: (i: number) => boolean): [number, number][] {
   const out: [number, number][] = [];

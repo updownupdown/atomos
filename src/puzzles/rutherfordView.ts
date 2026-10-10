@@ -8,7 +8,7 @@
 
 import { chord, cloneRutherford, fire, nextLead, portLine, probe, remaining, scope, solved, toggleMark, traceBeam, type CellKind, type RutherfordState, type Side } from './rutherford';
 import { C, font, tile } from './palette';
-import { drawHelpMark, type Area, type Help, type Point, type PuzzleView, type RuleCard } from './view';
+import { drawHelpMark, type Area, type Help, type Point, type PuzzleView, type RuleCard, type Stat } from './view';
 
 const LONG_MS = 380;
 const BAR_H = 48;
@@ -68,6 +68,13 @@ export class RutherfordView implements PuzzleView {
   get stuck(): boolean { return false; }
   get moves(): number { return this.state.moves; }
   get par(): number | null { return null; }
+  stats(): { progress: Stat; par: Stat } {
+    const s = this.state;
+    return {
+      progress: { label: 'Found', value: `${s.total - remaining(s)}/${s.total}` },
+      par: { label: 'Beams', value: `${this.beamsUsed}/${s.beamPar}` },
+    };
+  }
   get clean(): boolean { return this.everHit.size === 0 && this.everFired.size <= this.state.beamPar; }
 
   /** Beams that count against the par: every port fired, undone or not. */

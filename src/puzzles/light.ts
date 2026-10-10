@@ -3,7 +3,7 @@
 // cells to steer it.
 //
 //   / \      mirrors from the tray: reflect the beam; a tap turns one, another
-//            tap takes it back;
+//            tap takes it back, and a drag moves it to another empty cell;
 //   H/ H\    splitters from the tray (half-silvered): the beam both passes and
 //            reflects;
 //   F/ F\    fixed mirrors, part of the board;
@@ -16,7 +16,7 @@
 //
 // Levels come from lightSolver.ts: each has exactly one answer, and it uses
 // every piece in the tray, so par is the tray's size. Only placing a piece
-// counts as a move; turning or taking one back is free.
+// counts as a move; turning, moving or taking one back is free.
 
 import { rand, randInt, seeded, type Rng } from './rng';
 import { generate, M_BS, M_SL, S_SL, type Cfg, type NBoard } from './lightSolver';
@@ -219,6 +219,18 @@ export function lift(s: LightState, i: number): LightState | null {
   if (!turnable(s.cells[i])) return null;
   const next = cloneLight(s);
   next.cells[i] = '.';
+  return next;
+}
+
+/**
+ * Moves a placed piece to another open cell, keeping its slant; free, like taking it back and
+ * setting it down again in one go. Null for anything else.
+ */
+export function relocate(s: LightState, from: number, to: number): LightState | null {
+  if (from === to || !turnable(s.cells[from]) || !open(s, to)) return null;
+  const next = cloneLight(s);
+  next.cells[to] = s.cells[from];
+  next.cells[from] = '.';
   return next;
 }
 

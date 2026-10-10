@@ -20,7 +20,7 @@
 
 import { allSparks, cellX, cellY, cloneSlideStop, cracksOf, isRock, slide, slideRun, solve, solved, type Dir, type SlideStopState, type Tile } from './slideStop';
 import { bead, C, fitGrid, font, tile } from './palette';
-import { drawHelpMark, ease, undoHelp, type Area, type Help, type Illustration, type Point, type PuzzleView, type RuleCard } from './view';
+import { drawHelpMark, ease, undoHelp, type Area, type Help, type Illustration, type Point, type PuzzleView, type RuleCard, type Stat } from './view';
 
 const SWIPE = 22;
 const MS_PER_CELL = 55;
@@ -207,6 +207,7 @@ export class SlideStopView implements PuzzleView {
   get stuck(): boolean { return !this.won && this.left() === null; }
   get moves(): number { return this.state.moves; }
   get par(): number | null { return this.state.par; }
+  stats(): { progress: Stat } { const s = this.state; return { progress: { label: 'Photons', value: `${popcount(s.got)}/${s.sparks.length}` } }; }
   get clean(): boolean { return this.state.moves <= this.state.par; }
 
   hint(): string {

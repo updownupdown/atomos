@@ -5,7 +5,7 @@
 
 import { bestGuess, candidates, cloneCodebreaker, cycleSlot, decided, draftComplete, EMPTY, MAX_ROWS, setSlot, SLOTS, solved, stuck, submit, SYMBOLS, type CodebreakerState } from './codebreaker';
 import { C, font, socket, tile } from './palette';
-import { drawHelpMark, ease, type Area, type Help, type Point, type PuzzleView, type RuleCard } from './view';
+import { drawHelpMark, ease, type Area, type Help, type Point, type PuzzleView, type RuleCard, type Stat } from './view';
 
 const REVEAL_MS = 260;
 /** The six symbol colors, read at draw time. */
@@ -51,6 +51,7 @@ export class CodebreakerView implements PuzzleView {
   get stuck(): boolean { return stuck(this.state); }
   get moves(): number { return this.state.moves; }
   get par(): number | null { return this.state.par; }
+  stats(): { progress: Stat } { return { progress: { label: 'Guesses', value: `${this.state.rows.length}/${MAX_ROWS}` } }; }
   get clean(): boolean { return this.state.moves <= this.state.par; }
 
   hint(): string {

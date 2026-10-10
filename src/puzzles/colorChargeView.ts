@@ -3,17 +3,21 @@
 // tight and it collapses into one white hadron. On gluon levels a gluon token
 // sits under the grid: tap it, then two neighboring tiles, to swap their
 // colors. A swap stays provisional for a moment (washed colors, a dashed
-// silver outline, a gluon curl between the two); one that strands tiles shows
-// them and then undoes itself, handing the gluon and the move back. Regions
-// that can no longer all be bound glow inside a thick amber rim, and a tile no
-// group could hold dims under an amber ring with a "!" mark. Never red.
+// silver outline, a gluon curl between the two). Any move that strands tiles
+// (a swap or a group) shows them for two seconds and then undoes itself,
+// handing the move (and the gluon) back; meanwhile a group that did it is
+// drawn not quite white, tinted with its charges under a dashed outline.
+// Regions that can no longer all be bound glow inside a thick amber rim, and a
+// tile no group could hold dims under an amber ring with a "!" mark. Never
+// red. Under the board, a tally of the particles to make: each kind's icon and
+// how many of them are bound.
 //
 // Everything is painted from a Scene, a plain description of the board and its
 // running animations, so the rule cards replay the same drawing as the board.
 
-import { adjacent, bind, canBind, canSwap, cloneCharge, COLOR_LETTERS, gluonsLeft, groupKind, isolated, nextStep, onTrack, solved, stranded, swap, type ColorChargeState, type GroupKind, type Quark } from './colorCharge';
+import { adjacent, bind, canBind, canSwap, cloneCharge, COLOR_LETTERS, gluonsLeft, groupKind, isolated, nextStep, onTrack, solved, stranded, swap, tally, type ColorChargeState, type GroupKind, type Quark, type Tally } from './colorCharge';
 import { C, fitGrid, font, tile } from './palette';
-import { drawHelpMark, ease, undoHelp, type Area, type Help, type Illustration, type Point, type PuzzleView, type RuleCard } from './view';
+import { drawHelpMark, ease, undoHelp, type Area, type Help, type Illustration, type Point, type PuzzleView, type RuleCard, type Stat } from './view';
 
 /**
  * The three charge colors, read at draw time from Color Charge's own tokens
@@ -29,16 +33,15 @@ const STRAND_MS = 320;
 const TOKEN = 44;
 /** A swap that keeps the grid clearable stays provisional this long after it lands, then settles. */
 const SETTLE_MS = 450;
-/** A swap that strands tiles shows them this long after it lands, then undoes itself. */
-const SNAP_MS = 1200;
-const SNAP_REDUCED_MS = 700;
+/** A move that strands tiles shows them this long after it is made, then undoes itself. */
+export const UNDO_MS = 2000;
 /** How long a settling swap takes to lose its provisional look, and how long "undone" stays in the hint. */
 const FADE_MS = 220;
 const SNAPPED_HINT_MS = 1600;
 
 export const INSTRUCTIONS = `
 <h3>In the game</h3>
-<p class="meta">Reserve puzzle, proposed for the quark chapter of the particles. The grid grows from 3×3 (z 1–10) to 4×3 (11–30), 4×4 with two mesons (31–54), 4×5 with four mesons and an antibaryon (55–86) and 5×5 with five mesons and two antibaryons (87–118). Gluons: one at z 21–30, 45–54, 71–86 and 87–103, two on the synthetic elements (104–118). Every grid has exactly one clearance: a gluon level cannot be cleared without its swaps, and only one set of swaps and groups clears it. Par is the groups plus the swaps; every bind and every swap is a move, Undo is free and takes it back, and clean means clearing the grid within par. Keyboard: G arms a gluon, Escape drops the pick.</p>`;
+<p class="meta">Reserve puzzle, proposed for the quark chapter of the particles. The grid grows from 3×3 (z 1–10) to 4×3 (11–30), 4×4 with two mesons (31–54), 4×5 with four mesons and an antibaryon (55–86) and 5×5 with five mesons and two antibaryons (87–118). Gluons: one at z 21–30, 45–54, 71–86 and 87–103, two on the synthetic elements (104–118). Every grid has exactly one clearance: a gluon level cannot be cleared without its swaps, and only one set of swaps and groups clears it. Par is the groups plus the swaps; every bind and every swap is a move, Undo is free and takes it back, and clean means clearing the grid within par. A move that strands tiles is taken back on its own after two seconds. Under the board, a tally counts each kind of particle bound out of those the grid makes. Keyboard: G arms a gluon, Escape drops the pick.</p>`;
 
 // ---- the scene ------------------------------------------------------------------------
 
@@ -68,6 +71,11 @@ interface Scene {
   provisional: Provisional | null;
   fail: { cells: number[]; at: number } | null;
   wonAt: number | null;
+  /**
+   * A group that stranded tiles and undoes itself at `until`: drawn not quite
+   * white once its bind (made at `at`) has played. `group` indexes `groups`.
+   */
+  pending?: { group: number; at: number; until: number } | null;
   /** Cells left out of the board altogether (rule-card boards that are not rectangles). */
   hidden?: boolean[];
   /** Rule pictures: the pick was refused, so its rings and strings stay amber. */
@@ -76,9 +84,13 @@ interface Scene {
   names?: 'hold' | 'off';
 }
 
-interface Geom { cell: number; x: number; y: number; tokens: Area[]; area: Area }
+/** `legend` is the top of the particle tally under the board (and the gluons). */
+interface Geom { cell: number; x: number; y: number; tokens: Area[]; area: Area; legend: number }
 
-function boardGeom(area: Area, cols: number, rows: number, gluons: number, opts: { maxCell?: number; margin?: number; top?: number; token?: number; side?: boolean } = {}): Geom {
+/** The gap between the board (or its gluons) and the tally. */
+const LEGEND_GAP = 12;
+
+function boardGeom(area: Area, cols: number, rows: number, gluons: number, opts: { maxCell?: number; margin?: number; top?: number; token?: number; side?: boolean; legend?: number } = {}): Geom {
   const tokenSide = opts.token ?? TOKEN;
   const gap = 10;
   const tokens: Area[] = [];
@@ -88,21 +100,29 @@ function boardGeom(area: Area, cols: number, rows: number, gluons: number, opts:
     const g = fitGrid({ ...area, x: area.x + strip, w: area.w - strip }, cols, rows, { margin: opts.margin ?? 10, maxCell: opts.maxCell ?? 72, top: opts.top ?? 0 });
     const total = gluons * tokenSide + (gluons - 1) * gap;
     for (let k = 0; k < gluons; k++) tokens.push({ x: g.x - strip, y: g.y + (g.h - total) / 2 + k * (tokenSide + gap), w: tokenSide, h: tokenSide });
-    return { cell: g.cell, x: g.x, y: g.y, tokens, area };
+    return { cell: g.cell, x: g.x, y: g.y, tokens, area, legend: g.y + g.h };
   }
   const strip = gluons ? tokenSide + 16 : 0;
-  const g = fitGrid(area, cols, rows, { margin: opts.margin ?? 10, maxCell: opts.maxCell ?? 72, top: opts.top ?? 0, bottom: strip });
+  const legend = opts.legend ? LEGEND_GAP + opts.legend : 0;
+  const g = fitGrid(area, cols, rows, { margin: opts.margin ?? 10, maxCell: opts.maxCell ?? 72, top: opts.top ?? 0, bottom: strip + legend });
   const total = gluons * tokenSide + (gluons - 1) * gap;
   for (let k = 0; k < gluons; k++) {
     tokens.push({ x: g.x + (g.w - total) / 2 + k * (tokenSide + gap), y: g.y + g.h + 12, w: tokenSide, h: tokenSide });
   }
-  return { cell: g.cell, x: g.x, y: g.y, tokens, area };
+  return { cell: g.cell, x: g.x, y: g.y, tokens, area, legend: g.y + g.h + strip + LEGEND_GAP };
 }
+
+/**
+ * The gap between a tile and its cell's edge. Never more than a quarter of the
+ * cell, so a board squeezed to a few pixels (a screen being laid out) still has
+ * tiles of positive size: a negative size throws in roundRect and stops the frame loop.
+ */
+const tilePad = (c: number): number => Math.min(c * 0.25, Math.max(3, c * 0.08));
 
 const ease2 = (t: number): number => { const u = Math.max(0, Math.min(1, t)); return u * u * (3 - 2 * u); };
 
 function paint(ctx: CanvasRenderingContext2D, sc: Scene, G: Geom, now: number, reduced: boolean): void {
-  const c = G.cell, pad = Math.max(3, c * 0.08), w = c - pad * 2, rad = c * 0.18;
+  const c = G.cell, pad = tilePad(c), w = c - pad * 2, rad = c * 0.18;
   const center = (i: number): Point => ({ x: G.x + (i % sc.cols + 0.5) * c, y: G.y + (Math.floor(i / sc.cols) + 0.5) * c });
   const animOf = (cells: number[]) => (reduced ? undefined : sc.binds.find((b) => b.cells.length === cells.length && b.cells.every((i) => cells.includes(i)) && now - b.at < BIND_MS));
   const swapT = sc.swapAnim && !reduced ? (now - sc.swapAnim.at) / SWAP_MS : 1;
@@ -127,7 +147,20 @@ function paint(ctx: CanvasRenderingContext2D, sc: Scene, G: Geom, now: number, r
       const t = (now - sc.wonAt! - gi * 90) / 700;
       glow = t < 0 ? 0 : t < 1 ? 0.35 + 0.65 * Math.sin(Math.PI * t) : 0.35;
     } else if (won) glow = 0.35;
-    hadron(ctx, grp.map(center), grp.map((i) => sc.tiles[i]), links(sc.cols, grp), w, rad, glow);
+    const pend = sc.pending?.group === gi ? pendingLook(sc.pending, now, reduced) : 0;
+    hadron(ctx, grp.map(center), grp.map((i) => sc.tiles[i]), links(sc.cols, grp), w, rad, glow, pend);
+    if (pend > 0) {
+      // A dashed silver rim, like a swap not settled yet: this particle is about to come apart.
+      ctx.save();
+      ctx.globalAlpha = Math.min(1, pend * 2);
+      cellOutline(ctx, grp.map((i) => ({ x: i % sc.cols, y: Math.floor(i / sc.cols) })), G.x, G.y, c, pad - Math.max(2, c * 0.05), rad * 1.15);
+      ctx.setLineDash([w * 0.1, w * 0.075]);
+      ctx.lineDashOffset = reduced ? 0 : -now / 45;
+      ctx.strokeStyle = C.silver;
+      ctx.lineWidth = Math.max(1.5, w * 0.04);
+      ctx.stroke();
+      ctx.restore();
+    }
   });
 
   // Stranded regions glow amber underneath, so the gaps between their tiles read as one patch.
@@ -349,6 +382,20 @@ function paint(ctx: CanvasRenderingContext2D, sc: Scene, G: Geom, now: number, r
   G.tokens.forEach((r, k) => gluonToken(ctx, r, k >= left ? 'spent' : sc.armed && k === left - 1 ? 'armed' : 'ready', now, reduced));
 }
 
+/**
+ * How far a group that stranded tiles is drawn from finished (0 white, 1 its
+ * charges' colors), once its bind has played: it fades in, then creeps on and
+ * breathes as the undo comes. Reduced motion holds it still.
+ */
+function pendingLook(p: { at: number; until: number }, now: number, reduced: boolean): number {
+  if (reduced) return 0.45;
+  const start = p.at + BIND_MS;
+  if (now < start) return 0;
+  const k = Math.min(1, (now - start) / FADE_MS);
+  const left = Math.min(1, (now - start) / Math.max(1, p.until - start));
+  return k * (0.32 + 0.22 * left + 0.06 * Math.sin((now - start) / 160));
+}
+
 /** Pairs of neighbors in a group, as indexes into it. */
 function links(cols: number, cells: number[]): [number, number][] {
   const out: [number, number][] = [];
@@ -506,13 +553,21 @@ function cellOutline(ctx: CanvasRenderingContext2D, cells: Point[], ox: number, 
   ctx.closePath();
 }
 
-/** A bound group: one white particle, with a small mark of each charge it was made from. */
-function hadron(ctx: CanvasRenderingContext2D, pts: Point[], qs: Quark[], L: [number, number][], w: number, rad: number, glow: number): void {
+/**
+ * A bound group: one white particle, with a small mark of each charge it was
+ * made from. `pending` (0-1) tints each tile back toward its charge's color:
+ * not quite bound, about to be undone.
+ */
+function hadron(ctx: CanvasRenderingContext2D, pts: Point[], qs: Quark[], L: [number, number][], w: number, rad: number, glow: number, pending = 0): void {
   ctx.save();
   if (glow > 0) { ctx.shadowColor = C.silver; ctx.shadowBlur = w * 0.35 * glow; }
   hadronPath(ctx, pts, L, w, rad);
   ctx.fillStyle = C.tile;
   ctx.fill();
+  if (pending > 0) {
+    ctx.globalAlpha = pending;
+    pts.forEach((p, k) => tile(ctx, p.x - w / 2, p.y - w / 2, w, w, rad, chargeColor(qs[k].color)));
+  }
   ctx.restore();
   // The string inside, faint, and a dot per charge.
   ctx.save();
@@ -608,6 +663,101 @@ function tag(ctx: CanvasRenderingContext2D, cx: number, y: number, text: string,
   ctx.restore();
 }
 
+// ---- the tally ------------------------------------------------------------------------
+
+const PLURAL: Record<GroupKind, string> = { baryon: 'Baryons', antibaryon: 'Antibaryons', meson: 'Mesons' };
+const SINGULAR: Record<GroupKind, string> = { baryon: 'Baryon', antibaryon: 'Antibaryon', meson: 'Meson' };
+
+interface Legend { px: number; rows: { t: Tally; w: number }[][]; gap: number; rowH: number; h: number }
+
+const legendName = (t: Tally): string => (t.need === 1 ? SINGULAR : PLURAL)[t.kind];
+/** The icon's cell: a particle drawn as a small white pill of two or three cells. */
+const iconCell = (px: number): number => px * 0.8;
+const iconW = (kind: GroupKind, px: number): number => iconCell(px) * (kind === 'meson' ? 2 : 3);
+
+/**
+ * Lays the tally out to fit `width`: one row at the largest size that fits
+ * (13 px down to 11), else rows at 11 px, as many items on each as fit.
+ */
+function legendLayout(ctx: CanvasRenderingContext2D, items: Tally[], width: number): Legend {
+  const measure = (px: number) => items.map((t) => {
+    ctx.font = font(px, 500);
+    const name = ctx.measureText(`${legendName(t)} `).width;
+    ctx.font = font(px, 600);
+    // The widest the count gets, so the row does not shift as it fills.
+    const count = ctx.measureText(`${t.need}/${t.need}`).width;
+    return { t, w: iconW(t.kind, px) + px * 0.5 + name + count };
+  });
+  const sum = (row: { w: number }[], gap: number) => row.reduce((a, x) => a + x.w, 0) + gap * Math.max(0, row.length - 1);
+  for (const px of [13, 12, 11]) {
+    const row = measure(px), gap = px * 1.3;
+    if (sum(row, gap) <= width || px === 11) {
+      const rows: { t: Tally; w: number }[][] = [];
+      for (const x of row) {
+        const last = rows[rows.length - 1];
+        if (last && sum([...last, x], gap) <= width) last.push(x);
+        else rows.push([x]);
+      }
+      const rowH = Math.round(px * 1.75);
+      return { px, rows, gap, rowH, h: items.length ? rowH * rows.length : 0 };
+    }
+  }
+  throw new Error('unreachable');
+}
+
+/** The tally: each kind's icon, its name and how many are bound out of how many the grid makes. Green once all are. */
+function drawLegend(ctx: CanvasRenderingContext2D, L: Legend, cx: number, top: number): void {
+  const { px } = L;
+  ctx.save();
+  ctx.textBaseline = 'middle';
+  ctx.textAlign = 'left';
+  L.rows.forEach((row, r) => {
+    const total = row.reduce((a, x) => a + x.w, 0) + L.gap * (row.length - 1);
+    let x = cx - total / 2;
+    const y = top + r * L.rowH + L.rowH / 2;
+    for (const { t, w } of row) {
+      const full = t.done >= t.need;
+      particleIcon(ctx, x, y, t.kind, px);
+      let tx = x + iconW(t.kind, px) + px * 0.5;
+      const name = `${legendName(t)} `;
+      ctx.font = font(px, 500);
+      ctx.fillStyle = full ? C.good : C.text2;
+      ctx.fillText(name, tx, y + 0.5);
+      tx += ctx.measureText(name).width;
+      ctx.font = font(px, 600);
+      ctx.fillStyle = full ? C.good : C.text;
+      ctx.fillText(`${t.done}/${t.need}`, tx, y + 0.5);
+      x += w + L.gap;
+    }
+  });
+  ctx.restore();
+}
+
+/**
+ * A particle kind as a small white pill: a baryon's three charges as filled
+ * dots, an antibaryon's as rings, a meson's quark and antiquark as one of each
+ * (in pewter: a meson can be any color).
+ */
+function particleIcon(ctx: CanvasRenderingContext2D, x: number, cy: number, kind: GroupKind, px: number): void {
+  const s = iconCell(px), n = kind === 'meson' ? 2 : 3, h = s * 1.15;
+  tile(ctx, x, cy - h / 2, s * n, h, h / 2, C.tile);
+  const r = s * 0.24;
+  for (let k = 0; k < n; k++) {
+    const color = kind === 'meson' ? C.pewter : chargeColor(k);
+    const anti = kind === 'antibaryon' || (kind === 'meson' && k === 1);
+    ctx.beginPath();
+    ctx.arc(x + s * (k + 0.5), cy, anti ? r * 0.85 : r, 0, Math.PI * 2);
+    if (anti) {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = Math.max(1.25, r * 0.55);
+      ctx.stroke();
+    } else {
+      ctx.fillStyle = color;
+      ctx.fill();
+    }
+  }
+}
+
 // ---- the view -------------------------------------------------------------------------
 
 export class ColorChargeView implements PuzzleView {
@@ -626,15 +776,19 @@ export class ColorChargeView implements PuzzleView {
   private swapAnim: { a: number; b: number; at: number } | null = null;
   /** The last swap, while it still looks provisional. */
   private provisional: Provisional | null = null;
-  /** That swap stranded tiles: it undoes itself when `provisional.until` comes. */
-  private snapBack = false;
-  /** When a stranding swap last undid itself, for the hint. */
-  private snappedAt = -Infinity;
+  /**
+   * A move that stranded tiles, made at `at`: it undoes itself at `until`,
+   * back to the board before it (`history[depth - 1]`). `group` is the bound
+   * group it made, or -1 for a swap.
+   */
+  private pending: { kind: GroupKind | 'swap'; cells: number[]; group: number; at: number; until: number; depth: number } | null = null;
+  /** The last move that undid itself, and when, for the hint. */
+  private snapped: { kind: GroupKind | 'swap'; at: number } | null = null;
   private lost: number[] = [];
   private dead: number[] = [];
   private lostAt = 0;
   private wonAt: number | null = null;
-  private geom: Geom = { cell: 1, x: 0, y: 0, tokens: [], area: { x: 0, y: 0, w: 0, h: 0 } };
+  private geom: Geom = { cell: 1, x: 0, y: 0, tokens: [], area: { x: 0, y: 0, w: 0, h: 0 }, legend: 0 };
   private reduced: boolean;
   /** Look here: the tiles to ring, for the board it was asked on. */
   private mark: { state: ColorChargeState; cells: number[] } | null = null;
@@ -652,14 +806,17 @@ export class ColorChargeView implements PuzzleView {
   get stuck(): boolean { return false; }
   get moves(): number { return this.state.moves; }
   get par(): number | null { return this.state.par; }
+  stats(): { progress: Stat } { const s = this.state; return { progress: { label: 'Bound', value: `${s.groups.length}/${s.par - s.gluons}` } }; }
   get clean(): boolean { return this.state.moves <= this.state.par; }
 
   hint(): string {
     const s = this.state;
     if (this.won) return 'All color-neutral';
-    if (this.snapBack) return 'That swap strands tiles: undoing';
+    const p = this.pending;
+    if (p) return `That ${p.kind} strands tiles: undoing`;
     if (this.lost.length) return 'Stranded tiles: undo to free them';
-    if (this.clock() - this.snappedAt < SNAPPED_HINT_MS) return 'Swap undone: gluon back';
+    const q = this.snapped;
+    if (q && this.clock() - q.at < SNAPPED_HINT_MS) return q.kind === 'swap' ? 'Swap undone: gluon back' : `${SINGULAR[q.kind]} undone: it stranded tiles`;
     if (this.armed) return 'Gluon ready: pick two neighbors';
     const left = gluonsLeft(s);
     const g = left ? `, ${left} gluon${left === 1 ? '' : 's'}` : '';
@@ -707,8 +864,8 @@ export class ColorChargeView implements PuzzleView {
   canUndo(): boolean { return this.history.length > 0; }
 
   undo(): boolean {
-    // Undo while a stranding swap waits to undo itself just takes it back now.
-    if (this.snapBack) { this.snap(this.clock()); return true; }
+    // Undo while a stranding move waits to undo itself just takes it back now.
+    if (this.pending) { this.snap(this.clock()); return true; }
     const prev = this.history.pop();
     if (!prev) return false;
     this.state = prev;
@@ -722,8 +879,8 @@ export class ColorChargeView implements PuzzleView {
     this.binds = [];
     this.swapAnim = null;
     this.provisional = null;
-    this.snapBack = false;
-    this.snappedAt = -Infinity;
+    this.pending = null;
+    this.snapped = null;
     this.fail = null;
     this.wonAt = null;
     this.judge();
@@ -737,7 +894,8 @@ export class ColorChargeView implements PuzzleView {
     this.dead = this.lost.filter((i) => isolated(s, i));
   }
 
-  private commit(next: ColorChargeState): void {
+  /** Makes a move; true when it strands tiles that were not stranded before. */
+  private commit(next: ColorChargeState): boolean {
     const now = this.clock();
     this.history.push(this.state);
     if (this.history.length > 50) this.history.shift();
@@ -747,8 +905,15 @@ export class ColorChargeView implements PuzzleView {
     if (this.provisional && this.provisional.until > now) this.provisional = { ...this.provisional, until: now };
     const was = this.lost.length;
     this.judge();
-    if (this.lost.length && !was) this.lostAt = now + (this.reduced ? 0 : BIND_MS * 0.6);
+    const strands = this.lost.length > 0 && !was;
+    if (strands) this.lostAt = now + (this.reduced ? 0 : BIND_MS * 0.6);
     if (solved(next)) this.wonAt = now + (this.reduced ? 0 : BIND_MS * 0.5);
+    return strands;
+  }
+
+  /** A move just made stranded tiles: it undoes itself after UNDO_MS, unless a pending one already will. */
+  private hold(kind: GroupKind | 'swap', cells: number[], group: number, now: number): void {
+    this.pending ??= { kind, cells: [...cells], group, at: now, until: now + UNDO_MS, depth: this.history.length };
   }
 
   private tryBind(): void {
@@ -757,8 +922,9 @@ export class ColorChargeView implements PuzzleView {
       const kind = groupKind(this.state.tiles, this.sel)!;
       const now = this.clock();
       this.binds = this.binds.filter((b) => now - b.at < BIND_MS + LABEL_MS);
-      this.binds.push({ cells: [...this.sel], kind, at: now });
-      this.commit(next);
+      const cells = [...this.sel];
+      this.binds.push({ cells, kind, at: now });
+      if (this.commit(next)) this.hold(kind, cells, next.groups.length - 1, now);
       return;
     }
     if (this.sel.length >= 3) this.flunk();
@@ -768,31 +934,37 @@ export class ColorChargeView implements PuzzleView {
     const next = swap(this.state, a, b);
     if (!next) { this.flunk(); return; }
     const now = this.clock();
-    const was = this.lost.length;
     this.armed = false;
     this.swapAnim = { a, b, at: now };
-    this.commit(next);
+    const strands = this.commit(next);
     // The swap stays provisional for a moment after it lands; one that strands tiles shows them, then undoes itself.
     const land = now + (this.reduced ? 0 : SWAP_MS);
-    this.snapBack = this.lost.length > 0 && !was;
-    if (this.snapBack) this.lostAt = land;
-    this.provisional = { a, b, at: land, until: land + (this.snapBack ? (this.reduced ? SNAP_REDUCED_MS : SNAP_MS) : SETTLE_MS) };
+    if (strands) {
+      this.lostAt = land;
+      this.hold('swap', [a, b], -1, now);
+    }
+    this.provisional = { a, b, at: land, until: strands ? Math.max(land, this.pending!.until) : land + SETTLE_MS };
   }
 
-  /** Takes back a swap that stranded tiles, like Undo (gluon and move refunded), and swings the tiles home. */
+  /**
+   * Takes back a move that stranded tiles, like Undo (the move, and a swap's
+   * gluon, refunded), along with anything made on top of it; a swap's tiles
+   * swing home.
+   */
   private snap(now: number): void {
-    const p = this.provisional;
-    const prev = this.history.pop();
-    if (!p || !prev) { this.snapBack = false; return; }
-    this.state = prev;
+    const p = this.pending;
+    this.pending = null;
+    if (!p || p.depth < 1 || p.depth > this.history.length) return;
+    this.state = this.history[p.depth - 1];
+    this.history.length = p.depth - 1;
     this.reset();
-    this.snappedAt = now;
-    if (!this.reduced) this.swapAnim = { a: p.a, b: p.b, at: now };
+    this.snapped = { kind: p.kind, at: now };
+    if (p.kind === 'swap' && !this.reduced) this.swapAnim = { a: p.cells[0], b: p.cells[1], at: now };
   }
 
-  /** Lets a pending stranding swap undo itself once its time is up. */
+  /** Lets a pending stranding move undo itself once its time is up. */
   private settle(now: number): void {
-    if (this.snapBack && this.provisional && now >= this.provisional.until) this.snap(now);
+    if (this.pending && now >= this.pending.until) this.snap(now);
   }
 
   private flunk(): void {
@@ -833,8 +1005,8 @@ export class ColorChargeView implements PuzzleView {
 
   down(p: Point): void {
     if (this.won) return;
-    // A stranding swap is on show: any touch takes it back at once and does nothing else.
-    if (this.snapBack) { this.snap(this.clock()); return; }
+    // A stranding move is on show: any touch takes it back at once and does nothing else.
+    if (this.pending) { this.snap(this.clock()); return; }
     if (this.tokenAt(p)) { this.tokenDown = true; return; }
     const t = this.tileAt(p, false);
     this.dragging = true;
@@ -889,7 +1061,7 @@ export class ColorChargeView implements PuzzleView {
   }
 
   key(e: KeyboardEvent): boolean {
-    if (this.snapBack && (e.key === 'Escape' || e.key === 'g' || e.key === 'G')) { this.snap(this.clock()); return true; }
+    if (this.pending && (e.key === 'Escape' || e.key === 'g' || e.key === 'G')) { this.snap(this.clock()); return true; }
     if (e.key === 'Escape' && (this.sel.length || this.armed)) { this.sel = []; this.armed = false; return true; }
     if ((e.key === 'g' || e.key === 'G') && this.state.gluons) { this.toggleArmed(); return true; }
     return false;
@@ -900,17 +1072,23 @@ export class ColorChargeView implements PuzzleView {
   draw(ctx: CanvasRenderingContext2D, area: Area, now: number): void {
     this.settle(now);
     const s = this.state;
-    this.geom = boardGeom(area, s.cols, s.rows, s.gluons);
+    const p = this.pending;
+    const group = p ? p.group : -1;
+    // The tally leaves out a particle that is about to be undone.
+    const legend = legendLayout(ctx, tally(s, group), area.w - 20);
+    this.geom = boardGeom(area, s.cols, s.rows, s.gluons, { legend: legend.h });
     paint(ctx, {
       cols: s.cols, rows: s.rows, tiles: s.tiles, bound: s.bound, groups: s.groups, swaps: s.swaps, gluons: s.gluons,
       sel: this.sel, armed: this.armed, stranded: this.lost, dead: this.dead, strandedAt: this.lostAt,
       binds: this.binds, swapAnim: this.swapAnim, provisional: this.provisional, fail: this.fail, wonAt: this.wonAt !== null && now >= this.wonAt ? this.wonAt : null,
+      pending: p && group >= 0 ? { group, at: p.at, until: p.until } : null,
     }, this.geom, now, this.reduced);
+    drawLegend(ctx, legend, this.geom.x + (this.geom.cell * s.cols) / 2, this.geom.legend);
 
     // Look here: each tile of the group (or the two to swap).
     if (this.mark?.state === s && !this.won) {
       const { cell: c, x, y } = this.geom;
-      const pad = Math.max(3, c * 0.08);
+      const pad = tilePad(c);
       for (const i of this.mark.cells) drawHelpMark(ctx, x + (i % s.cols) * c + pad, y + Math.floor(i / s.cols) * c + pad, c - pad * 2, c - pad * 2, now, this.reduced, c * 0.18);
     }
   }
@@ -949,8 +1127,8 @@ const parseTiles = (s: string): (Quark | null)[] =>
 /**
  * A picture for the Instructions modal: a short story on a tiny board, drawn
  * with the board's own painter. It plays from 0 to `duration`; the still is
- * the last frame. A swap that strands tiles is caught at the moment it is on
- * show (the board would undo it right after).
+ * the last frame. A move that strands tiles is caught while it is on show
+ * (the board would undo it right after).
  */
 function picture(d: Story): Illustration {
   const cells = parseTiles(d.tiles);
@@ -969,6 +1147,7 @@ function picture(d: Story): Illustration {
     let binds: BindAnim[] = [];
     let swapAnim: Scene['swapAnim'] = null;
     let provisional: Provisional | null = null;
+    let pending: Scene['pending'] = null;
     let strandAt = 0;
     for (const e of d.events) {
       if (e.at * 1000 > ms) break;
@@ -993,6 +1172,8 @@ function picture(d: Story): Illustration {
           s = bind(s, e.bind)!;
           binds = [...binds, { cells: e.bind, kind, at }];
           strandAt = at + BIND_MS * 0.6;
+          // A group that strands tiles is on show, not quite bound, to the end of the story.
+          if (d.strands && !pending && stranded(s).length) pending = { group: s.groups.length - 1, at, until: Infinity };
         }
         sel = [];
       }
@@ -1003,7 +1184,7 @@ function picture(d: Story): Illustration {
     paint(ctx, {
       cols: d.cols, rows: d.rows, tiles: s.tiles, bound: s.bound, groups: s.groups, swaps: s.swaps, gluons,
       sel, armed, rejected, stranded: lost, dead: lost.filter((i) => isolated(s, i)), strandedAt: strandAt,
-      binds, swapAnim, provisional, fail: null, wonAt: null, hidden, names: d.names ? 'hold' : 'off',
+      binds, swapAnim, provisional, fail: null, wonAt: null, hidden, names: d.names ? 'hold' : 'off', pending,
     }, G, ms, false);
     // The finger, on the last tile picked or on the gluon it just armed; the still leaves it out.
     if (ms >= d.duration * 1000) { /* the still */ } else if (sel.length) {
@@ -1051,7 +1232,7 @@ export const RULES: RuleCard[] = [
   },
   {
     title: 'Stranded tiles',
-    text: 'Every tile must end up in a group. Tiles that can no longer all be bound glow inside a thick amber rim, and a tile nothing could bind also gets an amber ring and a ! mark; undo to free them.',
+    text: 'Every tile must end up in a group. Tiles that can no longer all be bound glow inside a thick amber rim, and a tile nothing could bind also gets an amber ring and a ! mark. The move that stranded them fades and is undone after two seconds.',
     good: picture({
       cols: 3, rows: 2, tiles: 'rgb gbr', duration: 2.4, caption: 'Two rows: all bound',
       events: [{ at: 0.3, pick: 0 }, { at: 0.55, pick: 1 }, { at: 0.8, pick: 2 }, { at: 1.0, bind: [0, 1, 2] }, { at: 1.7, bind: [3, 4, 5] }],

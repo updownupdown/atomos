@@ -10,6 +10,8 @@ import { icon } from '../ui/icons';
 import { modalOpen } from '../ui/modal';
 import { puzzleType } from './catalog';
 import { PuzzleHost } from './host';
+import { difficulty } from './difficulty';
+import { createGameBar, offerRules } from './gamebar';
 import { openRules } from './rulesModal';
 import { showWin } from './winPanel';
 import type { Area } from './view';
@@ -46,20 +48,14 @@ function run(id: UnlockId, info: UnlockInfo): Promise<boolean> {
     root.innerHTML = `
       <div class="pg-head">
         <button class="back-plate" data-back aria-label="Back without unlocking">${icon('chevron-left', { size: 20 })}<span>Back</span></button>
-        <h2 class="pg-title">${t.name}</h2>
-        <span class="pg-use">Unlock · ${info.title}</span>
+        <h2 class="pg-title" title="Unlock: ${info.title}">${t.name}</h2>
+        <span></span>
       </div>
-      <div class="pg-play"><canvas aria-label="The puzzle."></canvas></div>
-      <div class="pg-bottom">
-        <div class="pg-status"><span class="pg-count"></span><span class="pg-hint" role="status" aria-live="polite"></span></div>
-        <div class="pg-actions"></div>
-      </div>`;
+      <div class="pg-play"><canvas aria-label="The puzzle."></canvas></div>`;
     document.body.append(root);
 
     const canvas = root.querySelector('canvas')!;
     const play = root.querySelector<HTMLElement>('.pg-play')!;
-    const count = root.querySelector<HTMLElement>('.pg-count')!;
-    const hintEl = root.querySelector<HTMLElement>('.pg-hint')!;
     const area = (): Area => {
       const r = canvas.getBoundingClientRect();
       const colW = r.width < 700 ? r.width - 16 : Math.min(720, r.width * 0.7);
@@ -67,7 +63,6 @@ function run(id: UnlockId, info: UnlockInfo): Promise<boolean> {
     };
     const host = new PuzzleHost(canvas, area);
     let closeWin = () => {};
-    let shown = '';
     const restartOpts = {
       canRestart: () => (host.current?.moves ?? 0) > 0,
       sweepOver: () => canvas,
@@ -76,22 +71,21 @@ function run(id: UnlockId, info: UnlockInfo): Promise<boolean> {
     host.onRestartKey = () => void askRestart(restartOpts);
 
     const undo = iconButton({ icon: icon('undo'), label: 'Undo', onClick: () => host.undo() });
-    root.querySelector('.pg-actions')!.append(
+    const rules = () => openRules(t, { reducedMotion: reduced });
+    const bar = createGameBar([
       undo,
       restartButton(restartOpts),
       host.hints.button,
-      iconButton({ icon: icon('info'), label: 'Instructions', onClick: () => openRules(t, { reducedMotion: reduced }) }),
-    );
+      iconButton({ icon: icon('info'), label: 'Instructions', onClick: rules }),
+    ]);
+    bar.setDifficulty(difficulty(t.id, z));
+    play.before(bar.el);
+    offerRules(bar, t, rules);
 
     host.onFrame = (v) => {
-      const text = `${v.moves} move${v.moves === 1 ? '' : 's'}${v.par !== null ? ` · par ${v.par}` : ''}`;
-      if (count.textContent !== text) count.textContent = text;
       undo.disabled = !v.canUndo();
       const plain = host.status();
-      if (plain !== shown) {
-        shown = plain;
-        hintEl.textContent = plain.length > 60 && plain !== host.hints.line(v) ? '' : plain;
-      }
+      bar.update(v, plain.length > 60 && plain !== host.hints.line(v) ? '' : plain);
     };
 
     const finish = (won: boolean) => {
