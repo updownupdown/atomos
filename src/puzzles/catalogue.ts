@@ -7,13 +7,13 @@ import { applyPlacement, configuration, newAtom, resolvePlacement } from '../cor
 import { newMerge } from './merge';
 import { MergeView, sup, INSTRUCTIONS as MERGE_HOW } from './mergeView';
 import { newSliding } from './sliding';
-import { SlidingView } from './slidingView';
+import { SlidingView, INSTRUCTIONS as SLIDING_HOW } from './slidingView';
 import { newPacking } from './packing';
-import { PackingView } from './packingView';
+import { PackingView, INSTRUCTIONS as PACKING_HOW } from './packingView';
 import { newLines } from './lines';
 import { LinesView, INSTRUCTIONS as LINES_HOW } from './linesView';
 import { newSlideStop } from './slideStop';
-import { SlideStopView } from './slideStopView';
+import { SlideStopView, INSTRUCTIONS as SLIDESTOP_HOW } from './slideStopView';
 import { newLight } from './light';
 import { LightView, INSTRUCTIONS as LIGHT_HOW } from './lightView';
 import { newCodebreaker } from './codebreaker';
@@ -104,8 +104,9 @@ export const PUZZLES: PuzzleType[] = [
   },
   {
     id: 'sliding', name: 'Sliding Block', tier: 'every',
-    blurb: 'Drag the bars out of the way so the red key bar can slide out.',
+    blurb: 'Slide the bars and blocks out of the way so the red key bar can slide out.',
     role: 'Builds the nucleus of every element past iron, where fusion stops paying.',
+    instructions: SLIDING_HOW,
     zRange: [27, 118],
     make: (z, deal, reduced) => new SlidingView(newSliding(z, dealSeed('sliding', z, deal)), reduced),
     science: (z) => {
@@ -120,6 +121,7 @@ export const PUZZLES: PuzzleType[] = [
     id: 'packing', name: 'Packing', tier: 'facet',
     blurb: 'Drag the pieces into the outline until it is filled exactly; tap a piece to turn it.',
     role: 'Opens an element\'s isotope vault; later isotopes rotate Packing, Merge and Sliding Block.',
+    instructions: PACKING_HOW,
     zRange: [1, 118],
     make: (z, deal, reduced) => new PackingView(newPacking(z, dealSeed('packing', z, deal)), reduced),
     science: (z) => {
@@ -147,8 +149,9 @@ export const PUZZLES: PuzzleType[] = [
   },
   {
     id: 'slideStop', name: 'Slide Until Stop', tier: 'gate',
-    blurb: 'Swipe to skate: the droplet slides until it hits a rock. Stop on the red ring.',
+    blurb: 'Swipe to skate: the droplet slides until something stops it. Collect every spark, then stop on the red ring.',
     role: 'Opens each new period of the table.',
+    instructions: SLIDESTOP_HOW,
     zRange: [1, 118],
     make: (z, deal, reduced) => new SlideStopView(newSlideStop(z, dealSeed('slideStop', z, deal)), reduced),
     science: () => `<h2>Slide Until Stop: the science</h2>

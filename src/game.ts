@@ -634,9 +634,9 @@ export class Game {
     if (!this.puzzle || this.busy) return;
     const p = this.puzzle as unknown as { state: unknown };
     if (this.stage === 'nucleus') {
-      const s = p.state as { sockets?: number[]; filled?: number; blocks?: { x: number; len: number }[]; size?: number };
+      const s = p.state as { sockets?: number[]; filled?: number; blocks?: { x: number; len: number }[]; w?: number };
       if (s.sockets) s.filled = s.sockets.length;
-      else if (s.blocks) s.blocks[0] = { ...s.blocks[0], x: s.size! - s.blocks[0].len };
+      else if (s.blocks) s.blocks[0] = { ...s.blocks[0], x: s.w! - s.blocks[0].len };
     } else {
       const s = p.state as { cells: number[]; solution: number[] };
       s.cells = [...s.solution];

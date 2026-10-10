@@ -1,13 +1,50 @@
 // Drawing and touch for Packing: drag pieces from the tray onto the outline,
-// tap a piece to turn it, drag a placed piece to move it or lift it off.
+// tap a piece to turn it, drag a placed piece to move it or off the board to
+// lift it. At the top of the table a flip button mirrors the chosen piece.
+// The board and the tray are laid out from the area alone (tray below on a
+// tall area, beside on a wide one), and the tray scales its pieces down until
+// they all fit, so nothing ever spills.
 
-import { applyMove, bounds, canPlace, cellsOf, clonePacking, occupancy, solved, type Cell, type PackingMove, type PackingState, type Piece } from './packing';
-import { droplet, ease, MONO, type Area, type Point, type PuzzleView } from './view';
+import { applyMove, bounds, canPlace, cellsLeft, cellsOf, clonePacking, occupancy, solved, type Cell, type PackingMove, type PackingState, type Piece } from './packing';
+import { C, tile } from './palette';
+import { ease, type Area, type Point, type PuzzleView } from './view';
 
 const TAP = 8;
 const GLOW_MS = 520;
+const SHAKE_MS = 240;
+const MAX_CELL = 72;
+const FLIP_SIZE = 44;
 
-interface Slot { id: number; x: number; y: number; side: number; tc: number }
+export const INSTRUCTIONS = `
+<h3>How to play</h3>
+<p>Fill every open cell of the dotted outline with pieces from the tray.</p>
+<ul>
+  <li><b>Drag a piece</b> onto the outline. A bright shadow shows exactly where it will land; it drops there when you let go. A red shadow means it will not fit there.</li>
+  <li><b>Tap a piece</b> to turn it a quarter turn, in the tray or on the board.</li>
+  <li><b>Hatched squares are already filled</b>: nothing goes on them.</li>
+  <li>Drag a placed piece to move it, or drag it off the board to put it back in the tray.</li>
+  <li>From the middle of the table <b>one piece in the tray is spare</b>: it fits nowhere in the answer. Work out which one to leave out.</li>
+  <li>Near the end of the table some pieces arrive mirrored. Tap a piece to choose it, then the <b>flip button</b> beside the tray to mirror it left to right.</li>
+</ul>
+<p>Keyboard: Tab or 1 to 9 picks a piece, R or Space turns it, F flips it, Enter drops it on the first spot it fits, the arrows nudge it, Backspace lifts it.</p>
+<h3>In the game</h3>
+<p>Packing opens each element's isotope vault, and later isotopes rotate it with Merge and Sliding Block. It runs for every element, z 1 to 118.</p>
+<p>The outline grows from 10 cells at hydrogen to 34 at the end of the table, on a grid of up to 7 by 7, and comes in four kinds: compact, mirror-symmetric, with a hole through it, and loose with arms (from z 50). Filled blocks arrive at z 12 (one), 40 (two) and 80 (three). The spare piece arrives at z 30 and is never the same shape as a real one. Flipping arrives at z 90.</p>
+<p>Each level is carved from its own answer, so it is always solvable; other answers may exist and count too. Par is one placement per piece that belongs: every drop on the board counts as a move, so moving a piece twice costs one over par. Turning, flipping and lifting are free.</p>
+`;
+
+interface Slot { id: number; x: number; y: number; side: number }
+
+interface Layout {
+  key: string;
+  board: { x: number; y: number; cell: number };
+  tray: Area;
+  /** Tray cell size. */
+  tc: number;
+  /** One slot per piece, kept even while the piece is on the board, so the tray never jumps. */
+  slots: Slot[];
+  flip: Area | null;
+}
 
 interface Drag {
   id: number;
@@ -24,11 +61,13 @@ export class PackingView implements PuzzleView {
   private history: PackingState[] = [];
   private drag: Drag | null = null;
   private selected = 0;
+  /** The selection ring shows when it matters: for the flip button, or once the keyboard is used. */
+  private keyboard = false;
+  private flipDown = false;
   private glow: { id: number; at: number } | null = null;
-  private shake = 0;
-  private area: Area = { x: 0, y: 0, w: 1, h: 1 };
-  private board = { x: 0, y: 0, cell: 40 };
-  private slots: Slot[] = [];
+  private shake = -1e9;
+  private wonAt = 0;
+  private lay: Layout | null = null;
   private reduced: boolean;
 
   constructor(private readonly initial: PackingState, reducedMotion: boolean) {
@@ -43,12 +82,9 @@ export class PackingView implements PuzzleView {
   get clean(): boolean { return this.state.moves <= this.state.par; }
 
   hint(): string {
-    const left = this.state.pieces.filter((p) => !p.at).length;
-    if (this.won) return 'Nothing sticks out: the outline is full.';
-    if (this.state.moves === 0) return '<span class="hl">Drag</span> a piece onto the dotted outline. <span class="hl">Tap</span> a piece to turn it a quarter.';
-    if (left === 1) return 'One piece left. If it will not fit, lift another and try a different turn.';
-    if (left === 0) return 'Every piece is down but a gap remains: lift one and try again.';
-    return `${left} pieces to go. Drag a placed piece to move it, or back to the tray to lift it.`;
+    if (this.won) return 'The outline is full';
+    const n = cellsLeft(this.state);
+    return n === 1 ? '1 cell to fill' : `${n} cells to fill`;
   }
 
   restart(): void {
@@ -65,6 +101,7 @@ export class PackingView implements PuzzleView {
     if (!prev) return false;
     this.state = prev;
     this.glow = null;
+    this.drag = null;
     return true;
   }
 
@@ -75,6 +112,7 @@ export class PackingView implements PuzzleView {
     if (this.history.length > 50) this.history.shift();
     this.state = next;
     if (m.kind === 'place' && !this.reduced) this.glow = { id: m.piece, at: performance.now() };
+    if (solved(next)) this.wonAt = performance.now();
     return true;
   }
 
@@ -82,74 +120,144 @@ export class PackingView implements PuzzleView {
     return this.state.pieces.find((p) => p.id === id)!;
   }
 
-  // ---- geometry ---------------------------------------------------------------------
+  // ---- layout -----------------------------------------------------------------------
 
-  private layout(area: Area): void {
-    this.area = area;
+  private layout(area: Area): Layout {
     const s = this.state;
-    const cell = Math.max(26, Math.min(72, Math.floor(Math.min((area.w - 32) / s.w, (area.h * 0.56 - 24) / s.h))));
-    this.board = { x: Math.round(area.x + (area.w - cell * s.w) / 2), y: Math.round(area.y + 18), cell };
-    const trayTop = this.board.y + cell * s.h + 26;
-    let tc = Math.max(16, Math.min(40, Math.round(cell * 0.62)));
-    for (let pass = 0; pass < 4; pass++) {
-      this.slots = this.flow(trayTop, tc);
-      const bottom = Math.max(trayTop, ...this.slots.map((sl) => sl.y + sl.side));
-      if (bottom <= area.y + area.h - 4 || tc <= 16) break;
-      tc = Math.max(16, Math.round(tc * 0.84));
+    const k = `${area.x},${area.y},${area.w},${area.h}`;
+    if (this.lay && this.lay.key === k) return this.lay;
+    const sides = s.pieces.map((p) => { const b = bounds(p.shape); return Math.max(b.w, b.h); });
+    const margin = 8;
+    let best: { score: number; lay: Layout } | null = null;
+    for (const below of [true, false]) {
+      for (let f = 0.38; f <= 0.76; f += 0.02) {
+        const boardArea: Area = below
+          ? { x: area.x, y: area.y, w: area.w, h: area.h * f }
+          : { x: area.x, y: area.y, w: area.w * f, h: area.h };
+        const cell = Math.min(MAX_CELL, Math.floor(Math.min((boardArea.w - margin * 2) / s.w, (boardArea.h - margin * 2) / s.h)));
+        if (cell < 8) continue;
+        const bw = cell * s.w, bh = cell * s.h;
+        let tray: Area = below
+          ? { x: area.x + margin, y: area.y + margin + bh + margin, w: area.w - margin * 2, h: area.h - bh - margin * 3 }
+          : { x: area.x + margin + bw + margin * 2, y: area.y + margin, w: area.w - bw - margin * 4, h: area.h - margin * 2 };
+        if (tray.w < 40 || tray.h < 40) continue;
+        let flip: Area | null = null;
+        if (s.flips) {
+          // The flip button gets its own strip at the tray's right (below) or top (beside).
+          if (below) {
+            flip = { x: tray.x + tray.w - FLIP_SIZE, y: tray.y + 4, w: FLIP_SIZE, h: FLIP_SIZE };
+            tray = { ...tray, w: tray.w - FLIP_SIZE - 8 };
+          } else {
+            flip = { x: tray.x + tray.w - FLIP_SIZE, y: tray.y, w: FLIP_SIZE, h: FLIP_SIZE };
+            tray = { ...tray, y: tray.y + FLIP_SIZE + 8, h: tray.h - FLIP_SIZE - 8 };
+          }
+          if (tray.w < 40 || tray.h < 40) continue;
+        }
+        // The largest tray cell at which every piece fits.
+        let lo = 4, hi = Math.min(cell * 0.85, 46);
+        if (!this.flow(sides, tray, lo)) continue;
+        for (let it = 0; it < 14; it++) {
+          const mid = (lo + hi) / 2;
+          if (this.flow(sides, tray, mid)) lo = mid; else hi = mid;
+        }
+        const tc = Math.floor(lo * 10) / 10;
+        const slots = this.flow(sides, tray, tc)!;
+        // Balance a big board against tray pieces big enough to grab (about half a board cell).
+        const score = Math.min(cell, tc / 0.5) + cell * 0.3;
+        if (!best || score > best.score) {
+          const bx = below ? area.x + (area.w - bw) / 2 : area.x + margin;
+          const by = below ? area.y + margin : area.y + (area.h - bh) / 2;
+          best = { score, lay: { key: k, board: { x: Math.round(bx), y: Math.round(by), cell }, tray, tc, slots, flip } };
+        }
+      }
     }
+    const lay = best?.lay ?? { key: k, board: { x: area.x, y: area.y, cell: 8 }, tray: { ...area, h: 0 }, tc: 4, slots: [], flip: null };
+    this.lay = lay;
+    return lay;
   }
 
-  /** Tray slots: one square per unplaced piece, sized by its longest side so a turn never reflows the tray. */
-  private flow(top: number, tc: number): Slot[] {
-    const gap = 10;
-    const left = this.area.x + 16, right = this.area.x + this.area.w - 16;
-    const out: Slot[] = [];
-    let x = left, y = top, rowH = 0;
-    for (const p of this.state.pieces) {
-      if (p.at) continue;
-      const b = bounds(p.shape);
-      const side = Math.max(40, Math.max(b.w, b.h) * tc);
-      if (x + side > right && x > left) { x = left; y += rowH + gap; rowH = 0; }
-      out.push({ id: p.id, x, y, side, tc });
+  /** Rows of square slots, centred in the tray; null when they do not fit. */
+  private flow(sides: number[], tray: Area, tc: number): Slot[] | null {
+    const pad = Math.max(3, tc * 0.3);
+    const gap = Math.max(4, tc * 0.2);
+    const rows: Slot[][] = [[]];
+    let x = 0, y = 0, rowH = 0;
+    const widths: number[] = [];
+    sides.forEach((n, id) => {
+      const side = n * tc + pad * 2;
+      if (side > tray.w) { y = Infinity; return; }
+      if (x > 0 && x + side > tray.w) {
+        widths.push(x - gap);
+        rows.push([]);
+        y += rowH + gap;
+        x = 0;
+        rowH = 0;
+      }
+      rows[rows.length - 1].push({ id, x, y, side });
       x += side + gap;
       rowH = Math.max(rowH, side);
-    }
+    });
+    widths.push(x - gap);
+    if (y + rowH > tray.h) return null;
+    const total = y + rowH;
+    const out: Slot[] = [];
+    rows.forEach((row, r) => {
+      const dx = tray.x + (tray.w - widths[r]) / 2;
+      const rh = Math.max(...row.map((sl) => sl.side));
+      for (const sl of row) out.push({ id: sl.id, x: dx + sl.x, y: tray.y + (tray.h - total) / 2 + sl.y + (rh - sl.side) / 2, side: sl.side });
+    });
     return out;
   }
 
-  private slotOf(id: number): Slot | undefined {
-    return this.slots.find((sl) => sl.id === id);
-  }
-
   /** Pixel origin of a piece drawn in its tray slot, centred. */
-  private slotOrigin(sl: Slot, p: Piece): Point {
+  private slotOrigin(sl: Slot, p: Piece, tc: number): Point {
     const b = bounds(cellsOf(p));
-    return { x: sl.x + (sl.side - b.w * sl.tc) / 2, y: sl.y + (sl.side - b.h * sl.tc) / 2 };
+    return { x: sl.x + (sl.side - b.w * tc) / 2, y: sl.y + (sl.side - b.h * tc) / 2 };
   }
 
   private boardCell(p: Point): Cell {
-    const { x, y, cell } = this.board;
+    const { x, y, cell } = this.lay!.board;
     return { x: Math.floor((p.x - x) / cell), y: Math.floor((p.y - y) / cell) };
   }
 
   private onBoard(p: Point): boolean {
-    const c = this.boardCell(p);
-    return c.x >= 0 && c.y >= 0 && c.x < this.state.w && c.y < this.state.h;
+    if (!this.lay) return false;
+    const { x, y, cell } = this.lay.board;
+    return p.x >= x - cell * 0.5 && p.y >= y - cell * 0.5 && p.x < x + (this.state.w + 0.5) * cell && p.y < y + (this.state.h + 0.5) * cell;
   }
 
-  /** The piece's grid corner implied by the drag position, with the grabbed cell under the finger. */
-  private dropCorner(d: Drag): Cell {
-    const { x, y, cell } = this.board;
-    return { x: Math.round((d.p.x - x) / cell - d.grab.x - 0.5), y: Math.round((d.p.y - y) / cell - d.grab.y - 0.5) };
+  /**
+   * Where a dragged piece would land: the corner under the finger, or the
+   * nearest corner within one cell where it fits. `ok` says whether it fits.
+   */
+  private target(d: Drag): { at: Cell; ok: boolean } | null {
+    if (!this.onBoard(d.p)) return null;
+    const { x, y, cell } = this.lay!.board;
+    const fx = (d.p.x - x) / cell - d.grab.x - 0.5, fy = (d.p.y - y) / cell - d.grab.y - 0.5;
+    const at = { x: Math.round(fx), y: Math.round(fy) };
+    if (canPlace(this.state, d.id, at)) return { at, ok: true };
+    let best: { at: Cell; dist: number } | null = null;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      const c = { x: at.x + dx, y: at.y + dy };
+      const dist = Math.hypot(c.x - fx, c.y - fy);
+      if (dist < 1.05 && canPlace(this.state, d.id, c) && (!best || dist < best.dist)) best = { at: c, dist };
+    }
+    return best ? { at: best.at, ok: true } : { at, ok: false };
+  }
+
+  private inFlip(p: Point): boolean {
+    const f = this.lay?.flip;
+    return !!f && p.x >= f.x && p.y >= f.y && p.x <= f.x + f.w && p.y <= f.y + f.h;
   }
 
   // ---- input ----------------------------------------------------------------------
 
   down(p: Point): void {
-    if (this.won) return;
+    if (this.won || !this.lay) return;
+    if (this.inFlip(p)) { this.flipDown = true; return; }
     const s = this.state;
-    if (this.onBoard(p)) {
-      const c = this.boardCell(p);
+    const c = this.boardCell(p);
+    if (c.x >= 0 && c.y >= 0 && c.x < s.w && c.y < s.h) {
       const id = occupancy(s)[c.y * s.w + c.x];
       if (id >= 0) {
         const q = this.piece(id);
@@ -158,18 +266,17 @@ export class PackingView implements PuzzleView {
         return;
       }
     }
-    for (const sl of this.slots) {
-      if (p.x < sl.x || p.y < sl.y || p.x > sl.x + sl.side || p.y > sl.y + sl.side) continue;
+    const tc = this.lay.tc;
+    for (const sl of this.lay.slots) {
       const q = this.piece(sl.id);
-      const o = this.slotOrigin(sl, q);
+      if (q.at || p.x < sl.x || p.y < sl.y || p.x > sl.x + sl.side || p.y > sl.y + sl.side) continue;
+      const o = this.slotOrigin(sl, q, tc);
       const cells = cellsOf(q);
-      const b = bounds(cells);
-      const gx = Math.max(0, Math.min(b.w - 1, Math.floor((p.x - o.x) / sl.tc)));
-      const gy = Math.max(0, Math.min(b.h - 1, Math.floor((p.y - o.y) / sl.tc)));
+      const gx = (p.x - o.x) / tc - 0.5, gy = (p.y - o.y) / tc - 0.5;
       // Grab the nearest cell of the shape, so the finger stays on the piece while it grows to board size.
-      const grab = cells.reduce((best, c) => (Math.hypot(c.x - gx, c.y - gy) < Math.hypot(best.x - gx, best.y - gy) ? c : best), cells[0]);
+      const grab = cells.reduce((b, cc) => (Math.hypot(cc.x - gx, cc.y - gy) < Math.hypot(b.x - gx, b.y - gy) ? cc : b), cells[0]);
       this.selected = sl.id;
-      this.drag = { id: sl.id, start: p, p, grab, moved: false, fromBoard: false };
+      this.drag = { id: sl.id, start: p, p, grab: { ...grab }, moved: false, fromBoard: false };
       return;
     }
   }
@@ -182,6 +289,11 @@ export class PackingView implements PuzzleView {
   }
 
   up(p: Point): void {
+    if (this.flipDown) {
+      this.flipDown = false;
+      if (this.inFlip(p)) this.apply({ kind: 'flip', piece: this.selected });
+      return;
+    }
     const d = this.drag;
     this.drag = null;
     if (!d) return;
@@ -190,23 +302,33 @@ export class PackingView implements PuzzleView {
       this.apply({ kind: 'rotate', piece: d.id });
       return;
     }
-    const corner = this.dropCorner(d);
-    if (this.onBoard(p) && canPlace(this.state, d.id, corner)) {
-      this.apply({ kind: 'place', piece: d.id, at: corner });
+    const t = this.target(d);
+    if (t?.ok) {
+      const q = this.piece(d.id);
+      if (q.at && q.at.x === t.at.x && q.at.y === t.at.y) return;
+      this.apply({ kind: 'place', piece: d.id, at: t.at });
       return;
     }
-    if (d.fromBoard) this.apply({ kind: 'lift', piece: d.id });
-    else if (this.onBoard(p)) this.shake = performance.now();
+    if (d.fromBoard && !t) this.apply({ kind: 'lift', piece: d.id });
+    else if (t) this.shake = performance.now();
   }
 
   cancel(): void {
     this.drag = null;
+    this.flipDown = false;
+  }
+
+  private firstFit(q: Piece): Cell | null {
+    const s = this.state;
+    for (let y = 0; y < s.h; y++) for (let x = 0; x < s.w; x++) if (canPlace(s, q.id, { x, y })) return { x, y };
+    return null;
   }
 
   key(e: KeyboardEvent): boolean {
     if (this.won) return false;
     const s = this.state;
     const n = s.pieces.length;
+    this.keyboard = true;
     if (e.key === 'Tab') {
       e.preventDefault();
       this.selected = (this.selected + (e.shiftKey ? n - 1 : 1)) % n;
@@ -215,136 +337,177 @@ export class PackingView implements PuzzleView {
     if (/^[1-9]$/.test(e.key) && Number(e.key) <= n) { this.selected = Number(e.key) - 1; return true; }
     const q = this.piece(this.selected);
     if (e.key === ' ' || e.key === 'r' || e.key === 'R') { this.apply({ kind: 'rotate', piece: q.id }); return true; }
+    if ((e.key === 'f' || e.key === 'F') && s.flips) { this.apply({ kind: 'flip', piece: q.id }); return true; }
     if (e.key === 'Backspace' || e.key === 'Delete') { this.apply({ kind: 'lift', piece: q.id }); return true; }
-    if (e.key === 'Enter') {
-      if (q.at) return true;
-      for (let y = 0; y < s.h; y++) for (let x = 0; x < s.w; x++) {
-        if (canPlace(s, q.id, { x, y })) { this.apply({ kind: 'place', piece: q.id, at: { x, y } }); return true; }
-      }
-      this.shake = performance.now();
-      return true;
-    }
     const dir: Record<string, Cell> = { ArrowLeft: { x: -1, y: 0 }, ArrowRight: { x: 1, y: 0 }, ArrowUp: { x: 0, y: -1 }, ArrowDown: { x: 0, y: 1 } };
     const dv = dir[e.key];
-    if (!dv) return false;
-    if (!q.at) {
-      // From the tray, an arrow drops the piece on the first free spot it fits.
-      for (let y = 0; y < s.h; y++) for (let x = 0; x < s.w; x++) {
-        if (canPlace(s, q.id, { x, y })) { this.apply({ kind: 'place', piece: q.id, at: { x, y } }); return true; }
-      }
+    if (e.key === 'Enter' || (dv && !q.at)) {
+      if (q.at) return true;
+      const at = this.firstFit(q);
+      if (at) this.apply({ kind: 'place', piece: q.id, at });
+      else this.shake = performance.now();
       return true;
     }
-    const at = { x: q.at.x + dv.x, y: q.at.y + dv.y };
-    if (!this.apply({ kind: 'place', piece: q.id, at })) this.shake = performance.now();
+    if (!dv || !q.at) return false;
+    if (!this.apply({ kind: 'place', piece: q.id, at: { x: q.at.x + dv.x, y: q.at.y + dv.y } })) this.shake = performance.now();
     return true;
   }
 
   // ---- drawing --------------------------------------------------------------------
 
   draw(ctx: CanvasRenderingContext2D, area: Area, now: number): void {
-    this.layout(area);
+    const lay = this.layout(area);
     const s = this.state;
-    const { x: bx, y: by, cell } = this.board;
+    const { x: bx, y: by, cell } = lay.board;
     const won = this.won;
-    const shaking = now - this.shake < 220;
+    const shaking = now - this.shake < SHAKE_MS;
 
-    // The outline: dashed sockets per cell and a dashed rim round the whole blob.
+    // The outline: a flat plate with a fine rim, faint sockets on open cells, hatched blocks.
     const outlineCells: Cell[] = [];
     s.outline.forEach((on, i) => { if (on) outlineCells.push({ x: i % s.w, y: Math.floor(i / s.w) }); });
+    const loops = outlinePolygons(outlineCells);
+    tracePath(ctx, loops, bx, by, cell, 0, cell * 0.18);
+    ctx.fillStyle = C.surface;
+    ctx.fill();
     ctx.save();
-    ctx.setLineDash([3, 4]);
-    ctx.lineWidth = 1;
-    ctx.strokeStyle = shaking ? 'rgba(224, 80, 58, 0.7)' : 'rgba(226, 220, 207, 0.22)';
-    for (const c of outlineCells) {
-      roundRect(ctx, bx + c.x * cell + 4, by + c.y * cell + 4, cell - 8, cell - 8, 4);
-      ctx.stroke();
-    }
-    ctx.setLineDash([5, 5]);
-    ctx.strokeStyle = shaking ? 'rgba(224, 80, 58, 0.9)' : won ? 'rgba(243, 238, 226, 0.6)' : 'rgba(226, 220, 207, 0.4)';
-    ctx.lineWidth = won ? 1.5 : 1;
-    tracePath(ctx, outlinePolygons(outlineCells), bx, by, cell, 0, 3);
+    ctx.setLineDash([4, 4]);
+    ctx.strokeStyle = shaking ? C.bad : won ? C.line3 : C.line2;
+    ctx.lineWidth = 1.25;
     ctx.stroke();
     ctx.restore();
-
-    // Snap preview under a dragged piece.
-    const d = this.drag;
-    if (d && d.moved) {
-      const corner = this.dropCorner(d);
-      const ok = this.onBoard(d.p) && canPlace(s, d.id, corner);
-      if (this.onBoard(d.p)) {
-        ctx.fillStyle = ok ? 'rgba(226, 220, 207, 0.14)' : 'rgba(224, 80, 58, 0.12)';
-        for (const c of cellsOf(this.piece(d.id))) {
-          const x = corner.x + c.x, y = corner.y + c.y;
-          if (x < 0 || y < 0 || x >= s.w || y >= s.h) continue;
-          roundRect(ctx, bx + x * cell + 2, by + y * cell + 2, cell - 4, cell - 4, 5);
-          ctx.fill();
-        }
-      }
+    for (const c of outlineCells) {
+      const i = c.y * s.w + c.x;
+      const x = bx + c.x * cell, y = by + c.y * cell;
+      if (s.blocked[i]) drawBlock(ctx, x, y, cell);
+      else tile(ctx, x + cell * 0.14, y + cell * 0.14, cell * 0.72, cell * 0.72, cell * 0.12, null, C.line, 1);
     }
+
+    const d = this.drag && this.drag.moved ? this.drag : null;
+    const t = d ? this.target(d) : null;
 
     // Placed pieces.
+    const pulse = won && !this.reduced ? 1 - ease((now - this.wonAt) / 900) : 0;
     for (const p of s.pieces) {
-      if (!p.at || (d && d.moved && d.id === p.id)) continue;
+      if (!p.at || (d && d.id === p.id)) continue;
       const g = this.glow && this.glow.id === p.id ? 1 - ease((now - this.glow.at) / GLOW_MS) : 0;
-      this.drawPiece(ctx, p, bx + p.at.x * cell, by + p.at.y * cell, cell, won ? 0.6 : g, !d && this.selected === p.id);
+      drawPiece(ctx, p, bx + p.at.x * cell, by + p.at.y * cell, cell, Math.max(g, pulse), !won && !d && this.showSelected(p.id));
     }
 
-    // Tray.
-    if (!won) {
-      const trayY = this.slots.length ? Math.min(...this.slots.map((sl) => sl.y)) : by + cell * s.h + 26;
-      ctx.strokeStyle = 'rgba(226, 220, 207, 0.16)';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(area.x + 16, trayY - 12);
-      ctx.lineTo(area.x + area.w - 16, trayY - 12);
+    // The landing shadow: where the piece in hand will drop.
+    if (d && t) {
+      const cells = cellsOf(this.piece(d.id));
+      const loopsG = outlinePolygons(cells);
+      ctx.save();
+      tracePath(ctx, loopsG, bx + t.at.x * cell, by + t.at.y * cell, cell, cell * 0.05, cell * 0.16);
+      ctx.globalAlpha = 0.28;
+      ctx.fillStyle = t.ok ? C.accent : C.bad;
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = t.ok ? C.accent : C.bad;
+      ctx.lineWidth = 2;
+      if (!t.ok) ctx.setLineDash([5, 4]);
       ctx.stroke();
-      ctx.font = `11px ${MONO}`;
-      ctx.fillStyle = 'rgba(226, 220, 207, 0.45)';
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'bottom';
-      const placed = s.pieces.filter((p) => p.at).length;
-      ctx.fillText(`${placed}/${s.pieces.length}`, area.x + 16, trayY - 16);
-      for (const sl of this.slots) {
-        if (d && d.moved && d.id === sl.id) continue;
-        const p = this.piece(sl.id);
-        const o = this.slotOrigin(sl, p);
-        this.drawPiece(ctx, p, o.x, o.y, sl.tc, 0, !d && this.selected === p.id);
-      }
+      ctx.restore();
     }
 
-    // The piece in hand, drawn last and at board size.
-    if (d && d.moved) {
+    // The tray.
+    if (!won) {
+      const tr = lay.tray;
+      tile(ctx, tr.x, tr.y, tr.w, tr.h, 12, null, C.line, 1);
+      for (const sl of lay.slots) {
+        const p = this.piece(sl.id);
+        if (p.at || (d && d.id === sl.id)) continue;
+        const o = this.slotOrigin(sl, p, lay.tc);
+        drawPiece(ctx, p, o.x, o.y, lay.tc, 0, !d && this.showSelected(p.id));
+      }
+      if (lay.flip) this.drawFlip(ctx, lay.flip);
+    }
+
+    // The piece in hand, at board size, under the finger.
+    if (d) {
       const p = this.piece(d.id);
       const ox = d.p.x - (d.grab.x + 0.5) * cell, oy = d.p.y - (d.grab.y + 0.5) * cell;
       ctx.save();
-      ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
-      ctx.shadowBlur = 18;
-      ctx.shadowOffsetY = 6;
-      this.drawPiece(ctx, p, ox, oy, cell, 0.35, false);
+      ctx.globalAlpha = t?.ok ? 0.55 : 0.9;
+      drawPiece(ctx, p, ox, oy, cell, 0, true);
       ctx.restore();
     }
   }
 
-  /** A piece: droplets on each cell, joined by one soft rounded outline. */
-  private drawPiece(ctx: CanvasRenderingContext2D, p: Piece, ox: number, oy: number, cell: number, glow: number, selected: boolean): void {
-    const cells = cellsOf(p);
-    const inset = Math.max(2, cell * 0.08);
+  private showSelected(id: number): boolean {
+    return this.selected === id && (this.state.flips || this.keyboard);
+  }
+
+  private drawFlip(ctx: CanvasRenderingContext2D, f: Area): void {
+    tile(ctx, f.x, f.y, f.w, f.h, f.w * 0.22, this.flipDown ? C.surface3 : C.surface2, C.accent, 1.25);
+    // Two mirrored triangles either side of a dashed axis.
+    const cx = f.x + f.w / 2, cy = f.y + f.h / 2, k = f.w * 0.2;
     ctx.save();
-    if (glow > 0) {
-      ctx.shadowColor = `rgba(243, 238, 226, ${0.9 * glow})`;
-      ctx.shadowBlur = cell * 0.5 * glow;
-    }
-    tracePath(ctx, outlinePolygons(cells), ox, oy, cell, inset, cell * 0.22);
-    ctx.fillStyle = `rgba(226, 220, 207, ${0.09 + 0.12 * glow})`;
+    ctx.strokeStyle = C.text2;
+    ctx.lineWidth = 1;
+    ctx.setLineDash([2, 2]);
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - k * 1.3);
+    ctx.lineTo(cx, cy + k * 1.3);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = C.text;
+    ctx.beginPath();
+    ctx.moveTo(cx - k * 0.3, cy - k); ctx.lineTo(cx - k * 0.3, cy + k); ctx.lineTo(cx - k * 1.4, cy + k);
+    ctx.closePath();
     ctx.fill();
-    ctx.shadowBlur = 0;
-    ctx.strokeStyle = selected ? 'rgba(243, 238, 226, 0.7)' : `rgba(226, 220, 207, ${0.4 + 0.4 * glow})`;
-    ctx.lineWidth = selected ? 1.5 : 1;
+    ctx.strokeStyle = C.text;
+    ctx.lineWidth = 1.25;
+    ctx.beginPath();
+    ctx.moveTo(cx + k * 0.3, cy - k); ctx.lineTo(cx + k * 0.3, cy + k); ctx.lineTo(cx + k * 1.4, cy + k);
+    ctx.closePath();
     ctx.stroke();
     ctx.restore();
-    const r = Math.max(3, Math.min(cell * 0.26, 14));
-    for (const c of cells) droplet(ctx, ox + (c.x + 0.5) * cell, oy + (c.y + 0.5) * cell, r, glow > 0.2);
   }
+}
+
+// ---- pieces and blocks ----------------------------------------------------------------
+
+/** Colour by size: a quick way to tell the pieces apart on the board. */
+function colourOf(p: Piece): string {
+  const n = p.shape.length;
+  return n <= 2 ? C.s : n === 3 ? C.p : n === 4 ? C.d : C.f;
+}
+
+/** A piece: one flat rounded shape with a faint dot per cell. */
+function drawPiece(ctx: CanvasRenderingContext2D, p: Piece, ox: number, oy: number, cell: number, glow: number, selected: boolean): void {
+  const cells = cellsOf(p);
+  const inset = Math.max(1, cell * 0.06);
+  ctx.save();
+  if (glow > 0) {
+    ctx.shadowColor = colourOf(p);
+    ctx.shadowBlur = cell * 0.6 * glow;
+  }
+  tracePath(ctx, outlinePolygons(cells), ox, oy, cell, inset, cell * 0.18);
+  ctx.fillStyle = colourOf(p);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  if (selected) {
+    ctx.strokeStyle = C.accent;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+  ctx.fillStyle = C.tileInk;
+  ctx.globalAlpha *= 0.28;
+  const r = Math.max(1, cell * 0.07);
+  for (const c of cells) {
+    ctx.beginPath();
+    ctx.arc(ox + (c.x + 0.5) * cell, oy + (c.y + 0.5) * cell, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+/** A filled block: a fixed square with fine hatching. */
+function drawBlock(ctx: CanvasRenderingContext2D, x: number, y: number, c: number): void {
+  const g = c * 0.06;
+  tile(ctx, x + g, y + g, c - 2 * g, c - 2 * g, c * 0.12, C.surface3, C.line2, 1);
+  hatch(ctx, x + g, y + g, c - 2 * g, c * 0.22);
 }
 
 // ---- outline tracing ------------------------------------------------------------
@@ -388,7 +551,7 @@ function outlinePolygons(cells: Cell[]): Loop[] {
   return loops;
 }
 
-/** Strokes the loops as a path, inset by `inset` pixels with corners rounded by `radius`. */
+/** Builds the loops as a path, inset by `inset` pixels with corners rounded by `radius`. */
 function tracePath(ctx: CanvasRenderingContext2D, loops: Loop[], ox: number, oy: number, cell: number, inset: number, radius: number): void {
   ctx.beginPath();
   for (const loop of loops) {
@@ -413,12 +576,14 @@ function tracePath(ctx: CanvasRenderingContext2D, loops: Loop[], ox: number, oy:
   }
 }
 
-function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number): void {
+/** Fine diagonal hatching inside a square, computed to stay inside it. */
+function hatch(ctx: CanvasRenderingContext2D, x0: number, y0: number, side: number, step: number): void {
+  ctx.strokeStyle = C.line2;
+  ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.arcTo(x + w, y, x + w, y + h, r);
-  ctx.arcTo(x + w, y + h, x, y + h, r);
-  ctx.arcTo(x, y + h, x, y, r);
-  ctx.arcTo(x, y, x + w, y, r);
-  ctx.closePath();
+  for (let t = step; t < side * 2; t += step) {
+    ctx.moveTo(x0 + Math.max(0, t - side), y0 + Math.min(t, side));
+    ctx.lineTo(x0 + Math.min(t, side), y0 + Math.max(0, t - side));
+  }
+  ctx.stroke();
 }
