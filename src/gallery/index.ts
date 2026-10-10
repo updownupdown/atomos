@@ -16,10 +16,13 @@ import { ISO_FILTERS, STRUCTURE_VIEWS } from './visuals';
 import { createAtomBar, type AtomBar } from './atombar';
 import { isLayoutId, LAYOUT_STORY, LAYOUTS, type LayoutId } from './layouts';
 import { setScienceHandler, setScienceOpen } from '../ui/science';
-import { openModal } from '../ui/modal';
+import { closeModal, openModal } from '../ui/modal';
 import { loadSave, writeSave, type SaveData } from '../core/save';
 import { atomProgress, orbitalShapeUnlocked, rowOf, rowOpen, SHAPE_AT } from '../core/progress';
 import { createElementList, type ElementList } from '../ui/elementlist';
+import { isUnlocked, type UnlockId } from '../core/unlocks';
+import { playUnlock } from '../puzzles/unlock';
+import { isLookId, lensUnlock, lookOf, lookUnlock, LOOKS, type LookId } from './looks';
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -41,6 +44,11 @@ export class GalleryApp {
   private layoutId: LayoutId = (() => {
     const saved = localStorage.getItem('atomos.gallery.layout');
     return isLayoutId(saved) ? saved : 'spiral';
+  })();
+  /** How the tiles are colored: the block strip, or one of the looks Glyph opens. */
+  private look: LookId = (() => {
+    const saved = localStorage.getItem('atomos.gallery.look');
+    return isLookId(saved) ? saved : 'block';
   })();
   /** Orbital kinds whose shapes Flux has not discovered yet. */
   private hiddenShapes: OrbitalShape[] = [];
@@ -82,6 +90,7 @@ export class GalleryApp {
     const save = this.save;
     this.gallery.setCollected(got, (z) => atomProgress(z, save));
     this.gallery.setLocked((z) => this.buildLocked(z));
+    this.paintGates();
     if (this.current) this.detail.setCollected(this.collected(this.current.z));
     // Flux discovers the p, d and f shapes; until then Shapes and Hybrid draw those layers as cloud.
     this.hiddenShapes = (Object.keys(SHAPE_AT) as OrbitalShape[]).filter((l) => !orbitalShapeUnlocked(l, save));
@@ -101,6 +110,8 @@ export class GalleryApp {
   }
 
   private buildControls(): void {
+    $('look-chip').innerHTML = `${icon('paint', { size: 18 })}<span>Color</span>`;
+    $('look-chip').onclick = () => this.openLooks();
     const seg = $('layout-switch');
     seg.innerHTML = LAYOUTS.map((l) => `<button data-id="${l.id}">${l.label}</button>`).join('')
       + `<button data-id="details">Details</button>`;
@@ -175,11 +186,88 @@ export class GalleryApp {
   }
 
   private setLayout(id: LayoutId): void {
+    const gate = lensUnlock(id);
+    if (gate && !this.opened(gate)) {
+      const l = LAYOUTS.find((x) => x.id === id)!;
+      this.offerUnlock(gate, `The ${l.label} lens`, l.note, 'Lumen', () => this.setLayout(id));
+      return;
+    }
     const animate = !this.details && !this.save.settings.reducedMotion;
     this.layoutId = id;
     localStorage.setItem('atomos.gallery.layout', id);
     this.gallery.setLayout(id, animate);
     this.setDetails(false);
+  }
+
+  private opened(id: UnlockId | null): boolean {
+    return !id || isUnlocked(id, this.save);
+  }
+
+  /** A locked lens or look: what it is, which puzzle opens it, and an Unlock button. */
+  private offerUnlock(id: UnlockId, title: string, what: string, game: string, then: () => void): void {
+    const sheet = openModal(`<h2>${title}</h2>
+      <div class="gate-sheet">
+        <p class="gate-what">${what}</p>
+        <p class="gate-why">${icon('lock', { size: 20 })}<span>Locked. Solve a ${game} puzzle to open it.</span></p>
+        <button class="primary gate-go">${icon('unlock', { size: 22 })}<span>Unlock</span></button>
+      </div>`);
+    sheet.querySelector<HTMLButtonElement>('.gate-go')!.onclick = async () => {
+      closeModal();
+      const won = await playUnlock(id, { title, note: `${title} is open: find it ${id.startsWith('lens:') ? 'under the gallery' : 'under Color, top left'}.` });
+      if (won) { this.save = loadSave(); then(); }
+    };
+  }
+
+  /** Locks on the lens buttons and the look chip, re-read after any puzzle is solved. */
+  private paintGates(): void {
+    $('layout-switch').querySelectorAll<HTMLButtonElement>('button').forEach((b) => {
+      const id = b.dataset.id as LayoutId | 'details';
+      const locked = id !== 'details' && !this.opened(lensUnlock(id));
+      b.classList.toggle('is-locked', locked);
+      b.querySelector('.seg-lock')?.remove();
+      if (locked) b.insertAdjacentHTML('beforeend', `<span class="seg-lock" aria-label=", locked">${icon('lock', { size: 14 })}</span>`);
+    });
+    // A look or lens chosen before a reset can be locked again: fall back to an open one.
+    if (!this.opened(lookUnlock(this.look))) this.look = 'block';
+    if (!this.opened(lensUnlock(this.layoutId))) { this.layoutId = 'spiral'; this.gallery.setLayout('spiral', false); }
+    this.applyLook();
+  }
+
+  private setLook(id: LookId): void {
+    this.look = id;
+    try { localStorage.setItem('atomos.gallery.look', id); } catch { /* storage off: the look just resets */ }
+    this.applyLook();
+  }
+
+  /** Color the tiles, and show the chip and its legend. */
+  private applyLook(): void {
+    const look = lookOf(this.look);
+    this.gallery.setLook(look.value ?? null);
+    $('look-chip').querySelector('span')!.textContent = look.id === 'block' ? 'Color' : look.label;
+    const legend = $('look-legend');
+    legend.hidden = look.id === 'block';
+    legend.innerHTML = look.id === 'state'
+      ? ['solid', 'liquid', 'gas'].map((c) => `<span class="lk-key"><i class="lk-sw lk-${c}"></i>${c[0].toUpperCase()}${c.slice(1)}</span>`).join('')
+      : `<span>${look.low ?? ''}</span><i class="lk-ramp"></i><span>${look.high ?? ''}</span>`;
+  }
+
+  /** The look picker: every way to color the tiles, the locked ones with an Unlock button. */
+  private openLooks(): void {
+    const rows = LOOKS.map((l) => {
+      const locked = !this.opened(lookUnlock(l.id));
+      return `<button class="look-row${locked ? ' is-locked' : ''}" data-id="${l.id}" aria-pressed="${l.id === this.look}">
+        <span class="look-main"><b>${l.label}</b><span>${l.blurb}</span></span>
+        ${locked ? `<span class="look-lock">${icon('lock', { size: 18 })}Unlock</span>` : l.id === this.look ? `<span class="look-on">${icon('check', { size: 20 })}</span>` : ''}
+      </button>`;
+    }).join('');
+    const sheet = openModal(`<h2>Color the tiles by</h2><p class="look-intro">Each new way is opened by solving a Glyph puzzle.</p><div class="look-list">${rows}</div>`);
+    sheet.querySelectorAll<HTMLButtonElement>('.look-row').forEach((b) => (b.onclick = () => {
+      const l = lookOf(b.dataset.id as LookId);
+      const gate = lookUnlock(l.id);
+      if (gate && !this.opened(gate)) { this.offerUnlock(gate, `The ${l.label} look`, l.blurb, 'Glyph', () => this.setLook(l.id)); return; }
+      closeModal();
+      this.setLook(l.id);
+    }));
   }
 
   /** Switch between the map and the Details table. */
