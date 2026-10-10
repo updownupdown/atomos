@@ -126,7 +126,7 @@ export function blueprint(e: Element): string {
   }
   return `<figure class="bp-figure">${svg}</figure>
     <ol class="bp-steps">${steps.join('')}</ol>
-    <p class="note">An illustration, like an exploded drawing: real electrons are clouds, not rings, and the layers overlap rather than stack. Each pair of dots is one orbital; hollow dots are room to spare. The atom view shows the true shapes and sizes.</p>`;
+    <p class="note">An illustration, like an exploded drawing: real electrons are clouds, not rings, and the layers overlap rather than stack. Each pair of dots is one orbital; hollow dots are room to spare. The Model tab shows the true shapes and sizes.</p>`;
 }
 
 // ---------- Isotopes: an album of tiles ----------

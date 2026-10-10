@@ -50,6 +50,8 @@
       </footer>
 
       <section id="loupe-screen" class="loupe-screen" hidden aria-label="One atom, up close">
+        <div class="atom-tabs" id="atom-tabs"></div>
+        <div class="atom-panel" id="atom-panel" role="tabpanel" hidden></div>
         <canvas id="loupe" aria-label="The selected atom. Drag to turn it; the arrows below step to the neighboring elements."></canvas>
         <div class="dec dec-tl" id="dec-top-left" aria-label="Electron configuration, shells, layers, electrons and size"></div>
         <div class="dec dec-tr" id="dec-top-right" aria-label="Isotopes"></div>
@@ -136,14 +138,5 @@
     </div>
     <div class="toasts" id="toasts" aria-live="polite"></div>
     <script type="module" src="/src/main.ts"></script>
-    <div class="ui-modal atom-modal" id="sheet" hidden role="dialog" aria-modal="true" aria-labelledby="sheet-title">
-      <div class="ui-modal-card atom-card" id="sheet-card">
-        <div class="ui-modal-head atom-head">
-          <h2 id="sheet-title"></h2>
-        </div>
-        <div id="sheet-tabs"></div>
-        <div class="sheet-body" id="sheet-body"></div>
-      </div>
-    </div>
   </body>
 </html>
