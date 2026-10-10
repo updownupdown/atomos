@@ -30,6 +30,8 @@ export class PuzzleHost {
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
     window.addEventListener('blur', () => this.cancel());
     window.addEventListener('resize', () => this.resize());
+    // A canvas that was hidden (no size) starts drawing again once it has one.
+    if (typeof ResizeObserver !== 'undefined') new ResizeObserver(() => this.resize()).observe(canvas);
     this.resize();
   }
 
@@ -86,7 +88,11 @@ export class PuzzleHost {
     this.raf = 0;
     const v = this.view;
     if (!v || this.paused) return;
-    v.draw(this.ctx(), this.area(), now);
+    const area = this.area();
+    // Hidden (another tab is showing): nothing to draw into, so the loop stops until the
+    // canvas has a size again (the ResizeObserver wakes it).
+    if (area.w <= 0 || area.h <= 0 || !this.canvas.clientWidth) return;
+    v.draw(this.ctx(), area, now);
     this.hints.watch(v, now);
     this.onFrame?.(v);
     if (v.won && !this.wonReported) {

@@ -697,8 +697,13 @@ export class Game {
       this.clearOverlay();
       return;
     }
+    const area = this.area();
+    if (area.w <= 0 || area.h <= 0) {
+      this.loopRaf = requestAnimationFrame((t) => this.frame(t));
+      return;
+    }
     const ctx = this.overlayCtx();
-    p.draw(ctx, this.area(), now);
+    p.draw(ctx, area, now);
     this.drawSweep(ctx);
     this.hints.watch(p, now);
     this.renderStage();
