@@ -19,14 +19,14 @@ import { isLayoutId, LAYOUT_STORY, LAYOUTS, type LayoutId } from './layouts';
 import { setScienceHandler, setScienceOpen } from '../ui/science';
 import { closeModal, openModal } from '../ui/modal';
 import { loadSave, writeSave, type SaveData } from '../core/save';
-import { fleetingTotal, atomProgress, orbitalShapeUnlocked, rowOf, rowOpen, SHAPE_AT, stepState } from '../core/progress';
+import { atomBuilt, fleetingTotal, atomProgress, rowSpan, orbitalShapeUnlocked, rowOf, rowOpen, SHAPE_AT, stepState } from '../core/progress';
 import { createElementList, type ElementList } from '../ui/elementlist';
 import { isUnlocked, unlockPuzzle, type UnlockId } from '../core/unlocks';
 import { PUZZLES } from '../puzzles/catalog';
 import { playUnlock } from '../puzzles/unlock';
 import { isLookId, lensUnlock, lookOf, lookUnlock, LOOKS, type LookId } from './looks';
 import { atomThumb } from './thumbs';
-import { rowLockNote } from './locks';
+import { fleetingOpen, periodSentence, rowLockNote } from './locks';
 import { progressHtml } from '../ui/modebar';
 
 type GalleryMode = 'collection' | 'map' | 'details';
@@ -90,7 +90,7 @@ export class GalleryApp {
     this.gallery.setLayout(this.layoutId, false);
     this.detail.setStyle(this.style);
     this.detail.setRings(this.rings);
-    this.gallery.onPick = (e) => this.open(e);
+    this.gallery.onPick = (e) => this.pick(e.z);
     this.gallery.onHover = (e) => this.hover(e);
     window.addEventListener('keydown', (ev) => this.key(ev));
     // Build announces each change to an atom's progress so the tiles' bars stay current.
@@ -126,9 +126,10 @@ export class GalleryApp {
     const save = this.save;
     const main = ELEMENTS.reduce((t, e) => t + atomProgress(e.z, save), 0) / MAX_Z;
     const n = Math.round(main * 100);
-    const f = fleetingTotal(save);
-    $('gal-prog').innerHTML = progressHtml(main, f.total ? { label: 'fleeting', pct: f.built / f.total } : null);
-    $('gal-prog').setAttribute('aria-label', `Collection ${n}% built; ${f.built} of ${f.total} fleeting isotopes`);
+    // Fleeting isotopes join the count once they are open (any atom built).
+    const f = fleetingOpen(save) ? fleetingTotal(save) : null;
+    $('gal-prog').innerHTML = progressHtml(main, f?.total ? { label: 'fleeting', pct: f.built / f.total } : null);
+    $('gal-prog').setAttribute('aria-label', `Collection ${n}% built${f ? `; ${f.built} of ${f.total} fleeting isotopes` : ''}`);
   }
 
   /** Whether this atom's row is not open yet (two thirds of the row above unbuilt). It stays
@@ -404,7 +405,7 @@ export class GalleryApp {
     if (this.mode === 'details' && !this.list) {
       this.list = createElementList({
         variant: 'table',
-        onPick: (z) => this.open(elementAt(z)),
+        onPick: (z) => this.pick(z),
         locked: (z) => this.buildLocked(z),
         storageKey: 'atomos.details.sort',
       });
@@ -412,7 +413,7 @@ export class GalleryApp {
     }
     if (this.mode === 'collection' && !this.collection) {
       this.collection = createElementList({
-        onPick: (z) => this.open(elementAt(z)),
+        onPick: (z) => this.pick(z),
         locked: (z) => this.buildLocked(z),
         storageKey: 'atomos.collection.sort',
         thumbs: (z) => atomThumb(z, this.litOf(z)),
@@ -451,6 +452,35 @@ export class GalleryApp {
     const tag = $('gal-hover');
     tag.hidden = !e;
     if (e) tag.textContent = `${e.z} ${e.name}${this.collected(e.z) ? '' : ' · not yet collected'}`;
+  }
+
+  /** An atom tapped in the Collection, Map or Details: one still to build opens Build, a built
+   *  one opens View, and one whose period is shut says what opens it. */
+  private pick(z: number): void {
+    if (this.buildLocked(z)) { this.offerPeriod(z); return; }
+    if (atomBuilt(z, this.save)) this.open(elementAt(z));
+    else this.handlers.onBuild(z);
+  }
+
+  /** A locked atom: which period opens it, a way to the atom that helps, and a look at this one. */
+  private offerPeriod(z: number): void {
+    const e = elementAt(z);
+    const [first, last] = rowSpan(rowOf(z) - 1);
+    let target = first;
+    for (let a = first; a <= last; a++) if (!atomBuilt(a, this.save)) { target = a; break; }
+    const t = elementAt(target);
+    const sheet = openModal(`<h2>${e.name}</h2>
+      <div class="gate-sheet">
+        <p class="gate-why">${icon('lock', { size: 20 })}<span>${periodSentence(z, this.save) ?? ''}</span></p>
+        <div class="gate-next"></div>
+        <button class="secondary gate-look">${icon('mode-view', { size: 20 })}<span>Look at ${e.name.toLowerCase()}</span></button>
+      </div>`);
+    const go = document.createElement('button');
+    go.className = 'primary gate-go';
+    go.innerHTML = `${icon('play', { size: 20 })}<span>Build ${t.name.toLowerCase()}</span>`;
+    go.onclick = () => { closeModal(); this.handlers.onBuild(target); };
+    sheet.querySelector('.gate-next')!.append(go);
+    sheet.querySelector<HTMLButtonElement>('.gate-look')!.onclick = () => { closeModal(); this.open(e); };
   }
 
   private open(e: Element): void {

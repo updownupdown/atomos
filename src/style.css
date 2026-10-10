@@ -504,6 +504,8 @@ body.stage-nucleus #atom { opacity: 0.12; }
 .gate-what { margin: 0; font-size: var(--fs-md); line-height: 1.55; }
 .gate-why { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--c-text-2); }
 .gate-go { display: inline-flex; align-items: center; justify-content: center; gap: 8px; align-self: stretch; }
+.gate-next { display: flex; flex-direction: column; }
+.gate-look { display: inline-flex; align-items: center; justify-content: center; gap: 8px; align-self: stretch; }
 .layout-switch button.is-locked { color: var(--c-text-3); }
 .seg-lock { display: inline-flex; margin-left: 4px; vertical-align: -2px; }
 

@@ -17,7 +17,7 @@ import { ELEMENTS, BLOCK_COLOUR, type Element } from '../gallery/data';
 import { icon } from './icons';
 import { searchElements } from './search';
 import { fleetingCount, fleetingTotal, lastingIsotopes, segmentsOf } from '../core/progress';
-import { rowLockNote } from '../gallery/locks';
+import { fleetingOpen, rowLockNote } from '../gallery/locks';
 import { loadSave, type SaveData } from '../core/save';
 import './elementlist.css';
 
@@ -104,6 +104,8 @@ export interface ElementListOptions {
   storageKey?: string;
   /** A picture of each atom (a data URL), asked for once its row has been on screen a moment. */
   thumbs?: (z: number) => Promise<string | null>;
+  /** A button under an empty stage filter (e.g. the Next button), or null for none. */
+  emptyAction?: () => HTMLElement | null;
   /** Show the fleeting isotopes built across the whole table beside the count. */
   fleetingTotal?: boolean;
 }
@@ -164,7 +166,7 @@ export function createElementList(opts: ElementListOptions = {}): ElementList {
       </div>` : ''}
     </div>
     <div class="el-body" role="${variant === 'rows' ? 'listbox' : 'grid'}" aria-label="Elements"></div>
-    <p class="el-none" hidden>No element matches that.</p>`;
+    <div class="el-none" hidden><p></p><div class="el-none-act"></div></div>`;
   const input = root.querySelector<HTMLInputElement>('input')!;
   const clear = root.querySelector<HTMLButtonElement>('.el-clear')!;
   const body = root.querySelector<HTMLElement>('.el-body')!;
@@ -204,7 +206,7 @@ export function createElementList(opts: ElementListOptions = {}): ElementList {
     const isotopes = segs.length - stepsCount(segs);
     // Fleeting isotopes have their own count beside the bar; they never hold back the 100%.
     const f = fleetingCount(e.z, save);
-    const fleet = f.total ? `<small class="el-fleet" aria-label="${f.built} of ${f.total} fleeting isotopes built">${f.built}/${f.total} fleeting</small>` : '';
+    const fleet = f.total && fleetingOpen(save) ? `<small class="el-fleet" aria-label="${f.built} of ${f.total} fleeting isotopes built">${f.built}/${f.total} fleeting</small>` : '';
     return `<span class="el-prog el-prog--${tier}" style="--iso:${isotopes}" aria-label="${pct}% built">
       <b>${pct}%</b>
       <span class="el-segs" aria-hidden="true">${parts.join('')}</span>
@@ -240,8 +242,10 @@ export function createElementList(opts: ElementListOptions = {}): ElementList {
     watchRows();
   };
 
+  // The Fleeting column joins once fleeting isotopes are open (any atom built).
+  const columns = () => TABLE_COLUMNS.filter((k) => k !== 'fleeting' || fleetingOpen(save));
   const drawTable = (list: Element[]) => {
-    const head = TABLE_COLUMNS.map((k) => {
+    const head = columns().map((k) => {
       const c = COL[k];
       const on = !query && sort === k;
       const aria = on ? (desc ? 'descending' : 'ascending') : 'none';
@@ -249,7 +253,7 @@ export function createElementList(opts: ElementListOptions = {}): ElementList {
     }).join('');
     const rows = list.map((e) => {
       const locked = opts.locked?.(e.z) ?? false;
-      const cells = TABLE_COLUMNS.map((k) => {
+      const cells = columns().map((k) => {
         const c = COL[k];
         if (k === 'symbol') return `<td><span class="el-sym" style="--c:${BLOCK_COLOUR[e.block]}">${e.symbol}</span></td>`;
         if (k === 'name') return `<th scope="row">${esc(e.name)}${locked ? `<span class="el-lock" aria-label="Build locked">${icon('lock', { size: 16 })}</span>` : ''}</th>`;
@@ -276,7 +280,7 @@ export function createElementList(opts: ElementListOptions = {}): ElementList {
     const c = root.querySelector<HTMLElement>('.el-count');
     if (!c) return;
     const what = stage === 'all' ? '' : ` ${STAGE_HEADING[stage].toLowerCase()}`;
-    const f = opts.fleetingTotal ? fleetingTotal(save) : null;
+    const f = opts.fleetingTotal && fleetingOpen(save) ? fleetingTotal(save) : null;
     c.textContent = `${n} element${n === 1 ? '' : 's'}${what}${f ? ` · Fleeting ${f.built.toLocaleString('en-US')} of ${f.total.toLocaleString('en-US')}` : ''}`;
   };
 
@@ -317,11 +321,28 @@ export function createElementList(opts: ElementListOptions = {}): ElementList {
     body.querySelectorAll<HTMLElement>('.el-row').forEach((r) => io.observe(r));
   };
 
+  // What an empty list means: no match for the search, or nothing at this stage yet.
+  const EMPTY: Record<Stage, string> = {
+    done: 'Nothing complete yet. An atom is complete when its nucleus, electrons and stable and long-lived isotopes are built.',
+    started: 'Nothing in progress. An atom is in progress once one of its puzzles is solved and until it is complete.',
+    new: 'Every atom has been started.',
+  };
+  const paintEmpty = (empty: boolean) => {
+    none.hidden = !empty;
+    if (!empty) return;
+    const byStage = !query && stage !== 'all' && variant === 'rows';
+    none.querySelector('p')!.textContent = byStage ? EMPTY[stage as Stage] : 'No element matches that.';
+    const act = none.querySelector<HTMLElement>('.el-none-act')!;
+    act.replaceChildren();
+    const b = byStage && stage !== 'new' ? opts.emptyAction?.() : null;
+    if (b) act.append(b);
+  };
+
   const render = () => {
     save = loadSave();
     const list = visible();
     paintCount(list.length);
-    none.hidden = list.length > 0;
+    paintEmpty(list.length === 0);
     if (variant === 'rows') drawRows(list);
     else drawTable(list);
     paintSorts();
