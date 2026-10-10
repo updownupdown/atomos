@@ -108,11 +108,11 @@ export function offerRules(bar: GameBar, game: { id: string; name: string }, ope
   const acts = document.createElement('span');
   acts.className = 'nu-acts';
   const rules = document.createElement('button');
-  rules.className = 'secondary nu-act';
+  rules.className = 'primary nu-act';
   rules.textContent = 'Rules';
   rules.onclick = () => open();
   const later = document.createElement('button');
-  later.className = 'nu-act nu-act-quiet';
+  later.className = 'secondary nu-act';
   later.textContent = 'Not now';
   later.onclick = () => line.remove();
   acts.append(rules, later);
