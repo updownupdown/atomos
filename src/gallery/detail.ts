@@ -7,7 +7,7 @@
 // and out at new places, as a probability cloud is meant to be read.
 
 import * as THREE from 'three';
-import { AtomView, type Style } from './atom';
+import { AtomView, type AtomLit, type Style } from './atom';
 import { CLOUD_RINGS, type Block, type Element } from './data';
 import { token } from './tokens';
 import { NUCLEUS_RINGS, NucleusView } from './nucleus';
@@ -114,8 +114,15 @@ export class Detail {
     this.view.setTint(color);
   }
 
+  /** Kept for Build until it moves to setLit: the whole atom lit, or all of it pale. */
   setCollected(collected: boolean): void {
-    this.view.setDim(collected ? 1 : 0.7);
+    this.setLit({ nucleus: collected, electrons: collected ? Infinity : 0 });
+  }
+
+  /** How much of the atom is lit, the rest pale gray (see AtomView.setLit); the nucleus close-up follows. */
+  setLit(lit: AtomLit, animate = false): void {
+    this.view.setLit(lit, animate && !this.reducedMotion);
+    this.nucleus.setVivid(lit.nucleus);
   }
 
   start(): void {

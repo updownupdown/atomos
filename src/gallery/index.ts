@@ -3,7 +3,7 @@
 // a few white captions round the atom, then the element's science as pages.
 // Each page ends with a "How to read this" button that opens its guide.
 
-import { STYLES, type Style } from './atom';
+import { STYLES, type AtomLit, type Style } from './atom';
 import { CLOUD_RINGS, ELEMENTS, MAX_Z, elementAt, type Element } from './data';
 import { NUCLEUS_RINGS } from './nucleus';
 import type { OrbitalShape } from '../core/save';
@@ -19,7 +19,7 @@ import { isLayoutId, LAYOUT_STORY, LAYOUTS, type LayoutId } from './layouts';
 import { setScienceHandler, setScienceOpen } from '../ui/science';
 import { closeModal, openModal } from '../ui/modal';
 import { loadSave, writeSave, type SaveData } from '../core/save';
-import { atomProgress, orbitalShapeUnlocked, rowOf, rowOpen, SHAPE_AT } from '../core/progress';
+import { atomProgress, orbitalShapeUnlocked, rowOf, rowOpen, SHAPE_AT, stepState } from '../core/progress';
 import { createElementList, type ElementList } from '../ui/elementlist';
 import { isUnlocked, type UnlockId } from '../core/unlocks';
 import { playUnlock } from '../puzzles/unlock';
@@ -94,7 +94,8 @@ export class GalleryApp {
     this.gallery.setCollected(got, (z) => atomProgress(z, save));
     this.gallery.setLocked((z) => this.buildLocked(z));
     this.paintGates();
-    if (this.current) this.detail.setCollected(this.collected(this.current.z));
+    // A part solved while away lights up when the atom is next on screen.
+    if (this.current) this.detail.setLit(this.litOf(this.current.z), true);
     // Flux discovers the p, d and f shapes; until then Shapes and Hybrid draw those layers as cloud.
     this.hiddenShapes = (Object.keys(SHAPE_AT) as OrbitalShape[]).filter((l) => !orbitalShapeUnlocked(l, save));
     this.detail.setHiddenShapes(this.hiddenShapes);
@@ -106,6 +107,11 @@ export class GalleryApp {
   /** Whether this atom's row is still shut by its Inertia gate. It stays viewable; only Build waits. */
   private buildLocked(z: number): boolean {
     return !rowOpen(rowOf(z), this.save);
+  }
+
+  /** Parts of an atom in color: each turns from pale gray once its Build puzzle is solved. */
+  private litOf(z: number): AtomLit {
+    return { nucleus: stepState(this.save, z, 'nucleus').done, electrons: stepState(this.save, z, 'shells').done ? z : 0 };
   }
 
   private collected(z: number): boolean {
@@ -390,7 +396,7 @@ export class GalleryApp {
     this.current = e;
     this.gallery.select(e.z);
     this.detail.show(e, !first);
-    this.detail.setCollected(this.collected(e.z));
+    this.detail.setLit(this.litOf(e.z));
     const dec = decoratorsHTML(e);
     $('dec-top-left').innerHTML = dec.topLeft;
     $('dec-top-right').innerHTML = dec.topRight;

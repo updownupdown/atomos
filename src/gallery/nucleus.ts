@@ -86,6 +86,13 @@ export class NucleusView {
 
   constructor(private scale: number) {}
 
+  /** Protons in their warm color once the nucleus is built; pale gray, like the neutrons, before. */
+  setVivid(on: boolean): void {
+    const c = on ? token('--c-warn', '#e8b45c') : token('--c-text-2', '#8a9296');
+    this.protonMat.color.set(c);
+    this.protonMat.emissive.set(c);
+  }
+
   show(e: Element): void {
     if (this.shown === e.z * 1000 + e.commonA) return;
     this.shown = e.z * 1000 + e.commonA;
