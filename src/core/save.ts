@@ -39,12 +39,24 @@ export interface StepRecord {
 
 export type StepId = 'nucleus' | 'shells';
 
+/** The orbital shapes Flux discovers; s is known from the start. */
+export type OrbitalShape = 'p' | 'd' | 'f';
+
+export interface ShapeRecord {
+  /** When it was discovered (ms). */
+  at: number;
+  /** Fewest moves it has been solved in. */
+  best?: number;
+}
+
 export interface SaveData {
   version: 1;
   built: Record<number, Built>;
   /** Build steps solved so far, per atom. An atom in `built` has both, even if not listed here. */
   steps: Record<number, Partial<Record<StepId, StepRecord>>>;
   isotopes: Record<string, { collected?: boolean; witnessed?: WitnessRecord[] }>;
+  /** Orbital shapes discovered with Flux; the 3D Shapes view draws only these (and s). */
+  shapes: Partial<Record<OrbitalShape, ShapeRecord>>;
   specimens: Specimen[];
   log: { at: number; text: string }[];
   settings: Settings;
@@ -59,6 +71,7 @@ export function defaultSave(): SaveData {
     built: {},
     steps: {},
     isotopes: {},
+    shapes: {},
     specimens: [],
     log: [],
     settings: { unlockAll: false, reducedMotion: reduced, sound: true, haptics: true },
@@ -87,7 +100,12 @@ export function loadSave(): SaveData {
       }
       if (Object.keys(out).length) steps[Number(z)] = out;
     }
-    return { ...base, built, steps, isotopes: data.isotopes ?? {}, specimens: data.specimens ?? [], log: data.log ?? [], settings };
+    const shapes: SaveData['shapes'] = {};
+    for (const l of ['p', 'd', 'f'] as OrbitalShape[]) {
+      const r = data.shapes?.[l];
+      if (r && Number.isFinite(r.at)) shapes[l] = { at: r.at, ...(Number.isFinite(r.best) ? { best: r.best } : {}) };
+    }
+    return { ...base, built, steps, shapes, isotopes: data.isotopes ?? {}, specimens: data.specimens ?? [], log: data.log ?? [], settings };
   } catch {
     return defaultSave();
   }
