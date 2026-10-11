@@ -918,29 +918,34 @@ body:not([data-screen='gallery']) .gal-modes { display: none; }
 .unlock-screen { position: fixed; inset: 0; z-index: 20; padding-top: var(--safe-top); display: flex; flex-direction: column; background: var(--c-bg); font-family: var(--font); }
 .unlock-screen .pg-play canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
 
-/* Puzzles home: every puzzle, what it is for, and whether the game uses it yet. */
+/* Puzzles home: one section per game, no headers between them. Each is the game card, the
+   player's wins at each difficulty level, then a still of the board beside what the game is. */
 .pg-home { flex: 1; min-height: 0; overflow-y: auto; padding: var(--sp-4) var(--sp-4) calc(var(--safe-bottom) + var(--sp-6)); }
 .pg-home[hidden], .pg-game[hidden] { display: none; }
 .pg-home-in { max-width: 860px; margin: 0 auto; }
-.pg-home-title { font-size: var(--fs-2xl); font-weight: var(--fw-semibold); margin: var(--sp-2) 0 var(--sp-1); }
-.pg-home-lede { color: var(--c-text-2); font-size: var(--fs-md); line-height: var(--lh); max-width: 60ch; margin: 0 0 var(--sp-4); }
-.pg-group { margin-top: var(--sp-5); }
-.pg-group-name { font-size: var(--fs-xs); font-weight: var(--fw-semibold); letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--c-text-2); margin: 0; }
-.pg-group-note { font-size: var(--fs-md); color: var(--c-text-min); margin: 2px 0 var(--sp-3); }
-.pg-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 380px), 1fr)); gap: var(--sp-2); }
-.pg-card { display: flex; gap: var(--sp-3); align-items: flex-start; text-align: left; width: 100%; padding: var(--sp-3); border: 1px solid var(--c-line); border-radius: var(--r-md); background: var(--c-surface); color: var(--c-text); font-family: var(--font); cursor: pointer; transition: border-color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease); }
-.pg-card:hover { border-color: var(--c-line-2); background: var(--c-surface-2); }
-.pg-card:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
-.pg-thumb { flex: none; width: 88px; height: 88px; border-radius: var(--r-sm); background: var(--c-bg); }
-.pg-card-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-.pg-card-top { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
-.pg-card-name { font-size: var(--fs-md); font-weight: var(--fw-semibold); }
-.pg-card-blurb { font-size: var(--fs-md); color: var(--c-text-2); line-height: var(--lh); }
-.pg-card-range { font-size: var(--fs-min); color: var(--c-text-min); }
+.pg-home-title { font-size: var(--fs-2xl); font-weight: var(--fw-semibold); margin: var(--sp-2) 0 var(--sp-4); }
+.pg-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 380px), 1fr)); gap: var(--sp-6) var(--sp-5); }
+.pg-sec { display: flex; flex-direction: column; gap: var(--sp-3); min-width: 0; }
+/* Wins per level: five cells, Very easy to Expert. A check and the count of solves, a star and
+   the count of flawless ones; a dash before the first win; levels the game never deals, an
+   empty outline. */
+.pg-wins { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+.pg-lvl { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-width: 0; min-height: 52px; padding: 6px 2px; border-radius: var(--r-sm); background: var(--c-surface); text-align: center; }
+.pg-lvl-word { font-size: var(--fs-min); color: var(--c-text-min); white-space: nowrap; line-height: 1.2; }
+.pg-lvl-val { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 0 5px; min-height: 20px; font-size: var(--fs-md); font-weight: var(--fw-semibold); color: var(--c-text); font-variant-numeric: tabular-nums; }
+.pg-lvl-n, .pg-lvl-star { display: inline-flex; align-items: center; gap: 1px; }
+.pg-lvl-n svg { color: var(--c-done); }
+.pg-lvl-star { color: var(--c-done); }
+.pg-lvl-dash { color: var(--c-text-min); font-weight: var(--fw-regular); }
+.pg-lvl.is-off { background: transparent; box-shadow: inset 0 0 0 2px var(--c-surface); }
+.pg-lvl-none { height: 20px; }
+.pg-about { display: flex; gap: var(--sp-3); align-items: flex-start; }
+.pg-thumb { flex: none; width: 112px; height: 112px; border-radius: var(--r-sm); background: var(--c-plate); }
+.pg-blurb { margin: 0; font-size: var(--fs-md); color: var(--c-text-2); line-height: var(--lh); }
 
 /* Inside a puzzle: Back, then its name. */
 .pg-game { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-/* The board maker, at the foot of a Practice game: a settings button floating at the bottom left
+/* The board maker, at the foot of a game on the Puzzles screen: a settings button floating at the bottom left
    of the board; open, a gray pill beside it (its X folds it again). It takes no row of its own. */
 .pg-foot { position: relative; flex: none; background: var(--c-bg); padding-bottom: var(--safe-bottom); }
 .pg-gen { position: absolute; left: var(--sp-3); right: var(--sp-3); top: var(--sp-2); bottom: 0; z-index: 3; display: flex; align-items: center; gap: var(--sp-2); pointer-events: none; }
@@ -1604,7 +1609,6 @@ body[data-screen^='atom'].build-home .science-fab, body[data-screen='atom-view']
 .os-core { margin: 0; color: var(--c-text-2); }
 @media (max-width: 420px) { .os-glyph { width: 52px; } .os-glyph svg { width: 44px; height: 44px; } .os-unknown { height: 44px; } }
 @media (max-width: 420px) { .ob-box { width: 25px; height: 26px; } .ob-box b { font-size: 12px; } }
-.pg-card-icon { display: inline-grid; place-items: center; color: var(--c-accent); margin-right: 2px; }
 
 /* The icon library page (src/ui/iconpage.ts). */
 .icon-page { width: min(960px, 100%); margin: 0 auto; padding-top: var(--sp-3); }
@@ -1710,3 +1714,31 @@ body[data-screen^='atom'].build-home .science-fab, body[data-screen='atom-view']
 /* Properties › Additional Details: a plain card, always open. */
 .info-card { margin: var(--sp-4) 0; padding: var(--sp-3) var(--sp-4) var(--sp-4); border-radius: var(--r-md); background: var(--c-surface); }
 .info-card h3 { margin: 0 0 var(--sp-2); font-size: var(--fs-lg); font-weight: var(--fw-semibold); }
+
+/* ---- Game card (src/puzzles/gameCard.ts) ------------------------------------------------------
+   One game, the same everywhere: its icon black on a white square the full height of the card,
+   then its name and difficulty, then its Play button inside the card. A plain filled surface,
+   no outline, so a game card reads apart from every other card in the app. The card sizes to
+   the width it is given (it is a size container, so give it a width in a row); under 300 px,
+   two thirds of a phone on the Build page, the square and the button tighten. */
+.gcard { container: gcard / inline-size; display: flex; align-items: center; min-width: 0; min-height: 76px; border-radius: var(--r-md); background: var(--c-surface-2); color: var(--c-text); font-family: var(--font); overflow: hidden; }
+.gcard-icon { flex: none; align-self: stretch; display: grid; place-items: center; width: 76px; background: #fff; color: #000; }
+.gcard-icon svg { width: 40px; height: 40px; }
+.gcard-body { flex: 1 1 auto; display: flex; flex-direction: column; gap: 4px; min-width: 0; padding: var(--sp-2) var(--sp-3); }
+.gcard-name { font-size: var(--fs-lg); font-weight: var(--fw-semibold); line-height: var(--lh-tight); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gcard-diff { display: flex; align-items: center; flex-wrap: wrap; gap: 2px 8px; min-width: 0; }
+.gcard-pips { display: inline-flex; align-items: center; gap: 3px; flex: none; }
+.gcard-pips i { width: 7px; height: 7px; border-radius: 50%; background: color-mix(in srgb, var(--c-text) 26%, var(--c-surface-2)); }
+.gcard-pips i.on { background: var(--c-text); }
+.gcard-word { font-size: var(--fs-min); color: var(--c-text-min); line-height: 1.25; }
+.gcard-extra { font-size: var(--fs-min); color: var(--c-text-min); line-height: 1.25; }
+.gcard .gcard-go { flex: none; min-height: 40px; margin-right: var(--sp-3); padding: 0 var(--sp-4); font-size: var(--fs-md); }
+.gcard .gcard-go.secondary:hover { background: var(--c-surface-3); }
+.gcard .gcard-go:focus-visible { outline: 2px solid var(--c-text); outline-offset: 2px; }
+@container gcard (max-width: 300px) {
+  .gcard-icon { width: 64px; }
+  .gcard-icon svg { width: 34px; height: 34px; }
+  .gcard-body { padding-inline: 10px; }
+  .gcard-name { font-size: var(--fs-md); }
+  .gcard .gcard-go { margin-right: 10px; padding: 0 14px; }
+}

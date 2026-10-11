@@ -35,6 +35,7 @@ import { clearOffers, createGameBar, offerRules, type GameBar } from './puzzles/
 import { drawWinFx, winHold } from './puzzles/winFx';
 import { fleetingRing, pipsHtml, progressRings } from './ui/progress';
 import { countPlay, GOAL_PLAYS } from './core/plays';
+import { recordWin } from './core/wins';
 import { icon, type IconName } from './ui/icons';
 import { scienceButton, setScienceHandler } from './ui/science';
 import { elementAt, shortConfiguration } from './gallery/data';
@@ -855,6 +856,8 @@ export class Game {
   private showResult(p: PuzzleView, stage: Exclude<Stage, 'home'>, o: { headline: string; title: string; flawless: boolean; just: string[]; step?: StepId }): void {
     const el = element(this.z);
     const z = this.z;
+    const game = this.stagePuzzle(stage).id;
+    recordWin(game, difficulty(game, this.dealtFor(stage)), o.flawless);
     this.closeWin = showWin({
       outcome: o.flawless ? 'flawless' : 'won',
       headline: o.headline,
