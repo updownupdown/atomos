@@ -167,7 +167,7 @@ export class MergeView implements PuzzleView {
 
     // The board: the shared frame, and a faint dot at each empty cell's center.
     drawFrame(ctx, { x: x0 - pad, y: y0 - pad, w: side + 2 * pad, h: side + 2 * pad }, { width: frameWidth(cell), radius: cell * 0.2 + pad });
-    ctx.fillStyle = C.surface3;
+    ctx.fillStyle = C.line2;
     for (let i = 0; i < n * n; i++) {
       if (this.state.cells[i]) continue;
       const c = center(i);

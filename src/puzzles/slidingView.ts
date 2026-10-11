@@ -276,7 +276,7 @@ export class SlidingView implements PuzzleView {
 export function drawTray(ctx: CanvasRenderingContext2D, x0: number, y0: number, cols: number, rows: number, c: number, exitRow: number, _lane = LANE): void {
   const W = cols * c, H = rows * c;
   ctx.save();
-  ctx.fillStyle = C.surface2;
+  ctx.fillStyle = C.surface3;
   const dr = Math.max(2, c * 0.05);
   for (let i = 0; i < cols * rows; i++) {
     ctx.beginPath();

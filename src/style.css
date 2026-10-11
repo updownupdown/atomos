@@ -1574,7 +1574,7 @@ body[data-screen^='atom'].build-home .science-fab, body[data-screen='atom-view']
 .gbar-acts:empty { display: none; }
 .gbar-act--pill { display: inline-flex; align-items: center; gap: 4px; min-height: 36px; padding: 0 var(--sp-3) 0 var(--sp-2); border-radius: var(--r-pill); background: var(--c-nav); color: var(--c-text); font-weight: var(--fw-semibold); }
 .gbar-act--pill[aria-pressed='true'] { background: var(--c-accent); color: var(--c-accent-ink); }
-.gbar-act--pill:disabled { background: var(--c-surface); color: var(--c-text-3); }
+.gbar-act--pill:disabled { background: var(--c-nav); color: var(--c-text); opacity: 0.4; }
 .gbar-act:disabled { color: var(--c-text-3); }
 
 /* The component library page (src/ui/componentpage.ts): each specimen on a black stage with its

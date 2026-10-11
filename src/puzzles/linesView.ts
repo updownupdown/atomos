@@ -99,10 +99,18 @@ function paintLines(ctx: CanvasRenderingContext2D, s: LinesState, g: Grid, o: Pa
   boardFrame(ctx, s, g);
 
   // Tiles, with channels between them where the line runs.
-  const inset = c * 0.1;
+  // The four corner tiles round their outer corner half as much again, following the board's edge.
+  const inset = c * 0.1, rad = c * 0.18, outer = rad * 1.5;
   for (let i = 0; i < s.cols * s.rows; i++) {
-    const q = px(g, { x: i % s.cols, y: Math.floor(i / s.cols) });
-    tile(ctx, q.x + inset, q.y + inset, c - inset * 2, c - inset * 2, c * 0.18, o.tint?.(i) ?? C.surface, null);
+    const x = i % s.cols, y = Math.floor(i / s.cols);
+    const q = px(g, { x, y });
+    const left = x === 0, right = x === s.cols - 1, top = y === 0, bottom = y === s.rows - 1;
+    ctx.beginPath();
+    ctx.roundRect(q.x + inset, q.y + inset, c - inset * 2, c - inset * 2, [
+      top && left ? outer : rad, top && right ? outer : rad, bottom && right ? outer : rad, bottom && left ? outer : rad,
+    ]);
+    ctx.fillStyle = o.tint?.(i) ?? C.surface;
+    ctx.fill();
   }
 
   // Channels, broken where there is a gap.
@@ -198,14 +206,14 @@ function paintLines(ctx: CanvasRenderingContext2D, s: LinesState, g: Grid, o: Pa
   for (const end of s.ends) {
     const node = px(g, end);
     const arrived = reached && same(last, end) && !o.tip;
-    endCharge(ctx, g, node, tailDir(s, end), arrived, o.won && o.glow);
+    endCharge(ctx, g, node, tailDir(s, end), arrived, o.won && o.glow, path.length === 0 && o.glow);
   }
 
   // + charges: where a line may begin, drawn over the line it sends out.
   s.starts.forEach((st, k) => {
     const q = px(g, st);
     const begun = path.length > 0 && same(path[0], st);
-    startCharge(ctx, q.x, q.y, c, begun, k === o.picked, o.glow);
+    startCharge(ctx, q.x, q.y, c, begun, k === o.picked, o.glow, path.length === 0 && o.glow);
   });
 
   // The head of the line: a glowing dot in the line's color, to pick up and draw on from.
@@ -360,18 +368,21 @@ function lineHead(ctx: CanvasRenderingContext2D, x: number, y: number, c: number
   ctx.restore();
 }
 
-/** A + charge: a warm proton-colored bead with a bold plus, where a line begins. */
-function startCharge(ctx: CanvasRenderingContext2D, x: number, y: number, c: number, begun: boolean, picked: boolean, glow: boolean): void {
+/** A + charge: a warm proton-colored bead with a bold white plus, where a line begins. Before
+ *  any line is drawn (`beckon`) the plus glows, to say where to start. */
+function startCharge(ctx: CanvasRenderingContext2D, x: number, y: number, c: number, begun: boolean, picked: boolean, glow: boolean, beckon = false): void {
   const r = startRadius(c);
   bead(ctx, x, y, r, C.proton, { rim: begun ? C.silver : undefined, glow: begun && glow ? C.proton : undefined });
   ctx.save();
-  ctx.strokeStyle = C.tileInk;
+  if (beckon) { ctx.shadowColor = '#ffffff'; ctx.shadowBlur = r * 0.9; }
+  ctx.strokeStyle = '#ffffff';
   ctx.lineWidth = Math.max(2, r * 0.2);
   ctx.lineCap = 'round';
   ctx.beginPath();
   ctx.moveTo(x - r * 0.52, y); ctx.lineTo(x + r * 0.52, y);
   ctx.moveTo(x, y - r * 0.52); ctx.lineTo(x, y + r * 0.52);
   ctx.stroke();
+  ctx.shadowBlur = 0;
   if (picked) {
     // Keyboard pick between two starts.
     ctx.strokeStyle = C.accent;
@@ -383,8 +394,9 @@ function startCharge(ctx: CanvasRenderingContext2D, x: number, y: number, c: num
   ctx.restore();
 }
 
-/** A − charge just outside the rim: a red ring with a minus, tied to its node by a short stub. */
-function endCharge(ctx: CanvasRenderingContext2D, g: Grid, node: Point, td: Pt, arrived: boolean, glow: boolean): void {
+/** A − charge just outside the rim: a red ring with a white minus, tied to its node by a short
+ *  stub. Before any line is drawn (`beckon`) the minus glows. */
+function endCharge(ctx: CanvasRenderingContext2D, g: Grid, node: Point, td: Pt, arrived: boolean, glow: boolean, beckon = false): void {
   const t = terminal(g, node, td);
   ctx.save();
   ctx.strokeStyle = C.target;
@@ -410,7 +422,8 @@ function endCharge(ctx: CanvasRenderingContext2D, g: Grid, node: Point, td: Pt, 
   }
   ctx.lineWidth = Math.max(1.5, g.c * 0.045);
   ctx.stroke();
-  ctx.strokeStyle = arrived ? C.silver : C.target;
+  ctx.strokeStyle = '#ffffff';
+  if (beckon) { ctx.shadowColor = '#ffffff'; ctx.shadowBlur = t.r * 0.9; }
   ctx.lineWidth = Math.max(1.5, t.r * 0.28);
   ctx.beginPath();
   ctx.moveTo(t.x - t.r * 0.48, t.y);
