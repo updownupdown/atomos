@@ -3,7 +3,7 @@ import {
   bind, canBind, canFinish, canSwap, countClearances, gluonsLeft, groupKind, newColorCharge, nextStep, onTrack, solved, specFor, stranded, swap, tally,
   type ColorChargeState, type Quark,
 } from '../src/puzzles/colorCharge';
-import { undoHelp } from '../src/puzzles/view';
+import { undoHelp, type ViewAction } from '../src/puzzles/view';
 import { ColorChargeView, INSTRUCTIONS, RULES } from '../src/puzzles/colorChargeView';
 
 const SPREAD = [1, 10, 11, 20, 21, 30, 31, 44, 45, 54, 55, 70, 71, 86, 87, 103, 104, 118];
@@ -215,12 +215,15 @@ describe('view', () => {
     const area = { x: 0, y: 0, w: 340, h: 430 };
     v.draw(ctx(), area, 0);
     const geom = (v as unknown as { geom: { cell: number; x: number; y: number; tokens: { x: number; y: number; w: number; h: number }[] } }).geom;
-    expect(geom.tokens).toHaveLength(1);
+    // The gluon is a button beside the message line now, not a token under the grid.
+    expect(geom.tokens).toHaveLength(0);
     const at = (i: number) => ({ x: geom.x + (i % s.cols + 0.5) * geom.cell, y: geom.y + (Math.floor(i / s.cols) + 0.5) * geom.cell });
     const tap = (p: { x: number; y: number }) => { v.down(p); v.up(p); };
-    const tok = geom.tokens[0];
+    const acts = v.action() as ViewAction[];
+    expect(acts.map((a) => a.label)).toEqual(['Gluon', 'Test']);
     // The swap first: arm the gluon, tap the two tiles.
-    tap({ x: tok.x + tok.w / 2, y: tok.y + tok.h / 2 });
+    acts[0].run();
+    expect((v.action() as ViewAction[])[0].pressed).toBe(true);
     expect(v.hint()).toBe('Gluon ready: pick two neighbors');
     const [a, b] = s.solutionSwaps[0];
     tap(at(a));
@@ -320,53 +323,32 @@ describe('view', () => {
       return { s, v, inside, at, tap, wrong: wrong!, doSwap, frame };
     }
 
-    it('shows it, then undoes it on its own, refunding the gluon and the move', () => {
-      const { s, v, inside, wrong, doSwap, frame } = setup(false);
+    it('stays put, unmarked, until Test shows the stranded tiles for two seconds', () => {
+      const { v, inside, wrong, doSwap, frame } = setup(false);
       doSwap(wrong);
       expect(v.moves).toBe(1);
       expect(gluonsLeft(inside.state)).toBe(0);
-      expect(v.hint()).toBe('That swap strands tiles: undoing');
+      expect(v.hint()).not.toMatch(/strand/i);
+      frame(5000);
+      expect(v.moves).toBe(1);
+      const test = (v.action() as ViewAction[]).find((a) => a.label === 'Test')!;
+      test.run();
+      expect(v.hint()).toBe('Stranded tiles: undo to free them');
       expect(v.hint().length).toBeLessThanOrEqual(40);
-      frame(400);
-      frame(1000);
-      frame(590);
-      expect(v.moves).toBe(1);
-      frame(10); // two seconds after the swap
-      expect(v.moves).toBe(0);
-      expect(gluonsLeft(inside.state)).toBe(1);
-      expect(inside.state.tiles).toEqual(s.tiles);
-      expect(v.canUndo()).toBe(false);
-      expect(v.hint()).toBe('Swap undone: gluon back');
-      frame(2000);
-      expect(v.hint()).not.toMatch(/undo/i);
-    });
-
-    it('takes as long with reduced motion', () => {
-      const { v, wrong, doSwap, frame } = setup(true);
-      doSwap(wrong);
       frame(1990);
-      expect(v.moves).toBe(1);
-      frame(10);
-      expect(v.moves).toBe(0);
+      expect(v.hint()).toMatch(/strand/i);
+      frame(20);
+      expect(v.hint()).not.toMatch(/strand/i);
     });
 
-    it('takes it back at once on any touch, Undo or key, and does nothing else', () => {
-      const { s, v, inside, at, wrong, doSwap } = setup(false);
-      doSwap(wrong);
-      v.down(at(0));
-      v.move(at(1));
-      v.up(at(1));
-      expect(v.moves).toBe(0);
-      expect(inside.state.tiles).toEqual(s.tiles);
-      expect((v as unknown as { sel: number[] }).sel).toEqual([]);
+    it('comes back with Undo, refunding the gluon', () => {
+      const { s, v, inside, wrong, doSwap } = setup(false);
       doSwap(wrong);
       expect(v.undo()).toBe(true);
       expect(v.moves).toBe(0);
-      expect(v.canUndo()).toBe(false);
-      doSwap(wrong);
-      expect(v.key({ key: 'Escape' } as KeyboardEvent)).toBe(true);
-      expect(v.moves).toBe(0);
       expect(gluonsLeft(inside.state)).toBe(1);
+      expect(inside.state.tiles).toEqual(s.tiles);
+      expect(v.canUndo()).toBe(false);
     });
 
     it('leaves the right swap alone', () => {
@@ -377,19 +359,6 @@ describe('view', () => {
       expect(v.moves).toBe(1);
     });
 
-    it('takes back only the swap, not the moves before it', () => {
-      const { s, v, wrong, doSwap, frame } = setup(false);
-      // Earlier moves stay: only the swap is taken back.
-      const free = s.solution.find((g) => !g.includes(wrong[0]) && !g.includes(wrong[1]) && canBind(s, g));
-      expect(free).toBeDefined();
-      (v as unknown as { sel: number[] }).sel = [...free!];
-      (v as unknown as { tryBind: () => void }).tryBind();
-      expect(v.moves).toBe(1);
-      doSwap(wrong);
-      expect(v.moves).toBe(2);
-      frame(3000);
-      expect(v.moves).toBe(1);
-    });
   });
 
   describe('a group that strands tiles', () => {
@@ -421,49 +390,25 @@ describe('view', () => {
       throw new Error(`no wrong group at z ${z}`);
     }
 
-    for (const reduced of [false, true]) {
-      it(`shows it not quite bound for two seconds, then undoes it${reduced ? ' (reduced motion)' : ''}`, () => {
-        const { s, v, g, inside, frame, bindIt } = setup(1, reduced);
-        bindIt(g);
-        expect(v.moves).toBe(1);
-        expect(stranded(inside.state).length).toBeGreaterThan(0);
-        expect(inside.pending?.group).toBe(0);
-        expect(v.hint()).toMatch(/^That (baryon|antibaryon|meson) strands tiles: undoing$/);
-        expect(v.hint().length).toBeLessThanOrEqual(40);
-        frame(1000);
-        frame(990);
-        expect(v.moves).toBe(1);
-        frame(10);
-        expect(v.moves).toBe(0);
-        expect(inside.pending).toBeNull();
-        expect(inside.state).toEqual(s);
-        expect(v.canUndo()).toBe(false);
-        expect(v.hint()).toMatch(/^(Baryon|Antibaryon|Meson) undone: it stranded tiles$/);
-        frame(2000);
-        expect(v.hint()).not.toMatch(/undo/i);
-      });
-    }
-
-    it('keeps the moves before it, and goes at once on Undo or a touch', () => {
+    it('stays bound; Test rings it amber and the good ones green', () => {
       const { s, v, inside, frame, bindIt } = setup(60, false);
-      // One good group first, then a wrong one: only the wrong one is taken back.
       const good = s.solution.find((c) => canBind(s, c))!;
       bindIt(good);
       const g = wrongGroup(inside.state)!;
       bindIt(g);
       expect(v.moves).toBe(2);
-      frame(2000);
-      expect(v.moves).toBe(1);
-      expect(inside.state.groups).toEqual([good]);
-      bindIt(g);
+      expect(v.hint()).not.toMatch(/strand/i);
+      frame(3000);
+      expect(v.moves).toBe(2);
+      frame(1000);
+      const acts = v.action();
+      const test = (Array.isArray(acts) ? acts : [acts!]).find((a) => a.label === 'Test')!;
+      test.run();
+      const marks = (v as unknown as { testing(): { ok: boolean[] } | null }).testing()!;
+      expect(marks.ok).toEqual([true, false]);
       expect(v.undo()).toBe(true);
       expect(v.moves).toBe(1);
-      expect(v.canUndo()).toBe(true);
-      bindIt(g);
-      v.down({ x: 1, y: 1 });
-      v.up({ x: 1, y: 1 });
-      expect(v.moves).toBe(1);
-      expect(inside.sel).toEqual([]);
+      expect(inside.state.groups).toEqual([good]);
     });
 
     it('leaves a good group alone', () => {

@@ -5,7 +5,7 @@
 // Each builder returns plain DOM, so it drops into code that renders with innerHTML too:
 // render a placeholder, then replace it with the element (or use switchHtml, which is a string).
 
-import { icon } from './icons';
+import { icon, type IconName } from './icons';
 import { landNu, nuEnabled, nuIconHtml, nuOrbit, nuStreak, reducedMotion } from './nu';
 
 // Stand-in glyphs from before the icon library; drawn on the 24 px grid with 2 px padding.
@@ -156,6 +156,49 @@ export function createSegments(items: SegmentItem[], opts: { active?: string; on
   };
   root.addEventListener('click', (e) => {
     const b = (e.target as HTMLElement).closest<HTMLButtonElement>('.ui-seg-opt');
+    if (b && b.dataset.id !== active) select(b.dataset.id!, true);
+  });
+  root.addEventListener('keydown', (e) => {
+    const i = buttons.findIndex((b) => b.dataset.id === active);
+    const step = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 0;
+    if (!step || i < 0) return;
+    e.preventDefault();
+    const next = buttons[(i + step + buttons.length) % buttons.length];
+    select(next.dataset.id!, true);
+    next.focus();
+  });
+  select(active);
+  return { el: root, get active() { return active; }, select };
+}
+
+// ---- Pills: a row of rounded choices, one picked ----------------------------------------------
+
+/** A compact radio group of pills (the Collection's stage filter): one picked, in cyan. Same
+ *  API as createSegments; arrow keys move the choice. */
+export function createPills(items: SegmentItem[], opts: { active?: string; onChange?: (id: string) => void; label?: string } = {}): Segments {
+  const root = el('div', 'ui-pills');
+  root.setAttribute('role', 'radiogroup');
+  if (opts.label) root.setAttribute('aria-label', opts.label);
+  const buttons = items.map((t) => {
+    const b = el('button', 'ui-pill', `${t.icon ?? ''}<span>${esc(t.label)}</span>`);
+    b.type = 'button';
+    b.setAttribute('role', 'radio');
+    b.dataset.id = t.id;
+    root.append(b);
+    return b;
+  });
+  let active = opts.active ?? items[0]?.id ?? '';
+  const select = (id: string, notify = false) => {
+    active = id;
+    for (const b of buttons) {
+      const on = b.dataset.id === id;
+      b.setAttribute('aria-checked', String(on));
+      b.tabIndex = on ? 0 : -1;
+    }
+    if (notify) opts.onChange?.(id);
+  };
+  root.addEventListener('click', (e) => {
+    const b = (e.target as HTMLElement).closest<HTMLButtonElement>('.ui-pill');
     if (b && b.dataset.id !== active) select(b.dataset.id!, true);
   });
   root.addEventListener('keydown', (e) => {
@@ -415,20 +458,75 @@ export function nextButton(o: NextButtonOptions): HTMLButtonElement {
 }
 
 export interface PlayButtonOptions {
-  /** Shown beside the triangle; omit for a round icon-only button (then give `ariaLabel`). */
+  /** Shown beside the icon; omit for a round icon-only button (then give `ariaLabel`). */
   label?: string;
   ariaLabel?: string;
-  onClick: () => void;
+  onClick?: () => void;
   compact?: boolean;
+  className?: string;
+  /** The icon: the play triangle by default; Replay uses 'restart', Unlock 'unlock'. */
+  icon?: IconName;
+  /** Locked: the same shape, dimmed, with a lock, and not a button anyone can press. */
+  locked?: boolean;
+}
+
+/** Plain Play, for every step that is not the next one: a gray pill with an icon and a word.
+ *  Replay, Unlock and Locked take the same shape with their own icon. */
+export function playButton(o: PlayButtonOptions): HTMLButtonElement {
+  const ico = o.locked ? 'lock' : o.icon ?? 'play';
+  const b = el('button', `ui-play${o.compact ? ' ui-play--compact' : ''}${o.label ? '' : ' ui-play--icon'}${o.locked ? ' ui-play--locked' : ''} ${o.className ?? ''}`.trim(), `${icon(ico, { size: o.compact ? 16 : 18 })}${o.label ? `<span>${esc(o.label)}</span>` : ''}`);
+  b.type = 'button';
+  if (!o.label) b.setAttribute('aria-label', o.ariaLabel ?? 'Play');
+  else if (o.ariaLabel) b.setAttribute('aria-label', o.ariaLabel);
+  if (o.locked) b.disabled = true;
+  b.onclick = () => o.onClick?.();
+  return b;
+}
+
+// ---- Callout: a floating card at the foot of a screen ----------------------------------------
+
+export interface CalloutOptions {
+  /** The small line on top, in pink: "Up next: Quanta", "Learn to Play". */
+  kicker: string;
+  /** The large line under it: "Gallium's electrons", "Quanta". */
+  title: string;
+  /** A picture on the left (an atom thumbnail, a tile), as HTML. */
+  pic?: string;
+  /** Buttons on the right: a Next button, or Rules and Not now. */
+  actions?: HTMLElement[];
   className?: string;
 }
 
-/** Plain Play, for every step that is not the next one: a gray plate with a white triangle. */
-export function playButton(o: PlayButtonOptions): HTMLButtonElement {
-  const b = el('button', `ui-play${o.compact ? ' ui-play--compact' : ''}${o.label ? '' : ' ui-play--icon'} ${o.className ?? ''}`.trim(), `${icon('play', { size: o.compact ? 16 : 18 })}${o.label ? `<span>${esc(o.label)}</span>` : ''}`);
+/** The floating card for Up next and Learn to Play: a pale plate with a soft pink glow, pink
+ *  text, kicker over title, buttons on the right. It is positioned absolutely by its container
+ *  (`.ui-callout--float` pins it to the bottom), so it never pushes the page about. */
+export function createCallout(o: CalloutOptions): HTMLElement {
+  const c = el('div', `ui-callout ${o.className ?? ''}`.trim(),
+    `${o.pic !== undefined ? `<span class="ui-callout-pic">${o.pic}</span>` : ''}<span class="ui-callout-text"><small></small><b></b></span><span class="ui-callout-acts"></span>`);
+  c.querySelector('small')!.textContent = o.kicker;
+  c.querySelector('b')!.textContent = o.title;
+  c.querySelector('.ui-callout-acts')!.append(...(o.actions ?? []));
+  return c;
+}
+
+/** A plain text button in the accent blue, bold, for a small action beside a line of text
+ *  ("Test" beside a game's status). */
+export function textButton(label: string, onClick: () => void, className = ''): HTMLButtonElement {
+  const b = el('button', `ui-text-btn ${className}`.trim());
   b.type = 'button';
-  if (!o.label) b.setAttribute('aria-label', o.ariaLabel ?? 'Play');
-  b.onclick = () => o.onClick();
+  b.textContent = label;
+  b.onclick = () => onClick();
+  return b;
+}
+
+/** Back, named for where it goes: a chevron and a place ("Gallium", "All games"), on a gray
+ *  pill plate. */
+export function backButton(label: string, onClick: () => void, className = ''): HTMLButtonElement & { setLabel(l: string): void } {
+  const b = el('button', `back-plate ${className}`.trim(), `${icon('chevron-left', { size: 20 })}<span></span>`) as HTMLButtonElement & { setLabel(l: string): void };
+  b.type = 'button';
+  b.onclick = () => onClick();
+  b.setLabel = (l: string) => { b.querySelector('span')!.textContent = l; b.setAttribute('aria-label', `Back to ${l}`); };
+  b.setLabel(label);
   return b;
 }
 

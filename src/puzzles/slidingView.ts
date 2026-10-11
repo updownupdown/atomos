@@ -277,7 +277,7 @@ export function drawTray(ctx: CanvasRenderingContext2D, x0: number, y0: number, 
   const W = cols * c, H = rows * c;
   ctx.save();
   ctx.fillStyle = C.surface2;
-  const dr = Math.max(1.5, c * 0.035);
+  const dr = Math.max(2, c * 0.05);
   for (let i = 0; i < cols * rows; i++) {
     ctx.beginPath();
     ctx.arc(x0 + (i % cols + 0.5) * c, y0 + (Math.floor(i / cols) + 0.5) * c, dr, 0, Math.PI * 2);
@@ -309,7 +309,7 @@ export function drawBlock(ctx: CanvasRenderingContext2D, b: Block, x: number, y:
   const g = c * 0.07;
   const key = b.id === 0;
   const face = key ? C.target : b.free ? C.silverDim : C.tile;
-  const lip = Math.max(1.5, c * 0.06);
+  const lip = Math.max(2.5, c * 0.1);
   const w = (b.free || !b.horiz ? 1 : b.len) * c - 2 * g, h = (b.free || b.horiz ? 1 : b.len) * c - 2 * g;
   const bx = x + g, by = y + g;
   const rad = b.free ? w / 2 : c * 0.2;
@@ -318,12 +318,12 @@ export function drawBlock(ctx: CanvasRenderingContext2D, b: Block, x: number, y:
   tile(ctx, bx, by, w, h - lip, rad, face);
   if (active) tile(ctx, bx - 2.5, by - 2.5, w + 5, h + 5, rad + 2.5, null, C.accent, 2.5);
   const fh = h - lip, cx = bx + w / 2, cy = by + fh / 2;
-  const groove = shade(face, -0.22);
+  const groove = shade(face, -0.12);
   ctx.save();
   ctx.lineCap = 'round';
   if (b.free) {
     ctx.strokeStyle = groove;
-    ctx.lineWidth = Math.max(2, c * 0.08);
+    ctx.lineWidth = Math.max(2, c * 0.06);
     const k = w * 0.2;
     ctx.beginPath();
     ctx.moveTo(cx - k, cy); ctx.lineTo(cx + k, cy);
@@ -332,10 +332,10 @@ export function drawBlock(ctx: CanvasRenderingContext2D, b: Block, x: number, y:
     ctx.restore();
     return;
   }
-  // The track: a recessed capsule along the bar, with a thin highlight on its lower lip.
-  const inset = c * 0.3, tw = Math.max(3, c * 0.13);
+  // The track: a faint recessed line along the bar, with a thin highlight on its lower lip.
+  const inset = c * 0.32, tw = Math.max(2, c * 0.075);
   const [x1, y1, x2, y2] = b.horiz ? [bx + inset, cy, bx + w - inset, cy] : [cx, by + inset, cx, by + fh - inset];
-  ctx.strokeStyle = shade(face, 0.35);
+  ctx.strokeStyle = shade(face, 0.18);
   ctx.lineWidth = tw;
   ctx.beginPath();
   ctx.moveTo(x1, y1 + 1); ctx.lineTo(x2, y2 + 1);

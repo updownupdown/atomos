@@ -3,7 +3,7 @@
 
 import { ALL_SYMBOLS } from '../core/elements';
 import { bestSwipe, cloneMerge, closestPair, inReach, jammed, mergeOf, slide, wanted, won, type Dir, type MergeState, type Tile } from './merge';
-import { drawHelpMark, ease, MONO, undoHelp, type Area, type Help, type Point, type PuzzleView, type RuleCard } from './view';
+import { drawHelpMark, HINT_RGB, ease, MONO, undoHelp, type Area, type Help, type Point, type PuzzleView, type RuleCard } from './view';
 import { C, font, tile as roundTile } from './palette';
 import { drawFrame, frameWidth, framePad } from './frame';
 
@@ -356,15 +356,15 @@ export function drawSocket(ctx: CanvasRenderingContext2D, cx: number, cy: number
   ctx.restore();
 }
 
-/** Show me's swipe: a soft white arrow through (x, y), half length l, pointing the way the board slid. */
+/** Show me's swipe: a soft rose-magenta arrow through (x, y), half length l, pointing the way the board slid. */
 function drawSwipeArrow(ctx: CanvasRenderingContext2D, x: number, y: number, l: number, dir: Dir, alpha: number): void {
   const [ux, uy] = dir === 'left' ? [-1, 0] : dir === 'right' ? [1, 0] : dir === 'up' ? [0, -1] : [0, 1];
   const hd = l * 0.35;
   const tx = x + ux * l, ty = y + uy * l;
   ctx.save();
   ctx.globalAlpha = alpha;
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
-  ctx.shadowColor = 'rgba(255, 255, 255, 0.8)';
+  ctx.strokeStyle = `rgba(${HINT_RGB}, 0.95)`;
+  ctx.shadowColor = `rgba(${HINT_RGB}, 0.8)`;
   ctx.shadowBlur = 10;
   ctx.lineWidth = 5;
   ctx.lineCap = 'round';

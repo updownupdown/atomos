@@ -31,7 +31,8 @@ import { closeModal, modalOpen, openModal } from './ui/modal';
 import { createTabs, iconButton, nextButton, playButton } from './ui/components';
 import { askRestart, confirming, restartButton } from './puzzles/restart';
 import { HintControl } from './puzzles/hints';
-import { aboveOffers, clearOffers, createGameBar, gameFooter, offerRules, type GameBar, type GameFooter } from './puzzles/gamebar';
+import { clearOffers, createGameBar, offerRules, type GameBar } from './puzzles/gamebar';
+import { pipsHtml, progressRings } from './ui/progress';
 import { countPlay, GOAL_PLAYS } from './core/plays';
 import { icon, type IconName } from './ui/icons';
 import { scienceButton, setScienceHandler } from './ui/science';
@@ -86,10 +87,8 @@ export class Game {
   private goal = '';
   /** The Hint button: Look here, then Show me. */
   private hints = new HintControl(() => (this.busy ? null : this.puzzle), () => { this.refresh(); this.ensureLoop(); });
-  /** The bar at the top of a puzzle: tools, stats and the message line. */
+  /** The frame of a puzzle: stats, Back and the tools on top, the message line under it. */
   private gbar!: GameBar;
-  /** Under a puzzle: Back to the atom's Build page. */
-  private foot!: GameFooter;
 
   constructor(private hooks: { onElement?: (z: number) => void; onView?: (z: number) => void } = {}) {
     this.scene = new AtomScene($<HTMLCanvasElement>('atom'));
@@ -354,19 +353,9 @@ export class Game {
   private renderHead(): void {
     const stage = this.stage as Exclude<Stage, 'home'>;
     const t = this.stagePuzzle(stage);
-    this.gbar.setTitle(t.name, this.stageLabel(stage));
-    this.foot.setLabel(`Back to ${element(this.z).name}`);
+    this.gbar.setTitle(t.name);
+    this.gbar.setBack(element(this.z).name);
     this.gbar.setDifficulty(difficulty(t.id, this.dealtFor(stage)));
-  }
-
-  /** What a puzzle is for, beside its name: "Building Lithium", "Building Lithium-6" or
-   *  "Discovering p orbitals". */
-  private stageLabel(stage: Exclude<Stage, 'home'>): string {
-    const name = element(this.z).name;
-    if (isIso(stage)) return `Building ${name}-${isoA(stage)}`;
-    if (isFleet(stage)) return `Building ${name}-${fleetA(stage)}`;
-    if (stage === 'shape') return `Discovering ${shapeAt(this.z)} orbitals`;
-    return `Building ${name}`;
   }
 
   /** The catalog entry for a puzzle on this atom. */
@@ -464,18 +453,22 @@ export class Game {
     ].join('');
 
     const root = $('bh-in');
+    const verbIcon: Record<string, IconName> = { Replay: 'restart', Unlock: 'unlock', Resume: 'play', Play: 'play' };
     root.querySelectorAll<HTMLElement>('.bh-slot').forEach((slot) => {
       const stage = slot.dataset.slot as Stage;
       const go = () => this.enter(stage);
+      const verb = slot.dataset.verb!;
       const b = slot.dataset.next === '1'
-        ? nextButton({ label: slot.dataset.verb!, onClick: go, compact: true, landKey: `build:${z}`, className: 'bh-go' })
-        : playButton({ ariaLabel: `${slot.dataset.verb} ${slot.dataset.what}`, onClick: go, compact: true, className: 'bh-plain' });
+        ? nextButton({ label: verb, onClick: go, compact: true, landKey: `build:${z}`, className: 'bh-go' })
+        : playButton({ label: verb, ariaLabel: `${verb} ${slot.dataset.what}`, onClick: go, compact: true, className: 'bh-plain', icon: verbIcon[verb], locked: slot.dataset.locked === '1' });
       slot.replaceWith(b);
     });
-    root.querySelectorAll<HTMLButtonElement>('[data-stage]').forEach((b) => (b.onclick = () => this.enter(b.dataset.stage as Stage)));
     root.querySelector<HTMLButtonElement>('#bh-bench')?.addEventListener('click', () => this.showBench(z));
     this.firstLines();
-    root.querySelectorAll<HTMLButtonElement>('[data-fleet]').forEach((b) => (b.onclick = () => this.pickFleeting(Number(b.dataset.fleet))));
+    root.querySelectorAll<HTMLElement>('[data-fleet]').forEach((r) => {
+      r.onclick = () => this.pickFleeting(Number(r.dataset.fleet));
+      r.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.pickFleeting(Number(r.dataset.fleet)); } };
+    });
   }
 
   /** Nu's lines the first time: on the first Build page, and once an atom is built, above its
@@ -495,17 +488,20 @@ export class Game {
     return last - first + 1;
   }
 
-  /** The fleeting isotopes as a grid of tiles: name and half-life, and once built a decayed
-   *  mark. A tile opens the choice of puzzle. */
+  /** The fleeting isotopes as a table, one row per isotope: its name, neutrons, half-life and,
+   *  once built, a decayed mark. A row opens the choice of puzzle. */
   private fleetingGrid(list: ReturnType<typeof fleetingIsotopes>, open: boolean): string {
     const el = element(this.z);
-    return `<ul class="bh-fleet" aria-label="${el.name}'s fleeting isotopes">${list.map((i) => {
-      const done = isotopeCollected(this.save, this.z, i.a);
-      const life = i.halfLife === null ? 'half-life unknown' : formatDuration(i.halfLife);
-      return `<li><button class="bh-fleet-tile${done ? ' is-decayed' : ''}" data-fleet="${i.a}" ${open ? '' : 'disabled'} aria-label="${el.symbol}-${i.a}, ${life}${done ? ', built, decayed' : ''}">
-        <b>${el.symbol}-${i.a}</b><span>${life}</span>${done ? `<i class="bh-fleet-mark">${icon('check', { size: 12 })}Decayed</i>` : ''}
-      </button></li>`;
-    }).join('')}</ul>`;
+    return `<table class="bh-fleet${open ? '' : ' is-shut'}" aria-label="${el.name}'s fleeting isotopes">
+      <thead><tr><th scope="col">Isotope</th><th scope="col" class="n">Neutrons</th><th scope="col" class="n">Half-life</th><th scope="col"><span class="sr-only">Built</span></th></tr></thead>
+      <tbody>${list.map((i) => {
+        const done = isotopeCollected(this.save, this.z, i.a);
+        const life = i.halfLife === null ? 'unknown' : formatDuration(i.halfLife);
+        return `<tr class="${done ? 'is-decayed' : ''}"${open ? ` data-fleet="${i.a}" tabindex="0" role="button" aria-label="${el.symbol}-${i.a}, half-life ${life}${done ? ', built, decayed' : ''}"` : ''}>
+          <th scope="row">${el.symbol}-${i.a}</th><td class="n">${i.a - el.z}</td><td class="n">${life}</td>
+          <td class="bh-fleet-st">${done ? `<i class="bh-fleet-mark">${icon('check', { size: 12 })}Decayed</i>` : open ? icon('chevron-right', { size: 18 }) : ''}</td>
+        </tr>`;
+      }).join('')}</tbody></table>`;
   }
 
   /** A fleeting isotope's sheet: what it is, and the puzzles it can be built with, each at the
@@ -539,13 +535,12 @@ export class Game {
     }));
   }
 
-  /** One part of the Build page under a full-width heading: icon, name, how far it has got on
-   *  the right, a line on what it is, then its puzzles. */
-  private section(glyph: IconName, title: string, count: string, cards: string, blurb = '', after = ''): string {
+  /** One part of the Build page under a full-width heading: its name, how far it has got on the
+   *  right, a line on what it is, then its puzzles. */
+  private section(_glyph: IconName, title: string, count: string, cards: string, blurb = '', after = ''): string {
     return `
       <section class="bh-sec" aria-label="${title}">
         <div class="bh-sec-head">
-          <span class="bh-sec-icon" aria-hidden="true">${icon(glyph, { size: 26 })}</span>
           <h3>${title}</h3>
           ${count ? `<span class="bh-sec-count">${count}</span>` : ''}
         </div>
@@ -568,45 +563,42 @@ export class Game {
     return stage === 'shape' ? SHAPE_GLYPH_Z[shapeAt(this.z)!] : this.z;
   }
 
-  /** One puzzle card: the puzzle's icon, its name (or, for an isotope, the isotope's), a rough
-   *  difficulty, what it adds, and on the right its state over a Play or Replay button. */
+  /** One puzzle card: the puzzle's icon on its own at the left; then, in one column, its name
+   *  (or, for an isotope, the isotope's), a rough difficulty, what it adds and a note; on the
+   *  right its button, every kind the same pill (Play, Replay, Unlock, Locked), with Built or
+   *  Flawless above it once it is done. Everything is centred vertically. */
   private card(o: { stage: Exclude<Stage, 'home'>; title?: string; text: string; done: boolean; flawless: boolean; best?: number; locked?: string; gate?: string }): string {
     const t = this.stagePuzzle(o.stage);
     const paused = this.suspended[o.stage];
     const gated = Boolean(o.gate) && !o.done;
     const cls = o.locked ? 'is-locked' : gated ? 'is-gate is-next' : o.done ? (o.flawless ? 'is-flawless' : 'is-done') : 'is-next';
-    const state = o.locked || (gated && !paused) ? 'Locked' : paused ? 'In progress' : o.done ? (o.gate ? 'Discovered' : o.flawless && !isIso(o.stage) ? 'Flawless' : 'Built') : 'Not built';
+    const flawless = o.done && o.flawless && !isIso(o.stage);
+    const state = paused ? 'In progress'
+      : o.done ? `${icon(flawless ? 'star' : 'check', { size: 14 })}${o.gate ? 'Discovered' : flawless ? 'Flawless' : 'Built'}`
+      : '';
     const note = o.locked ? o.locked
       : gated && !paused ? o.gate
       : paused ? `${paused.moves} move${paused.moves === 1 ? '' : 's'} so far`
       : o.done && o.best !== undefined ? `Best ${o.best} move${o.best === 1 ? '' : 's'}`
       : '';
-    const badge = o.done ? `<span class="bh-badge">${icon(o.flawless ? 'star' : 'check', { size: 14 })}</span>` : '';
     const verb = paused ? 'Resume' : o.done ? 'Replay' : gated ? 'Unlock' : 'Play';
     const isNext = !o.locked && this.nextHere?.z === this.z && this.nextHere.stage === o.stage;
-    // The next step gets the Next button and the rest a plain Play, both mounted after render;
-    // a built step gets Replay, and a discovery still to make, Unlock.
-    const play = o.locked ? `<span class="bh-lock" aria-hidden="true">${icon('lock', { size: 20 })}</span>`
-      : isNext || (!o.done && !gated) || paused ? `<span class="bh-slot" data-slot="${o.stage}" data-next="${isNext ? 1 : 0}" data-verb="${verb}" data-what="${t.name}${o.title ? `: ${o.title}` : ''}"></span>`
-      : `<button class="secondary bh-play" data-stage="${o.stage}" aria-label="${verb} ${t.name}${o.title ? `: ${o.title}` : ''}" title="${verb}">${icon(o.done ? 'restart' : 'unlock', { size: 20 })}</button>`;
+    // The button is mounted after render: Next on the next step, the gray pill on the rest.
+    const play = `<span class="bh-slot" data-slot="${o.stage}" data-next="${isNext ? 1 : 0}" data-verb="${o.locked ? 'Locked' : verb}" data-what="${t.name}${o.title ? `: ${o.title}` : ''}"${o.locked ? ' data-locked="1"' : ''}></span>`;
     const rating = difficulty(t.id, this.dealtFor(o.stage));
-    const pips = Array.from({ length: 5 }, (_, i) => `<i class="${i < Math.ceil(rating / 2) ? 'on' : ''}"></i>`).join('');
+
     return `
       <li class="bh-row ${cls}${isNext ? ' is-go' : ''}">
         <div class="bh-step">
+          <span class="bh-mark" aria-hidden="true">${puzzleIcon(t.id, 32)}</span>
           <div class="bh-step-body">
-            <div class="bh-step-head">
-              <span class="bh-mark" aria-hidden="true">${puzzleIcon(t.id, 32)}${badge}</span>
-              <div>
-                <h4 class="bh-step-name">${o.title ?? t.name}</h4>
-                <p class="bh-diff"><span class="bh-pips" aria-hidden="true">${pips}</span>${o.title ? `${t.name} · ` : ''}${difficultyWord(rating)}</p>
-              </div>
-            </div>
+            <h4 class="bh-step-name">${o.title ?? t.name}</h4>
+            <p class="bh-diff">${pipsHtml(rating)}${o.title ? `${t.name} · ` : ''}${difficultyWord(rating)}</p>
             <p class="bh-adds">${o.text}</p>
             ${note ? `<p class="bh-where">${note}</p>` : ''}
           </div>
           <div class="bh-side">
-            <span class="bh-state">${state}</span>
+            ${state ? `<span class="bh-state">${state}</span>` : ''}
             ${play}
           </div>
         </div>
@@ -618,14 +610,12 @@ export class Game {
     return `
       <li class="bh-row is-done">
         <div class="bh-step">
+          <span class="bh-mark" aria-hidden="true">${icon('atom', { size: 32 })}</span>
           <div class="bh-step-body">
-            <div class="bh-step-head">
-              <span class="bh-mark" aria-hidden="true">${icon('atom', { size: 32 })}<span class="bh-badge">${icon('check', { size: 14 })}</span></span>
-              <h4 class="bh-step-name">A lone proton</h4>
-            </div>
+            <h4 class="bh-step-name">A lone proton</h4>
             <p class="bh-adds">Ready from the start</p>
           </div>
-          <div class="bh-side"><span class="bh-state">Built</span></div>
+          <div class="bh-side"><span class="bh-state">${icon('check', { size: 14 })}Built</span></div>
         </div>
       </li>`;
   }
@@ -647,7 +637,7 @@ export class Game {
     $('bh-progress').innerHTML = `
       ${progressRings({ nucleus, shells, lasting: { built: lastingDone, total: lasting.length }, fleeting: fleet })}
       <div class="bh-rings-text">
-        <b>${pct}%</b>
+        <b${pct >= 100 ? ' class="is-done"' : ''}>${pct}%</b>
         ${fleet.total ? `<span>${fleetPct}% fleeting</span>` : ''}
       </div>`;
     $('bh-progress').setAttribute('aria-label', `${pct}% built${fleet.total ? `, ${fleet.built} of ${fleet.total} fleeting isotopes` : ''}`);
@@ -678,7 +668,7 @@ export class Game {
 
   private area(): Area {
     const top = $('build-head').getBoundingClientRect().bottom + 8;
-    const bottom = aboveOffers(this.gbar.el, $('build-foot').getBoundingClientRect().top - 8);
+    const bottom = $('build-foot').getBoundingClientRect().top - 8;
     const w = window.innerWidth;
     const narrow = w < 900;
     // On wide screens the puzzle keeps to a column so the atom can sit beside it.
@@ -957,10 +947,9 @@ export class Game {
     restart.id = 'btn-restart';
     this.hints.button.id = 'btn-hint';
     const how = iconButton({ icon: icon('info'), label: 'Instructions', onClick: () => this.showHow() });
-    this.gbar = createGameBar([undo, restart, this.hints.button, how, scienceButton('ui-icon-btn science-btn')]);
+    this.gbar = createGameBar([undo, restart, this.hints.button, how, scienceButton('ui-icon-btn science-btn')], { label: element(this.z).name, onClick: () => this.toHome() });
     $('build-head').append(this.gbar.el);
-    this.foot = gameFooter('Back', () => this.toHome());
-    $('build-foot').append(this.foot.el);
+    $('build-foot').append(this.gbar.foot);
     window.addEventListener('keydown', (e) => this.onKey(e));
     window.addEventListener('blur', () => this.onCancel());
   }
@@ -1387,33 +1376,4 @@ const wait = (ms: number) => new Promise((r) => window.setTimeout(r, ms));
 
 export { FAMILY_COLOURS, electronCount };
 
-/** Nucleus disc, electron ring and, when the atom has isotopes, an outer ring of two arcs (lasting
- *  then fleeting, clockwise from the top) sized by their counts, with a gap between them. A small
- *  group keeps a fifth of the ring so it stays visible beside a large one. */
-export function progressRings(o: { nucleus: boolean; shells: boolean; lasting: { built: number; total: number }; fleeting: { built: number; total: number } }, size = 64): string {
-  const c = 32, gap = 0.09, w = 5;
-  const arc = (r: number, from: number, to: number, cls: string): string => {
-    if (to - from <= 0.0001) return '';
-    if (to - from >= 0.9999) return `<circle class="${cls}" cx="${c}" cy="${c}" r="${r}" stroke-width="${w}" />`;
-    const pt = (t: number) => `${(c + r * Math.sin(t * 2 * Math.PI)).toFixed(2)} ${(c - r * Math.cos(t * 2 * Math.PI)).toFixed(2)}`;
-    return `<path class="${cls}" d="M ${pt(from)} A ${r} ${r} 0 ${to - from > 0.5 ? 1 : 0} 1 ${pt(to)}" stroke-width="${w}" />`;
-  };
-  const groups = [o.lasting, o.fleeting].filter((g) => g.total > 0);
-  const sum = groups.reduce((a, g) => a + g.total, 0);
-  let shares = groups.map((g) => g.total / sum);
-  if (shares.length === 2) shares = shares.map((x) => Math.min(0.8, Math.max(0.2, x)));
-  let outer = '';
-  let at = 0;
-  const free = 1 - (groups.length > 1 ? gap * groups.length : 0);
-  groups.forEach((g, i) => {
-    const span = shares[i] * free;
-    const from = at + (groups.length > 1 ? gap / 2 : 0);
-    outer += arc(26, from, from + span, 'rg-track') + arc(26, from, from + span * (g.built / g.total), 'rg-on');
-    at = from + span + (groups.length > 1 ? gap / 2 : 0);
-  });
-  return `<svg class="bh-rings-svg" viewBox="0 0 64 64" width="${size}" height="${size}" aria-hidden="true">
-    ${outer}
-    <circle class="${o.shells ? 'rg-on' : 'rg-track'}" cx="${c}" cy="${c}" r="17" stroke-width="${w}" />
-    <circle class="${o.nucleus ? 'rg-fill-on' : 'rg-fill'}" cx="${c}" cy="${c}" r="9" />
-  </svg>`;
-}
+

@@ -233,7 +233,11 @@ function boardFrame(ctx: CanvasRenderingContext2D, s: LinesState, g: Grid): void
   const { c } = g;
   const p = framePad(c), lw = frameWidth(c);
   const box = { x: g.x - p, y: g.y - p, w: s.cols * c + p * 2, h: s.rows * c + p * 2 };
-  const r = Math.min(c * 0.2 + p, box.w / 2, box.h / 2);
+  // The corner's curve keeps clear of the corner node, where two rim channels meet square: the
+  // node sits (r - p)·√2 from the arc's center, so r can be no more than this for the stroke's
+  // inner edge to pass it with a few pixels to spare.
+  const spare = lw / 2 + Math.max(1.5, c * 0.045) / 2 + Math.max(3, c * 0.05);
+  const r = Math.max(lw, Math.min(c * 0.2 + p, (p * Math.SQRT2 - spare) / (Math.SQRT2 - 1), box.w / 2, box.h / 2));
   const clear = lw * 0.9;
   const holes: Hole[] = [];
   // A + charge's bead, where it reaches the frame's line.

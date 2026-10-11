@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { applyMove, bounds, canonical, canPlace, cellsLeft, cellsOf, completion, mirrored, newPacking, normalize, occupancy, rotated, sizeFor, solved, solvedState, type PackingMove, type PackingState, type Rot } from '../src/puzzles/packing';
-import { INSTRUCTIONS, PackingView, RULES } from '../src/puzzles/packingView';
+import { applyMove, bounds, canonical, canPlace, cellsLeft, cellsOf, completion, fallbackPacking, measure, mirrored, newPacking, normalize, occupancy, oriented, rotated, sizeFor, solved, solvedState, type PackingMove, type PackingState, type Rot } from '../src/puzzles/packing';
+import { INSTRUCTIONS, PackingView, RULES, stonesFor } from '../src/puzzles/packingView';
 import { C } from '../src/puzzles/palette';
 import { undoHelp, type Area, type RuleCard } from '../src/puzzles/view';
 
-const SPREAD = [1, 6, 12, 26, 30, 40, 50, 80, 92, 118];
+const SPREAD = [1, 6, 12, 26, 30, 40, 50, 80, 92, 100, 118];
 
 /** A canvas stand-in that records every coordinate drawn. */
 function mockCtx(): { ctx: CanvasRenderingContext2D; pts: [number, number][] } {
@@ -50,36 +50,87 @@ describe('shapes', () => {
 
 describe('levels', () => {
   it('is the same level for the same seed', () => {
-    expect(newPacking(26, 7)).toEqual(newPacking(26, 7));
-    expect(newPacking(26, 7)).not.toEqual(newPacking(26, 8));
+    for (const z of [1, 26, 60, 90, 118]) {
+      expect(newPacking(z, 7)).toEqual(newPacking(z, 7));
+      expect(newPacking(z, 7)).not.toEqual(newPacking(z, 8));
+    }
   });
 
-  it('carves pieces of two to five cells that exactly fill the open cells', () => {
-    for (const z of SPREAD) for (let deal = 0; deal < 8; deal++) {
+  /** The cut-out cells of a level, as indices. */
+  const holesOf = (s: PackingState) => s.outline.flatMap((on, i) => (on ? [] : [i]));
+
+  it('has exactly one answer, on every element, flips included', () => {
+    let deals = 0;
+    for (let z = 1; z <= 118; z += 3) for (const seed of [z, z + 500, z + 1000]) {
+      const s = newPacking(z, seed);
+      // The dancing links solver, not the one the level was made with, counts every distinct set
+      // of placements, turned or mirrored copies of the whole answer included.
+      const m = measure(s, 2, 1e7);
+      expect(m.complete, `z${z} seed ${seed}`).toBe(true);
+      expect(m.answers, `z${z} seed ${seed}`).toBe(1);
+      deals++;
+    }
+    expect(deals).toBe(120);
+    const f = fallbackPacking();
+    expect(measure(f, 2, 1e7)).toMatchObject({ answers: 1, complete: true });
+    expect(solved(solvedState(f))).toBe(true);
+  });
+
+  it('is a square with one to three single holes, filled exactly by every piece in the tray', () => {
+    for (const z of SPREAD) for (let deal = 0; deal < 6; deal++) {
       const s = newPacking(z, z * 100 + deal);
       const plan = sizeFor(z);
-      expect(s.outline.filter(Boolean).length).toBe(plan.n);
-      expect(s.blocked.filter(Boolean).length).toBe(plan.blocked);
-      expect(s.blocked.every((b, i) => !b || s.outline[i])).toBe(true);
-      expect(s.decoys).toBe(plan.decoys);
+      expect(s.w).toBe(s.h);
+      expect(s.w).toBeLessThanOrEqual(plan.side);
+      expect(s.outline).toHaveLength(s.w * s.h);
+      const holes = holesOf(s);
+      expect(holes.length).toBeGreaterThanOrEqual(1);
+      expect(holes.length).toBeLessThanOrEqual(3);
+      // Single cells: no two holes side by side.
+      for (const a of holes) for (const b of holes) {
+        if (a < b) expect(Math.abs((a % s.w) - (b % s.w)) + Math.abs(Math.floor(a / s.w) - Math.floor(b / s.w))).toBeGreaterThan(1);
+      }
+      // The open cells are one region.
+      const open = s.outline.flatMap((on, i) => (on ? [i] : []));
+      const seen = new Set([open[0]]);
+      const stack = [open[0]];
+      while (stack.length) {
+        const c = stack.pop()!;
+        for (const d of [c % s.w > 0 ? c - 1 : -1, c % s.w < s.w - 1 ? c + 1 : -1, c - s.w, c + s.w]) {
+          if (d >= 0 && d < s.outline.length && s.outline[d] && !seen.has(d)) { seen.add(d); stack.push(d); }
+        }
+      }
+      expect(seen.size).toBe(open.length);
+      // Nothing filled in advance, nothing spare.
+      expect(Object.keys(s).sort()).toEqual(['flips', 'h', 'moves', 'outline', 'par', 'pieces', 'solution', 'w']);
       expect(s.flips).toBe(plan.flips);
-      expect(s.par).toBe(s.pieces.length - s.decoys);
+      expect(s.par).toBe(s.pieces.length);
       expect(s.moves).toBe(0);
-      let total = 0;
+      expect(s.pieces.reduce((a, p) => a + p.shape.length, 0)).toBe(open.length);
+      expect(cellsLeft(s)).toBe(open.length);
+      expect(solved(s)).toBe(false);
       for (const p of s.pieces) {
         expect(p.at).toBeNull();
-        expect(p.shape.length).toBeGreaterThanOrEqual(2);
-        expect(p.shape.length).toBeLessThanOrEqual(5);
-        if (s.solution[p.id]) total += p.shape.length;
+        expect(s.solution[p.id]).toBeTruthy();
         if (!s.flips) expect(p.flip).toBe(false);
       }
-      expect(total).toBe(plan.n - plan.blocked);
-      expect(cellsLeft(s)).toBe(plan.n - plan.blocked);
-      expect(solved(s)).toBe(false);
-      // The decoy matches no real piece in any orientation.
-      const decoy = s.pieces.filter((p) => !s.solution[p.id]);
-      expect(decoy).toHaveLength(s.decoys);
-      for (const dp of decoy) for (const p of s.pieces) if (p !== dp) expect(canonical(p.shape)).not.toBe(canonical(dp.shape));
+    }
+  });
+
+  it('deals every piece a different shape, three to six cells, few easy fits', () => {
+    for (const z of SPREAD) for (let deal = 0; deal < 6; deal++) {
+      const s = newPacking(z, z * 31 + deal);
+      const sizes = s.pieces.map((p) => p.shape.length);
+      expect(Math.min(...sizes)).toBeGreaterThanOrEqual(3);
+      expect(Math.max(...sizes)).toBeLessThanOrEqual(z >= 60 ? 6 : 5);
+      expect(sizes.filter((n) => n === 3).length).toBeLessThanOrEqual(1);
+      expect(new Set(s.pieces.map((p) => canonical(p.shape))).size).toBe(s.pieces.length);
+      // Straight bars and the 2 by 2 square fit almost anywhere: at most one on the larger boards.
+      const easy = s.pieces.filter((p) => { const b = bounds(p.shape); return b.w === 1 || b.h === 1 || (p.shape.length === 4 && b.w === 2 && b.h === 2); });
+      expect(easy.length).toBeLessThanOrEqual(s.w >= 6 ? 1 : 2);
+      // The carved answer covers every open cell, each once, and no hole.
+      const cover = occupancy(solvedState(s));
+      expect(cover.every((id, i) => (id >= 0) === s.outline[i])).toBe(true);
     }
   });
 
@@ -89,7 +140,6 @@ describe('levels', () => {
       let s: PackingState = s0;
       for (const p of s0.pieces) {
         const home = s0.solution[p.id];
-        if (!home) continue;
         if (p.flip) s = applyMove(s, { kind: 'flip', piece: p.id })!;
         while (s.pieces[p.id].rot !== 0) s = applyMove(s, { kind: 'rotate', piece: p.id })!;
         expect(s.pieces[p.id].flip).toBe(false);
@@ -102,31 +152,60 @@ describe('levels', () => {
     }
   });
 
-  it('grows with z and offers every outline kind', () => {
-    expect(sizeFor(1).n).toBeLessThan(sizeFor(60).n);
-    expect(sizeFor(60).n).toBeLessThan(sizeFor(118).n);
-    expect(sizeFor(118).w * sizeFor(118).h).toBeLessThanOrEqual(49);
-    for (let d = 0; d < 10; d++) { const s = newPacking(118, d); expect(s.w).toBeLessThanOrEqual(7); expect(s.h).toBeLessThanOrEqual(7); }
-    expect(sizeFor(1).decoys).toBe(0);
-    expect(sizeFor(118).flips).toBe(true);
-    const styles = new Set<string>();
-    for (let d = 0; d < 40; d++) styles.add(newPacking(80, d).style);
-    expect([...styles].sort()).toEqual(['arms', 'blob', 'mirror', 'ring']);
+  it('is finished by the solver the one way, using every piece', () => {
+    for (let z = 1; z <= 118; z += 13) for (const seed of [1, 2]) {
+      const s = newPacking(z, seed);
+      const way = completion(s)!;
+      expect(way).not.toBeNull();
+      expect(new Set(way.map((pl) => pl.piece)).size).toBe(s.pieces.length);
+      let t = s;
+      for (const pl of way) t = applyMove(t, { kind: 'place', ...pl })!;
+      expect(solved(t)).toBe(true);
+      expect(occupancy(t)).toEqual(occupancy(solvedState(s)));
+    }
+  });
+
+  it('grows the square and its pieces with z, and the proof of the one answer gets longer', () => {
+    const sides: number[] = [];
+    for (let z = 1; z <= 118; z++) sides.push(sizeFor(z).side);
+    for (let i = 1; i < sides.length; i++) expect(sides[i]).toBeGreaterThanOrEqual(sides[i - 1]);
+    expect(sizeFor(1).side).toBe(4);
+    expect(sizeFor(118).side).toBe(7);
+    expect(sizeFor(89).flips).toBe(false);
+    expect(sizeFor(90).flips).toBe(true);
+    const avg = (z: number, f: (s: PackingState) => number) => [0, 1, 2, 3, 4, 5].reduce((a, d) => a + f(newPacking(z, d)), 0) / 6;
+    const cells = (s: PackingState) => s.pieces.reduce((a, p) => a + p.shape.length, 0) / s.pieces.length;
+    expect(avg(1, (s) => s.pieces.length)).toBeLessThan(avg(20, (s) => s.pieces.length));
+    expect(avg(20, (s) => s.pieces.length)).toBeLessThan(avg(50, (s) => s.pieces.length));
+    expect(avg(50, cells)).toBeLessThan(avg(110, cells));
+    // Search steps the second solver takes to prove the answer the only one: up with each board
+    // size, and up from the start of a size to its end.
+    const proof = (z: number) => avg(z, (s) => measure(s, 2, 1e7).nodes);
+    expect(proof(5)).toBeLessThan(proof(20));
+    expect(proof(20)).toBeLessThan(proof(50));
+    expect(proof(50)).toBeLessThan(proof(100));
+    expect(proof(37)).toBeLessThan(proof(76));
+    expect(proof(11)).toBeLessThan(proof(36));
   });
 
   it('deals fast', () => {
-    let worst = 0;
+    newPacking(60, 1);
+    let worst = 0, total = 0, count = 0;
     for (let z = 1; z <= 118; z += 3) {
       const t = performance.now();
       newPacking(z, z * 7 + 1);
-      worst = Math.max(worst, performance.now() - t);
+      const ms = performance.now() - t;
+      worst = Math.max(worst, ms);
+      total += ms;
+      count++;
     }
+    expect(total / count).toBeLessThan(40);
     expect(worst).toBeLessThan(150);
   });
 });
 
 describe('moves', () => {
-  it('refuses placements outside the outline, on a block or over another piece', () => {
+  it('refuses placements off the square, on a hole or over another piece', () => {
     const s0 = newPacking(50, 42);
     const full = solvedState(s0);
     const p = full.pieces.find((q) => q.at)!;
@@ -135,11 +214,16 @@ describe('moves', () => {
     const other = full.pieces.find((q) => q.at && q.id !== p.id)!;
     expect(applyMove(full, { kind: 'place', piece: p.id, at: other.at! })).toBeNull();
     expect(applyMove(full, { kind: 'place', piece: p.id, at: p.at! })).toBeNull();
-    // A single-cell probe onto each block is refused.
+    // Lifted, it goes back where it was; hanging off the far corner it does not.
     const lifted = applyMove(full, { kind: 'lift', piece: p.id })!;
-    const b = s0.blocked.findIndex(Boolean);
-    const cell0 = cellsOf(lifted.pieces[p.id])[0];
-    expect(canPlace(lifted, p.id, { x: (b % s0.w) - cell0.x, y: Math.floor(b / s0.w) - cell0.y })).toBe(false);
+    expect(canPlace(lifted, p.id, p.at!)).toBe(true);
+    expect(canPlace(lifted, p.id, { x: s0.w - 1, y: s0.h - 1 })).toBe(false);
+    // On the empty board, no piece goes down over a hole, whatever its turn.
+    const hole = s0.outline.indexOf(false);
+    for (const q of s0.pieces) for (let r = 0; r < 4; r++) {
+      const c = oriented(q.shape, r as Rot, q.flip)[0];
+      expect(canPlace(s0, q.id, { x: (hole % s0.w) - c.x, y: Math.floor(hole / s0.w) - c.y }, r as Rot)).toBe(false);
+    }
   });
 
   it('lifts, rotates and never mutates the previous state', () => {
@@ -176,8 +260,28 @@ describe('moves', () => {
       const r = applyMove(full, { kind: 'rotate', piece: p.id })!;
       const q = r.pieces.find((x) => x.id === p.id)!;
       if (q.at) expect(canPlace(r, q.id, q.at)).toBe(true);
-      const occ = occupancy(r);
-      expect(occ.every((id, i) => id === -1 || (s0.outline[i] && !s0.blocked[i]))).toBe(true);
+      // No two pieces on one cell.
+      const covered = occupancy(r).filter((id) => id >= 0).length;
+      expect(covered).toBe(r.pieces.filter((x) => x.at).reduce((a, x) => a + x.shape.length, 0));
+    }
+  });
+});
+
+describe('stones', () => {
+  it('never tints two pieces that touch in the carved answer alike', () => {
+    for (const z of SPREAD) for (const seed of [1, 2]) {
+      const s = newPacking(z, seed);
+      const stones = stonesFor(s);
+      expect(stones).toHaveLength(s.pieces.length);
+      const occ = occupancy(solvedState(s));
+      for (let i = 0; i < occ.length; i++) {
+        const x = i % s.w;
+        if (occ[i] < 0) continue;
+        if (x < s.w - 1 && occ[i + 1] >= 0 && occ[i] !== occ[i + 1]) expect(stones[occ[i]]).not.toBe(stones[occ[i + 1]]);
+        if (i + s.w < occ.length && occ[i + s.w] >= 0 && occ[i] !== occ[i + s.w]) expect(stones[occ[i]]).not.toBe(stones[occ[i + s.w]]);
+      }
+      // Spread over the stones, not all one color.
+      expect(new Set(stones).size).toBeGreaterThanOrEqual(Math.min(3, s.pieces.length));
     }
   });
 });
@@ -212,7 +316,6 @@ describe('view', () => {
       const st = () => (v as any).state as PackingState;
       for (const p of level.pieces) {
         const home = level.solution[p.id];
-        if (!home) continue;
         const slot = lay.slots.find((sl: { id: number }) => sl.id === p.id);
         const centerOf = () => {
           const q = st().pieces[p.id];
@@ -332,8 +435,8 @@ describe('hints', () => {
 
   it('places a piece turned (and flipped where offered) as one move', () => {
     const s = newPacking(118, 3);
-    const p = s.pieces.find((q) => s.solution[q.id])!;
-    const home = s.solution[p.id]!;
+    const p = s.pieces[0];
+    const home = s.solution[p.id];
     const next = applyMove(s, { kind: 'place', piece: p.id, at: home, rot: 0, flip: false })!;
     expect(next.moves).toBe(1);
     expect(next.pieces[p.id]).toMatchObject({ at: home, rot: 0, flip: false });
@@ -368,7 +471,7 @@ describe('hints', () => {
     }
   });
 
-  it('Show me fills the outline, one counted, undoable placement per call', () => {
+  it('Show me fills the square, one counted, undoable placement per call', () => {
     for (const z of SPREAD) for (const seed of [1, 2, 3]) {
       const level = newPacking(z, seed);
       const v = new PackingView(level, true);
@@ -443,13 +546,13 @@ describe('hints', () => {
 
 describe('rule cards', () => {
   it('have a title, plain text and pictures that stay in their box', () => {
-    expect(RULES.map((r) => r.title)).toEqual(['Fill the outline', 'Landing shadow', 'Turn', 'Move or lift', 'Filled blocks', 'Spare piece', 'Flip', 'Keyboard']);
+    expect(RULES.map((r) => r.title)).toEqual(['Fill the square', 'Landing shadow', 'Turn', 'Move or lift', 'Gaps stay empty', 'Flip', 'Keyboard']);
     checkPictures(RULES);
     for (const r of RULES) expect(Boolean(r.good), r.title).toBe(r.title !== 'Keyboard');
   });
 
   it('shows the move that fails beside the one that works, flagged in amber, never red', () => {
-    expect(RULES.filter((r) => r.bad).map((r) => r.title)).toEqual(['Fill the outline', 'Landing shadow', 'Filled blocks', 'Spare piece', 'Flip']);
+    expect(RULES.filter((r) => r.bad).map((r) => r.title)).toEqual(['Fill the square', 'Landing shadow', 'Gaps stay empty', 'Flip']);
     for (const r of RULES.filter((x) => x.bad)) {
       const bad = record((ctx) => r.bad!.draw(ctx, 140, 104, r.bad!.duration)).colors;
       expect(bad.has(C.warn), r.title).toBe(true);
@@ -461,5 +564,9 @@ describe('rule cards', () => {
   it('keeps only the game meta in INSTRUCTIONS', () => {
     expect(INSTRUCTIONS).toMatch(/<h3>In the game<\/h3>/);
     expect(INSTRUCTIONS).not.toMatch(/How to play/);
+    // Nothing left of the outlines, blocks and spare pieces the game used to have.
+    for (const text of [INSTRUCTIONS, ...RULES.map((r) => `${r.title} ${r.text} ${r.good?.caption ?? ''} ${r.bad?.caption ?? ''}`)]) {
+      expect(text).not.toMatch(/outline|spare|decoy|block|belongs nowhere/i);
+    }
   });
 });

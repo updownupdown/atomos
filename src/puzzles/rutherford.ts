@@ -4,23 +4,30 @@
 // particle through it and reports what the cell detects: normally the number of
 // nuclei in the eight cells around it. Two kinds of cell bend that rule. A
 // scatter cell (drawn with outward ticks) counts every nucleus in its whole row
-// and column instead. A quiet cell shows only "?" and gives no count. Probing a
-// nucleus is a direct hit: it is shown and counted against a flawless run, but
-// play goes on. Probe every empty cell to win; marks are only notes.
+// and column instead. A quiet cell shows only "?" and gives no count. Probe
+// every empty cell to win; marks are only notes.
+//
+// Probing a nucleus is a direct hit: it is shown, and the plate can take only a
+// few (`hitLimit`: 3 up to z 50, 2 beyond). The hit that reaches the limit ruins
+// the plate: every nucleus shows, nothing more can be played, and only undo or
+// restart helps. So guessing is a real risk, and reading the counts is the game.
 //
 // Alpha beams, the experiment's own move: each rim of the plate has a port at
 // the end of every row and column. A beam fired from a port runs along its
 // line, opening every cell it crosses, and bounces straight back off the first
 // nucleus in its way, which it reveals. A line with no nucleus it passes
-// straight through. Each plate grants a few beams (its beam par); firing more is
-// allowed but, like a direct hit, costs the flawless run.
+// straight through. Beams are rationed: each plate grants its beam par (what
+// the solver below needed) plus one spare up to z 50 (`beamLimit`); once they
+// are spent the ports close. A spare beam is allowed but costs a flawless run,
+// as any direct hit does.
 //
 // Every plate opens with a small region already probed and is checked by a
 // constraint solver that finishes it from there without ever guessing: each
 // step follows from a single clue (all of its unknowns safe, or all nuclei),
 // from comparing two overlapping clues, or from the count of nuclei left. When
 // those run dry it fires a beam, chosen only from what a player can see, never
-// from where the nuclei really are. The beams it needed are the plate's par.
+// from where the nuclei really are. The beams it needed are the plate's par, so
+// the beams granted always suffice for a player who never guesses.
 //
 // Game rule, not physics: Rutherford's team found the nucleus from how alpha
 // particles scattered off gold foil, not by probing a grid, and a real alpha
@@ -47,10 +54,14 @@ export interface RutherfordState {
   fired: boolean[];
   /** Nuclei probed by mistake. */
   hits: number;
+  /** The direct hit that ruins the plate: once `hits` reaches it, nothing more can be played. */
+  hitLimit: number;
   /** Beams fired. */
   beams: number;
-  /** Beams the plate grants: the solver's count. More spoils a flawless run. */
+  /** The beam par: the solver's count. More spoils a flawless run. */
   beamPar: number;
+  /** Beams the plate grants (par plus any spare); once fired, the ports close. */
+  beamLimit: number;
   /** Actions taken: probes, chords and beams. */
   moves: number;
   total: number;
@@ -123,9 +134,24 @@ export function traceBeam(s: Pick<RutherfordState, 'size' | 'nuclei'>, port: num
 
 // ---- rules ---------------------------------------------------------------------------
 
+/** The plate took its last allowed direct hit: nothing more can be played. */
+export function ruined(s: Pick<RutherfordState, 'hits' | 'hitLimit'>): boolean {
+  return s.hits >= s.hitLimit;
+}
+
+/** Direct hits the plate can still take before the one that ruins it, counting that one. */
+export function hitsLeft(s: Pick<RutherfordState, 'hits' | 'hitLimit'>): number {
+  return Math.max(0, s.hitLimit - s.hits);
+}
+
+/** Beams still granted. */
+export function beamsLeft(s: Pick<RutherfordState, 'beams' | 'beamLimit'>): number {
+  return Math.max(0, s.beamLimit - s.beams);
+}
+
 /** Probes a cell; a count of zero opens everything it covers, and so on. Null if nothing changes. */
 export function probe(s: RutherfordState, i: number): RutherfordState | null {
-  if (i < 0 || i >= s.nuclei.length || s.probed[i] || s.marked[i] || s.found[i]) return null;
+  if (ruined(s) || i < 0 || i >= s.nuclei.length || s.probed[i] || s.marked[i] || s.found[i]) return null;
   const next = cloneRutherford(s);
   next.moves = s.moves + 1;
   open(next, [i]);
@@ -144,9 +170,10 @@ function open(s: RutherfordState, cells: number[]): void {
   }
 }
 
-/** Fires the beam from a rim port: opens the cells it crosses and reveals the nucleus it bounces off. */
+/** Fires the beam from a rim port: opens the cells it crosses and reveals the nucleus it bounces
+ *  off. Null once the plate's beams are spent (or it is ruined). */
 export function fire(s: RutherfordState, port: number): RutherfordState | null {
-  if (port < 0 || port >= s.fired.length || s.fired[port]) return null;
+  if (ruined(s) || !beamsLeft(s) || port < 0 || port >= s.fired.length || s.fired[port]) return null;
   const next = cloneRutherford(s);
   next.fired[port] = true;
   next.beams = s.beams + 1;
@@ -167,7 +194,7 @@ function reveal(s: RutherfordState, port: number): void {
 }
 
 export function toggleMark(s: RutherfordState, i: number): RutherfordState | null {
-  if (i < 0 || i >= s.nuclei.length || s.probed[i] || s.found[i]) return null;
+  if (ruined(s) || i < 0 || i >= s.nuclei.length || s.probed[i] || s.found[i]) return null;
   const next = cloneRutherford(s);
   next.marked[i] = !s.marked[i];
   return next;
@@ -183,7 +210,7 @@ function shown(s: RutherfordState, j: number): boolean {
  * probes everything else it covers. Null when the marks do not match the count.
  */
 export function chord(s: RutherfordState, i: number): RutherfordState | null {
-  if (!s.probed[i] || s.nuclei[i] || s.kind[i] === 'quiet') return null;
+  if (ruined(s) || !s.probed[i] || s.nuclei[i] || s.kind[i] === 'quiet') return null;
   const sc = scope(s, i);
   const known = sc.filter((j) => s.marked[j] || shown(s, j)).length;
   const rest = sc.filter((j) => !s.probed[j] && !s.marked[j] && !s.found[j]);
@@ -194,8 +221,14 @@ export function chord(s: RutherfordState, i: number): RutherfordState | null {
   return next;
 }
 
+/** Every safe cell is open. (A plate ruined by its last move is lost all the same: see `won`.) */
 export function solved(s: RutherfordState): boolean {
   return s.nuclei.every((n, i) => n || s.probed[i]);
+}
+
+/** Every safe cell probed, and the plate not ruined on the way. */
+export function won(s: RutherfordState): boolean {
+  return solved(s) && !ruined(s);
 }
 
 /** Nuclei not yet marked or found. */
@@ -316,9 +349,10 @@ function deduceRound(s: RutherfordState, nucleus: boolean[]): Round {
  * cell it can prove safe. Returns the state it reached; it is finished when
  * `solved` holds. Deductions: a clue whose unknowns must be all safe or all
  * nuclei; two overlapping clues compared; the total count of nuclei. With
- * `beams`, it fires a beam (see `choosePort`) whenever deduction stalls.
+ * `beams`, it fires a beam (see `choosePort`) whenever deduction stalls: as
+ * many as it needs for `true`, at most that many for a number.
  */
-export function deduce(start: RutherfordState, opts: { beams?: boolean } = {}): { state: RutherfordState; steps: number; beams: number } {
+export function deduce(start: RutherfordState, opts: { beams?: boolean | number } = {}): { state: RutherfordState; steps: number; beams: number } {
   const s = cloneRutherford(start);
   const n = s.nuclei.length;
   // The solver's own knowledge of nuclei: shown ones and nuclei it proved.
@@ -328,7 +362,7 @@ export function deduce(start: RutherfordState, opts: { beams?: boolean } = {}): 
     if (solved(s)) break;
     const { safe, hot } = deduceRound(s, nucleus);
     if (!safe.size && !hot.size) {
-      if (!opts.beams) break;
+      if (!opts.beams || (typeof opts.beams === 'number' && beams >= opts.beams)) break;
       const port = choosePort(s, nucleus);
       if (port < 0) break;
       s.fired[port] = true;
@@ -346,6 +380,15 @@ export function deduce(start: RutherfordState, opts: { beams?: boolean } = {}): 
   return { state: s, steps, beams };
 }
 
+/**
+ * Whether a careful player can still finish the plate from here without
+ * guessing: the solver does, with the beams still granted (and the plate is
+ * not ruined). Every dealt plate starts on track.
+ */
+export function onTrack(s: RutherfordState): boolean {
+  return !ruined(s) && solved(deduce(s, { beams: beamsLeft(s) }).state);
+}
+
 /** A cell the numbers decide, with the probed cells whose numbers decide it (and whether two
  *  clues had to be compared), or a beam to fire. */
 export type Lead =
@@ -358,14 +401,16 @@ export type Lead =
  * whose numbers prove it (none when the count of nuclei left does); or, when
  * nothing is certain, the beam the solver would fire. Marks are not trusted:
  * a marked nucleus counts as known only once the numbers prove it, and the
- * proof goes on past it. Null on a solved plate, or when nothing is left to learn.
+ * proof goes on past it. Null on a solved or ruined plate, or when nothing is
+ * left to learn (no beam left, or none that would tell anything).
  */
 export function nextLead(s: RutherfordState): Lead | null {
-  if (solved(s)) return null;
+  if (solved(s) || ruined(s)) return null;
   const nucleus = s.nuclei.map((_, i) => shown(s, i));
   for (;;) {
     const { safe, hot, why } = deduceRound(s, nucleus);
     if (!safe.size && !hot.size) {
+      if (!beamsLeft(s)) return null;
       const port = choosePort(s, nucleus);
       return port < 0 ? null : { kind: 'beam', port };
     }
@@ -388,6 +433,10 @@ export interface PlateSpec {
   /** The beam par the generator aims for, and the most it accepts. */
   beams: number;
   maxBeams: number;
+  /** Beams granted beyond par. */
+  spareBeams: number;
+  /** The direct hit that ruins the plate. */
+  hitLimit: number;
 }
 
 export function specFor(z: number): PlateSpec {
@@ -395,7 +444,11 @@ export function specFor(z: number): PlateSpec {
   const size = z <= 20 ? 7 : z <= 50 ? 8 : z <= 85 ? 9 : 10;
   const density = 0.15 + 0.05 * t;
   const beams = z <= 50 ? 2 : 3;
-  return { size, nuclei: Math.round(size * size * density), scatter: 0.06 + 0.06 * t, quiet: 0.04 + 0.06 * t, beams, maxBeams: beams + 1 };
+  const easy = z <= 50;
+  return {
+    size, nuclei: Math.round(size * size * density), scatter: 0.06 + 0.06 * t, quiet: 0.04 + 0.06 * t, beams, maxBeams: beams + 1,
+    spareBeams: easy ? 1 : 0, hitLimit: easy ? 3 : 2,
+  };
 }
 
 function shuffle<T>(rng: Rng, a: T[]): T[] {
@@ -426,7 +479,7 @@ function deal(rng: Rng, spec: PlateSpec): RutherfordState {
   const blank = (): RutherfordState => ({
     size, nuclei, kind, clue,
     probed: Array(n).fill(false), marked: Array(n).fill(false), found: Array(n).fill(false), fired: Array(4 * size).fill(false),
-    hits: 0, beams: 0, beamPar: 0, moves: 0, total: spec.nuclei,
+    hits: 0, hitLimit: spec.hitLimit, beams: 0, beamPar: 0, beamLimit: spec.spareBeams, moves: 0, total: spec.nuclei,
   });
   // Open from whichever empty-around cell gives the smallest opening, so the
   // plate starts small and the beams have work to do.
@@ -455,7 +508,7 @@ export function newRutherford(z: number, seed: number): RutherfordState {
     if (!solved(run.state) || run.beams < 1 || run.beams > spec.maxBeams) continue;
     const opened = state.probed.filter(Boolean).length / state.nuclei.length;
     const score = Math.abs(run.beams - spec.beams) + opened;
-    if (!best || score < best.score) best = { state: { ...state, beamPar: run.beams }, score };
+    if (!best || score < best.score) best = { state: { ...state, beamPar: run.beams, beamLimit: run.beams + spec.spareBeams }, score };
     if (run.beams === spec.beams && opened < 0.25) break;
   }
   if (best) return best.state;
@@ -464,7 +517,7 @@ export function newRutherford(z: number, seed: number): RutherfordState {
   const state = deal(rng, spec);
   for (;;) {
     const run = deduce(state, { beams: true });
-    if (solved(run.state) && run.beams <= spec.maxBeams) return { ...state, beamPar: run.beams };
+    if (solved(run.state) && run.beams <= spec.maxBeams) return { ...state, beamPar: run.beams, beamLimit: run.beams + spec.spareBeams };
     const end = deduce(state).state;
     const frontier: number[] = [];
     const pool0: number[] = [];

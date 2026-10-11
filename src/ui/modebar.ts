@@ -7,7 +7,6 @@
 // The microscope is not here: each screen places its own with scienceButton().
 
 import { createSegments, type Segments } from './components';
-import { icon } from './icons';
 import { atomProgress, fleetingCount } from '../core/progress';
 
 export type AtomMode = 'view' | 'build';
@@ -18,12 +17,13 @@ let seg: Segments | null = null;
 let currentZ: () => number = () => 1;
 let prog: HTMLElement | null = null;
 
-/** The ring and percentages the mode rows share; the gallery's views row uses the same look. */
-export function progressHtml(main: number, extra?: { label: string; pct: number } | null): string {
+/** The ring and percentages the mode rows share; the gallery's views row shows the figures
+ *  alone (`ring` false). The percentage turns green at 100%. */
+export function progressHtml(main: number, extra?: { label: string; pct: number } | null, ring = true): string {
   const n = Math.round(Math.max(0, Math.min(1, main)) * 100);
-  const ring = `<span class="mode-ring${n >= 100 ? ' is-done' : ''}" aria-hidden="true"><svg viewBox="0 0 20 20"><circle class="mode-prog-track" cx="10" cy="10" r="7.5"/><circle class="mode-prog-arc" cx="10" cy="10" r="7.5" pathLength="100" stroke-dasharray="${n} 100"/></svg></span>`;
+  const arc = `<span class="mode-ring${n >= 100 ? ' is-done' : ''}" aria-hidden="true"><svg viewBox="0 0 20 20"><circle class="mode-prog-track" cx="10" cy="10" r="7.5"/><circle class="mode-prog-arc" cx="10" cy="10" r="7.5" pathLength="100" stroke-dasharray="${n} 100"/></svg></span>`;
   const sub = extra ? `<small class="mode-sub">${Math.round(extra.pct * 100)}% ${extra.label}</small>` : '';
-  return `${ring}<span class="mode-figs"><b class="mode-pct">${n}%</b>${sub}</span>`;
+  return `${ring ? arc : ''}<span class="mode-figs"><b class="mode-pct${n >= 100 ? ' is-done' : ''}">${n}%</b>${sub}</span>`;
 }
 
 /** Build the row once. `onPick` runs when the player picks the other mode; `z` says which
@@ -32,8 +32,8 @@ export function initModeBar(onPick: (mode: AtomMode) => void, z: () => number): 
   if (seg) return;
   currentZ = z;
   seg = createSegments([
-    { id: 'build', label: 'Build', icon: icon('mode-build', { size: 20 }) },
-    { id: 'view', label: 'View', icon: icon('mode-view', { size: 20 }) },
+    { id: 'build', label: 'Build' },
+    { id: 'view', label: 'View' },
   ], {
     label: 'Atom mode',
     onChange: (id) => onPick(id as AtomMode),

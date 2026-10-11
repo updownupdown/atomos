@@ -12,7 +12,7 @@ import { Gallery } from './gallery';
 import { decoratorsHTML, tabHTML, VIEW_TABS, type ViewTab } from './info';
 import { guideHTML } from './guide';
 import { icon, type IconName } from '../ui/icons';
-import { createSegments, createTabs, nextButton, type Segments, type Tabs } from '../ui/components';
+import { createCallout, createSegments, createTabs, nextButton, type Segments, type Tabs } from '../ui/components';
 import { ISO_FILTERS, STRUCTURE_VIEWS } from './visuals';
 import { createAtomBar, type AtomBar } from './atombar';
 import { isLayoutId, LAYOUT_STORY, LAYOUTS, type LayoutId } from './layouts';
@@ -42,22 +42,13 @@ export interface GalleryHandlers {
   onLoupe?: (z: number | null) => void;
 }
 
-/** What the next step asks for, under its label: "Tokamak · gather its nucleus". */
-function upNextWhat(step: NextStep): string {
-  const what: Record<NextStep['kind'], string> = {
-    resume: 'pick up where you left off', nucleus: 'gather its nucleus', electrons: 'place its electrons',
-    lasting: 'a lasting isotope', discovery: 'discover a new shape',
-  };
-  return `${step.gameName} · ${what[step.kind]}`;
-}
-
 export class GalleryApp {
   private save: SaveData = loadSave();
   private gallery: Gallery;
   private detail: Detail;
   private current: Element | null = null;
-  /** The Up next card above the Collection list. */
-  private upNext = Object.assign(document.createElement('div'), { className: 'up-next', hidden: true });
+  /** The Up next card, floating at the foot of the Collection list. */
+  private upNext = Object.assign(createCallout({ kicker: '', title: '', pic: '', className: 'ui-callout--float up-next' }), { hidden: true });
   private tab: ViewTab = 'model';
   private isoFilter = 'all';
   private structView = 'blueprint';
@@ -143,7 +134,7 @@ export class GalleryApp {
     const n = Math.round(main * 100);
     // Fleeting isotopes join the count once they are open (any atom built).
     const f = fleetingOpen(save) ? fleetingTotal(save) : null;
-    $('gal-prog').innerHTML = progressHtml(main, f?.total ? { label: 'fleeting', pct: f.built / f.total } : null);
+    $('gal-prog').innerHTML = progressHtml(main, f?.total ? { label: 'fleeting', pct: f.built / f.total } : null, false);
     $('gal-prog').setAttribute('aria-label', `Collection ${n}% built${f ? `; ${f.built} of ${f.total} fleeting isotopes` : ''}`);
   }
 
@@ -168,9 +159,9 @@ export class GalleryApp {
     // Three views in the row under the header, styled like View/Build; under Map, a row at the
     // bottom picks the arrangement (the lenses).
     this.modes = createSegments([
-      { id: 'collection', label: 'Collection', icon: icon('mode-collection', { size: 20 }) },
-      { id: 'map', label: 'Map', icon: icon('mode-map', { size: 20 }) },
-      { id: 'details', label: 'Details', icon: icon('mode-details', { size: 20 }) },
+      { id: 'collection', label: 'Collection' },
+      { id: 'map', label: 'Map' },
+      { id: 'details', label: 'Details' },
     ], {
       label: 'Gallery view',
       active: this.mode,
@@ -436,7 +427,7 @@ export class GalleryApp {
         thumbs: (z) => atomThumb(z, this.litOf(z)),
         fleetingTotal: true,
       });
-      $('gal-collection').append(this.upNext, this.collection.el);
+      $('gal-collection').append(this.collection.el, this.upNext);
       this.paintUpNext();
     }
   }
@@ -452,15 +443,19 @@ export class GalleryApp {
     if (card.dataset.key !== key) {
       card.dataset.key = key;
       const e = elementAt(step.z);
-      card.innerHTML = `<span class="up-pic"><span class="up-tile">${e.symbol}</span></span>
-        <span class="up-text"><small>${step.kind === 'resume' ? 'Continue' : 'Up next'}</small><b>${step.label}</b><span>${upNextWhat(step)}</span></span>`;
-      card.append(nextButton({ label: step.kind === 'resume' ? 'Resume' : 'Next', compact: true, landKey: 'gallery-upnext', onClick: () => openStep(step) }));
+      // Two lines: "Up next: Quanta" over "Gallium's electrons".
+      const resume = step.kind === 'resume';
+      card.querySelector('small')!.textContent = `${resume ? 'Continue' : 'Up next'}: ${step.gameName}`;
+      card.querySelector('b')!.textContent = resume ? step.label.replace(/^Resume [^·]*·\s*/, '') : step.label;
+      const pic = card.querySelector<HTMLElement>('.ui-callout-pic')!;
+      pic.innerHTML = `<span class="up-tile">${e.symbol}</span>`;
+      card.querySelector('.ui-callout-acts')!.replaceChildren(nextButton({ label: resume ? 'Resume' : 'Next', compact: true, landKey: 'gallery-upnext', onClick: () => openStep(step) }));
       void atomThumb(step.z, this.litOf(step.z)).then((url) => {
         if (!url || card.dataset.key !== key) return;
         const img = document.createElement('img');
         img.src = url;
         img.alt = '';
-        card.querySelector('.up-pic')!.append(img);
+        pic.append(img);
       });
     }
     this.setUpNextShown(true);
@@ -471,7 +466,7 @@ export class GalleryApp {
   private sayLookLine(): void {
     if (this.mode !== 'collection' || !this.collection || $('gallery-screen').hidden || !$('loupe-screen').hidden) return;
     if (!Object.keys(this.save.unlocks).some((id) => id.startsWith('look:'))) return;
-    firstTimeLine('first-glyph', 'A new way to color the table is ready in the Gallery. Find it under Color on the Map.', this.upNext.hidden ? this.collection.el : this.upNext);
+    firstTimeLine('first-glyph', 'A new way to color the table is ready in the Gallery. Find it under Color on the Map.', this.collection.el);
   }
 
   /** Only one Next button may show at once: the card stands aside under the atom view or a sheet. */

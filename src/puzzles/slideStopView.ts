@@ -21,7 +21,7 @@
 import { allSparks, cellX, cellY, cloneSlideStop, cracksOf, isRock, slide, slideRun, solve, solved, type Dir, type SlideStopState, type Tile } from './slideStop';
 import { bead, C, fitGrid, font, tile } from './palette';
 import { drawFrame, frameBox, framePad, frameWidth } from './frame';
-import { drawHelpMark, ease, undoHelp, type Area, type Help, type Illustration, type Point, type PuzzleView, type RuleCard, type Stat } from './view';
+import { drawHelpMark, HINT_RGB, ease, undoHelp, type Area, type Help, type Illustration, type Point, type PuzzleView, type RuleCard, type Stat } from './view';
 
 const SWIPE = 22;
 const MS_PER_CELL = 55;
@@ -30,8 +30,8 @@ const STATUS_H = 22;
 
 export const INSTRUCTIONS = `
 <h3>In the game</h3>
-<p class="meta">Inertia opens each period of the table, so it is met at z 1, 3, 11, 19, 37, 55 and 87, and each gate brings something new: photons at 3, potential wells at 11, unstable nuclei at 19 (two photons from here), drift arrows at 37, three photons and three wells at 55, three unstable nuclei and three drift arrows at 87.</p>
-<p class="meta">The lattice grows from 7 by 7 to 8 by 8 at z 30 and 9 by 9 at z 80. Par is the fewest slides that win, found by a search over the electron's cell, the photons absorbed and the nuclei decayed. The ring is placed where the shortest win is as long as the element's range allows, so par usually sits at the top of that range: 5 at the first gates, 7 at z 37, 9 at z 55, 12 at z 87 and up to 14 at the end of the table, with a floor that rises from 3 to 8. A board is kept only when its shortest win uses every kind of tile on it. Undo takes back a slide and restores any nucleus it decayed.</p>
+<p class="meta">Inertia opens each period of the table, so it is met at z 1, 3, 11, 19, 37, 55 and 87, and each gate brings something new: photons at 3, potential wells at 11, unstable nuclei at 19 (two photons from here), drift arrows at 37, three photons and up to three wells at 55, up to three unstable nuclei and drift arrows at 87.</p>
+<p class="meta">The lattice grows from 7 by 7 to 8 by 8 at z 30 and 9 by 9 at z 80. Par is the fewest slides that win, found by a search over the electron's cell, the photons absorbed and the nuclei decayed. The ring is placed where the shortest win is as long as the element's range allows, so par usually sits at the top of that range: 5 at the first gates, 7 at z 37, 9 at z 55, 12 at z 87 and up to 14 at the end of the table, with a floor that rises from 3 to 8. Every tile on the board has a job: take away any well, unstable nucleus or drift arrow, or almost any nucleus, and par changes. The few nuclei that par does not need are decoys, set where they open tempting wrong turns. Each kind of tile matters, the photons always force a detour, and a player who just slides toward the nearest target does not win. Undo takes back a slide and restores any nucleus it decayed.</p>
 `;
 
 interface Glide { from: number; to: number; path: number[]; prev: SlideStopState; at: number; ms: number }
@@ -345,7 +345,7 @@ function helpSlide(ctx: CanvasRenderingContext2D, s: SlideStopState, g: Geo, end
   const [dx, dy] = dir === 'up' ? [0, -1] : dir === 'down' ? [0, 1] : dir === 'left' ? [-1, 0] : [1, 0];
   const w = c * 0.16;
   ctx.save();
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+  ctx.strokeStyle = `rgba(${HINT_RGB}, 0.95)`;
   ctx.lineWidth = Math.max(2, c * 0.06);
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
