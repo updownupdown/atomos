@@ -1,7 +1,8 @@
-// Finding the boundary surface {rho = level} along a ray, shared by the solid and jewel
-// experiments: a coarse march whose step shrinks near the nucleus (structure there is finer,
-// as moppel's solid mode does), then bisection to sub-step precision. The cutaway counts as
-// outside, and a hit whose last outside point lies in the cut is reported as a cut face.
+// Finding the boundary surface {rho = level} along a ray, shared by the lab's solid and jewel
+// experiments and the app's Solid style (render/rayLooks.ts): a coarse march whose step shrinks
+// near the nucleus (structure there is finer, as moppel's solid mode does), then bisection to
+// sub-step precision. The cutaway counts as outside, and a hit whose last outside point lies in
+// the cut is reported as a cut face.
 
 import * as THREE from 'three';
 

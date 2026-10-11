@@ -6,7 +6,7 @@
 
 import * as THREE from 'three';
 import { POINT_FRAG } from '../../render/gl';
-import { ADD_BLEND, PHASE_NEG, PHASE_POS, termColors, type ColorMode } from '../glsl';
+import { ADD_BLEND, PHASE_NEG, PHASE_POS, termColors, type ColorMode } from '../../render/field';
 import { sampleModel, type AtomModel, type Term } from '../../render/model';
 import { QUALITY, type Experiment, type LabContext, type Settings } from '../types';
 import { LAB_BG, VolumePass } from '../../render/volume';

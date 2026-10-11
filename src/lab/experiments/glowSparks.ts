@@ -11,7 +11,7 @@
 //   3. A faint warm nucleus at the heart.
 
 import * as THREE from 'three';
-import { ADD_BLEND, FIELD_GLSL, PHASE_NEG, PHASE_POS, srgb, termColors, type ColorMode } from '../glsl';
+import { ADD_BLEND, FIELD_GLSL, PHASE_NEG, PHASE_POS, srgb, termColors, type ColorMode } from '../../render/field';
 import { sampleModel, type AtomModel } from '../../render/model';
 import type { QualitySpec, Settings } from '../types';
 import { RayExperiment } from './base';

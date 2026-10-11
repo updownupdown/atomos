@@ -30,6 +30,7 @@ import { OrbitalCloud, orbitalSetBuilder, type OrbitalSet, type OrbitalSetBuilde
 import { ExplorerHud, OrbitalExplorer, type ExplorerCamera } from '../render/explorer';
 import { Spotlight, type SpotlightOptions } from '../render/spotlight';
 import { QualityGovernor } from '../render/governor';
+import { RayLooks, type ViewLook } from '../render/rayLooks';
 
 export type DetailVariant = 'view' | 'build';
 
@@ -323,6 +324,26 @@ export class Detail {
     this.ringsOn = on;
   }
 
+  /** View's render style: the particle cloud, or one of the ray-marched styles
+   *  (render/rayLooks.ts), made on first use. */
+  setLook(look: ViewLook): void {
+    this.look = look;
+    if (look === 'particles' || this.variant !== 'view') return;
+    const r = this.renderer;
+    this.rays ??= new RayLooks(r.extensions.has('EXT_color_buffer_float') || r.extensions.has('EXT_color_buffer_half_float'));
+    this.rays.look = look;
+  }
+  private look: ViewLook = 'particles';
+  private rays: RayLooks | null = null;
+
+  /** The ray styles frame what they draw (the whole atom by its own 80% region). */
+  private rayFrame(frameA0: number): number {
+    const ex = this.explorer;
+    if (this.look === 'particles' || !this.rays || !this.set || !ex?.fp) return frameA0;
+    this.rays.setSet(this.set, ex.fp);
+    return this.rays.frame(ex, frameA0);
+  }
+
   /** Swap the whole atom for its nucleus up close, or back. With `animate`, dive there at the
    *  true ratio of sizes; otherwise cut straight to it. */
   setNucleus(on: boolean, animate = false): void {
@@ -543,7 +564,7 @@ export class Detail {
     const r = this.renderer;
     const ex = this.explorer!;
     this.autoplay(now, dt);
-    const frameA0 = ex.update(dt);
+    const frameA0 = this.rayFrame(ex.update(dt));
     this.atomR = frameA0 * this.wpa0;
     const nucleusR = NUCLEUS_VIEW_FM * UNITS_PER_FM;
     // The dive: from the atom's frame to the nucleus's, evenly in powers of ten.
@@ -563,7 +584,14 @@ export class Detail {
     // nucleus grows out of a point and lights up over the last decade and a half.
     const cloudFade = Math.max(0, Math.min(1, 1 - Math.log10(Math.max(1, this.atomR / R)) / 1.1));
     const nucleusLight = Math.max(0, Math.min(1, 1 - Math.log10(Math.max(1, R / nucleusR)) / 1.5));
-    if (this.set && cloudFade > 0) {
+    if (this.set && cloudFade > 0 && this.rays && this.look !== 'particles' && ex.fp) {
+      // A ray style instead of the points (unbuilt parts are not grayed): fades as they would.
+      this.rays.hue = ex.hue;
+      this.rays.opacity = cloudFade;
+      this.rays.quality(this.governor.spec, r.getPixelRatio());
+      this.rays.renderLayer(this.ctx, ex, this.time);
+      this.rays.draw(r);
+    } else if (this.set && cloudFade > 0) {
       ex.applyLooks(this.cloud, frameA0, this.litNow);
       this.cloud.wantDense(this.nucleusOn ? [] : ex.denseWants, DENSE_VIEW);
       if (ex.settled && !this.sampling && this.diveT >= 1) this.cloud.sampleDense(this.slice);

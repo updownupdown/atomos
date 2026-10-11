@@ -4,7 +4,7 @@
 // Cutaway slider slides the plane off the nucleus.
 
 import * as THREE from 'three';
-import { FIELD_GLSL } from '../glsl';
+import { FIELD_GLSL } from '../../render/field';
 import type { AtomModel } from '../../render/model';
 import { THRESHOLDS } from '../../render/model';
 import type { QualitySpec, Settings } from '../types';
