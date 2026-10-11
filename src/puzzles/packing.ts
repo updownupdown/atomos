@@ -1,18 +1,24 @@
-// Packing (Tessera): fill a square board with a tray of pieces, every one of them used.
+// Packing (Tessera): fill a square board with a tray of pieces, every one of them used, in the
+// one way there is.
 //
-// The board is always a plain square, 4 by 4 at the start of the table and 7 by 7 at the end,
-// with nothing filled in advance and nothing spare: the tray holds exactly the pieces that cover
-// it. The challenge lives in the pieces. A deal is carved from its own answer: the square is
+// The board is a square, 4 by 4 at the start of the table and 7 by 7 at the end, with one to
+// three single cells cut out of it, and the tray holds exactly the pieces that fill the rest:
+// nothing spare, nothing filled in advance. Every level has exactly one answer, counting every
+// distinct set of placements (a turned or mirrored copy of the whole answer counts as another).
+// A full square never has one, since any answer turned a quarter is another, so a level always
+// has at least one hole, never beside another hole, never splitting the board and never placed so
+// that a turn or mirror of the square maps the holes onto themselves.
+//
+// A level is carved from its own answer: a hole is cut at random and the rest of the square is
 // tiled, by a randomized search, with polyominoes of three to six cells, every one a different
-// shape, never a domino, with at most one tromino, few easy fits (straight bars and the 2 by 2
-// square) and, near the end of the table, one hexomino. Several such cuts are carved per deal and
-// each is measured by an exact cover solver that looks for its answers within a fixed number of
-// search steps: a cut whose answers take many steps to find is tight, one that turns them up at
-// once is loose. Light elements are dealt one of the looser cuts, and within each board size the
-// deals tighten toward the heavier elements. Pieces are handed over shuffled and turned, and at
-// the top of the table some arrive mirrored and must be flipped. Every piece can be moved,
-// turned, flipped (when allowed) and lifted freely, so the board is never stuck; the same solver
-// answers the hints.
+// shape, never a domino, with at most one tromino and few easy fits (straight bars and the 2 by
+// 2 square). A solver then looks for a second answer; while there is one, another cell is cut out
+// of a piece of the carved answer where the other answer differs, which breaks it (up to three
+// holes, else the cut is dropped). Larger boards and larger, more awkward pieces come with
+// heavier elements, flipping arrives at z 90, and among the unique cuts gathered for a deal the
+// heavier elements get the ones whose proof of uniqueness takes the solver longest. Pieces are
+// handed over shuffled and turned. Every piece can be moved, turned, flipped (when allowed) and
+// lifted freely, so the board is never stuck; the same solver answers the hints.
 //
 // Game rule, not physics: the pieces are neutral clusters and the board a neutral socket;
 // nothing here is labeled as a nucleus or an orbital.
@@ -37,7 +43,7 @@ export interface PackingState {
   /** The board's side, twice: it is always a square. */
   w: number;
   h: number;
-  /** Which grid cells belong to the board (w*h, row-major): all of them. */
+  /** Which grid cells belong to the board (w*h, row-major): all but its one to three holes. */
   outline: boolean[];
   pieces: Piece[];
   /** Whether the flip control is offered. */
@@ -214,15 +220,94 @@ function freeCells(s: PackingState): boolean[] {
 const fits = (s: PackingState, free: ArrayLike<boolean | number>, cells: Cell[], ax: number, ay: number): boolean =>
   cells.every((c) => { const x = ax + c.x, y = ay + c.y; return x >= 0 && y >= 0 && x < s.w && y < s.h && free[y * s.w + x]; });
 
-interface Search {
-  /** Answers found, up to the cap. */
-  count: number;
+/** What a search found. */
+export interface Search {
+  /** The answers found, up to the cap, each piece by piece. */
+  answers: Placement[][];
   /** Search steps taken. */
   nodes: number;
-  /** The first answer found, piece by piece. */
-  first: Placement[] | null;
-  /** True when the search ran to its end: count is then every answer there is. */
+  /** True when the search ran to its end: the answers are then all there are. */
   complete: boolean;
+}
+
+/**
+ * Every way to fill the open cells with all the tray pieces, every placed piece staying where it
+ * is, by Knuth's dancing links: one column per open cell and per tray piece, one row per way a
+ * tray piece can go down (every corner, every orientation it may take), and the search always
+ * branches on the column with the fewest rows left, so a piece with nowhere to go or a cell no
+ * piece can reach ends a branch at once. Each answer is met exactly once. Stops at maxCount
+ * answers or maxNodes steps. A second solver, built another way than the one the levels are made
+ * with: measure() counts with it, so a level's single answer is checked by both.
+ */
+export function searchLinks(s: PackingState, maxCount: number, maxNodes: number): Search {
+  const free = freeCells(s);
+  const col = new Int32Array(free.length).fill(-1);
+  let cells = 0;
+  free.forEach((f, i) => { if (f) col[i] = cells++; });
+  const tray = s.pieces.filter((p) => !p.at);
+  const rows: number[][] = [];
+  const places: Placement[] = [];
+  tray.forEach((p, k) => {
+    for (const f of formsOf(s, p)) {
+      const b = bounds(f.cells);
+      for (let y = 0; y + b.h <= s.h; y++) for (let x = 0; x + b.w <= s.w; x++) {
+        if (!fits(s, free, f.cells, x, y)) continue;
+        rows.push([...f.cells.map((c) => col[(y + c.y) * s.w + x + c.x]), cells + k]);
+        places.push({ piece: p.id, at: { x, y }, rot: f.rot, flip: f.flip });
+      }
+    }
+  });
+  const cols = cells + tray.length;
+  const size = 1 + cols + rows.reduce((a, r) => a + r.length, 0);
+  const L = new Int32Array(size), R = new Int32Array(size), U = new Int32Array(size), D = new Int32Array(size);
+  const C = new Int32Array(size), Row = new Int32Array(size), S = new Int32Array(cols + 1);
+  for (let i = 0; i <= cols; i++) { L[i] = i - 1; R[i] = i + 1; U[i] = i; D[i] = i; C[i] = i; Row[i] = -1; }
+  L[0] = cols; R[cols] = 0;
+  let x = cols + 1;
+  rows.forEach((cs, r) => {
+    const first = x;
+    for (const c0 of cs) {
+      const c = c0 + 1;
+      C[x] = c; Row[x] = r;
+      U[x] = U[c]; D[x] = c; D[U[c]] = x; U[c] = x; S[c]++;
+      if (x === first) { L[x] = x; R[x] = x; } else { L[x] = L[first]; R[x] = first; R[L[first]] = x; L[first] = x; }
+      x++;
+    }
+  });
+  const cover = (c: number) => {
+    L[R[c]] = L[c]; R[L[c]] = R[c];
+    for (let i = D[c]; i !== c; i = D[i]) for (let j = R[i]; j !== i; j = R[j]) { U[D[j]] = U[j]; D[U[j]] = D[j]; S[C[j]]--; }
+  };
+  const uncover = (c: number) => {
+    for (let i = U[c]; i !== c; i = U[i]) for (let j = L[i]; j !== i; j = L[j]) { S[C[j]]++; U[D[j]] = j; D[U[j]] = j; }
+    L[R[c]] = c; R[L[c]] = c;
+  };
+  const picked: number[] = [];
+  const out: Search = { answers: [], nodes: 0, complete: true };
+  let stop = false;
+  const go = (): void => {
+    if (R[0] === 0) {
+      out.answers.push(picked.map((r) => places[r]));
+      if (out.answers.length >= maxCount) stop = true;
+      return;
+    }
+    if (++out.nodes > maxNodes) { stop = true; out.complete = false; return; }
+    let c = R[0];
+    for (let j = R[c]; j !== 0 && S[c] > 1; j = R[j]) if (S[j] < S[c]) c = j;
+    if (S[c] === 0) return;
+    cover(c);
+    for (let r = D[c]; r !== c && !stop; r = D[r]) {
+      picked.push(Row[r]);
+      for (let j = R[r]; j !== r; j = R[j]) cover(C[j]);
+      go();
+      for (let j = L[r]; j !== r; j = L[j]) uncover(C[j]);
+      picked.pop();
+    }
+    uncover(c);
+  };
+  go();
+  if (stop && out.answers.length >= maxCount) out.complete = false;
+  return out;
 }
 
 /**
@@ -231,26 +316,21 @@ interface Search {
  * met exactly once. The cells are bits in two words (a board has at most 64 cells). After each
  * piece goes down, the open regions it touches are measured, and the search backs off when one
  * of them cannot be made of the pieces left (too small, or a size no sum of them reaches). Stops
- * at maxCount answers (as scaled) or maxNodes steps; looking for one answer, it remembers the
- * positions it has searched through without one. With `oneWay`, one piece is held to a single
- * orientation that the board's turns (and flips, when offered) all move, so an answer and its
- * turned copies count once; `scale` says what one counted answer is worth when no piece could be
- * held.
+ * at maxCount answers or maxNodes steps; looking for one answer, it remembers the positions it
+ * has searched through without one. The levels are made and the hints found with this one.
  */
-function search(s: PackingState, maxCount: number, maxNodes: number, oneWay = false): Search & { scale: number } {
+export function search(s: PackingState, maxCount: number, maxNodes: number): Search {
   const { w, h } = s;
   const n = w * h;
   const free = freeCells(s);
   const tray = s.pieces.filter((p) => !p.at);
   const forms = tray.map((p) => formsOf(s, p));
-  const group = s.flips ? 8 : 4;
-  const held = oneWay && w === h ? forms.findIndex((f) => f.length === group) : -1;
   // Placements by piece and by the cell they cover first: [low word, high word, index into places].
   const places: Placement[] = [];
   const placeCells: number[][] = [];
   const at: number[][][] = tray.map(() => Array.from({ length: n }, () => []));
   tray.forEach((p, k) => {
-    for (const f of held === k ? forms[k].slice(0, 1) : forms[k]) {
+    for (const f of forms[k]) {
       const b = bounds(f.cells);
       for (let y = 0; y + b.h <= h; y++) for (let x = 0; x + b.w <= w; x++) {
         if (!fits(s, free, f.cells, x, y)) continue;
@@ -323,7 +403,7 @@ function search(s: PackingState, maxCount: number, maxNodes: number, oneWay = fa
     }
     return true;
   };
-  const out: Search & { scale: number } = { count: 0, nodes: 0, first: null, complete: true, scale: oneWay && held < 0 ? 1 / group : 1 };
+  const out: Search = { answers: [], nodes: 0, complete: true };
   const picked: number[] = [];
   // Worth its keep when looking for one answer; when counting many, the bookkeeping costs more than it saves.
   const remember = maxCount === 1;
@@ -333,15 +413,15 @@ function search(s: PackingState, maxCount: number, maxNodes: number, oneWay = fa
     let i = from;
     while (i < n && filled[i]) i++;
     if (i === n) {
-      if (!out.first) out.first = picked.map((pl) => places[pl]);
-      if (++out.count * out.scale >= maxCount) stop = true;
+      out.answers.push(picked.map((pl) => places[pl]));
+      if (out.answers.length >= maxCount) stop = true;
       return;
     }
     if (++out.nodes > maxNodes) { stop = true; out.complete = false; return; }
     // A position already searched to its end without an answer has none this time either.
     const memo = remember ? `${lo},${hi},${used}` : '';
     if (remember && dead.has(memo)) return;
-    const before = out.count;
+    const before = out.answers.length;
     for (let k = 0; k < tray.length && !stop; k++) {
       if (used & (1 << k)) continue;
       const list = at[k][i];
@@ -358,16 +438,16 @@ function search(s: PackingState, maxCount: number, maxNodes: number, oneWay = fa
         lo &= ~plo; hi &= ~phi;
       }
     }
-    if (remember && !stop && out.count === before) dead.add(memo);
+    if (remember && !stop && out.answers.length === before) dead.add(memo);
   };
   go(0, 0);
-  if (stop && out.count * out.scale >= maxCount) out.complete = false;
+  if (stop && out.answers.length >= maxCount) out.complete = false;
   return out;
 }
 
-/** How constrained a deal is: its answers (each counted once, not once per turn of the board) and the search they took. */
+/** How a board stands: its answers, counted up to a cap, and the search steps that took. */
 export interface Measure {
-  /** Distinct answers, up to the cap. */
+  /** Answers found, up to the cap. */
   answers: number;
   /** Search steps the solver took. */
   nodes: number;
@@ -375,10 +455,14 @@ export interface Measure {
   complete: boolean;
 }
 
-/** Counts the ways to finish a board with its tray pieces, up to `cap` answers or `maxNodes` steps. */
-export function measure(s: PackingState, cap = 10, maxNodes = 2000): Measure {
-  const r = search(s, cap, maxNodes, true);
-  return { answers: Math.max(r.count ? 1 : 0, Math.round(r.count * r.scale)), nodes: r.nodes, complete: r.complete };
+/**
+ * Counts the ways to finish a board with its tray pieces, up to `cap` answers or `maxNodes` steps,
+ * with the dancing links solver. Every distinct set of placements counts: an answer turned or
+ * mirrored as a whole is another answer, as the player would find it.
+ */
+export function measure(s: PackingState, cap = 2, maxNodes = 1e6): Measure {
+  const r = searchLinks(s, cap, maxNodes);
+  return { answers: r.answers.length, nodes: r.nodes, complete: r.complete };
 }
 
 /**
@@ -386,7 +470,7 @@ export function measure(s: PackingState, cap = 10, maxNodes = 2000): Measure {
  * is, or null when there is none.
  */
 export function completion(s: PackingState): Placement[] | null {
-  return search(s, 1, 5e6).first;
+  return search(s, 1, 5e6).answers[0] ?? null;
 }
 
 // ---- generation ------------------------------------------------------------------
@@ -397,47 +481,52 @@ export interface PackingPlan {
   /** Relative odds of a piece's size, by cell count. */
   sizes: Record<number, number>;
   flips: boolean;
-  /** Where the deal is taken among its measured cuts: 0 the loosest, 1 the most constrained. */
+  /** Where the deal is taken among its unique cuts, by the search their proof took: 0 the lightest, 1 the heaviest. */
   pick: number;
 }
 
-/** The board grows a size every stretch of the table; within one, the deals tighten. */
-const TIERS: { to: number; side: number; sizes: Record<number, number> }[] = [
-  { to: 10, side: 4, sizes: { 3: 1, 4: 4, 5: 2 } },
-  { to: 36, side: 5, sizes: { 3: 1, 4: 3, 5: 4 } },
-  { to: 76, side: 6, sizes: { 3: 0.5, 4: 2, 5: 5 } },
-  { to: 118, side: 7, sizes: { 4: 2, 5: 6 } },
+/**
+ * The board grows a size every stretch of the table, and the pieces grow with it: hexominoes join
+ * the 6 by 6 from z 60 and fill most of the 7 by 7, and flipping arrives at z 90. Within a stretch
+ * the deals get harder to solve.
+ */
+const TIERS: { to: number; side: number; sizes: Record<number, number>; flips: boolean }[] = [
+  { to: 10, side: 4, sizes: { 3: 1, 4: 4, 5: 2 }, flips: false },
+  { to: 36, side: 5, sizes: { 3: 1, 4: 3, 5: 4 }, flips: false },
+  { to: 59, side: 6, sizes: { 4: 2, 5: 5 }, flips: false },
+  { to: 76, side: 6, sizes: { 4: 1, 5: 5, 6: 1 }, flips: false },
+  { to: 89, side: 7, sizes: { 5: 4, 6: 3 }, flips: false },
+  { to: 118, side: 7, sizes: { 5: 1, 6: 3 }, flips: true },
 ];
 
-/** How a level scales with the element: the board's side, the piece sizes, flipping and how tight a cut is dealt. */
+/** How a level scales with the element: the board's side, the piece sizes, flipping and how hard a deal is picked. */
 export function sizeFor(z: number): PackingPlan {
   const zz = Math.min(118, Math.max(1, Math.round(z)));
-  let from = 1;
-  for (const t of TIERS) {
-    if (zz <= t.to) {
-      const u = (zz - from) / Math.max(1, t.to - from);
-      // A hexomino joins the largest board from z 100.
-      const sizes: Record<number, number> = zz >= 100 ? { ...t.sizes, 6: 1.5 } : { ...t.sizes };
-      return { side: t.side, sizes, flips: zz >= 90, pick: 0.2 + 0.8 * u };
-    }
-    from = t.to + 1;
-  }
-  return sizeFor(118);
+  const t = TIERS.find((o) => zz <= o.to)!;
+  // Stretches that share a board size share one ramp.
+  const same = TIERS.filter((o) => o.side === t.side);
+  const k = TIERS.indexOf(same[0]);
+  const start = k === 0 ? 1 : TIERS[k - 1].to + 1, end = same[same.length - 1].to;
+  const u = (zz - start) / Math.max(1, end - start);
+  return { side: t.side, sizes: { ...t.sizes }, flips: t.flips, pick: 0.2 + 0.8 * u };
 }
 
-/** How many cuts are carved and measured for one deal. */
-const CUTS = 6;
+/** How many unique cuts are gathered for one deal, to pick from, by the board's side: fewer on the
+ *  largest board, whose proofs cost the most. */
+const CUTS: Record<number, number> = { 4: 3, 5: 3, 6: 3, 7: 2 };
 
-/** Piece sizes that add up to the board: at most one tromino and one hexomino, nothing smaller than three. */
-function dealSizes(rng: Rng, plan: PackingPlan): number[] {
-  const total = plan.side * plan.side;
+/**
+ * Piece sizes that add up to `total`: at most one tromino, at most four tetrominoes (there are only
+ * five, one of them the easy 2 by 2), nothing smaller than three.
+ */
+function dealSizes(rng: Rng, plan: PackingPlan, total: number): number[] | null {
   const kinds = Object.keys(plan.sizes).map(Number);
-  for (let attempt = 0; attempt < 50; attempt++) {
+  for (let attempt = 0; attempt < 30; attempt++) {
     const out: number[] = [];
     let sum = 0;
     while (sum < total) {
       const left = total - sum;
-      const opts = kinds.filter((k) => k <= left && (left - k === 0 || left - k >= 3) && ((k !== 3 && k !== 6) || !out.includes(k)));
+      const opts = kinds.filter((k) => k <= left && (left - k === 0 || left - k >= Math.min(...kinds)) && (k !== 3 || !out.includes(3)) && (k !== 4 || out.filter((q) => q === 4).length < 4));
       if (!opts.length) break;
       const k = opts[weighted(rng, opts.map((o) => plan.sizes[o]))];
       out.push(k);
@@ -445,12 +534,7 @@ function dealSizes(rng: Rng, plan: PackingPlan): number[] {
     }
     if (sum === total) return out;
   }
-  // Only if every attempt fell short: fours with one tromino or one five to make up the rest.
-  const out = Array(Math.floor(total / 4)).fill(4);
-  if (total % 4 === 1) out[0] = 5;
-  else if (total % 4 === 3) out.push(3);
-  else if (total % 4 === 2) { out[0] = 5; out[1] = 5; }
-  return out;
+  return null;
 }
 
 function shuffle<T>(rng: Rng, a: T[]): T[] {
@@ -518,12 +602,13 @@ function neighbors(c: Cell): Cell[] {
  * covered by an unused shape in some orientation, tried in random order; a step that leaves an open
  * region no remaining sizes can make is taken back. At most `easyCap` easy fits are used.
  */
-function carve(rng: Rng, side: number, sizes: number[], easyCap: number): Cell[][] | null {
+function carve(rng: Rng, side: number, sizes: number[], easyCap: number, holes: number[] = []): Cell[][] | null {
   const n = side * side;
   const lib = library();
   const need = new Map<number, number>();
   for (const k of sizes) need.set(k, (need.get(k) ?? 0) + 1);
   const filled = new Uint8Array(n);
+  for (const i of holes) filled[i] = 1;
   const used = new Uint8Array(lib.length);
   const cut: Cell[][] = [];
   let easy = 0, steps = 0;
@@ -595,7 +680,7 @@ function carve(rng: Rng, side: number, sizes: number[], easyCap: number): Cell[]
 }
 
 /** A level built from a cut: the pieces shuffled, turned and (where flipping is offered) sometimes mirrored. */
-function dealOf(rng: Rng, side: number, cut: Cell[][], flips: boolean): PackingState {
+function dealOf(rng: Rng, side: number, cut: Cell[][], holes: number[], flips: boolean): PackingState {
   const order = shuffle(rng, cut.map((_, i) => i));
   const solution: Cell[] = [];
   const pieces: Piece[] = order.map((src, id) => {
@@ -603,41 +688,156 @@ function dealOf(rng: Rng, side: number, cut: Cell[][], flips: boolean): PackingS
     solution[id] = { x: Math.min(...cells.map((c) => c.x)), y: Math.min(...cells.map((c) => c.y)) };
     return { id, shape: normalize(cells), rot: randInt(rng, 4) as Rot, flip: flips && rand(rng) < 0.5, at: null };
   });
-  return { w: side, h: side, outline: Array(side * side).fill(true), pieces, flips, moves: 0, par: pieces.length, solution };
+  return { ...plainOf(side, cut, holes, flips), pieces, solution };
 }
 
-/** How tight a measured cut is: the search steps it took per answer found (log scale). */
-const hardness = (m: Measure): number => Math.log2((1 + m.nodes) / (m.answers + 0.5));
+/** The same level unshuffled and unturned, piece k being cut[k]: what the solver is asked about. */
+function plainOf(side: number, cut: Cell[][], holes: number[], flips: boolean): PackingState {
+  const outline = Array(side * side).fill(true);
+  for (const i of holes) outline[i] = false;
+  return {
+    w: side, h: side, outline, flips, moves: 0, par: cut.length,
+    pieces: cut.map((cells, id) => ({ id, shape: normalize(cells), rot: 0 as Rot, flip: false, at: null })),
+    solution: cut.map((cells) => ({ x: Math.min(...cells.map((c) => c.x)), y: Math.min(...cells.map((c) => c.y)) })),
+  };
+}
+
+/** True when the cells (indices on a side by side grid) are one edge-connected region. */
+function connected(cells: number[], side: number): boolean {
+  if (!cells.length) return true;
+  const inSet = new Set(cells);
+  const seen = new Set([cells[0]]);
+  const stack = [cells[0]];
+  while (stack.length) {
+    const c = stack.pop()!, x = c % side;
+    for (const d of [x > 0 ? c - 1 : -1, x < side - 1 ? c + 1 : -1, c - side, c + side]) {
+      if (inSet.has(d) && !seen.has(d)) { seen.add(d); stack.push(d); }
+    }
+  }
+  return seen.size === cells.length;
+}
 
 /**
- * A fresh level for an element: a square and the pieces that fill it, shuffled and turned. Several
- * cuts are carved and measured; the plan's pick says which of them, loosest to tightest, is dealt.
+ * True when some turn of the square (or, where flipping is offered, some mirror image) maps the
+ * holes onto themselves. Such a board carries every answer into another one, so it is never unique.
  */
-export function newPacking(z: number, seed: number): PackingState {
-  const rng = seeded(seed);
-  const plan = sizeFor(z);
-  const side = plan.side;
-  const easyCap = side >= 6 ? 1 : 2;
-  const found: { s: PackingState; h: number }[] = [];
-  for (let attempt = 0; attempt < 60 && found.length < CUTS; attempt++) {
-    const sizes = dealSizes(rng, plan);
-    // There are only five tetrominoes, two of them easy fits.
-    if (sizes.filter((k) => k === 4).length > 3 + Math.min(2, easyCap)) continue;
-    const cut = carve(rng, side, sizes, easyCap);
-    if (!cut) continue;
-    const s = dealOf(rng, side, cut, plan.flips);
-    found.push({ s, h: hardness(measure(s)) });
-  }
-  if (!found.length) return fallback(side);
-  // A stable sort, so equal cuts keep the order they were carved in.
-  found.sort((a, b) => a.h - b.h);
-  return found[Math.round(plan.pick * (found.length - 1))].s;
+function symmetric(holes: number[], side: number, flips: boolean): boolean {
+  const n = side - 1;
+  const maps: ((x: number, y: number) => [number, number])[] = [
+    (x, y) => [n - y, x], (x, y) => [n - x, n - y], (x, y) => [y, n - x],
+  ];
+  if (flips) maps.push((x, y) => [n - x, y], (x, y) => [x, n - y], (x, y) => [y, x], (x, y) => [n - y, n - x]);
+  const set = new Set(holes);
+  return maps.some((m) => holes.every((i) => { const [x, y] = m(i % side, Math.floor(i / side)); return set.has(y * side + x); }));
 }
 
-/** The square cut into straight columns, only if every attempt failed (never seen in tests). */
-function fallback(side: number): PackingState {
-  const cols: Cell[][] = Array.from({ length: side }, (_, x) => Array.from({ length: side }, (__, y) => ({ x, y })));
-  return dealOf(seeded(1), side, cols, false);
+/** True when cell i may be cut out next to these holes: never beside another hole, never making the holes symmetric. */
+function holeFits(i: number, holes: number[], side: number, flips: boolean): boolean {
+  const x = i % side, y = Math.floor(i / side);
+  if (holes.some((j) => Math.abs((j % side) - x) + Math.abs(Math.floor(j / side) - y) <= 1)) return false;
+  return !symmetric([...holes, i], side, flips);
+}
+
+const isEasy = (cells: Cell[]): boolean => easyFit(normalize(cells));
+
+/**
+ * One unique level, or null: a hole is cut at random, the rest of the square is tiled, and the
+ * solver looks for a second answer. While it finds one (and the board has fewer than three holes)
+ * another single cell is cut out, from a piece of the carved answer at a cell where that other
+ * answer differs from it, so the other answer breaks. The piece left must still be three cells or
+ * more, in one piece and unlike every other piece, and the board must stay in one region. Returns
+ * the cut, the holes and the search steps of the proof that its answer is the only one.
+ */
+function makeUnique(rng: Rng, plan: PackingPlan, easyCap: number, meter: { left: number }): { cut: Cell[][]; holes: number[]; nodes: number } | null {
+  const { side, flips } = plan;
+  const n = side * side;
+  const idx = (c: Cell) => c.y * side + c.x;
+  const first = shuffle(rng, [...Array(n).keys()]).find((i) => holeFits(i, [], side, flips));
+  if (first === undefined) return null;
+  const holes = [first];
+  const sizes = dealSizes(rng, plan, n - 1);
+  if (!sizes) return null;
+  const cut = carve(rng, side, sizes, easyCap, holes);
+  if (!cut) return null;
+  for (;;) {
+    const plain = plainOf(side, cut, holes, flips);
+    const r = search(plain, 2, meter.left);
+    meter.left -= r.nodes;
+    if (r.answers.length === 1 && r.complete) return { cut, holes, nodes: r.nodes };
+    if (r.answers.length < 2 || holes.length >= MAX_HOLES) return null;
+    // Where the other answer puts each piece, cell by cell.
+    const alt = r.answers.find((a) => a.some((pl) => pl.rot !== 0 || pl.flip || pl.at.x !== plain.solution[pl.piece].x || pl.at.y !== plain.solution[pl.piece].y))!;
+    const other = new Int32Array(n).fill(-1);
+    for (const pl of alt) for (const c of oriented(plain.pieces[pl.piece].shape, pl.rot, pl.flip)) other[(pl.at.y + c.y) * side + pl.at.x + c.x] = pl.piece;
+    const owner = new Int32Array(n).fill(-1);
+    cut.forEach((p, k) => { for (const c of p) owner[idx(c)] = k; });
+    const kinds = cut.map((p) => canonical(normalize(p)));
+    const allowed = (i: number): boolean => {
+      const k = owner[i];
+      if (k < 0 || other[i] === k || !holeFits(i, holes, side, flips)) return false;
+      const rest = cut[k].filter((c) => idx(c) !== i);
+      if (rest.length < 3 || !connected(rest.map(idx), side)) return false;
+      const kind = canonical(normalize(rest));
+      if (kinds.some((o, j) => j !== k && o === kind)) return false;
+      if (rest.length === 3 && cut.some((p, j) => j !== k && p.length === 3)) return false;
+      if (cut.filter((p, j) => (j === k ? isEasy(rest) : isEasy(p))).length > easyCap) return false;
+      const open: number[] = [];
+      for (let j = 0; j < n; j++) if (owner[j] >= 0 && j !== i) open.push(j);
+      return connected(open, side);
+    };
+    const i = shuffle(rng, [...Array(n).keys()]).find(allowed);
+    if (i === undefined) return null;
+    cut[owner[i]] = cut[owner[i]].filter((c) => idx(c) !== i);
+    holes.push(i);
+  }
+}
+
+/** Holes a board may have at most. */
+const MAX_HOLES = 3;
+/** Search steps one deal may spend on its proofs, all its tries together, and the tries it may
+ *  make; while it has found no unique cut at all it may go on to the second pair. */
+const BUDGET = 25000, TRIES = 24, RESCUE_BUDGET = 45000, RESCUE_TRIES = 40;
+
+/**
+ * A fresh level for an element: a square with one to three single cells cut out, and the pieces
+ * that fill the rest in exactly one way, shuffled and turned. A few unique cuts are gathered; the
+ * plan's pick says which of them, by the search it takes to prove its answer the only one, is
+ * dealt. Should the tries run out without one, the board one size smaller is dealt instead.
+ */
+export function newPacking(z: number, seed: number): PackingState {
+  return deal(sizeFor(z), seed);
+}
+
+function deal(plan: PackingPlan, seed: number): PackingState {
+  const rng = seeded(seed);
+  const easyCap = plan.side >= 6 ? 1 : 2;
+  const found: { cut: Cell[][]; holes: number[]; nodes: number }[] = [];
+  const meter = { left: RESCUE_BUDGET };
+  for (let t = 0; found.length < CUTS[plan.side]; t++) {
+    const spent = RESCUE_BUDGET - meter.left;
+    if (found.length ? t >= TRIES || spent >= BUDGET : t >= RESCUE_TRIES || meter.left <= 0) break;
+    const u = makeUnique(rng, plan, easyCap, meter);
+    if (u) found.push(u);
+  }
+  if (!found.length) {
+    // The board one size smaller, with the same flipping.
+    const smaller = TIERS.filter((o) => o.side < plan.side).pop();
+    return smaller ? deal({ ...plan, side: smaller.side, sizes: { ...smaller.sizes } }, seed) : fallbackPacking();
+  }
+  // A stable sort, so equal cuts keep the order they were found in.
+  found.sort((a, b) => a.nodes - b.nodes);
+  const best = found[Math.round(plan.pick * (found.length - 1))];
+  return dealOf(rng, plan.side, best.cut, best.holes, plan.flips);
+}
+
+/**
+ * A 4 by 4 with its top right corner cut out and three pentominoes that fill it one way only,
+ * dealt only if even the smallest board found no unique cut in its tries (never seen in tests).
+ */
+export function fallbackPacking(): PackingState {
+  const cells = (s: string): Cell[] => s.split(' ').map((p) => ({ x: Number(p[0]), y: Number(p[1]) }));
+  const cut = [cells('20 21 31 32 33'), cells('00 10 01 11 12'), cells('02 22 03 13 23')];
+  return dealOf(seeded(1), 4, cut, [3], false);
 }
 
 /** The carved answer applied to a level: every piece at its home, unturned. */
@@ -682,3 +882,4 @@ export function nextPlacement(s: PackingState): Placement | null {
   }
   return best;
 }
+
