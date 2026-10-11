@@ -132,3 +132,73 @@ html, body.lab {
     max-height: 46dvh;
   }
 }
+
+/* Atom fingerprint: the card of each atom's artistic choices (palette, tempo, rhythm, order,
+   tap) and the orbital in the light. Bottom right on wide screens, top left on phones (the
+   panel is a bottom sheet there). */
+.lab-fp {
+  position: absolute;
+  right: 12px;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+  width: 210px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-radius: var(--r-md);
+  background: rgba(10, 11, 12, 0.62);
+  border: 1px solid var(--c-line);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  font-size: var(--fs-xs);
+  color: var(--c-text-2);
+}
+.lab-fp-head { font-size: var(--fs-sm); color: var(--c-text); }
+.lab-fp-head b { color: var(--c-accent); }
+.lab-fp-head span { float: right; font-size: var(--fs-2xs); letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--c-text-3); margin-top: 3px; }
+.lab-fp-sw { display: flex; gap: 4px; }
+.lab-fp-sw i { flex: 1; height: 12px; border-radius: 4px; }
+.lab-fp-beat { display: flex; gap: 5px; }
+.lab-fp-beat i { width: 8px; height: 8px; border-radius: 50%; background: var(--c-surface-3); transition: background 0.08s, transform 0.08s; }
+.lab-fp-beat i.p1 { background: #4a5056; }
+.lab-fp-beat i.p2 { background: #6b737a; }
+.lab-fp-beat i.on { background: var(--c-text); transform: scale(1.35); }
+.lab-fp-now { font-size: var(--fs-lg); font-weight: var(--fw-semibold); color: var(--c-text); }
+@media (max-width: 560px) {
+  .lab-fp { right: auto; left: 8px; bottom: auto; top: calc(env(safe-area-inset-top, 0px) + 8px); width: 168px; box-sizing: border-box; padding: 8px 10px; gap: 4px; }
+  .lab-fp-now { font-size: var(--fs-md); }
+}
+
+/* Orbital explorer: a ladder of orbital names at the right edge (inner at the bottom, the
+   focused one large and lit), the focused orbital's name and numbers, a context meter (solo,
+   ghost, all) and the gesture hints. */
+.lab-ex-ladder { position: absolute; right: 10px; top: 50%; width: 92px; height: 0; }
+.lab-ex-ladder button {
+  all: unset;
+  position: absolute;
+  right: 0;
+  top: -11px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 11px;
+  font-size: var(--fs-sm);
+  line-height: 22px;
+  color: var(--c-text-2);
+  white-space: nowrap;
+  cursor: pointer;
+  transform-origin: right center;
+  pointer-events: auto;
+}
+.lab-ex-ladder button.on { color: var(--c-text); background: rgba(255, 255, 255, 0.1); font-weight: var(--fw-semibold); }
+.lab-ex-focus { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(env(safe-area-inset-bottom, 0px) + 74px); display: flex; flex-direction: column; align-items: center; gap: 2px; text-align: center; }
+.lab-ex-focus b { font-size: var(--fs-2xl); font-weight: var(--fw-semibold); color: var(--c-text); }
+.lab-ex-focus span { font-size: var(--fs-xs); color: var(--c-text-2); font-variant-numeric: tabular-nums; }
+.lab-ex-ctx { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(env(safe-area-inset-bottom, 0px) + 40px); width: 200px; height: 18px; display: flex; justify-content: space-between; align-items: flex-end; border-top: 2px solid var(--c-surface-3); font-size: var(--fs-2xs); letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--c-text-3); }
+.lab-ex-ctx i { position: absolute; top: -6px; width: 10px; height: 10px; margin-left: -5px; border-radius: 50%; background: var(--c-accent); }
+.lab-ex-hint { position: absolute; left: 12px; right: 12px; bottom: calc(env(safe-area-inset-bottom, 0px) + 10px); margin: 0; text-align: center; font-size: var(--fs-xs); color: var(--c-text-3); }
+@media (max-width: 560px) {
+  /* The panel's bar sits at the foot on phones: keep the explorer's readouts above it. */
+  .lab-ex-focus { bottom: calc(env(safe-area-inset-bottom, 0px) + 132px); }
+  .lab-ex-ctx { bottom: calc(env(safe-area-inset-bottom, 0px) + 98px); }
+  .lab-ex-hint { bottom: calc(env(safe-area-inset-bottom, 0px) + 60px); }
+}

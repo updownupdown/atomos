@@ -5,11 +5,16 @@ import { L_OF, elementAt, type Block } from '../gallery/data';
 import { THRESHOLDS } from './model';
 import { mChoices, orbitalChoices } from './model';
 import type { LabState } from './state';
-import { QUALITIES, type Experiment } from './types';
+import { QUALITIES, type Experiment, type ExperimentOption } from './types';
 
 type Patch = Partial<LabState>;
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
+
+/** A slider option's value as shown beside its label. */
+function fmt(o: ExperimentOption, v: number): string {
+  return o.range?.format ? o.range.format(v) : String(v);
+}
 
 function seg(name: string, items: { id: string; label: string }[], active: string): string {
   return `<div class="lab-seg" data-seg="${name}">${items
@@ -26,7 +31,8 @@ export class Panel {
     private experiments: { id: string; name: string }[],
     /** `soft`: a slider is moving; skip rebuilding the panel under the finger. */
     private onChange: (patch: Patch, soft?: boolean) => void,
-    private onOption: (id: string, value: string) => void,
+    /** `soft`: a slider is moving. */
+    private onOption: (id: string, value: string, soft?: boolean) => void,
   ) {
     this.root = document.createElement('aside');
     this.root.className = 'lab-panel';
@@ -96,11 +102,14 @@ export class Panel {
           <button type="button" class="lab-btn" id="lab-next" aria-label="Next element">›</button>
         </div>
       </div>
-      <div class="lab-row lab-col"><span class="lab-lab">Orbital</span>${seg('orbital', orbs, orbital)}</div>
+      ${exp.uses.orbital === false ? '' : `<div class="lab-row lab-col"><span class="lab-lab">Orbital</span>${seg('orbital', orbs, orbital)}</div>
       ${single && l > 0 ? `<label class="lab-check"><input type="checkbox" id="lab-full"${s.full ? ' checked' : ''}> Full subshell (sum over m)</label>` : ''}
       ${single && l > 0 && !s.full ? `<div class="lab-row lab-col">${seg('m', ms.map((n, i) => ({ id: String(i), label: n })), String(Math.min(s.m, ms.length - 1)))}</div>` : ''}
-      ${!single ? `<label class="lab-check"><input type="checkbox" id="lab-full"${s.full ? ' checked' : ''}> Round open subshells (sum over m)</label>` : ''}
-      ${(exp.options ?? []).map((o) => `<div class="lab-row lab-col"><span class="lab-lab">${esc(o.label)}</span>${seg('opt:' + o.id, o.choices, values[o.id] ?? o.choices[0].id)}</div>`).join('')}
+      ${!single ? `<label class="lab-check"><input type="checkbox" id="lab-full"${s.full ? ' checked' : ''}> Round open subshells (sum over m)</label>` : ''}`}
+      ${(exp.options ?? []).map((o) => o.range
+        ? `<label class="lab-row lab-col"><span class="lab-lab">${esc(o.label)} <span class="lab-val">${esc(fmt(o, Number(values[o.id])))}</span></span>
+            <input type="range" data-opt="${esc(o.id)}" min="${o.range.min}" max="${o.range.max}" step="${o.range.step}" value="${esc(values[o.id])}"></label>`
+        : `<div class="lab-row lab-col"><span class="lab-lab">${esc(o.label)}</span>${seg('opt:' + o.id, o.choices ?? [], values[o.id] ?? o.choices?.[0]?.id ?? '')}</div>`).join('')}
       <div class="lab-row lab-col"><span class="lab-lab">Quality</span>${seg('quality', QUALITIES, s.quality)}</div>
       ${exp.uses.threshold ? `<div class="lab-row lab-col"><span class="lab-lab">Shown region holds</span>${seg('threshold', THRESHOLDS.map((t) => ({ id: String(t), label: t + '%' })), String(s.threshold))}</div>` : ''}
       ${exp.uses.brightness !== false ? `<label class="lab-row lab-col"><span class="lab-lab">Brightness <span class="lab-val">${s.brightness.toFixed(2)}×</span></span>
@@ -133,6 +142,14 @@ export class Panel {
       cut.closest('.lab-row')!.querySelector('.lab-val')!.textContent = `${Math.round(Number(cut.value) * 180)}°`;
       this.onChange({ cutaway: Number(cut.value) }, true);
     };
+    this.body.querySelectorAll<HTMLInputElement>('input[data-opt]').forEach((inp) => {
+      const o = (exp.options ?? []).find((x) => x.id === inp.dataset.opt)!;
+      inp.oninput = () => {
+        inp.closest('.lab-row')!.querySelector('.lab-val')!.textContent = fmt(o, Number(inp.value));
+        this.onOption(o.id, inp.value, true);
+      };
+      inp.onchange = () => this.onOption(o.id, inp.value);
+    });
     const rot = $<HTMLInputElement>('lab-rot')!;
     rot.onchange = () => this.onChange({ autoRotate: rot.checked });
     if (focusId) this.body.querySelector<HTMLElement>('#' + focusId)?.focus({ preventScroll: true });

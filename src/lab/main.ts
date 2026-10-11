@@ -25,7 +25,7 @@ const camera = new THREE.PerspectiveCamera(36, 1, 0.01, 100);
 const orbit = new Orbit(canvas, camera);
 const halfFloat = renderer.extensions.has('EXT_color_buffer_float') || renderer.extensions.has('EXT_color_buffer_half_float');
 
-const ctx: LabContext = { renderer, camera, width: 1, height: 1, halfFloat };
+const ctx: LabContext = { renderer, camera, width: 1, height: 1, halfFloat, orbit, canvas, ui };
 let state: LabState = loadState();
 let exp: Experiment | null = null;
 let model: AtomModel | null = null;
@@ -34,17 +34,25 @@ const fps = new Fps(ui);
 const panel = new Panel(
   ui, EXPERIMENTS,
   (patch, soft) => update(patch, soft),
-  (id, value) => {
+  (id, value, soft) => {
     const o = { ...(state.options[state.exp] ?? {}) };
     o[id] = value;
-    update({ options: { ...state.options, [state.exp]: o } });
+    update({ options: { ...state.options, [state.exp]: o } }, soft);
   },
 );
 
 function optionValues(e: Experiment): Record<string, string> {
   const chosen = state.options[e.id] ?? {};
   const out: Record<string, string> = {};
-  for (const o of e.options ?? []) out[o.id] = o.choices.some((c) => c.id === chosen[o.id]) ? chosen[o.id] : o.choices[0].id;
+  for (const o of e.options ?? []) {
+    if (o.range) {
+      const v = Number(chosen[o.id] ?? o.default ?? o.range.min);
+      out[o.id] = String(Number.isFinite(v) ? Math.max(o.range.min, Math.min(o.range.max, v)) : o.range.min);
+    } else {
+      const choices = o.choices ?? [];
+      out[o.id] = choices.some((c) => c.id === chosen[o.id]) ? chosen[o.id] : choices[0]?.id ?? '';
+    }
+  }
   return out;
 }
 

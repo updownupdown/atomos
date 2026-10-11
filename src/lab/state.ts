@@ -24,7 +24,7 @@ export interface LabState {
 const KEY = 'atomos-lab-v1';
 
 export const DEFAULT_STATE: LabState = {
-  exp: 'glow-sparks',
+  exp: 'fingerprint',
   z: 6,
   orbital: 'total',
   full: false,
