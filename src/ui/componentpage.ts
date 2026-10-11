@@ -172,7 +172,7 @@ export function renderComponentPage(page: HTMLElement, onBack: () => void): void
   const flyBtn = ask('Nu flies here', () => nuFly(flyBtn, flyTarget));
   const winBox = h('div', 'cl-winbox');
   const winBtn = ask('Show win panel', () => {
-    const close = showWin(winBox, { kicker: 'Flawless', title: 'Quanta · Carbon', flawless: true, stats: [{ label: 'Moves', value: '7' }, { label: 'Par', value: '7 ✓' }], note: 'Right on par, with nothing spoiled.', actions: [{ label: 'Done', primary: true, onClick: () => close() }] }, true);
+    const close = showWin({ outcome: 'flawless', headline: 'Flawless', title: 'Quanta · Carbon', game: 'orbitalGrid', stats: [{ label: 'Moves', value: '7' }, { label: 'Par', value: '7 ✓' }], actions: [{ label: 'Done', primary: true, onClick: () => close() }], explore: { name: 'carbon', fact: 'Every living thing on Earth is built around carbon.', actions: [{ label: 'View', onClick: () => close() }, { label: 'Learn', onClick: () => close() }] } }, true, winBox);
   });
   section(page, 'Overlays', 'What floats over a screen. Callouts float at the foot without pushing anything about.',
     spec('Callout: Up next', 'The Collection\'s next step, floating at its foot.', upNext),

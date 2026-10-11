@@ -111,7 +111,7 @@ export class AppShell {
     if (screen === 'atom' && mode === 'build' && !this.game) {
       const { Game } = await import('./game');
       const want = this.z;
-      this.game = new Game({ onElement: (z) => this.setZ(z), onView: (z) => { this.setZ(z); void this.go('atom', 'view'); } });
+      this.game = new Game({ onElement: (z) => this.setZ(z), onView: (z) => { this.setZ(z); void this.go('atom', 'view'); }, onInfo: (z) => { this.setZ(z); void this.go('atom', 'info'); } });
       this.z = want;
     }
     this.screen = screen;

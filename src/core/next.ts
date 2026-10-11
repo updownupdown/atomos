@@ -108,6 +108,40 @@ export function nextStep(save: SaveData = loadSave(), currentZ?: number): NextSt
   return null;
 }
 
+function lastingNext(z: number, save: SaveData): NextStep | null {
+  if (!atomBuilt(z, save)) return null;
+  const iso = lastingIsotopes(z).find((i) => !isotopeCollected(save, z, i.a));
+  if (!iso) return null;
+  const game = isotopeGame(z, iso.a) ?? 'packing';
+  return { z, kind: 'lasting', a: iso.a, game, gameName: GAME_NAMES[game], label: `${elementAt(z).name}-${iso.a}`, stage: `iso-${iso.a}` };
+}
+
+/** The next thing to do on this atom itself: a step, its orbital shape, a lasting isotope. */
+export function nextStepHere(z: number, save: SaveData = loadSave()): NextStep | null {
+  const step = openStepOf(z, save);
+  if (step) return step;
+  const l = undiscovered(z, save);
+  return l ? shapeNext(z, l) : lastingNext(z, save);
+}
+
+/** The next thing to do on any other atom: the first step after this atom (wrapping round),
+ *  then another atom's lasting isotope or shape. */
+export function nextStepElsewhere(z: number, save: SaveData = loadSave()): NextStep | null {
+  for (let k = 1; k < MAX_Z; k++) {
+    const s = openStepOf(((z - 1 + k) % MAX_Z) + 1, save);
+    if (s) return s;
+  }
+  for (let o = 1; o <= MAX_Z; o++) {
+    if (o === z) continue;
+    const s = lastingNext(o, save);
+    if (s) return s;
+  }
+  for (const l of Object.keys(SHAPE_AT) as OrbitalShape[]) {
+    if (SHAPE_AT[l] !== z && undiscovered(SHAPE_AT[l], save)) return shapeNext(SHAPE_AT[l], l);
+  }
+  return null;
+}
+
 /** The step as a button label: "Next: helium's nucleus", or "Resume Tessera · H-2". */
 export function nextLabel(step: NextStep): string {
   return step.kind === 'resume' ? step.label : `Next: ${step.label.charAt(0).toLowerCase()}${step.label.slice(1)}`;

@@ -49,6 +49,7 @@ export class CodebreakerView implements PuzzleView {
 
   get won(): boolean { return solved(this.state); }
   get stuck(): boolean { return stuck(this.state); }
+  get failed(): boolean { return stuck(this.state); }
   get moves(): number { return this.state.moves; }
   get par(): number | null { return this.state.par; }
   stats(): { progress: Stat } { return { progress: { label: 'Guesses', value: `${this.state.rows.length}/${MAX_ROWS}` } }; }

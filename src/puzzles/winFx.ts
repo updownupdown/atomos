@@ -1,6 +1,6 @@
 // The moment a board is solved: it stays on screen for a couple of seconds while light plays
-// over it (a ring opening from the middle, a sheen sweeping across, sparks drifting out and the
-// board's edge glowing in the solved green), and only then does the win panel come. Build,
+// over it (a ring opening from the middle, a sheen sweeping across, sparks in the orbital colors
+// drifting out and glints twinkling over the board), and only then does the win panel come. Build,
 // Practice and the gate puzzles all hold for WIN_HOLD_MS and draw drawWinFx over the board.
 
 import { C } from './palette';
@@ -14,31 +14,26 @@ export const winHold = (reduced: boolean) => (reduced ? WIN_HOLD_REDUCED_MS : WI
 
 const SPARKS = Array.from({ length: 28 }, (_, i) => {
   const a = i * 2.39996 + Math.sin(i * 12.9898) * 0.3;
-  return { a, speed: 0.55 + ((i * 37) % 11) / 22, size: 1.2 + ((i * 53) % 7) / 4, delay: ((i * 29) % 9) / 30 };
+  return { a, speed: 0.55 + ((i * 37) % 11) / 22, size: 1.2 + ((i * 53) % 7) / 4, delay: ((i * 29) % 9) / 30, tint: i % 5 };
 });
+
+/** Glints scattered over the board, each twinkling once: where (0..1 of the area), when and how big. */
+const GLINTS = Array.from({ length: 14 }, (_, i) => ({
+  x: 0.1 + 0.8 * ((i * 0.618034) % 1),
+  y: 0.1 + 0.8 * ((i * 0.381966 + 0.27) % 1),
+  delay: 0.25 + ((i * 7) % 12) / 10,
+  size: 7 + ((i * 5) % 6) * 1.6,
+}));
 
 const ease = (x: number) => 1 - (1 - x) ** 3;
 const clamp01 = (x: number) => Math.max(0, Math.min(1, x));
 
-/** Draws the win effect over a solved board, `ms` after the win (nothing in calm motion beyond
- *  the edge glow). */
+/** Draws the win effect over a solved board, `ms` after the win (nothing in calm motion). */
 export function drawWinFx(ctx: CanvasRenderingContext2D, area: Area, ms: number, reduced = false): void {
   const t = ms / 1000;
   const cx = area.x + area.w / 2, cy = area.y + area.h / 2;
   const R = Math.hypot(area.w, area.h) / 2;
   ctx.save();
-  // The edge glows in the solved green, swelling in and settling.
-  const glow = reduced ? 0.6 : Math.sin(clamp01(t / 1.2) * Math.PI) * 0.6 + clamp01((t - 0.6) / 0.8) * 0.4;
-  if (glow > 0.01) {
-    ctx.strokeStyle = C.good;
-    ctx.globalAlpha = glow * 0.55;
-    ctx.lineWidth = 2;
-    ctx.shadowColor = C.good;
-    ctx.shadowBlur = 18 * glow;
-    roundRect(ctx, area.x + 1, area.y + 1, area.w - 2, area.h - 2, 12);
-    ctx.stroke();
-    ctx.shadowBlur = 0;
-  }
   if (!reduced) {
     // A ring of light opening from the middle and fading as it passes the edge.
     const k = clamp01(t / 1.1);
@@ -66,9 +61,16 @@ export function drawWinFx(ctx: CanvasRenderingContext2D, area: Area, ms: number,
       ctx.fillRect(area.x, area.y, area.w, area.h);
       ctx.restore();
     }
-    // Sparks drifting out from the middle.
-    ctx.fillStyle = C.silver;
+    // Glints twinkling over the board, one after another.
+    for (const g of GLINTS) {
+      const u = clamp01((t - g.delay) / 0.7);
+      if (u <= 0 || u >= 1) continue;
+      glint(ctx, area.x + area.w * g.x, area.y + area.h * g.y, g.size * Math.sin(u * Math.PI), u * 1.4, Math.sin(u * Math.PI));
+    }
+    // Sparks in the orbital colors drifting out from the middle.
+    const tints = [C.silver, C.s, C.p, C.d, C.f];
     for (const p of SPARKS) {
+      ctx.fillStyle = tints[p.tint];
       const u = clamp01((t - p.delay) / 1.6);
       if (u <= 0 || u >= 1) continue;
       const d = R * 0.95 * p.speed * ease(u);
@@ -78,6 +80,28 @@ export function drawWinFx(ctx: CanvasRenderingContext2D, area: Area, ms: number,
       ctx.fill();
     }
   }
+  ctx.restore();
+}
+
+/** A four-pointed glint of white light, turned by `spin`. */
+function glint(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, spin: number, alpha: number): void {
+  if (r <= 0.5) return;
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(spin);
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = C.silver;
+  ctx.shadowColor = C.silver;
+  ctx.shadowBlur = r;
+  ctx.beginPath();
+  const w = r * 0.18;
+  for (let k = 0; k < 4; k++) {
+    const a = (k * Math.PI) / 2;
+    ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+    ctx.lineTo(Math.cos(a + Math.PI / 4) * w, Math.sin(a + Math.PI / 4) * w);
+  }
+  ctx.closePath();
+  ctx.fill();
   ctx.restore();
 }
 
