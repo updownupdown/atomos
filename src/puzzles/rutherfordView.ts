@@ -3,13 +3,15 @@
 // the plate to Mark, to flag a suspected nucleus. Tapping a probed cell whose
 // count is met by marks probes the rest it covers. Ports line the frame at the
 // end of every row and column: tap one to aim, tap it again to fire a beam.
+// Under the plate: the beams left, the direct hits the plate can still take and
+// the nuclei left. A ruined plate shows every nucleus and takes no more moves.
 // Keys: arrows move (out onto the frame to reach a port), Space or Enter probes
 // or fires, F or M marks, Tab switches tool, Escape lowers an aimed port.
 
-import { chord, cloneRutherford, fire, nextLead, portLine, probe, remaining, scope, solved, toggleMark, traceBeam, type CellKind, type RutherfordState, type Side } from './rutherford';
+import { beamsLeft, chord, cloneRutherford, fire, hitsLeft, nextLead, onTrack, portLine, probe, remaining, ruined, scope, solved, toggleMark, traceBeam, won, type CellKind, type RutherfordState, type Side } from './rutherford';
 import { drawFrame, frameWidth } from './frame';
 import { C, font, tile } from './palette';
-import { drawHelpMark, type Area, type Help, type Point, type PuzzleView, type RuleCard, type Stat } from './view';
+import { drawHelpMark, undoHelp, type Area, type Help, type Point, type PuzzleView, type RuleCard, type Stat } from './view';
 
 const LONG_MS = 380;
 /** The Probe / Mark bar and counters under the plate: its height. */
@@ -23,7 +25,7 @@ const BEAM_STEP = 55;
 
 export const INSTRUCTIONS = `
 <h3>In the game</h3>
-<p class="meta">A gate: played once, it opens the nucleus view. The plate is 7x7 up to z 20, 8x8 to z 50, 9x9 to z 85 and 10x10 beyond, with nuclei on 15% of cells rising to 20%, and scatter and quiet cells growing from about 6% and 4% of empty cells to 12% and 10%. The opening region is small, so beams are part of every plate: par is 2 beams up to z 50 and 3 beyond, the number a solver needed when it chose each beam only from what it could see. Flawless means no direct hit and no more beams than par. There is no move par; moves count probes, clears and beams, and undo refunds them, though an undone hit or beam still counts against flawless. Every plate is checked so a careful player never has to guess.</p>`;
+<p class="meta">Builds isotopes, leaning toward the lighter atoms. The plate is 7x7 up to z 20, 8x8 to z 50, 9x9 to z 85 and 10x10 beyond, with nuclei on 15% of cells rising to 20%, and scatter and quiet cells growing from about 6% and 4% of empty cells to 12% and 10%. The opening region is small, so beams are part of every plate: par is 2 beams up to z 50 and 3 beyond, the number a solver needed when it chose each beam only from what it could see. The plate grants its par plus one spare beam up to z 50 and exactly its par beyond; once they are spent the ports close. It takes 3 direct hits up to z 50 and 2 beyond: the last one ruins it, every nucleus shows, and only Undo or Restart goes on. Flawless means no direct hit and no beam past par. There is no move par; moves count probes, clears and beams, and undo refunds them (beams and hits too), though an undone hit or beam still counts against flawless. Every plate is checked so a careful player never has to guess, within the beams it grants.</p>`;
 
 interface Layout {
   cell: number;
@@ -50,7 +52,8 @@ export class RutherfordView implements PuzzleView {
   private cursor: Spot | null = null;
   private armed = -1;
   private lay: Layout | null = null;
-  private wonAt = 0;
+  /** When the plate was won or ruined, for the nuclei fading in. */
+  private endAt = 0;
   private reduced: boolean;
   /** Spoilers that undo does not take back: nuclei ever hit and ports ever fired. */
   private everHit = new Set<number>();
@@ -66,15 +69,16 @@ export class RutherfordView implements PuzzleView {
     this.reduced = reducedMotion;
   }
 
-  get won(): boolean { return solved(this.state); }
-  get stuck(): boolean { return false; }
+  get won(): boolean { return won(this.state); }
+  /** A ruined plate: only Undo or Restart goes on. */
+  get stuck(): boolean { return ruined(this.state); }
   get moves(): number { return this.state.moves; }
   get par(): number | null { return null; }
   stats(): { progress: Stat; par: Stat } {
     const s = this.state;
     return {
-      progress: { label: 'Found', value: `${s.total - remaining(s)}/${s.total}` },
-      par: { label: 'Beams', value: `${this.beamsUsed}/${s.beamPar}` },
+      progress: { label: 'Hits', value: `${s.hits}/${s.hitLimit}` },
+      par: { label: 'Beams', value: `${s.beams}/${s.beamPar}` },
     };
   }
   get clean(): boolean { return this.everHit.size === 0 && this.everFired.size <= this.state.beamPar; }
@@ -82,18 +86,38 @@ export class RutherfordView implements PuzzleView {
   /** Beams that count against the par: every port fired, undone or not. */
   get beamsUsed(): number { return this.everFired.size; }
 
+  private get over(): boolean { return this.won || this.stuck; }
+
   hint(): string {
-    const hits = this.everHit.size;
-    const beams = `beams ${this.beamsUsed}/${this.state.beamPar}`;
-    const hitText = hits ? ` · ${hits} hit${hits === 1 ? '' : 's'}` : '';
-    if (this.won) return `All nuclei found · ${beams}${hitText}`;
-    const left = remaining(this.state);
-    return `${left} nucle${left === 1 ? 'us' : 'i'} left · ${beams}${hitText}`;
+    const s = this.state;
+    if (this.stuck) return 'Plate ruined: undo or restart';
+    if (this.won) return 'All nuclei found';
+    const left = remaining(s), b = beamsLeft(s), h = hitsLeft(s);
+    // 40 characters at most: "12 nuclei left · 4 beams · 3 hits left".
+    return `${left} nucle${left === 1 ? 'us' : 'i'} left · ${b} beam${b === 1 ? '' : 's'} · ${h} hit${h === 1 ? '' : 's'} left`;
+  }
+
+  /** Whether a careful player can still finish from this plate, remembered per plate. */
+  private trackOf = new WeakMap<RutherfordState, boolean>();
+  private isOnTrack(s: RutherfordState): boolean {
+    let k = this.trackOf.get(s);
+    if (k === undefined) this.trackOf.set(s, (k = onTrack(s)));
+    return k;
+  }
+
+  /** On a plate that is ruined, or can no longer be finished without guessing: the fewest undos back to one that can. */
+  private backOnTrack(): Help {
+    const h = this.history;
+    for (let k = 1; k <= h.length; k++) if (this.isOnTrack(h[h.length - k])) return undoHelp(k);
+    // Only when the way back is older than the undo history keeps.
+    return { text: 'Restart to get back on track.' };
   }
 
   help(level: 1 | 2): Help | null {
     const s = this.state;
     if (this.won) return null;
+    // Ruined, or a beam spent where it told too little: no move fixes that, only going back.
+    if (!this.isOnTrack(s)) return this.backOnTrack();
     const n = s.size;
     const show = (cells: number[], port = -1) => {
       this.mark = { state: s, cells, port };
@@ -112,7 +136,7 @@ export class RutherfordView implements PuzzleView {
     }
     const lead = nextLead(s);
     if (!lead) {
-      // Nothing left to prove or learn from a beam (the solver never gets here on a dealt plate): point at a safe cell.
+      // Nothing left to prove or learn from a beam (never on a plate still on track): point at a safe cell.
       const i = s.nuclei.findIndex((x, j) => !x && !s.probed[j]);
       if (level === 2) {
         this.cursor = { r: Math.floor(i / n), c: i % n };
@@ -172,7 +196,7 @@ export class RutherfordView implements PuzzleView {
   }
 
   private commit(next: RutherfordState | null, effect?: (prev: RutherfordState, next: RutherfordState, now: number) => void): void {
-    if (!next || this.won) return;
+    if (!next || this.over) return;
     const prev = this.state;
     this.history.push(prev);
     if (this.history.length > 50) this.history.shift();
@@ -180,10 +204,10 @@ export class RutherfordView implements PuzzleView {
     for (let i = 0; i < next.nuclei.length; i++) if (next.probed[i] && next.nuclei[i] && !prev.probed[i]) this.everHit.add(i);
     const now = performance.now();
     if (!this.reduced && effect) effect(prev, next, now);
-    if (solved(next)) {
+    if (solved(next) || ruined(next)) {
       let last = now;
       for (const t of this.reveal.values()) last = Math.max(last, t);
-      this.wonAt = last;
+      this.endAt = last;
     }
   }
 
@@ -228,9 +252,9 @@ export class RutherfordView implements PuzzleView {
     });
   }
 
-  /** Tapping a port aims it; tapping the aimed port again fires. */
+  /** Tapping a port aims it; tapping the aimed port again fires. Once the beams are spent the ports are closed. */
   private tapPort(port: number): void {
-    if (this.state.fired[port] || this.won) { this.armed = -1; return; }
+    if (this.state.fired[port] || this.over || !beamsLeft(this.state)) { this.armed = -1; return; }
     if (this.armed === port) this.shoot(port);
     else this.armed = port;
   }
@@ -293,7 +317,7 @@ export class RutherfordView implements PuzzleView {
     if (port >= 0) { this.cursor = spot; this.tapPort(port); return; }
     this.armed = -1;
     const cell = this.cellOf(spot);
-    if (cell >= 0 && cell === pr.cell && !this.won) {
+    if (cell >= 0 && cell === pr.cell && !this.over) {
       this.cursor = spot;
       this.act(cell, this.marking);
     }
@@ -316,7 +340,7 @@ export class RutherfordView implements PuzzleView {
     if (e.key === 'ArrowRight') { go(0, 1); return true; }
     if (e.key === 'Tab') { this.marking = !this.marking; return true; }
     if (e.key === 'Escape' && this.armed >= 0) { this.armed = -1; return true; }
-    if (!this.cursor || this.won) return false;
+    if (!this.cursor || this.over) return false;
     const port = this.portOf(this.cursor), cell = this.cellOf(this.cursor);
     if (e.key === ' ' || e.key === 'Enter') {
       if (port >= 0) this.tapPort(port);
@@ -329,7 +353,7 @@ export class RutherfordView implements PuzzleView {
 
   // ---- drawing --------------------------------------------------------------------
 
-  private layout(area: Area): Layout {
+  private layout(ctx: CanvasRenderingContext2D, area: Area): Layout {
     const n = this.state.size;
     const unit = n + 2 * BAND;
     // The frame's stroke runs just outside the port band; its width shrinks (never grows) with
@@ -343,7 +367,8 @@ export class RutherfordView implements PuzzleView {
     const band = cell * BAND, fw = cell * unit;
     const fx = area.x + (area.w - fw) / 2, fy = area.y + 8 + room + (availH - fw) / 2;
     const w = Math.min(area.w - 16, Math.max(fw, 320));
-    const seg = Math.min(120, (w - 156) / 2);
+    // The Probe / Mark segments take what the counters leave.
+    const seg = Math.min(120, (w - this.countersWidth(ctx) - 14) / 2);
     return {
       cell, band, x: fx + band, y: fy + band,
       frame: { x: fx, y: fy, w: fw },
@@ -351,14 +376,25 @@ export class RutherfordView implements PuzzleView {
     };
   }
 
+  /** What the counters under the plate show: beams granted and spent, the hits the plate can take, nuclei left. */
+  private tally(): Tally {
+    const s = this.state;
+    return { left: this.won ? 0 : remaining(s), beams: s.beams, beamPar: s.beamPar, beamLimit: s.beamLimit, hits: s.hits, hitLimit: s.hitLimit };
+  }
+
+  private countersWidth(ctx: CanvasRenderingContext2D): number {
+    // Measured with two digits of nuclei, so the bar does not shift as the count drops below 10.
+    return -counters(ctx, 0, 0, { ...this.tally(), left: 88 }, false);
+  }
+
   draw(ctx: CanvasRenderingContext2D, area: Area, now: number): void {
     const s = this.state;
-    const L = (this.lay = this.layout(area));
+    const L = (this.lay = this.layout(ctx, area));
     const n = s.size, c = L.cell;
 
     // A long press marks without waiting for the finger to lift.
     const pr = this.press;
-    if (pr && !pr.fired && pr.cell >= 0 && now - pr.at >= LONG_MS && !this.won && !s.probed[pr.cell] && !s.found[pr.cell]) {
+    if (pr && !pr.fired && pr.cell >= 0 && now - pr.at >= LONG_MS && !this.over && !s.probed[pr.cell] && !s.found[pr.cell]) {
       pr.fired = true;
       this.cursor = { r: Math.floor(pr.cell / n), c: pr.cell % n };
       this.act(pr.cell, true);
@@ -366,8 +402,10 @@ export class RutherfordView implements PuzzleView {
     for (const [i, t] of this.reveal) if (t <= now) this.reveal.delete(i);
     const hidden = (i: number) => (this.reveal.get(i) ?? 0) > now;
 
-    const won = this.won;
-    const glow = won ? (this.reduced ? 1 : Math.max(0, Math.min(1, (now - this.wonAt) / 700))) : 0;
+    // Won or ruined, every hidden nucleus fades in; a ruined plate also flags its wrong marks.
+    const over = this.over, lost = this.stuck;
+    const glow = over ? (this.reduced ? 1 : Math.max(0, Math.min(1, (now - this.endAt) / 700))) : 0;
+    const closed = over || !beamsLeft(s);
     const cur = this.cellOf(this.cursor);
     const focus = cur >= 0 && s.probed[cur] && s.kind[cur] === 'scatter' ? new Set(scope(s, cur)) : null;
 
@@ -382,8 +420,9 @@ export class RutherfordView implements PuzzleView {
       const found = s.found[i] && !hidden(i);
       if (!open && !found) {
         if (focus?.has(i)) cellHighlight(ctx, x, y, c);
-        if (won && s.nuclei[i]) nucleusGlyph(ctx, x + c / 2, y + c / 2, c * 0.3, glow);
+        if (over && s.nuclei[i]) nucleusGlyph(ctx, x + c / 2, y + c / 2, c * 0.3, glow);
         if (s.marked[i]) reticle(ctx, x + c / 2, y + c / 2, c * 0.27);
+        if (lost && s.marked[i] && !s.nuclei[i]) warnCells(ctx, { c, x: L.x, y: L.y }, i % n, Math.floor(i / n), 1, 1, glow);
         continue;
       }
       if (s.nuclei[i]) {
@@ -394,20 +433,28 @@ export class RutherfordView implements PuzzleView {
       cellFace(ctx, x, y, c, s.kind[i], s.clue[i], cur === i);
     }
 
+    // A ruined plate: the foil ringed in red.
+    if (lost && glow > 0) {
+      ctx.save();
+      ctx.globalAlpha = glow;
+      tile(ctx, L.x - 1, L.y - 1, n * c + 2, n * c + 2, c * 0.14 + 1, null, C.bad, 2);
+      ctx.restore();
+    }
+
     // Spent beams leave their track; the aimed one shows where it would go.
     for (let p = 0; p < s.fired.length; p++) {
       if (!s.fired[p] || this.fx.some((f) => f.type === 'beam' && f.port === p)) continue;
       const { path, stop } = traceBeam(s, p);
       track(ctx, L, n, p, path.length, stop !== null);
     }
-    if (this.armed >= 0 && !won) aimLine(ctx, L, n, this.armed, now);
+    if (this.armed >= 0 && !over) aimLine(ctx, L, n, this.armed, now);
     for (let p = 0; p < 4 * n; p++) {
       const { x, y, side } = portPoint(L, n, p);
-      portGlyph(ctx, x, y, side, c, s.fired[p] ? 'spent' : this.armed === p ? 'armed' : 'idle', won);
+      portGlyph(ctx, x, y, side, c, s.fired[p] ? 'spent' : this.armed === p ? 'armed' : 'idle', closed);
     }
 
     // Look here: the cell the numbers decide and the numbers that decide it, or the port to fire.
-    const m = this.mark?.state === s && !won ? this.mark : null;
+    const m = this.mark?.state === s && !over ? this.mark : null;
     if (m) {
       for (const i of m.cells) drawHelpMark(ctx, L.x + (i % n) * c + 2, L.y + Math.floor(i / n) * c + 2, c - 4, c - 4, now, this.reduced, c * 0.2);
       if (m.port >= 0) {
@@ -422,7 +469,7 @@ export class RutherfordView implements PuzzleView {
       const x = L.x + (pr.cell % n) * c + c / 2, y = L.y + Math.floor(pr.cell / n) * c + c / 2;
       pressRing(ctx, x, y, c * 0.36, k);
     }
-    if (this.cursor && !won) {
+    if (this.cursor && !over) {
       const port = this.portOf(this.cursor);
       if (port >= 0) {
         const q = portPoint(L, n, port);
@@ -434,7 +481,7 @@ export class RutherfordView implements PuzzleView {
     }
 
     this.drawFx(ctx, L, now);
-    this.drawBar(ctx, L, won);
+    this.drawBar(ctx, L);
   }
 
   private drawFx(ctx: CanvasRenderingContext2D, L: Layout, now: number): void {
@@ -452,8 +499,8 @@ export class RutherfordView implements PuzzleView {
     });
   }
 
-  private drawBar(ctx: CanvasRenderingContext2D, L: Layout, won: boolean): void {
-    const s = this.state, b = L.bar;
+  private drawBar(ctx: CanvasRenderingContext2D, L: Layout): void {
+    const b = L.bar;
     const segs: [string, boolean][] = [['Probe', !this.marking], ['Mark', this.marking]];
     segs.forEach(([label, on], k) => {
       const sx = b.x + k * b.seg;
@@ -462,12 +509,15 @@ export class RutherfordView implements PuzzleView {
       if (k === 0) alphaGlyph(ctx, ix, iy, 6, on ? 1 : 0.45);
       else reticle(ctx, ix, iy, 8.4, on ? 1 : 0.45);
       ctx.fillStyle = on ? C.text : C.text2;
-      ctx.font = font(17, 500);
       ctx.textAlign = 'left';
       ctx.textBaseline = 'middle';
+      // 17px, smaller (not under 13) when the counters leave the segment narrow.
+      let size = 17;
+      ctx.font = font(size, 500);
+      while (size > 13 && ix + 14 + ctx.measureText(label).width > sx + b.seg - 6) ctx.font = font(--size, 500);
       ctx.fillText(label, ix + 14, iy + 1);
     });
-    counters(ctx, b.x + b.w - 4, b.y + b.h / 2, won ? 0 : remaining(s), this.beamsUsed, s.beamPar);
+    counters(ctx, b.x + b.w - 4, b.y + b.h / 2, this.tally());
   }
 }
 
@@ -833,27 +883,71 @@ function beamFx(ctx: CanvasRenderingContext2D, x: number, y: number, dx: number,
   return t < tOut + tBack;
 }
 
-/** The counters under the plate, right-aligned at x: beams used of par, then nuclei left. Returns the left edge. */
-function counters(ctx: CanvasRenderingContext2D, x: number, y: number, left: number, used: number, par: number, draw = true): number {
+/** What the counters under the plate show. */
+interface Tally {
+  /** Nuclei neither marked nor found. */
+  left: number;
+  beams: number;
+  beamPar: number;
+  beamLimit: number;
+  hits: number;
+  hitLimit: number;
+}
+
+const PIP = 16;
+
+/** A granted beam under the plate: an alpha particle while it is left, a faint ring once fired.
+ *  A spare beam (past par) wears a dashed ring. */
+function beamPip(ctx: CanvasRenderingContext2D, x: number, y: number, spent: boolean, spare: boolean): void {
+  ctx.save();
+  if (spare) {
+    ctx.strokeStyle = C.line3;
+    ctx.lineWidth = 1;
+    ctx.setLineDash([2, 2]);
+    ctx.beginPath();
+    ctx.arc(x, y, 6.8, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+  if (spent) {
+    ctx.strokeStyle = C.line2;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(x, y, 3, 0, Math.PI * 2);
+    ctx.stroke();
+  } else alphaGlyph(ctx, x, y, spare ? 4.4 : 5.4, 1);
+  ctx.restore();
+}
+
+/** One direct hit the plate can still take: a small square of foil; once taken, an empty slot. */
+function hitPip(ctx: CanvasRenderingContext2D, x: number, y: number, taken: boolean): void {
+  const r = 5;
+  if (taken) tile(ctx, x - r + 0.75, y - r + 0.75, r * 2 - 1.5, r * 2 - 1.5, 2.5, null, C.line2, 1.5);
+  else tile(ctx, x - r, y - r, r * 2, r * 2, 2.5, C.silverDim, null);
+}
+
+/** The counters under the plate, right-aligned at x: the beams granted, the hits the plate can
+ *  still take, then the nuclei left. Returns the left edge. */
+function counters(ctx: CanvasRenderingContext2D, x: number, y: number, t: Tally, draw = true): number {
   ctx.save();
   ctx.font = font(16, 500);
   ctx.textAlign = 'right';
   ctx.textBaseline = 'middle';
   ctx.fillStyle = C.text2;
-  const nt = String(left);
-  const bt = `${used}/${par}`;
+  const nt = String(t.left);
   const cx = x - ctx.measureText(nt).width - 14;
-  const bx = cx - 26, ax = bx - ctx.measureText(bt).width - 12;
+  // Hits, right to left: the ones still to take on the right, so they go from the left.
+  // A group with no pips (in the rule pictures) takes no room.
+  const hx = cx - 8.4 - 16 - PIP / 2;
+  const bx = t.hitLimit ? hx - (t.hitLimit - 1) * PIP - PIP / 2 - 12 - PIP / 2 : hx;
   if (draw) {
     ctx.fillText(nt, x, y + 1);
     nucleusGlyph(ctx, cx, y, 8.4, 1);
-    ctx.fillStyle = used > par ? C.warn : C.text2;
-    ctx.fillText(bt, bx, y + 1);
-    streak(ctx, ax - 3.5, y, 1, 0, 11, 1);
-    alphaGlyph(ctx, ax, y, 6, 1);
+    for (let k = 0; k < t.hitLimit; k++) hitPip(ctx, hx - (t.hitLimit - 1 - k) * PIP, y, k < t.hits);
+    for (let k = 0; k < t.beamLimit; k++) beamPip(ctx, bx - (t.beamLimit - 1 - k) * PIP, y, k < t.beams, k >= t.beamPar);
   }
   ctx.restore();
-  return ax - 17;
+  return (t.beamLimit ? bx - (t.beamLimit - 1) * PIP : hx - (t.hitLimit - 1) * PIP) - PIP / 2 - 4;
 }
 
 // ---- rule cards -----------------------------------------------------------------------
@@ -914,16 +1008,36 @@ function inBox(ctx: CanvasRenderingContext2D, w: number, h: number, draw: () => 
   ctx.restore();
 }
 
-/** The counters under the plate, scaled up and centered in a demo box (to the same size as before
- *  the board's counters grew by a fifth). */
-function demoCounters(ctx: CanvasRenderingContext2D, w: number, h: number, left: number, used: number, par: number): void {
-  const k = Math.min(1.5, w / 110) / 1.2;
-  const span = -counters(ctx, 0, 0, left, 3, par, false);
+/** The counters under the plate, scaled up and centered in a demo box. */
+function demoCounters(ctx: CanvasRenderingContext2D, w: number, h: number, t: Tally, y = h / 2): void {
+  const span = -counters(ctx, 0, 0, t, false);
+  const k = Math.min(1.5, (w * 0.86) / span);
   ctx.save();
-  ctx.translate(w / 2 + (span * k) / 2, h / 2);
+  ctx.translate(w / 2 + (span * k) / 2, y);
   ctx.scale(k, k);
-  counters(ctx, 0, 0, left, used, par);
+  counters(ctx, 0, 0, t);
   ctx.restore();
+}
+
+/** The tally the counter pictures start from: a small plate's 2 beams and a spare, 3 hits, 6 nuclei left. */
+const DEMO_TALLY: Tally = { left: 6, beams: 0, beamPar: 2, beamLimit: 3, hits: 0, hitLimit: 3 };
+
+/** The last hit a plate can take: one nucleus already hit, a probe hits another, and the last
+ *  hidden one shows as the plate is ruined. The hit squares under it run out. */
+function ruinPicture(ctx: CanvasRenderingContext2D, w: number, h: number, t: number): void {
+  const g = mini(w, h * 0.66, 3, 3);
+  foilSheet(ctx, g.x, g.y, 3, 3, g.c);
+  // Nuclei at 0 (hit before), 5 (hit now) and 7 (shown when the plate is ruined); 1, 3, 4 and 6 open.
+  const faces: Record<number, number> = { 1: 2, 3: 2, 4: 3, 6: 1 };
+  for (const k of [1, 3, 4, 6]) openCell(ctx, g, k % 3, Math.floor(k / 3), 'plain', faces[k]);
+  const a = at(g, 0, 0);
+  nucleusCell(ctx, a.x, a.y, g.c, 'hit');
+  const q = at(g, 2, 1);
+  if (opened(t)) nucleusCell(ctx, q.x, q.y, g.c, 'hit');
+  if (probing(t)) inBox(ctx, w, h, () => probeFx(ctx, q.x + g.c / 2, q.y + g.c / 2, g.c, (t - TAP) * 1000, true));
+  const r = at(g, 1, 2);
+  nucleusGlyph(ctx, r.x + g.c / 2, r.y + g.c / 2, g.c * 0.3, clamp01((t - 1) / 0.6));
+  demoCounters(ctx, w, h, { ...DEMO_TALLY, left: opened(t) ? 1 : 2, beamLimit: 0, hitLimit: 2, hits: opened(t) ? 2 : 1 }, h * 0.84);
 }
 
 /** Clear around: a 1 with one mark in its eight, tapped. The mark is right (good) or on the wrong cell (bad). */
@@ -1109,22 +1223,37 @@ export const RULES: RuleCard[] = [
     },
   },
   {
-    title: 'Beam par',
-    text: 'Under the plate, beams used / granted. Firing more than granted costs the flawless run; undo reopens a port but the beam still counts.',
+    title: 'Beams granted',
+    text: 'The alpha particles under the plate are the beams it grants, enough for a careful solve; once they are spent the ports close. A spare in a dashed ring (up to z 50) costs the flawless run.',
     good: {
       duration: 1.6,
-      caption: 'Two of two granted: flawless',
-      draw: (ctx, w, h, t) => demoCounters(ctx, w, h, 6, t < 0.5 ? 0 : t < 1 ? 1 : 2, 2),
+      caption: 'Two fired: on par, one spare left',
+      draw: (ctx, w, h, t) => demoCounters(ctx, w, h, { ...DEMO_TALLY, hitLimit: 0, beams: t < 0.5 ? 0 : t < 1 ? 1 : 2 }),
     },
     bad: {
-      duration: 2,
-      caption: 'Three of two: not flawless',
-      draw: (ctx, w, h, t) => demoCounters(ctx, w, h, 6, t < 0.5 ? 0 : t < 1 ? 1 : t < 1.5 ? 2 : 3, 2),
+      duration: 2.2,
+      caption: 'All spent: the ports close',
+      draw: (ctx, w, h, t) => {
+        const L = beamRow(ctx, w, h * 0.6, 3, 0, null, 0);
+        const { x: px, y: py } = portPoint(L, 3, 9);
+        const spent = t < 0.5 ? 0 : t < 0.9 ? 1 : t < 1.3 ? 2 : 3;
+        portGlyph(ctx, px, py, 3, L.cell, 'idle', spent === 3);
+        if (t > 1.6) {
+          // A tap on a closed port: nothing fires.
+          const c = L.cell;
+          ctx.save();
+          ctx.globalAlpha = clamp01((t - 1.6) / 0.3);
+          ctx.setLineDash([4, 3]);
+          tile(ctx, px - c * 0.3, py - c * 0.3, c * 0.6, c * 0.6, c * 0.14, null, C.warn, 2);
+          ctx.restore();
+        }
+        demoCounters(ctx, w, h, { ...DEMO_TALLY, hitLimit: 0, beams: spent }, h * 0.8);
+      },
     },
   },
   {
     title: 'Direct hit',
-    text: 'Probe a nucleus and it is a direct hit, outlined in red. Play goes on, but the run is no longer flawless, even after undo.',
+    text: 'Probe a nucleus and it is a direct hit, outlined in red, and one square under the plate empties. The run is no longer flawless, even after undo.',
     good: {
       duration: 1.8,
       caption: 'Marked, and the safe cells probed',
@@ -1153,6 +1282,20 @@ export const RULES: RuleCard[] = [
         if (opened(t)) nucleusCell(ctx, q.x, q.y, g.c, 'hit');
         if (probing(t)) inBox(ctx, w, h, () => probeFx(ctx, q.x + g.c / 2, q.y + g.c / 2, g.c, (t - TAP) * 1000, true));
       },
+    },
+  },
+  {
+    title: 'Ruined plate',
+    text: 'The plate takes three direct hits, two from z 51 on, and the last one ruins it. Every nucleus then shows, and only Undo or Restart goes on.',
+    good: {
+      duration: 1.8,
+      caption: 'A square left: play goes on',
+      draw: (ctx, w, h, t) => demoCounters(ctx, w, h, { ...DEMO_TALLY, beamLimit: 0, hits: t < 0.6 ? 0 : t < 1.2 ? 1 : 2 }),
+    },
+    bad: {
+      duration: 2.2,
+      caption: 'The last hit ruins the plate',
+      draw: (ctx, w, h, t) => ruinPicture(ctx, w, h, t),
     },
   },
   {
