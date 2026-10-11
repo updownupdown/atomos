@@ -5,7 +5,6 @@
 import { MAX_Z } from '../core/elements';
 import { atomBuilt, fleetingTotal, lastingTotal } from '../core/progress';
 import { clearSave, loadSave, writeSave, type Settings } from '../core/save';
-import { MICROSCOPE } from './icons';
 import { confirmDialog, createSegments, switchHtml } from './components';
 import { applyProgressPreset, currentPreset, PROGRESS_PRESETS, type ProgressPreset } from '../core/testing';
 
@@ -32,15 +31,10 @@ export function renderSettings(sheet: HTMLElement): void {
     ${toggle('sound', 'Sound', 'Tones for fusions, hops and finished atoms.')}
     ${toggle('haptics', 'Vibration', 'Taps on supported phones.')}
     ${toggle('nu', 'Nu', 'The point of light that flies to what to do next and says a line the first time something happens.')}
-    <h3>Around the app</h3>
-    <p class="muted"><span class="inline-icon">${MICROSCOPE}</span> The microscope opens the science behind whatever is on screen. It stays out of the way until you tap it.</p>
-    <h3>Keyboard</h3>
-    <p class="muted">Arrow keys swipe or move in most puzzles; each puzzle's instructions list its own keys. U undoes, R restarts and H gives a hint.</p>
-    <h3>Testing</h3>
-    <p class="muted">Set the whole game to a share of done, to see how screens look. This replaces your progress.</p>
-    <div id="set-preset"></div>
     <h3>Progress</h3>
     <p class="muted">${atoms} of ${MAX_Z} atoms built · ${n(lasting.built)} of ${n(lasting.total)} lasting isotopes · ${n(fleeting.built)} of ${n(fleeting.total)} fleeting isotopes</p>
+    <p class="muted">For testing, set the whole game to a share of done to see how screens look. This replaces your progress.</p>
+    <div id="set-preset"></div>
     <div class="actions reset-row"><button class="secondary" id="set-reset">Reset all progress</button></div>
     <h3>Design</h3>
     <div class="actions"><a class="secondary settings-link" href="#icons">Icon library</a><a class="secondary settings-link" href="#components">Component library</a><a class="secondary settings-link" href="./lab.html">Atom visualization lab</a></div>`;

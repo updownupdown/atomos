@@ -28,3 +28,15 @@ export function difficulty(game: string, z: number): number {
 export function difficultyWord(rating: number): string {
   return rating <= 2 ? 'Very easy' : rating <= 4 ? 'Easy' : rating <= 6 ? 'Medium' : rating <= 8 ? 'Hard' : 'Expert';
 }
+
+/** The level, 1 (very easy) to 5 (expert), of a rating: two ratings to a level, like the pips. */
+export function levelOf(rating: number): number {
+  return Math.min(5, Math.max(1, Math.ceil(rating / 2)));
+}
+
+/** The elements whose boards for this game are dealt at a level, within the game's range. */
+export function elementsAtLevel(game: string, level: number, lo: number, hi: number): number[] {
+  const out: number[] = [];
+  for (let z = lo; z <= hi; z++) if (levelOf(difficulty(game, z)) === level) out.push(z);
+  return out;
+}

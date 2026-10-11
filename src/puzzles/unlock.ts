@@ -101,21 +101,38 @@ function run(id: UnlockId, info: UnlockInfo): Promise<boolean> {
       s.unlocks[id] = { at: prev?.at ?? Date.now(), z, best };
       writeSave(s);
       window.dispatchEvent(new CustomEvent('atomos:progress', { detail: { unlock: id } }));
-      closeWin = showWin(play, {
-        kicker: prev ? 'Solved again' : 'Unlocked',
+      const flawless = v.clean && !host.hints.used(v);
+      closeWin = showWin({
+        outcome: flawless ? 'flawless' : 'won',
+        headline: prev ? 'Solved' : 'Unlocked',
         title: info.title,
-        flawless: v.clean && !host.hints.used(v),
+        game: t.id,
         stats: [
           { label: 'Moves', value: String(v.moves) },
           ...(v.par !== null ? [{ label: 'Par', value: v.moves <= v.par ? `${v.par} ✓` : String(v.par) }] : []),
         ],
-        note: prev ? `Your best is ${best} move${best === 1 ? '' : 's'}.` : info.note,
         actions: [{ label: 'Done', primary: true, onClick: () => finish(true) }],
+        onDismiss: () => finish(true),
+      }, reduced);
+    };
+
+    // Out of guesses: try the same code again, or leave.
+    host.onLost = (v) => {
+      closeWin = showWin({
+        outcome: 'lost',
+        headline: 'Out of guesses',
+        title: info.title,
+        game: t.id,
+        stats: [{ label: 'Moves', value: String(v.moves) }],
+        actions: [
+          { label: 'Try again', primary: true, onClick: () => host.restart() },
+          { label: 'Back', onClick: () => finish(Boolean(loadSave().unlocks[id])) },
+        ],
       }, reduced);
     };
 
     function key(e: KeyboardEvent): void {
-      if (modalOpen()) return;
+      if (modalOpen() || document.querySelector('.win')) return;
       if (e.key === 'Escape') { finish(Boolean(loadSave().unlocks[id])); e.preventDefault(); e.stopPropagation(); return; }
       if (host.key(e)) { e.preventDefault(); e.stopPropagation(); }
     }

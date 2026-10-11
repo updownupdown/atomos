@@ -18,6 +18,10 @@ export class PuzzleHost {
    *  with the win effect (winFx.ts). */
   onWon: ((view: PuzzleView) => void) | null = null;
   private wonReported = false;
+  /** Called once when the view is lost for good (PuzzleView.failed), a beat after it happens. */
+  onLost: ((view: PuzzleView) => void) | null = null;
+  private failedAt: number | null = null;
+  private lostReported = false;
   /** When the current win was first seen (null while unsolved). */
   private wonAt: number | null = null;
   /** Calm motion: a short hold and no sparks. */
@@ -47,6 +51,8 @@ export class PuzzleHost {
     this.view = view;
     this.wonReported = false;
     this.wonAt = null;
+    this.failedAt = null;
+    this.lostReported = false;
     this.pointerId = null;
     if (!view) this.clear();
     this.wake();
@@ -63,7 +69,7 @@ export class PuzzleHost {
   }
 
   undo(): void {
-    if (this.view?.undo()) { this.wonReported = false; this.wonAt = null; this.hints.undone(); }
+    if (this.view?.undo()) { this.wonReported = false; this.wonAt = null; this.failedAt = null; this.lostReported = false; this.hints.undone(); }
     this.wake();
   }
 
@@ -72,6 +78,8 @@ export class PuzzleHost {
     this.hints.restarted(this.view);
     this.wonReported = false;
     this.wonAt = null;
+    this.failedAt = null;
+    this.lostReported = false;
     this.wake();
   }
 
@@ -112,6 +120,11 @@ export class PuzzleHost {
     if (v.won && !this.wonReported && now - this.wonAt! >= winHold(this.reducedMotion)) {
       this.wonReported = true;
       this.onWon?.(v);
+    }
+    if (!v.failed) this.failedAt = null;
+    else if (!this.lostReported && now - (this.failedAt ??= now) >= (this.reducedMotion ? 200 : 900)) {
+      this.lostReported = true;
+      this.onLost?.(v);
     }
     this.raf = requestAnimationFrame((t) => this.frame(t));
   }

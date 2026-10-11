@@ -6,9 +6,10 @@ import {
 import { frontier, loadSave, writeSave, type OrbitalShape, type SaveData, type StepId } from './core/save';
 // The gallery's gate puzzles (lenses, nucleus view, looks); loaded here so they are ready.
 import './puzzles/unlock';
-import { atomProgress, fleetingCount, fleetingDealZ, fleetingIsotopes, isotopeCollected, isotopeGame, ISOTOPE_GAMES_LIST, lastingIsotopes, rowNeed, rowOf, rowOpen, rowSpan, segmentsOf, shapeAt, stepState, stepsOf, type IsotopeGame, type StepState } from './core/progress';
+import { atomBuilt, atomProgress, fleetingCount, fleetingDealZ, fleetingIsotopes, isotopeCollected, isotopeGame, ISOTOPE_GAMES_LIST, lastingIsotopes, rowNeed, rowOf, rowOpen, rowSpan, segmentsOf, shapeAt, stepState, stepsOf, type IsotopeGame, type StepState } from './core/progress';
 import { SHAPE_GLYPH_Z } from './core/unlocks';
-import { nextLabel, nextStep, notePaused, type NextStep } from './core/next';
+import { nextLabel, nextStep, nextStepElsewhere, nextStepHere, notePaused, type NextStep } from './core/next';
+import { atomFact } from './core/facts';
 import { firstTimeLine } from './ui/nu';
 import { tableColour } from './core/paint';
 import { Detail } from './gallery/detail';
@@ -25,6 +26,7 @@ import { dealSeed, puzzleIcon, puzzleType, type PuzzleType } from './puzzles/cat
 import { difficulty, difficultyWord } from './puzzles/difficulty';
 import { openRules } from './puzzles/rulesModal';
 import { showWin, type WinAction } from './puzzles/winPanel';
+import { winTrack } from './puzzles/winTrack';
 import { closeModal, modalOpen, openModal } from './ui/modal';
 import { createTabs, iconButton, nextButton, playButton } from './ui/components';
 import { askRestart, confirming, restartButton } from './puzzles/restart';
@@ -71,6 +73,8 @@ export class Game {
   /** The navigator along the foot of the Build page, the same one View uses. */
   private bar: AtomBar;
   private closeWin: () => void = () => {};
+  /** The Lost sheet has shown for this board; a restart clears it. */
+  private lostShown = false;
   /** The next step, as of the last time the Build page was drawn. */
   private nextHere: NextStep | null = null;
   private busy = false;
@@ -87,7 +91,7 @@ export class Game {
   /** The frame of a puzzle: stats, Back and the tools on top, the message line under it. */
   private gbar!: GameBar;
 
-  constructor(private hooks: { onElement?: (z: number) => void; onView?: (z: number) => void } = {}) {
+  constructor(private hooks: { onElement?: (z: number) => void; onView?: (z: number) => void; onInfo?: (z: number) => void } = {}) {
     this.detail = new Detail($<HTMLCanvasElement>('bh-atom'), { variant: 'build', empty: $('bh-empty'), legend: $('bh-scale') });
     this.bar = createAtomBar({ onChange: (z) => this.start(z), locked: (z) => !rowOpen(rowOf(z), this.save) });
     $('build-bar').append(this.bar.el);
@@ -713,6 +717,7 @@ export class Game {
       void this.stageSolved();
       return;
     }
+    if (p.failed && !this.busy && !this.lostShown) this.showLost(p);
     this.loopRaf = requestAnimationFrame((t) => this.frame(t));
   }
 
@@ -745,7 +750,7 @@ export class Game {
       this.collectIsotope(a, isFleet(stage) ? fleetGame(stage) : undefined);
       sfx.harmonySound();
       this.busy = false;
-      this.isotopeWon(a, p, isFleet(stage));
+      this.isotopeWon(a, p, stage, isFleet(stage));
       return;
     }
     const wasBuilt = Boolean(this.save.built[this.z]);
@@ -802,17 +807,10 @@ export class Game {
     this.saveProgress();
     sfx.completeSound();
     this.busy = false;
-    this.closeWin = showWin($('app'), {
-      kicker: prev ? 'Solved again' : 'Discovered',
-      title: `The ${l} orbital shape`,
-      flawless: false,
-      stats: this.winStats(p),
-      note: prev ? `Your best is ${best} move${best === 1 ? '' : 's'}.` : `The Shapes view in 3D now draws ${l} orbitals in every atom that has them.`,
-      actions: this.winActions(),
-    }, this.save.settings.reducedMotion);
+    this.showResult(p, 'shape', { headline: prev ? 'Solved' : 'Discovered', title: `The ${l} orbital shape`, flawless: false, just: [] });
   }
 
-  /** Moves and par for the win panel. */
+  /** Moves and par for the win sheet, and the best when this run was not it. */
   private winStats(p: PuzzleView, step?: StepId): { label: string; value: string }[] {
     const best = step ? this.save.steps[this.z]?.[step]?.best : undefined;
     return [
@@ -822,21 +820,29 @@ export class Game {
     ];
   }
 
-  /** The way back to this atom's Build page. */
-  private backAction(primary = false): WinAction {
-    return { label: `Back to ${element(this.z).name.toLowerCase()}`, primary, onClick: () => this.enter('home') };
-  }
-
-  /** What every win panel offers: the Next step first (or Back, once everything is done), then
-   *  a look at the atom once it is built, or the way back to its Build page. */
+  /** The choices after a win: keep going on this atom, or move on to the next. Keeping on leads
+   *  (as the Next button) until the atom's stable part is all built; then moving on does. */
   private winActions(): WinAction[] {
-    const step = nextStep(this.save, this.z);
     const el = element(this.z);
-    const look: WinAction = this.save.built[this.z] && this.hooks.onView
-      ? { label: `Look at ${el.name.toLowerCase()}`, onClick: () => { this.enter('home'); this.hooks.onView!(this.z); } }
-      : this.backAction();
-    if (!step) return [{ ...look, primary: true }, ...(look.label.startsWith('Back') ? [] : [this.backAction()])];
-    return [{ label: nextLabel(step), next: true, onClick: () => this.goTo(step) }, look];
+    const here = nextStepHere(this.z, this.save);
+    const there = nextStepElsewhere(this.z, this.save);
+    const stableDone = segmentsOf(this.z, this.save).every((sg) => sg.done);
+    const fl = fleetingCount(this.z, this.save);
+    const keep: WinAction | null = here
+      ? { label: nextLabel(here), onClick: () => this.goTo(here) }
+      : fl.built < fl.total && atomBuilt(this.z, this.save)
+        ? { label: `Fleeting isotopes · ${fl.built}/${fl.total}`, onClick: () => this.enter('home') }
+        : null;
+    const move: WinAction | null = there
+      ? { label: there.kind === 'nucleus' || there.kind === 'electrons' ? `Next atom: ${element(there.z).name}` : nextLabel(there), onClick: () => this.goTo(there) }
+      : null;
+    const lead = !stableDone && keep ? keep : move ?? keep;
+    const other = lead === keep ? move : keep;
+    const out: WinAction[] = [];
+    if (lead) out.push({ ...lead, next: true });
+    if (other) out.push(other);
+    if (!out.length) out.push({ label: `Back to ${el.name}`, primary: true, onClick: () => this.enter('home') });
+    return out;
   }
 
   /** Takes the player to a step, on this atom or another. */
@@ -844,21 +850,42 @@ export class Game {
     this.play(step.z, step.stage);
   }
 
-  /** One of the two puzzles solved, the atom not yet whole: say what it added. */
+  /** The win sheet for a win on this atom: the result, the atom's tracks with what this win
+   *  added, the choices, and a fact to explore. Tapping outside it lands on the Build page. */
+  private showResult(p: PuzzleView, stage: Exclude<Stage, 'home'>, o: { headline: string; title: string; flawless: boolean; just: string[]; step?: StepId }): void {
+    const el = element(this.z);
+    const z = this.z;
+    this.closeWin = showWin({
+      outcome: o.flawless ? 'flawless' : 'won',
+      headline: o.headline,
+      title: o.title + (this.hints.used(p) ? ' · with a hint' : ''),
+      game: this.stagePuzzle(stage).id,
+      stats: this.winStats(p, o.step),
+      track: winTrack(z, this.save, o.just),
+      actions: this.winActions(),
+      explore: {
+        name: el.name,
+        fact: atomFact(z),
+        actions: [
+          ...(this.hooks.onView ? [{ label: 'View', onClick: () => { this.enter('home'); this.hooks.onView!(z); } }] : []),
+          ...(this.hooks.onInfo ? [{ label: 'Learn', onClick: () => { this.enter('home'); this.hooks.onInfo!(z); } }] : []),
+        ],
+      },
+      onDismiss: () => this.enter('home'),
+    }, this.save.settings.reducedMotion);
+  }
+
+  /** One of the two puzzles solved, the atom not yet whole. */
   private stepWon(step: StepId, p: PuzzleView): void {
     const el = element(this.z);
-    const note = step === 'nucleus'
-      ? `${el.z} protons and ${this.neutrons} neutrons, held together. ${el.name} still needs its electrons.`
-      : `${el.z} electrons in their orbitals. ${el.name} still needs its nucleus.`;
     const clean = this.cleanRun(p);
-    this.closeWin = showWin($('app'), {
-      kicker: clean ? 'Flawless' : 'Solved',
+    this.showResult(p, step, {
+      headline: clean ? 'Flawless' : 'Solved',
       title: `${el.name}'s ${step === 'nucleus' ? 'nucleus' : 'electrons'}`,
       flawless: clean,
-      stats: this.winStats(p, step),
-      note: note + this.hintNote(p),
-      actions: this.winActions(),
-    }, this.save.settings.reducedMotion);
+      just: [step],
+      step,
+    });
   }
 
   /** Both puzzles done: the atom joins the collection (or is rebuilt). */
@@ -874,22 +901,14 @@ export class Game {
     this.detail.setLit(this.litState());
     sfx.completeSound();
     this.say('');
-    const lasting = lastingIsotopes(this.z).length;
-    const fleeting = fleetingIsotopes(this.z).length;
-    const opened = [lasting ? `${lasting} lasting` : '', fleeting ? `${fleeting} fleeting` : ''].filter(Boolean).join(' and ');
-    const note = wasBuilt
-      ? `${el.name} rebuilt.${flawless && !prev?.flawless ? ' Flawless at last.' : ''}`
-      : `${el.name} joins your collection, with ${el.name.toLowerCase()}-${el.commonA}, its most common isotope.${opened ? ` Its other isotopes are open: ${opened}.` : ''}`;
     window.setTimeout(() => {
-      this.closeWin = showWin($('app'), {
-        kicker: wasBuilt ? (flawless ? 'Flawless' : 'Rebuilt') : flawless ? 'Built, flawless' : 'Built',
+      this.showResult(p, step, {
+        headline: flawless ? 'Flawless' : wasBuilt ? 'Rebuilt' : 'Built',
         title: wasBuilt ? `${el.name}'s ${step === 'nucleus' ? 'nucleus' : 'electrons'}` : `${el.name} is built`,
         flawless,
-        stats: this.winStats(p, step),
-        note: this.hints.used(p) ? note + this.hintNote(p)
-          : flawless || wasBuilt ? note : `${note} For a flawless one: no fusion past the target, and the electrons in par or fewer moves.`,
-        actions: this.winActions(),
-      }, this.save.settings.reducedMotion);
+        just: [step, String(el.commonA)],
+        step,
+      });
     }, this.save.settings.reducedMotion ? 200 : 900);
   }
 
@@ -908,30 +927,32 @@ export class Game {
     this.saveProgress();
   }
 
-  private isotopeWon(a: number, p: PuzzleView, fleeting = false): void {
+  private isotopeWon(a: number, p: PuzzleView, stage: Exclude<Stage, 'home'>, fleeting = false): void {
     const el = element(this.z);
-    const parts = `${el.z} proton${el.z === 1 ? '' : 's'} and ${a - el.z} neutron${a - el.z === 1 ? '' : 's'}`;
-    if (fleeting) {
-      const iso = fleetingIsotopes(this.z).find((i) => i.a === a);
-      const life = iso?.halfLife ? ` Half of it would be gone in ${formatDuration(iso.halfLife)};` : ' It decays almost at once;';
-      const c = fleetingCount(this.z, this.save);
-      this.closeWin = showWin($('app'), {
-        kicker: 'Fleeting isotope built',
-        title: `${el.name}-${a}`,
-        flawless: false,
-        stats: this.winStats(p),
-        note: `${parts}.${life} it stays in your collection, marked decayed. ${c.built} of ${c.total} of ${el.name.toLowerCase()}'s fleeting isotopes built.${this.hintNote(p)}`,
-        actions: this.winActions(),
-      }, this.save.settings.reducedMotion);
-      return;
-    }
-    this.closeWin = showWin($('app'), {
-      kicker: 'Isotope built',
+    this.showResult(p, stage, {
+      headline: fleeting ? 'Fleeting isotope built' : 'Isotope built',
       title: `${el.name}-${a}`,
       flawless: false,
+      just: [fleeting ? 'fleeting' : String(a)],
+    });
+  }
+
+  /** A game that can no longer be won (Glyph out of guesses): the Lost sheet, once. Try again
+   *  restarts it; tapping outside leaves the board as it is, to look over or restart. */
+  private showLost(p: PuzzleView): void {
+    const stage = this.stage as Exclude<Stage, 'home'>;
+    const t = this.stagePuzzle(stage);
+    this.lostShown = true;
+    this.closeWin = showWin({
+      outcome: 'lost',
+      headline: 'Out of guesses',
+      title: `${t.name} · ${element(this.z).name}`,
+      game: t.id,
       stats: this.winStats(p),
-      note: `${parts}, now in your collection.${this.hintNote(p)}`,
-      actions: this.winActions(),
+      actions: [
+        { label: 'Try again', primary: true, onClick: () => this.restartPuzzle() },
+        { label: `Back to ${element(this.z).name}`, onClick: () => this.toHome() },
+      ],
     }, this.save.settings.reducedMotion);
   }
 
@@ -1008,6 +1029,8 @@ export class Game {
 
   private restartPuzzle(): void {
     if (this.busy || !this.puzzle) return;
+    this.closeWin();
+    this.lostShown = false;
     this.puzzle.restart();
     this.hints.restarted(this.puzzle);
     this.refresh();

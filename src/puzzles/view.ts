@@ -9,6 +9,8 @@ export interface PuzzleView {
   readonly won: boolean;
   /** No move can change anything; only a restart helps. */
   readonly stuck: boolean;
+  /** Lost for good: no undo can help (Glyph out of guesses). The Lost sheet shows. */
+  readonly failed?: boolean;
   readonly moves: number;
   readonly par: number | null;
   /** Solved without the mistake this puzzle counts against a flawless build. */

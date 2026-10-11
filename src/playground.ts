@@ -8,12 +8,12 @@ import { loadSave } from './core/save';
 import { PUZZLES, puzzleIcon, TIER_LABEL, TIER_NOTE, type PuzzleType, type Tier } from './puzzles/catalog';
 import { PuzzleHost } from './puzzles/host';
 import { openRules } from './puzzles/rulesModal';
-import { showWin } from './puzzles/winPanel';
+import { showWin, type WinLevels } from './puzzles/winPanel';
 import type { Area } from './puzzles/view';
 import { createSlider, iconButton, type Slider } from './ui/components';
 import { countPlay, GOAL_PLAYS } from './core/plays';
 import { clearOffers, createGameBar, offerRules, type GameBar } from './puzzles/gamebar';
-import { difficulty } from './puzzles/difficulty';
+import { difficulty, elementsAtLevel, levelOf } from './puzzles/difficulty';
 import { askRestart, confirming, restartButton } from './puzzles/restart';
 import { icon } from './ui/icons';
 import { scienceButton, setScienceHandler } from './ui/science';
@@ -43,6 +43,7 @@ export class Playground {
     this.host = new PuzzleHost($('pg-canvas'), () => this.area());
     this.host.onFrame = () => this.tick(this.host.status());
     this.host.onWon = (v) => this.won(v.moves, v.par, v.clean);
+    this.host.onLost = (v) => this.lost(v.moves);
     this.renderHome();
 
     // The board maker, folded into a settings button at the left of the status line (the X folds
@@ -244,27 +245,58 @@ export class Playground {
     this.solved = true;
     const t = this.type;
     const el = element(this.z);
-    const [, hi] = t.zRange;
     const flawless = clean && (par === null || moves <= par);
-    const parText = par === null ? 'none' : moves <= par ? `${par} ✓` : `${par}`;
-    this.closeWin = showWin($('pg-play'), {
-      kicker: flawless ? 'Flawless' : 'Solved',
+    this.closeWin = showWin({
+      outcome: flawless ? 'flawless' : 'won',
+      headline: flawless ? 'Flawless' : 'Solved',
       title: `${t.name} · ${el.name}`,
-      flawless,
+      game: t.id,
       stats: [
         { label: 'Moves', value: String(moves) },
-        { label: 'Par', value: parText },
+        { label: 'Par', value: par === null ? '–' : moves <= par ? `${par} ✓` : `${par}` },
         { label: 'Deal', value: `#${this.deal + 1}` },
       ],
-      note: flawless
-        ? (par === null ? 'Not a single slip.' : moves < par ? `${par - moves} under par. Beautifully done.` : 'Right on par, with nothing spoiled.')
-        : (!clean ? 'Solved, with a slip along the way. A clean run earns flawless.' : `${moves - (par ?? moves)} over par. Try for par on this deal or a new one.`),
       actions: [
-        ...(this.z < hi ? [{ label: `Next: ${element(this.z + 1).name}`, primary: true, onClick: () => this.setZ(this.z + 1) }] : []),
-        { label: 'New deal', primary: this.z >= hi, onClick: () => this.load(this.deal + 1) },
+        { label: 'New deal', primary: true, onClick: () => this.load(this.deal + 1) },
+        { label: 'All puzzles', onClick: () => this.back() },
+      ],
+      levels: this.levels(),
+    }, loadSave().settings.reducedMotion);
+  }
+
+  /** Out of guesses: the same board again, a new deal, or back to the list. Tapping outside
+   *  leaves the board to look over. */
+  private lost(moves: number): void {
+    const t = this.type;
+    this.closeWin = showWin({
+      outcome: 'lost',
+      headline: 'Out of guesses',
+      title: `${t.name} · ${element(this.z).name}`,
+      game: t.id,
+      stats: [{ label: 'Moves', value: String(moves) }, { label: 'Deal', value: `#${this.deal + 1}` }],
+      actions: [
+        { label: 'Try again', primary: true, onClick: () => this.host.restart() },
+        { label: 'New deal', onClick: () => this.load(this.deal + 1) },
         { label: 'All puzzles', onClick: () => this.back() },
       ],
     }, loadSave().settings.reducedMotion);
+  }
+
+  /** The levels row on the win sheet: another board of this game at any level it reaches. */
+  private levels(): WinLevels {
+    const [lo, hi] = this.type.zRange;
+    const id = this.type.id;
+    const at = (level: number) => elementsAtLevel(id, level, lo, hi);
+    return {
+      current: levelOf(difficulty(id, this.z)),
+      reachable: [1, 2, 3, 4, 5].filter((l) => at(l).length > 0),
+      pick: (level) => {
+        const zs = at(level);
+        const z = zs[Math.floor(Math.random() * zs.length)];
+        if (z === this.z) this.load(this.deal + 1);
+        else { this.z = z; this.load(0); }
+      },
+    };
   }
 
   private instructions(): void {
@@ -296,7 +328,7 @@ export class Playground {
     return {
       canRestart: () => (this.host.current?.moves ?? 0) > 0,
       sweepOver: () => $('pg-canvas'),
-      restart: () => { this.host.restart(); this.solved = false; this.closeWin(); },
+      restart: () => { this.closeWin(); this.host.restart(); this.solved = false; },
     };
   }
 

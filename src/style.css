@@ -196,7 +196,6 @@ body.build-home #app .bottom { display: none; }
    the app header. */
 body.puzzling #mode-row { display: none; }
 body[data-screen^='atom'].puzzling { --top: var(--nav-bottom); }
-#app > .win { top: var(--top); }
 
 /* The Build page of one atom: its puzzles, how far each has got, and what is still to come. */
 .build-home { position: absolute; top: calc(var(--top) + var(--build-bar-h, 0px)); left: 0; right: 0; bottom: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0; --atom: var(--c-accent); }
@@ -1005,26 +1004,76 @@ body:not([data-screen='gallery']) .gal-modes { display: none; }
 .rule-pic--bad figcaption { color: var(--c-bad); }
 .how h3 { font-size: var(--fs-lg); }
 
-/* The win panel: a burst of light, what was won, the numbers, and what next. */
-.win { position: absolute; inset: 0; z-index: 5; display: flex; align-items: center; justify-content: center; padding: var(--sp-4); background: var(--c-scrim); -webkit-backdrop-filter: var(--blur-mask); backdrop-filter: var(--blur-mask); animation: win-in var(--dur) var(--ease); }
-.win-card { position: relative; width: min(100%, 400px); max-height: 100%; overflow: auto; padding: var(--sp-5) var(--sp-4) var(--sp-4); border-radius: var(--r-lg); background: var(--c-surface); border: 1px solid var(--c-line-2); box-shadow: var(--shadow-modal); text-align: center; animation: win-pop 420ms var(--ease); }
+/* The sheet that ends a game (winPanel.ts): a mask over the whole screen, header included, and a
+   card with the result and where it sits in the atom's tracks, the choices, and a fact to explore. */
+.win { position: fixed; inset: 0; z-index: 25; display: flex; align-items: center; justify-content: center; padding: calc(var(--safe-top) + var(--sp-3)) var(--sp-3) calc(var(--safe-bottom) + var(--sp-3)); background: var(--c-scrim); -webkit-backdrop-filter: var(--blur-mask); backdrop-filter: var(--blur-mask); animation: win-in var(--dur) var(--ease); transition: opacity 160ms var(--ease); }
+.win.is-leaving { opacity: 0; pointer-events: none; }
+.win--inline { position: absolute; }
+.win-card { position: relative; display: flex; flex-direction: column; gap: var(--sp-4); width: min(100%, 420px); max-height: 100%; overflow: auto; padding: var(--sp-4); border-radius: var(--r-lg); background: var(--c-surface); box-shadow: var(--shadow-modal); animation: win-pop 420ms var(--ease); }
 .win-burst { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
-.win-mark { position: relative; color: var(--c-accent); display: flex; justify-content: center; }
-.win--flawless .win-mark { color: var(--c-good); }
-.win-kicker { position: relative; margin: var(--sp-2) 0 0; font-size: var(--fs-xs); font-weight: var(--fw-semibold); letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--c-accent); }
-.win--flawless .win-kicker { color: var(--c-good); }
-.win-title { position: relative; margin: var(--sp-1) 0 var(--sp-3); font-size: var(--fs-xl); font-weight: var(--fw-semibold); line-height: var(--lh-tight); }
-.win-stats { position: relative; display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: var(--sp-2); margin: 0 0 var(--sp-3); }
-.win-stats div { padding: var(--sp-2); border-radius: var(--r-md); background: var(--c-surface-2); }
+.win-top { position: relative; display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3); }
+.win-top--solo { grid-template-columns: 1fr; }
+.win-result { display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; }
+.win-head { display: flex; align-items: center; gap: var(--sp-2); }
+.win-mark { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 50%; background: var(--c-accent); color: var(--c-bg); }
+.win--flawless .win-mark { background: var(--c-good); }
+.win--lost .win-mark { background: var(--c-surface-3); color: var(--c-text); }
+.win-headline { font-size: var(--fs-xl); font-weight: var(--fw-semibold); line-height: var(--lh-tight); }
+.win-title { display: flex; align-items: center; gap: 6px; margin: 0; font-size: var(--fs-md); color: var(--c-text-2); line-height: var(--lh-tight); }
+.win-game { flex: none; display: inline-flex; }
+.win-stats { display: flex; gap: var(--sp-2); margin: auto 0 0; }
+.win-stats div { flex: 1; min-width: 0; padding: var(--sp-2); border-radius: var(--r-md); background: var(--c-surface-2); }
 .win-stats dt { font-size: var(--fs-caps-min); font-weight: var(--fw-semibold); letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--c-text-min); }
 .win-stats dd { margin: 2px 0 0; font-size: var(--fs-lg); font-weight: var(--fw-semibold); font-variant-numeric: tabular-nums; }
-.win-note { position: relative; margin: 0 0 var(--sp-4); font-size: var(--fs-md); color: var(--c-text-2); line-height: var(--lh); }
 .win-actions { position: relative; display: flex; flex-direction: column; gap: var(--sp-2); }
 .win-actions button { width: 100%; min-height: var(--hit); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .win-actions .ui-next { overflow: visible; }
+.win-actions .secondary { border-radius: var(--r-md); box-shadow: inset 0 0 0 1px var(--c-line-3); }
+.win-sub { margin: 0 0 var(--sp-2); font-size: var(--fs-caps-min); font-weight: var(--fw-semibold); letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--c-text-min); }
+.win-level-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: var(--sp-1); }
+.win-level { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-height: 56px; padding: var(--sp-2) 2px; border: 0; border-radius: var(--r-md); background: var(--c-surface-2); color: var(--c-text); font: inherit; font-size: var(--fs-min); line-height: 1.1; text-align: center; cursor: pointer; }
+.win-level:hover:not(:disabled) { background: var(--c-surface-3); }
+.win-level.is-current { background: var(--c-accent); color: var(--c-accent-ink); font-weight: var(--fw-semibold); }
+.win-level:disabled { opacity: 0.35; cursor: default; }
+.win-pips { display: flex; gap: 3px; }
+.win-pips i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: 0.3; }
+.win-pips i.on { opacity: 1; }
+.win-explore { position: relative; padding: var(--sp-3); border-radius: var(--r-md); background: var(--c-surface-2); }
+.win-fact { margin: 0 0 var(--sp-3); font-size: var(--fs-md); color: var(--c-text); line-height: var(--lh); }
+.win-explore-actions { display: flex; gap: var(--sp-2); }
+.win-explore-btn { flex: 1; min-height: 40px; border: 0; border-radius: var(--r-sm); background: transparent; box-shadow: inset 0 0 0 1px var(--c-line-3); color: var(--c-text); font: inherit; font-size: var(--fs-md); font-weight: var(--fw-medium); cursor: pointer; }
+.win-explore-btn:hover { background: var(--c-surface-3); }
 .win--still, .win--still .win-card { animation: none; }
 @keyframes win-in { from { opacity: 0; } }
 @keyframes win-pop { from { opacity: 0; transform: scale(0.92) translateY(8px); } }
+
+/* The win sheet's tracks (winTrack.ts): Stable stops green as far as progress runs unbroken, the
+   part just won ringed white, Nu circling the next; Fleeting filling with its share. */
+.wt { display: flex; justify-content: flex-end; gap: var(--sp-4); height: 100%; min-height: 150px; padding: var(--sp-2) var(--sp-3); border-radius: var(--r-md); background: var(--c-surface-2); }
+.wt-col { display: flex; flex-direction: column; align-items: center; gap: var(--sp-2); min-width: 0; }
+.wt-col--stable { flex: 1; align-items: flex-end; }
+.wt-key { display: flex; align-items: center; gap: 4px; font-size: var(--fs-caps-min); font-weight: var(--fw-semibold); letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--c-text-min); }
+.wt-col--stable .wt-key { margin-right: -2px; }
+.wt-line { flex: 1; align-self: stretch; display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
+.wt-stop { position: relative; flex: 1; display: flex; align-items: center; justify-content: flex-end; gap: var(--sp-2); min-height: 12px; max-height: 28px; padding-right: 3px; }
+.wt-stop::before { content: ''; position: absolute; top: 0; bottom: 0; right: 7px; width: 2px; background: var(--c-line-3); }
+.wt-stop:first-child::before { top: 50%; }
+.wt-stop:last-child::before { bottom: 50%; }
+.wt-stop.is-run::before { background: var(--c-good); }
+.wt-stop i { order: 2; flex: none; position: relative; width: 10px; height: 10px; border-radius: 50%; background: var(--c-surface-3); box-shadow: 0 0 0 2px var(--c-surface-2); }
+.wt-stop.is-done i { background: var(--c-text); }
+.wt-stop.is-run i { background: var(--c-good); }
+.wt-stop.is-just i { box-shadow: 0 0 0 2px var(--c-surface-2), 0 0 0 4px var(--c-text); animation: wt-just 1.4s var(--ease) 2; }
+.wt-stop.is-next i { background: var(--c-surface-2); box-shadow: 0 0 0 2px var(--c-go); animation: wt-nu 2.4s ease-in-out infinite; }
+.wt-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-min); line-height: 1; color: var(--c-text); }
+.wt-stop.is-next .wt-label { color: var(--c-text-2); }
+.wt-bar { position: relative; flex: 1; width: 8px; border-radius: 4px; background: var(--c-surface-3); overflow: hidden; }
+.wt-bar i { position: absolute; left: 0; right: 0; top: 0; border-radius: 4px; background: var(--c-good); }
+.wt-col--fleeting.is-just .wt-bar { box-shadow: 0 0 0 2px var(--c-text); }
+.wt-count { font-size: var(--fs-min); font-variant-numeric: tabular-nums; color: var(--c-text); }
+.win--still .wt-stop i { animation: none; }
+@keyframes wt-just { 0% { transform: scale(0.6); } 40% { transform: scale(1.5); } 100% { transform: scale(1); } }
+@keyframes wt-nu { 50% { box-shadow: 0 0 0 2px var(--c-go), 0 0 10px 3px var(--c-go-ring); } }
 
 .how h3 { margin-top: var(--sp-4); }
 .how ul { padding-left: 1.2em; margin: var(--sp-1) 0; }
