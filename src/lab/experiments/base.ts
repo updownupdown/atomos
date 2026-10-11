@@ -3,7 +3,7 @@
 // and how settings map to its uniforms.
 
 import type * as THREE from 'three';
-import { applyCamera, applyModel, fieldUniforms, type ColorMode } from '../glsl';
+import { applyCamera, applyModel, fieldUniforms, type ColorMode } from '../../render/field';
 import type { AtomModel } from '../../render/model';
 import { QUALITY, type Experiment, type ExperimentOption, type LabContext, type QualitySpec, type Settings } from '../types';
 import { LAB_BG, VolumePass, type VolumeOptions } from '../../render/volume';

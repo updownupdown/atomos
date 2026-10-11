@@ -12,7 +12,6 @@ import { Gallery } from './gallery';
 import { tabHTML, TABS, type ViewTab } from './info';
 import { guideHTML } from './guide';
 import { icon } from '../ui/icons';
-import { atomSheetHTML } from './atomsheet';
 import { fullScreen, type FullScreen } from './fullscreen';
 import { createCallout, createSegments, createTabs, iconButton, nextButton, swipeToDismiss, type Segments, type Tabs } from '../ui/components';
 import { ISO_FILTERS, STRUCTURE_VIEWS } from './visuals';
@@ -32,6 +31,7 @@ import { isLookId, lensUnlock, lookOf, lookUnlock, LOOKS, type LookId } from './
 import { atomThumb } from './thumbs';
 import { fleetingOpen, periodNeed, periodSentence, rowLockNote } from './locks';
 import { progressHtml } from '../ui/modebar';
+import { isViewLook, VIEW_LOOKS, type ViewLook } from '../render/rayLooks';
 
 type GalleryMode = 'collection' | 'map' | 'details';
 
@@ -211,11 +211,10 @@ export class GalleryApp {
     this.bindTabSwipe();
   }
 
-  /** Over the 3D atom: the microscope (top left) opens what the corners used to show; Play/Pause
-   *  and full screen (top right), the frame rate under them, then the touch shortcuts. */
+  /** Over the 3D atom: the render style (top left); Play/Pause and full screen (top right), the
+   *  frame rate under them, then the touch shortcuts. */
   private buildHud(): void {
-    const sci = iconButton({ icon: icon('microscope'), label: 'About this atom: electrons, nucleus and isotopes', className: 'ui-icon-btn--ghost lh-btn', onClick: () => this.openAtomSheet() });
-    $('loupe-tl').append(sci);
+    $('loupe-tl').append(this.buildLookPicker());
     const play = iconButton({ icon: icon('pause'), label: 'Pause', className: 'ui-icon-btn--ghost lh-btn', onClick: () => this.detail.setPlaying(!this.detail.playing) });
     const full = iconButton({ icon: icon('fullscreen'), label: 'Full screen', className: 'ui-icon-btn--ghost lh-btn lh-full', onClick: () => this.full.toggle() });
     $('loupe-btns').append(play, full);
@@ -257,13 +256,71 @@ export class GalleryApp {
     lists.onclick = () => setOpen(false);
   }
 
-  /** The microscope's sheet: the configuration and its counts, the nucleus, the isotopes. */
-  private openAtomSheet(): void {
-    const e = this.current;
-    if (!e) return;
-    this.full.exit();
-    const lit = this.litOf(e.z);
-    openModal(atomSheetHTML(e, { nucleus: lit.nucleus, electrons: lit.electrons > 0 }));
+  /** The render style picker: a compact button naming the style, over a small list of the five
+   *  (render/rayLooks.ts). The choice is kept in localStorage. */
+  private buildLookPicker(): HTMLElement {
+    const KEY = 'atomos.view.look';
+    let look: ViewLook = 'particles';
+    try { const v = localStorage.getItem(KEY); if (isViewLook(v)) look = v; } catch { /* storage off: particles */ }
+    const wrap = document.createElement('div');
+    wrap.className = 'lh-look';
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'lh-look-btn';
+    btn.setAttribute('aria-expanded', 'false');
+    btn.setAttribute('aria-controls', 'loupe-looks');
+    const list = document.createElement('div');
+    list.id = 'loupe-looks';
+    list.className = 'lh-look-list';
+    list.setAttribute('role', 'group');
+    list.setAttribute('aria-label', 'Render style');
+    list.hidden = true;
+    const rows = VIEW_LOOKS.map((l) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.dataset.id = l.id;
+      b.innerHTML = `<span>${l.label}</span>${icon('check', { size: 16 })}`;
+      b.onclick = () => choose(l.id);
+      list.append(b);
+      return b;
+    });
+    wrap.append(btn, list);
+    const paint = () => {
+      const label = VIEW_LOOKS.find((l) => l.id === look)!.label;
+      btn.innerHTML = `<span>${label}</span>${icon('chevron-down', { size: 14 })}`;
+      btn.setAttribute('aria-label', `Render style: ${label}`);
+      for (const b of rows) b.setAttribute('aria-pressed', String(b.dataset.id === look));
+    };
+    const setOpen = (open: boolean) => {
+      list.hidden = !open;
+      btn.setAttribute('aria-expanded', String(open));
+      wrap.classList.toggle('is-open', open);
+      if (open) rows.find((b) => b.dataset.id === look)?.focus();
+    };
+    const choose = (id: ViewLook) => {
+      look = id;
+      this.detail.setLook(id);
+      try { localStorage.setItem(KEY, id); } catch { /* storage off: the choice just resets */ }
+      paint();
+      setOpen(false);
+      btn.focus();
+    };
+    btn.onclick = () => setOpen(Boolean(list.hidden));
+    // Escape closes; arrows walk the list (and stay out of the atom's own arrow keys).
+    wrap.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Escape' && !list.hidden) { setOpen(false); btn.focus(); }
+      else if ((ev.key === 'ArrowDown' || ev.key === 'ArrowUp') && !list.hidden) {
+        const i = rows.indexOf(document.activeElement as HTMLButtonElement);
+        rows[(i + (ev.key === 'ArrowDown' ? 1 : -1) + rows.length) % rows.length].focus();
+      } else return;
+      ev.preventDefault();
+      ev.stopPropagation();
+    });
+    // A tap anywhere else closes it.
+    document.addEventListener('pointerdown', (ev) => { if (!list.hidden && !wrap.contains(ev.target as Node)) setOpen(false); });
+    paint();
+    this.detail.setLook(look);
+    return wrap;
   }
 
   /** Swipe sideways on a page to move between tabs; tables that scroll sideways keep the gesture. The model turns instead. */
