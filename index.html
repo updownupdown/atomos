@@ -58,15 +58,26 @@
       <section id="loupe-screen" class="loupe-screen" hidden aria-label="One atom, up close">
         <div class="atom-tabs" id="atom-tabs"></div>
         <div class="atom-panel" id="atom-panel" role="tabpanel" hidden></div>
-        <canvas id="loupe" aria-label="The selected atom. Drag to turn it; the arrows below step to the neighboring elements."></canvas>
-        <div class="dec dec-tl" id="dec-top-left" aria-label="Electron configuration, shells, layers, electrons and size"></div>
-        <div class="dec dec-tr" id="dec-top-right" aria-label="Isotopes"></div>
-        <div class="dive-readout" id="dive-readout" aria-hidden="true"></div>
-        <div class="view-next" id="view-next" hidden></div>
-        <div class="loupe-tools">
-          <div class="scale-legend" id="scale-legend" aria-label="Scale circles round the atom, by diameter"></div>
-          <div class="style-switch" id="style-switch" role="group" aria-label="How the atom is drawn"></div>
+        <canvas id="loupe" aria-label="The selected atom. Swipe up and down to walk its orbitals, sideways to bring in the rest of the atom; pinch to zoom, two fingers to turn it."></canvas>
+        <!-- Over the 3D atom (src/gallery/detail.ts, render/explorer.ts): the microscope top
+             left; Play/Pause, full screen, the frame rate and the touch shortcuts top right; the
+             ladder of orbitals on the right edge; the focused orbital and Solo/Ghost/All at the
+             foot; the scale circles bottom left and the nucleus bottom right. -->
+        <div class="loupe-hud" id="loupe-hud">
+          <div class="lh-tl" id="loupe-tl"></div>
+          <div class="lh-tr">
+            <div class="lh-btns" id="loupe-btns"></div>
+            <div class="lh-fps" id="loupe-fps" aria-hidden="true"></div>
+            <div class="lh-keys" id="loupe-keys"></div>
+          </div>
+          <div class="lh-explorer" id="loupe-explorer"></div>
+          <div class="dive-readout" id="dive-readout" aria-hidden="true"></div>
+          <div class="loupe-tools">
+            <div class="scale-legend" id="scale-legend" aria-label="Scale circles round the atom, by diameter"></div>
+            <div class="style-switch" id="style-switch" role="group" aria-label="The nucleus up close"></div>
+          </div>
         </div>
+        <div class="view-next" id="view-next" hidden></div>
       </section>
     </div>
 
@@ -81,6 +92,7 @@
       <section class="build-home" id="build-home" aria-label="Build this atom">
         <div class="bh-stage" id="bh-stage">
           <canvas id="bh-atom" aria-label="The atom you are building."></canvas>
+          <div class="bh-empty" id="bh-empty" hidden>Nucleus not built</div>
           <div class="bh-rings" id="bh-progress" role="img"></div>
         </div>
         <div class="bh-in" id="bh-in"></div>

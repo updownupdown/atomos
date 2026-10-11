@@ -149,6 +149,17 @@ export class AtomScene {
     this.reducedMotion = on;
   }
 
+  /** Run or rest the render loop. Off-screen (the Build page hides this canvas, other screens
+   *  hide the game) it must rest: a full-screen bloom pass every frame for nothing starves the
+   *  GPU, which showed as the Build page's atom stalling for ~200 ms every second or two. */
+  setActive(on: boolean): void {
+    if (on === this.active) return;
+    this.active = on;
+    this.renderer.setAnimationLoop(on ? () => this.frame() : null);
+    if (on) this.timer.reset();
+  }
+  private active = true;
+
   private addStars(): void {
     const n = 1400;
     const pos = new Float32Array(n * 3);

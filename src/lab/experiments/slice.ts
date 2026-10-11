@@ -5,8 +5,8 @@
 
 import * as THREE from 'three';
 import { FIELD_GLSL } from '../glsl';
-import type { AtomModel } from '../model';
-import { THRESHOLDS } from '../model';
+import type { AtomModel } from '../../render/model';
+import { THRESHOLDS } from '../../render/model';
 import type { QualitySpec, Settings } from '../types';
 import { RayExperiment } from './base';
 

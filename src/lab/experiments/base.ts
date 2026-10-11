@@ -4,9 +4,9 @@
 
 import type * as THREE from 'three';
 import { applyCamera, applyModel, fieldUniforms, type ColorMode } from '../glsl';
-import type { AtomModel } from '../model';
+import type { AtomModel } from '../../render/model';
 import { QUALITY, type Experiment, type ExperimentOption, type LabContext, type QualitySpec, type Settings } from '../types';
-import { LAB_BG, VolumePass, type VolumeOptions } from '../volume';
+import { LAB_BG, VolumePass, type VolumeOptions } from '../../render/volume';
 
 export const COLOR_OPTION: ExperimentOption = {
   id: 'color', label: 'Color',

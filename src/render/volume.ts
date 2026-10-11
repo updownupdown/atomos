@@ -5,7 +5,7 @@
 // size again and adds it back: a cheap stand-in for bloom.
 
 import * as THREE from 'three';
-import { FULLSCREEN_VERT } from './glsl';
+import { FULLSCREEN_VERT } from './gl';
 
 const quadGeometry = new THREE.PlaneGeometry(2, 2);
 const orthoCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);

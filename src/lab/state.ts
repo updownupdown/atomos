@@ -2,7 +2,7 @@
 // effort) and overridable from the URL (?exp=phase-glow&z=26&orbital=3d) for sharing.
 
 import { MAX_Z } from '../gallery/data';
-import { THRESHOLDS, type Threshold } from './model';
+import { THRESHOLDS, type Threshold } from '../render/model';
 import { QUALITIES, type Quality } from './types';
 
 export interface LabState {

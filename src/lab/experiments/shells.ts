@@ -1,11 +1,13 @@
 // Probability shells: neon contours. Light is emitted only near the four region boundaries
 // (50, 75, 90, 99% of the electrons, in log density), so the atom reads as nested glowing
 // skins, brightest where a ray grazes them: a soap-bubble Fresnel for free. The chosen
-// threshold's shell glows strongest; colors are the phase or subshell at each point.
+// threshold's shell glows strongest; colors are the phase or subshell at each point. The skins
+// (render/gl.ts NEON_GLSL) also draw the app's nucleons.
 
+import { NEON_GLSL } from '../../render/gl';
 import { FIELD_GLSL } from '../glsl';
-import type { AtomModel } from '../model';
-import { THRESHOLDS } from '../model';
+import type { AtomModel } from '../../render/model';
+import { THRESHOLDS } from '../../render/model';
 import type { QualitySpec, Settings } from '../types';
 import * as THREE from 'three';
 import { COLOR_OPTION, RayExperiment } from './base';
@@ -13,6 +15,7 @@ import { COLOR_OPTION, RayExperiment } from './base';
 const FRAG = /* glsl */ `
 precision highp float;
 ${FIELD_GLSL}
+${NEON_GLSL}
 in vec2 vUv;
 uniform int uSteps;
 uniform vec4 uLogLevels;
@@ -37,9 +40,7 @@ void main() {
     float d = fieldColor(toPhys(p), col);
     if (d <= 0.0) continue;
     float lg = log(d) * 0.4342945;
-    vec4 z = (vec4(lg) - uLogLevels) / uWidth;
-    vec4 g = exp(-z * z) * uWeights;
-    float e = g.x + g.y + g.z + g.w;
+    float e = neonSkins(lg, uLogLevels, uWeights, uWidth);
     light += (col / d) * e * uEmit * dt;
   }
   fragColor = vec4(light, 0.0);
