@@ -225,7 +225,7 @@ export function createElementList(opts: ElementListOptions = {}): ElementList {
     const pic = thumbCache.get(e.z);
     return `<button type="button" role="option" class="${cls}" data-z="${e.z}" aria-selected="${e.z === opts.current}">
       ${opts.thumbs ? `<span class="el-pic${pic ? ' on' : ''}">${tile(e)}${pic ? `<img src="${pic}" alt="">` : ''}</span>` : tile(e)}
-      <span class="el-num">${e.z}</span>
+      <span class="el-id"><small>${e.z}</small><b>${esc(e.symbol)}</b></span>
       <span class="el-main"><b>${locked ? `<i class="el-lockico" role="img" aria-label="Build locked">${icon('lock', { size: 16 })}</i>` : ''}<span>${esc(e.name)}</span></b><span>${esc((locked && rowLockNote(e.z, save, true)) || e.series)}</span></span>
       ${progress(e, save)}
     </button>`;

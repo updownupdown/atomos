@@ -5,10 +5,11 @@
 // the screen, so dense cores roll off to bright instead of clipping to a white blot.
 
 import * as THREE from 'three';
+import { POINT_FRAG } from '../../render/gl';
 import { ADD_BLEND, PHASE_NEG, PHASE_POS, termColors, type ColorMode } from '../glsl';
-import { sampleModel, type AtomModel, type Term } from '../model';
+import { sampleModel, type AtomModel, type Term } from '../../render/model';
 import { QUALITY, type Experiment, type LabContext, type Settings } from '../types';
-import { LAB_BG, VolumePass } from '../volume';
+import { LAB_BG, VolumePass } from '../../render/volume';
 
 export const POINT_VERT = /* glsl */ `
 in vec3 color;
@@ -34,19 +35,7 @@ void main() {
   gl_Position = projectionMatrix * mv;
 }`;
 
-export const POINT_FRAG = /* glsl */ `
-precision highp float;
-in vec3 vColor;
-in float vAlpha;
-out vec4 fragColor;
-void main() {
-  vec2 c = gl_PointCoord - 0.5;
-  float d2 = dot(c, c) * 4.0;
-  if (d2 > 1.0) discard;
-  float a = exp(-d2 * 3.5) * vAlpha;
-  fragColor = vec4(vColor * a, 0.0);
-}`;
-
+export { POINT_FRAG };
 /** Mean radius of a term (a0), for evening out the brightness of inner shells. */
 function meanRadius(t: Term): number {
   return (t.n * t.n * 1.5 - t.l * (t.l + 1) * 0.5) / t.zeff;

@@ -6,7 +6,7 @@
 
 import * as THREE from 'three';
 import { BLOCK_COLOUR, type Block } from '../gallery/data';
-import { sphericalTable, type AtomModel, type Term } from './model';
+import { sphericalTable, type AtomModel, type Term } from '../render/model';
 
 export const MAX_TERMS = 24;
 export const TABLE_N = 2048;
@@ -20,29 +20,12 @@ export function srgb(hex: string): THREE.Color {
 export const PHASE_POS = srgb('#e8a060');
 export const PHASE_NEG = srgb('#5f9ae0');
 
-/** Pure additive blending (ONE, ONE): shaders write premultiplied light and alpha 0, so the
- *  background is never darkened. three's AdditiveBlending scales by source alpha instead. */
-export const ADD_BLEND = {
-  transparent: true,
-  depthTest: false,
-  depthWrite: false,
-  blending: THREE.CustomBlending,
-  blendSrc: THREE.OneFactor,
-  blendDst: THREE.OneFactor,
-  blendSrcAlpha: THREE.OneFactor,
-  blendDstAlpha: THREE.OneFactor,
-} as const;
+// Additive blending and the full-screen vertex shader live with the app's renderers.
+export { ADD_BLEND, FULLSCREEN_VERT } from '../render/gl';
 
 export const BLOCK_INDEX: Record<Block, number> = { s: 0, p: 1, d: 2, f: 3 };
 
 export type ColorMode = 'phase' | 'block';
-
-export const FULLSCREEN_VERT = /* glsl */ `
-out vec2 vUv;
-void main() {
-  vUv = uv;
-  gl_Position = vec4(position.xy, 0.0, 1.0);
-}`;
 
 export const FIELD_GLSL = /* glsl */ `
 #define MAX_TERMS ${MAX_TERMS}

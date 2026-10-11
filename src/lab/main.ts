@@ -10,7 +10,7 @@ import * as THREE from 'three';
 import { elementAt } from '../gallery/data';
 import { EXPERIMENTS } from './experiments';
 import { Fps } from './fps';
-import { buildModel, orbitalChoices, type AtomModel } from './model';
+import { buildModel, orbitalChoices, type AtomModel } from '../render/model';
 import { Orbit } from './orbit';
 import { Panel } from './panel';
 import { loadState, saveState, type LabState } from './state';

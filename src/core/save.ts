@@ -63,7 +63,7 @@ export interface SaveData {
   steps: Record<number, Partial<Record<StepId, StepRecord>>>;
   /** Isotopes by "z-A": built (collected), witnessed decays, and for a fleeting isotope the
    *  puzzle it was last built with (catalog id), for display only. */
-  isotopes: Record<string, { collected?: boolean; witnessed?: WitnessRecord[]; game?: string }>;
+  isotopes: Record<string, { collected?: boolean; witnessed?: WitnessRecord[]; game?: string; /** When a fleeting one was built (ms), to tell when it has decayed. */ at?: number }>;
   /** Orbital shapes discovered with Glyph; the 3D Shapes view draws only these (and s). */
   shapes: Partial<Record<OrbitalShape, ShapeRecord>>;
   /** Rows of the table opened with Inertia, by row number (2 to 7); row 1 is open from the start. */

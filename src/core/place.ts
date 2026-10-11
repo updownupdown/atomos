@@ -3,7 +3,7 @@
 // and mode. Anything it cannot use means the gallery.
 
 export type Screen = 'gallery' | 'atom' | 'puzzles' | 'settings' | 'icons' | 'components';
-export type PlaceMode = 'view' | 'build';
+export type PlaceMode = 'view' | 'build' | 'info';
 
 export interface Place { screen: Screen; mode: PlaceMode; z: number }
 
@@ -17,7 +17,7 @@ export function readPlace(raw: string | null): Place {
     if (!v || !SCREENS.includes(v.screen)) return { ...HOME };
     const z = Number.isInteger(v.z) && v.z >= 1 && v.z <= 118 ? (v.z as number) : null;
     if (v.screen === 'atom' && z === null) return { ...HOME };
-    return { screen: v.screen, mode: v.mode === 'build' ? 'build' : 'view', z: z ?? 1 };
+    return { screen: v.screen, mode: v.mode === 'build' || v.mode === 'info' ? v.mode : 'view', z: z ?? 1 };
   } catch {
     return { ...HOME };
   }

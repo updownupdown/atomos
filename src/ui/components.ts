@@ -509,6 +509,57 @@ export function createCallout(o: CalloutOptions): HTMLElement {
   return c;
 }
 
+/** Swipe a card sideways to dismiss it: it follows the finger, and past a third of its width
+ *  (or a quick flick) it slides away and `onDismiss` runs; otherwise it springs back. Vertical
+ *  scrolling over it is left alone (touch-action: pan-y). Taps on its buttons still work. */
+export function swipeToDismiss(card: HTMLElement, onDismiss: () => void): void {
+  let start: { x: number; y: number; t: number; id: number } | null = null;
+  let dx = 0;
+  let live = false;
+  card.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    start = { x: e.clientX, y: e.clientY, t: performance.now(), id: e.pointerId };
+    dx = 0;
+    live = false;
+  });
+  card.addEventListener('pointermove', (e) => {
+    if (!start || e.pointerId !== start.id) return;
+    const mx = e.clientX - start.x, my = e.clientY - start.y;
+    if (!live) {
+      if (Math.abs(mx) < 10 || Math.abs(mx) < Math.abs(my) * 1.3) return;
+      live = true;
+      card.setPointerCapture(e.pointerId);
+      card.classList.add('is-swiping');
+    }
+    dx = mx;
+    card.style.transform = `translateX(${dx}px)`;
+    card.style.opacity = String(Math.max(0.2, 1 - Math.abs(dx) / (card.offsetWidth || 300)));
+  });
+  const end = (e: PointerEvent) => {
+    if (!start || e.pointerId !== start.id) return;
+    const fast = Math.abs(dx) / Math.max(1, performance.now() - start.t) > 0.6;
+    start = null;
+    if (!live) return;
+    card.classList.remove('is-swiping');
+    if (Math.abs(dx) > (card.offsetWidth || 300) / 3 || (fast && Math.abs(dx) > 40)) {
+      card.classList.add('is-leaving');
+      card.style.transform = `translateX(${Math.sign(dx) * (card.offsetWidth + 40)}px)`;
+      window.setTimeout(() => { card.classList.remove('is-leaving'); card.style.transform = ''; card.style.opacity = ''; onDismiss(); }, 230);
+    } else {
+      card.style.transition = 'transform 0.2s, opacity 0.2s';
+      card.style.transform = '';
+      card.style.opacity = '';
+      window.setTimeout(() => { card.style.transition = ''; }, 220);
+    }
+    // A swipe is not a tap on whatever button it started on.
+    const stop = (ev: Event) => { ev.stopPropagation(); ev.preventDefault(); };
+    card.addEventListener('click', stop, { capture: true, once: true });
+    window.setTimeout(() => card.removeEventListener('click', stop, { capture: true }), 50);
+  };
+  card.addEventListener('pointerup', end);
+  card.addEventListener('pointercancel', end);
+}
+
 /** A plain text button in the accent blue, bold, for a small action beside a line of text
  *  ("Test" beside a game's status). */
 export function textButton(label: string, onClick: () => void, className = ''): HTMLButtonElement {

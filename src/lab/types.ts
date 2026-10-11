@@ -1,7 +1,7 @@
 // The contract every lab experiment follows, and the settings the panel hands them.
 
 import type * as THREE from 'three';
-import type { AtomModel, Threshold } from './model';
+import type { AtomModel, Threshold } from '../render/model';
 import type { Orbit } from './orbit';
 
 export type Quality = 'low' | 'medium' | 'high' | 'ultra';

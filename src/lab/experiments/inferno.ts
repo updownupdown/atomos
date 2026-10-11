@@ -6,7 +6,7 @@
 // about what one orbital does.
 
 import { FIELD_GLSL } from '../glsl';
-import type { AtomModel } from '../model';
+import type { AtomModel } from '../../render/model';
 import type { Settings } from '../types';
 import { RayExperiment } from './base';
 

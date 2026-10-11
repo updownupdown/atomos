@@ -3,9 +3,9 @@
 
 import * as THREE from 'three';
 import { AtomView, type Style } from '../../gallery/atom';
-import type { AtomModel } from '../model';
+import type { AtomModel } from '../../render/model';
 import type { Experiment, LabContext, Settings } from '../types';
-import { LAB_BG } from '../volume';
+import { LAB_BG } from '../../render/volume';
 
 export class CurrentLook implements Experiment {
   id: string;

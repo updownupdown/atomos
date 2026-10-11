@@ -538,9 +538,14 @@
 /* ---- Callout: Up next and Learn to Play. A pale plate lifted by a soft pink glow, pink text.
    Floats over the page (.ui-callout--float pins it to the bottom of its positioned container),
    so it never pushes content about. ---- */
-.ui-callout { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-3) var(--sp-3) var(--sp-3) var(--sp-4); border-radius: var(--r-lg); background: var(--c-surface-3); color: var(--c-go); font-family: var(--font); box-shadow: 0 0 26px rgba(255, 90, 168, 0.32), 0 0 0 1px rgba(255, 90, 168, 0.08), 0 12px 32px rgba(0, 0, 0, 0.6); }
+.ui-callout { position: relative; display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-3) var(--sp-3) var(--sp-3) var(--sp-4); border-radius: 11px; background: var(--c-surface-3); color: var(--c-go); font-family: var(--font); box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6); touch-action: pan-y; }
+/* The same ring that breathes out of the Next button. */
+.ui-callout::after { content: ''; position: absolute; inset: 0; border-radius: inherit; box-shadow: 0 0 0 0 var(--c-go-ring); pointer-events: none; animation: ui-next-ring 2.4s ease-out infinite; }
+@media (prefers-reduced-motion: reduce) { .ui-callout::after { animation: none; box-shadow: 0 0 0 3px var(--c-go-ring); } }
+.ui-callout.is-swiping { transition: none; }
+.ui-callout.is-leaving { transition: transform 0.22s ease-in, opacity 0.22s ease-in; opacity: 0; }
 .ui-callout[hidden] { display: none; }
-.ui-callout--float { position: absolute; left: var(--sp-3); right: var(--sp-3); bottom: var(--sp-3); z-index: 6; max-width: 536px; margin-inline: auto; }
+.ui-callout.ui-callout--float { position: absolute; left: var(--sp-3); right: var(--sp-3); bottom: var(--sp-3); z-index: 6; max-width: 536px; margin-inline: auto; }
 .ui-callout-pic { position: relative; flex: none; width: 52px; height: 52px; display: grid; place-items: center; margin-left: calc(-1 * var(--sp-1)); }
 .ui-callout-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
 .ui-callout-text small { font-size: var(--fs-sm); font-weight: var(--fw-medium); color: var(--c-go); }
