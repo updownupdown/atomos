@@ -1,11 +1,13 @@
-// The Practice screen: a home that lists every puzzle type and what it builds in the game, and
-// each puzzle on its own (any element, any deal) behind it, with Back to return. Practice never
-// builds atoms; the game proper reaches puzzles through each atom's Build mode. How-to text lives in
-// the Instructions sheet behind the "i"; the header microscope opens the science.
+// The Puzzles screen: a home that lists every game, one section each (its game card, the
+// player's wins at each difficulty level, a still of the board and what the game is), and each
+// game on its own (any element, any deal) behind it, with Back to return. Nothing here builds
+// atoms; the game proper reaches puzzles through each atom's Build mode. How-to text lives in the
+// Instructions sheet behind the "i".
 
 import { elementAt as element } from './gallery/data';
 import { loadSave } from './core/save';
-import { PUZZLES, puzzleIcon, TIER_LABEL, TIER_NOTE, type PuzzleType, type Tier } from './puzzles/catalog';
+import { PUZZLES, puzzleIcon, type PuzzleType } from './puzzles/catalog';
+import { gameCard } from './puzzles/gameCard';
 import { PuzzleHost } from './puzzles/host';
 import { openRules } from './puzzles/rulesModal';
 import { showWin, type WinLevels } from './puzzles/winPanel';
@@ -13,15 +15,13 @@ import type { Area } from './puzzles/view';
 import { createSlider, iconButton, type Slider } from './ui/components';
 import { countPlay, GOAL_PLAYS } from './core/plays';
 import { clearOffers, createGameBar, offerRules, type GameBar } from './puzzles/gamebar';
-import { difficulty, elementsAtLevel, levelOf } from './puzzles/difficulty';
+import { difficulty, difficultyLevel, difficultyRange, elementsAtLevel, LEVELS, levelWord } from './puzzles/difficulty';
+import { recordWin, winsOf } from './core/wins';
 import { askRestart, confirming, restartButton } from './puzzles/restart';
 import { icon } from './ui/icons';
-import { scienceButton, setScienceHandler } from './ui/science';
-import { modalOpen, openModal } from './ui/modal';
+import { modalOpen } from './ui/modal';
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
-
-const TIERS: Tier[] = ['every', 'facet', 'gate', 'reserve'];
 
 export class Playground {
   private host: PuzzleHost;
@@ -79,7 +79,7 @@ export class Playground {
     deal.onclick = () => this.load(this.deal + 1);
     bar.append(this.prev, label, this.next, this.slider.el, deal);
 
-    // The tools beside Back: undo, restart, hint, instructions, the science.
+    // The tools beside Back: undo, restart, hint, instructions.
     this.undoBtn = iconButton({ icon: icon('undo'), label: 'Undo', onClick: () => this.host.undo() });
     this.restartBtn = restartButton(this.restartOptions());
     this.host.onRestartKey = () => void askRestart(this.restartOptions());
@@ -88,12 +88,11 @@ export class Playground {
       this.restartBtn,
       this.host.hints.button,
       iconButton({ icon: icon('info'), label: 'Instructions', onClick: () => this.instructions() }),
-    ], { label: 'All games', onClick: () => this.back() }, [scienceButton('ui-icon-btn science-btn')]);
+    ], { label: 'All games', onClick: () => this.back() });
     $('pg-gbar').append(this.gbar.el);
     // The board settings sit at the left of the status line; open, they cover the rest of it.
     this.gbar.foot.classList.add('has-gen');
     this.gbar.foot.querySelector('.gfoot-line')!.prepend(gen);
-    $('pg-home-head').append(scienceButton());
 
     window.addEventListener('keydown', (e) => this.key(e));
   }
@@ -105,7 +104,6 @@ export class Playground {
   show(): void {
     $('puzzles-screen').hidden = false;
     if (this.inPuzzle) this.host.wake();
-    this.registerScience();
     window.dispatchEvent(new Event('resize'));
   }
 
@@ -124,7 +122,6 @@ export class Playground {
     this.goal = before < GOAL_PLAYS ? this.type.goal : '';
     if (this.type.make) offerRules(this.gbar, this.type, () => this.instructions());
     this.host.wake();
-    this.registerScience();
     window.dispatchEvent(new Event('resize'));
     this.gbar.back.focus({ preventScroll: true });
   }
@@ -136,42 +133,69 @@ export class Playground {
     this.host.pause();
     $('pg-game').hidden = true;
     $('pg-home').hidden = false;
-    this.registerScience();
-    $('pg-list').querySelector<HTMLElement>(`[data-id="${this.type.id}"]`)?.focus({ preventScroll: false });
+    this.paintWins(this.type);
+    $('pg-list').querySelector<HTMLElement>(`[data-game="${this.type.id}"] .gcard-go`)?.focus({ preventScroll: false });
   }
 
-  /** The header microscope: the science behind the open puzzle, or how puzzles fit the game. */
-  private registerScience(): void {
-    if (this.inPuzzle) setScienceHandler(() => this.science(), `The science behind ${this.type.name}`);
-    else setScienceHandler(() => this.aboutPuzzles(), 'How practice fits the game');
-  }
-
+  /** One section per game, playable ones first: its card, its wins, a still and its blurb. */
   private renderHome(): void {
     const list = $('pg-list');
-    list.innerHTML = TIERS.map((tier) => {
-      const items = PUZZLES.filter((p) => p.tier === tier);
-      if (!items.length) return '';
-      return `<section class="pg-group">
-        <h2 class="pg-group-name">${TIER_LABEL[tier]}</h2>
-        <p class="pg-group-note">${TIER_NOTE[tier]}</p>
-        <div class="pg-cards">${items.map((p) => this.card(p)).join('')}</div>
-      </section>`;
-    }).join('');
-    list.querySelectorAll<HTMLButtonElement>('.pg-card').forEach((b) => (b.onclick = () => this.open(b.dataset.id!)));
-    list.querySelectorAll<HTMLCanvasElement>('canvas.pg-thumb').forEach((c) => drawThumb(c, PUZZLES.find((p) => p.id === c.dataset.id)!));
+    list.replaceChildren();
+    const games = [...PUZZLES.filter((p) => p.make), ...PUZZLES.filter((p) => !p.make)];
+    for (const p of games) {
+      const sec = document.createElement('section');
+      sec.className = 'pg-sec';
+      sec.dataset.id = p.id;
+      sec.setAttribute('aria-label', p.name);
+      sec.append(gameCard({
+        id: p.id,
+        name: p.name,
+        difficulty: difficultyRange(p.id),
+        action: p.make ? { label: 'Play', onClick: () => this.open(p.id) } : undefined,
+        extra: p.make ? undefined : 'Not built yet',
+      }));
+      const wins = document.createElement('div');
+      wins.className = 'pg-wins';
+      wins.setAttribute('role', 'list');
+      wins.setAttribute('aria-label', `${p.name} wins by difficulty`);
+      sec.append(wins);
+      const about = document.createElement('div');
+      about.className = 'pg-about';
+      about.innerHTML = `${p.make ? `<canvas class="pg-thumb" aria-hidden="true"></canvas>` : ''}<p class="pg-blurb"></p>`;
+      about.querySelector('.pg-blurb')!.textContent = p.blurb;
+      sec.append(about);
+      list.append(sec);
+      this.paintWins(p);
+      const thumb = about.querySelector<HTMLCanvasElement>('canvas.pg-thumb');
+      if (thumb) drawThumb(thumb, p);
+    }
   }
 
-  private card(p: PuzzleType): string {
-    const [lo, hi] = p.zRange;
-    const range = lo === hi ? `Element ${lo}, ${element(lo).name}` : `Elements ${lo} to ${hi} · ${element(lo).symbol} to ${element(hi).symbol}`;
-    return `<button class="pg-card" data-id="${p.id}" type="button">
-      <canvas class="pg-thumb" data-id="${p.id}" aria-hidden="true"></canvas>
-      <span class="pg-card-text">
-        <span class="pg-card-top"><span class="pg-card-icon" aria-hidden="true">${puzzleIcon(p.id, 20)}</span><b class="pg-card-name">${p.name}</b></span>
-        <span class="pg-card-blurb">${p.blurb}</span>
-        <span class="pg-card-range">${range}</span>
-      </span>
-    </button>`;
+  /** A game's wins at each of the five levels: the solved count and the flawless stars. Levels
+   *  its boards never reach are an empty outline; levels not yet won show a dash. */
+  private paintWins(p: PuzzleType): void {
+    const row = $('pg-list').querySelector<HTMLElement>(`.pg-sec[data-id="${p.id}"] .pg-wins`);
+    if (!row) return;
+    const { lo, hi } = difficultyRange(p.id);
+    const from = difficultyLevel(lo);
+    const to = difficultyLevel(hi);
+    const wins = winsOf(p.id);
+    row.innerHTML = Array.from({ length: LEVELS }, (_, i) => {
+      const level = i + 1;
+      const word = levelWord(level);
+      if (level < from || level > to) {
+        return `<div class="pg-lvl is-off" role="listitem" title="${word}: not dealt in ${p.name}"><span class="pg-lvl-word">${word}</span><span class="pg-lvl-none"></span><span class="sr-only">: not dealt</span></div>`;
+      }
+      const w = wins[i];
+      if (!w.solved) {
+        return `<div class="pg-lvl" role="listitem" title="${word}: not solved yet"><span class="pg-lvl-word">${word}</span><span class="pg-lvl-val"><span class="pg-lvl-dash" aria-hidden="true">–</span><span class="sr-only">: not solved yet</span></span></div>`;
+      }
+      const say = `${word}: ${w.solved} solved, ${w.flawless} flawless`;
+      return `<div class="pg-lvl is-won" role="listitem" title="${say}"><span class="sr-only">${say}</span><span class="pg-lvl-word" aria-hidden="true">${word}</span><span class="pg-lvl-val" aria-hidden="true">`
+        + `<span class="pg-lvl-n">${icon('check', { size: 12 })}${w.solved}</span>`
+        + (w.flawless ? `<span class="pg-lvl-star">${icon('star', { size: 12 })}${w.flawless}</span>` : '')
+        + `</span></div>`;
+    }).join('');
   }
 
   private select(id: string): void {
@@ -246,6 +270,7 @@ export class Playground {
     const t = this.type;
     const el = element(this.z);
     const flawless = clean && (par === null || moves <= par);
+    recordWin(t.id, difficulty(t.id, this.z), flawless);
     this.closeWin = showWin({
       outcome: flawless ? 'flawless' : 'won',
       headline: flawless ? 'Flawless' : 'Solved',
@@ -288,7 +313,7 @@ export class Playground {
     const id = this.type.id;
     const at = (level: number) => elementsAtLevel(id, level, lo, hi);
     return {
-      current: levelOf(difficulty(id, this.z)),
+      current: difficultyLevel(difficulty(id, this.z)),
       reachable: [1, 2, 3, 4, 5].filter((l) => at(l).length > 0),
       pick: (level) => {
         const zs = at(level);
@@ -302,18 +327,6 @@ export class Playground {
   private instructions(): void {
     const t = this.type;
     openRules(t, { reducedMotion: loadSave().settings.reducedMotion });
-  }
-
-  private science(): void {
-    const html = this.type.science?.(this.z) ?? `<h2>${this.type.name}</h2><p>${this.type.blurb}</p>`;
-    openModal(html);
-  }
-
-  private aboutPuzzles(): void {
-    openModal(`<h2>Practice and atoms</h2><div class="how">
-      <p>Atoms are built on their own Build pages. Each takes two puzzles, in any order: Tokamak gathers its nucleus and Quanta settles its electrons. Once it is built, its isotopes open: each lasting one has its own puzzle, and for a fleeting one you pick any isotope puzzle. Glyph opens new ways to see the collection.</p>
-      <p>Practice lets you play any of them on any atom, as often as you like. Nothing here builds an atom.</p>
-      <p class="meta">Each puzzle is a game first. Where a mechanic bends the science for fun, its labels stay true, and the microscope above each puzzle says what is real and what is only a game rule.</p></div>`);
   }
 
   private area(): Area {
@@ -342,10 +355,10 @@ export class Playground {
   }
 }
 
-/** A still of the puzzle on carbon (or its first element), drawn once for its card. */
+/** A still of the puzzle on carbon (or its first element), drawn once for its section. */
 function drawThumb(c: HTMLCanvasElement, p: PuzzleType): void {
   if (!p.make) return;
-  const css = 88;
+  const css = 112;
   const dpr = Math.min(2, window.devicePixelRatio || 1);
   c.width = css * dpr;
   c.height = css * dpr;

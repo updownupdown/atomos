@@ -1,10 +1,10 @@
-// The frame of every game, the same in Build, Practice and the gate puzzles.
+// The frame of every game, the same in Build, Puzzles and the gate puzzles.
 //   Under the app header, on gray: the game's icon and name, then its stats on one line
 //   (Difficulty, Moves, Par). How far the board has got is left to the board and the message
 //   under it, which every game shows. Difficulty is the first to go on a small screen.
 //   Then, on black: Back on the left, named for where it goes ("Gallium", "All games"), and the
 //   game's tools on the right (Undo, Restart, Hint, Info), each on a gray plate.
-//   Under those, the status line: the lead buttons on the left (the microscope; Practice adds
+//   Under those, the status line: the lead buttons on the left (the microscope; Puzzles adds
 //   its board settings there), one message (the goal, the Hint button's line or the game's own
 //   status) and the game's own action on the right, if it has any (Test; Chroma's gluon).
 //   The board sits on black under it all.
