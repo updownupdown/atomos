@@ -209,9 +209,14 @@ body:not(.build-home) .build-bar { display: none; }
 .bh-stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 /* The atom here is to look at: it takes no touch, so a swipe on it scrolls the page. */
 #bh-atom { pointer-events: none; }
-.bh-sci { position: absolute; top: var(--sp-2); right: var(--sp-2); }
+/* The microscope, on its own row at the foot of the Build page. */
+.bh-sci-row { display: flex; justify-content: center; padding-top: var(--sp-2); border-top: 1px solid var(--c-line); }
 /* Progress at the foot of the atom: nucleus, electrons and isotope rings, the share built beside. */
-.bh-rings { position: absolute; left: var(--sp-4); bottom: var(--sp-2); display: flex; align-items: center; gap: var(--sp-3); pointer-events: none; }
+.bh-rings { position: absolute; left: var(--sp-4); right: var(--sp-4); bottom: var(--sp-2); display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); pointer-events: none; }
+/* Left: the atom's rings and share ("Stable"); right, mirrored: the fleeting ring and count. */
+.bh-prog-main, .bh-prog-fleet { display: flex; align-items: center; gap: var(--sp-3); }
+.bh-prog-fleet .bh-rings-text { align-items: flex-end; text-align: right; }
+.bh-prog-fleet .bh-rings-text b { font-size: var(--fs-xl); }
 .bh-rings-svg { display: block; flex: none; }
 .bh-rings-svg .rg-track, .bh-rings-svg .rg-on { fill: none; stroke: #454b52; stroke-linecap: round; }
 .bh-rings-svg .rg-on { stroke: var(--c-accent); }
@@ -227,9 +232,14 @@ body:not(.build-home) .build-bar { display: none; }
 .bh-in { max-width: 592px; margin: 0 auto; padding: var(--sp-2) var(--sp-4) var(--sp-6); display: flex; flex-direction: column; gap: var(--sp-6); }
 .bh-sec { display: flex; flex-direction: column; gap: var(--sp-3); }
 .bh-sec-head { display: flex; align-items: center; gap: var(--sp-2); width: 100%; }
-.bh-sec-head h3 { margin: 0; font-size: var(--fs-lg); font-weight: var(--fw-semibold); }
-.bh-sec-count { margin-left: auto; font-size: var(--fs-md); font-weight: var(--fw-semibold); color: var(--c-text-2); font-variant-numeric: tabular-nums; }
-.bh-sec-blurb { margin: calc(-1 * var(--sp-2)) 0 0; font-size: var(--fs-md); line-height: var(--lh); color: var(--c-text-2); }
+.bh-sec-head h3 { margin: 0; font-size: 20px; font-weight: var(--fw-semibold); }
+/* The count reads like the line under the heading; a green check once the part is complete. */
+.bh-sec-count { margin-left: auto; font-size: var(--fs-md); color: #8b9398; font-variant-numeric: tabular-nums; }
+.bh-sec-done { display: grid; color: var(--c-done); }
+.bh-sec-head .bh-sec-count + .bh-sec-done { margin-left: 0; }
+.bh-sec-head h3 + .bh-sec-done { margin-left: auto; }
+.bh-sec-blurb { margin: calc(-1 * var(--sp-2)) 0 0; font-size: var(--fs-md); line-height: var(--lh); color: #8b9398; }
+.bh-iso { margin: var(--sp-1) 0 0; font-size: var(--fs-md); font-weight: var(--fw-semibold); color: var(--c-text); }
 .bh-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
 .bh-step { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: var(--sp-2) var(--sp-3); padding: var(--sp-4); border-radius: 6px; background: var(--c-surface); border: 2px solid color-mix(in srgb, var(--c-text) 9%, transparent); }
 .bh-row.is-locked { opacity: 0.55; }
@@ -259,22 +269,28 @@ body:not(.build-home) .build-bar { display: none; }
 .bh-fleet tbody th { font-weight: var(--fw-semibold); color: var(--c-text); }
 .bh-fleet td { color: var(--c-text-2); }
 .bh-fleet .n { text-align: right; }
-.bh-fleet-st { width: 1%; text-align: right; color: var(--c-text-2); }
-.bh-fleet-st svg { display: block; margin-left: auto; }
+.bh-fleet .c { text-align: center; }
+/* Status: built and decayed, two marks, lit when true. */
+.bh-fleet-st { display: inline-flex; gap: 4px; vertical-align: middle; }
+.bh-st-done, .bh-st-gone { display: inline-grid; font-style: normal; color: var(--c-text-3); }
+.bh-st-done.on { color: var(--c-done); }
+.bh-st-gone.on { color: var(--c-warn); }
+.bh-fleet-go { width: 1%; text-align: right; color: var(--c-text-2); }
+.bh-fleet-go svg { display: block; margin-left: auto; }
+.bh-fleet-legend { display: flex; gap: var(--sp-4); margin: var(--sp-2) 0 0; font-size: var(--fs-sm); color: var(--c-text-2); }
+.bh-fleet-legend span { display: inline-flex; align-items: center; gap: 4px; }
 .bh-fleet tbody tr[data-fleet] { cursor: pointer; }
 .bh-fleet tbody tr[data-fleet]:hover { background: var(--c-surface); }
 .bh-fleet tbody tr[data-fleet]:focus-visible { outline: 2px solid var(--c-accent); outline-offset: -2px; }
 .bh-fleet.is-shut tbody { opacity: 0.55; }
-.bh-fleet tr.is-decayed th, .bh-fleet tr.is-decayed td { color: var(--c-text-min); }
-.bh-fleet-mark { display: inline-flex; align-items: center; gap: 3px; font-style: normal; font-size: var(--fs-caps-min); font-weight: var(--fw-semibold); letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--c-done); }
 .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 /* The choice of puzzle for a fleeting isotope. */
 .bh-picks { list-style: none; margin: var(--sp-3) 0 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
 .bh-pick { width: 100%; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: var(--sp-3); padding: var(--sp-2) var(--sp-3) var(--sp-2) var(--sp-2); border: 0; border-radius: 6px; background: var(--c-surface-2); color: var(--c-text); text-align: left; }
 .bh-pick .bh-mark { width: 48px; height: 48px; background: var(--c-surface-3); }
-.bh-pick-body { display: flex; flex-direction: column; gap: 2px; }
-.bh-pick-body b { font-size: var(--fs-md); font-weight: var(--fw-semibold); }
-.bh-pick-body span { font-size: var(--fs-sm); color: var(--c-text-2); }
+.bh-pick-body { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; text-align: left; }
+.bh-pick-body b { font-size: var(--fs-lg); font-weight: var(--fw-semibold); }
+.bh-pick-body .bh-diff { margin: 0; }
 
 /* The Build microscope: a tab per part of the atom, a few big numbers and a line each. */
 .bs-tabs { margin: 0 0 var(--sp-4); }
@@ -662,8 +678,9 @@ body:not([data-screen='gallery']) .gal-modes { display: none; }
 /* Up next floats at the foot of the Collection (a callout), over the list's end. */
 .up-next.is-away .ui-next { display: none; }
 .up-tile { width: 44px; height: 44px; display: grid; place-items: center; border-radius: var(--r-sm); background: var(--c-surface-2); color: var(--c-text); font-size: 18px; font-weight: var(--fw-bold); transition: opacity 0.4s; }
-.up-next .ui-callout-pic img { position: absolute; inset: -12px; width: 76px; height: 76px; }
-.up-next .ui-callout-pic:has(img) .up-tile { opacity: 0; }
+/* Up next: the game's icon on its plate, and both lines in white. */
+.up-next .ui-callout-pic { width: 48px; height: 48px; margin-left: 0; border-radius: 8px; background: var(--c-surface-2); color: var(--c-text); }
+.up-next .ui-callout-text small, .up-next .ui-callout-text b { color: var(--c-text); }
 #gallery-screen .gal-collection .el-list { padding-bottom: calc(var(--safe-bottom) + 112px); }
 .gal-collection .up-next { bottom: calc(var(--safe-bottom) + var(--sp-3)); }
 
@@ -719,6 +736,9 @@ body:not([data-screen='gallery']) .gal-modes { display: none; }
 .loupe-screen { --tabs-h: 48px; --bar-h: 60px; --chrome: calc(var(--top) + var(--bar-h) + var(--tabs-h)); }
 .atom-tabs { position: absolute; left: 0; right: 0; top: calc(var(--top) + var(--bar-h)); z-index: 3; height: var(--tabs-h); display: flex; align-items: flex-end; justify-content: center; padding: 0 var(--sp-3); background: var(--c-bg); }
 .atom-tabs .ui-tabs { max-width: 100%; }
+/* View is the 3D atom alone: no tab strip, the canvas takes its place. Info shows the tabs. */
+.atom-tabs[hidden] { display: none; }
+.loupe-screen:not(.on-page) { --tabs-h: 0px; }
 .atom-panel { position: absolute; left: 0; right: 0; top: var(--chrome); bottom: 0; padding-bottom: var(--safe-bottom); z-index: 2; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; background: var(--c-bg); }
 .atom-panel[hidden] { display: none; }
 .loupe-screen.on-page #loupe, .loupe-screen.on-page .dec, .loupe-screen.on-page .loupe-tools { visibility: hidden; }
@@ -1443,3 +1463,47 @@ body[data-screen^='atom'].build-home .science-fab, body[data-screen='atom-view']
 .cl-winbox:has(.win) { min-height: 360px; }
 .cl-frame { position: relative; flex: 1 1 100%; display: flex; flex-direction: column; border-radius: var(--r-sm); overflow: visible; background: var(--c-bg); outline: 1px dashed var(--c-line); }
 .cl-board { display: grid; place-items: center; height: 160px; color: var(--c-text-3); font-size: var(--fs-sm); }
+.bh-sci-row .science-btn { position: static; margin: 0 auto; }
+
+/* Structure › Orbitals: each orbital's 2D shape with its electrons' spins under it, a row per
+   shell (outermost on top), the core dimmed; Details adds names, counts and notes. */
+.om-toggle { display: inline-flex; align-items: center; gap: 6px; margin: var(--sp-2) 0; font-size: var(--fs-sm); color: var(--c-text-2); cursor: pointer; }
+.om { display: flex; flex-direction: column; gap: var(--sp-3); margin: var(--sp-1) 0 var(--sp-3); }
+.om-row { display: grid; grid-template-columns: 22px 1fr; gap: var(--sp-2); align-items: center; }
+.om-groups { display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-3); }
+.om-group { display: flex; flex-direction: column; gap: 3px; }
+.om-group.is-core { opacity: 0.5; }
+.om-key { display: flex; align-items: baseline; gap: 5px; font-size: var(--fs-xs); font-weight: var(--fw-semibold); color: var(--b); }
+.om-count { display: none; font-size: var(--fs-2xs); font-weight: var(--fw-medium); color: var(--c-text-2); font-variant-numeric: tabular-nums; }
+.om-glyphs { display: flex; gap: 3px; }
+.os-glyph.om-glyph { width: 40px; padding: 3px 0 4px; gap: 1px; border-radius: var(--r-sm); }
+.om-glyph svg { width: 32px; height: 32px; }
+.om-glyph .os-unknown { top: 3px; height: 32px; font-size: 18px; }
+.om-spin { display: flex; gap: 1px; min-height: 14px; font-size: 13px; line-height: 1; font-weight: 700; color: var(--c-text); }
+.om-spin b.is-lone { color: var(--c-accent); }
+.om-glyph .om-name { display: none; font-size: 9px; color: var(--c-text-2); white-space: nowrap; letter-spacing: -0.02em; }
+.om.is-detailed .om-glyph .om-name { display: block; }
+.om.is-detailed .om-count { display: inline; }
+.om-group.is-core .om-glyph svg { width: 24px; height: 24px; }
+.os-glyph.om-glyph:has(svg) { min-width: 0; }
+
+/* Isotopes at a glance: three numbers, a dot per isotope along the neutron count (stable lit),
+   and the numbers in words. */
+.isu { margin: var(--sp-2) 0 var(--sp-4); padding: var(--sp-3) var(--sp-4); border-radius: var(--r-md); background: var(--c-plate); }
+.isu-nums { display: flex; gap: var(--sp-5); }
+.isu-nums div { display: flex; flex-direction: column; }
+.isu-nums b { font-size: var(--fs-2xl); font-weight: var(--fw-semibold); line-height: 1.1; font-variant-numeric: tabular-nums; }
+.isu-nums b.is-stable { color: var(--c-accent); }
+.isu-nums span { font-size: var(--fs-sm); color: var(--c-text-2); }
+.isu-strip { display: block; width: 100%; height: auto; margin: var(--sp-3) 0 var(--sp-2); overflow: visible; }
+.isu-base { stroke: var(--c-line-2); stroke-width: 1; }
+.isu-eq { stroke: var(--c-text-3); stroke-width: 1; stroke-dasharray: 2 3; }
+.isu-eq-lab { fill: var(--c-text-2); font-size: 9px; text-anchor: middle; }
+.isu-dot { fill: var(--c-text-3); }
+.isu-dot.is-stable { fill: var(--c-accent); }
+.isu-dot.is-key { stroke: var(--c-text); stroke-width: 1.5; }
+.isu-words { margin: 0; font-size: var(--fs-md); color: var(--c-text); max-width: 60ch; }
+
+/* Properties › Additional Details: a plain card, always open. */
+.info-card { margin: var(--sp-4) 0; padding: var(--sp-3) var(--sp-4) var(--sp-4); border-radius: var(--r-md); background: var(--c-surface); }
+.info-card h3 { margin: 0 0 var(--sp-2); font-size: var(--fs-lg); font-weight: var(--fw-semibold); }

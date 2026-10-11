@@ -9,10 +9,10 @@ import { NUCLEUS_RINGS } from './nucleus';
 import type { OrbitalShape } from '../core/save';
 import { Detail } from './detail';
 import { Gallery } from './gallery';
-import { decoratorsHTML, tabHTML, VIEW_TABS, type ViewTab } from './info';
+import { decoratorsHTML, tabHTML, TABS, type ViewTab } from './info';
 import { guideHTML } from './guide';
 import { icon, type IconName } from '../ui/icons';
-import { createCallout, createSegments, createTabs, nextButton, type Segments, type Tabs } from '../ui/components';
+import { createCallout, createSegments, createTabs, nextButton, swipeToDismiss, type Segments, type Tabs } from '../ui/components';
 import { ISO_FILTERS, STRUCTURE_VIEWS } from './visuals';
 import { createAtomBar, type AtomBar } from './atombar';
 import { isLayoutId, LAYOUT_STORY, LAYOUTS, type LayoutId } from './layouts';
@@ -24,7 +24,7 @@ import { createElementList, type ElementList } from '../ui/elementlist';
 import { nextLabel, nextStep, openAtom, openStep, type NextStep } from '../core/next';
 import { firstTimeLine } from '../ui/nu';
 import { isUnlocked, unlockPuzzle, type UnlockId } from '../core/unlocks';
-import { PUZZLES } from '../puzzles/catalog';
+import { PUZZLES, puzzleIcon } from '../puzzles/catalog';
 import { playUnlock } from '../puzzles/unlock';
 import { isLookId, lensUnlock, lookOf, lookUnlock, LOOKS, type LookId } from './looks';
 import { atomThumb } from './thumbs';
@@ -49,7 +49,11 @@ export class GalleryApp {
   private current: Element | null = null;
   /** The Up next card, floating at the foot of the Collection list. */
   private upNext = Object.assign(createCallout({ kicker: '', title: '', pic: '', className: 'ui-callout--float up-next' }), { hidden: true });
+  /** The Up next step swiped away, by key: it comes back once the next step changes. */
+  private upNextGone: string | null = null;
   private tab: ViewTab = 'model';
+  /** The Info page last open, kept while View shows the 3D atom. */
+  private page: Exclude<ViewTab, 'model'> = 'overview';
   private isoFilter = 'all';
   private structView = 'blueprint';
   private layoutId: LayoutId = (() => {
@@ -87,6 +91,7 @@ export class GalleryApp {
   constructor(private handlers: GalleryHandlers) {
     this.gallery = new Gallery($('gal'), $('gal-labels'));
     this.detail = new Detail($('loupe'));
+    swipeToDismiss(this.upNext, () => { this.upNextGone = this.upNext.dataset.key ?? null; this.upNext.hidden = true; });
     this.gallery.setReducedMotion(this.save.settings.reducedMotion);
     this.detail.setReducedMotion(this.save.settings.reducedMotion);
     this.buildControls();
@@ -223,9 +228,11 @@ export class GalleryApp {
     this.bar = createAtomBar({ onChange: (z) => this.open(elementAt(z)), locked: (z) => this.buildLocked(z) });
     $('loupe-screen').append(this.bar.el);
     // View's tabs: the model, then the element's science as pages.
-    this.tabs = createTabs(VIEW_TABS, { active: this.tab, label: 'About this element', onChange: (id) => this.setTab(id as ViewTab) });
+    // Info's tabs: the element's pages (View is the 3D atom alone, with no tabs).
+    this.tabs = createTabs(TABS, { active: this.page, label: 'About this element', onChange: (id) => this.setTab(id as ViewTab) });
     this.tabs.el.setAttribute('aria-controls', 'atom-panel');
     $('atom-tabs').append(this.tabs.el);
+    $('atom-tabs').hidden = this.tab === 'model';
     this.bindTabSwipe();
   }
 
@@ -245,8 +252,8 @@ export class GalleryApp {
       const dx = ev.clientX - start.x, dy = ev.clientY - start.y, dt = performance.now() - start.t;
       start = null;
       if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.6 || dt > 700) return;
-      const i = VIEW_TABS.findIndex((t) => t.id === this.tab);
-      const next = VIEW_TABS[i + (dx < 0 ? 1 : -1)];
+      const i = TABS.findIndex((t) => t.id === this.tab);
+      const next = TABS[i + (dx < 0 ? 1 : -1)];
       if (!next) return;
       this.tabs.select(next.id);
       this.setTab(next.id);
@@ -421,7 +428,8 @@ export class GalleryApp {
     }
     if (this.mode === 'collection' && !this.collection) {
       this.collection = createElementList({
-        onPick: (z) => this.pick(z),
+        // A row opens the atom's Build page, where its progress is.
+        onPick: (z) => this.handlers.onBuild(z),
         locked: (z) => this.buildLocked(z),
         storageKey: 'atomos.collection.sort',
         thumbs: (z) => atomThumb(z, this.litOf(z)),
@@ -440,23 +448,16 @@ export class GalleryApp {
     card.hidden = !step;
     if (!step) { card.replaceChildren(); return; }
     const key = `${step.kind}/${step.z}/${step.stage}`;
+    // Swiped away: it stays away until there is a different next step.
+    if (this.upNextGone === key) { card.hidden = true; return; }
     if (card.dataset.key !== key) {
       card.dataset.key = key;
-      const e = elementAt(step.z);
-      // Two lines: "Up next: Quanta" over "Gallium's electrons".
+      // Two lines: "Up next: Quanta" over "Promethium's electrons", the game's icon on the left.
       const resume = step.kind === 'resume';
       card.querySelector('small')!.textContent = `${resume ? 'Continue' : 'Up next'}: ${step.gameName}`;
       card.querySelector('b')!.textContent = resume ? step.label.replace(/^Resume [^·]*·\s*/, '') : step.label;
-      const pic = card.querySelector<HTMLElement>('.ui-callout-pic')!;
-      pic.innerHTML = `<span class="up-tile">${e.symbol}</span>`;
-      card.querySelector('.ui-callout-acts')!.replaceChildren(nextButton({ label: resume ? 'Resume' : 'Next', compact: true, landKey: 'gallery-upnext', onClick: () => openStep(step) }));
-      void atomThumb(step.z, this.litOf(step.z)).then((url) => {
-        if (!url || card.dataset.key !== key) return;
-        const img = document.createElement('img');
-        img.src = url;
-        img.alt = '';
-        pic.append(img);
-      });
+      card.querySelector<HTMLElement>('.ui-callout-pic')!.innerHTML = puzzleIcon(step.game, 32);
+      card.querySelector('.ui-callout-acts')!.replaceChildren(nextButton({ label: resume ? 'Resume' : 'Play', compact: true, landKey: 'gallery-upnext', onClick: () => openStep(step) }));
     }
     this.setUpNextShown(true);
   }
@@ -559,7 +560,7 @@ export class GalleryApp {
       screen.hidden = false;
       this.gallery.stop();
       if (this.tab === 'model') this.detail.start();
-      requestAnimationFrame(() => { screen.classList.add('in'); this.tabs.select(this.tab); });
+      requestAnimationFrame(() => { screen.classList.add('in'); this.tabs.select(this.page); });
     }
     this.registerScience();
     this.paintViewNext();
@@ -597,8 +598,10 @@ export class GalleryApp {
     openModal(`<h2>${l.label}</h2>${LAYOUT_STORY[l.id].map((p) => `<p>${p}</p>`).join('')}`, () => setScienceOpen(false));
   }
 
-  /** Open the loupe on an element (Atom, View mode), from the app shell. */
-  openAtom(z: number): void {
+  /** Open the loupe on an element, from the app shell: View (the 3D atom) or Info (its pages). */
+  openAtom(z: number, mode: 'view' | 'info' = 'view'): void {
+    const tab: ViewTab = mode === 'info' ? this.page : 'model';
+    if (tab !== this.tab) this.setTab(tab);
     if (this.current?.z === z && !$('loupe-screen').hidden) return;
     this.open(elementAt(z));
   }
@@ -627,6 +630,8 @@ export class GalleryApp {
 
   private setTab(tab: ViewTab): void {
     this.tab = tab;
+    if (tab !== 'model') this.page = tab;
+    $('atom-tabs').hidden = tab === 'model';
     const model = tab === 'model';
     $('loupe-screen').classList.toggle('on-page', !model);
     $('atom-panel').hidden = model;
@@ -641,7 +646,7 @@ export class GalleryApp {
   private renderPanel(): void {
     if (!this.current || this.tab === 'model') return;
     const panel = $('atom-panel');
-    const label = VIEW_TABS.find((t) => t.id === this.tab)!.label.toLowerCase();
+    const label = TABS.find((t) => t.id === this.tab)!.label.toLowerCase();
     panel.innerHTML = `<div class="atom-page">${tabHTML(this.current, this.tab, this.collected(this.current.z), this.save)}`
       + `<div class="page-guide"><button type="button" class="guide-btn" id="guide-btn">${icon('microscope')}<span><b>How to read this</b><small>A guide to the ${label} page, and more context</small></span></button></div></div>`;
     $('guide-btn').onclick = () => this.openGuide();
@@ -651,10 +656,10 @@ export class GalleryApp {
     if (fleeting && fleetingOpen(this.save) && !$('loupe-screen').hidden && !$('gallery-screen').hidden) firstTimeLine('first-fleeting', 'Fleeting isotopes vanish in under a year. Pick any game to build one; shorter lives make harder boards.', fleeting);
     this.mountStructureSwitch();
     panel.scrollTop = 0;
-    panel.setAttribute('aria-label', VIEW_TABS.find((t) => t.id === this.tab)!.label);
+    panel.setAttribute('aria-label', TABS.find((t) => t.id === this.tab)!.label);
   }
 
-  /** The structure page's ways to see the atom: the blueprint, the shells, the orbital boxes, the 2D shapes. */
+  /** The structure page's ways to see the atom: the blueprint, the shells, the orbitals with their shapes. */
   private mountStructureSwitch(): void {
     const slot = document.getElementById('struct-switch');
     if (!slot) return;
@@ -663,8 +668,18 @@ export class GalleryApp {
       this.structView = id;
       for (const v of views) v.hidden = v.dataset.view !== id;
     };
+    if (!STRUCTURE_VIEWS.some((v) => v.id === this.structView)) this.structView = 'orbitals';
     const seg = createSegments(STRUCTURE_VIEWS, { active: this.structView, label: 'How to see the structure', onChange: apply });
     slot.append(seg.el);
+    // Orbitals' Details: each orbital's name, each subshell's count and the notes; remembered.
+    const details = document.getElementById('om-details') as HTMLInputElement | null;
+    if (details) {
+      const map = document.querySelector<HTMLElement>('.om')!;
+      const paint = () => { map.classList.toggle('is-detailed', details.checked); document.querySelector('.om-notes')?.toggleAttribute('hidden', !details.checked); };
+      try { details.checked = localStorage.getItem('atomos.orbitals.details') === '1'; } catch { /* storage off */ }
+      details.onchange = () => { try { localStorage.setItem('atomos.orbitals.details', details.checked ? '1' : '0'); } catch { /* storage off */ } paint(); };
+      paint();
+    }
     // The 2D shapes keep the same secret as 3D Shapes: a kind Glyph has not found yet shows a "?".
     const hidden = new Set<string>(this.hiddenShapes);
     const kinds = new Set<string>();

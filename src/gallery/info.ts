@@ -8,19 +8,16 @@ import FACTS from '../data/element-facts.json';
 import STORY from '../data/element-story.json';
 import IMAGES from '../data/element-images.json';
 import { disclosureHTML } from '../ui/components';
-import { fleetingCount, isDecayed, isotopeCollected, isotopeGame, lastingIsotopes, fleetingIsotopes } from '../core/progress';
 import { loadSave, type SaveData } from '../core/save';
-import { PUZZLES, puzzleIcon } from '../puzzles/catalog';
-import { icon } from '../ui/icons';
-import { blueprint, discoveryTimeline, isotopeTable, orbitalBoxes, orbitalShapes, propertyAxes, shellPlot } from './visuals';
+import { blueprint, discoveryTimeline, isotopeTable, orbitalMap, propertyAxes, shellPlot } from './visuals';
 
 export type Tab = 'overview' | 'structure' | 'isotopes' | 'properties' | 'story';
 export const TABS: { id: Tab; label: string }[] = [
   { id: 'overview', label: 'Overview' },
+  { id: 'story', label: 'Story' },
   { id: 'structure', label: 'Structure' },
   { id: 'isotopes', label: 'Isotopes' },
   { id: 'properties', label: 'Properties' },
-  { id: 'story', label: 'Story' },
 ];
 
 /** The atom screen's View tabs: the 3D model first, then the text tabs. */
@@ -118,6 +115,7 @@ function overview(e: Element, collected: boolean): string {
     <p class="ov-headline">${facts ? esc(facts.h) : esc(e.description) || `${esc(e.name)} is element ${e.z}.`}</p>
     ${photo}
     ${facts ? `<ul class="ov-facts">${facts.f.map((f) => `<li>${esc(f)}</li>`).join('')}</ul>` : ''}
+    <h3 class="story-h">Uses</h3>${storyList(storyLists(e).uses)}
     ${e.z >= 104 ? '<p class="note">Elements from rutherfordium on have only been made a few atoms at a time; their electron arrangements are predictions, not measurements.</p>' : ''}`;
 }
 
@@ -135,8 +133,7 @@ function structure(e: Element): string {
     <div class="st-switch" id="struct-switch"></div>
     <div class="st-view" data-view="blueprint">${blueprint(e)}</div>
     <div class="st-view" data-view="shells" hidden>${shellPlot(e)}</div>
-    <div class="st-view" data-view="boxes" hidden>${orbitalBoxes(e)}</div>
-    <div class="st-view" data-view="shapes2d" hidden>${orbitalShapes(e)}</div>
+    <div class="st-view" data-view="orbitals" hidden>${orbitalMap(e)}</div>
     ${disclosureHTML({ title: 'All the numbers', hint: `${e.subshells.length} layers`, body: `
     ${row('Configuration', `${e.configuration.split(' ').map((s) => s.slice(0, 2) + sup(s.slice(2))).join(' ')}`)}
     ${row('Short form', shortConfiguration(e))}
@@ -152,49 +149,11 @@ function structure(e: Element): string {
     ${row('Cloud to nucleus', `about ${Math.round((e.vdw * 1e3) / e.nucleusRadius / 1000)},000 to 1`)}` })}`;
 }
 
-/** What the player has built of this atom's isotopes. Lasting ones (stable, or over a year)
- *  each have a fixed puzzle and count toward the atom's 100%; fleeting ones have their own
- *  count, and once built they stay in the collection but show as decayed, with their half-life. */
-function collection(e: Element, save: SaveData): string {
-  const lasting = lastingIsotopes(e.z);
-  const fleeting = fleetingIsotopes(e.z);
-  if (!lasting.length && !fleeting.length) return '';
-  const lastingBuilt = lasting.filter((i) => isotopeCollected(save, e.z, i.a)).length;
-  const f = fleetingCount(e.z, save);
-  const name = (a: number) => `<b><sup>${a}</sup>${e.symbol}</b>`;
-  const lastingTiles = lasting.map((i) => {
-    const built = isotopeCollected(save, e.z, i.a);
-    const game = isotopeGame(e.z, i.a);
-    const g = PUZZLES.find((p) => p.id === game);
-    return `<div class="icl-tile${built ? ' is-built' : ''}">
-      ${name(i.a)}
-      <span class="icl-game">${g ? `${puzzleIcon(g.id, 18)}<span>${esc(g.name)}</span>` : ''}</span>
-      <span class="icl-state">${built ? `${icon('check', { size: 16 })}Built` : i.stable ? 'Stable' : formatHalfLife(i.halfLife!)}</span>
-    </div>`;
-  }).join('');
-  const fleetingTiles = fleeting.map((i) => {
-    const decayed = isDecayed(e.z, i, save);
-    const life = i.halfLife == null ? 'not measured' : formatHalfLife(i.halfLife);
-    return `<div class="icl-tile icl-fleet${decayed ? ' is-decayed' : ''}">
-      ${name(i.a)}
-      <span class="icl-life">${life}</span>
-      ${decayed ? '<span class="icl-chip">decayed</span>' : ''}
-    </div>`;
-  }).join('');
-  return `<section class="icl">
-    <div class="icl-head"><h3>Your collection</h3><span>${lasting.length ? `Lasting ${lastingBuilt} of ${lasting.length}` : 'No lasting isotopes'}${fleeting.length ? ` · Fleeting ${f.built} of ${f.total}` : ''}</span></div>
-    ${lasting.length ? `<h4 class="icl-sub">${icon('isotope-stable', { size: 18 })}Lasting<span>stable or over a year; they count toward ${esc(e.name.toLowerCase())}'s 100%</span></h4>
-    <div class="icl-grid">${lastingTiles}</div>` : ''}
-    ${fleeting.length ? disclosureHTML({ title: 'Fleeting', hint: `${f.built} of ${f.total} built`, open: f.built > 0, className: 'icl-fleeting', body: `<p class="icl-note">Every other known isotope. Build any of them with a puzzle you pick; once built it stays yours but has decayed, the way it would in a lab.</p><div class="icl-grid icl-grid--fleet">${fleetingTiles}</div>` }) : ''}
-  </section>`;
-}
-
-function isotopes(e: Element, save: SaveData): string {
+function isotopes(e: Element, _save: SaveData): string {
   const rows = e.isotopes.map((i) => `<tr class="${i.stable ? 'stable' : ''}">
     <td>${e.symbol}-${i.a}</td><td>${i.a - e.z}</td><td>${i.mass == null ? '' : i.mass.toFixed(3)}</td>
     <td>${i.abundance == null ? '' : i.abundance + '%'}</td><td>${i.stable ? 'stable' : i.halfLife == null ? '<span class="na">not known</span>' : formatHalfLife(i.halfLife)}</td><td>${i.spin ?? ''}</td></tr>`).join('');
   return `
-    ${collection(e, save)}
     ${isotopeTable(e)}
     ${disclosureHTML({ title: 'All the numbers', hint: `${e.isotopes.length} isotopes`, body: `<div class="tablewrap"><table>
       <thead><tr><th>Isotope</th><th>Neutrons</th><th>Mass</th><th>Abundance</th><th>Half-life</th><th>Spin</th></tr></thead>
@@ -205,12 +164,12 @@ function isotopes(e: Element, save: SaveData): string {
 function properties(e: Element): string {
   return `
     ${propertyAxes(e)}
-    ${disclosureHTML({ title: 'More about it', body: `
+    <section class="info-card"><h3>Additional Details</h3>
     ${row('Electron affinity', e.electronAffinity != null && e.electronAffinity < 0 ? '<span class="na">no stable negative ion</span>' : num(e.electronAffinity, ' eV'))}
     ${row('Geochemical class', e.geochemical ? esc(e.geochemical) : '<span class="na">not classed</span>')}
     ${row('CPK color', e.cpk ? `<span class="swatch" style="background:${e.cpk}"></span>${e.cpk}` : '<span class="na">none</span>')}
     ${row('Covalent radius', num(e.covalent, ' pm'))}
-    ${row('Atomic weight', num(e.weight, '', 6))}` })}`;
+    ${row('Atomic weight', num(e.weight, '', 6))}</section>`;
 }
 
 /** Origins and uses as short bullet lists (src/data/element-story.json, American spelling);
@@ -222,11 +181,13 @@ function storyLists(e: Element): { origins: string[]; uses: string[] } {
   return { origins: split(e.sources), uses: split(e.uses) };
 }
 
+const storyList = (items: string[]) => items.length
+  ? `<ul class="story-list">${items.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>`
+  : '<p class="na">Not recorded.</p>';
+
 function story(e: Element): string {
-  const { origins, uses } = storyLists(e);
-  const list = (items: string[]) => items.length
-    ? `<ul class="story-list">${items.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>`
-    : '<p class="na">Not recorded.</p>';
+  const { origins } = storyLists(e);
+  const list = storyList;
   const ancient = !e.discoveryYear;
   return `
     ${e.nameOrigin ? `<blockquote class="story-name"><span>The name</span>${esc(e.nameOrigin)}</blockquote>` : ''}
@@ -238,6 +199,5 @@ function story(e: Element): string {
       </div>
     </section>
     ${discoveryTimeline(e)}
-    <h3 class="story-h">Origins</h3>${list(origins)}
-    <h3 class="story-h">Uses</h3>${list(uses)}`;
+    <h3 class="story-h">Origins</h3>${list(origins)}`;
 }

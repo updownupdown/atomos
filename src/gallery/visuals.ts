@@ -212,21 +212,6 @@ export function shellPlot(e: Element): string {
 
 /** The orbital box diagram: a row per shell, a box per orbital, an arrow per electron, filled
  *  one per box before any pair (Hund's rule). Lone electrons are lit: they make atoms magnetic. */
-export function orbitalBoxes(e: Element): string {
-  const byShell = new Map<number, Subshell[]>();
-  for (const s of e.subshells) byShell.set(s.n, [...(byShell.get(s.n) ?? []), s]);
-  const rows = [...byShell.entries()].sort((a, b) => b[0] - a[0]).map(([n, subs]) => {
-    const groups = subs.sort((a, b) => L_OF[a.l] - L_OF[b.l]).map((s) => {
-      const boxes = orbitalFill(s.count, s.capacity).map((k) => `<i class="ob-box${k === 1 ? ' is-lone' : ''}">${k >= 1 ? '<b>↑</b>' : ''}${k === 2 ? '<b>↓</b>' : ''}</i>`).join('');
-      return `<div class="ob-group${s.core ? ' is-core' : ''}" style="--b:${BLOCK_COLOUR[s.l]}"><span class="ob-key">${s.key}</span><div class="ob-boxes">${boxes}</div></div>`;
-    }).join('');
-    return `<div class="ob-row"><span class="ob-shell">${SHELL_NAMES[n - 1]}</span><div class="ob-groups">${groups}</div></div>`;
-  }).join('');
-  const lone = e.unpaired;
-  return `<div class="ob">${rows}</div>
-    <p class="note">Each box is one orbital and holds two electrons of opposite spin. ${lone ? `${esc(e.name)} has ${lone} lone electron${lone === 1 ? '' : 's'}, lit in cyan.` : `Every electron in ${esc(e.name.toLowerCase())} is paired.`} The outermost shell is at the top; the noble-gas core is dimmed.</p>`;
-}
-
 /** The plane each real orbital is drawn in, face on: two unit vectors (across, up). Most lie in a
  *  coordinate plane; fxyz has nodes in all three, so it is cut along the x = y diagonal. */
 const PLANES: Record<string, [number[], number[]]> = {
@@ -270,34 +255,46 @@ export function orbitalOutline(l: number, m: number, steps = 360): { d: string; 
   return lobes;
 }
 
-/** The outer layers' orbitals drawn as their 2D shapes, filled as far as electrons fill them. */
-export function orbitalShapes(e: Element): string {
-  const outer = buildOrder(e).filter((s) => !s.core).reverse();
-  const rows = outer.map((s) => {
-    const fill = orbitalFill(s.count, s.capacity);
-    const l = L_OF[s.l];
-    const glyphs = fill.map((k, oi) => {
-      const lobes = orbitalOutline(l, M_ORDER[oi]);
-      const paths = lobes.map((b) => `<path class="os-lobe ${b.plus ? 'is-plus' : 'is-minus'}" d="${b.d}"/>`).join('');
-      return `<figure class="os-glyph os-fill-${k}" data-l="${s.l}">
-        <svg viewBox="-1 -1 2 2" aria-hidden="true"><path class="os-axis" d="M -0.95 0 H 0.95 M 0 -0.95 V 0.95"/>${paths}</svg>
-        <span class="os-unknown" aria-hidden="true">?</span>
-        <figcaption>${ORBITAL_NAMES[s.l][oi]}<b>${k === 2 ? '↑↓' : k === 1 ? '↑' : ''}</b></figcaption>
-      </figure>`;
+/**
+ * Orbitals and their shapes in one map: a row per shell (the outermost at the top), each
+ * subshell's orbitals as small 2D shapes (solid when full, paler when half full, outlined when
+ * empty) with their electrons' spins under them as arrows, a lone electron in cyan; the
+ * noble-gas core dimmed. Details adds each orbital's name and each subshell's count.
+ */
+export function orbitalMap(e: Element): string {
+  const byShell = new Map<number, Subshell[]>();
+  for (const s of e.subshells) byShell.set(s.n, [...(byShell.get(s.n) ?? []), s]);
+  const rows = [...byShell.entries()].sort((a, b) => b[0] - a[0]).map(([n, subs]) => {
+    const groups = subs.sort((a, b) => L_OF[a.l] - L_OF[b.l]).map((s) => {
+      const l = L_OF[s.l];
+      const glyphs = orbitalFill(s.count, s.capacity).map((k, oi) => {
+        const paths = orbitalOutline(l, M_ORDER[oi]).map((b) => `<path class="os-lobe ${b.plus ? 'is-plus' : 'is-minus'}" d="${b.d}"/>`).join('');
+        const spins = `${k >= 1 ? `<b class="${k === 1 ? 'is-lone' : ''}">↑</b>` : ''}${k === 2 ? '<b>↓</b>' : ''}`;
+        return `<figure class="os-glyph om-glyph os-fill-${k}" data-l="${s.l}">
+          <svg viewBox="-1 -1 2 2" aria-hidden="true"><path class="os-axis" d="M -0.95 0 H 0.95 M 0 -0.95 V 0.95"/>${paths}</svg>
+          <span class="os-unknown" aria-hidden="true">?</span>
+          <span class="om-spin" aria-label="${k} electron${k === 1 ? '' : 's'}">${spins}</span>
+          <figcaption class="om-name">${ORBITAL_NAMES[s.l][oi]}</figcaption>
+        </figure>`;
+      }).join('');
+      return `<div class="om-group${s.core ? ' is-core' : ''}" style="--b:${BLOCK_COLOUR[s.l]}"><span class="om-key">${s.key}<small class="om-count">${s.count}/${s.capacity}</small></span><div class="om-glyphs">${glyphs}</div></div>`;
     }).join('');
-    return `<div class="os-row" style="--b:${BLOCK_COLOUR[s.l]}"><span class="os-key">${s.key}<small>${s.count}/${s.capacity}</small></span><div class="os-glyphs">${glyphs}</div></div>`;
+    return `<div class="om-row"><span class="ob-shell">${SHELL_NAMES[n - 1]}</span><div class="om-groups">${groups}</div></div>`;
   }).join('');
-  const core = e.core ? `<p class="os-core">Inside them sits the ${CORE_NAME[e.core] ?? e.core} core, every orbital full.</p>` : '';
-  return `<div class="os">${rows}</div>${core}
+  const lone = e.unpaired;
+  return `<label class="om-toggle"><input type="checkbox" id="om-details"> Details</label>
+    <div class="om">${rows}</div>
     <p class="note os-hidden-note" hidden></p>
-    <p class="note">Each shape is one orbital cut through the middle, as a textbook draws it: how likely the electron is in each direction. The two tones are the wave's two phases. Full orbitals are solid, half-full ones paler, empty ones only outlined.</p>`;
+    <div class="om-notes">
+      <p class="note">Each shape is one orbital cut through the middle, as a textbook draws it: how likely the electron is in each direction. The two tones are the wave's two phases. Full orbitals are solid, half-full ones paler, empty ones only outlined.</p>
+      <p class="note">Each orbital holds two electrons of opposite spin, shown under it. ${lone ? `${esc(e.name)} has ${lone} lone electron${lone === 1 ? '' : 's'}, lit in cyan.` : `Every electron in ${esc(e.name.toLowerCase())} is paired.`} The outermost shell is at the top; the noble-gas core is dimmed.</p>
+    </div>`;
 }
 
 export const STRUCTURE_VIEWS: { id: string; label: string }[] = [
   { id: 'blueprint', label: 'Blueprint' },
   { id: 'shells', label: 'Shells' },
-  { id: 'boxes', label: 'Orbitals' },
-  { id: 'shapes2d', label: 'Shapes' },
+  { id: 'orbitals', label: 'Orbitals' },
 ];
 
 // ---------- Isotopes: an album of tiles ----------
@@ -373,15 +370,40 @@ function isotopeRows(e: Element): string {
   }).join('');
 }
 
+/**
+ * The isotopes at a glance: one dot per known isotope along the neutron count, stable ones lit
+ * cyan, the most common one ringed, with the line where neutrons equal protons; and a sentence
+ * that puts the three numbers (known, stable, the neutron range) in words.
+ */
+export function isotopeSummary(e: Element): string {
+  const isos = e.isotopes;
+  if (!isos.length) return '';
+  const stable = isos.filter((i) => i.stable);
+  const n0 = isos[0].a - e.z, n1 = isos[isos.length - 1].a - e.z;
+  const lo = Math.min(n0, e.z), hi = Math.max(n1, e.z);
+  const W = 320, H = 46, pad = 10, cy = 20;
+  const x = (n: number) => pad + ((n - lo) / Math.max(1, hi - lo)) * (W - 2 * pad);
+  const key = keyIsotope(e);
+  const dots = isos.map((i) => {
+    const n = i.a - e.z;
+    const life = i.stable ? 1 : lifeMeter(i.halfLife);
+    return `<circle class="isu-dot${i.stable ? ' is-stable' : ''}${key && key.a === i.a ? ' is-key' : ''}" cx="${f1(x(n))}" cy="${cy}" r="${f1(i.stable ? 5 : 2 + 2.2 * life)}"><title>${e.symbol}-${i.a}</title></circle>`;
+  }).join('');
+  const eq = `<path class="isu-eq" d="M ${f1(x(e.z))} 6 V ${cy + 12}"/><text class="isu-eq-lab" x="${f1(x(e.z))}" y="${H - 2}">N = Z</text>`;
+  const sRange = stable.length ? [stable[0].a - e.z, stable[stable.length - 1].a - e.z] : null;
+  const words = stable.length
+    ? `Of ${isos.length} known isotopes, ${stable.length === 1 ? 'one never decays' : `${stable.length} never decay`}: ${sRange![0] === sRange![1] ? `${sRange![0]} neutrons` : `${sRange![0]} to ${sRange![1]} neutrons`}, in a nucleus of ${e.z} protons. The rest, from ${n0} to ${n1} neutrons, fall apart.`
+    : `None of its ${isos.length} known isotopes is stable: every one, from ${n0} to ${n1} neutrons, falls apart in time.`;
+  return `<section class="isu">
+    <div class="isu-nums"><div><b>${isos.length}</b><span>known</span></div><div><b class="is-stable">${stable.length}</b><span>stable</span></div><div><b>${n0}–${n1}</b><span>neutrons</span></div></div>
+    <svg class="isu-strip" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(words)}"><path class="isu-base" d="M ${pad} ${cy} H ${W - pad}"/>${eq}${dots}</svg>
+    <p class="isu-words">${esc(words)}</p>
+  </section>`;
+}
+
 export function isotopeTable(e: Element): string {
-  const stable = e.isotopes.filter((i) => i.stable).length;
-  const first = e.isotopes[0], last = e.isotopes[e.isotopes.length - 1];
   const counts = Object.fromEntries(ISO_FILTERS.map((f) => [f.id, e.isotopes.filter((i) => isotopeKinds(i).includes(f.id)).length]));
-  return `<div class="iso-head">
-      <div><b>${e.isotopes.length}</b><span>isotopes known</span></div>
-      <div><b>${stable}</b><span>stable</span></div>
-      <div><b>${first ? first.a - e.z : 0}–${last ? last.a - e.z : 0}</b><span>neutrons</span></div>
-    </div>
+  return `${isotopeSummary(e)}
     ${isotopeChart(e)}
     <div class="it-filter" id="iso-filter" data-counts='${JSON.stringify(counts)}'></div>
     <div class="it" id="iso-table" data-filter="all">

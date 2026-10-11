@@ -44,7 +44,7 @@ export class AppShell {
       onBuild: (z) => { this.z = z; void this.go('atom', 'build'); },
       onLoupe: (z) => {
         if (z !== null) this.setZ(z);
-        if (this.screen === 'gallery' || this.screen === 'atom') this.setNav(z === null ? 'gallery' : 'atom', 'view');
+        if (this.screen === 'gallery' || this.screen === 'atom') this.setNav(z === null ? 'gallery' : 'atom', this.mode === 'info' ? 'info' : 'view');
       },
     });
     // Header: the mark (home) on the left, then the four sections, each an icon over its name.
@@ -120,7 +120,7 @@ export class AppShell {
 
     // Put away whatever is not on screen. The screen that shows re-registers the microscope.
     setScienceHandler(null);
-    const showGallery = screen === 'gallery' || (screen === 'atom' && mode === 'view');
+    const showGallery = screen === 'gallery' || (screen === 'atom' && mode !== 'build');
     const showGame = screen === 'atom' && mode === 'build';
     const showPlay = screen === 'puzzles';
     const showSettings = screen === 'settings';
@@ -137,7 +137,7 @@ export class AppShell {
 
     if (showGallery) {
       this.gallery.show();
-      if (screen === 'atom') this.gallery.openAtom(this.z);
+      if (screen === 'atom') this.gallery.openAtom(this.z, mode === 'info' ? 'info' : 'view');
       else this.gallery.closeAtom();
     } else if (showGame) {
       $('app').hidden = false;

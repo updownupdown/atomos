@@ -1,15 +1,13 @@
-// The mode row on Atom screens, under the atom bar: a choice between Build and View (Build first,
-// since that is where the game moves forward), then the atom's progress on the right, whichever
-// mode is showing. The progress reads as a ring and a large percentage for the atom itself
-// (nucleus, electrons and its lasting isotopes, the 100% that counts), with a small second line
-// for its fleeting isotopes, which are extra.
+// The mode row on Atom screens, under the atom bar: Build (first, since that is where the game
+// moves forward), View (the 3D atom) and Info (the element's pages). progressHtml, the ring and
+// percentages, is shared with the gallery's views row.
 //
 // The microscope is not here: each screen places its own with scienceButton().
 
 import { createSegments, type Segments } from './components';
 import { atomProgress, fleetingCount } from '../core/progress';
 
-export type AtomMode = 'view' | 'build';
+export type AtomMode = 'view' | 'build' | 'info';
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -34,15 +32,13 @@ export function initModeBar(onPick: (mode: AtomMode) => void, z: () => number): 
   seg = createSegments([
     { id: 'build', label: 'Build' },
     { id: 'view', label: 'View' },
+    { id: 'info', label: 'Info' },
   ], {
     label: 'Atom mode',
     onChange: (id) => onPick(id as AtomMode),
   });
-  prog = document.createElement('span');
-  prog.className = 'mode-prog';
+  // The row is the choice alone: the atom's progress lives on its Build page.
   $('mode-seg').append(seg.el);
-  $('mode-row').append(prog);
-  refreshModeProgress();
 }
 
 /** Show or hide the row, and mark the current mode. */

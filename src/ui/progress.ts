@@ -38,3 +38,14 @@ export function pipsHtml(rating: number, cls = 'bh-pips'): string {
   const on = Math.ceil(rating / 2);
   return `<span class="${cls}" aria-hidden="true">${Array.from({ length: 5 }, (_, i) => `<i class="${i < on ? 'on' : ''}"></i>`).join('')}</span>`;
 }
+
+/** The fleeting isotopes' own ring, the size of the electron ring in progressRings: a track and
+ *  an arc for the share built, green once all are. */
+export function fleetingRing(built: number, total: number, size = 40): string {
+  const p = total ? Math.max(0, Math.min(1, built / total)) : 0;
+  const done = total > 0 && built >= total;
+  return `<svg class="bh-rings-svg bh-fleet-ring" viewBox="0 0 40 40" width="${size}" height="${size}" aria-hidden="true">
+    <circle class="rg-track" cx="20" cy="20" r="17" stroke-width="5" />
+    ${p > 0 ? `<circle class="rg-on${done ? ' is-done' : ''}" cx="20" cy="20" r="17" stroke-width="5" pathLength="100" stroke-dasharray="${(p * 100).toFixed(2)} 100" transform="rotate(-90 20 20)" />` : ''}
+  </svg>`;
+}
