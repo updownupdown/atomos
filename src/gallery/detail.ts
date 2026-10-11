@@ -54,11 +54,13 @@ const UNITS_PER_FM = 1e-5;
 const NUCLEUS_VIEW_FM = 9.9;
 const DIVE_S = 2.6;
 /** The base set: every orbital a modest share, enough for ghosts and the whole atom. The orbital
- *  in focus (or lit) gets a dense set of its own on top: View 400k points, Build 160k (a smaller
- *  stage that shows the whole atom, so the rest keeps a fair share of the light). */
+ *  in focus (or lit) gets a dense set of its own on top: View 400k points. Build shows the whole
+ *  atom rather than one orbital, so its budget leans the other way: a bigger base set, most of
+ *  it drawn for every orbital, and only 80k extra for the lit one. */
 const BASE_POINTS = { per: 30_000, budget: 600_000 };
+const BUILD_POINTS = { per: 45_000, budget: 900_000 };
 const DENSE_VIEW = 400_000;
-const DENSE_BUILD = 160_000;
+const DENSE_BUILD = 80_000;
 /** Sampling work per frame while an atom's points come in: 5 ms at 60 fps, more where frames
  *  are slow anyway (a quarter of the frame, up to 30 ms), so a slow device still fills in. */
 const sampleSlice = (frameMs: number) => Math.max(5, Math.min(30, frameMs * 0.25));
@@ -72,7 +74,7 @@ const PLAY_RESUME_MS = 5000;
  *  along the ladder (resting on each) with the whole atom in view, no light pulses, and the rest
  *  of the atom kept visible enough to read its structure round the lit orbital. */
 const BUILD_LOOK: SpotlightOptions = {
-  spot: 'scan', rest: 'tint', palette: 'print', tempo: 0.5, camera: 'still', twinkle: 0.25, brightness: 1.5, pulse: 0, restShare: 0.32,
+  spot: 'scan', rest: 'tint', palette: 'print', tempo: 0.5, camera: 'still', twinkle: 0.25, brightness: 3, pulse: 0, restShare: 0.75,
 };
 
 /** An orbit camera that frames a radius, easing in powers of ten (so a dive of five decades
@@ -252,7 +254,8 @@ export class Detail {
     this.wpa0 = worldPerA0(e);
     if (this.nucleusOn || this.variant === 'build') this.nucleus.show(e);
     if (fresh) {
-      this.builder = orbitalSetBuilder(e, BASE_POINTS.per, BASE_POINTS.budget);
+      const pts = this.variant === 'build' ? BUILD_POINTS : BASE_POINTS;
+      this.builder = orbitalSetBuilder(e, pts.per, pts.budget);
       this.rig.zoom = 1;
       this.computeLitTargets();
       this.litNow.set(this.litTo);
