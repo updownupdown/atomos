@@ -31,7 +31,6 @@ import { playUnlock } from '../puzzles/unlock';
 import { isLookId, lensUnlock, lookOf, lookUnlock, LOOKS, type LookId } from './looks';
 import { atomThumb } from './thumbs';
 import { fleetingOpen, periodNeed, periodSentence, rowLockNote } from './locks';
-import { progressHtml } from '../ui/modebar';
 
 type GalleryMode = 'collection' | 'map' | 'details';
 
@@ -53,6 +52,8 @@ export class GalleryApp {
   private upNext = Object.assign(createCallout({ kicker: '', title: '', pic: '', className: 'ui-callout--float up-next' }), { hidden: true });
   /** The Up next step swiped away, by key: it comes back once the next step changes. */
   private upNextGone: string | null = null;
+  /** The whole collection's progress, in the Collection's search row between search and Filter. */
+  private overall = Object.assign(document.createElement('span'), { className: 'gal-prog' });
   private tab: ViewTab = 'model';
   /** The Info page last open, kept while View shows the 3D atom. */
   private page: Exclude<ViewTab, 'model'> = 'overview';
@@ -128,15 +129,17 @@ export class GalleryApp {
     if (this.tab === 'isotopes') this.renderPanel();
   }
 
-  /** The whole collection's progress, beside the views: every atom's share built, averaged. */
+  /** The whole collection's progress: every atom's share built, averaged ("Stable"), over the
+   *  share of fleeting isotopes built once they are open (any atom built). */
   private paintOverall(): void {
     const save = this.save;
     const main = ELEMENTS.reduce((t, e) => t + atomProgress(e.z, save), 0) / MAX_Z;
     const n = Math.round(main * 100);
-    // Fleeting isotopes join the count once they are open (any atom built).
     const f = fleetingOpen(save) ? fleetingTotal(save) : null;
-    $('gal-prog').innerHTML = progressHtml(main, f?.total ? { label: 'fleeting', pct: f.built / f.total } : null, false);
-    $('gal-prog').setAttribute('aria-label', `Collection ${n}% built${f ? `; ${f.built} of ${f.total} fleeting isotopes` : ''}`);
+    const fp = f?.total ? Math.round((f.built / f.total) * 100) : null;
+    this.overall.innerHTML = `<span${n >= 100 ? ' class="is-done"' : ''}>Stable: <b>${n}%</b></span>`
+      + (fp !== null ? `<span${fp >= 100 ? ' class="is-done"' : ''}>Fleeting: <b>${fp}%</b></span>` : '');
+    this.overall.setAttribute('aria-label', `Collection ${n}% built${f ? `; ${f.built} of ${f.total} fleeting isotopes` : ''}`);
   }
 
   /** Whether this atom's row is not open yet (two thirds of the row above unbuilt). It stays
@@ -177,11 +180,16 @@ export class GalleryApp {
     lenses.querySelectorAll<HTMLButtonElement>('button').forEach((b) => (b.onclick = () => this.setLayout(b.dataset.id as LayoutId)));
     // Bottom right: the nucleus up close (opened with Glyph) and back.
     $('style-switch').innerHTML = `<div class="tool-group"><button class="tool-chip" id="nucleus-chip"></button></div>`;
-    this.detail.onDive = (text) => {
+    this.detail.onDive = (dive) => {
       const r = $('dive-readout');
-      r.classList.toggle('on', Boolean(text));
-      if (text) r.textContent = text;
+      r.classList.toggle('on', Boolean(dive));
+      if (!dive) return;
+      r.querySelector('b')!.textContent = dive.across;
+      r.querySelector<HTMLElement>('i')!.style.width = `${dive.barPx.toFixed(1)}px`;
+      r.querySelector('small')!.textContent = dive.barLabel;
     };
+    $('dive-readout').innerHTML = '<b></b><i></i><small></small>';
+    this.detail.onLeaveNucleus = () => this.setNucleus(false);
     $('nucleus-chip').onclick = () => {
       if (!this.opened('nucleus-view')) {
         this.offerUnlock('nucleus-view', 'The nucleus view', 'Zoom a hundred thousand times closer, past the electrons, to every proton and neutron packed in the middle of the atom.', () => this.setNucleus(true));
@@ -242,9 +250,9 @@ export class GalleryApp {
     const keys = $('loupe-keys');
     keys.innerHTML = `<button type="button" class="lh-keys-toggle" aria-expanded="false" aria-controls="loupe-keylists">Shortcuts${icon('chevron-down', { size: 14 })}</button>`
       + `<div id="loupe-keylists" class="lh-keylists" hidden>${list('for-touch', [
-        ['Swipe ↕', 'Orbitals'], ['Swipe ↔', 'Focus'], ['Pinch', 'Zoom'], ['Twist', 'Colors'], ['Two fingers', 'Turn'], ['Double-tap', 'Solo / All'],
+        ['Swipe ↕', 'Orbitals'], ['Swipe ↔', 'Focus'], ['Pinch', 'Zoom'], ['Twist', 'Colors'], ['Two fingers', 'Rotate'], ['Double-tap', 'Toggle focus'],
       ])}${list('for-mouse', [
-        ['Wheel', 'Orbitals'], ['Drag ↕ ↔', 'Orbitals · Focus'], ['Shift + wheel', 'Focus'], ['Ctrl + wheel', 'Zoom'], ['Double-click', 'Solo / All'],
+        ['Wheel', 'Orbitals'], ['Drag ↕ ↔', 'Orbitals · Focus'], ['Shift + wheel', 'Focus'], ['Ctrl + wheel', 'Zoom'], ['Double-click', 'Toggle focus'],
       ])}</div>`;
     const toggle = keys.querySelector<HTMLButtonElement>('.lh-keys-toggle')!;
     const lists = $('loupe-keylists');
@@ -458,6 +466,7 @@ export class GalleryApp {
         fleetingTotal: true,
       });
       $('gal-collection').append(this.collection.el, this.upNext);
+      this.collection.el.querySelector('.el-filter')?.before(this.overall);
       this.paintUpNext();
     }
   }

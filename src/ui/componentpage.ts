@@ -192,7 +192,7 @@ export function renderComponentPage(page: HTMLElement, onBack: () => void): void
   const state = (txt: string, ico: 'check' | 'star') => h('span', 'cl-state', `<span class="bh-state">${icon(ico, { size: 14 })}${txt}</span>`);
   section(page, 'Progress and marks', 'How far something has got.',
     spec('Progress figures', 'Mode rows: the ring and percentage (green at 100%); the gallery shows figures alone.',
-      h('span', 'mode-prog', progressHtml(0.33, { label: 'fleeting', pct: 0.1 })), h('span', 'mode-prog', progressHtml(1, null)), h('span', 'gal-prog', progressHtml(0.15, { label: 'fleeting', pct: 0 }, false))),
+      h('span', 'mode-prog', progressHtml(0.33, { label: 'fleeting', pct: 0.1 })), h('span', 'mode-prog', progressHtml(1, null)), h('span', 'gal-prog', '<span>Stable: <b>15%</b></span><span>Fleeting: <b>0%</b></span>')),
     spec('Atom rings', 'The Build page: nucleus disc, electron ring, isotope arcs; green when complete.',
       progressRings({ nucleus: true, shells: false, lasting: { built: 1, total: 3 }, fleeting: { built: 0, total: 20 } }),
       progressRings({ nucleus: true, shells: true, lasting: { built: 3, total: 3 }, fleeting: { built: 8, total: 20 } })),
@@ -207,17 +207,16 @@ export function renderComponentPage(page: HTMLElement, onBack: () => void): void
     iconButton({ icon: icon('restart'), label: 'Restart' }),
     iconButton({ icon: icon('buoy'), label: 'Hint' }),
     iconButton({ icon: icon('info'), label: 'Instructions' }),
-    iconButton({ icon: MICROSCOPE, label: 'The science' }),
-  ], { label: 'Gallium', onClick: () => showToast('Back') });
+  ], { label: 'Gallium', onClick: () => showToast('Back') }, [iconButton({ icon: MICROSCOPE, label: 'The science' })]);
   bar.setTitle('Quanta', puzzleIcon('orbitalGrid', 22));
   bar.setDifficulty(3);
   bar.update(fakeView(4), '4 / 12 placed');
   const board = h('div', 'cl-board', '<span>The board</span>');
-  frame.append(bar.el, board, bar.foot);
+  frame.append(bar.el, board);
   const offer = ask('Show Learn to Play', () => { const s = loadSeen(); offerRules(bar, { id: `cl-${s}`, name: 'Quanta' }, () => showToast('Rules')); });
-  section(page, 'Game frame', 'The same around every game: name and stats on gray; Back and the tools on black; the board; the message line with the game\'s action under it.',
-    spec('Game bar and foot', 'Build, Practice and the gate puzzles.', frame),
-    spec('Learn to Play', 'Floats above the foot the first time a game is played.', offer),
+  section(page, 'Game frame', 'The same around every game: name and stats on gray; Back and the tools on black; the status line (the microscope, the message, the game\'s action); then the board.',
+    spec('Game bar and status line', 'Build, Practice and the gate puzzles.', frame),
+    spec('Learn to Play', 'Floats under the status line the first time a game is played.', offer),
   );
 }
 

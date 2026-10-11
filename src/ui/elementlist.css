@@ -22,10 +22,10 @@
   appearance: none;
 }
 .el-search input::-webkit-search-cancel-button { display: none; }
-.el-search input::placeholder { color: var(--c-text-3); }
+.el-search input::placeholder { color: var(--c-text-2); }
 .el-search input:focus-visible { box-shadow: inset 0 0 0 2px var(--c-accent); }
-.el-clear { position: absolute; right: 2px; top: 50%; transform: translateY(-50%); width: var(--hit); height: var(--hit); display: grid; place-items: center; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--c-text-3); }
-.el-clear:hover { color: var(--c-text-2); }
+.el-clear { position: absolute; right: 2px; top: 50%; transform: translateY(-50%); width: var(--hit); height: var(--hit); display: grid; place-items: center; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--c-text-2); }
+.el-clear:hover { color: var(--c-text); }
 .el-clear[hidden] { display: none; }
 
 /* The search, with the Filter button on its right; Filter unfolds the stage pills. */
@@ -98,15 +98,15 @@
 .el-id b { font-size: 20px; font-weight: var(--fw-semibold); color: var(--c-text); }
 .el-row.is-locked .el-id b { color: var(--c-text-2); }
 .el-main > span { font-size: var(--fs-sm); color: var(--c-text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.el-prog { display: grid; grid-template-columns: auto 64px; align-items: center; gap: 7px 8px; }
+.el-prog { display: grid; grid-template-columns: auto 42px; align-items: center; gap: 7px 8px; }
 .el-pl { display: contents; }
-.el-pl small { justify-self: end; font-size: var(--fs-xs); font-weight: var(--fw-medium); line-height: 1; color: var(--c-text-2); }
-.el-bar { display: block; height: 4px; border-radius: 2px; background: var(--c-line-2); overflow: hidden; }
-.el-bar i { display: block; height: 100%; border-radius: 2px; background: var(--c-text); }
+.el-pl small { justify-self: end; display: flex; align-items: center; height: 12px; font-size: var(--fs-xs); font-weight: var(--fw-medium); line-height: 1; color: var(--c-text-2); }
+.el-pbar { display: block; height: 4px; border-radius: 2px; background: var(--c-line-2); overflow: hidden; }
+.el-pbar i { display: block; height: 100%; border-radius: 2px; background: var(--c-text); }
 .el-pl.is-done small { color: var(--c-done); }
-.el-pl.is-done .el-bar i { background: var(--c-done); }
+.el-pl.is-done .el-pbar i { background: var(--c-done); }
 .el-pl.is-na small { color: var(--c-text-3); opacity: 0.6; }
-.el-pl.is-na .el-bar { opacity: 0.4; }
+.el-pl.is-na .el-pbar { opacity: 0.4; }
 .el-row.is-locked .el-tile { background: var(--c-surface-2); box-shadow: inset 0 0 0 3px var(--c-line); }
 .el-row.is-locked .el-tile b { color: var(--c-text-2); }
 .el-lock { display: inline-flex; margin-left: 6px; vertical-align: -2px; color: var(--c-warn); }

@@ -36,7 +36,6 @@
     <div id="gallery-screen">
       <div class="mode-row gal-modes" id="gal-modes">
         <div class="mode-seg" id="gal-mode-seg"></div>
-        <span class="gal-prog" id="gal-prog"></span>
       </div>
       <canvas id="gal" aria-label="Every element as an atom. Drag to move, pinch to zoom, tap one to look closer."></canvas>
       <div id="gal-labels" class="gal-labels" aria-hidden="true"></div>
@@ -60,13 +59,12 @@
         <div class="atom-panel" id="atom-panel" role="tabpanel" hidden></div>
         <canvas id="loupe" aria-label="The selected atom. Swipe up and down to glide through its orbitals, sideways for more or less focus; pinch to zoom, two fingers to turn it."></canvas>
         <!-- Over the 3D atom (src/gallery/detail.ts, render/explorer.ts): the microscope top
-             left; Play/Pause, full screen, the frame rate and the folded shortcuts top right; the
+             left; the frame rate, Play/Pause, full screen and the folded shortcuts top right; the
              ladder of orbitals on the right edge; "− Orbital focus +" at the foot; the scale circles bottom left and the nucleus bottom right. -->
         <div class="loupe-hud" id="loupe-hud">
           <div class="lh-tl" id="loupe-tl"></div>
           <div class="lh-tr">
-            <div class="lh-btns" id="loupe-btns"></div>
-            <div class="lh-fps" id="loupe-fps" aria-hidden="true"></div>
+            <div class="lh-btns" id="loupe-btns"><div class="lh-fps" id="loupe-fps" aria-hidden="true"></div></div>
             <div class="lh-keys" id="loupe-keys"></div>
           </div>
           <div class="lh-explorer" id="loupe-explorer"></div>
@@ -92,6 +90,7 @@
           <canvas id="bh-atom" aria-label="The atom you are building."></canvas>
           <div class="bh-empty" id="bh-empty" hidden>Nucleus not built</div>
           <div class="bh-rings" id="bh-progress" role="img"></div>
+          <ul class="bh-scale" id="bh-scale" aria-label="Size circles round the atom, by diameter" hidden></ul>
         </div>
         <div class="bh-in" id="bh-in"></div>
       </section>

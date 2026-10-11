@@ -45,8 +45,8 @@ export class Playground {
     this.host.onWon = (v) => this.won(v.moves, v.par, v.clean);
     this.renderHome();
 
-    // The board maker, folded into a settings button at the bottom left (the X folds it again):
-    // previous, the element, next, a slider across the range, a new deal.
+    // The board maker, folded into a settings button at the left of the status line (the X folds
+    // it again): previous, the element, next, a slider across the range, a new deal.
     const bar = $('pg-bar');
     const gen = $('pg-gen');
     const fold = iconButton({ icon: icon('settings'), label: 'Board settings', className: 'pg-fold', onClick: () => setOpen(Boolean(bar.hidden)) });
@@ -87,10 +87,11 @@ export class Playground {
       this.restartBtn,
       this.host.hints.button,
       iconButton({ icon: icon('info'), label: 'Instructions', onClick: () => this.instructions() }),
-      scienceButton('ui-icon-btn science-btn'),
-    ], { label: 'All games', onClick: () => this.back() });
+    ], { label: 'All games', onClick: () => this.back() }, [scienceButton('ui-icon-btn science-btn')]);
     $('pg-gbar').append(this.gbar.el);
-    $('pg-foot').prepend(this.gbar.foot);
+    // The board settings sit at the left of the status line; open, they cover the rest of it.
+    this.gbar.foot.classList.add('has-gen');
+    this.gbar.foot.querySelector('.gfoot-line')!.prepend(gen);
     $('pg-home-head').append(scienceButton());
 
     window.addEventListener('keydown', (e) => this.key(e));
