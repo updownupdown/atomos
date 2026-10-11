@@ -1,6 +1,6 @@
 // Drawing and touch for Packing (Tessera): drag pieces from the tray onto the
-// square board, tap a piece to turn it, drag a placed piece to move it or off the
-// board to lift it. At the top of the table a flip button mirrors the chosen piece.
+// square board (its holes drawn as studs), tap a piece to turn it, drag a placed
+// piece to move it or off the board to lift it. At the top of the table a flip button mirrors the chosen piece.
 // The board and the tray are laid out from the area alone (tray below on a
 // tall area, beside on a wide one), and the tray scales its pieces down until
 // they all fit, so nothing ever spills.
@@ -18,7 +18,7 @@ const FLIP_SIZE = 44;
 
 export const INSTRUCTIONS = `
 <h3>In the game</h3>
-<p class="meta">Tessera builds the isotopes in each atom's vault on its Build page: one board per isotope, opening once the atom is built. It runs for every element, z 1 to 118. The board is always a plain square: 4 by 4 up to z 10, 5 by 5 up to z 36, 6 by 6 up to z 76 and 7 by 7 to the end of the table. The tray holds exactly the pieces that fill it, and every one is used. Each piece is a different shape of three to five cells (one six-cell piece joins from z 100); there are never dominoes, and at most one straight bar or 2 by 2 square on the larger boards. Each level is carved from its own answer, so it is always solvable; other answers may exist and count too. Several cuts are carved for every deal and a solver counts how many ways each can be finished: lighter elements get a looser cut, and within each board size the cuts get tighter toward the heavier elements. Flipping arrives at z 90. Par is one placement per piece: every drop on the board counts as a move, so moving a piece twice costs one over par. Turning, flipping and lifting are free.</p>
+<p class="meta">Tessera builds the isotopes in each atom's vault on its Build page: one board per isotope, opening once the atom is built. It runs for every element, z 1 to 118. The board is a square, 4 by 4 up to z 10, 5 by 5 up to z 36, 6 by 6 up to z 76 and 7 by 7 to the end of the table, with one to three single cells cut out of it, shown as studs. The tray holds exactly the pieces that fill the rest, every one is used, and every level has exactly one answer. A full square never could: any answer turned a quarter would be another. So each gap is cut where a second answer would otherwise go, never beside another gap and never splitting the board. The pieces are all different shapes of three to six cells, never dominoes, with at most one straight bar or 2 by 2 square on the larger boards. Six-cell pieces join the 6 by 6 from z 60 and make up most of the 7 by 7. Flipping arrives at z 90, and the single answer then holds with flips too. Within each board size, the heavier elements get the deals a solver takes longest to prove unique. Par is one placement per piece: every drop on the board counts as a move, so moving a piece twice costs one over par. Turning, flipping and lifting are free.</p>
 `;
 
 interface Slot { id: number; x: number; y: number; side: number }
@@ -393,7 +393,7 @@ export class PackingView implements PuzzleView {
     const shaking = now - this.shake < SHAKE_MS;
 
     // The board: the shared frame round the square and a faint dot on each cell.
-    drawBoard(ctx, s.w, s.h, bx, by, cell, shaking ? C.warn : won ? C.good : C.frame);
+    drawBoard(ctx, s.w, s.h, bx, by, cell, shaking ? C.warn : won ? C.good : C.frame, s.outline);
 
     const d = this.drag && this.drag.moved ? this.drag : null;
     const t = d ? this.target(d) : null;
@@ -572,19 +572,31 @@ function drawPiece(ctx: CanvasRenderingContext2D, p: Piece, ox: number, oy: numb
 }
 
 /** The board: the shared board frame round the square of w by h cells, standing off them by
- *  framePad, and a faint dot at the center of each cell. */
-function drawBoard(ctx: CanvasRenderingContext2D, w: number, h: number, bx: number, by: number, cell: number, color: string): void {
+ *  framePad, a faint dot at the center of each open cell, and a stud on each hole. `open` says
+ *  which cells belong to the board (all of them when absent). */
+function drawBoard(ctx: CanvasRenderingContext2D, w: number, h: number, bx: number, by: number, cell: number, color: string, open?: boolean[]): void {
   if (!(w > 0 && h > 0 && cell > 0)) return;
   drawFrame(ctx, frameBox(bx, by, w * cell, h * cell, cell), { width: frameWidth(cell), radius: cell * 0.2 + framePad(cell), color });
   ctx.save();
   ctx.fillStyle = C.surface3;
   const r = Math.max(1.5, cell * 0.035);
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    if (open && !open[y * w + x]) continue;
     ctx.beginPath();
     ctx.arc(bx + (x + 0.5) * cell, by + (y + 0.5) * cell, r, 0, Math.PI * 2);
     ctx.fill();
   }
   ctx.restore();
+  if (open) for (let i = 0; i < open.length; i++) if (!open[i]) drawHole(ctx, bx + (i % w) * cell, by + Math.floor(i / w) * cell, cell, color);
+}
+
+/**
+ * A hole: a cell cut out of the board, drawn as a stud in the frame's own color and line, set
+ * into the middle of the cell, so it reads as part of the board's edge rather than a piece.
+ */
+function drawHole(ctx: CanvasRenderingContext2D, x: number, y: number, cell: number, color: string): void {
+  const side = cell * 0.44, r = side * 0.3;
+  tile(ctx, x + (cell - side) / 2, y + (cell - side) / 2, side, side, r, color);
 }
 
 // ---- outline tracing ------------------------------------------------------------
@@ -663,6 +675,9 @@ const PEE: Shape = [[0, 0], [1, 0], [0, 1], [1, 1], [1, 2]];
 const QUE: Shape = [[0, 0], [1, 0], [0, 1], [1, 1], [0, 2]];
 const ELL_AT: Cell = { x: 0, y: 0 };
 const PEE_AT: Cell = { x: 1, y: 0 };
+/** With the bottom right corner cut out, the P's place is a 2 by 2 square. */
+const SQ: Shape = [[0, 0], [1, 0], [0, 1], [1, 1]];
+const CORNER: Shape = [[2, 2]];
 
 const demoPiece = (id: number, shape: Shape, rot: Rot = 0, flip = false): Piece => ({ id, shape: shape.map(([x, y]) => ({ x, y })), rot, flip, at: null });
 
@@ -681,8 +696,10 @@ function demoTable(w: number, h: number, gw: number, gh: number, trayShare = 0.3
 }
 
 /** The square as the board draws it: the frame round it and a dot on each cell. */
-function demoBoard(ctx: CanvasRenderingContext2D, T: DemoTable, side: number, rim: string = C.frame): void {
-  drawBoard(ctx, side, side, T.bx, T.by, T.cell, rim);
+function demoBoard(ctx: CanvasRenderingContext2D, T: DemoTable, side: number, rim: string = C.frame, holes: Shape = []): void {
+  const open = Array(side * side).fill(true);
+  for (const [x, y] of holes) open[y * side + x] = false;
+  drawBoard(ctx, side, side, T.bx, T.by, T.cell, rim, open);
 }
 
 function demoTray(ctx: CanvasRenderingContext2D, T: DemoTable): void {
@@ -802,7 +819,7 @@ const HELD = 0.66;
 export const RULES: RuleCard[] = [
   {
     title: 'Fill the square',
-    text: 'Drag pieces from the tray into the square until every cell is filled. The tray holds exactly the pieces that fill it, so every piece is used.',
+    text: 'Drag pieces from the tray into the square until every cell is filled. The tray holds exactly the pieces that fill it, so every piece is used, and they fit in only one way.',
     good: {
       duration: 2.6,
       caption: 'Every piece in, every cell filled',
@@ -925,6 +942,39 @@ export const RULES: RuleCard[] = [
         const x = T.bx + (spot.x - T.bx) * k, y = T.by + (spot.y - T.by) * k, cell = T.cell + (T.tc - T.cell) * k;
         drawPiece(ctx, a, x, y, cell, 0, k > 0 && k < 1);
         if (k > 0 && k < 1) demoFinger(ctx, x + cell * 0.5, y + cell * 0.5, T.cell * 0.2);
+      },
+    },
+  },
+  {
+    title: 'Gaps stay empty',
+    text: 'Each square has one to three cells cut out of it, shown as studs. Nothing goes there: fill every other cell. They are why the pieces fit in only one way.',
+    good: {
+      duration: 2.6,
+      caption: 'Filled round the gap',
+      draw: (ctx, w, h, t) => {
+        const T = demoTable(w, h, 3, 3);
+        const a = demoPiece(0, ELL), b = demoPiece(1, SQ);
+        demoBoard(ctx, T, 3, t > 2.1 ? C.good : C.frame, CORNER);
+        demoTray(ctx, T);
+        const ka = seg(t, 0.3, 1.1), kb = seg(t, 1.2, 2.0);
+        if (ka === 0) demoInTray(ctx, T, a, 0, 2);
+        if (kb === 0) demoInTray(ctx, T, b, 1, 2);
+        if (ka > 0) demoCarry(ctx, T, a, traySpot(T, a, 0, 2), T.tc, ELL_AT, ka);
+        if (kb > 0) demoCarry(ctx, T, b, traySpot(T, b, 1, 2), T.tc, PEE_AT, kb);
+      },
+    },
+    bad: {
+      duration: 2,
+      caption: 'Nothing goes on a gap',
+      draw: (ctx, w, h, t) => {
+        const T = demoTable(w, h, 3, 3);
+        const a = demoPiece(0, ELL), b = demoPiece(1, SQ);
+        demoBoard(ctx, T, 3, C.frame, CORNER);
+        demoTray(ctx, T);
+        demoInTray(ctx, T, a, 0, 2);
+        const k = seg(t, 0.3, 1.5) * HELD;
+        if (k === 0) demoInTray(ctx, T, b, 1, 2);
+        else demoCarry(ctx, T, b, traySpot(T, b, 1, 2), T.tc, { x: 1, y: 1 }, k, false);
       },
     },
   },

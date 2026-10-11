@@ -182,8 +182,8 @@ export const PUZZLES: PuzzleType[] = [
     id: 'packing', name: 'Tessera', tier: 'facet',
     use: 'Isotopes',
     get rules() { return rulesOf(PackingV); },
-    goal: 'Fill the square, using every piece.',
-    blurb: 'Drag every piece into the square until it is full; tap a piece to turn it.',
+    goal: 'Fill the square around its gaps, using every piece.',
+    blurb: 'Drag every piece into the square, around the studded gaps, until it is full; they fit in only one way. Tap a piece to turn it.',
     role: 'Builds isotopes, leaning toward the lighter atoms.',
     live: 'Build mode: 72 lasting isotopes, and any fleeting isotope by choice.',
     instructions: PACKING_HOW,
@@ -194,7 +194,7 @@ export const PUZZLES: PuzzleType[] = [
       return `<h2>Tessera: the science</h2>
         <p>Same element, different weights: an <b>isotope</b> is ${el.name} with a different number of neutrons. ${el.name} has ${el.isotopes.length} known isotopes, ${el.isotopes.filter((i) => i.stable).length} of them stable. Too many or too few neutrons and the nucleus is unstable, so the stable ones sit in a narrow <b>valley</b> on the chart of nuclides.</p>
         <p>Nucleons do pack: the nucleus is a dense liquid-like drop, and its radius grows with the cube root of the mass number, which is why a heavy nucleus is only a few times wider than a light one.</p>
-        <p class="muted">Game rule: the square and its pieces are a game of fitting shapes, not the real arrangement of nucleons, which have no fixed positions at all.</p>`;
+        <p class="muted">Game rule: the square, its gaps and its pieces are a game of fitting shapes with a single answer, not the real arrangement of nucleons, which have no fixed positions at all.</p>`;
     },
   },
   {
