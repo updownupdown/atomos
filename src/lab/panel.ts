@@ -2,8 +2,8 @@
 // It owns no state; every control reports a patch and the lab re-renders the panel from state.
 
 import { L_OF, elementAt, type Block } from '../gallery/data';
-import { THRESHOLDS } from './model';
-import { mChoices, orbitalChoices } from './model';
+import { THRESHOLDS } from '../render/model';
+import { mChoices, orbitalChoices } from '../render/model';
 import type { LabState } from './state';
 import { QUALITIES, type Experiment, type ExperimentOption } from './types';
 

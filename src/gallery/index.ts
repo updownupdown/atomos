@@ -3,16 +3,18 @@
 // a few white captions round the atom, then the element's science as pages.
 // Each page ends with a "How to read this" button that opens its guide.
 
-import { STYLES, type AtomLit, type Style } from './atom';
+import type { AtomLit } from './atom';
 import { CLOUD_RINGS, ELEMENTS, MAX_Z, elementAt, type Element } from './data';
 import { NUCLEUS_RINGS } from './nucleus';
 import type { OrbitalShape } from '../core/save';
 import { Detail } from './detail';
 import { Gallery } from './gallery';
-import { decoratorsHTML, tabHTML, VIEW_TABS, type ViewTab } from './info';
+import { tabHTML, VIEW_TABS, type ViewTab } from './info';
 import { guideHTML } from './guide';
-import { icon, type IconName } from '../ui/icons';
-import { createCallout, createSegments, createTabs, nextButton, type Segments, type Tabs } from '../ui/components';
+import { icon } from '../ui/icons';
+import { atomSheetHTML } from './atomsheet';
+import { fullScreen, type FullScreen } from './fullscreen';
+import { createCallout, createSegments, createTabs, iconButton, nextButton, type Segments, type Tabs } from '../ui/components';
 import { ISO_FILTERS, STRUCTURE_VIEWS } from './visuals';
 import { createAtomBar, type AtomBar } from './atombar';
 import { isLayoutId, LAYOUT_STORY, LAYOUTS, type LayoutId } from './layouts';
@@ -65,10 +67,6 @@ export class GalleryApp {
   private nucleusOn = false;
   /** Orbital kinds whose shapes Glyph has not discovered yet. */
   private hiddenShapes: OrbitalShape[] = [];
-  private style: Style = (() => {
-    const saved = localStorage.getItem('atomos.gallery.style');
-    return STYLES.some((s) => s.id === saved) ? (saved as Style) : 'cloud';
-  })();
   /** The gallery shows the Collection (every atom with its progress, the default), the atoms
    *  on a map, or every element in a sortable Details table. */
   private mode: GalleryMode = (() => {
@@ -83,16 +81,16 @@ export class GalleryApp {
   private rings = localStorage.getItem('atomos.gallery.rings') !== 'off';
   private tabs!: Tabs;
   private bar!: AtomBar;
+  private full!: FullScreen;
 
   constructor(private handlers: GalleryHandlers) {
     this.gallery = new Gallery($('gal'), $('gal-labels'));
-    this.detail = new Detail($('loupe'));
+    this.detail = new Detail($('loupe'), { variant: 'view', hud: $('loupe-explorer') });
     this.gallery.setReducedMotion(this.save.settings.reducedMotion);
     this.detail.setReducedMotion(this.save.settings.reducedMotion);
     this.buildControls();
     this.refreshCollected();
     this.gallery.setLayout(this.layoutId, false);
-    this.detail.setStyle(this.style);
     this.detail.setRings(this.rings);
     this.gallery.onPick = (e) => this.pick(e.z);
     this.gallery.onHover = (e) => this.hover(e);
@@ -115,10 +113,8 @@ export class GalleryApp {
     this.paintGates();
     // A part solved while away lights up when the atom is next on screen.
     if (this.current) this.detail.setLit(this.litOf(this.current.z), true);
-    // Glyph discovers the p, d and f shapes (on the Build pages of B, Sc and Ce); until then Shapes and Hybrid draw those layers as cloud.
+    // Glyph discovers the p, d and f shapes (on the Build pages of B, Sc and Ce); the Structure page's 2D shapes keep the secret.
     this.hiddenShapes = (Object.keys(SHAPE_AT) as OrbitalShape[]).filter((l) => !orbitalShapeUnlocked(l, save));
-    this.detail.setHiddenShapes(this.hiddenShapes);
-    this.paintShapeNote();
     this.paintOverall();
     this.paintUpNext();
     if (this.current && !$('loupe-screen').hidden) this.paintViewNext();
@@ -174,19 +170,8 @@ export class GalleryApp {
     const lenses = $('lens-switch');
     lenses.innerHTML = LAYOUTS.map((l) => `<button data-id="${l.id}">${l.label}</button>`).join('');
     lenses.querySelectorAll<HTMLButtonElement>('button').forEach((b) => (b.onclick = () => this.setLayout(b.dataset.id as LayoutId)));
-    // The two corner tools speak the same way: a small caption, then chips with an icon and a
-    // plain label. Bottom right: how the atom is drawn.
-    const styleIcon: Record<Style, IconName> = { cloud: 'view-cloud', shapes: 'view-shapes', hybrid: 'view-hybrid' };
-    const styles = $('style-switch');
-    styles.innerHTML = `<div class="tool-group" id="draw-group"><span class="tool-cap" id="draw-cap">Draw as</span>`
-      + `<div class="tool-seg" role="radiogroup" aria-labelledby="draw-cap">`
-      + STYLES.map((s) => `<button role="radio" data-id="${s.id}" aria-checked="${s.id === this.style}">${icon(styleIcon[s.id], { size: 18 })}<span>${s.label}</span></button>`).join('')
-      + `</div><p class="tool-note" id="shape-note" hidden></p></div>`
-      // Below it, the nucleus up close (opened with Glyph) and back.
-      + `<div class="tool-group"><span class="tool-cap">Zoom to</span><button class="tool-chip" id="nucleus-chip"></button><p class="tool-note" id="nucleus-note" hidden></p></div>`;
-    styles.querySelectorAll<HTMLButtonElement>('button[data-id]').forEach((b) => (b.onclick = () => this.setStyle(b.dataset.id as Style)));
-    // Double-tap the atom to dive to its nucleus and back, as the chip does.
-    this.detail.onDoubleTap = () => $('nucleus-chip').click();
+    // Bottom right: the nucleus up close (opened with Glyph) and back.
+    $('style-switch').innerHTML = `<div class="tool-group"><span class="tool-cap">Zoom to</span><button class="tool-chip" id="nucleus-chip"></button><p class="tool-note" id="nucleus-note" hidden></p></div>`;
     this.detail.onDive = (text) => {
       const r = $('dive-readout');
       r.classList.toggle('on', Boolean(text));
@@ -207,17 +192,7 @@ export class GalleryApp {
       + `<ul id="rings-nucleus" hidden>${rows(NUCLEUS_RINGS.map((r) => ({ d: r.fm * 2, style: r.style })), 'fm')}</ul>`
       + `<button class="tool-chip" id="rings-toggle" aria-pressed="${this.rings}"></button>`;
     $('rings-toggle').onclick = () => this.setRings(!this.rings);
-    // The corner notes are pale on purpose; a tap lights one up to read, and it fades back.
-    for (const id of ['dec-top-left', 'dec-top-right']) {
-      const dec = $(id);
-      let timer = 0;
-      dec.onclick = () => {
-        // The isotopes decay back at their own pace; the stable ones stay lit while the atom is up.
-        dec.classList.add('lit', 'read');
-        clearTimeout(timer);
-        timer = window.setTimeout(() => dec.classList.remove('lit'), 400);
-      };
-    }
+    this.buildHud();
     this.paintRingsToggle();
     // The bar: previous, the element (opens the picker), next.
     this.bar = createAtomBar({ onChange: (z) => this.open(elementAt(z)), locked: (z) => this.buildLocked(z) });
@@ -227,6 +202,50 @@ export class GalleryApp {
     this.tabs.el.setAttribute('aria-controls', 'atom-panel');
     $('atom-tabs').append(this.tabs.el);
     this.bindTabSwipe();
+  }
+
+  /** Over the 3D atom: the microscope (top left) opens what the corners used to show; Play/Pause
+   *  and full screen (top right), the frame rate under them, then the touch shortcuts. */
+  private buildHud(): void {
+    const sci = iconButton({ icon: icon('microscope'), label: 'About this atom: electrons, nucleus and isotopes', className: 'ui-icon-btn--ghost lh-btn', onClick: () => this.openAtomSheet() });
+    $('loupe-tl').append(sci);
+    const play = iconButton({ icon: icon('pause'), label: 'Pause', className: 'ui-icon-btn--ghost lh-btn', onClick: () => this.detail.setPlaying(!this.detail.playing) });
+    const full = iconButton({ icon: icon('fullscreen'), label: 'Full screen', className: 'ui-icon-btn--ghost lh-btn lh-full', onClick: () => this.full.toggle() });
+    $('loupe-btns').append(play, full);
+    this.detail.onPlay = (on) => {
+      play.innerHTML = icon(on ? 'pause' : 'play');
+      play.setAttribute('aria-label', on ? 'Pause: stay on this orbital' : 'Play: walk through the orbitals');
+      play.title = on ? 'Pause' : 'Play';
+      play.classList.toggle('is-playing', on);
+    };
+    this.detail.onPlay(this.detail.playing);
+    this.full = fullScreen($('loupe-screen'), (on) => {
+      full.innerHTML = icon(on ? 'fullscreen-exit' : 'fullscreen');
+      full.setAttribute('aria-label', on ? 'Leave full screen' : 'Full screen');
+      full.title = on ? 'Leave full screen' : 'Full screen';
+    });
+    const fps = $('loupe-fps');
+    this.detail.onFps = (v) => {
+      const t = `${Math.round(v)} fps`;
+      if (fps.textContent !== t) fps.textContent = t;
+      fps.classList.toggle('is-slow', v < 50);
+    };
+    const list = (cls: string, rows: [string, string][]) => `<ul class="lh-keylist ${cls}">${rows.map(([k, v]) => `<li><b>${k}</b><span>${v}</span></li>`).join('')}</ul>`;
+    $('loupe-keys').innerHTML = list('for-touch', [
+      ['Swipe ↕', 'Orbitals'], ['Swipe ↔', 'Solo · All'], ['Pinch', 'Zoom'], ['Twist', 'Colors'], ['Two fingers', 'Turn'], ['Double-tap', 'Solo / All'],
+    ]) + list('for-mouse', [
+      ['Wheel', 'Orbitals'], ['Drag ↕ ↔', 'Orbitals · Solo'], ['Shift + wheel', 'Solo · All'], ['Ctrl + wheel', 'Zoom'], ['Double-click', 'Solo / All'],
+    ]);
+    $('loupe-keys').setAttribute('aria-label', 'Shortcuts');
+  }
+
+  /** The microscope's sheet: the configuration and its counts, the nucleus, the isotopes. */
+  private openAtomSheet(): void {
+    const e = this.current;
+    if (!e) return;
+    this.full.exit();
+    const lit = this.litOf(e.z);
+    openModal(atomSheetHTML(e, { nucleus: lit.nucleus, electrons: lit.electrons > 0 }));
   }
 
   /** Swipe sideways on a page to move between tabs; tables that scroll sideways keep the gesture. The model turns instead. */
@@ -276,7 +295,6 @@ export class GalleryApp {
       ? `${icon('lock', { size: 18 })}<span>Nucleus</span>`
       : this.nucleusOn ? `${icon('atom', { size: 18 })}<span>Whole atom</span>` : `${icon('nucleus', { size: 18 })}<span>Nucleus</span>`;
     chip.setAttribute('aria-label', !open ? 'Nucleus view, locked' : this.nucleusOn ? 'Back to the whole atom' : 'Zoom to the nucleus');
-    $('draw-group').hidden = this.nucleusOn;
     $('rings-atom').hidden = this.nucleusOn;
     $('rings-nucleus').hidden = !this.nucleusOn;
     const note = $('nucleus-note');
@@ -479,26 +497,6 @@ export class GalleryApp {
     if (!this.covered) this.gallery.start();
   }
 
-  private setStyle(style: Style): void {
-    this.style = style;
-    localStorage.setItem('atomos.gallery.style', style);
-    $('style-switch').querySelectorAll<HTMLButtonElement>('button[data-id]').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.id === style)));
-    this.detail.setStyle(style);
-    this.paintShapeNote();
-  }
-
-  /** Under the style chips: which of this atom's shapes are still undiscovered, and where to find them. */
-  private paintShapeNote(): void {
-    const note = document.getElementById('shape-note');
-    if (!note) return;
-    const kinds = this.current && this.style !== 'cloud'
-      ? this.hiddenShapes.filter((l) => this.current!.subshells.some((s) => s.l === l)) : [];
-    note.hidden = !kinds.length;
-    if (!kinds.length) return;
-    const and = (xs: string[]) => xs.length > 1 ? `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}` : xs[0];
-    note.textContent = `The ${and(kinds)} shapes are still undiscovered. Find them with Glyph on ${and(kinds.map((l) => elementAt(SHAPE_AT[l]).name.toLowerCase()))}.`;
-  }
-
   private hover(e: Element | null): void {
     const tag = $('gal-hover');
     tag.hidden = !e;
@@ -546,11 +544,6 @@ export class GalleryApp {
     this.gallery.select(e.z);
     this.detail.show(e, !first);
     this.detail.setLit(this.litOf(e.z));
-    const dec = decoratorsHTML(e);
-    $('dec-top-left').innerHTML = dec.topLeft;
-    $('dec-top-right').innerHTML = dec.topRight;
-    $('dec-top-right').classList.remove('read');
-    this.paintShapeNote();
     this.paintNucleus();
     this.bar.set(e.z);
     this.renderPanel();
@@ -611,6 +604,7 @@ export class GalleryApp {
   private close(): void {
     const screen = $('loupe-screen');
     screen.classList.remove('in');
+    this.full.exit();
     this.detail.stop();
     if (this.current) this.gallery.focus(this.current.z);
     this.startMap();
@@ -711,9 +705,11 @@ export class GalleryApp {
     if (!$('modal').hidden || document.querySelector('.ui-drawer')) return;
     // Arrow keys on the tab strip move between tabs; elsewhere they step through the elements.
     if ((ev.target as HTMLElement).closest?.('.ui-tabs')) return;
+    // Up and down walk the 3D atom's orbitals.
+    if (this.tab === 'model' && this.detail.key(ev)) return;
     if (ev.key === 'ArrowRight') this.step(1);
     else if (ev.key === 'ArrowLeft') this.step(-1);
-    else if (ev.key === 'Escape') this.close();
+    else if (ev.key === 'Escape') { if (this.full.on) this.full.exit(); else this.close(); }
   }
 
   /** Show the gallery screen (after the game hands back). */

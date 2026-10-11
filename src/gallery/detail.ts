@@ -1,329 +1,585 @@
-// The loupe: one atom, large, at a fixed scale with its reference circles, so
-// stepping from element to element compares them fairly. Drag to turn it in
-// 3D, pinch to zoom (it drifts back to the shared scale after a pause); the arrows step to the neighbouring element and the same atom stays in
-// place while its layers morph. Three looks: the probability cloud (bright sparks over a soft
-// nebula of the same orbitals, round a warm glowing nucleus), the
-// idealised orbital surfaces, or both. The cloud is live: electrons blink in
-// and out at new places, as a probability cloud is meant to be read.
+// The app's 3D atom, on the Build page and in View. One canvas, one WebGL context.
+//
+// Build ('build'): no touch, settings fixed. Nothing is drawn until the nucleus is built (the
+// page shows "Nucleus not built" instead and no frame runs); then the nucleus as neon bubbles
+// (nucleus.ts); once the electrons are built, the whole atom as its Atom fingerprint
+// (render/spotlight.ts): each orbital its own twinkling cloud, lit one (or one subshell) at a
+// time to the atom's own rhythm, the rest tinted.
+//
+// View ('view'): the Orbital explorer (render/explorer.ts). Swipe up and down to walk the
+// orbitals, sideways for solo, ghost or all, pinch to zoom, twist to turn the colors, two
+// fingers to turn it, double-tap for solo or all. Auto-play walks the ladder softly until a
+// touch, and again after five quiet seconds. The scale circles and the dive to the nucleus
+// (a hundred thousand times closer, at the true ratio of sizes) stay.
+//
+// Both hold a steady 60 fps where they can: a quality governor (render/governor.ts) draws a
+// coarser layer and fewer points while frames are missed, and steps back up with care. Heavy
+// atoms are sampled a slice per frame, so changing atoms never stalls the page.
 
 import * as THREE from 'three';
-import { AtomView, type AtomLit, type Style } from './atom';
-import { CLOUD_RINGS, type Block, type Element } from './data';
+import { fillOrder, type AtomLit } from './atom';
+import { CLOUD_RINGS, type Element } from './data';
 import { token } from './tokens';
-import { NUCLEUS_RINGS, NucleusView } from './nucleus';
+import { NUCLEUS_RINGS, NucleusView, nucleusExtent } from './nucleus';
+import { atomFingerprint } from '../render/fingerprint';
+import { worldPerA0 } from '../render/model';
+import { OrbitalCloud, orbitalSetBuilder, type OrbitalSet, type OrbitalSetBuilder } from '../render/orbitalCloud';
+import { ExplorerHud, OrbitalExplorer, type ExplorerCamera } from '../render/explorer';
+import { Spotlight, type SpotlightOptions } from '../render/spotlight';
+import { QualityGovernor } from '../render/governor';
+
+export type DetailVariant = 'view' | 'build';
+
+export interface DetailOptions {
+  variant: DetailVariant;
+  /** View: the layer the explorer's ladder, orbital name and context control go in. */
+  hud?: HTMLElement;
+  /** Build: shown in place of the atom while the nucleus is not built. */
+  empty?: HTMLElement;
+}
+
+/** Scene units are 100 pm, as everywhere in the app; a femtometre is 1e-5 of one. */
+const UNITS_PER_FM = 1e-5;
+/** View frames every nucleus on the same 9.9 fm, so its 8 fm circle sits where the atom's
+ *  300 pm one does (the atom view fits 370 pm). */
+const NUCLEUS_VIEW_FM = 9.9;
+const DIVE_S = 2.6;
+/** The base set: every orbital a modest share, enough for ghosts and the whole atom. The orbital
+ *  in focus (or lit) gets a dense set of its own on top: View 400k points, Build (a smaller
+ *  stage, and the spotlight moves on every few beats) 250k, split across a lit chord. */
+const BASE_POINTS = { per: 30_000, budget: 600_000 };
+const DENSE_VIEW = 400_000;
+const DENSE_BUILD = 250_000;
+/** Sampling work per frame while an atom's points come in: 5 ms at 60 fps, more where frames
+ *  are slow anyway (a quarter of the frame, up to 30 ms), so a slow device still fills in. */
+const sampleSlice = (frameMs: number) => Math.max(5, Math.min(30, frameMs * 0.25));
+/** Auto-play: seconds on each orbital, and the quiet after a touch before it resumes. */
+const PLAY_DWELL_S = 3.6;
+const PLAY_RESUME_MS = 5000;
+
+/** The Build page's fixed look: the owner's pick from the lab. */
+const BUILD_LOOK: SpotlightOptions = {
+  spot: 'rhythm', rest: 'tint', palette: 'print', tempo: 1, camera: 'still', glint: 1, twinkle: 0.25, brightness: 1.5,
+};
+
+/** An orbit camera that frames a radius, easing in powers of ten (so a dive of five decades
+ *  glides evenly), with the explorer's pinch and turn. */
+class Rig implements ExplorerCamera {
+  theta = 0.7;
+  phi = 1.25;
+  zoom = 1;
+  autoRotate = true;
+  private idleAt = -1e9;
+  private target = 1;
+  private logR = 0;
+  private fresh = true;
+
+  constructor(private camera: THREE.PerspectiveCamera, private el: HTMLElement) {}
+
+  /** Frame a sphere of this radius (scene units), easing there. */
+  fit(r: number): void { this.target = Math.max(1e-9, r); }
+  /** Jump to the framed radius on the next update. */
+  snap(): void { this.fresh = true; }
+  /** Set the framed radius now (the dive drives it directly). */
+  setRadius(r: number): void { this.target = r; this.logR = Math.log(r); this.fresh = false; }
+  get radius(): number { return Math.exp(this.logR); }
+
+  setZoom(z: number): void { this.zoom = Math.max(0.35, Math.min(10, z)); this.idleAt = performance.now(); }
+
+  rotateBy(dx: number, dy: number): void {
+    const s = 5 / Math.max(300, Math.min(this.el.clientWidth, this.el.clientHeight));
+    this.theta -= dx * s;
+    this.phi = Math.max(0.05, Math.min(Math.PI - 0.05, this.phi - dy * s));
+    this.idleAt = performance.now();
+  }
+
+  /** Half the shorter side of the view, in scene units. */
+  get halfView(): number {
+    const vfov = (this.camera.fov * Math.PI) / 360;
+    return (this.radius / this.zoom) / Math.cos(vfov);
+  }
+
+  update(dt: number, turning: boolean, spin: number): void {
+    const want = Math.log(this.target);
+    if (this.fresh) { this.logR = want; this.fresh = false; }
+    else this.logR += (want - this.logR) * (1 - Math.exp(-dt * 5));
+    if (this.autoRotate && !turning && performance.now() - this.idleAt > 1200) this.theta += dt * spin;
+    const c = this.camera;
+    const vfov = (c.fov * Math.PI) / 360;
+    const half = Math.min(vfov, Math.atan(Math.tan(vfov) * c.aspect));
+    const dist = this.radius / Math.sin(half) / this.zoom;
+    const sp = Math.sin(this.phi);
+    c.position.set(dist * sp * Math.sin(this.theta), dist * Math.cos(this.phi), dist * sp * Math.cos(this.theta));
+    c.near = dist * 0.01;
+    c.far = dist * 12 + this.radius * 4;
+    c.lookAt(0, 0, 0);
+    c.updateProjectionMatrix();
+  }
+}
 
 export class Detail {
   private renderer: THREE.WebGLRenderer;
-  private scene = new THREE.Scene();
-  private camera = new THREE.PerspectiveCamera(32, 1, 0.1, 100);
-  private spin = new THREE.Group();
-  private rings = new THREE.Group();
-  view: AtomView;
-  /** The nucleus up close, drawn at the same screen size as the atom: 8 fm maps to the 300 pm ring. */
-  private nucleus = new NucleusView(3 / 8);
+  private camera = new THREE.PerspectiveCamera(32, 1, 0.01, 100);
+  private rig: Rig;
+  private variant: DetailVariant;
+  private cloud: OrbitalCloud;
+  private nucleus: NucleusView;
+  private builder: OrbitalSetBuilder | null = null;
+  private set: OrbitalSet | null = null;
+  private wpa0 = 1;
+  private explorer: OrbitalExplorer | null = null;
+  private hud: ExplorerHud | null = null;
+  private hudEl: HTMLElement | null;
+  private spotlight = new Spotlight();
+  private governor = new QualityGovernor();
+  private ringScene = new THREE.Scene();
+  private atomRings = new THREE.Group();
   private nucleusRings = new THREE.Group();
   /** Scale circles a power of ten apart, shown only during a dive (no legend): each grows out of
    *  the middle and off the edge in turn, so the hundred-thousandfold zoom reads as steady steps. */
   private diveRings: { line: THREE.Line; r: number; base: number }[] = [];
   private diveRingGroup = new THREE.Group();
+  private ringsOn = true;
+  private element: Element | null = null;
+  private lit: AtomLit = { nucleus: true, electrons: Infinity };
+  /** How lit each orbital is (0 to 1), easing toward its target. */
+  private litNow = new Float32Array(64);
+  private litTo = new Float32Array(64);
+  private empty: HTMLElement | null;
   private nucleusOn = false;
-  /** Where the dive between atom and nucleus stands: 0 the whole atom, 1 the nucleus close-up. */
+  /** Where the dive stands: 0 the whole atom, 1 the nucleus; the dive's progress (1 = done). */
   private dive = 0;
   private diveFrom = 0;
   private diveT = 1;
-  private element: Element | null = null;
-  private ringsOn = true;
+  /** The atom's framed radius when the dive began (scene units). */
+  private diveAtomR = 1;
+  private atomR = 1;
   private width = 1;
   private height = 1;
-  private drag: { x: number; y: number; moved: boolean } | null = null;
-  /** Fingers down on the canvas, for pinching. */
-  private touches = new Map<number, { x: number; y: number }>();
-  private pinch: { dist: number; zoom: number } | null = null;
-  /** Pinch or wheel zoom (1 = the fixed scale every element shares); drifts home after a pause. */
-  private zoom = 1;
-  private zoomedAt = 0;
-  /** The glide home after a zoom: from this zoom, `t` from 0 to 1. Null when not gliding. */
-  private zoomBack: { from: number; t: number } | null = null;
-  private baseDist = 14;
   private raf = 0;
-  private last = performance.now();
+  private last = 0;
+  private time = 0;
+  private wanted = false;
   private running = false;
   private reducedMotion = false;
-  private autoSpin = true;
-  private style: Style = 'cloud';
-  onTap: (() => void) | null = null;
-  onDoubleTap: (() => void) | null = null;
+  private userPaused = false;
+  private heldUntil = 0;
+  private nextStepAt = 0;
+  private playDir = 1;
+  private shownPlaying: boolean | null = null;
+  private fpsFrames = 0;
+  private fpsStart = 0;
   /** During a dive, the true width of the view ("74 pm across"); null when it ends. */
   onDive: ((across: string | null) => void) | null = null;
-  private lastTap = { at: 0, x: 0, y: 0 };
+  /** Auto-play started or stopped (a touch holds it; five quiet seconds resume it). */
+  onPlay: ((playing: boolean) => void) | null = null;
+  /** Frames per second, about twice a second while drawing. */
+  onFps: ((fps: number) => void) | null = null;
 
-  constructor(private canvas: HTMLCanvasElement) {
-    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' });
-    this.renderer.setPixelRatio(Math.min(2, window.devicePixelRatio));
-    this.scene.add(new THREE.AmbientLight(0xffffff, 0.55));
-    const key = new THREE.DirectionalLight(0xf4f7f8, 1.1);
-    key.position.set(3, 4, 6);
-    this.scene.add(key);
-    const rim = new THREE.DirectionalLight(0xbcd0ff, 0.5);
-    rim.position.set(-4, -2, -5);
-    this.scene.add(rim);
-    this.view = new AtomView({ perSlot: 480, shapes: true, pointSize: 1, live: true, haze: true });
-    this.spin.add(this.view.group);
-    this.spin.rotation.x = 0.3;
-    this.scene.add(this.spin);
-    for (const r of CLOUD_RINGS) this.rings.add(ring(r.pm / 100, r.style));
-    this.scene.add(this.rings);
-    for (const r of NUCLEUS_RINGS) this.nucleusRings.add(ring((r.fm * 3) / 8, r.style));
-    this.scene.add(this.nucleusRings);
-    for (const d of DIVE_RING_PM) {
-      const line = ring(1, d.style);
-      this.diveRingGroup.add(line);
-      this.diveRings.push({ line, r: d.pm / 100, base: (line.material as THREE.LineBasicMaterial).opacity });
+  constructor(private canvas: HTMLCanvasElement, opts: DetailOptions = { variant: 'view' }) {
+    this.variant = opts.variant;
+    this.hudEl = opts.hud ?? null;
+    this.empty = opts.empty ?? null;
+    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: this.variant === 'view', alpha: false, powerPreference: 'high-performance' });
+    this.renderer.autoClear = false;
+    this.renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+    const halfFloat = this.renderer.extensions.has('EXT_color_buffer_float') || this.renderer.extensions.has('EXT_color_buffer_half_float');
+    this.cloud = new OrbitalCloud({ halfFloat });
+    this.cloud.background = null;
+    this.nucleus = new NucleusView({ halfFloat });
+    this.rig = new Rig(this.camera, canvas);
+    if (this.variant === 'view') {
+      const ex = new OrbitalExplorer(this.rig);
+      ex.opts = { hard: true, finger: 'nav', palette: 'print', twinkle: 0.25, glint: 0, brightness: 1.3 };
+      ex.onInteract = () => this.touched();
+      ex.attach(canvas);
+      canvas.style.touchAction = 'none';
+      this.explorer = ex;
+      if (this.hudEl) this.hud = new ExplorerHud(this.hudEl, ex, { prefix: 'ax', row: 26, reach: 4.5 });
+      for (const r of CLOUD_RINGS) this.atomRings.add(ring(r.pm / 100, r.style));
+      for (const r of NUCLEUS_RINGS) this.nucleusRings.add(ring(r.fm * UNITS_PER_FM, r.style));
+      for (const d of DIVE_RING_PM) {
+        const line = ring(1, d.style);
+        this.diveRingGroup.add(line);
+        this.diveRings.push({ line, r: d.pm / 100, base: (line.material as THREE.LineBasicMaterial).opacity });
+      }
+      this.ringScene.add(this.atomRings, this.nucleusRings, this.diveRingGroup);
     }
-    this.diveRingGroup.visible = false;
-    this.scene.add(this.diveRingGroup);
-    this.spin.add(this.nucleus.group);
-    this.paintMode();
-    this.bind();
     new ResizeObserver(() => this.resize()).observe(canvas);
     this.resize();
   }
 
+  // ---- what to show -------------------------------------------------------------------------
+
+  show(e: Element, _animate = false): void {
+    const fresh = this.element?.z !== e.z;
+    this.element = e;
+    this.wpa0 = worldPerA0(e);
+    if (this.nucleusOn || this.variant === 'build') this.nucleus.show(e);
+    if (fresh) {
+      this.builder = orbitalSetBuilder(e, BASE_POINTS.per, BASE_POINTS.budget);
+      this.rig.zoom = 1;
+      this.computeLitTargets();
+      this.litNow.set(this.litTo);
+      this.playDir = 1;
+      this.nextStepAt = performance.now() + PLAY_DWELL_S * 1000;
+    }
+    this.paintMode();
+  }
+
+  /** How much of the atom is built: the nucleus, and how many electrons (in the order they
+   *  fill). Build shows only what is built; View shows all of it, unbuilt electrons gray. */
+  setLit(lit: AtomLit, animate = false): void {
+    this.lit = { ...lit };
+    this.nucleus.setVivid(lit.nucleus, animate && !this.reducedMotion);
+    this.computeLitTargets();
+    if (!animate || this.reducedMotion) this.litNow.set(this.litTo);
+    this.paintMode();
+  }
+
+  /** Kept for callers of the old API: the whole atom lit, or none of it. */
+  setCollected(collected: boolean): void {
+    this.setLit({ nucleus: collected, electrons: collected ? Infinity : 0 });
+  }
+
+  /** Each orbital's lit target: the share of its subshell's electrons built, in Aufbau order. */
+  private computeLitTargets(): void {
+    const set = this.set, e = this.element;
+    this.litTo.fill(0);
+    if (!set || !e) return;
+    const share = new Map<string, number>();
+    let before = 0;
+    for (const k of fillOrder(e)) {
+      const sub = e.subshells.find((x) => x.key === k)!;
+      share.set(k, Math.max(0, Math.min(1, (this.lit.electrons - before) / sub.count)));
+      before += sub.count;
+    }
+    for (const o of set.orbitals) this.litTo[o.index] = share.get(o.key) ?? 0;
+  }
+
+  /** Build: what is drawn follows what is built. */
+  private get buildMode(): 'empty' | 'nucleus' | 'cloud' {
+    if (this.lit.electrons > 0) return 'cloud';
+    return this.lit.nucleus ? 'nucleus' : 'empty';
+  }
+
+  private paintMode(): void {
+    if (this.variant === 'build') {
+      const mode = this.buildMode;
+      if (this.empty) this.empty.hidden = mode !== 'empty';
+      this.canvas.style.visibility = mode === 'empty' ? 'hidden' : '';
+      if (mode === 'nucleus' && this.element) this.nucleus.show(this.element);
+    }
+    this.syncLoop();
+  }
+
   setReducedMotion(on: boolean): void {
+    // Calm: no auto-play unless asked for (and back on when the setting goes off).
+    if (on !== this.reducedMotion) this.userPaused = on;
     this.reducedMotion = on;
-    this.view.setLive(!on);
+    this.nucleus.jiggle = on ? 0 : 0.05;
+    this.rig.autoRotate = !on;
+    if (this.explorer) this.explorer.opts.twinkle = on ? 0 : 0.25;
+    this.paintPlay();
   }
 
   /** Show or hide the reference circles drawn round the atom. */
   setRings(on: boolean): void {
     this.ringsOn = on;
-    this.paintMode();
   }
 
   /** Swap the whole atom for its nucleus up close, or back. With `animate`, dive there at the
-   *  true ratio of sizes (see paintDive); otherwise cut straight to it. */
+   *  true ratio of sizes; otherwise cut straight to it. */
   setNucleus(on: boolean, animate = false): void {
     this.nucleusOn = on;
+    if (this.explorer) this.explorer.turnOnly = on;
+    this.hudEl?.classList.toggle('is-nucleus', on);
     if (on && this.element) this.nucleus.show(this.element);
+    this.rig.zoom = 1;
     if (animate && !this.reducedMotion) {
       this.diveFrom = this.dive;
       this.diveT = 0;
+      this.diveAtomR = this.atomR;
     } else {
       this.dive = on ? 1 : 0;
       this.diveT = 1;
+      this.rig.snap();
       this.onDive?.(null);
     }
-    this.paintDive();
   }
 
-  /**
-   * Place the atom and its nucleus for the dive. The close-up draws the nucleus 37,500 times
-   * larger than it really is beside its atom (8 fm on the 300 pm circle), so the dive scales
-   * everything by that same factor, evenly in powers of ten: the cloud swells past the camera
-   * and fades, the view is empty for a long stretch (an atom is almost all empty space), then
-   * the nucleus grows out of a point. Nothing is resized on its own, so the true proportions hold.
-   */
-  private paintDive(): void {
-    const s = smooth(this.dive);
-    const k = Math.pow(DIVE_RATIO, s);
-    this.view.group.scale.setScalar(k);
-    this.rings.scale.setScalar(k);
-    this.nucleus.group.scale.setScalar(k / DIVE_RATIO);
-    this.nucleusRings.scale.setScalar(k / DIVE_RATIO);
-    // The cloud fades as the camera passes into it (by ten times closer it is gone).
-    const fade = Math.max(0, 1 - Math.log10(k) / 1.1);
-    this.view.setDim(fade);
-    this.view.group.visible = fade > 0;
-    this.nucleus.group.visible = this.dive > 0;
-    // Mid-dive the fixed circles give way to the dive's own, whether or not the scale is shown.
+  // ---- auto-play (View) -----------------------------------------------------------------------
+
+  /** Auto-play is on: not paused by the player, and no touch in the last five seconds. */
+  get playing(): boolean {
+    return !this.userPaused && performance.now() >= this.heldUntil;
+  }
+
+  /** The Play/Pause button: pausing stays paused; playing starts at once. */
+  setPlaying(on: boolean): void {
+    this.userPaused = !on;
+    this.heldUntil = 0;
+    if (on) this.nextStepAt = performance.now() + 600;
+    this.paintPlay();
+  }
+
+  /** A touch, wheel or key on the atom holds auto-play for a while. */
+  private touched(): void {
+    this.heldUntil = performance.now() + PLAY_RESUME_MS;
+    this.paintPlay();
+  }
+
+  private paintPlay(): void {
+    const p = this.playing;
+    if (p === this.shownPlaying) return;
+    this.shownPlaying = p;
+    this.onPlay?.(p);
+  }
+
+  private autoplay(now: number): void {
+    const ex = this.explorer;
+    this.paintPlay();
+    if (!ex || !ex.set || this.nucleusOn || !this.playing || ex.touching) {
+      this.nextStepAt = Math.max(this.nextStepAt, now + 1200);
+      return;
+    }
+    if (now < this.nextStepAt) return;
+    this.nextStepAt = now + PLAY_DWELL_S * 1000;
+    if (ex.last < 1) return;
+    // Back and forth along the ladder, so each step is to a neighbor.
+    let next = Math.round(ex.goal) + this.playDir;
+    if (next > ex.last || next < 0) { this.playDir = -this.playDir; next = Math.round(ex.goal) + this.playDir; }
+    ex.goTo(next, true);
+  }
+
+  /** Arrow keys up and down walk the ladder (View); true when used. */
+  key(ev: KeyboardEvent): boolean {
+    return this.explorer?.key(ev, false) ?? false;
+  }
+
+  // ---- the loop --------------------------------------------------------------------------------
+
+  start(): void {
+    this.wanted = true;
+    this.syncLoop();
+  }
+
+  stop(): void {
+    this.wanted = false;
+    this.syncLoop();
+  }
+
+  private syncLoop(): void {
+    const on = this.wanted && !(this.variant === 'build' && this.buildMode === 'empty');
+    if (on === this.running) return;
+    this.running = on;
+    if (on) {
+      this.last = performance.now();
+      this.fpsStart = this.last;
+      this.fpsFrames = 0;
+      this.governor.reset(this.last);
+      this.raf = requestAnimationFrame((t) => this.frame(t));
+    } else cancelAnimationFrame(this.raf);
+  }
+
+  private resize(): void {
+    const r = this.canvas.getBoundingClientRect();
+    if (r.width < 2 || r.height < 2) return;
+    this.renderer.setSize(r.width, r.height, false);
+    const size = this.renderer.getDrawingBufferSize(new THREE.Vector2());
+    this.width = size.x;
+    this.height = size.y;
+    this.camera.aspect = size.x / size.y;
+    this.camera.updateProjectionMatrix();
+    this.cloud.resize({ width: size.x, height: size.y });
+    this.nucleus.resize(size.x, size.y);
+  }
+
+  /** Take on the governor's level: the point layer's resolution and the share of points. The
+   *  layer never drops below 0.6 of a CSS pixel, however few device pixels there are. */
+  private applyQuality(): void {
+    const q = this.governor.spec;
+    const pr = this.renderer.getPixelRatio();
+    const pixel = Math.min(1, Math.max(q.pixel, 0.6 / pr));
+    this.cloud.pixelScale = pixel;
+    this.cloud.density = q.density;
+    this.cloud.denseShare = q.dense;
+    this.nucleus.pixelScale = Math.min(1, Math.max(pixel, 0.5 / pr));
+  }
+
+  /** Hold the quality at one level (0 best), or let the governor choose again (null). For
+   *  screenshots and tuning from the console. */
+  pinQuality(level: number | null): void {
+    this.pinned = level;
+    if (level != null) this.governor.level = level;
+    this.applyQuality();
+  }
+  private pinned: number | null = null;
+  /** The base set is still coming in (dense sets wait for it), and this frame's sampling time. */
+  private sampling = false;
+  private slice = 5;
+
+  /** Take what sampling has made so far: a new atom's set appears once its pilots are done
+   *  and thickens as the rest comes in. */
+  private takeSet(frameMs: number): void {
+    const b = this.builder;
+    if (!b) return;
+    if (!b.done) b.step(sampleSlice(frameMs));
+    if (b.set && b.set !== this.set) {
+      const set = b.set;
+      this.set = set;
+      const fp = atomFingerprint(set.element, set);
+      this.cloud.setSet(set, this.wpa0);
+      this.spotlight.setSet(set, fp);
+      this.explorer?.setSet(set, fp);
+      this.computeLitTargets();
+      this.litNow.set(this.litTo);
+      this.rig.snap();
+    }
+  }
+
+  private frame(now: number): void {
+    if (!this.running) return;
+    this.raf = requestAnimationFrame((t) => this.frame(t));
+    const dtMs = now - this.last;
+    const dt = Math.min(0.1, dtMs / 1000);
+    this.last = now;
+    this.time += dt;
+    const sampling = Boolean(this.builder && !this.builder.done);
+    this.sampling = sampling;
+    this.slice = sampleSlice(dtMs);
+    const mode = this.variant === 'build' ? this.buildMode : 'cloud';
+    // Build samples the electrons while it shows the nucleus too, so they are ready to light up.
+    this.takeSet(dtMs);
+    // Sampling costs its slice on purpose: judge the frames only once it is done.
+    if (sampling || this.pinned != null) this.governor.reset(now);
+    else if (this.governor.frame(dtMs, now)) this.applyQuality();
+    this.fps(now);
+    if (this.width < 2) return;
+
+    // Ease each orbital's color toward what is built.
+    const k = dt / (this.reducedMotion ? 0.2 : 0.45);
+    for (let i = 0; i < this.litNow.length; i++) {
+      const a = this.litNow[i], b = this.litTo[i];
+      this.litNow[i] = a < b ? Math.min(b, a + k) : Math.max(b, a - k);
+    }
+
+    const r = this.renderer;
+    r.setRenderTarget(null);
+    r.setClearColor(BG(), 1);
+    r.clear();
+    if (this.variant === 'build') this.frameBuild(mode, dt);
+    else this.frameView(now, dt);
+  }
+
+  private frameBuild(mode: 'empty' | 'nucleus' | 'cloud', dt: number): void {
+    const r = this.renderer;
+    if (mode === 'nucleus' && this.element) {
+      this.rig.fit(nucleusExtent(this.element) * 1.2 * UNITS_PER_FM);
+      this.rig.update(dt, false, 0.22);
+      this.nucleus.group.scale.setScalar(UNITS_PER_FM);
+      this.nucleus.intensity = 1;
+      this.nucleus.renderLayer(r, this.camera, this.time, dt);
+      this.nucleus.draw(r);
+      return;
+    }
+    if (!this.set) return;
+    const o = this.reducedMotion ? { ...BUILD_LOOK, twinkle: 0, tempo: 0.5 } : BUILD_LOOK;
+    const view = this.spotlight.step(this.cloud, dt, this.time, o, this.camera.position, this.litNow);
+    this.cloud.wantDense(this.spotlight.denseWants, DENSE_BUILD / Math.sqrt(this.spotlight.denseSplit));
+    if (!this.sampling) this.cloud.sampleDense(this.slice);
+    this.rig.fit(view * 1.12 * this.wpa0);
+    this.rig.update(dt, false, 0.22);
+    this.cloud.renderLayer(this.ctx, this.time);
+    this.cloud.draw(r);
+  }
+
+  private get ctx() {
+    return { renderer: this.renderer, camera: this.camera, width: this.width, height: this.height };
+  }
+
+  private frameView(now: number, dt: number): void {
+    const r = this.renderer;
+    const ex = this.explorer!;
+    this.autoplay(now);
+    const frameA0 = ex.update(dt);
+    this.atomR = frameA0 * this.wpa0;
+    const nucleusR = NUCLEUS_VIEW_FM * UNITS_PER_FM;
+    // The dive: from the atom's frame to the nucleus's, evenly in powers of ten.
+    if (this.diveT < 1) {
+      this.diveT = Math.min(1, this.diveT + dt / DIVE_S);
+      const to = this.nucleusOn ? 1 : 0;
+      this.dive = this.diveFrom + (to - this.diveFrom) * this.diveT;
+      const s = smooth(this.dive);
+      const from = this.nucleusOn ? this.diveAtomR : this.atomR;
+      this.rig.setRadius(Math.exp(Math.log(from) * (1 - s) + Math.log(nucleusR) * s));
+      this.onDive?.(this.diveT < 1 ? across(this.rig.halfView * 2) : null);
+    } else this.rig.fit(this.nucleusOn ? nucleusR : this.atomR);
+    this.rig.update(dt, ex.touching, 0.22);
+    const R = this.rig.radius;
+
+    // The cloud fades as the camera passes into it (ten times closer and it is gone); the
+    // nucleus grows out of a point and lights up over the last decade and a half.
+    const cloudFade = Math.max(0, Math.min(1, 1 - Math.log10(Math.max(1, this.atomR / R)) / 1.1));
+    const nucleusLight = Math.max(0, Math.min(1, 1 - Math.log10(Math.max(1, R / nucleusR)) / 1.5));
+    if (this.set && cloudFade > 0) {
+      ex.applyLooks(this.cloud, frameA0, this.litNow);
+      this.cloud.wantDense(this.nucleusOn ? [] : ex.denseWants, DENSE_VIEW);
+      if (ex.settled && !this.sampling && this.diveT >= 1) this.cloud.sampleDense(this.slice);
+      this.cloud.material.uniforms.uAlpha.value *= cloudFade;
+      this.cloud.renderLayer(this.ctx, this.time);
+      this.cloud.draw(r);
+    }
+    if (nucleusLight > 0 && this.element) {
+      this.nucleus.show(this.element);
+      this.nucleus.group.scale.setScalar(UNITS_PER_FM);
+      this.nucleus.intensity = nucleusLight;
+      this.nucleus.renderLayer(r, this.camera, this.time, dt);
+      this.nucleus.draw(r);
+    }
+    this.paintRings(R);
+    r.render(this.ringScene, this.camera);
+    this.hud?.paint();
+  }
+
+  /** The fixed circles face the camera; mid-dive they give way to the dive's own. */
+  private paintRings(R: number): void {
+    this.ringScene.quaternion.copy(this.camera.quaternion);
     const diving = this.diveT < 1;
-    this.rings.visible = this.ringsOn && fade > 0 && !diving;
-    this.nucleusRings.visible = this.ringsOn && this.dive > 0.5 && !diving;
-    this.paintDiveRings(k);
-  }
-
-  /** Place the dive's circles at magnification `k`: each fades in as it grows out of the middle
-   *  and out as it nears the edge of the view, and all of them fade at the two ends of the dive. */
-  private paintDiveRings(k: number): void {
-    const on = this.diveT < 1 ? Math.min(1, this.diveT / 0.12, (1 - this.diveT) / 0.12) : 0;
+    this.atomRings.visible = this.ringsOn && !this.nucleusOn && !diving && R > 0.1;
+    this.nucleusRings.visible = this.ringsOn && this.nucleusOn && !diving;
+    const on = diving ? Math.min(1, this.diveT / 0.12, (1 - this.diveT) / 0.12) : 0;
     this.diveRingGroup.visible = on > 0;
     if (!on) return;
-    const half = VIEW_PM / 200;
+    const half = this.rig.halfView;
     for (const d of this.diveRings) {
-      const r = d.r * k;
-      const u = r / half;
-      d.line.scale.setScalar(r);
+      const u = d.r / half;
+      d.line.scale.setScalar(d.r);
       const a = on * step(0.04, 0.16, u) * (1 - step(0.75, 1.25, u));
       d.line.visible = a > 0.01;
       (d.line.material as THREE.LineBasicMaterial).opacity = d.base * a;
     }
   }
 
-  private paintMode(): void {
-    this.paintDive();
+  private fps(now: number): void {
+    this.fpsFrames++;
+    const span = now - this.fpsStart;
+    if (span < 500) return;
+    this.onFps?.((this.fpsFrames * 1000) / span);
+    this.fpsFrames = 0;
+    this.fpsStart = now;
   }
 
-  setStyle(style: Style): void {
-    this.style = style;
-    this.view.setStyle(style);
+  /** For checks and tuning from the console. */
+  get stats(): { level: number; fps: number; points: number; layer: string; sampling: boolean } {
+    return { level: this.governor.level, fps: 1000 / this.governor.ema, points: this.set ? this.cloud.drawn : 0, layer: this.cloud.size, sampling: Boolean(this.builder && !this.builder.done) };
   }
-
-  /** Orbital kinds whose shapes are still undiscovered (see AtomView.setHiddenShapes). */
-  setHiddenShapes(kinds: Iterable<Block>): void {
-    this.view.setHiddenShapes(kinds);
-  }
-
-  show(e: Element, animate: boolean): void {
-    this.element = e;
-    this.view.setElement(e, animate && !this.reducedMotion);
-    if (this.nucleusOn) this.nucleus.show(e);
-  }
-
-  /** Paint the electrons one color (a CSS color), or null for the orbital block colors. */
-  setTint(color: string | null): void {
-    this.view.setTint(color);
-  }
-
-  /** Kept for Build until it moves to setLit: the whole atom lit, or all of it pale. */
-  setCollected(collected: boolean): void {
-    this.setLit({ nucleus: collected, electrons: collected ? Infinity : 0 });
-  }
-
-  /** How much of the atom is lit, the rest pale gray (see AtomView.setLit); the nucleus close-up follows. */
-  setLit(lit: AtomLit, animate = false): void {
-    this.view.setLit(lit, animate && !this.reducedMotion);
-    this.nucleus.setVivid(lit.nucleus);
-  }
-
-  start(): void {
-    if (this.running) return;
-    this.running = true;
-    this.last = performance.now();
-    this.raf = requestAnimationFrame((t) => this.frame(t));
-  }
-
-  stop(): void {
-    this.running = false;
-    cancelAnimationFrame(this.raf);
-  }
-
-  private resize(): void {
-    const r = this.canvas.getBoundingClientRect();
-    this.width = Math.max(1, r.width);
-    this.height = Math.max(1, r.height);
-    this.renderer.setSize(this.width, this.height, false);
-    this.camera.aspect = this.width / this.height;
-    // Fit a 370 pm radius in the shorter dimension: the largest atoms (Cs, Fr) and their glow fit.
-    const half = 3.7;
-    const vfov = (this.camera.fov * Math.PI) / 360;
-    const dist = half / Math.tan(vfov) / Math.min(1, this.camera.aspect);
-    this.baseDist = dist;
-    this.camera.position.set(0, 0, dist / this.zoom);
-    this.camera.lookAt(0, 0, 0);
-    this.camera.updateProjectionMatrix();
-    // Small, crisp electrons: a pixel or two on a phone, whatever the element.
-    this.view.setPointSize(this.height * this.renderer.getPixelRatio() * 0.06 * (dist / 14));
-  }
-
-  private bind(): void {
-    const c = this.canvas;
-    c.style.touchAction = 'none';
-    const spread = () => {
-      const [a, b] = [...this.touches.values()];
-      return Math.hypot(a.x - b.x, a.y - b.y);
-    };
-    c.addEventListener('pointerdown', (ev) => {
-      c.setPointerCapture(ev.pointerId);
-      this.touched();
-      this.touches.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
-      if (this.touches.size === 2) {
-        // A second finger: pinch to zoom; the turn stops and this is no longer a tap.
-        this.pinch = { dist: Math.max(1, spread()), zoom: this.zoom };
-        if (this.drag) this.drag.moved = true;
-        return;
-      }
-      this.drag = { x: ev.clientX, y: ev.clientY, moved: false };
-    });
-    c.addEventListener('pointermove', (ev) => {
-      if (this.touches.has(ev.pointerId)) this.touches.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
-      if (this.pinch && this.touches.size >= 2) {
-        this.setZoom(this.pinch.zoom * (spread() / this.pinch.dist));
-        return;
-      }
-      if (!this.drag) return;
-      const dx = ev.clientX - this.drag.x, dy = ev.clientY - this.drag.y;
-      if (Math.hypot(dx, dy) > 5) this.drag.moved = true;
-      if (!this.drag.moved) return;
-      this.touched();
-      this.spin.rotation.y += (ev.movementX || 0) * 0.008;
-      this.spin.rotation.x = clamp(this.spin.rotation.x + (ev.movementY || 0) * 0.008, -1.2, 1.2);
-    });
-    const up = (ev: PointerEvent) => {
-      this.touches.delete(ev.pointerId);
-      if (this.touches.size < 2) this.pinch = null;
-      if (!this.drag || this.touches.size > 0) return;
-      const d = this.drag;
-      this.drag = null;
-      if (d.moved) return;
-      const now = performance.now();
-      const t = this.lastTap;
-      if (now - t.at < DOUBLE_TAP_MS && Math.hypot(ev.clientX - t.x, ev.clientY - t.y) < 32) {
-        this.lastTap = { at: 0, x: 0, y: 0 };
-        this.onDoubleTap?.();
-        return;
-      }
-      this.lastTap = { at: now, x: ev.clientX, y: ev.clientY };
-      this.onTap?.();
-    };
-    c.addEventListener('pointerup', up);
-    c.addEventListener('pointercancel', up);
-    // A mouse wheel or trackpad pinch zooms the same way.
-    c.addEventListener('wheel', (ev) => {
-      ev.preventDefault();
-      this.setZoom(this.zoom * Math.exp(-ev.deltaY * 0.0015));
-    }, { passive: false });
-  }
-
-  private setZoom(z: number): void {
-    this.zoom = clamp(z, ZOOM_MIN, ZOOM_MAX);
-    this.touched();
-    this.camera.position.z = this.baseDist / this.zoom;
-  }
-
-  /** The player is handling the atom: hold a zoom where it is, and start the wait to glide home again. */
-  private touched(): void {
-    this.zoomedAt = performance.now();
-    this.zoomBack = null;
-  }
-
-  private frame(now: number): void {
-    if (!this.running) return;
-    const dt = Math.min(0.05, (now - this.last) / 1000);
-    this.last = now;
-    if (this.autoSpin && !this.drag && !this.reducedMotion) this.spin.rotation.y += dt * 0.2;
-    // A few seconds after the last touch, glide back to the shared scale: easing in and out, and
-    // even in powers of the zoom, so going home from 4x feels like coming home from 0.7x.
-    if (this.zoom !== 1 && this.touches.size === 0 && now - this.zoomedAt > ZOOM_REST_MS) {
-      this.zoomBack ??= { from: this.zoom, t: 0 };
-      this.zoomBack.t = Math.min(1, this.zoomBack.t + dt / ZOOM_BACK_S);
-      this.zoom = this.zoomBack.t >= 1 ? 1 : Math.pow(this.zoomBack.from, 1 - easeInOut(this.zoomBack.t));
-      if (this.zoom === 1) this.zoomBack = null;
-      this.camera.position.z = this.baseDist / this.zoom;
-    }
-    if (this.diveT < 1) {
-      this.diveT = Math.min(1, this.diveT + dt / DIVE_S);
-      const to = this.nucleusOn ? 1 : 0;
-      this.dive = this.diveFrom + (to - this.diveFrom) * this.diveT;
-      this.paintDive();
-      this.onDive?.(this.diveT < 1 ? across(Math.pow(DIVE_RATIO, smooth(this.dive)) * this.zoom) : null);
-    }
-    this.view.update(dt);
-    this.renderer.render(this.scene, this.camera);
-    this.raf = requestAnimationFrame((t) => this.frame(t));
-  }
-
-  get currentStyle(): Style { return this.style; }
 }
+
+const BG = (() => {
+  let c: THREE.Color | null = null;
+  return () => (c ??= new THREE.Color(token('--c-bg', '#000000')));
+})();
 
 function ring(r: number, style: 'solid' | 'dashed'): THREE.Line {
   const pts: THREE.Vector3[] = [];
@@ -333,30 +589,23 @@ function ring(r: number, style: 'solid' | 'dashed'): THREE.Line {
   }
   const g = new THREE.BufferGeometry().setFromPoints(pts);
   const m = style === 'solid'
-    ? new THREE.LineBasicMaterial({ color: token('--c-text', '#e4e8ea'), transparent: true, opacity: 0.4 })
-    : new THREE.LineDashedMaterial({ color: token('--c-text', '#e4e8ea'), transparent: true, opacity: 0.45, dashSize: r * 0.09, gapSize: r * 0.06 });
+    ? new THREE.LineBasicMaterial({ color: token('--c-text', '#e4e8ea'), transparent: true, opacity: 0.4, depthTest: false })
+    : new THREE.LineDashedMaterial({ color: token('--c-text', '#e4e8ea'), transparent: true, opacity: 0.45, dashSize: r * 0.09, gapSize: r * 0.06, depthTest: false });
   const line = new THREE.Line(g, m);
+  line.frustumCulled = false;
   if (style === 'dashed') line.computeLineDistances();
   return line;
 }
 
-const ZOOM_MIN = 0.7;
-/** How much larger the close-up draws the nucleus than it is beside its atom: 3/8 scene units
- *  per fm, against 1 unit per 100 pm (100,000 fm). */
-const DIVE_RATIO = (3 / 8) * 1e5;
-const DIVE_S = 2.6;
-const DOUBLE_TAP_MS = 320;
-/** The view spans about 740 pm across its shorter side at the shared scale. */
-const VIEW_PM = 740;
-
-/** The true width of the view at a magnification, in pm or fm. */
-function across(k: number): string {
-  const pm = VIEW_PM / k;
+/** The true width of the view (scene units across), in pm or fm. */
+function across(units: number): string {
+  const pm = units * 100;
   const fmt = (v: number) => (v >= 100 ? Math.round(v).toLocaleString('en-US') : v >= 10 ? v.toFixed(0) : v.toFixed(1));
   return pm >= 1 ? `${fmt(pm)} pm across` : `${fmt(pm * 1000)} fm across`;
 }
 
 const smooth = (t: number) => t * t * (3 - 2 * t);
+const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 const step = (a: number, b: number, x: number) => smooth(clamp((x - a) / (b - a), 0, 1));
 /** The dive's circles, by radius: every power of ten from 1 nm down to 1 fm, solid, with a dashed
  *  one at three times each between, so about one new circle appears per half step of ten. */
@@ -365,9 +614,3 @@ for (let e = 3; e >= -3; e--) {
   DIVE_RING_PM.push({ pm: 10 ** e, style: 'solid' });
   if (e > -3) DIVE_RING_PM.push({ pm: 3 * 10 ** (e - 1), style: 'dashed' });
 }
-const ZOOM_MAX = 4;
-const ZOOM_REST_MS = 3000;
-const ZOOM_BACK_S = 1.6;
-const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
-
-function clamp(v: number, lo: number, hi: number): number { return Math.min(hi, Math.max(lo, v)); }

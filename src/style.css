@@ -690,6 +690,94 @@ body:not([data-screen='gallery']) .gal-modes { display: none; }
 .tool-note { max-width: 230px; margin: 2px 0 0; font-size: var(--fs-min); line-height: 1.4; text-align: right; color: var(--c-text-min); }
 .style-switch .tool-chip[aria-pressed='true'] { color: var(--c-accent); border-color: color-mix(in srgb, var(--c-accent) 45%, transparent); background: var(--c-pick); }
 
+/* ---- The 3D atom: View's HUD, full screen, and the Build page's stage -----------------------
+   (src/gallery/detail.ts, render/explorer.ts). The canvas and its HUD share one box: under the
+   header rows down to the foot. A layout that moves the chrome sets --loupe-top/--loupe-bottom. */
+.loupe-screen { --loupe-top: var(--chrome); --loupe-bottom: 0px; }
+#loupe { top: var(--loupe-top); height: calc(100% - var(--loupe-top) - var(--loupe-bottom)); }
+.loupe-hud { position: absolute; left: 0; right: 0; top: var(--loupe-top); bottom: var(--loupe-bottom); z-index: 2; pointer-events: none; font-family: var(--font); --foot: calc(var(--sp-3) + var(--safe-bottom)); }
+.loupe-screen.has-next .loupe-hud { --foot: calc(var(--sp-3) + var(--safe-bottom) + 60px); }
+.loupe-screen.on-page .loupe-hud { visibility: hidden; }
+.loupe-hud .loupe-tools { bottom: var(--foot); }
+.loupe-hud .dive-readout { top: 70%; }
+/* Top left the microscope; top right Play/Pause and full screen, the frame rate, the shortcuts. */
+.lh-tl { position: absolute; left: var(--sp-2); top: var(--sp-2); pointer-events: auto; }
+.lh-tr { position: absolute; right: var(--sp-2); top: var(--sp-2); display: flex; flex-direction: column; align-items: flex-end; gap: var(--sp-2); }
+.lh-btns { display: flex; gap: var(--sp-1); pointer-events: auto; }
+.lh-btn { color: var(--c-text-2); }
+.lh-btn:hover { color: var(--c-text); }
+.lh-btn.is-playing { color: var(--c-accent); }
+.lh-fps { min-height: 14px; padding-right: var(--sp-3); font-size: var(--fs-caps-min); font-weight: var(--fw-semibold); letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--c-text-2); font-variant-numeric: tabular-nums; }
+.lh-fps.is-slow { color: var(--c-warn); }
+.lh-keylist { list-style: none; margin: 0; padding: 0 var(--sp-3) 0 0; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.lh-keylist li { display: flex; gap: 6px; font-size: var(--fs-caps-min); line-height: 1.2; letter-spacing: 0.1em; text-transform: uppercase; color: var(--c-text-2); white-space: nowrap; }
+.lh-keylist b { font-weight: var(--fw-semibold); color: var(--c-text); }
+.lh-keylist.for-mouse { display: none; }
+@media (hover: hover) and (pointer: fine) {
+  .lh-keylist.for-touch { display: none; }
+  .lh-keylist.for-mouse { display: flex; }
+}
+/* The explorer: the ladder of orbitals on the right edge (inner at the bottom, the focus in the
+   middle), the focused orbital's name over Solo / Ghost / All at the foot. */
+.lh-explorer { position: absolute; inset: 0; pointer-events: none; }
+.ax-ladder { position: absolute; right: var(--sp-2); top: 60%; width: 112px; height: 0; }
+.ax-ladder button { position: absolute; right: 0; top: -14px; height: 28px; padding: 0 10px; border: 0; border-radius: var(--r-pill); background: none; color: var(--c-text-2); font: inherit; font-size: var(--fs-sm); font-weight: var(--fw-medium); white-space: nowrap; transform-origin: right center; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.ax-ladder button:hover { color: var(--c-text); }
+.ax-ladder button.on { color: var(--c-text); background: var(--c-plate); font-weight: var(--fw-semibold); }
+.ax-ladder button:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 1px; }
+.ax-focus { position: absolute; left: 50%; bottom: calc(var(--foot) + 50px); transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 2px; text-align: center; white-space: nowrap; }
+.ax-focus b { font-size: var(--fs-xl); font-weight: var(--fw-semibold); line-height: 1.1; color: var(--c-text); }
+.ax-focus span { font-size: var(--fs-min); color: var(--c-text-2); font-variant-numeric: tabular-nums; }
+.ax-ctx { position: absolute; left: 50%; bottom: var(--foot); width: 176px; height: 44px; margin-left: -88px; display: flex; justify-content: space-between; align-items: flex-end; padding-bottom: 2px; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.ax-ctx::before { content: ''; position: absolute; left: 0; right: 0; top: 12px; height: 4px; border-radius: 2px; background: var(--c-surface-3); }
+.ax-ctx i { position: absolute; top: 6px; width: 16px; height: 16px; margin-left: -8px; border-radius: 50%; background: var(--c-accent); box-shadow: 0 0 0 5px color-mix(in srgb, var(--c-accent) 20%, transparent); }
+.ax-ctx span { font-size: var(--fs-caps-min); font-weight: var(--fw-semibold); letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--c-text-2); }
+.ax-ctx:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 4px; border-radius: var(--r-sm); }
+/* Narrow phones: Solo / Ghost / All rises above the corner chips. */
+@media (max-width: 399px) {
+  .ax-ctx { bottom: calc(var(--foot) + 40px); }
+  .ax-focus { bottom: calc(var(--foot) + 90px); }
+}
+/* At the nucleus the ladder means nothing: it and its gestures step aside. */
+.lh-explorer.is-nucleus > * { visibility: hidden; }
+.loupe-hud:has(.lh-explorer.is-nucleus) .lh-keys { visibility: hidden; }
+/* Full screen: only the atom and its HUD; a large button to leave. Where the Fullscreen API is
+   missing (iPhone Safari) the screen is pinned over the whole window instead. */
+.loupe-screen.is-full { --loupe-top: 0px; --loupe-bottom: 0px; background: var(--c-bg); }
+.loupe-screen.is-full:not(:fullscreen) { position: fixed; inset: 0; z-index: 20; }
+.loupe-screen.is-full > .atom-bar, .loupe-screen.is-full .atom-tabs, .loupe-screen.is-full .atom-panel, .loupe-screen.is-full .view-next { display: none; }
+.loupe-screen.is-full .loupe-hud { --foot: calc(var(--sp-3) + var(--safe-bottom)); }
+.loupe-screen.is-full .loupe-hud .loupe-tools { bottom: var(--foot); }
+.loupe-screen.is-full .lh-tl { top: calc(var(--sp-2) + var(--safe-top)); }
+.loupe-screen.is-full .lh-tr { top: calc(var(--sp-2) + var(--safe-top)); }
+.loupe-screen.is-full .lh-full { width: 64px; height: 64px; border-radius: var(--r-lg); background: var(--c-surface-2); color: var(--c-text); }
+.loupe-screen.is-full .lh-full svg { width: 34px; height: 34px; }
+.loupe-screen.is-full .lh-btns { align-items: center; }
+/* The Build page before its nucleus is built: a quiet line where the atom will be. */
+.bh-empty { position: absolute; inset: 0; display: grid; place-items: center; margin: 0; font-family: var(--font); font-size: var(--fs-sm); font-weight: var(--fw-semibold); letter-spacing: 0.24em; text-indent: 0.24em; text-transform: uppercase; color: color-mix(in srgb, var(--c-text-2) 55%, var(--c-text-3)); pointer-events: none; user-select: none; }
+.bh-empty[hidden] { display: none; }
+/* The microscope's sheet in View: the configuration, the nucleus, the isotopes. */
+.atom-sheet { display: flex; flex-direction: column; gap: var(--sp-5); font-family: var(--font); }
+.as-cap { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-3); margin: 0 0 var(--sp-2); font-size: var(--fs-caps-min); font-weight: var(--fw-semibold); letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--c-text-2); }
+.as-cap span { letter-spacing: 0.06em; font-weight: var(--fw-medium); }
+.as-config { margin: 0 0 var(--sp-3); font-size: var(--fs-xl); font-weight: var(--fw-light, 300); color: var(--c-silver); }
+.as-layers { list-style: none; display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 var(--sp-3); padding: 0; }
+.as-layers li { padding: 2px 8px; border-radius: var(--r-pill); background: color-mix(in srgb, var(--c) 22%, var(--c-surface)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c) 55%, transparent); font-size: var(--fs-min); color: var(--c-text); }
+.as-layers li.is-core { background: none; box-shadow: inset 0 0 0 1px var(--c-line-2); color: var(--c-text-2); }
+.as-layers b { font-weight: var(--fw-semibold); }
+.as-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(84px, 1fr)); gap: var(--sp-2); }
+.as-stat { display: flex; flex-direction: column; gap: 2px; padding: var(--sp-2) var(--sp-3); border-radius: var(--r-sm); background: var(--c-plate); }
+.as-stat b { font-size: var(--fs-lg); font-weight: var(--fw-semibold); color: var(--c-text); font-variant-numeric: tabular-nums; }
+.as-stat b small { font-size: var(--fs-min); font-weight: var(--fw-medium); color: var(--c-text-2); }
+.as-stat span { font-size: var(--fs-min); color: var(--c-text-2); }
+.as-iso { list-style: none; display: flex; flex-direction: column; gap: 3px; margin: 0; padding: 0; }
+.as-iso li { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-3); padding: 7px var(--sp-3); border-radius: var(--r-sm); background: var(--c-plate); font-size: var(--fs-sm); font-variant-numeric: tabular-nums; color: var(--c-text-2); }
+.as-iso li.is-stable { color: var(--c-text); }
+.as-iso-name { font-weight: var(--fw-semibold); }
+.as-iso-name i { margin-left: var(--sp-2); font-style: normal; font-weight: var(--fw-medium); font-size: var(--fs-min); color: var(--c-accent); }
+.as-more { margin: var(--sp-2) 0 0; font-size: var(--fs-min); color: var(--c-text-2); }
+/* ---- end of the 3D atom block ---------------------------------------------------------------- */
+
 /* The bar sits at the top of the atom screens; the host places it. A navigation row: set apart
    by the navigation color, never by a one-sided rule. */
 .atom-bar { display: flex; align-items: stretch; gap: var(--sp-2); height: var(--bar-h, 60px); padding: 0 var(--sp-3); background: var(--c-nav); }

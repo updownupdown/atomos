@@ -92,8 +92,7 @@ export class Game {
 
   constructor(private hooks: { onElement?: (z: number) => void; onView?: (z: number) => void } = {}) {
     this.scene = new AtomScene($<HTMLCanvasElement>('atom'));
-    this.detail = new Detail($<HTMLCanvasElement>('bh-atom'));
-    this.detail.setRings(false);
+    this.detail = new Detail($<HTMLCanvasElement>('bh-atom'), { variant: 'build', empty: $('bh-empty') });
     this.bar = createAtomBar({ onChange: (z) => this.start(z), locked: (z) => !rowOpen(rowOf(z), this.save) });
     $('build-bar').append(this.bar.el);
     $('bh-sci').append(scienceButton());
@@ -235,6 +234,9 @@ export class Game {
   /** The 3D atom on the Build page runs only while the page shows. */
   private syncDetail(): void {
     const on = !this.paused && this.stage === 'home';
+    // The puzzle's own scene draws only while a puzzle shows: hidden behind the Build page it
+    // would still render full screen every frame, stalling the page's atom.
+    this.scene.setActive(!this.paused && this.stage !== 'home');
     if (on === this.detailOn) return;
     this.detailOn = on;
     if (on) this.detail.start(); else this.detail.stop();
@@ -1313,6 +1315,7 @@ export class Game {
     sfx.setSound(s.sound);
     sfx.setHaptics(s.haptics);
     this.scene.setReducedMotion(s.reducedMotion);
+    this.detail.setReducedMotion(s.reducedMotion);
   }
 
   private toast(text: string): void {
