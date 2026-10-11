@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { choosePort, chord, cloneRutherford, cross, deduce, fire, neighbors, newRutherford, nextLead, portLine, probe, remaining, scope, solved, specFor, toggleMark, traceBeam, type RutherfordState } from '../src/puzzles/rutherford';
+import { beamsLeft, choosePort, chord, cloneRutherford, cross, deduce, fire, hitsLeft, neighbors, newRutherford, nextLead, onTrack, portLine, probe, remaining, ruined, scope, solved, specFor, toggleMark, traceBeam, won, type RutherfordState } from '../src/puzzles/rutherford';
 import { RULES, INSTRUCTIONS, RutherfordView } from '../src/puzzles/rutherfordView';
 import { C } from '../src/puzzles/palette';
 import type { RuleCard } from '../src/puzzles/view';
@@ -16,7 +16,7 @@ function plate(size: number, nuclei: number[], kinds: Record<number, 'scatter' |
     size, nuclei: nuc, kind,
     clue: nuc.map((_, i) => scope(base, i).filter((j) => nuc[j]).length),
     probed: Array(n).fill(false), marked: Array(n).fill(false), found: Array(n).fill(false), fired: Array(4 * size).fill(false),
-    hits: 0, beams: 0, beamPar: 1, moves: 0, total: nuclei.length,
+    hits: 0, hitLimit: 3, beams: 0, beamPar: 1, beamLimit: 99, moves: 0, total: nuclei.length,
   };
 }
 
@@ -140,6 +140,165 @@ describe('alpha beams', () => {
     expect(solved(run.state)).toBe(true);
     expect(run.beams).toBe(1);
     expect(run.state.hits).toBe(0);
+  });
+});
+
+describe('limits', () => {
+  type Inside = { state: RutherfordState; act(i: number, m: boolean): void; tapPort(p: number): void; armed: number };
+  const inside = (v: RutherfordView) => v as unknown as Inside;
+
+  it('the hit that reaches the limit ruins the plate, and nothing more can be played', () => {
+    // 4x4 with three nuclei: two hits are taken, the third ruins it.
+    const s = { ...plate(4, [5, 10, 15]), hitLimit: 3, beamLimit: 2 };
+    let t = probe(s, 5)!;
+    expect(t.hits).toBe(1);
+    expect(hitsLeft(t)).toBe(2);
+    t = probe(t, 10)!;
+    expect(ruined(t)).toBe(false);
+    expect(hitsLeft(t)).toBe(1);
+    const r = probe(t, 15)!;
+    expect(r.hits).toBe(3);
+    expect(ruined(r)).toBe(true);
+    expect(hitsLeft(r)).toBe(0);
+    // Every move is refused on a ruined plate, and it is never won, even with every safe cell open.
+    expect(probe(r, 0)).toBeNull();
+    expect(toggleMark(r, 0)).toBeNull();
+    expect(fire(r, 0)).toBeNull();
+    const all = { ...r, probed: r.probed.map(() => true) };
+    expect(solved(all)).toBe(true);
+    expect(won(all)).toBe(false);
+  });
+
+  it('a clear-around on a wrong mark can ruin the plate in one move', () => {
+    // 3x3, the nucleus in corner 0, a wrong mark on 1: the clear-around on the center probes 0.
+    const s = { ...plate(3, [0]), hitLimit: 1 };
+    const p = probe(toggleMark(s, 1)!, 4)!;
+    const c = chord(p, 4)!;
+    expect(c.hits).toBe(1);
+    expect(ruined(c)).toBe(true);
+    expect(chord(c, 4)).toBeNull();
+  });
+
+  it('a ruined plate is stuck: Hint says undo, no move gets through, and undo brings it back', () => {
+    for (const z of [10, 60]) {
+      const s = newRutherford(z, 4);
+      expect(s.hitLimit).toBe(specFor(z).hitLimit);
+      const v = new RutherfordView(s, true);
+      const hidden = s.nuclei.map((x, i) => (x && !s.probed[i] ? i : -1)).filter((i) => i >= 0);
+      for (let k = 0; k < s.hitLimit - 1; k++) {
+        inside(v).act(hidden[k], false);
+        expect(v.stuck).toBe(false);
+      }
+      expect(v.hint()).toMatch(/· 1 hit left$/);
+      expect(v.stats().progress).toEqual({ label: 'Hits', value: `${s.hitLimit - 1}/${s.hitLimit}` });
+      const before = inside(v).state;
+      inside(v).act(hidden[s.hitLimit - 1], false);
+      expect(v.stuck).toBe(true);
+      expect(v.won).toBe(false);
+      expect(v.clean).toBe(false);
+      expect(v.hint()).toBe('Plate ruined: undo or restart');
+      expect(v.help(1)!.text).toBe('Undo your last move to get back on track.');
+      expect(v.help(2)!.moved).toBeUndefined();
+      // No move gets through: probing, marking, aiming.
+      const ruinedState = inside(v).state;
+      const safe = s.nuclei.findIndex((x, i) => !x && !ruinedState.probed[i]);
+      inside(v).act(safe, false);
+      inside(v).act(safe, true);
+      inside(v).tapPort(0);
+      expect(inside(v).armed).toBe(-1);
+      expect(inside(v).state).toBe(ruinedState);
+      // Undo brings back the plate before the last hit, still playable; the hits stay on the flawless record.
+      expect(v.undo()).toBe(true);
+      expect(inside(v).state).toBe(before);
+      expect(v.stuck).toBe(false);
+      expect(hitsLeft(inside(v).state)).toBe(1);
+      expect(v.clean).toBe(false);
+      v.restart();
+      expect(v.stuck).toBe(false);
+      expect(v.clean).toBe(true);
+    }
+  });
+
+  it('beams are rationed: once the plate\'s are spent the ports close, and undo refunds one', () => {
+    for (const z of [10, 60]) {
+      const s = newRutherford(z, 7);
+      expect(s.beamLimit).toBe(s.beamPar + specFor(z).spareBeams);
+      let t = s;
+      for (let k = 0; k < s.beamLimit; k++) {
+        const next = fire(t, t.fired.findIndex((f) => !f));
+        expect(next).not.toBeNull();
+        t = next!;
+      }
+      expect(beamsLeft(t)).toBe(0);
+      expect(t.fired.some((f) => !f)).toBe(true);
+      for (let p = 0; p < t.fired.length; p++) expect(fire(t, p)).toBeNull();
+      // Through the view: aiming a port does nothing once the beams are spent.
+      const v = new RutherfordView(s, true);
+      for (let p = 0; inside(v).state.beams < s.beamLimit; p++) { inside(v).tapPort(p); inside(v).tapPort(p); }
+      const spent = inside(v).state;
+      const free = spent.fired.findIndex((f) => !f);
+      inside(v).tapPort(free);
+      expect(inside(v).armed).toBe(-1);
+      inside(v).tapPort(free);
+      expect(inside(v).state).toBe(spent);
+      expect(v.stats().par).toEqual({ label: 'Beams', value: `${s.beamLimit}/${s.beamPar}` });
+      expect(v.hint()).toMatch(/· 0 beams ·/);
+      v.undo();
+      expect(beamsLeft(inside(v).state)).toBe(1);
+      expect(v.beamsUsed).toBe(s.beamLimit);
+    }
+  });
+
+  it('grants 3 hits and a spare beam up to z 50, 2 hits and no spare beyond', () => {
+    expect(specFor(1)).toMatchObject({ hitLimit: 3, spareBeams: 1 });
+    expect(specFor(50)).toMatchObject({ hitLimit: 3, spareBeams: 1 });
+    expect(specFor(51)).toMatchObject({ hitLimit: 2, spareBeams: 0 });
+    expect(specFor(118)).toMatchObject({ hitLimit: 2, spareBeams: 0 });
+  });
+
+  it('every plate can be finished without guessing within the beams it grants', () => {
+    for (let z = 1; z <= 118; z += 3) {
+      for (let seed = 1; seed <= 5; seed++) {
+        const s = newRutherford(z, seed);
+        expect(s.beamLimit).toBe(s.beamPar + specFor(z).spareBeams);
+        expect(s.hitLimit).toBe(specFor(z).hitLimit);
+        expect(onTrack(s), `z ${z} seed ${seed}`).toBe(true);
+        // At par itself, with no spare.
+        const run = deduce(s, { beams: s.beamPar });
+        expect(solved(run.state), `z ${z} seed ${seed}`).toBe(true);
+        expect(run.state.hits).toBe(0);
+        expect(run.beams).toBeLessThanOrEqual(s.beamPar);
+      }
+    }
+  });
+
+  it('beams spent where they tell too little: Hint says how far to undo, and from there the plate finishes', () => {
+    let seen = 0;
+    for (const z of [30, 60, 90, 118]) {
+      for (let seed = 1; seed <= 12 && seen < 6; seed++) {
+        const s = newRutherford(z, seed);
+        const v = new RutherfordView(s, true);
+        // Spend every beam from the far end of the rim, with no thought for where they go.
+        for (let p = s.fired.length - 1; inside(v).state.beams < s.beamLimit; p--) { inside(v).tapPort(p); inside(v).tapPort(p); }
+        const st = inside(v).state;
+        if (onTrack(st)) continue;
+        seen++;
+        const h = v.help(1)!;
+        expect(h.text).toMatch(/^Undo (your last move|\d+ moves) to get back on track\.$/);
+        const k = h.text.startsWith('Undo your') ? 1 : Number(/\d+/.exec(h.text)![0]);
+        expect(v.help(2)!.moved).toBeUndefined();
+        expect(inside(v).state).toBe(st);
+        for (let i = 0; i < k; i++) v.undo();
+        expect(onTrack(inside(v).state)).toBe(true);
+        // Show me finishes from there with no hit.
+        for (let calls = 0; !v.won; calls++) {
+          expect(v.help(2)!.moved).toBe(true);
+          expect(calls).toBeLessThan(s.size * s.size);
+        }
+        expect(inside(v).state.hits).toBe(0);
+      }
+    }
+    expect(seen).toBeGreaterThan(0);
   });
 });
 
@@ -289,7 +448,7 @@ function checkPictures(rules: RuleCard[]): void {
 describe('view', () => {
   it('has a rule card with a picture for every symbol and action', () => {
     const titles = RULES.map((r) => r.title);
-    expect(titles).toEqual(['Probe', 'Counts', 'Marks', 'Clear around', 'Scatter cells', 'Quiet cells', 'Alpha beams', 'Bounce back', 'Beam par', 'Direct hit', 'Nuclei left']);
+    expect(titles).toEqual(['Probe', 'Counts', 'Marks', 'Clear around', 'Scatter cells', 'Quiet cells', 'Alpha beams', 'Bounce back', 'Beams granted', 'Direct hit', 'Ruined plate', 'Nuclei left']);
     checkPictures(RULES);
     for (const r of RULES) {
       expect(r.good, r.title).toBeDefined();
@@ -300,10 +459,10 @@ describe('view', () => {
   });
 
   it('shows the mistake beside the right move, flagged in amber or by the board\'s own direct hit', () => {
-    expect(RULES.filter((r) => r.bad).map((r) => r.title)).toEqual(['Clear around', 'Scatter cells', 'Beam par', 'Direct hit']);
+    expect(RULES.filter((r) => r.bad).map((r) => r.title)).toEqual(['Clear around', 'Scatter cells', 'Beams granted', 'Direct hit', 'Ruined plate']);
     for (const r of RULES.filter((x) => x.bad)) {
       const bad = record((ctx) => r.bad!.draw(ctx, 140, 104, r.bad!.duration)).colors;
-      expect(bad.has(C.warn) || (r.title === 'Direct hit' && bad.has(C.bad)), r.title).toBe(true);
+      expect(bad.has(C.warn) || ((r.title === 'Direct hit' || r.title === 'Ruined plate') && bad.has(C.bad)), r.title).toBe(true);
       expect(record((ctx) => r.good!.draw(ctx, 140, 104, r.good!.duration)).colors.has(C.warn), r.title).toBe(false);
       expect(record((ctx) => r.good!.draw(ctx, 140, 104, r.good!.duration)).colors.has(C.bad), r.title).toBe(false);
     }
@@ -318,6 +477,7 @@ describe('view', () => {
   it('keeps the hint short', () => {
     const v = new RutherfordView(newRutherford(118, 2), true);
     expect(v.hint().length).toBeLessThanOrEqual(40);
+    expect(v.hint()).toMatch(/^\d+ nuclei left · \d beams? · \d hits? left$/);
   });
 
   it('undo refunds a beam move but not its place in the beam count', () => {
@@ -341,8 +501,9 @@ describe('view', () => {
     expect(v.beamsUsed).toBe(0);
   });
 
-  it('a hit spoils flawless even after undo, and more beams than par do too', () => {
+  it('a hit spoils flawless even after undo, and the spare beam past par does too', () => {
     const s = newRutherford(10, 3);
+    expect(s.beamLimit).toBe(s.beamPar + 1);
     const v = new RutherfordView(s, true);
     const nucleus = s.nuclei.findIndex((x, i) => x && !s.probed[i]);
     (v as unknown as { act(i: number, m: boolean): void }).act(nucleus, false);
@@ -424,8 +585,9 @@ describe('help', () => {
       }
       expect(v.help(1)).toBeNull();
       expect(v.help(2)).toBeNull();
-      // Never a direct hit, and no more beams than the plate grants.
+      // Never a direct hit, and no more beams than par.
       expect(v.clean, `z ${z} seed ${seed}`).toBe(true);
+      expect(inside(v).state.beams).toBeLessThanOrEqual(s.beamPar);
       // Each step can be undone like the player's own.
       expect(v.undo()).toBe(true);
       expect(v.won).toBe(false);
