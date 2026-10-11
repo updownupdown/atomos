@@ -218,8 +218,8 @@ body:not(.build-home) .build-bar { display: none; }
 .bh-scale { position: absolute; left: var(--sp-4); bottom: var(--sp-2); margin: 0; padding: 0; list-style: none; display: flex; gap: var(--sp-3); pointer-events: none; font-size: var(--fs-xs); color: var(--c-text-2); font-variant-numeric: tabular-nums; }
 .bh-scale li { display: flex; align-items: center; gap: 5px; }
 .bh-scale[hidden] { display: none; }
-/* The atom here is to look at: it takes no touch, so a swipe on it scrolls the page. */
-#bh-atom { pointer-events: none; }
+/* The atom here is to look at and tap (it twinkles); a swipe on it still scrolls the page. */
+#bh-atom { touch-action: pan-y; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 /* The microscope, on its own row at the foot of the Build page. */
 .bh-sci-row { display: flex; justify-content: center; padding-top: var(--sp-2); border-top: 1px solid var(--c-line); }
 /* Progress at the top of the atom: nucleus, electrons and isotope rings, the share built beside. */
@@ -1590,7 +1590,7 @@ body[data-screen^='atom'].build-home .science-fab, body[data-screen='atom-view']
 .gbar-acts:empty { display: none; }
 .gbar-act--pill { display: inline-flex; align-items: center; gap: 4px; min-height: 36px; padding: 0 var(--sp-3) 0 var(--sp-2); border-radius: var(--r-pill); background: var(--c-nav); color: var(--c-text); font-weight: var(--fw-semibold); }
 .gbar-act--pill[aria-pressed='true'] { background: var(--c-accent); color: var(--c-accent-ink); }
-.gbar-act--pill:disabled { background: var(--c-nav); color: var(--c-text); opacity: 0.4; }
+.gbar-act--pill:disabled { background: var(--c-nav); color: var(--c-text-2); opacity: 0.75; }
 .gbar-act:disabled { color: var(--c-text-3); }
 
 /* The component library page (src/ui/componentpage.ts): each specimen on a black stage with its

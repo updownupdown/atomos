@@ -16,7 +16,7 @@ export class PhaseGlow extends RayExperiment {
   options = [COLOR_OPTION];
 
   protected fragment(): string { return GLOW_FRAG; }
-  protected extraUniforms() { return { uDensityK: { value: 1 }, uLevel: { value: 1 } }; }
+  protected extraUniforms() { return { uDensityK: { value: 1 }, uLevel: { value: 1 }, uEdge: { value: 0 } }; }
 
   protected refresh(model: AtomModel, s: Settings): void {
     this.uniforms.uLevel.value = model.levels[s.threshold];

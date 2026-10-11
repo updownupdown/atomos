@@ -1,11 +1,12 @@
 // The app's 3D atom, on the Build page and in View. One canvas, one WebGL context.
 //
-// Build ('build'): no touch, settings fixed. Nothing is drawn until the nucleus is built (the
-// page shows "Nucleus not built" instead and no frame runs); then the nucleus as opaque balls
-// in inferno colors (nucleus.ts); once the electrons are built, the whole atom as its Atom
-// fingerprint (render/spotlight.ts): each orbital its own twinkling cloud, lit one at a time as
-// the light walks the ladder of orbitals and back, easing between them and resting on each,
-// the rest tinted; the camera keeps the whole atom in view, with the size circles.
+// Build ('build'): settings fixed; a tap makes it twinkle for two seconds. Nothing is drawn
+// until the nucleus is built (the page shows "Nucleus not built" instead and no frame runs);
+// then the nucleus as opaque balls in inferno colors (nucleus.ts); once the electrons are
+// built, the whole atom as its Atom fingerprint (render/spotlight.ts): each orbital its own
+// twinkling cloud, lit one at a time as the light walks the ladder of orbitals and back,
+// easing between them and resting on each, the rest tinted; the camera keeps the whole atom
+// in view, with the size circles.
 //
 // View ('view'): the Orbital explorer (render/explorer.ts). Swipe up and down to glide through
 // the orbitals (on release it settles on one), sideways for more or less focus (solo, ghost,
@@ -69,6 +70,8 @@ const sampleSlice = (frameMs: number) => Math.max(5, Math.min(30, frameMs * 0.25
 const PLAY_DWELL_S = 3.6;
 const PLAY_CONTEXT = 0.5;
 const PLAY_RESUME_MS = 5000;
+/** Build: how long a tap's twinkle lasts, rising to full and back. */
+const TAP_TWINKLE_S = 2;
 
 /** The Build page's fixed look: the owner's pick from the lab, scanning through the orbitals
  *  along the ladder (resting on each) with the whole atom in view, no light pulses, and the rest
@@ -242,6 +245,7 @@ export class Detail {
       const line = (style: string) => `<svg width="16" height="4" aria-hidden="true"><line x1="1" y1="2" x2="15" y2="2" stroke="currentColor" stroke-width="1.5"${style === 'dashed' ? ' stroke-dasharray="3 2.5"' : ''}/></svg>`;
       this.legend.innerHTML = CLOUD_RINGS.map((r, i) => `<li>${line(r.style)}<span>${r.pm * 2}${i === CLOUD_RINGS.length - 1 ? ' pm' : ''}</span></li>`).join('');
     }
+    if (this.variant === 'build') this.bindTap(canvas);
     new ResizeObserver(() => this.resize()).observe(canvas);
     this.resize();
   }
@@ -536,6 +540,28 @@ export class Detail {
     else this.frameView(now, dt);
   }
 
+  /** Build: a tap on the atom (not a scroll of the page over it) makes it twinkle. */
+  private bindTap(canvas: HTMLCanvasElement): void {
+    let down: { x: number; y: number; t: number } | null = null;
+    canvas.addEventListener('pointerdown', (e) => { down = { x: e.clientX, y: e.clientY, t: performance.now() }; });
+    canvas.addEventListener('pointercancel', () => { down = null; });
+    canvas.addEventListener('pointerup', (e) => {
+      const d = down;
+      down = null;
+      if (d && Math.hypot(e.clientX - d.x, e.clientY - d.y) < 10 && performance.now() - d.t < 400) this.twinkleAt = this.time;
+    });
+  }
+  /** When the atom was last tapped (seconds of this.time). */
+  private twinkleAt = -99;
+
+  /** The tap's twinkle: up to full and back down, eased in and out, over two seconds. */
+  private twinkleBoost(base: number): number {
+    const t = (this.time - this.twinkleAt) / TAP_TWINKLE_S;
+    if (t < 0 || t >= 1 || this.reducedMotion) return base;
+    const k = 0.5 - 0.5 * Math.cos(t * Math.PI * 2);
+    return base + (1 - base) * k;
+  }
+
   private frameBuild(mode: 'empty' | 'nucleus' | 'cloud', dt: number): void {
     const r = this.renderer;
     if (mode === 'nucleus' && this.element) {
@@ -547,7 +573,7 @@ export class Detail {
       return;
     }
     if (!this.set) return;
-    const o = this.reducedMotion ? { ...BUILD_LOOK, twinkle: 0, tempo: 0.25 } : BUILD_LOOK;
+    const o = this.reducedMotion ? { ...BUILD_LOOK, twinkle: 0, tempo: 0.25 } : { ...BUILD_LOOK, twinkle: this.twinkleBoost(BUILD_LOOK.twinkle) };
     const view = this.spotlight.step(this.cloud, dt, this.time, o, this.camera.position, this.litNow);
     this.cloud.wantDense(this.spotlight.denseWants, DENSE_BUILD / Math.sqrt(this.spotlight.denseSplit));
     if (!this.sampling) this.cloud.sampleDense(this.slice);

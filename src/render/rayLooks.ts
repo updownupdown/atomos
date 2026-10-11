@@ -9,6 +9,8 @@
 //
 // What they draw follows the Orbital explorer: the focused orbital alone (with its sign, so the
 // phase colors read) while the focus is solo or ghost, the whole atom once it opens up to all.
+// Between two orbitals on the ladder (a swipe, or the glide onto the next) both are drawn in
+// one pass, each weighted by how near the focus is, so one shape melts into the next.
 // Models are built on first use, from fewer samples than the lab's (quicker, a little rougher),
 // cached per orbital, and the next ones along the ladder are built ahead on quiet frames.
 
@@ -34,6 +36,8 @@ in vec2 vUv;
 uniform int uSteps;
 uniform float uDensityK; // optical depth per a0 at the shown level
 uniform float uLevel;    // density at the shown region's edge
+uniform float uEdge;     // 0 a soft cloud (the lab's); toward 1 a clearer edge at the region's
+                         // boundary: light outside it falls away faster, inside a little stronger
 out vec4 fragColor;
 
 void main() {
@@ -52,8 +56,11 @@ void main() {
     vec3 col;
     float d = fieldColor(toPhys(p), col);
     if (d <= 0.0) continue;
-    // Emission and absorption alike scale with density relative to the shown level.
-    float a = 1.0 - exp(-uDensityK * d / uLevel * dt);
+    // Emission and absorption alike scale with density relative to the shown level, steepened
+    // round the level itself when uEdge asks for a clearer boundary (a little blur stays).
+    float r = d / uLevel;
+    r *= mix(1.0, 0.1 + 1.3 * smoothstep(0.55, 1.1, r), uEdge);
+    float a = 1.0 - exp(-uDensityK * r * dt);
     light += (1.0 - alpha) * a * (col / d);
     alpha += (1.0 - alpha) * a;
     if (alpha > 0.995) break;
@@ -227,10 +234,10 @@ interface StyleSpec {
 const STYLES: Record<RayLook, StyleSpec> = {
   volumetric: {
     frag: GLOW_FRAG, colors: 'print', steps: 80, res: 0.75, volume: { smooth: true },
-    extras: () => ({ uDensityK: { value: 1 }, uLevel: { value: 1 } }),
+    extras: () => ({ uDensityK: { value: 1 }, uLevel: { value: 1 }, uEdge: { value: 0.95 } }),
     refresh(u, m) {
       u.uLevel.value = m.levels[REGION];
-      u.uDensityK.value = 0.4 / m.bound;
+      u.uDensityK.value = 0.5 / m.bound;
     },
   },
   solid: {
@@ -364,7 +371,8 @@ export class RayLooks {
     this.built = false;
     this.target = this.targetOf(ex);
     const s = this.style(this.look);
-    const m = this.model(this.target);
+    const pair = this.pairOf(ex);
+    const m = pair ? this.blend(pair.i0, pair.i1, pair.w) : this.model(this.target);
     if (s.model !== m) {
       this.load(s, m);
     } else if (s.spec.colors === 'print' && Math.abs(s.hue - this.hue) > 0.004) {
@@ -442,6 +450,36 @@ export class RayLooks {
       this.built = true;
     }
     return m;
+  }
+
+  /** Between two orbitals (the focus more than a sliver from either): which, and how far. */
+  private pairOf(ex: OrbitalExplorer): { i0: number; i1: number; w: number } | null {
+    const set = this.set;
+    if (!set || ex.context >= ALL_FROM || set.orbitals.length < 2) return null;
+    const last = set.orbitals.length - 1;
+    const f = Math.max(0, Math.min(last, ex.focus));
+    const i0 = Math.floor(f), fr = f - i0;
+    if (fr < 0.02 || fr > 0.98 || i0 >= last) return null;
+    return { i0, i1: i0 + 1, w: fr * fr * (3 - 2 * fr) };
+  }
+
+  /** Two orbitals as one model: each term weighted by its share, the levels and reaches eased
+   *  between theirs (in log, as densities run over decades), the larger bound. */
+  private blend(i0: number, i1: number, w: number): AtomModel {
+    const a = this.model(i0), b = this.model(i1);
+    const lerpLog = (x: number, y: number) => Math.exp(Math.log(x) * (1 - w) + Math.log(y) * w);
+    const levels = { ...a.levels }, extent = { ...a.extent };
+    for (const k of Object.keys(levels) as unknown as Level[]) {
+      levels[k] = lerpLog(a.levels[k], b.levels[k]);
+      extent[k] = a.extent[k] * (1 - w) + b.extent[k] * w;
+    }
+    return {
+      ...a,
+      terms: [...a.terms.map((t) => ({ ...t, weight: t.weight * (1 - w) })), ...b.terms.map((t) => ({ ...t, weight: t.weight * w }))],
+      levels, extent,
+      bound: Math.max(a.bound, b.bound),
+      peak: lerpLog(a.peak, b.peak),
+    };
   }
 
   /** Build one model ahead: the neighbours of the focus, the way it is moving first. */
