@@ -4,7 +4,7 @@
 /** Nucleus disc, electron ring and, when the atom has isotopes, an outer ring of two arcs (lasting
  *  then fleeting, clockwise from the top) sized by their counts, with a gap between them. A small
  *  group keeps a fifth of the ring so it stays visible beside a large one. Arcs have round ends;
- *  a part that is complete is green, one under way cyan. */
+ *  a part that is complete is green, one under way white. */
 export function progressRings(o: { nucleus: boolean; shells: boolean; lasting: { built: number; total: number }; fleeting: { built: number; total: number } }, size = 64): string {
   const c = 32, gap = 0.09, w = 5;
   const arc = (r: number, from: number, to: number, cls: string): string => {

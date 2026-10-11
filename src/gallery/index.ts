@@ -176,7 +176,7 @@ export class GalleryApp {
     lenses.innerHTML = LAYOUTS.map((l) => `<button data-id="${l.id}">${l.label}</button>`).join('');
     lenses.querySelectorAll<HTMLButtonElement>('button').forEach((b) => (b.onclick = () => this.setLayout(b.dataset.id as LayoutId)));
     // Bottom right: the nucleus up close (opened with Glyph) and back.
-    $('style-switch').innerHTML = `<div class="tool-group"><span class="tool-cap">Zoom to</span><button class="tool-chip" id="nucleus-chip"></button><p class="tool-note" id="nucleus-note" hidden></p></div>`;
+    $('style-switch').innerHTML = `<div class="tool-group"><button class="tool-chip" id="nucleus-chip"></button></div>`;
     this.detail.onDive = (text) => {
       const r = $('dive-readout');
       r.classList.toggle('on', Boolean(text));
@@ -237,13 +237,24 @@ export class GalleryApp {
       if (fps.textContent !== t) fps.textContent = t;
       fps.classList.toggle('is-slow', v < 50);
     };
+    // The shortcuts, folded away under a chevron; tapping the open list folds it again.
     const list = (cls: string, rows: [string, string][]) => `<ul class="lh-keylist ${cls}">${rows.map(([k, v]) => `<li><b>${k}</b><span>${v}</span></li>`).join('')}</ul>`;
-    $('loupe-keys').innerHTML = list('for-touch', [
-      ['Swipe ↕', 'Orbitals'], ['Swipe ↔', 'Solo · All'], ['Pinch', 'Zoom'], ['Twist', 'Colors'], ['Two fingers', 'Turn'], ['Double-tap', 'Solo / All'],
-    ]) + list('for-mouse', [
-      ['Wheel', 'Orbitals'], ['Drag ↕ ↔', 'Orbitals · Solo'], ['Shift + wheel', 'Solo · All'], ['Ctrl + wheel', 'Zoom'], ['Double-click', 'Solo / All'],
-    ]);
-    $('loupe-keys').setAttribute('aria-label', 'Shortcuts');
+    const keys = $('loupe-keys');
+    keys.innerHTML = `<button type="button" class="lh-keys-toggle" aria-expanded="false" aria-controls="loupe-keylists">Shortcuts${icon('chevron-down', { size: 14 })}</button>`
+      + `<div id="loupe-keylists" class="lh-keylists" hidden>${list('for-touch', [
+        ['Swipe ↕', 'Orbitals'], ['Swipe ↔', 'Focus'], ['Pinch', 'Zoom'], ['Twist', 'Colors'], ['Two fingers', 'Turn'], ['Double-tap', 'Solo / All'],
+      ])}${list('for-mouse', [
+        ['Wheel', 'Orbitals'], ['Drag ↕ ↔', 'Orbitals · Focus'], ['Shift + wheel', 'Focus'], ['Ctrl + wheel', 'Zoom'], ['Double-click', 'Solo / All'],
+      ])}</div>`;
+    const toggle = keys.querySelector<HTMLButtonElement>('.lh-keys-toggle')!;
+    const lists = $('loupe-keylists');
+    const setOpen = (open: boolean) => {
+      lists.hidden = !open;
+      toggle.setAttribute('aria-expanded', String(open));
+      keys.classList.toggle('is-open', open);
+    };
+    toggle.onclick = () => setOpen(Boolean(lists.hidden));
+    lists.onclick = () => setOpen(false);
   }
 
   /** The microscope's sheet: the configuration and its counts, the nucleus, the isotopes. */
@@ -304,20 +315,13 @@ export class GalleryApp {
     chip.setAttribute('aria-label', !open ? 'Nucleus view, locked' : this.nucleusOn ? 'Back to the whole atom' : 'Zoom to the nucleus');
     $('rings-atom').hidden = this.nucleusOn;
     $('rings-nucleus').hidden = !this.nucleusOn;
-    const note = $('nucleus-note');
-    const e = this.current;
-    note.hidden = !this.nucleusOn || !e;
-    if (e && this.nucleusOn) {
-      const n = e.commonA - e.z;
-      note.textContent = `${e.symbol}-${e.commonA}: ${e.z} proton${e.z === 1 ? '' : 's'}${n ? ` and ${n} neutron${n === 1 ? '' : 's'}` : ''}, about ${(2 * e.nucleusRadius).toFixed(1)} fm across.`;
-    }
   }
 
   private paintRingsToggle(): void {
     const b = $('rings-toggle');
-    // The chip names what tapping it does, like the drawing chips name what they draw.
-    b.innerHTML = `${icon(this.rings ? 'scale-off' : 'scale', { size: 18 })}<span>${this.rings ? 'Hide scale' : 'Show scale'}</span>`;
-    b.setAttribute('aria-label', this.rings ? 'Hide the scale circles' : 'Show the scale circles');
+    b.innerHTML = `${icon(this.rings ? 'scale' : 'scale-off', { size: 18 })}<span>Scale</span>`;
+    b.setAttribute('aria-pressed', String(this.rings));
+    b.setAttribute('aria-label', 'Scale circles');
     $('scale-legend').classList.toggle('off', !this.rings);
   }
 

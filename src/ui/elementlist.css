@@ -98,21 +98,15 @@
 .el-id b { font-size: 20px; font-weight: var(--fw-semibold); color: var(--c-text); }
 .el-row.is-locked .el-id b { color: var(--c-text-2); }
 .el-main > span { font-size: var(--fs-sm); color: var(--c-text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.el-prog { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; --p: var(--c-text-3); }
-.el-prog b { font-size: var(--fs-md); font-weight: var(--fw-semibold); font-variant-numeric: tabular-nums; line-height: 1; color: var(--p); }
-/* A thin bar that grows with the vault (8px a little per isotope, within limits); nucleus and
-   electrons keep a minimum width, and a small gap sets off the steps, stable and unstable isotopes. */
-.el-segs { display: flex; gap: 2px; width: clamp(56px, calc(44px + var(--iso, 0) * 10px), 104px); }
-.el-segs i { flex: 1 1 0; min-width: 4px; height: 4px; border-radius: 2px; background: var(--c-line-2); }
-.el-segs i.step { flex-basis: 12px; min-width: 12px; }
-.el-segs i.unstable { opacity: 0.75; }
-.el-segs i.gap { margin-left: 3px; }
-.el-segs i.on { background: var(--p); }
-.el-prog--none b { color: var(--c-text-3); }
-.el-fleet { font-size: var(--fs-sm); line-height: 1; color: var(--c-text-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.el-prog--some { --p: var(--c-accent); }
-.el-prog--most { --p: var(--c-accent); }
-.el-prog--full { --p: var(--c-done); }
+.el-prog { display: grid; grid-template-columns: auto 64px; align-items: center; gap: 7px 8px; }
+.el-pl { display: contents; }
+.el-pl small { justify-self: end; font-size: var(--fs-xs); font-weight: var(--fw-medium); line-height: 1; color: var(--c-text-2); }
+.el-bar { display: block; height: 4px; border-radius: 2px; background: var(--c-line-2); overflow: hidden; }
+.el-bar i { display: block; height: 100%; border-radius: 2px; background: var(--c-text); }
+.el-pl.is-done small { color: var(--c-done); }
+.el-pl.is-done .el-bar i { background: var(--c-done); }
+.el-pl.is-na small { color: var(--c-text-3); opacity: 0.6; }
+.el-pl.is-na .el-bar { opacity: 0.4; }
 .el-row.is-locked .el-tile { background: var(--c-surface-2); box-shadow: inset 0 0 0 3px var(--c-line); }
 .el-row.is-locked .el-tile b { color: var(--c-text-2); }
 .el-lock { display: inline-flex; margin-left: 6px; vertical-align: -2px; color: var(--c-warn); }

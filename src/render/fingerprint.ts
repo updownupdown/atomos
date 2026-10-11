@@ -8,7 +8,7 @@
 //   - rhythm: an eight-step accent pattern; the spotlight dwells a few beats per step;
 //   - order: how the spotlight walks the orbitals (outward, inward, a subshell at a time,
 //     shuffled, back and forth);
-//   - glints and fire (how much light catches and splits), breathing depth, and what a tap does.
+//   - breathing depth, and what a tap does.
 
 import type { Element } from '../gallery/data';
 import { mulberry32 } from '../gallery/orbital';
@@ -37,8 +37,6 @@ export interface Fingerprint {
   /** The spotlight's steps: groups of orbital indices. */
   steps: number[][];
   tap: TapStyle;
-  glint: number;
-  fire: number;
   breath: number;
   /** A color for flashes and ripples. */
   accent: RGB;
@@ -112,11 +110,11 @@ export function atomFingerprint(e: Element, set: OrbitalSet): Fingerprint {
   if (core.length) steps.unshift(core);
   if (!steps.length) steps = [[0]];
 
+  const tap = pick<TapStyle>(r, ['Ripple', 'Bloom', 'Skip', 'Scatter']);
+  // Three draws once spent on glints (now gone), kept so every atom's breath stays its own.
+  r(); r(); r();
   return {
-    seed, scheme, hues, swatches, colors, bpm, dwell, pattern, order, steps,
-    tap: pick<TapStyle>(r, ['Ripple', 'Bloom', 'Skip', 'Scatter']),
-    glint: 0.45 + r() * 0.55,
-    fire: r() * r(),
+    seed, scheme, hues, swatches, colors, bpm, dwell, pattern, order, steps, tap,
     breath: 0.01 + r() * 0.035,
     accent: hsl(hues[hues.length - 1], Math.min(1, sat + 0.1), 0.7),
   };

@@ -190,15 +190,12 @@ html, body.lab {
   pointer-events: auto;
 }
 .lab-ex-ladder button.on { color: var(--c-text); background: rgba(255, 255, 255, 0.1); font-weight: var(--fw-semibold); }
-.lab-ex-focus { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(env(safe-area-inset-bottom, 0px) + 74px); display: flex; flex-direction: column; align-items: center; gap: 2px; text-align: center; }
-.lab-ex-focus b { font-size: var(--fs-2xl); font-weight: var(--fw-semibold); color: var(--c-text); }
-.lab-ex-focus span { font-size: var(--fs-xs); color: var(--c-text-2); font-variant-numeric: tabular-nums; }
-.lab-ex-ctx { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(env(safe-area-inset-bottom, 0px) + 40px); width: 200px; height: 18px; display: flex; justify-content: space-between; align-items: flex-end; border-top: 2px solid var(--c-surface-3); font-size: var(--fs-2xs); letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--c-text-3); }
-.lab-ex-ctx i { position: absolute; top: -6px; width: 10px; height: 10px; margin-left: -5px; border-radius: 50%; background: var(--c-accent); }
+.lab-ex-focus { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(env(safe-area-inset-bottom, 0px) + 40px); display: flex; align-items: center; gap: 2px; white-space: nowrap; pointer-events: auto; }
+.lab-ex-focus span { font-size: var(--fs-xs); color: var(--c-text); }
+.lab-ex-focus button { width: 36px; height: 36px; border: 0; background: none; color: var(--c-text-2); font: inherit; font-size: var(--fs-md); cursor: pointer; }
 .lab-ex-hint { position: absolute; left: 12px; right: 12px; bottom: calc(env(safe-area-inset-bottom, 0px) + 10px); margin: 0; text-align: center; font-size: var(--fs-xs); color: var(--c-text-3); }
 @media (max-width: 560px) {
   /* The panel's bar sits at the foot on phones: keep the explorer's readouts above it. */
-  .lab-ex-focus { bottom: calc(env(safe-area-inset-bottom, 0px) + 132px); }
-  .lab-ex-ctx { bottom: calc(env(safe-area-inset-bottom, 0px) + 98px); }
+  .lab-ex-focus { bottom: calc(env(safe-area-inset-bottom, 0px) + 98px); }
   .lab-ex-hint { bottom: calc(env(safe-area-inset-bottom, 0px) + 60px); }
 }
