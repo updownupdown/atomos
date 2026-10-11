@@ -51,8 +51,11 @@ export interface AtomModel {
   frame: number;
   /** Scene units per a0, matching the app's AtomView scale (outer layer edge at the vdW radius). */
   worldPerA0: number;
-  /** Density level whose region {rho >= level} holds 50, 75, 90 and 99% of the electrons. */
-  levels: Record<Threshold, number>;
+  /** Density level whose region {rho >= level} holds 50, 75, 80, 90 and 99% of the electrons
+   *  (80 is the app's View styles' region; the lab offers the THRESHOLDS). */
+  levels: Record<Level, number>;
+  /** How far each of those regions reaches from the nucleus (a0). */
+  extent: Record<Level, number>;
   /** The largest density reached (a0^-3), for log colormaps. */
   peak: number;
   /** Probability-weighted samples (physics frame), shared by the particle experiments. */
@@ -61,6 +64,9 @@ export interface AtomModel {
 
 export type Threshold = 50 | 75 | 90 | 99;
 export const THRESHOLDS: Threshold[] = [50, 75, 90, 99];
+/** Every level a model computes: the lab's thresholds and the app's 80%. */
+export type Level = Threshold | 80;
+export const LEVELS: Level[] = [50, 75, 80, 90, 99];
 
 const FOUR_PI = 4 * Math.PI;
 
@@ -291,9 +297,10 @@ export function worldPerA0(e: Element): number {
 
 const models = new Map<string, AtomModel>();
 
-/** Build (or fetch) the model for a selection. */
-export function buildModel(sel: Selection, explicitSign: boolean): AtomModel {
-  const key = `${sel.z}/${sel.orbital}/${sel.full ? 1 : 0}/${sel.m}/${explicitSign ? 1 : 0}`;
+/** Build (or fetch) the model for a selection. Levels and extent come from `samples` points of
+ *  the density (fewer is quicker and a little rougher: the app's View takes 8000). */
+export function buildModel(sel: Selection, explicitSign: boolean, samples = 24000): AtomModel {
+  const key = `${sel.z}/${sel.orbital}/${sel.full ? 1 : 0}/${sel.m}/${explicitSign ? 1 : 0}/${samples}`;
   const hit = models.get(key);
   if (hit) return hit;
   const e = elementAt(sel.z);
@@ -301,7 +308,7 @@ export function buildModel(sel: Selection, explicitSign: boolean): AtomModel {
   const electrons = terms.reduce((a, t) => a + t.weight, 0);
   // Levels and extent from samples of the density itself: the share of probability inside
   // {rho >= L} is the share of samples whose density is at least L.
-  const N = 24000;
+  const N = Math.max(1000, Math.round(samples));
   const s = sampleModel(terms, N, 12345);
   const dens = new Float64Array(N);
   const radii = new Float64Array(N);
@@ -315,18 +322,23 @@ export function buildModel(sel: Selection, explicitSign: boolean): AtomModel {
   // s orbitals peak at the nucleus itself.
   peak = Math.max(peak, density(terms, 1e-5, 0, 0), density(terms, 0, 0, 1e-3 / Math.max(...terms.map((t) => t.zeff))));
   const sorted = Float64Array.from(dens).sort();
-  const levels = {} as Record<Threshold, number>;
-  for (const th of THRESHOLDS) levels[th] = sorted[Math.floor((1 - th / 100) * (N - 1))];
+  const levels = {} as Record<Level, number>;
+  for (const th of LEVELS) levels[th] = sorted[Math.floor((1 - th / 100) * (N - 1))];
   const rs = Float64Array.from(radii).sort();
   const r995 = rs[Math.floor(0.997 * (N - 1))];
-  // Frame on the 90% region's extent (its far edge, past the odd stray sample).
-  const inside = radii.filter((_, i) => dens[i] >= levels[90]).sort();
-  const rFrame = inside.length ? inside[Math.floor(0.995 * (inside.length - 1))] : rs[Math.floor(0.97 * (N - 1))];
+  // Each region's reach: its far edge, past the odd stray sample.
+  const extent = {} as Record<Level, number>;
+  for (const th of LEVELS) {
+    const inside = radii.filter((_, i) => dens[i] >= levels[th]).sort();
+    extent[th] = inside.length ? inside[Math.floor(0.995 * (inside.length - 1))] : rs[Math.floor(0.97 * (N - 1))];
+  }
+  // Frame on the 90% region's extent.
+  const rFrame = extent[90];
   const label = sel.orbital === 'total' ? 'Total' : sel.orbital === 'valence' ? 'Valence'
     : sel.full || terms[0].l === 0 ? `${sel.orbital} (all m)` : mChoices(sel.orbital)[Math.min(sel.m, 2 * terms[0].l)];
   const model: AtomModel = {
     element: e, selection: { ...sel }, label, terms, electrons,
-    bound: r995 * 1.12, frame: Math.min(r995, rFrame * 1.2), worldPerA0: worldPerA0(e), levels, peak, cache: new Map(),
+    bound: r995 * 1.12, frame: Math.min(r995, rFrame * 1.2), worldPerA0: worldPerA0(e), levels, extent, peak, cache: new Map(),
   };
   if (models.size > 40) {
     // Drop old models and any GPU buffers cached on them.

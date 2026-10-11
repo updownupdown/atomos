@@ -88,7 +88,7 @@ export class Game {
   private gbar!: GameBar;
 
   constructor(private hooks: { onElement?: (z: number) => void; onView?: (z: number) => void } = {}) {
-    this.detail = new Detail($<HTMLCanvasElement>('bh-atom'), { variant: 'build', empty: $('bh-empty') });
+    this.detail = new Detail($<HTMLCanvasElement>('bh-atom'), { variant: 'build', empty: $('bh-empty'), legend: $('bh-scale') });
     this.bar = createAtomBar({ onChange: (z) => this.start(z), locked: (z) => !rowOpen(rowOf(z), this.save) });
     $('build-bar').append(this.bar.el);
     this.applySettings();
@@ -634,7 +634,7 @@ export class Game {
     // its share, "Stable". Right, mirrored: the fleeting isotopes' own ring and count.
     $('bh-progress').innerHTML = `
       <div class="bh-prog-main">
-        ${progressRings({ nucleus, shells, lasting: { built: lastingDone, total: lasting.length }, fleeting: { built: 0, total: 0 } }, 48)}
+        ${progressRings({ nucleus, shells, lasting: { built: lastingDone, total: lasting.length }, fleeting: { built: 0, total: 0 } }, 30)}
         <div class="bh-rings-text">
           <span>Stable</span>
           <b${pct >= 100 ? ' class="is-done"' : ''}>${pct}%</b>
@@ -950,9 +950,8 @@ export class Game {
     restart.id = 'btn-restart';
     this.hints.button.id = 'btn-hint';
     const how = iconButton({ icon: icon('info'), label: 'Instructions', onClick: () => this.showHow() });
-    this.gbar = createGameBar([undo, restart, this.hints.button, how, scienceButton('ui-icon-btn science-btn')], { label: element(this.z).name, onClick: () => this.toHome() });
+    this.gbar = createGameBar([undo, restart, this.hints.button, how], { label: element(this.z).name, onClick: () => this.toHome() }, [scienceButton('ui-icon-btn science-btn')]);
     $('build-head').append(this.gbar.el);
-    $('build-foot').append(this.gbar.foot);
     window.addEventListener('keydown', (e) => this.onKey(e));
     window.addEventListener('blur', () => this.onCancel());
   }

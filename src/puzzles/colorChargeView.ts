@@ -849,9 +849,8 @@ export class ColorChargeView implements PuzzleView {
       return this.lost.length ? 'Stranded tiles: undo to free them' : bad ? `${bad} group${bad === 1 ? '' : 's'} not in the clearance` : 'On track';
     }
     if (this.armed) return 'Gluon ready: pick two neighbors';
-    const left = gluonsLeft(s);
-    const g = left ? `, ${left} gluon${left === 1 ? '' : 's'}` : '';
-    return `${s.groups.length} / ${s.par - s.gluons} bound${g}`;
+    // The Gluons button beside this line counts what is left.
+    return `${s.groups.length} / ${s.par - s.gluons} bound`;
   }
 
   /** Test and, on gluon levels, the Gluon button, beside the message line. */
@@ -861,7 +860,7 @@ export class ColorChargeView implements PuzzleView {
     if (!s.gluons) return test;
     const left = gluonsLeft(s);
     const gluon = {
-      label: left > 1 ? `Gluon ×${left}` : 'Gluon',
+      label: `Gluons (${Math.max(0, left)})`,
       icon: 'gluon' as const,
       pressed: this.armed,
       disabled: left <= 0,

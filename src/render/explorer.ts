@@ -58,9 +58,6 @@ export class OrbitalExplorer {
   private spring = 10;
   /** Gliding to `goal` (a tap on the ladder, a key) rather than coasting (gradual mode). */
   private seeking = false;
-  /** Auto-play: orbitals per second to drift along the ladder (0 off), and which way. */
-  drift = 0;
-  private driftDir = 1;
   /** Gestures only turn and zoom (the ladder and context stay put), e.g. at the nucleus. */
   turnOnly = false;
   /** The orbitals near the focus, by emphasis: the ones to give dense points (applyLooks). */
@@ -263,16 +260,7 @@ export class OrbitalExplorer {
     if (!set) return 1;
     const dragging = this.fingers.size > 0 && this.axis === 'v';
     if (!dragging) {
-      if (this.drift > 0 && !this.touching) {
-        // Auto-play: drift along the ladder, easing to a stop at either end and back.
-        const ahead = this.driftDir > 0 ? this.last - this.focus : this.focus;
-        if (ahead < 0.02) this.driftDir = -this.driftDir;
-        const want = this.driftDir * this.drift * Math.min(1, 0.12 + Math.max(0, ahead) / 0.7);
-        this.vel += (want - this.vel) * (1 - Math.exp(-dt * 1.5));
-        this.focus = clamp(this.focus + this.vel * dt, 0, this.last);
-        this.goal = this.focus;
-        this.seeking = false;
-      } else if (this.opts.hard || this.seeking) {
+      if (this.opts.hard || this.seeking) {
         // A spring onto the chosen orbital.
         const k = 1 - Math.exp(-dt * this.spring);
         this.focus += (this.goal - this.focus) * k;
@@ -346,12 +334,16 @@ export interface ExplorerHudOptions {
 
 /**
  * The explorer's HUD: the ladder of orbitals (outer ones below, so the list moves with the
- * finger that climbs it; tap one to go there), and "− Orbital focus +", whose ends step the
- * focus as a sideways swipe does: solo, ghost, all.
+ * finger that climbs it; tap one to go there), and the focus control: a slider (drag it or tap
+ * a spot; it snaps near all, ghost and solo) over "− Orbital focus +", whose ends step it as a
+ * sideways swipe does.
  */
 export class ExplorerHud {
   readonly ladderEl: HTMLElement;
   readonly focusEl: HTMLElement;
+  /** The focus slider: left is all of the atom, right only the focused orbital. */
+  readonly sliderEl: HTMLElement;
+  private thumb: HTMLElement;
   private ladder: HTMLButtonElement[] = [];
   private shownSet: OrbitalSet | null = null;
   private opts: Required<ExplorerHudOptions>;
@@ -377,8 +369,48 @@ export class ExplorerHud {
     };
     const name = document.createElement('span');
     name.textContent = 'Orbital focus';
-    this.focusEl.append(step('−', 'Less focus: bring in the rest of the atom', 0.25), name, step('+', 'More focus: only this orbital', -0.25));
+    const row = document.createElement('div');
+    row.className = `${p}-focus-row`;
+    row.append(step('−', 'Less focus: bring in the rest of the atom', 0.25), name, step('+', 'More focus: only this orbital', -0.25));
+    this.sliderEl = document.createElement('div');
+    this.sliderEl.className = `${p}-slider`;
+    this.sliderEl.tabIndex = 0;
+    this.sliderEl.setAttribute('role', 'slider');
+    this.sliderEl.setAttribute('aria-label', 'Orbital focus');
+    this.sliderEl.setAttribute('aria-valuemin', '0');
+    this.sliderEl.setAttribute('aria-valuemax', '100');
+    this.thumb = document.createElement('i');
+    this.sliderEl.append(this.thumb);
+    this.focusEl.append(this.sliderEl, row);
     host.append(this.ladderEl, this.focusEl);
+    this.bindSlider();
+  }
+
+  /** The slider: drag along it or tap a spot (within a few pixels of all, ghost or solo, it
+   *  takes the stop); arrow keys step it. */
+  private bindSlider(): void {
+    const el = this.sliderEl;
+    const at = (x: number) => {
+      const r = el.getBoundingClientRect();
+      const v = clamp((x - r.left) / Math.max(1, r.width), 0, 1);
+      const snap = [0, 0.5, 1].find((s) => Math.abs(s - v) * r.width < 12);
+      this.ex.setContext(1 - (snap ?? v));
+      this.ex.onInteract?.();
+    };
+    let dragging = false;
+    el.addEventListener('pointerdown', (e) => { dragging = true; el.setPointerCapture?.(e.pointerId); at(e.clientX); e.stopPropagation(); });
+    el.addEventListener('pointermove', (e) => { if (dragging) at(e.clientX); });
+    const end = () => { dragging = false; };
+    el.addEventListener('pointerup', end);
+    el.addEventListener('pointercancel', end);
+    el.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight' || e.key === 'ArrowUp') this.ex.setContext(this.ex.contextGoal - 0.25);
+      else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') this.ex.setContext(this.ex.contextGoal + 0.25);
+      else return;
+      e.preventDefault();
+      e.stopPropagation();
+      this.ex.onInteract?.();
+    });
   }
 
   /** Repaint for the current frame (cheap: only transforms). */
@@ -408,6 +440,11 @@ export class ExplorerHud {
       b.tabIndex = a > 0.15 ? 0 : -1;
       b.classList.toggle('on', Math.abs(d) < 0.5);
     });
+    const v = 1 - this.ex.context;
+    this.thumb.style.left = `${(v * 100).toFixed(1)}%`;
+    const goal = 1 - this.ex.contextGoal;
+    this.sliderEl.setAttribute('aria-valuenow', String(Math.round(goal * 100)));
+    this.sliderEl.setAttribute('aria-valuetext', goal > 0.75 ? 'Solo' : goal < 0.25 ? 'All' : 'Ghost');
   }
 
   dispose(): void {

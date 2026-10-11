@@ -1,4 +1,5 @@
-// Shared GLSL for the lab's ray-marched experiments: the wavefunction of every shown orbital,
+// Shared GLSL for the ray-marched renderers (the lab's experiments and the app's View styles,
+// render/rayLooks.ts): the wavefunction of every shown orbital,
 // evaluated analytically per sample (hydrogen-like radial functions with Slater's effective
 // charge, real spherical harmonics), the radius table for spherical terms, the camera ray,
 // the cutaway wedge, noise and colormaps. Plus the uniforms that feed it and the code that
@@ -6,13 +7,13 @@
 
 import * as THREE from 'three';
 import { BLOCK_COLOUR, type Block } from '../gallery/data';
-import { INFERNO_GLSL } from '../render/gl';
-import { sphericalTable, type AtomModel, type Term } from '../render/model';
+import { INFERNO_GLSL } from './gl';
+import { sphericalTable, type AtomModel, type Term } from './model';
 
 export const MAX_TERMS = 24;
 export const TABLE_N = 2048;
 
-/** A CSS hex color as raw display values: the lab's shaders write display colors directly. */
+/** A CSS hex color as raw display values: the ray shaders write display colors directly. */
 export function srgb(hex: string): THREE.Color {
   return new THREE.Color().setHex(parseInt(hex.replace('#', ''), 16), THREE.LinearSRGBColorSpace);
 }
@@ -22,7 +23,7 @@ export const PHASE_POS = srgb('#e8a060');
 export const PHASE_NEG = srgb('#5f9ae0');
 
 // Additive blending and the full-screen vertex shader live with the app's renderers.
-export { ADD_BLEND, FULLSCREEN_VERT } from '../render/gl';
+export { ADD_BLEND, FULLSCREEN_VERT } from './gl';
 
 export const BLOCK_INDEX: Record<Block, number> = { s: 0, p: 1, d: 2, f: 3 };
 

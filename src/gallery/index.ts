@@ -12,7 +12,6 @@ import { Gallery } from './gallery';
 import { tabHTML, TABS, type ViewTab } from './info';
 import { guideHTML } from './guide';
 import { icon } from '../ui/icons';
-import { atomSheetHTML } from './atomsheet';
 import { fullScreen, type FullScreen } from './fullscreen';
 import { createCallout, createSegments, createTabs, iconButton, nextButton, swipeToDismiss, type Segments, type Tabs } from '../ui/components';
 import { ISO_FILTERS, STRUCTURE_VIEWS } from './visuals';
@@ -31,7 +30,7 @@ import { playUnlock } from '../puzzles/unlock';
 import { isLookId, lensUnlock, lookOf, lookUnlock, LOOKS, type LookId } from './looks';
 import { atomThumb } from './thumbs';
 import { fleetingOpen, periodNeed, periodSentence, rowLockNote } from './locks';
-import { progressHtml } from '../ui/modebar';
+import { isViewLook, VIEW_LOOKS, type ViewLook } from '../render/rayLooks';
 
 type GalleryMode = 'collection' | 'map' | 'details';
 
@@ -53,6 +52,8 @@ export class GalleryApp {
   private upNext = Object.assign(createCallout({ kicker: '', title: '', pic: '', className: 'ui-callout--float up-next' }), { hidden: true });
   /** The Up next step swiped away, by key: it comes back once the next step changes. */
   private upNextGone: string | null = null;
+  /** The whole collection's progress, in the Collection's search row between search and Filter. */
+  private overall = Object.assign(document.createElement('span'), { className: 'gal-prog' });
   private tab: ViewTab = 'model';
   /** The Info page last open, kept while View shows the 3D atom. */
   private page: Exclude<ViewTab, 'model'> = 'overview';
@@ -128,15 +129,17 @@ export class GalleryApp {
     if (this.tab === 'isotopes') this.renderPanel();
   }
 
-  /** The whole collection's progress, beside the views: every atom's share built, averaged. */
+  /** The whole collection's progress: every atom's share built, averaged ("Stable"), over the
+   *  share of fleeting isotopes built once they are open (any atom built). */
   private paintOverall(): void {
     const save = this.save;
     const main = ELEMENTS.reduce((t, e) => t + atomProgress(e.z, save), 0) / MAX_Z;
     const n = Math.round(main * 100);
-    // Fleeting isotopes join the count once they are open (any atom built).
     const f = fleetingOpen(save) ? fleetingTotal(save) : null;
-    $('gal-prog').innerHTML = progressHtml(main, f?.total ? { label: 'fleeting', pct: f.built / f.total } : null, false);
-    $('gal-prog').setAttribute('aria-label', `Collection ${n}% built${f ? `; ${f.built} of ${f.total} fleeting isotopes` : ''}`);
+    const fp = f?.total ? Math.round((f.built / f.total) * 100) : null;
+    this.overall.innerHTML = `<span${n >= 100 ? ' class="is-done"' : ''}>Stable: <b>${n}%</b></span>`
+      + (fp !== null ? `<span${fp >= 100 ? ' class="is-done"' : ''}>Fleeting: <b>${fp}%</b></span>` : '');
+    this.overall.setAttribute('aria-label', `Collection ${n}% built${f ? `; ${f.built} of ${f.total} fleeting isotopes` : ''}`);
   }
 
   /** Whether this atom's row is not open yet (two thirds of the row above unbuilt). It stays
@@ -177,11 +180,16 @@ export class GalleryApp {
     lenses.querySelectorAll<HTMLButtonElement>('button').forEach((b) => (b.onclick = () => this.setLayout(b.dataset.id as LayoutId)));
     // Bottom right: the nucleus up close (opened with Glyph) and back.
     $('style-switch').innerHTML = `<div class="tool-group"><button class="tool-chip" id="nucleus-chip"></button></div>`;
-    this.detail.onDive = (text) => {
+    this.detail.onDive = (dive) => {
       const r = $('dive-readout');
-      r.classList.toggle('on', Boolean(text));
-      if (text) r.textContent = text;
+      r.classList.toggle('on', Boolean(dive));
+      if (!dive) return;
+      r.querySelector('b')!.textContent = dive.across;
+      r.querySelector<HTMLElement>('i')!.style.width = `${dive.barPx.toFixed(1)}px`;
+      r.querySelector('small')!.textContent = dive.barLabel;
     };
+    $('dive-readout').innerHTML = '<b></b><i></i><small></small>';
+    this.detail.onLeaveNucleus = () => this.setNucleus(false);
     $('nucleus-chip').onclick = () => {
       if (!this.opened('nucleus-view')) {
         this.offerUnlock('nucleus-view', 'The nucleus view', 'Zoom a hundred thousand times closer, past the electrons, to every proton and neutron packed in the middle of the atom.', () => this.setNucleus(true));
@@ -211,11 +219,10 @@ export class GalleryApp {
     this.bindTabSwipe();
   }
 
-  /** Over the 3D atom: the microscope (top left) opens what the corners used to show; Play/Pause
-   *  and full screen (top right), the frame rate under them, then the touch shortcuts. */
+  /** Over the 3D atom: the render style (top left); Play/Pause and full screen (top right), the
+   *  frame rate under them, then the touch shortcuts. */
   private buildHud(): void {
-    const sci = iconButton({ icon: icon('microscope'), label: 'About this atom: electrons, nucleus and isotopes', className: 'ui-icon-btn--ghost lh-btn', onClick: () => this.openAtomSheet() });
-    $('loupe-tl').append(sci);
+    $('loupe-tl').append(this.buildLookPicker());
     const play = iconButton({ icon: icon('pause'), label: 'Pause', className: 'ui-icon-btn--ghost lh-btn', onClick: () => this.detail.setPlaying(!this.detail.playing) });
     const full = iconButton({ icon: icon('fullscreen'), label: 'Full screen', className: 'ui-icon-btn--ghost lh-btn lh-full', onClick: () => this.full.toggle() });
     $('loupe-btns').append(play, full);
@@ -242,9 +249,9 @@ export class GalleryApp {
     const keys = $('loupe-keys');
     keys.innerHTML = `<button type="button" class="lh-keys-toggle" aria-expanded="false" aria-controls="loupe-keylists">Shortcuts${icon('chevron-down', { size: 14 })}</button>`
       + `<div id="loupe-keylists" class="lh-keylists" hidden>${list('for-touch', [
-        ['Swipe ↕', 'Orbitals'], ['Swipe ↔', 'Focus'], ['Pinch', 'Zoom'], ['Twist', 'Colors'], ['Two fingers', 'Turn'], ['Double-tap', 'Solo / All'],
+        ['Swipe ↕', 'Orbitals'], ['Swipe ↔', 'Focus'], ['Pinch', 'Zoom'], ['Twist', 'Colors'], ['Two fingers', 'Rotate'], ['Double-tap', 'Toggle focus'],
       ])}${list('for-mouse', [
-        ['Wheel', 'Orbitals'], ['Drag ↕ ↔', 'Orbitals · Focus'], ['Shift + wheel', 'Focus'], ['Ctrl + wheel', 'Zoom'], ['Double-click', 'Solo / All'],
+        ['Wheel', 'Orbitals'], ['Drag ↕ ↔', 'Orbitals · Focus'], ['Shift + wheel', 'Focus'], ['Ctrl + wheel', 'Zoom'], ['Double-click', 'Toggle focus'],
       ])}</div>`;
     const toggle = keys.querySelector<HTMLButtonElement>('.lh-keys-toggle')!;
     const lists = $('loupe-keylists');
@@ -257,13 +264,71 @@ export class GalleryApp {
     lists.onclick = () => setOpen(false);
   }
 
-  /** The microscope's sheet: the configuration and its counts, the nucleus, the isotopes. */
-  private openAtomSheet(): void {
-    const e = this.current;
-    if (!e) return;
-    this.full.exit();
-    const lit = this.litOf(e.z);
-    openModal(atomSheetHTML(e, { nucleus: lit.nucleus, electrons: lit.electrons > 0 }));
+  /** The render style picker: a compact button naming the style, over a small list of the five
+   *  (render/rayLooks.ts). The choice is kept in localStorage. */
+  private buildLookPicker(): HTMLElement {
+    const KEY = 'atomos.view.look';
+    let look: ViewLook = 'particles';
+    try { const v = localStorage.getItem(KEY); if (isViewLook(v)) look = v; } catch { /* storage off: particles */ }
+    const wrap = document.createElement('div');
+    wrap.className = 'lh-look';
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'lh-look-btn';
+    btn.setAttribute('aria-expanded', 'false');
+    btn.setAttribute('aria-controls', 'loupe-looks');
+    const list = document.createElement('div');
+    list.id = 'loupe-looks';
+    list.className = 'lh-look-list';
+    list.setAttribute('role', 'group');
+    list.setAttribute('aria-label', 'Render style');
+    list.hidden = true;
+    const rows = VIEW_LOOKS.map((l) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.dataset.id = l.id;
+      b.innerHTML = `<span>${l.label}</span>${icon('check', { size: 16 })}`;
+      b.onclick = () => choose(l.id);
+      list.append(b);
+      return b;
+    });
+    wrap.append(btn, list);
+    const paint = () => {
+      const label = VIEW_LOOKS.find((l) => l.id === look)!.label;
+      btn.innerHTML = `<span>${label}</span>${icon('chevron-down', { size: 14 })}`;
+      btn.setAttribute('aria-label', `Render style: ${label}`);
+      for (const b of rows) b.setAttribute('aria-pressed', String(b.dataset.id === look));
+    };
+    const setOpen = (open: boolean) => {
+      list.hidden = !open;
+      btn.setAttribute('aria-expanded', String(open));
+      wrap.classList.toggle('is-open', open);
+      if (open) rows.find((b) => b.dataset.id === look)?.focus();
+    };
+    const choose = (id: ViewLook) => {
+      look = id;
+      this.detail.setLook(id);
+      try { localStorage.setItem(KEY, id); } catch { /* storage off: the choice just resets */ }
+      paint();
+      setOpen(false);
+      btn.focus();
+    };
+    btn.onclick = () => setOpen(Boolean(list.hidden));
+    // Escape closes; arrows walk the list (and stay out of the atom's own arrow keys).
+    wrap.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Escape' && !list.hidden) { setOpen(false); btn.focus(); }
+      else if ((ev.key === 'ArrowDown' || ev.key === 'ArrowUp') && !list.hidden) {
+        const i = rows.indexOf(document.activeElement as HTMLButtonElement);
+        rows[(i + (ev.key === 'ArrowDown' ? 1 : -1) + rows.length) % rows.length].focus();
+      } else return;
+      ev.preventDefault();
+      ev.stopPropagation();
+    });
+    // A tap anywhere else closes it.
+    document.addEventListener('pointerdown', (ev) => { if (!list.hidden && !wrap.contains(ev.target as Node)) setOpen(false); });
+    paint();
+    this.detail.setLook(look);
+    return wrap;
   }
 
   /** Swipe sideways on a page to move between tabs; tables that scroll sideways keep the gesture. The model turns instead. */
@@ -458,6 +523,7 @@ export class GalleryApp {
         fleetingTotal: true,
       });
       $('gal-collection').append(this.collection.el, this.upNext);
+      this.collection.el.querySelector('.el-filter')?.before(this.overall);
       this.paintUpNext();
     }
   }

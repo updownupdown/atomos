@@ -578,7 +578,7 @@ function drawBoard(ctx: CanvasRenderingContext2D, w: number, h: number, bx: numb
   if (!(w > 0 && h > 0 && cell > 0)) return;
   drawFrame(ctx, frameBox(bx, by, w * cell, h * cell, cell), { width: frameWidth(cell), radius: cell * 0.2 + framePad(cell), color });
   ctx.save();
-  ctx.fillStyle = C.surface3;
+  ctx.fillStyle = C.line2;
   const r = Math.max(1.5, cell * 0.035);
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
     if (open && !open[y * w + x]) continue;
@@ -595,7 +595,7 @@ function drawBoard(ctx: CanvasRenderingContext2D, w: number, h: number, bx: numb
  * into the middle of the cell, so it reads as part of the board's edge rather than a piece.
  */
 function drawHole(ctx: CanvasRenderingContext2D, x: number, y: number, cell: number, color: string): void {
-  const side = cell * 0.44, r = side * 0.3;
+  const side = cell * 0.55, r = side * 0.3;
   tile(ctx, x + (cell - side) / 2, y + (cell - side) / 2, side, side, r, color);
 }
 

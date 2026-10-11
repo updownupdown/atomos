@@ -28,6 +28,7 @@ uniform float uHaloAmount;
 uniform float uSmooth;
 uniform float uExposure;
 uniform float uTone;
+uniform float uOpacity;
 out vec4 fragColor;
 
 // Cubic B-spline upsampling from four bilinear taps.
@@ -56,7 +57,8 @@ void main() {
   // Dither below one 8-bit step against banding in smooth gradients.
   float n = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
   c.rgb += (n - 0.5) / 255.0;
-  fragColor = vec4(max(c.rgb, 0.0), clamp(c.a, 0.0, 1.0));
+  // Premultiplied, so fading scales light and coverage alike.
+  fragColor = vec4(max(c.rgb, 0.0), clamp(c.a, 0.0, 1.0)) * uOpacity;
 }`;
 
 const BLUR_FRAG = /* glsl */ `
@@ -133,6 +135,7 @@ export class VolumePass {
         uSmooth: { value: opts.smooth === false ? 0 : 1 },
         uExposure: { value: 1 },
         uTone: { value: opts.tone ? 1 : 0 },
+        uOpacity: { value: 1 },
       },
       transparent: true,
       depthTest: false,
@@ -148,6 +151,8 @@ export class VolumePass {
 
   set haloAmount(v: number) { this.composite.uniforms.uHaloAmount.value = this.opts.halo ? v : 0; }
   set exposure(v: number) { this.composite.uniforms.uExposure.value = v; }
+  /** Fade the whole pass out (0) or in (1) as it goes onto the screen. */
+  set opacity(v: number) { this.composite.uniforms.uOpacity.value = v; }
   /** B-spline (soft) or bilinear (crisp) upscaling. */
   set smooth(v: boolean) { this.composite.uniforms.uSmooth.value = v ? 1 : 0; }
 

@@ -5,11 +5,11 @@
 // glints finishes it.
 
 import * as THREE from 'three';
-import { FIELD_GLSL } from '../glsl';
+import { FIELD_GLSL } from '../../render/field';
 import type { AtomModel } from '../../render/model';
 import type { QualitySpec, Settings } from '../types';
 import { COLOR_OPTION, RayExperiment } from './base';
-import { SURFACE_GLSL, cameraLight } from './surface';
+import { SURFACE_GLSL, cameraLight } from '../../render/surface';
 
 const FRAG = /* glsl */ `
 precision highp float;

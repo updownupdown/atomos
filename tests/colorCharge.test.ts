@@ -220,7 +220,7 @@ describe('view', () => {
     const at = (i: number) => ({ x: geom.x + (i % s.cols + 0.5) * geom.cell, y: geom.y + (Math.floor(i / s.cols) + 0.5) * geom.cell });
     const tap = (p: { x: number; y: number }) => { v.down(p); v.up(p); };
     const acts = v.action() as ViewAction[];
-    expect(acts.map((a) => a.label)).toEqual(['Gluon', 'Test']);
+    expect(acts.map((a) => a.label)).toEqual(['Gluons (1)', 'Test']);
     // The swap first: arm the gluon, tap the two tiles.
     acts[0].run();
     expect((v.action() as ViewAction[])[0].pressed).toBe(true);

@@ -40,7 +40,7 @@ type TileStyle = 'given' | 'placed' | 'key';
 /** Corner radius as a share of the tile: every tile a square with soft corners, dealt, yours and the stacks alike. */
 const RADIUS: Record<TileStyle, number> = { given: 0.12, placed: 0.12, key: 0.12 };
 /** Dealt tiles are drawn a little dimmer than the ones you place. */
-const GIVEN_ALPHA = 0.8;
+const GIVEN_ALPHA = 0.7;
 /** How long Test's marks pulse, in ms. */
 const TEST_MS = 2000;
 /** A spent stack's placeholder: gray, so a done symbol reads as put away. */
@@ -118,7 +118,7 @@ function tileGround(ctx: CanvasRenderingContext2D, x: number, y: number, w: numb
 /**
  * A symbol tile, w square at (x, y): its ground (see tileGround) and the
  * orbital's dots, centered. Every tile is a square with soft corners and no
- * outline; dealt ones are drawn at 80%. `gray` draws it in gray (a spent stack).
+ * outline; dealt ones are drawn at 70%. `gray` draws it in gray (a spent stack).
  */
 export function drawSymbolTile(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, spin: boolean, k: number, style: TileStyle = 'placed', alpha = 1, gray = false): void {
   const { orbital, up } = symbolOf(spin, k);

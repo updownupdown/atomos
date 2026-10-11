@@ -154,7 +154,7 @@ export function createElementList(opts: ElementListOptions = {}): ElementList {
       <div class="el-searchrow">
         <label class="el-search">
           <span class="el-search-icon">${icon('search', { size: 22 })}</span>
-          <input type="search" placeholder="Search by name, symbol or number" aria-label="Search elements" autocomplete="off" spellcheck="false" enterkeyhint="go">
+          <input type="search" placeholder="Name, symbol or number" aria-label="Search elements" autocomplete="off" spellcheck="false" enterkeyhint="go">
           <button type="button" class="el-clear" aria-label="Clear search" hidden>${icon('clear', { size: 26 })}</button>
         </label>
         ${variant === 'rows' ? `<button type="button" class="ui-icon-btn el-filter" aria-label="Filter" aria-expanded="false" aria-controls="">${icon('filter', { size: 22 })}</button>` : ''}
@@ -199,7 +199,7 @@ export function createElementList(opts: ElementListOptions = {}): ElementList {
     const fleetOn = f.total > 0 && fleetingOpen(save);
     const fpct = fleetOn ? Math.round((f.built / f.total) * 100) : 0;
     const line = (label: string, p: number, na = false) =>
-      `<span class="el-pl${na ? ' is-na' : p >= 100 ? ' is-done' : ''}"><small>${label}</small><i class="el-bar"><i style="width:${p}%"></i></i></span>`;
+      `<span class="el-pl${na ? ' is-na' : p >= 100 ? ' is-done' : ''}"><small>${label}</small><i class="el-pbar"><i style="width:${p}%"></i></i></span>`;
     const aria = `${pct}% built${fleetOn ? `, ${f.built} of ${f.total} fleeting isotopes` : ''}`;
     return `<span class="el-prog" aria-label="${aria}">${line('Stable', pct)}${line('Fleeting', fpct, !fleetOn)}</span>`;
   };
@@ -212,7 +212,7 @@ export function createElementList(opts: ElementListOptions = {}): ElementList {
     return `<button type="button" role="option" class="${cls}" data-z="${e.z}" aria-selected="${e.z === opts.current}">
       ${opts.thumbs ? `<span class="el-pic${pic ? ' on' : ''}">${tile(e)}${pic ? `<img src="${pic}" alt="">` : ''}</span>` : tile(e)}
       <span class="el-id"><small>${e.z}</small><b>${esc(e.symbol)}</b></span>
-      <span class="el-main"><b>${locked ? `<i class="el-lockico" role="img" aria-label="Build locked">${icon('lock', { size: 16 })}</i>` : ''}<span>${esc(e.name)}</span></b><span>${esc((locked && rowLockNote(e.z, save, true)) || e.series)}</span></span>
+      <span class="el-main"><b>${locked ? `<i class="el-lockico" role="img" aria-label="Build locked">${icon('lock', { size: 16 })}</i>` : ''}<span>${esc(e.name)}</span></b>${locked ? `<span>${esc(rowLockNote(e.z, save, true) || '')}</span>` : ''}</span>
       ${progress(e, save)}
     </button>`;
   };

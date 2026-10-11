@@ -3,11 +3,13 @@
 //   (Difficulty, Moves, Par). How far the board has got is left to the board and the message
 //   under it, which every game shows. Difficulty is the first to go on a small screen.
 //   Then, on black: Back on the left, named for where it goes ("Gallium", "All games"), and the
-//   game's tools on the right (Undo, Restart, Hint, Info, the microscope), each on a gray plate.
-//   The board sits on black under them; under the board, the foot: one message line (the goal,
-//   the Hint button's line or the game's own status) with the game's own action beside it, if it
-//   has any (Test; Chroma's gluon).
-// The first time a game is played, a Learn to Play card floats above the foot (offerRules).
+//   game's tools on the right (Undo, Restart, Hint, Info), each on a gray plate.
+//   Under those, the status line: the lead buttons on the left (the microscope; Practice adds
+//   its board settings there), one message (the goal, the Hint button's line or the game's own
+//   status) and the game's own action on the right, if it has any (Test; Chroma's gluon).
+//   The board sits on black under it all.
+// The first time a game is played, a Learn to Play card floats under the status line
+// (offerRules).
 
 import { backButton, textButton } from '../ui/components';
 import { firstTimeDue, markSeen } from '../ui/nu';
@@ -18,7 +20,8 @@ import type { PuzzleView, Stat, ViewAction } from './view';
 export interface GameBar {
   /** The top: the gray stats bar and the black bar with Back and the tools. */
   readonly el: HTMLElement;
-  /** Under the board: the message line and the game's action. Callers place it. */
+  /** The status line under the tools (part of `el`): the lead buttons, the message and the
+   *  game's action. */
   readonly foot: HTMLElement;
   readonly msg: HTMLElement;
   readonly back: HTMLButtonElement;
@@ -48,7 +51,7 @@ export function statsOf(v: PuzzleView): { par: Stat; progress: Stat } {
   return { par, progress };
 }
 
-export function createGameBar(tools: HTMLElement[], back: { label: string; onClick: () => void }): GameBar {
+export function createGameBar(tools: HTMLElement[], back: { label: string; onClick: () => void }, lead: HTMLElement[] = []): GameBar {
   const el = document.createElement('div');
   el.className = 'gbar';
   el.innerHTML = `
@@ -67,12 +70,14 @@ export function createGameBar(tools: HTMLElement[], back: { label: string; onCli
 
   const foot = document.createElement('div');
   foot.className = 'gfoot';
-  foot.innerHTML = '<div class="gfoot-line"><p class="gbar-msg" role="status" aria-live="polite"></p></div>';
+  foot.innerHTML = '<div class="gfoot-line"><span class="gbar-lead"></span><p class="gbar-msg" role="status" aria-live="polite"></p></div>';
+  foot.querySelector('.gbar-lead')!.append(...lead);
   const line = foot.querySelector<HTMLElement>('.gbar-msg')!;
   // The game's own actions, beside the message: kept as buttons and refreshed in place.
   const acts = document.createElement('span');
   acts.className = 'gbar-acts';
   foot.querySelector('.gfoot-line')!.append(acts);
+  el.append(foot);
   const runs: (() => void)[] = [];
   const syncActions = (list: ViewAction[]) => {
     while (acts.children.length > list.length) acts.lastElementChild!.remove();
@@ -143,8 +148,8 @@ export function createGameBar(tools: HTMLElement[], back: { label: string; onCli
 
 let dismissOffer: (() => void) | null = null;
 
-/** The first time a game is played, a Learn to Play card floats above its foot, over the board
- *  (it never shrinks it): Rules opens them, Not now (or any other tap) lets the player start.
+/** The first time a game is played, a Learn to Play card floats under the status line, over the
+ *  board (it never shrinks it): Rules opens them, Not now (or any other tap) lets the player start.
  *  Shown once per game, and not at all when Nu is off in Settings; the Info button always has the
  *  rules. */
 export function offerRules(bar: GameBar, game: { id: string; name: string }, open: () => void): void {

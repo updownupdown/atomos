@@ -3,9 +3,9 @@
 // (fingerprint.ts). The lab's "Atom fingerprint (artistic)" experiment and the app's Build
 // page both drive an OrbitalCloud with it.
 //
-// Spotlight modes: Rhythm walks the orbitals to the atom's beat; Scan glides through every
-// orbital from the smallest to the biggest and back, resting on each (a soft pulse as it lands)
-// while the camera eases after it; By angle lights whichever orbital shows its shape best from
+// Spotlight modes: Rhythm walks the orbitals to the atom's beat; Scan walks the ladder of
+// orbitals (inner to outer) and back, easing from one to the next and resting on each (a soft
+// pulse as it lands, unless pulses are off), the camera easing after it when it follows; By angle lights whichever orbital shows its shape best from
 // where you look; All lit shows everything at once.
 
 import * as THREE from 'three';
@@ -24,8 +24,11 @@ export interface SpotlightOptions {
   twinkle: number;
   /** 1 = as designed. */
   brightness: number;
-  /** Strength of the beat's light pulses (1 = as designed). */
+  /** Strength of the beat's light pulses (1 = as designed, 0 none). */
   pulse?: number;
+  /** The share of points the rest keeps (instead of the `rest` style's own), so the whole
+   *  structure stays readable round what is lit. */
+  restShare?: number;
 }
 
 export const SPOTLIGHT_DEFAULTS: SpotlightOptions = {
@@ -109,12 +112,12 @@ export class Spotlight {
     return set.orbitals.map((x) => (group.has(x.index) ? 1 : 0));
   }
 
-  /** Scan: the built orbitals from smallest to biggest and back, a step every few seconds (the
-   *  atom's own pace, slow). Each step rests on its orbital, then glides on; the light spreads
-   *  a little to the neighbours while it moves. */
+  /** Scan: the built orbitals along the ladder (inner to outer) and back, a step every few
+   *  seconds (the atom's own pace, slow). Each step rests on its orbital, then eases on to the
+   *  next; the light spreads a little to the neighbours while it moves. */
   private scan(dt: number, lit?: ArrayLike<number>): number[] {
     const set = this.set!, fp = this.fp!;
-    const order = set.orbitals.filter((x) => !lit || lit[x.index] > 0.5).sort((a, b) => a.r90 - b.r90 || a.index - b.index).map((x) => x.index);
+    const order = set.orbitals.filter((x) => !lit || lit[x.index] > 0.5).map((x) => x.index);
     this.scanOrder = order;
     const n = order.length;
     const out = set.orbitals.map(() => 0);
@@ -178,7 +181,7 @@ export class Spotlight {
     // The camera eases in on what is lit (the heart, a small orbital) and back out for the big
     // ones, so every step fills the view.
     let want = set.r90;
-    if (o.spot === 'scan') want = this.scanView();
+    if (o.spot === 'scan') want = o.camera === 'follow' ? this.scanView() : set.r90;
     else if (o.camera === 'follow' && o.spot !== 'all') {
       let big = 0, sum = 0;
       for (const x of set.orbitals) { const t = targets[x.index]; if (t > 0.3) { big = Math.max(big, x.r90); sum += t; } }
@@ -192,12 +195,15 @@ export class Spotlight {
       const e = smooth(Math.max(0, Math.min(1, Math.max(this.emph[x.index], bloom))));
       const [pos, neg] = o.palette === 'phase' ? PHASE : o.palette === 'block' ? BLOCK_RGB[x.block] : fp.colors[x.index];
       // The rest: a thin gray veil (a share of their points), a faint tint, or dark.
-      const floor = o.rest === 'dark' ? 0 : o.rest === 'tint' ? 0.16 : 0.12;
+      const floor = o.restShare ?? (o.rest === 'dark' ? 0 : o.rest === 'tint' ? 0.16 : 0.12);
       const satFloor = o.rest === 'tint' ? 0.45 : 0;
       const on = lit ? lit[x.index] : 1;
       // Lit orbitals much smaller than the view (the heart's innermost) thin out too.
-      const fill = Math.min(1, Math.pow((x.r90 / this.view) / 0.5, 1.2));
-      if (o.spot !== 'all' && e > 0.05 && fill > 0.6 && on > 0.5) {
+      // (A scan shows each orbital in turn, however small: small ones thin less, and still get
+      // their dense points.)
+      const thin = Math.min(1, Math.pow((x.r90 / this.view) / 0.5, 1.2));
+      const fill = o.spot === 'scan' ? Math.max(0.35, thin) : thin;
+      if (o.spot !== 'all' && e > 0.05 && (fill > 0.6 || o.spot === 'scan') && on > 0.5) {
         this.denseWants.push({ index: x.index, weight: e });
         if (targets[x.index] > 0.5) split++;
       }

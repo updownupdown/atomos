@@ -77,7 +77,6 @@ function run(id: UnlockId, info: UnlockInfo): Promise<boolean> {
     bar.setDifficulty(difficulty(t.id, z));
     bar.setTitle(t.name, puzzleIcon(t.id, 22));
     play.before(bar.el);
-    play.after(bar.foot);
     offerRules(bar, t, rules);
 
     host.onFrame = (v) => {
