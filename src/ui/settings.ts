@@ -43,7 +43,7 @@ export function renderSettings(sheet: HTMLElement): void {
     <p class="muted">${atoms} of ${MAX_Z} atoms built · ${n(lasting.built)} of ${n(lasting.total)} lasting isotopes · ${n(fleeting.built)} of ${n(fleeting.total)} fleeting isotopes</p>
     <div class="actions reset-row"><button class="secondary" id="set-reset">Reset all progress</button></div>
     <h3>Design</h3>
-    <div class="actions"><a class="secondary settings-link" href="#icons">Icon library</a><a class="secondary settings-link" href="#components">Component library</a></div>`;
+    <div class="actions"><a class="secondary settings-link" href="#icons">Icon library</a><a class="secondary settings-link" href="#components">Component library</a><a class="secondary settings-link" href="./lab.html">Atom visualization lab</a></div>`;
   sheet.querySelectorAll<HTMLInputElement>('input[data-key]').forEach((inp) => (inp.onchange = () => {
     (s as unknown as Record<string, boolean>)[inp.dataset.key!] = inp.checked;
     writeSave(save);

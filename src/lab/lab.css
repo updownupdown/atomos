@@ -1,0 +1,134 @@
+/* The lab page: a full-screen canvas under a compact panel and the FPS box. App tokens. */
+html, body.lab {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #0b0b0c;
+  color: var(--c-text);
+  font-family: var(--font);
+  -webkit-tap-highlight-color: transparent;
+}
+#lab-canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; height: 100dvh; display: block; }
+#lab-ui { position: fixed; inset: 0; pointer-events: none; }
+
+.lab-fps {
+  position: absolute;
+  top: calc(env(safe-area-inset-top, 0px) + 8px);
+  right: 8px;
+  padding: 6px 9px;
+  border-radius: var(--r-sm);
+  background: rgba(10, 11, 12, 0.72);
+  border: 1px solid var(--c-line);
+  font-size: var(--fs-xs);
+  line-height: 1.35;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  color: var(--c-text-2);
+  white-space: nowrap;
+}
+.lab-fps b { color: var(--c-good); font-size: var(--fs-md); font-weight: var(--fw-semibold); }
+.lab-fps.slow b { color: var(--c-warn); }
+.lab-fps-worst { color: var(--c-text-3); }
+
+.lab-panel {
+  position: absolute;
+  left: 8px;
+  top: calc(env(safe-area-inset-top, 0px) + 8px);
+  width: 320px;
+  max-height: calc(100dvh - 16px);
+  display: flex;
+  flex-direction: column;
+  pointer-events: auto;
+  background: rgba(19, 20, 22, 0.86);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--c-line);
+  border-radius: var(--r-md);
+  overflow: hidden;
+}
+.lab-head {
+  all: unset;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 12px;
+  cursor: pointer;
+  font-size: var(--fs-sm);
+  color: var(--c-text);
+}
+.lab-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lab-title b { font-weight: var(--fw-bold); color: var(--c-accent); }
+.lab-chev { transition: transform var(--dur); color: var(--c-text-2); }
+.lab-panel.closed .lab-chev { transform: rotate(-90deg); }
+.lab-panel.closed .lab-body { display: none; }
+.lab-body {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 2px 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-top: 1px solid var(--c-line);
+}
+.lab-row { display: flex; gap: 6px; }
+.lab-col { flex-direction: column; }
+.lab-lab {
+  font-size: var(--fs-2xs);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: var(--c-text-2);
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 6px;
+}
+.lab-val { text-transform: none; letter-spacing: 0; color: var(--c-text); font-variant-numeric: tabular-nums; }
+.lab-desc { margin: -4px 0 0; font-size: var(--fs-xs); line-height: 1.4; color: var(--c-text-2); }
+.lab-body select {
+  appearance: none;
+  -webkit-appearance: none;
+  font: inherit;
+  font-size: var(--fs-sm);
+  color: var(--c-text);
+  background: var(--c-surface-2) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%238a9296' stroke-width='1.5'/%3E%3C/svg%3E") no-repeat right 10px center;
+  border: 1px solid var(--c-line-2);
+  border-radius: var(--r-sm);
+  padding: 9px 28px 9px 10px;
+}
+.lab-seg { display: flex; flex-wrap: wrap; gap: 4px; }
+.lab-seg button, .lab-btn {
+  font: inherit;
+  font-size: var(--fs-xs);
+  min-height: 30px;
+  min-width: 34px;
+  padding: 0 9px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--c-line);
+  background: var(--c-surface-2);
+  color: var(--c-text);
+  cursor: pointer;
+}
+.lab-seg button.on { background: var(--c-pick); color: var(--c-accent); border-color: var(--c-accent); }
+.lab-btn { font-size: var(--fs-lg); line-height: 1; padding: 0; width: 34px; }
+.lab-el { display: flex; align-items: center; gap: 8px; }
+.lab-el input { flex: 1; }
+.lab-body input[type='range'] { width: 100%; accent-color: var(--c-accent); margin: 4px 0; }
+.lab-check { display: flex; align-items: center; gap: 8px; font-size: var(--fs-sm); color: var(--c-text); }
+.lab-check input { accent-color: var(--c-accent); width: 16px; height: 16px; margin: 0; }
+.lab-foot { margin: 2px 0 0; font-size: var(--fs-xs); }
+.lab-foot a { color: var(--c-text-2); }
+
+/* Phones: the panel is a bottom sheet, the canvas stays clear up top. */
+@media (max-width: 560px) {
+  .lab-panel {
+    left: 6px;
+    right: 6px;
+    top: auto;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 6px);
+    width: auto;
+    max-height: 46dvh;
+  }
+}
