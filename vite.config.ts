@@ -1,6 +1,10 @@
 import { defineConfig } from 'vite';
 import { viteSingleFile } from 'vite-plugin-singlefile';
 import { VitePWA } from 'vite-plugin-pwa';
+import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const root = fileURLToPath(new URL('.', import.meta.url));
 
 // `npm run build:single` inlines everything into one HTML file, used for
 // shareable previews. The normal build is what Capacitor will wrap, and it is
@@ -35,5 +39,13 @@ export default defineConfig(({ mode }) => ({
           },
         }),
       ],
-  build: { outDir: mode === 'single' ? 'dist-single' : 'dist', target: 'es2022' },
+  build: {
+    outDir: mode === 'single' ? 'dist-single' : 'dist',
+    target: 'es2022',
+    // The normal build also ships the atom visualization lab (lab.html, src/lab/) beside the
+    // app. The single-file build stays one page: index.html only.
+    rolldownOptions: mode === 'single'
+      ? {}
+      : { input: { main: resolve(root, 'index.html'), lab: resolve(root, 'lab.html') } },
+  },
 }));
