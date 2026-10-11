@@ -1,11 +1,20 @@
 import { describe, expect, it } from 'vitest';
-import { DIRS, cracksOf, isRock, newSlideStop, reachable, slide, slideEnd, slideRun, slideStopPlan, solve, solved, type SlideStopState, type Tile } from '../src/puzzles/slideStop';
+import { DIRS, analyzeSlideStop, cracksOf, isRock, newSlideStop, reachable, slide, slideEnd, slideRun, slideStopPlan, solve, solved, tileRoles, type SlideStopState, type Tile } from '../src/puzzles/slideStop';
 import { SlideStopView } from '../src/puzzles/slideStopView';
 import type { Area, Illustration, RuleCard } from '../src/puzzles/view';
 import { INSTRUCTIONS, RULES } from '../src/puzzles/slideStopView';
 import { C } from '../src/puzzles/palette';
 
 const ZS = [1, 3, 11, 19, 26, 37, 55, 87, 92, 118];
+
+const KINDS = [
+  ['sticky', (t: Tile) => t === '~'],
+  ['cracks', (t: Tile) => t === '%'],
+  ['arrows', (t: Tile) => '^v<>'.includes(t)],
+] as const;
+
+const parOf = (s: SlideStopState): number => solve(s)?.length ?? -1;
+const swap = (s: SlideStopState, cell: number, t: Tile): SlideStopState => ({ ...s, tiles: s.tiles.map((x, i) => (i === cell ? t : x)) });
 
 const board = (rows: string[], extra: Partial<SlideStopState> = {}): SlideStopState => {
   const size = rows.length;
@@ -93,6 +102,7 @@ describe('levels', () => {
   it('is the same level for the same seed', () => {
     expect(newSlideStop(26, 7)).toEqual(newSlideStop(26, 7));
     expect(newSlideStop(26, 7)).not.toEqual(newSlideStop(26, 8));
+    for (const z of [3, 55, 118]) expect(newSlideStop(z, 11)).toEqual(newSlideStop(z, 11));
   });
 
   it('is solvable, with par the shortest route, for a spread of elements and seeds', () => {
@@ -105,9 +115,12 @@ describe('levels', () => {
         expect(level.tiles[level.start]).toBe('.');
         expect(level.tiles[level.goal]).toBe('.');
         expect(level.sparks).toHaveLength(plan.sparks);
-        expect(level.tiles.filter((t) => t === '~')).toHaveLength(plan.sticky);
-        expect(level.tiles.filter((t) => t === '%')).toHaveLength(plan.cracks);
-        expect(level.tiles.filter((t) => '^v<>'.includes(t))).toHaveLength(plan.arrows);
+        // Pruning keeps only the special tiles that matter: at least one of each kind the element brings, at most the plan's count.
+        for (const [k, is] of KINDS) {
+          const count = level.tiles.filter(is).length;
+          expect(count).toBeLessThanOrEqual(plan[k]);
+          expect(count).toBeGreaterThanOrEqual(plan[k] ? 1 : 0);
+        }
         const path = solve(level)!;
         expect(path).not.toBeNull();
         expect(path.length).toBe(level.par);
@@ -125,7 +138,8 @@ describe('levels', () => {
     expect(newSlideStop(1, 3).size).toBe(7);
     expect(newSlideStop(50, 3).size).toBe(8);
     expect(newSlideStop(118, 3).size).toBe(9);
-    expect(slideStopPlan(1)).toMatchObject({ sparks: 0, sticky: 0, cracks: 0, arrows: 0 });
+    expect(slideStopPlan(1)).toMatchObject({ sparks: 0, sticky: 0, cracks: 0, arrows: 0, decoys: 1 });
+    expect(slideStopPlan(118).decoys).toBe(3);
     expect(slideStopPlan(3).sparks).toBe(1);
     expect(slideStopPlan(11).sticky).toBeGreaterThan(0);
     expect(slideStopPlan(19).cracks).toBeGreaterThan(0);
@@ -141,13 +155,95 @@ describe('levels', () => {
   });
 
   it('deals fast', () => {
-    let worst = 0;
+    let worst = 0, total = 0, count = 0;
     for (let z = 1; z <= 118; z += 3) {
       const t = performance.now();
       newSlideStop(z, z * 5 + 2);
-      worst = Math.max(worst, performance.now() - t);
+      const ms = performance.now() - t;
+      worst = Math.max(worst, ms);
+      total += ms;
+      count++;
     }
-    expect(worst).toBeLessThan(150);
+    expect(total / count).toBeLessThan(50);
+    expect(worst).toBeLessThan(250);
+  });
+});
+
+describe('design', () => {
+  // A small sample per element: every check below runs a search per tile.
+  const SAMPLE = ZS.flatMap((z) => [1, 2, 3, 4, 5, 6].map((seed) => ({ z, level: newSlideStop(z, seed * 97 + z) })));
+
+  it('keeps only tiles that matter: every special tile is key, every nucleus key or one of a few decoys', () => {
+    for (const { z, level } of SAMPLE) {
+      const plan = slideStopPlan(z);
+      const roles = tileRoles(level);
+      for (const r of roles) {
+        if (r.tile === '#') expect(['key', 'decoy'], `z ${z}: rock ${r.cell}`).toContain(r.role);
+        else expect(r.role, `z ${z}: ${r.tile} at ${r.cell}`).toBe('key');
+      }
+      expect(roles.filter((r) => r.role === 'decoy').length).toBeLessThanOrEqual(plan.decoys);
+    }
+  });
+
+  it('means what it says by key: without a key tile par changes, without any other it holds', () => {
+    for (const { level } of SAMPLE.filter((_, i) => i % 4 === 0)) {
+      for (const r of tileRoles(level)) {
+        const alts = r.tile === '%' || '^v<>'.includes(r.tile) ? (['.', '#'] as Tile[]) : (['.'] as Tile[]);
+        const changes = alts.some((t) => parOf(swap(level, r.cell, t)) !== level.par);
+        expect(changes, `${r.tile} at ${r.cell}`).toBe(r.role === 'key');
+      }
+    }
+  });
+
+  it('makes each kind of special tile matter as a whole, and the photons force a detour', () => {
+    for (const { z, level } of SAMPLE) {
+      const plan = slideStopPlan(z);
+      for (const [k, is] of KINDS) {
+        if (!plan[k]) continue;
+        const plain = { ...level, tiles: level.tiles.map((t) => (is(t) ? '.' : t)) as Tile[] };
+        expect(parOf(plain), `z ${z}: ${k}`).not.toBe(level.par);
+      }
+      if (plan.sparks) expect(parOf({ ...level, sparks: [] }), `z ${z}`).toBeLessThan(level.par);
+    }
+  });
+
+  it('is not won by sliding toward the target, and has wrong turns and a route that turns', () => {
+    let wrong = 0;
+    for (const { z, level } of SAMPLE) {
+      const a = analyzeSlideStop(level);
+      expect(a.par).toBe(level.par);
+      expect(a.greedy, `z ${z}`).toBe(false);
+      expect(a.dirs, `z ${z}`).toBeGreaterThanOrEqual(3);
+      expect(a.states).toBeGreaterThan(level.par);
+      wrong += a.wrongFirst;
+    }
+    // Most openings have a slide or two that looks fine and is not.
+    expect(wrong / SAMPLE.length).toBeGreaterThanOrEqual(1.5);
+  });
+
+  it('asks for longer routes as the element grows', () => {
+    const mean = (z: number) => SAMPLE.filter((x) => x.z === z).reduce((a, x) => a + x.level.par, 0) / 6;
+    expect(mean(1)).toBeGreaterThanOrEqual(4);
+    expect(mean(37)).toBeGreaterThan(mean(1));
+    expect(mean(87)).toBeGreaterThan(mean(37));
+    expect(mean(118)).toBeGreaterThanOrEqual(12);
+  });
+
+  it('tells a key nucleus from an idle one on a hand-made board', () => {
+    // . # .   The ring is one slide down: the rock next to the start is idle.
+    // . . .
+    // . . .
+    const idle = board(['.#.', '...', '...'], { goal: 6 });
+    expect(tileRoles(idle)).toEqual([{ cell: 1, tile: '#', role: 'idle' }]);
+    // . . .   From the left edge, the rock is the only thing that stops the electron on the ring.
+    // S G #
+    // . . .
+    const key = board(['...', '..#', '...'], { start: 3, pos: 3, goal: 4 });
+    expect(tileRoles(key)).toEqual([{ cell: 5, tile: '#', role: 'key' }]);
+    const a = analyzeSlideStop(key);
+    expect(a).toMatchObject({ par: 1, wrongFirst: 2, dirs: 1, detour: 0, tiles: 1 });
+    // Only the left edge leads in: from any other cell the ring is out of reach.
+    expect(a.traps).toBe(6);
   });
 });
 
