@@ -214,17 +214,16 @@ body:not(.build-home) .build-bar { display: none; }
 /* Progress at the foot of the atom: nucleus, electrons and isotope rings, the share built beside. */
 .bh-rings { position: absolute; left: var(--sp-4); right: var(--sp-4); bottom: var(--sp-2); display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); pointer-events: none; }
 /* Left: the atom's rings and share ("Stable"); right, mirrored: the fleeting ring and count. */
-.bh-prog-main, .bh-prog-fleet { display: flex; align-items: center; gap: var(--sp-3); }
+.bh-prog-main, .bh-prog-fleet { display: flex; align-items: center; gap: var(--sp-2); }
 .bh-prog-fleet .bh-rings-text { align-items: flex-end; text-align: right; }
-.bh-prog-fleet .bh-rings-text b { font-size: var(--fs-xl); }
 .bh-rings-svg { display: block; flex: none; }
 .bh-rings-svg .rg-track, .bh-rings-svg .rg-on { fill: none; stroke: #454b52; stroke-linecap: round; }
-.bh-rings-svg .rg-on { stroke: var(--c-accent); }
+.bh-rings-svg .rg-on { stroke: var(--c-text); }
 .bh-rings-svg .rg-on.is-done { stroke: var(--c-done); }
 .bh-rings-svg .rg-fill { fill: #454b52; }
 .bh-rings-svg .rg-fill-on { fill: var(--c-done); }
-.bh-rings-text { display: flex; flex-direction: column; line-height: 1.1; }
-.bh-rings-text b { font-size: var(--fs-2xl); font-weight: var(--fw-semibold); color: var(--c-text); font-variant-numeric: tabular-nums; }
+.bh-rings-text { display: flex; flex-direction: column; gap: 2px; line-height: 1.1; }
+.bh-rings-text b { font-size: var(--fs-lg); font-weight: var(--fw-semibold); color: var(--c-text); font-variant-numeric: tabular-nums; }
 .bh-rings-text b.is-done { color: var(--c-done); }
 .bh-rings-text span { font-size: var(--fs-sm); color: var(--c-text-2); font-variant-numeric: tabular-nums; }
 
@@ -632,8 +631,8 @@ body[data-screen='gallery'] { --top: calc(var(--nav-bottom) + var(--mode-h)); }
 body:not([data-screen='gallery']) .gal-modes { display: none; }
 .layout-note { margin: 0; font-family: var(--mono); font-size: 11px; color: var(--muted); text-align: center; }
 
-.loupe-screen { position: absolute; inset: 0; z-index: 3; background: var(--c-bg); opacity: 0; transform: scale(1.04); transition: opacity 0.22s, transform 0.22s; display: flex; flex-direction: column; }
-.loupe-screen.in { opacity: 1; transform: none; }
+.loupe-screen { position: absolute; inset: 0; z-index: 3; background: var(--c-bg); opacity: 0; transition: opacity 0.24s ease; display: flex; flex-direction: column; }
+.loupe-screen.in { opacity: 1; }
 .loupe-screen[hidden] { display: none; }
 #loupe { position: absolute; left: 0; top: var(--chrome); width: 100%; height: calc(100% - var(--chrome)); display: block; touch-action: none; cursor: grab; }
 
@@ -704,6 +703,7 @@ body:not([data-screen='gallery']) .gal-modes { display: none; }
 .scale-legend.off ul { display: none; }
 .tool-chip { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px 0 8px; border: 1px solid var(--c-line); border-radius: var(--r-pill, 999px); background: var(--c-plate); color: var(--c-text-2); font: inherit; font-size: var(--fs-xs); font-weight: var(--fw-semibold); cursor: pointer; }
 .tool-chip:hover { color: var(--c-text); }
+.scale-legend .tool-chip[aria-pressed='true'] { color: var(--c-text); }
 .tool-note { max-width: 230px; margin: 2px 0 0; font-size: var(--fs-min); line-height: 1.4; text-align: right; color: var(--c-text-min); }
 .style-switch .tool-chip[aria-pressed='true'] { color: var(--c-accent); border-color: color-mix(in srgb, var(--c-accent) 45%, transparent); background: var(--c-pick); }
 
@@ -726,6 +726,13 @@ body:not([data-screen='gallery']) .gal-modes { display: none; }
 .lh-btn.is-playing { color: var(--c-accent); }
 .lh-fps { min-height: 14px; padding-right: var(--sp-3); font-size: var(--fs-caps-min); font-weight: var(--fw-semibold); letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--c-text-2); font-variant-numeric: tabular-nums; }
 .lh-fps.is-slow { color: var(--c-warn); }
+.lh-keys { display: flex; flex-direction: column; align-items: flex-end; gap: var(--sp-1); pointer-events: auto; }
+.lh-keys-toggle { display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 var(--sp-3) 0 var(--sp-2); border: 0; background: none; color: var(--c-text-2); font: inherit; font-size: var(--fs-caps-min); font-weight: var(--fw-semibold); letter-spacing: var(--tracking-caps); text-transform: uppercase; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.lh-keys-toggle:hover { color: var(--c-text); }
+.lh-keys-toggle svg { transition: transform var(--dur); }
+.lh-keys.is-open .lh-keys-toggle svg { transform: rotate(180deg); }
+.lh-keylists { cursor: pointer; }
+.lh-keylists[hidden] { display: none; }
 .lh-keylist { list-style: none; margin: 0; padding: 0 var(--sp-3) 0 0; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
 .lh-keylist li { display: flex; gap: 6px; font-size: var(--fs-caps-min); line-height: 1.2; letter-spacing: 0.1em; text-transform: uppercase; color: var(--c-text-2); white-space: nowrap; }
 .lh-keylist b { font-weight: var(--fw-semibold); color: var(--c-text); }
@@ -742,18 +749,14 @@ body:not([data-screen='gallery']) .gal-modes { display: none; }
 .ax-ladder button:hover { color: var(--c-text); }
 .ax-ladder button.on { color: var(--c-text); background: var(--c-plate); font-weight: var(--fw-semibold); }
 .ax-ladder button:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 1px; }
-.ax-focus { position: absolute; left: 50%; bottom: calc(var(--foot) + 50px); transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 2px; text-align: center; white-space: nowrap; }
-.ax-focus b { font-size: var(--fs-xl); font-weight: var(--fw-semibold); line-height: 1.1; color: var(--c-text); }
-.ax-focus span { font-size: var(--fs-min); color: var(--c-text-2); font-variant-numeric: tabular-nums; }
-.ax-ctx { position: absolute; left: 50%; bottom: var(--foot); width: 176px; height: 44px; margin-left: -88px; display: flex; justify-content: space-between; align-items: flex-end; padding-bottom: 2px; cursor: pointer; -webkit-tap-highlight-color: transparent; }
-.ax-ctx::before { content: ''; position: absolute; left: 0; right: 0; top: 12px; height: 4px; border-radius: 2px; background: var(--c-surface-3); }
-.ax-ctx i { position: absolute; top: 6px; width: 16px; height: 16px; margin-left: -8px; border-radius: 50%; background: var(--c-accent); box-shadow: 0 0 0 5px color-mix(in srgb, var(--c-accent) 20%, transparent); }
-.ax-ctx span { font-size: var(--fs-caps-min); font-weight: var(--fw-semibold); letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--c-text-2); }
-.ax-ctx:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 4px; border-radius: var(--r-sm); }
-/* Narrow phones: Solo / Ghost / All rises above the corner chips. */
+.ax-focus { position: absolute; left: 50%; bottom: calc(var(--foot) + 2px); transform: translateX(-50%); display: flex; align-items: center; gap: 2px; white-space: nowrap; pointer-events: auto; }
+.ax-focus span { font-size: var(--fs-min); color: var(--c-text); }
+.ax-focus button { width: 36px; height: 36px; border: 0; border-radius: 50%; background: none; color: var(--c-text-2); font: inherit; font-size: var(--fs-md); line-height: 1; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.ax-focus button:hover { color: var(--c-text); }
+.ax-focus button:focus-visible { outline: 2px solid var(--c-accent); outline-offset: -2px; }
+/* Narrow phones: the focus control rises above the corner chips. */
 @media (max-width: 399px) {
-  .ax-ctx { bottom: calc(var(--foot) + 40px); }
-  .ax-focus { bottom: calc(var(--foot) + 90px); }
+  .ax-focus { bottom: calc(var(--foot) + 44px); }
 }
 /* At the nucleus the ladder means nothing: it and its gestures step aside. */
 .lh-explorer.is-nucleus > * { visibility: hidden; }
@@ -765,7 +768,7 @@ body:not([data-screen='gallery']) .gal-modes { display: none; }
 .loupe-screen.is-full > .atom-bar, .loupe-screen.is-full .atom-tabs, .loupe-screen.is-full .atom-panel, .loupe-screen.is-full .view-next { display: none; }
 .loupe-screen.is-full .loupe-hud { --foot: calc(var(--sp-3) + var(--safe-bottom)); }
 .loupe-screen.is-full .loupe-hud .loupe-tools { bottom: var(--foot); }
-.loupe-screen.is-full .lh-tl { top: calc(var(--sp-2) + var(--safe-top)); }
+.loupe-screen.is-full .lh-tl { display: none; }
 .loupe-screen.is-full .lh-tr { top: calc(var(--sp-2) + var(--safe-top)); }
 .loupe-screen.is-full .lh-full { width: 64px; height: 64px; border-radius: var(--r-lg); background: var(--c-surface-2); color: var(--c-text); }
 .loupe-screen.is-full .lh-full svg { width: 34px; height: 34px; }
@@ -822,7 +825,7 @@ body:not([data-screen='gallery']) .gal-modes { display: none; }
 
 /* View's tabs: a strip under the header; the model tab shows the canvas, the others a scrolling page. */
 .loupe-screen { --tabs-h: 48px; --bar-h: 60px; --chrome: calc(var(--top) + var(--bar-h) + var(--tabs-h)); }
-.atom-tabs { position: absolute; left: 0; right: 0; top: calc(var(--top) + var(--bar-h)); z-index: 3; height: var(--tabs-h); display: flex; align-items: flex-end; justify-content: center; padding: 0 var(--sp-3); background: var(--c-bg); }
+.atom-tabs { position: absolute; left: 0; right: 0; top: calc(var(--top) + var(--bar-h)); z-index: 3; height: var(--tabs-h); display: flex; align-items: flex-end; justify-content: center; padding: 0 var(--sp-3); background: var(--c-nav); }
 .atom-tabs .ui-tabs { max-width: 100%; }
 /* View is the 3D atom alone: no tab strip, the canvas takes its place. Info shows the tabs. */
 .atom-tabs[hidden] { display: none; }

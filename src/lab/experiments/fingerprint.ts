@@ -2,10 +2,11 @@
 // Every orbital is its own dense, twinkling cloud (render/orbitalCloud.ts), but only one (or
 // one subshell, a "chord") is lit at a time: the rest stay as a gray ghost, a faint tint or
 // dark (render/spotlight.ts). A seeded fingerprint (render/fingerprint.ts) gives each atom its
-// own palette, tempo, accent rhythm, spotlight order, glints and tap response, so the
+// own palette, tempo, accent rhythm, spotlight order and tap response, so the
 // collection reads like a set of jewels: alike in kind, each one its own.
 //
-// Spotlight modes: Rhythm walks the orbitals to the atom's beat; By angle lights whichever
+// Spotlight modes: Rhythm walks the orbitals to the atom's beat; Scan glides through them by
+// size and back, resting on each; By angle lights whichever
 // orbital shows its shape best from where you look (turn it in your hands, like a gem); All lit
 // shows everything at once in the palette, for comparison. The app's Build page draws the same
 // thing with fixed settings.
@@ -30,16 +31,15 @@ export const TWINKLE_OPTION: ExperimentOption = {
 export class FingerprintView implements Experiment {
   id = 'fingerprint';
   name = 'Atom fingerprint (artistic)';
-  description = 'Each orbital its own twinkling cloud, lit one (or one subshell) at a time while the rest wait as a ghost. A seeded fingerprint gives every atom its own palette, tempo, rhythm, spotlight order, glints and tap response. Tap the atom; turn it to catch the light.';
+  description = 'Each orbital its own twinkling cloud, lit one (or one subshell) at a time while the rest wait as a ghost. A seeded fingerprint gives every atom its own palette, tempo, rhythm, spotlight order and tap response. Tap the atom.';
   uses = { brightness: true, orbital: false };
   options: ExperimentOption[] = [
     TWINKLE_OPTION,
-    { id: 'spot', label: 'Spotlight', choices: [{ id: 'rhythm', label: 'Rhythm' }, { id: 'angle', label: 'By angle' }, { id: 'all', label: 'All lit' }] },
+    { id: 'spot', label: 'Spotlight', choices: [{ id: 'rhythm', label: 'Rhythm' }, { id: 'scan', label: 'Scan' }, { id: 'angle', label: 'By angle' }, { id: 'all', label: 'All lit' }] },
     { id: 'rest', label: 'The rest', choices: [{ id: 'ghost', label: 'Ghost' }, { id: 'tint', label: 'Tinted' }, { id: 'dark', label: 'Dark' }] },
     { id: 'palette', label: 'Colors', choices: [{ id: 'print', label: 'Fingerprint' }, { id: 'phase', label: 'Phase' }, { id: 'block', label: 'Subshell' }] },
     { id: 'tempo', label: 'Tempo', choices: [], default: '1', range: { min: 0.25, max: 2, step: 0.05, format: (v) => `${v.toFixed(2)}×` } },
     { id: 'camera', label: 'Camera', choices: [{ id: 'follow', label: 'Follows the light' }, { id: 'still', label: 'Still' }] },
-    { id: 'glint', label: 'Glints', choices: [], default: '1', range: { min: 0, max: 2, step: 0.05, format: (v) => `${Math.round(v * 100)}%` } },
   ];
   private ctx!: LabContext;
   private cloud!: OrbitalCloud;
@@ -105,7 +105,6 @@ export class FingerprintView implements Experiment {
       palette: this.opt('palette', 'print') as SpotlightOptions['palette'],
       tempo: this.num('tempo', 1),
       camera: this.opt('camera', 'follow') as SpotlightOptions['camera'],
-      glint: this.num('glint', 1),
       twinkle: this.num('twinkle', 0.35),
       brightness: this.settings?.brightness ?? 1,
     };

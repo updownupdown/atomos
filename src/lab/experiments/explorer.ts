@@ -12,7 +12,7 @@ import { DENSE_POINTS, ORBITAL_POINTS, TWINKLE_OPTION } from './fingerprint';
 export class ExplorerView implements Experiment {
   id = 'explorer';
   name = 'Orbital explorer (touch)';
-  description = 'Swipe up and down to walk the orbitals, left and right to bring in the rest of the atom (solo, ghost, all). Pinch to zoom, twist to turn the colors, two fingers to turn the atom, double-tap for solo or all.';
+  description = 'Swipe up and down to walk the orbitals, right and left for more or less focus (solo, ghost, all). Pinch to zoom, twist to turn the colors, two fingers to turn the atom, double-tap for solo or all.';
   uses = { brightness: true, orbital: false };
   options: ExperimentOption[] = [
     TWINKLE_OPTION,
@@ -53,7 +53,7 @@ export class ExplorerView implements Experiment {
       this.exHud = new ExplorerHud(this.hud, this.ex, { prefix: 'lab-ex' });
       const hint = document.createElement('p');
       hint.className = 'lab-ex-hint';
-      hint.textContent = '↕ orbitals · ↔ context · pinch zoom · twist colors · two fingers turn · double-tap solo/all';
+      hint.textContent = '↕ orbitals · ↔ focus · pinch zoom · twist colors · two fingers turn · double-tap solo/all';
       this.hud.append(hint);
     }
   }
@@ -81,7 +81,6 @@ export class ExplorerView implements Experiment {
       finger: opt('finger', 'nav') as ExplorerOptions['finger'],
       palette: opt('palette', 'phase') as ExplorerOptions['palette'],
       twinkle: Number(opt('twinkle', '0.35')),
-      glint: 1,
       brightness: this.settings?.brightness ?? 1,
     };
   }

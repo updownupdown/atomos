@@ -657,18 +657,18 @@ export class Game {
     // its share, "Stable". Right, mirrored: the fleeting isotopes' own ring and count.
     $('bh-progress').innerHTML = `
       <div class="bh-prog-main">
-        ${progressRings({ nucleus, shells, lasting: { built: lastingDone, total: lasting.length }, fleeting: { built: 0, total: 0 } })}
+        ${progressRings({ nucleus, shells, lasting: { built: lastingDone, total: lasting.length }, fleeting: { built: 0, total: 0 } }, 48)}
         <div class="bh-rings-text">
-          <b${pct >= 100 ? ' class="is-done"' : ''}>${pct}%</b>
           <span>Stable</span>
+          <b${pct >= 100 ? ' class="is-done"' : ''}>${pct}%</b>
         </div>
       </div>
       ${fleet.total ? `<div class="bh-prog-fleet">
         <div class="bh-rings-text">
-          <b${fleet.built >= fleet.total ? ' class="is-done"' : ''}>${fleet.built} of ${fleet.total}</b>
           <span>Fleeting</span>
+          <b${fleet.built >= fleet.total ? ' class="is-done"' : ''}>${fleet.built} of ${fleet.total}</b>
         </div>
-        ${fleetingRing(fleet.built, fleet.total)}
+        ${fleetingRing(fleet.built, fleet.total, 30)}
       </div>` : ''}`;
     $('bh-progress').setAttribute('aria-label', `${pct}% built${fleet.total ? `, ${fleet.built} of ${fleet.total} fleeting isotopes (${fleetPct}%)` : ''}`);
   }

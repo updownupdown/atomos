@@ -5,7 +5,7 @@
 // small float texture the vertex shader reads (texelFetch), so changing them costs one tiny
 // upload per frame and the points themselves never change after sampling.
 //
-// Twinkle, glints and the tap ripple are all functions of time and each point's own seed, in
+// Twinkle and the tap ripple are all functions of time and each point's own seed, in
 // the shader: zero CPU per point per frame.
 //
 // Sampling a heavy atom takes most of a second, so it runs a slice per frame
@@ -398,9 +398,7 @@ uniform float uTime;
 uniform float uSize;
 uniform float uAlpha;
 uniform float uTwinkle;
-uniform sampler2D uLook;   // per orbital: rows 0 pos color + gain, 1 neg color + saturation, 2 twinkle, breath, glint, flash
-uniform vec3 uHalf;        // view-space half vector of the key light, for glints
-uniform float uFire;       // glints in spectral colors (diamond fire) rather than white
+uniform sampler2D uLook;   // per orbital: rows 0 pos color + gain, 1 neg color + saturation, 2 twinkle, breath, unused, flash
 uniform float uHue;        // turns every color round the wheel (radians)
 uniform vec4 uPulse;       // ripple: front radius (a0), width, strength, unused
 uniform vec3 uPulseCol;
@@ -413,10 +411,6 @@ vec3 hueTurn(vec3 c, float a) {
   vec3 k = vec3(0.57735);
   float ca = cos(a), sa = sin(a);
   return c * ca + cross(k, c) * sa + k * dot(k, c) * (1.0 - ca);
-}
-
-vec3 spectrum(float t) {
-  return clamp(abs(fract(t + vec3(0.0, 0.333, 0.667)) * 6.0 - 3.0) - 1.0, 0.0, 1.0);
 }
 
 void main() {
@@ -441,15 +435,6 @@ void main() {
   float base = 0.6 + 0.25 * sin(uTime * rate * 0.37 + ph * 2.3);
   float lum = mix(1.0, base + spark * 3.0, min(tw, 1.0)) + spark * max(tw - 1.0, 0.0) * 3.0;
 
-  // Glints: where a point's direction from the nucleus lines up with the light's half
-  // vector, a few points (re-chosen every couple of seconds) flash, like facets catching
-  // light as the atom turns.
-  vec3 nrm = normalize(normalMatrix * position + vec3(1e-6));
-  float facing = pow(max(dot(nrm, uHalf), 0.0), 18.0);
-  float pick = step(fract(seed * 91.7 + floor(uTime * 0.6 + seed * 3.0) * 0.618), 0.12);
-  float glint = facing * pick * c.z;
-  vec3 glintCol = mix(vec3(1.0), spectrum(fract(seed * 7.3 + dot(nrm, vec3(0.6, 0.3, 0.2)) * 1.5)), uFire);
-
   // The tap ripple: a shell of light running out from the nucleus.
   float r = length(position);
   float wave = uPulse.z * exp(-pow((r - uPulse.x) / max(uPulse.y, 1e-3), 2.0));
@@ -457,10 +442,10 @@ void main() {
   vec3 gray = vec3(dot(col, vec3(0.3, 0.59, 0.11))) * 0.75;
   col = hueTurn(mix(gray, col, sat), uHue);
   col = mix(col, vec3(1.0), spark * 0.35 * min(tw, 1.0));
-  col = col + glintCol * glint * 1.2 + uPulseCol * wave;
+  col = col + uPulseCol * wave;
   vColor = col;
-  vAlpha = uAlpha * gain * (lum + glint * 5.0 + wave * 2.0 + c.w * 2.0);
-  gl_PointSize = max(1.0, uSize * (1.0 + spark * 0.9 * min(tw, 1.0) + glint * 1.5) / -mv.z);
+  vAlpha = uAlpha * gain * (lum + wave * 2.0 + c.w * 2.0);
+  gl_PointSize = max(1.0, uSize * (1.0 + spark * 0.9 * min(tw, 1.0)) / -mv.z);
   gl_Position = projectionMatrix * mv;
 }`;
 
@@ -476,8 +461,6 @@ export interface OrbitalLook {
   twinkle: number;
   /** Radial breathing: scale - 1. */
   breath: number;
-  /** Glint strength. */
-  glint: number;
   /** A brief extra flash (beats, taps). */
   flash: number;
   /** Share of its points to draw (0 to 1; default all). */
@@ -535,7 +518,7 @@ export class OrbitalCloud {
       fragmentShader: POINT_FRAG,
       uniforms: {
         uTime: { value: 0 }, uSize: { value: 2 }, uAlpha: { value: 0.3 }, uTwinkle: { value: 0.5 },
-        uLook: { value: this.look }, uHalf: { value: new THREE.Vector3(0, 0, 1) }, uFire: { value: 0 }, uHue: { value: 0 },
+        uLook: { value: this.look }, uHue: { value: 0 },
         uPulse: { value: new THREE.Vector4(0, 1, 0, 0) }, uPulseCol: { value: new THREE.Vector3(1, 1, 1) },
       },
       ...ADD_BLEND,
@@ -619,11 +602,8 @@ export class OrbitalCloud {
     const row = (r: number) => (r * MAX_ORBITALS + i) * 4;
     d.set([l.pos[0], l.pos[1], l.pos[2], l.gain], row(0));
     d.set([l.neg[0], l.neg[1], l.neg[2], l.sat], row(1));
-    d.set([l.twinkle, l.breath, l.glint, l.flash], row(2));
+    d.set([l.twinkle, l.breath, 0, l.flash], row(2));
   }
-
-  /** The key light for glints: from the upper left, in view space. */
-  private static readonly HALF = new THREE.Vector3(-0.35, 0.45, 1).normalize();
 
   /** The layer's resolution as a share of the screen's, each side (1 = full). */
   get pixelScale(): number { return this.layer.scale; }
@@ -659,7 +639,6 @@ export class OrbitalCloud {
     u.uTime.value = time;
     // Point sizes follow the layer's resolution, so a coarser layer keeps the same look.
     u.uSize.value = Math.max(1.3, ctx.height / 560) * camera.position.length() * this.layer.scale;
-    (u.uHalf.value as THREE.Vector3).copy(OrbitalCloud.HALF);
     this.look.needsUpdate = true;
     const set = this.set!;
     const base = this.drawnBase;

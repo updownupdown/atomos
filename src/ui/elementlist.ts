@@ -16,7 +16,7 @@
 import { ELEMENTS, BLOCK_COLOUR, type Element } from '../gallery/data';
 import { icon } from './icons';
 import { searchElements } from './search';
-import { fleetingCount, fleetingTotal, lastingIsotopes, segmentsOf } from '../core/progress';
+import { fleetingCount, fleetingTotal, segmentsOf } from '../core/progress';
 import { fleetingOpen, rowLockNote } from '../gallery/locks';
 import { loadSave, type SaveData } from '../core/save';
 import './elementlist.css';
@@ -188,35 +188,21 @@ export function createElementList(opts: ElementListOptions = {}): ElementList {
 
   const tile = (e: Element) => `<span class="el-tile" style="--c:${BLOCK_COLOUR[e.block]}"><b>${e.symbol}</b></span>`;
 
-  // How far each atom's Build has got: a thin bar of segments (nucleus, electrons, then each
-  // isotope in the vault, stable ones before unstable), and the share done, colored by how far
-  // along it is (green once everything is built). The bar grows with the number of isotopes,
-  // roughly, so an atom with a big vault reads as more to collect.
+  // How far each atom's Build has got: "Stable" (nucleus, electrons and the isotopes in the
+  // vault) with its bar, then "Fleeting" with its own (grayed when the atom has none, or they
+  // are not open yet). A label and its bar turn green once complete; under way the bar is white.
   const progress = (e: Element, save: SaveData) => {
     const segs = segmentsOf(e.z, save);
     const done = segs.filter((s) => s.done).length;
     const pct = segs.length ? Math.round((done / segs.length) * 100) : 0;
-    const tier = pct >= 100 ? 'full' : pct >= 50 ? 'most' : pct > 0 ? 'some' : 'none';
-    const stable = new Set(lastingIsotopes(e.z).filter((i) => i.stable).map((i) => String(i.a)));
-    const kind = (s: (typeof segs)[number]) => (s.kind === 'step' ? 'step' : stable.has(s.id) ? 'stable' : 'unstable');
-    let last = '';
-    const parts = segs.map((s) => {
-      const k = kind(s);
-      const gap = last && k !== last ? ' gap' : '';
-      last = k;
-      return `<i class="${k}${s.done ? ' on' : ''}${gap}"></i>`;
-    });
-    const isotopes = segs.length - stepsCount(segs);
-    // Fleeting isotopes have their own count beside the bar; they never hold back the 100%.
     const f = fleetingCount(e.z, save);
-    const fleet = f.total && fleetingOpen(save) ? `<small class="el-fleet" aria-label="${f.built} of ${f.total} fleeting isotopes built">${f.built}/${f.total} fleeting</small>` : '';
-    return `<span class="el-prog el-prog--${tier}" style="--iso:${isotopes}" aria-label="${pct}% built">
-      <b>${pct}%</b>
-      <span class="el-segs" aria-hidden="true">${parts.join('')}</span>
-      ${fleet}
-    </span>`;
+    const fleetOn = f.total > 0 && fleetingOpen(save);
+    const fpct = fleetOn ? Math.round((f.built / f.total) * 100) : 0;
+    const line = (label: string, p: number, na = false) =>
+      `<span class="el-pl${na ? ' is-na' : p >= 100 ? ' is-done' : ''}"><small>${label}</small><i class="el-bar"><i style="width:${p}%"></i></i></span>`;
+    const aria = `${pct}% built${fleetOn ? `, ${f.built} of ${f.total} fleeting isotopes` : ''}`;
+    return `<span class="el-prog" aria-label="${aria}">${line('Stable', pct)}${line('Fleeting', fpct, !fleetOn)}</span>`;
   };
-  const stepsCount = (segs: { kind: string }[]) => segs.filter((s) => s.kind === 'step').length;
 
   const row = (e: Element, save: SaveData) => {
     const locked = opts.locked?.(e.z) ?? false;
