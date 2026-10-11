@@ -1,19 +1,23 @@
-// Packing: fit a tray of pieces into an outline so every open cell is filled.
+// Packing (Tessera): fill a square board with a tray of pieces, every one of them used.
 //
-// A level is carved from its own answer: an outline is grown on a small grid
-// (a compact blob, a mirror-symmetric one, one with a hole through it, or a
-// looser one with arms), a few of its cells are filled in advance as fixed
-// blocks, and the rest is cut into polyominoes of two to five cells. The
-// pieces are handed over shuffled and turned. Heavier elements bring larger
-// outlines, more blocks, one decoy piece that belongs nowhere, and at the top
-// of the table pieces that arrive mirrored and must be flipped. Every piece
-// can be moved, turned, flipped (when allowed) and lifted freely, so the
-// board is never stuck.
+// The board is always a plain square, 4 by 4 at the start of the table and 7 by 7 at the end,
+// with nothing filled in advance and nothing spare: the tray holds exactly the pieces that cover
+// it. The challenge lives in the pieces. A deal is carved from its own answer: the square is
+// tiled, by a randomized search, with polyominoes of three to six cells, every one a different
+// shape, never a domino, with at most one tromino, few easy fits (straight bars and the 2 by 2
+// square) and, near the end of the table, one hexomino. Several such cuts are carved per deal and
+// each is measured by an exact cover solver that looks for its answers within a fixed number of
+// search steps: a cut whose answers take many steps to find is tight, one that turns them up at
+// once is loose. Light elements are dealt one of the looser cuts, and within each board size the
+// deals tighten toward the heavier elements. Pieces are handed over shuffled and turned, and at
+// the top of the table some arrive mirrored and must be flipped. Every piece can be moved,
+// turned, flipped (when allowed) and lifted freely, so the board is never stuck; the same solver
+// answers the hints.
 //
-// Game rule, not physics: the pieces are neutral clusters and the outline a
-// neutral socket; nothing here is labeled as a nucleus or an orbital.
+// Game rule, not physics: the pieces are neutral clusters and the board a neutral socket;
+// nothing here is labeled as a nucleus or an orbital.
 
-import { pick, rand, randInt, seeded, weighted, type Rng } from './rng';
+import { rand, randInt, seeded, weighted, type Rng } from './rng';
 
 export interface Cell { x: number; y: number }
 export type Rot = 0 | 1 | 2 | 3;
@@ -29,27 +33,21 @@ export interface Piece {
   at: Cell | null;
 }
 
-export type OutlineStyle = 'blob' | 'mirror' | 'ring' | 'arms';
-
 export interface PackingState {
+  /** The board's side, twice: it is always a square. */
   w: number;
   h: number;
-  /** Which grid cells belong to the outline (w*h, row-major), blocked ones included. */
+  /** Which grid cells belong to the board (w*h, row-major): all of them. */
   outline: boolean[];
-  /** Outline cells filled from the start; nothing can go there. */
-  blocked: boolean[];
   pieces: Piece[];
   /** Whether the flip control is offered. */
   flips: boolean;
-  /** How many tray pieces belong nowhere (0 or 1). The view never says which. */
-  decoys: number;
-  style: OutlineStyle;
   /** Placements made so far. */
   moves: number;
-  /** One placement per piece that belongs. */
+  /** One placement per piece. */
   par: number;
-  /** Where each piece (by id) sits at rotation 0, unflipped, in the carved answer; null for the decoy. */
-  solution: (Cell | null)[];
+  /** Where each piece (by id) sits at rotation 0, unflipped, in the carved answer. */
+  solution: Cell[];
 }
 
 export type PackingMove =
@@ -105,9 +103,8 @@ export function clonePacking(s: PackingState): PackingState {
   return {
     ...s,
     outline: [...s.outline],
-    blocked: [...s.blocked],
     pieces: s.pieces.map((p) => ({ ...p, shape: p.shape.map((c) => ({ ...c })), at: p.at ? { ...p.at } : null })),
-    solution: s.solution.map((c) => (c ? { ...c } : null)),
+    solution: s.solution.map((c) => ({ ...c })),
   };
 }
 
@@ -121,7 +118,7 @@ export function occupancy(s: PackingState): number[] {
   return occ;
 }
 
-/** True when the piece, in the given orientation and corner, lies on open outline cells. */
+/** True when the piece, in the given orientation and corner, lies on open board cells. */
 export function canPlace(s: PackingState, id: number, at: Cell, rot?: Rot, flip?: boolean): boolean {
   const p = s.pieces.find((q) => q.id === id);
   if (!p) return false;
@@ -130,20 +127,21 @@ export function canPlace(s: PackingState, id: number, at: Cell, rot?: Rot, flip?
     const x = at.x + c.x, y = at.y + c.y;
     if (x < 0 || y < 0 || x >= s.w || y >= s.h) return false;
     const i = y * s.w + x;
-    if (!s.outline[i] || s.blocked[i]) return false;
+    if (!s.outline[i]) return false;
     if (occ[i] !== -1 && occ[i] !== id) return false;
   }
   return true;
 }
 
-/** Open outline cells not yet covered. */
+/** Board cells not yet covered. */
 export function cellsLeft(s: PackingState): number {
   const occ = occupancy(s);
   let n = 0;
-  s.outline.forEach((on, i) => { if (on && !s.blocked[i] && occ[i] === -1) n++; });
+  s.outline.forEach((on, i) => { if (on && occ[i] === -1) n++; });
   return n;
 }
 
+/** Every cell covered, which takes every piece: together they are exactly the board's area. */
 export function solved(s: PackingState): boolean {
   return cellsLeft(s) === 0;
 }
@@ -181,227 +179,14 @@ export function applyMove(s: PackingState, m: PackingMove): PackingState | null 
   const after = bounds(cellsOf(p));
   if (p.at) {
     const at = { x: p.at.x + Math.floor((before.w - after.w) / 2), y: p.at.y + Math.floor((before.h - after.h) / 2) };
+    // Checked with the piece lifted, so its own turned cells never mask a neighbor's.
+    p.at = null;
     p.at = canPlace(next, p.id, at) ? at : null;
   }
   return next;
 }
 
-// ---- generation ------------------------------------------------------------------
-
-function neighbors(c: Cell): Cell[] {
-  return [{ x: c.x + 1, y: c.y }, { x: c.x - 1, y: c.y }, { x: c.x, y: c.y + 1 }, { x: c.x, y: c.y - 1 }];
-}
-
-export interface PackingPlan {
-  /** Outline cells, blocked ones included. */
-  n: number;
-  w: number;
-  h: number;
-  blocked: number;
-  decoys: number;
-  flips: boolean;
-}
-
-/** How a level scales with the element: outline size, grid, blocks, decoy and flipping. */
-export function sizeFor(z: number): PackingPlan {
-  const zz = Math.min(118, Math.max(1, z));
-  const n = 10 + Math.round((zz * 24) / 118);
-  const w = Math.min(7, Math.ceil(Math.sqrt(n * 1.5)));
-  const h = Math.min(7, Math.ceil((n * 1.5) / w));
-  return {
-    n, w, h,
-    blocked: zz >= 80 ? 3 : zz >= 40 ? 2 : zz >= 12 ? 1 : 0,
-    decoys: zz >= 30 ? 1 : 0,
-    flips: zz >= 90,
-  };
-}
-
-/** Grows an outline of n cells; the weights decide whether it is compact or has arms. */
-function grow(rng: Rng, w: number, h: number, n: number, style: OutlineStyle): boolean[] | null {
-  const on: boolean[] = Array(w * h).fill(false);
-  const idx = (c: Cell) => c.y * w + c.x;
-  const inside = (c: Cell) => c.x >= 0 && c.y >= 0 && c.x < w && c.y < h;
-  const mirror = (c: Cell): Cell => ({ x: w - 1 - c.x, y: c.y });
-  const start = { x: Math.floor(w / 2), y: Math.floor(h / 2) };
-  on[idx(start)] = true;
-  let count = 1;
-  if (style === 'mirror' && !on[idx(mirror(start))]) { on[idx(mirror(start))] = true; count++; }
-  while (count < n) {
-    const frontier = new Map<string, Cell>();
-    for (let i = 0; i < on.length; i++) {
-      if (!on[i]) continue;
-      for (const nb of neighbors({ x: i % w, y: Math.floor(i / w) })) if (inside(nb) && !on[idx(nb)]) frontier.set(key(nb), nb);
-    }
-    let cells = [...frontier.values()];
-    if (style === 'mirror') {
-      // Cells added in mirror pairs; a lone center cell only when one is needed to land on n.
-      cells = cells.filter((c) => (mirror(c).x === c.x ? true : n - count >= 2));
-    }
-    if (!cells.length) return null;
-    const weights = cells.map((c) => {
-      const k = neighbors(c).filter((nb) => inside(nb) && on[idx(nb)]).length;
-      return style === 'arms' ? (k === 1 ? 3 : 1) : k * k;
-    });
-    const c = cells[weighted(rng, weights)];
-    on[idx(c)] = true;
-    count++;
-    if (style === 'mirror' && !on[idx(mirror(c))]) { on[idx(mirror(c))] = true; count++; }
-  }
-  return count === n ? on : null;
-}
-
-/** A blob with one or two interior cells taken out, so the outline has a hole through it. */
-function ring(rng: Rng, w: number, h: number, n: number): boolean[] | null {
-  const holes = n >= 22 ? 2 : 1;
-  const on = grow(rng, w, h, n + holes, 'blob');
-  if (!on) return null;
-  const interior = (i: number) => {
-    const x = i % w, y = Math.floor(i / w);
-    return on[i] && neighbors({ x, y }).every((nb) => nb.x >= 0 && nb.y >= 0 && nb.x < w && nb.y < h && on[nb.y * w + nb.x]);
-  };
-  for (let k = 0; k < holes; k++) {
-    const options = on.map((_, i) => i).filter(interior);
-    if (!options.length) return null;
-    on[pick(rng, options)] = false;
-  }
-  return on;
-}
-
-/** Cuts the open cells into edge-connected pieces of 2 to 5 cells, or null when the cut leaves an orphan. */
-function carve(rng: Rng, w: number, open: boolean[], big: boolean): Cell[][] | null {
-  const owner: number[] = open.map((on) => (on ? -1 : -2));
-  const pieces: Cell[][] = [];
-  const idx = (c: Cell) => c.y * w + c.x;
-  const valid = (c: Cell) => c.x >= 0 && c.y >= 0 && c.x < w && idx(c) < owner.length;
-  const free = (c: Cell) => valid(c) && owner[idx(c)] === -1;
-  for (;;) {
-    const left: Cell[] = [];
-    owner.forEach((o, i) => { if (o === -1) left.push({ x: i % w, y: Math.floor(i / w) }); });
-    if (!left.length) break;
-    const seed = pick(rng, left);
-    // Larger outlines lean on larger pieces so the tray stays manageable.
-    const target = 2 + weighted(rng, big ? [1, 3, 4, 3] : [3, 4, 3, 1]);
-    const piece: Cell[] = [seed];
-    owner[idx(seed)] = pieces.length;
-    while (piece.length < target) {
-      const frontier = new Map<string, Cell>();
-      for (const c of piece) for (const nb of neighbors(c)) if (free(nb)) frontier.set(key(nb), nb);
-      if (!frontier.size) break;
-      const c = pick(rng, [...frontier.values()]);
-      owner[idx(c)] = pieces.length;
-      piece.push(c);
-    }
-    if (piece.length === 1) {
-      // An orphan joins a small neighbor, or the cut is thrown away.
-      const hosts = neighbors(seed).filter((nb) => valid(nb) && owner[idx(nb)] >= 0 && pieces[owner[idx(nb)]].length < 5);
-      if (!hosts.length) return null;
-      const host = owner[idx(pick(rng, hosts))];
-      owner[idx(seed)] = host;
-      pieces[host].push(seed);
-      continue;
-    }
-    pieces.push(piece);
-  }
-  return pieces.length >= 2 ? pieces : null;
-}
-
-/** A random polyomino of `size` cells that matches none of the given shapes in any orientation. */
-function decoyShape(rng: Rng, size: number, avoid: Set<string>): Cell[] | null {
-  for (let tries = 0; tries < 60; tries++) {
-    const cells: Cell[] = [{ x: 0, y: 0 }];
-    while (cells.length < size) {
-      const has = new Set(cells.map(key));
-      const options = cells.flatMap(neighbors).filter((c) => !has.has(key(c)));
-      cells.push(pick(rng, options));
-    }
-    const shape = normalize(cells);
-    if (!avoid.has(canonical(shape))) return shape;
-  }
-  return null;
-}
-
-function chooseStyle(rng: Rng, z: number): OutlineStyle {
-  if (z < 20) return pick(rng, ['blob', 'mirror'] as OutlineStyle[]);
-  if (z < 50) return pick(rng, ['blob', 'mirror', 'ring'] as OutlineStyle[]);
-  return pick(rng, ['blob', 'mirror', 'ring', 'arms'] as OutlineStyle[]);
-}
-
-/** A fresh level for an element: an outline and the pieces that fill it, shuffled and turned. */
-export function newPacking(z: number, seed: number): PackingState {
-  const rng = seeded(seed);
-  const plan = sizeFor(z);
-  const { w, h, n } = plan;
-  for (let attempt = 0; attempt < 200; attempt++) {
-    const style = chooseStyle(rng, z);
-    const outline = style === 'ring' ? ring(rng, w, h, n) : grow(rng, w, h, n, style);
-    if (!outline) continue;
-    // Blocks go on cells with at least two outline neighbors, so they read as part of the shape.
-    const blocked: boolean[] = Array(w * h).fill(false);
-    const inner = outline.map((on, i) => i).filter((i) => outline[i] && neighbors({ x: i % w, y: Math.floor(i / w) }).filter((c) => c.x >= 0 && c.y >= 0 && c.x < w && c.y < h && outline[c.y * w + c.x]).length >= 2);
-    for (let k = 0; k < plan.blocked && inner.length; k++) blocked[inner.splice(randInt(rng, inner.length), 1)[0]] = true;
-    const open = outline.map((on, i) => on && !blocked[i]);
-    let cut: Cell[][] | null = null;
-    for (let t = 0; t < 12 && !cut; t++) cut = carve(rng, w, open, n >= 22);
-    if (!cut) continue;
-    const shapes = cut.map(normalize);
-    let extra: Cell[] | null = null;
-    if (plan.decoys) {
-      extra = decoyShape(rng, 3 + randInt(rng, 3), new Set(shapes.map(canonical)));
-      if (!extra) continue;
-    }
-    const all = extra ? [...cut, extra] : cut;
-    const order = all.map((_, i) => i);
-    for (let i = order.length - 1; i > 0; i--) {
-      const j = randInt(rng, i + 1);
-      [order[i], order[j]] = [order[j], order[i]];
-    }
-    const solution: (Cell | null)[] = [];
-    const pieces: Piece[] = order.map((src, id) => {
-      const cells = all[src];
-      solution[id] = src < cut!.length ? { x: Math.min(...cells.map((c) => c.x)), y: Math.min(...cells.map((c) => c.y)) } : null;
-      return { id, shape: normalize(cells), rot: randInt(rng, 4) as Rot, flip: plan.flips && rand(rng) < 0.5, at: null };
-    });
-    return crop({ w, h, outline, blocked, pieces, flips: plan.flips, decoys: extra ? 1 : 0, style, moves: 0, par: cut.length, solution });
-  }
-  return fallback(w, h);
-}
-
-/** Trims the grid to the outline's bounding box, so the board is drawn as large as it can be. */
-function crop(s: PackingState): PackingState {
-  const xs: number[] = [], ys: number[] = [];
-  s.outline.forEach((on, i) => { if (on) { xs.push(i % s.w); ys.push(Math.floor(i / s.w)); } });
-  const x0 = Math.min(...xs), y0 = Math.min(...ys);
-  const w = Math.max(...xs) - x0 + 1, h = Math.max(...ys) - y0 + 1;
-  const take = (a: boolean[]) => Array.from({ length: w * h }, (_, i) => a[(y0 + Math.floor(i / w)) * s.w + x0 + (i % w)]);
-  return { ...s, w, h, outline: take(s.outline), blocked: take(s.blocked), solution: s.solution.map((c) => (c ? { x: c.x - x0, y: c.y - y0 } : null)) };
-}
-
-/** A plain rectangle of dominoes, only if every attempt failed (never seen in tests). */
-function fallback(w: number, h: number): PackingState {
-  const outline: boolean[] = Array(w * h).fill(false);
-  const pieces: Piece[] = [];
-  const solution: Cell[] = [];
-  for (let y = 0; y < 3; y++) for (let x = 0; x < 4; x += 2) {
-    outline[y * w + x] = outline[y * w + x + 1] = true;
-    solution.push({ x, y });
-    pieces.push({ id: pieces.length, shape: [{ x: 0, y: 0 }, { x: 1, y: 0 }], rot: 1, flip: false, at: null });
-  }
-  return { w, h, outline, blocked: Array(w * h).fill(false), pieces, flips: false, decoys: 0, style: 'blob', moves: 0, par: pieces.length, solution };
-}
-
-/** The carved answer applied to a level: every real piece at its home, unturned; the decoy left in the tray. */
-export function solvedState(s: PackingState): PackingState {
-  const next = clonePacking(s);
-  next.pieces.forEach((p) => {
-    const home = next.solution[p.id];
-    p.rot = 0;
-    p.flip = false;
-    p.at = home ? { ...home } : null;
-  });
-  return next;
-}
-
-// ---- hints ------------------------------------------------------------------------
+// ---- the solver ------------------------------------------------------------------
 
 /** Where a piece goes: its top-left corner and its orientation. */
 export interface Placement { piece: number; at: Cell; rot: Rot; flip: boolean }
@@ -420,78 +205,453 @@ function formsOf(s: PackingState, p: Piece): Form[] {
   return out;
 }
 
-/** The open cells not yet covered, as a w*h mask. */
+/** The board cells not yet covered, as a w*h mask. */
 function freeCells(s: PackingState): boolean[] {
   const occ = occupancy(s);
-  return s.outline.map((on, i) => on && !s.blocked[i] && occ[i] === -1);
+  return s.outline.map((on, i) => on && occ[i] === -1);
 }
 
 const fits = (s: PackingState, free: ArrayLike<boolean | number>, cells: Cell[], ax: number, ay: number): boolean =>
   cells.every((c) => { const x = ax + c.x, y = ay + c.y; return x >= 0 && y >= 0 && x < s.w && y < s.h && free[y * s.w + x]; });
 
+interface Search {
+  /** Answers found, up to the cap. */
+  count: number;
+  /** Search steps taken. */
+  nodes: number;
+  /** The first answer found, piece by piece. */
+  first: Placement[] | null;
+  /** True when the search ran to its end: count is then every answer there is. */
+  complete: boolean;
+}
+
 /**
- * One way to fill the open cells left with tray pieces, every placed piece staying where it is, or
- * null when there is none. A depth-first search that always covers the first open cell, row by
- * row, trying each distinct shape there once; it backs off as soon as a lone open cell is cut off
- * (every piece has at least two cells) and remembers the positions it has seen fail. The decoy may
- * stay in the tray, like any piece.
+ * Every way to fill the open cells with all the tray pieces, every placed piece staying where it
+ * is: a depth-first search that always covers the first open cell, row by row, so each answer is
+ * met exactly once. The cells are bits in two words (a board has at most 64 cells). After each
+ * piece goes down, the open regions it touches are measured, and the search backs off when one
+ * of them cannot be made of the pieces left (too small, or a size no sum of them reaches). Stops
+ * at maxCount answers (as scaled) or maxNodes steps; looking for one answer, it remembers the
+ * positions it has searched through without one. With `oneWay`, one piece is held to a single
+ * orientation that the board's turns (and flips, when offered) all move, so an answer and its
+ * turned copies count once; `scale` says what one counted answer is worth when no piece could be
+ * held.
  */
-export function completion(s: PackingState): Placement[] | null {
+function search(s: PackingState, maxCount: number, maxNodes: number, oneWay = false): Search & { scale: number } {
   const { w, h } = s;
-  const free = Uint8Array.from(freeCells(s), Number);
-  const tray = s.pieces.filter((p) => !p.at).map((p) => {
-    const forms = formsOf(s, p);
-    return { id: p.id, forms, kind: forms.map((f) => f.cells.map(key).join(';')).sort().join('|') };
-  });
-  const used = tray.map(() => false);
-  const out: Placement[] = [];
-  const failed = new Set<string>();
-  // The cells covered so far and the pieces used, as bit masks (a grid has at most 49 cells).
-  let lo = 0, hi = 0, usedBits = 0;
-  const flipCell = (i: number) => { if (i < 30) lo ^= 1 << i; else hi ^= 1 << (i - 30); };
-  const lone = (i: number) => {
-    const x = i % w, y = (i - x) / w;
-    return !((x > 0 && free[i - 1]) || (x < w - 1 && free[i + 1]) || (y > 0 && free[i - w]) || (y < h - 1 && free[i + w]));
-  };
-  // A free neighbor of a cell the piece just covered, walled in alone.
-  const cutOff = (cells: number[]) => cells.some((i) => {
-    const x = i % w;
-    return (x > 0 && free[i - 1] && lone(i - 1)) || (x < w - 1 && free[i + 1] && lone(i + 1))
-      || (i >= w && free[i - w] && lone(i - w)) || (i + w < w * h && free[i + w] && lone(i + w));
-  });
-  const go = (from: number): boolean => {
-    let i = from;
-    while (i < free.length && !free[i]) i++;
-    if (i === free.length) return true;
-    if (lone(i)) return false;
-    const memo = `${lo}:${hi}:${usedBits}`;
-    if (failed.has(memo)) return false;
-    const x = i % w, y = (i - x) / w;
-    const tried = new Set<string>();
-    for (let k = 0; k < tray.length; k++) {
-      if (used[k] || tried.has(tray[k].kind)) continue;
-      tried.add(tray[k].kind);
-      for (const f of tray[k].forms) {
-        // The form's first cell (row by row) lands on the first open cell: anything earlier is covered.
-        const ax = x - f.cells[0].x, ay = y - f.cells[0].y;
-        if (!fits(s, free, f.cells, ax, ay)) continue;
-        const cells = f.cells.map((c) => (ay + c.y) * w + ax + c.x);
-        for (const j of cells) { free[j] = 0; flipCell(j); }
-        used[k] = true;
-        usedBits ^= 1 << k;
-        out.push({ piece: tray[k].id, at: { x: ax, y: ay }, rot: f.rot, flip: f.flip });
-        if (!cutOff(cells) && go(i + 1)) return true;
-        out.pop();
-        usedBits ^= 1 << k;
-        used[k] = false;
-        for (const j of cells) { free[j] = 1; flipCell(j); }
+  const n = w * h;
+  const free = freeCells(s);
+  const tray = s.pieces.filter((p) => !p.at);
+  const forms = tray.map((p) => formsOf(s, p));
+  const group = s.flips ? 8 : 4;
+  const held = oneWay && w === h ? forms.findIndex((f) => f.length === group) : -1;
+  // Placements by piece and by the cell they cover first: [low word, high word, index into places].
+  const places: Placement[] = [];
+  const placeCells: number[][] = [];
+  const at: number[][][] = tray.map(() => Array.from({ length: n }, () => []));
+  tray.forEach((p, k) => {
+    for (const f of held === k ? forms[k].slice(0, 1) : forms[k]) {
+      const b = bounds(f.cells);
+      for (let y = 0; y + b.h <= h; y++) for (let x = 0; x + b.w <= w; x++) {
+        if (!fits(s, free, f.cells, x, y)) continue;
+        let lo = 0, hi = 0;
+        const cells = f.cells.map((c) => (y + c.y) * w + x + c.x);
+        for (const i of cells) if (i < 32) lo |= 1 << i; else hi |= 1 << (i - 32);
+        // The form's cells run row by row, so the first is the one it covers first.
+        at[k][cells[0]].push(lo, hi, places.length);
+        places.push({ piece: p.id, at: { x, y }, rot: f.rot, flip: f.flip });
+        placeCells.push(cells);
       }
     }
-    failed.add(memo);
+  });
+  const sizes = tray.map((p) => p.shape.length);
+  const maxSize = Math.max(0, ...sizes);
+  // Region sizes the pieces still in hand can make, by which pieces are in hand (memoized).
+  const sumsMemo = new Map<number, Uint8Array>();
+  const sumsOf = (used: number): Uint8Array => {
+    let sums = sumsMemo.get(used);
+    if (!sums) {
+      sums = new Uint8Array(n + 1);
+      sums[0] = 1;
+      for (let k = 0; k < tray.length; k++) if (!(used & (1 << k))) for (let v = n - sizes[k]; v >= 0; v--) if (sums[v]) sums[v + sizes[k]] = 1;
+      sumsMemo.set(used, sums);
+    }
+    return sums;
+  };
+  const filled = new Uint8Array(n);
+  free.forEach((f, i) => { if (!f) filled[i] = 1; });
+  let lo = 0, hi = 0;
+  for (let i = 0; i < n; i++) if (filled[i]) { if (i < 32) lo |= 1 << i; else hi |= 1 << (i - 32); }
+  const nbrs: number[][] = Array.from({ length: n }, (_, i) => {
+    const x = i % w, out: number[] = [];
+    if (x > 0) out.push(i - 1);
+    if (x < w - 1) out.push(i + 1);
+    if (i >= w) out.push(i - w);
+    if (i + w < n) out.push(i + w);
+    return out;
+  });
+  // A flood fill marks cells with a stamp, so nothing is cleared between fills.
+  const mark = new Int32Array(n);
+  let stamp = 0;
+  const stack = new Int32Array(n);
+  /** False when an open region next to these cells can no longer be filled by the pieces in hand. */
+  const regionsOk = (cells: number[], used: number): boolean => {
+    const sums = sumsOf(used);
+    // Each fill gets its own stamp; a stamp from earlier in this call means a region already seen.
+    const base = stamp + 1;
+    // Regions larger than this are assumed fine: by then almost every size can be made.
+    const limit = maxSize * 2 + 1;
+    for (const c of cells) for (const start of nbrs[c]) {
+      if (filled[start] || mark[start] >= base) continue;
+      const id = ++stamp;
+      let top = 0, size = 0, big = false;
+      stack[top++] = start;
+      mark[start] = id;
+      while (top) {
+        const v = stack[--top];
+        if (++size > limit) { big = true; break; }
+        for (const d of nbrs[v]) {
+          if (filled[d] || mark[d] === id) continue;
+          // A cell of a fill cut short earlier: the same region, already known to be large.
+          if (mark[d] >= base) { big = true; break; }
+          mark[d] = id;
+          stack[top++] = d;
+        }
+        if (big) break;
+      }
+      if (!big && !sums[size]) return false;
+    }
+    return true;
+  };
+  const out: Search & { scale: number } = { count: 0, nodes: 0, first: null, complete: true, scale: oneWay && held < 0 ? 1 / group : 1 };
+  const picked: number[] = [];
+  // Worth its keep when looking for one answer; when counting many, the bookkeeping costs more than it saves.
+  const remember = maxCount === 1;
+  const dead = new Set<string>();
+  let stop = false;
+  const go = (from: number, used: number): void => {
+    let i = from;
+    while (i < n && filled[i]) i++;
+    if (i === n) {
+      if (!out.first) out.first = picked.map((pl) => places[pl]);
+      if (++out.count * out.scale >= maxCount) stop = true;
+      return;
+    }
+    if (++out.nodes > maxNodes) { stop = true; out.complete = false; return; }
+    // A position already searched to its end without an answer has none this time either.
+    const memo = remember ? `${lo},${hi},${used}` : '';
+    if (remember && dead.has(memo)) return;
+    const before = out.count;
+    for (let k = 0; k < tray.length && !stop; k++) {
+      if (used & (1 << k)) continue;
+      const list = at[k][i];
+      for (let j = 0; j < list.length && !stop; j += 3) {
+        const plo = list[j], phi = list[j + 1];
+        if ((plo & lo) | (phi & hi)) continue;
+        const cells = placeCells[list[j + 2]];
+        lo |= plo; hi |= phi;
+        for (const c of cells) filled[c] = 1;
+        picked.push(list[j + 2]);
+        if (regionsOk(cells, used | (1 << k))) go(i + 1, used | (1 << k));
+        picked.pop();
+        for (const c of cells) filled[c] = 0;
+        lo &= ~plo; hi &= ~phi;
+      }
+    }
+    if (remember && !stop && out.count === before) dead.add(memo);
+  };
+  go(0, 0);
+  if (stop && out.count * out.scale >= maxCount) out.complete = false;
+  return out;
+}
+
+/** How constrained a deal is: its answers (each counted once, not once per turn of the board) and the search they took. */
+export interface Measure {
+  /** Distinct answers, up to the cap. */
+  answers: number;
+  /** Search steps the solver took. */
+  nodes: number;
+  /** True when every answer was counted, false when the count stopped at a cap. */
+  complete: boolean;
+}
+
+/** Counts the ways to finish a board with its tray pieces, up to `cap` answers or `maxNodes` steps. */
+export function measure(s: PackingState, cap = 10, maxNodes = 2000): Measure {
+  const r = search(s, cap, maxNodes, true);
+  return { answers: Math.max(r.count ? 1 : 0, Math.round(r.count * r.scale)), nodes: r.nodes, complete: r.complete };
+}
+
+/**
+ * One way to fill the open cells left with the tray pieces, every placed piece staying where it
+ * is, or null when there is none.
+ */
+export function completion(s: PackingState): Placement[] | null {
+  return search(s, 1, 5e6).first;
+}
+
+// ---- generation ------------------------------------------------------------------
+
+export interface PackingPlan {
+  /** The board's side. */
+  side: number;
+  /** Relative odds of a piece's size, by cell count. */
+  sizes: Record<number, number>;
+  flips: boolean;
+  /** Where the deal is taken among its measured cuts: 0 the loosest, 1 the most constrained. */
+  pick: number;
+}
+
+/** The board grows a size every stretch of the table; within one, the deals tighten. */
+const TIERS: { to: number; side: number; sizes: Record<number, number> }[] = [
+  { to: 10, side: 4, sizes: { 3: 1, 4: 4, 5: 2 } },
+  { to: 36, side: 5, sizes: { 3: 1, 4: 3, 5: 4 } },
+  { to: 76, side: 6, sizes: { 3: 0.5, 4: 2, 5: 5 } },
+  { to: 118, side: 7, sizes: { 4: 2, 5: 6 } },
+];
+
+/** How a level scales with the element: the board's side, the piece sizes, flipping and how tight a cut is dealt. */
+export function sizeFor(z: number): PackingPlan {
+  const zz = Math.min(118, Math.max(1, Math.round(z)));
+  let from = 1;
+  for (const t of TIERS) {
+    if (zz <= t.to) {
+      const u = (zz - from) / Math.max(1, t.to - from);
+      // A hexomino joins the largest board from z 100.
+      const sizes: Record<number, number> = zz >= 100 ? { ...t.sizes, 6: 1.5 } : { ...t.sizes };
+      return { side: t.side, sizes, flips: zz >= 90, pick: 0.2 + 0.8 * u };
+    }
+    from = t.to + 1;
+  }
+  return sizeFor(118);
+}
+
+/** How many cuts are carved and measured for one deal. */
+const CUTS = 6;
+
+/** Piece sizes that add up to the board: at most one tromino and one hexomino, nothing smaller than three. */
+function dealSizes(rng: Rng, plan: PackingPlan): number[] {
+  const total = plan.side * plan.side;
+  const kinds = Object.keys(plan.sizes).map(Number);
+  for (let attempt = 0; attempt < 50; attempt++) {
+    const out: number[] = [];
+    let sum = 0;
+    while (sum < total) {
+      const left = total - sum;
+      const opts = kinds.filter((k) => k <= left && (left - k === 0 || left - k >= 3) && ((k !== 3 && k !== 6) || !out.includes(k)));
+      if (!opts.length) break;
+      const k = opts[weighted(rng, opts.map((o) => plan.sizes[o]))];
+      out.push(k);
+      sum += k;
+    }
+    if (sum === total) return out;
+  }
+  // Only if every attempt fell short: fours with one tromino or one five to make up the rest.
+  const out = Array(Math.floor(total / 4)).fill(4);
+  if (total % 4 === 1) out[0] = 5;
+  else if (total % 4 === 3) out.push(3);
+  else if (total % 4 === 2) { out[0] = 5; out[1] = 5; }
+  return out;
+}
+
+function shuffle<T>(rng: Rng, a: T[]): T[] {
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = randInt(rng, i + 1);
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+/** A straight bar, or the 2 by 2 square: the pieces that fit almost anywhere. */
+function easyFit(shape: Cell[]): boolean {
+  const b = bounds(shape);
+  return b.w === 1 || b.h === 1 || (shape.length === 4 && b.w === 2 && b.h === 2);
+}
+
+interface Kind { size: number; easy: boolean; forms: Cell[][] }
+
+let kinds: Kind[] | null = null;
+
+/**
+ * Every free polyomino of three to six cells, each with its distinct orientations (row by row,
+ * so a form's first cell is the one it covers first). Left out: the domino and the 2 by 3 and 1 by 6
+ * hexominoes, which fill a square too easily.
+ */
+function library(): Kind[] {
+  if (kinds) return kinds;
+  const out: Kind[] = [];
+  let level = new Map<string, Cell[]>([['0,0', [{ x: 0, y: 0 }]]]);
+  for (let size = 2; size <= 6; size++) {
+    const next = new Map<string, Cell[]>();
+    for (const shape of level.values()) {
+      const has = new Set(shape.map(key));
+      for (const c of shape) for (const d of neighbors(c)) {
+        if (has.has(key(d))) continue;
+        const grown = normalize([...shape, d]);
+        const k = canonical(grown);
+        if (!next.has(k)) next.set(k, grown);
+      }
+    }
+    level = next;
+    if (size < 3) continue;
+    for (const shape of level.values()) {
+      const b = bounds(shape);
+      if (size === 6 && (Math.min(b.w, b.h) === 1 || (b.w * b.h === 6))) continue;
+      const forms = new Map<string, Cell[]>();
+      for (const flip of [false, true]) for (let r = 0; r < 4; r++) {
+        const f = oriented(shape, r as Rot, flip);
+        forms.set(f.map(key).join(';'), f);
+      }
+      out.push({ size, easy: easyFit(shape), forms: [...forms.values()] });
+    }
+  }
+  kinds = out;
+  return out;
+}
+
+function neighbors(c: Cell): Cell[] {
+  return [{ x: c.x + 1, y: c.y }, { x: c.x - 1, y: c.y }, { x: c.x, y: c.y + 1 }, { x: c.x, y: c.y - 1 }];
+}
+
+/**
+ * Cuts the square into pieces of the given sizes, every one a different shape, or null when the
+ * search runs out of steps. A randomized depth-first tiling: the first open cell, row by row, is
+ * covered by an unused shape in some orientation, tried in random order; a step that leaves an open
+ * region no remaining sizes can make is taken back. At most `easyCap` easy fits are used.
+ */
+function carve(rng: Rng, side: number, sizes: number[], easyCap: number): Cell[][] | null {
+  const n = side * side;
+  const lib = library();
+  const need = new Map<number, number>();
+  for (const k of sizes) need.set(k, (need.get(k) ?? 0) + 1);
+  const filled = new Uint8Array(n);
+  const used = new Uint8Array(lib.length);
+  const cut: Cell[][] = [];
+  let easy = 0, steps = 0;
+  const seen = new Uint8Array(n);
+  /** True when every open region can still be made from the sizes left. */
+  const fillable = (): boolean => {
+    const sums = new Uint8Array(n + 1);
+    sums[0] = 1;
+    for (const [k, c] of need) for (let j = 0; j < c; j++) for (let v = n - k; v >= 0; v--) if (sums[v]) sums[v + k] = 1;
+    seen.fill(0);
+    for (let i = 0; i < n; i++) {
+      if (filled[i] || seen[i]) continue;
+      let count = 0;
+      const stack = [i];
+      seen[i] = 1;
+      while (stack.length) {
+        const c = stack.pop()!, x = c % side;
+        count++;
+        for (const d of [x > 0 ? c - 1 : -1, x < side - 1 ? c + 1 : -1, c - side, c + side]) {
+          if (d >= 0 && d < n && !filled[d] && !seen[d]) { seen[d] = 1; stack.push(d); }
+        }
+      }
+      if (!sums[count]) return false;
+    }
+    return true;
+  };
+  const go = (from: number): boolean => {
+    let i = from;
+    while (i < n && filled[i]) i++;
+    if (i === n) return true;
+    if (++steps > 1500) return false;
+    const x0 = i % side, y0 = Math.floor(i / side);
+    const opts: { kind: number; cells: number[] }[] = [];
+    lib.forEach((kd, li) => {
+      if (used[li] || !need.get(kd.size) || (kd.easy && easy >= easyCap)) return;
+      for (const f of kd.forms) {
+        const ax = x0 - f[0].x, ay = y0 - f[0].y;
+        const cells: number[] = [];
+        for (const c of f) {
+          const x = ax + c.x, y = ay + c.y;
+          if (x < 0 || y < 0 || x >= side || y >= side || filled[y * side + x]) break;
+          cells.push(y * side + x);
+        }
+        if (cells.length === f.length) opts.push({ kind: li, cells });
+      }
+    });
+    for (let k = opts.length - 1; k > 0; k--) {
+      const j = randInt(rng, k + 1);
+      [opts[k], opts[j]] = [opts[j], opts[k]];
+    }
+    for (const o of opts) {
+      const kd = lib[o.kind];
+      for (const c of o.cells) filled[c] = 1;
+      used[o.kind] = 1;
+      need.set(kd.size, need.get(kd.size)! - 1);
+      if (kd.easy) easy++;
+      cut.push(o.cells.map((c) => ({ x: c % side, y: Math.floor(c / side) })));
+      if (fillable() && go(i + 1)) return true;
+      cut.pop();
+      if (kd.easy) easy--;
+      need.set(kd.size, need.get(kd.size)! + 1);
+      used[o.kind] = 0;
+      for (const c of o.cells) filled[c] = 0;
+      if (steps > 1500) return false;
+    }
     return false;
   };
-  return go(0) ? out : null;
+  return go(0) ? cut : null;
 }
+
+/** A level built from a cut: the pieces shuffled, turned and (where flipping is offered) sometimes mirrored. */
+function dealOf(rng: Rng, side: number, cut: Cell[][], flips: boolean): PackingState {
+  const order = shuffle(rng, cut.map((_, i) => i));
+  const solution: Cell[] = [];
+  const pieces: Piece[] = order.map((src, id) => {
+    const cells = cut[src];
+    solution[id] = { x: Math.min(...cells.map((c) => c.x)), y: Math.min(...cells.map((c) => c.y)) };
+    return { id, shape: normalize(cells), rot: randInt(rng, 4) as Rot, flip: flips && rand(rng) < 0.5, at: null };
+  });
+  return { w: side, h: side, outline: Array(side * side).fill(true), pieces, flips, moves: 0, par: pieces.length, solution };
+}
+
+/** How tight a measured cut is: the search steps it took per answer found (log scale). */
+const hardness = (m: Measure): number => Math.log2((1 + m.nodes) / (m.answers + 0.5));
+
+/**
+ * A fresh level for an element: a square and the pieces that fill it, shuffled and turned. Several
+ * cuts are carved and measured; the plan's pick says which of them, loosest to tightest, is dealt.
+ */
+export function newPacking(z: number, seed: number): PackingState {
+  const rng = seeded(seed);
+  const plan = sizeFor(z);
+  const side = plan.side;
+  const easyCap = side >= 6 ? 1 : 2;
+  const found: { s: PackingState; h: number }[] = [];
+  for (let attempt = 0; attempt < 60 && found.length < CUTS; attempt++) {
+    const sizes = dealSizes(rng, plan);
+    // There are only five tetrominoes, two of them easy fits.
+    if (sizes.filter((k) => k === 4).length > 3 + Math.min(2, easyCap)) continue;
+    const cut = carve(rng, side, sizes, easyCap);
+    if (!cut) continue;
+    const s = dealOf(rng, side, cut, plan.flips);
+    found.push({ s, h: hardness(measure(s)) });
+  }
+  if (!found.length) return fallback(side);
+  // A stable sort, so equal cuts keep the order they were carved in.
+  found.sort((a, b) => a.h - b.h);
+  return found[Math.round(plan.pick * (found.length - 1))].s;
+}
+
+/** The square cut into straight columns, only if every attempt failed (never seen in tests). */
+function fallback(side: number): PackingState {
+  const cols: Cell[][] = Array.from({ length: side }, (_, x) => Array.from({ length: side }, (__, y) => ({ x, y })));
+  return dealOf(seeded(1), side, cols, false);
+}
+
+/** The carved answer applied to a level: every piece at its home, unturned. */
+export function solvedState(s: PackingState): PackingState {
+  const next = clonePacking(s);
+  next.pieces.forEach((p) => {
+    p.rot = 0;
+    p.flip = false;
+    p.at = { ...next.solution[p.id] };
+  });
+  return next;
+}
+
+// ---- hints ------------------------------------------------------------------------
 
 /** How many ways a tray piece could go down on the board as it is: every corner, every orientation. */
 export function placesFor(s: PackingState, id: number): number {

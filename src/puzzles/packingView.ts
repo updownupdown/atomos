@@ -1,12 +1,12 @@
-// Drawing and touch for Packing: drag pieces from the tray onto the outline,
-// tap a piece to turn it, drag a placed piece to move it or off the board to
-// lift it. At the top of the table a flip button mirrors the chosen piece.
+// Drawing and touch for Packing (Tessera): drag pieces from the tray onto the
+// square board, tap a piece to turn it, drag a placed piece to move it or off the
+// board to lift it. At the top of the table a flip button mirrors the chosen piece.
 // The board and the tray are laid out from the area alone (tray below on a
 // tall area, beside on a wide one), and the tray scales its pieces down until
 // they all fit, so nothing ever spills.
 
-import { applyMove, bounds, canPlace, cellsLeft, cellsOf, clonePacking, completion, nextPlacement, occupancy, oriented, solved, type Cell, type PackingMove, type PackingState, type Piece, type Placement, type Rot } from './packing';
-import { drawCellFrame } from './frame';
+import { applyMove, bounds, canPlace, cellsLeft, cellsOf, clonePacking, completion, nextPlacement, occupancy, oriented, solved, solvedState, type Cell, type PackingMove, type PackingState, type Piece, type Placement, type Rot } from './packing';
+import { drawFrame, frameBox, framePad, frameWidth } from './frame';
 import { C, shade, tile } from './palette';
 import { drawHelpMark, ease, undoHelp, type Area, type Help, type Point, type PuzzleView, type RuleCard } from './view';
 
@@ -18,7 +18,7 @@ const FLIP_SIZE = 44;
 
 export const INSTRUCTIONS = `
 <h3>In the game</h3>
-<p class="meta">Tessera builds the isotopes in each atom's vault on its Build page: one board per isotope, opening once the atom is built. It runs for every element, z 1 to 118. The outline grows from 10 cells at hydrogen to 34 at the end of the table, on a grid of up to 7 by 7, and comes in four kinds: compact, mirror-symmetric, with a hole through it, and loose with arms (from z 50). Filled blocks arrive at z 12 (one), 40 (two) and 80 (three). The spare piece arrives at z 30 and is never the same shape as a real one. Flipping arrives at z 90. Each level is carved from its own answer, so it is always solvable; other answers may exist and count too. Par is one placement per piece that belongs: every drop on the board counts as a move, so moving a piece twice costs one over par. Turning, flipping and lifting are free.</p>
+<p class="meta">Tessera builds the isotopes in each atom's vault on its Build page: one board per isotope, opening once the atom is built. It runs for every element, z 1 to 118. The board is always a plain square: 4 by 4 up to z 10, 5 by 5 up to z 36, 6 by 6 up to z 76 and 7 by 7 to the end of the table. The tray holds exactly the pieces that fill it, and every one is used. Each piece is a different shape of three to five cells (one six-cell piece joins from z 100); there are never dominoes, and at most one straight bar or 2 by 2 square on the larger boards. Each level is carved from its own answer, so it is always solvable; other answers may exist and count too. Several cuts are carved for every deal and a solver counts how many ways each can be finished: lighter elements get a looser cut, and within each board size the cuts get tighter toward the heavier elements. Flipping arrives at z 90. Par is one placement per piece: every drop on the board counts as a move, so moving a piece twice costs one over par. Turning, flipping and lifting are free.</p>
 `;
 
 interface Slot { id: number; x: number; y: number; side: number }
@@ -57,12 +57,15 @@ export class PackingView implements PuzzleView {
   private wonAt = 0;
   private lay: Layout | null = null;
   private reduced: boolean;
+  /** Each piece's stone, by id. */
+  private readonly stones: string[];
   /** Look here: where one piece goes, for the board it was asked on. */
   private mark: { state: PackingState; place: Placement } | null = null;
 
   constructor(private readonly initial: PackingState, reducedMotion: boolean) {
     this.state = clonePacking(initial);
     this.reduced = reducedMotion;
+    this.stones = stonesFor(initial);
   }
 
   get won(): boolean { return solved(this.state); }
@@ -71,15 +74,15 @@ export class PackingView implements PuzzleView {
   get par(): number | null { return this.state.par; }
   get clean(): boolean { return this.state.moves <= this.state.par; }
 
-  /** The game bar's Progress column: open cells filled out of all of them. */
+  /** The game bar's Progress column: cells filled out of all of them. */
   stats(): { progress: { label: string; value: string } } {
     const s = this.state;
-    const total = s.outline.filter((on, i) => on && !s.blocked[i]).length;
+    const total = s.outline.filter(Boolean).length;
     return { progress: { label: 'Filled', value: `${total - cellsLeft(s)}/${total}` } };
   }
 
   hint(): string {
-    if (this.won) return 'The outline is full';
+    if (this.won) return 'The square is full';
     const n = cellsLeft(this.state);
     return n === 1 ? '1 cell to fill' : `${n} cells to fill`;
   }
@@ -389,13 +392,8 @@ export class PackingView implements PuzzleView {
     const won = this.won;
     const shaking = now - this.shake < SHAKE_MS;
 
-    // The outline: the open cells (filled blocks are left out, black like any other gap) inside
-    // the shared board frame, which follows their shape, and a faint dot on each open cell.
-    const open: Cell[] = [];
-    s.outline.forEach((on, i) => { if (on && !s.blocked[i]) open.push({ x: i % s.w, y: Math.floor(i / s.w) }); });
-    drawOutline(ctx, open, bx, by, cell, shaking ? C.warn : won ? C.good : C.frame);
-
-
+    // The board: the shared frame round the square and a faint dot on each cell.
+    drawBoard(ctx, s.w, s.h, bx, by, cell, shaking ? C.warn : won ? C.good : C.frame);
 
     const d = this.drag && this.drag.moved ? this.drag : null;
     const t = d ? this.target(d) : null;
@@ -405,7 +403,7 @@ export class PackingView implements PuzzleView {
     for (const p of s.pieces) {
       if (!p.at || (d && d.id === p.id)) continue;
       const g = this.glow && this.glow.id === p.id ? 1 - ease((now - this.glow.at) / GLOW_MS) : 0;
-      drawPiece(ctx, p, bx + p.at.x * cell, by + p.at.y * cell, cell, Math.max(g, pulse), !won && !d && this.showSelected(p.id));
+      drawPiece(ctx, p, bx + p.at.x * cell, by + p.at.y * cell, cell, Math.max(g, pulse), !won && !d && this.showSelected(p.id), this.stones[p.id]);
     }
 
     // The landing shadow: where the piece in hand will drop.
@@ -433,7 +431,7 @@ export class PackingView implements PuzzleView {
         const p = this.piece(sl.id);
         if (p.at || (d && d.id === sl.id)) continue;
         const o = this.slotOrigin(sl, p, lay.tc);
-        drawPiece(ctx, p, o.x, o.y, lay.tc, 0, !d && this.showSelected(p.id));
+        drawPiece(ctx, p, o.x, o.y, lay.tc, 0, !d && this.showSelected(p.id), this.stones[p.id]);
       }
       if (lay.flip) this.drawFlip(ctx, lay.flip);
     }
@@ -455,7 +453,7 @@ export class PackingView implements PuzzleView {
       const ox = d.p.x - (d.grab.x + 0.5) * cell, oy = d.p.y - (d.grab.y + 0.5) * cell;
       ctx.save();
       ctx.globalAlpha = t?.ok ? 0.55 : 0.9;
-      drawPiece(ctx, p, ox, oy, cell, 0, true);
+      drawPiece(ctx, p, ox, oy, cell, 0, true, this.stones[p.id]);
       ctx.restore();
     }
   }
@@ -492,19 +490,54 @@ export class PackingView implements PuzzleView {
   }
 }
 
-// ---- pieces and blocks ----------------------------------------------------------------
+// ---- pieces ---------------------------------------------------------------------------
 
 const same = (a: Cell[], b: Cell[]): boolean => a.length === b.length && a.every((c, i) => c.x === b[i].x && c.y === b[i].y);
 
 /**
- * Color by size: a quick way to tell the pieces apart on the board. Mosaic stones, like the
- * tesserae the game is named for: marble, terracotta, slate and sage. Their own set, kept off
- * the orbital, target, warning and Next colors: a piece is a shape, not an orbital.
+ * Mosaic stones, like the tesserae the game is named for: marble, terracotta, slate and sage.
+ * Their own set, kept off the orbital, target, warning and Next colors: a piece is a shape, not
+ * an orbital.
  */
 const STONES = ['#ece6d8', '#d98a6c', '#8fa8c4', '#93bc9c'];
-function colorOf(p: Piece): string {
-  const n = p.shape.length;
-  return STONES[n <= 2 ? 0 : n === 3 ? 1 : n === 4 ? 2 : 3];
+
+/**
+ * A stone for each piece (by id), so that no two pieces that touch in the level's carved answer
+ * share one and the finished square reads as a mosaic; the four stones are spread as evenly as
+ * that allows. Most pieces are four or five cells, so a color by size would leave a board of one
+ * color. Four colors always suffice for pieces on a plane; a short search finds them.
+ */
+export function stonesFor(s: PackingState): string[] {
+  const done = solvedState(s);
+  const occ = occupancy(done);
+  const n = s.pieces.length;
+  const touch: Set<number>[] = Array.from({ length: n }, () => new Set());
+  for (let i = 0; i < occ.length; i++) {
+    const x = i % s.w;
+    for (const j of [x < s.w - 1 ? i + 1 : -1, i + s.w < occ.length ? i + s.w : -1]) {
+      if (j < 0 || occ[i] < 0 || occ[j] < 0 || occ[i] === occ[j]) continue;
+      touch[occ[i]].add(occ[j]);
+      touch[occ[j]].add(occ[i]);
+    }
+  }
+  const order = [...Array(n).keys()].sort((a, b) => touch[b].size - touch[a].size || a - b);
+  const pick = Array(n).fill(-1);
+  const used = Array(STONES.length).fill(0);
+  const go = (k: number): boolean => {
+    if (k === n) return true;
+    const id = order[k];
+    const free = [...STONES.keys()].filter((c) => ![...touch[id]].some((o) => pick[o] === c)).sort((a, b) => used[a] - used[b] || a - b);
+    for (const c of free) {
+      pick[id] = c;
+      used[c]++;
+      if (go(k + 1)) return true;
+      used[c]--;
+      pick[id] = -1;
+    }
+    return false;
+  };
+  if (!go(0)) return s.pieces.map((p) => STONES[p.id % STONES.length]);
+  return pick.map((c) => STONES[c]);
 }
 
 /**
@@ -512,10 +545,9 @@ function colorOf(p: Piece): string {
  * cell is a slightly raised tessera on it: a rounded square in the stone's color with a thin
  * lighter top edge.
  */
-function drawPiece(ctx: CanvasRenderingContext2D, p: Piece, ox: number, oy: number, cell: number, glow: number, selected: boolean): void {
+function drawPiece(ctx: CanvasRenderingContext2D, p: Piece, ox: number, oy: number, cell: number, glow: number, selected: boolean, stone = STONES[p.id % STONES.length]): void {
   const cells = cellsOf(p);
   const inset = Math.max(1, cell * 0.06);
-  const stone = colorOf(p);
   ctx.save();
   if (glow > 0) {
     ctx.shadowColor = stone;
@@ -539,18 +571,17 @@ function drawPiece(ctx: CanvasRenderingContext2D, p: Piece, ox: number, oy: numb
   ctx.restore();
 }
 
-/** The outline: a board frame traced round the open cells, standing off them by framePad, and
- *  a faint dot at the center of each. Filled blocks are simply not in `open`. */
-function drawOutline(ctx: CanvasRenderingContext2D, open: Cell[], bx: number, by: number, cell: number, color: string): void {
-  if (!open.length || !(cell > 0)) return;
-  // Cut from the cells grown twice, so close parts of the outline never cross each other.
-  drawCellFrame(ctx, open, bx, by, cell, color);
+/** The board: the shared board frame round the square of w by h cells, standing off them by
+ *  framePad, and a faint dot at the center of each cell. */
+function drawBoard(ctx: CanvasRenderingContext2D, w: number, h: number, bx: number, by: number, cell: number, color: string): void {
+  if (!(w > 0 && h > 0 && cell > 0)) return;
+  drawFrame(ctx, frameBox(bx, by, w * cell, h * cell, cell), { width: frameWidth(cell), radius: cell * 0.2 + framePad(cell), color });
   ctx.save();
   ctx.fillStyle = C.surface3;
   const r = Math.max(1.5, cell * 0.035);
-  for (const c of open) {
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
     ctx.beginPath();
-    ctx.arc(bx + (c.x + 0.5) * cell, by + (c.y + 0.5) * cell, r, 0, Math.PI * 2);
+    ctx.arc(bx + (x + 0.5) * cell, by + (y + 0.5) * cell, r, 0, Math.PI * 2);
     ctx.fill();
   }
   ctx.restore();
@@ -625,11 +656,13 @@ function tracePath(ctx: CanvasRenderingContext2D, loops: Loop[], ox: number, oy:
 // ---- rules ------------------------------------------------------------------------
 
 type Shape = [number, number][];
-const DOMINO: Shape = [[0, 0], [0, 1]];
-const SQUARE: Shape = [[0, 0], [1, 0], [0, 1], [1, 1]];
-const BAR3: Shape = [[0, 0], [1, 0], [2, 0]];
+/** The demo square is 3 by 3, filled by an L of four at its left and a P of five at its right. */
 const ELL: Shape = [[0, 0], [0, 1], [0, 2], [1, 2]];
-const ZIG: Shape = [[0, 0], [1, 0], [1, 1], [2, 1]];
+const PEE: Shape = [[0, 0], [1, 0], [0, 1], [1, 1], [1, 2]];
+/** The P mirrored: it fills the P's place only once flipped over. */
+const QUE: Shape = [[0, 0], [1, 0], [0, 1], [1, 1], [0, 2]];
+const ELL_AT: Cell = { x: 0, y: 0 };
+const PEE_AT: Cell = { x: 1, y: 0 };
 
 const demoPiece = (id: number, shape: Shape, rot: Rot = 0, flip = false): Piece => ({ id, shape: shape.map(([x, y]) => ({ x, y })), rot, flip, at: null });
 
@@ -639,7 +672,7 @@ const seg = (T: number, a: number, b: number): number => ease(clamp01((T - a) / 
 
 interface DemoTable { cell: number; bx: number; by: number; tray: Area; tc: number }
 
-/** A demo table: an outline of gw x gh cells on the left and a tray on the right. */
+/** A demo table: a board of gw x gh cells on the left and a tray on the right. */
 function demoTable(w: number, h: number, gw: number, gh: number, trayShare = 0.36): DemoTable {
   const trayW = w * trayShare;
   const cell = Math.min((w - trayW - 16) / (gw + 0.6), (h - 12) / (gh + 0.6), 26);
@@ -647,9 +680,9 @@ function demoTable(w: number, h: number, gw: number, gh: number, trayShare = 0.3
   return { cell, bx, by, tray: { x: w - trayW - 4, y: 6, w: trayW, h: h - 12 }, tc: Math.min(cell * 0.6, 14) };
 }
 
-/** The outline as the board draws it: the frame round the open cells (filled blocks left out) and a dot on each. */
-function demoOutline(ctx: CanvasRenderingContext2D, T: DemoTable, open: Shape, _blocks: Shape = [], rim: string = C.frame): void {
-  drawOutline(ctx, open.map(([x, y]) => ({ x, y })), T.bx, T.by, T.cell, rim);
+/** The square as the board draws it: the frame round it and a dot on each cell. */
+function demoBoard(ctx: CanvasRenderingContext2D, T: DemoTable, side: number, rim: string = C.frame): void {
+  drawBoard(ctx, side, side, T.bx, T.by, T.cell, rim);
 }
 
 function demoTray(ctx: CanvasRenderingContext2D, T: DemoTable): void {
@@ -763,45 +796,43 @@ function demoInTray(ctx: CanvasRenderingContext2D, T: DemoTable, p: Piece, k: nu
   drawPiece(ctx, p, s.x, s.y, T.tc, 0, selected);
 }
 
-const OPEN_3X2: Shape = [[0, 0], [1, 0], [2, 0], [0, 1], [1, 1], [2, 1]];
-const OPEN_4X2: Shape = [[0, 0], [1, 0], [2, 0], [3, 0], [0, 1], [1, 1], [2, 1], [3, 1]];
 /** Where a carried piece is held, still in hand, at the end of a picture about its shadow. */
 const HELD = 0.66;
 
 export const RULES: RuleCard[] = [
   {
-    title: 'Fill the outline',
-    text: 'Drag pieces from the tray into the outline until every open cell is filled. Pieces are tinted by size.',
+    title: 'Fill the square',
+    text: 'Drag pieces from the tray into the square until every cell is filled. The tray holds exactly the pieces that fill it, so every piece is used.',
     good: {
       duration: 2.6,
-      caption: 'Every cell filled',
+      caption: 'Every piece in, every cell filled',
       draw: (ctx, w, h, t) => {
-        const T = demoTable(w, h, 4, 2);
-        const a = demoPiece(0, SQUARE), b = demoPiece(1, SQUARE);
-        demoOutline(ctx, T, OPEN_4X2, [], t > 2.1 ? C.good : C.frame);
+        const T = demoTable(w, h, 3, 3);
+        const a = demoPiece(0, ELL), b = demoPiece(1, PEE);
+        demoBoard(ctx, T, 3, t > 2.1 ? C.good : C.frame);
         demoTray(ctx, T);
         const ka = seg(t, 0.3, 1.1), kb = seg(t, 1.2, 2.0);
         if (ka === 0) demoInTray(ctx, T, a, 0, 2);
         if (kb === 0) demoInTray(ctx, T, b, 1, 2);
-        if (ka > 0) demoCarry(ctx, T, a, traySpot(T, a, 0, 2), T.tc, { x: 0, y: 0 }, ka);
-        if (kb > 0) demoCarry(ctx, T, b, traySpot(T, b, 1, 2), T.tc, { x: 2, y: 0 }, kb);
+        if (ka > 0) demoCarry(ctx, T, a, traySpot(T, a, 0, 2), T.tc, ELL_AT, ka);
+        if (kb > 0) demoCarry(ctx, T, b, traySpot(T, b, 1, 2), T.tc, PEE_AT, kb);
       },
     },
     bad: {
       duration: 2,
-      caption: 'Gaps too thin for any piece',
+      caption: 'Split up, the last piece fits nowhere',
       draw: (ctx, w, h, t) => {
-        const T = demoTable(w, h, 4, 2);
-        const a = demoPiece(0, SQUARE), b = demoPiece(1, SQUARE);
-        demoOutline(ctx, T, OPEN_4X2);
+        const T = demoTable(w, h, 3, 3);
+        const a = demoPiece(0, ELL, 1), b = demoPiece(1, PEE);
+        demoBoard(ctx, T, 3);
         demoTray(ctx, T);
         const ka = seg(t, 0.3, 1.1);
         if (ka === 0) demoInTray(ctx, T, a, 0, 2);
-        else demoCarry(ctx, T, a, traySpot(T, a, 0, 2), T.tc, { x: 1, y: 0 }, ka);
+        else demoCarry(ctx, T, a, traySpot(T, a, 0, 2), T.tc, { x: 0, y: 1 }, ka);
         demoInTray(ctx, T, b, 1, 2);
         const k = seg(t, 1.3, 1.6);
-        demoHole(ctx, T, [[0, 0], [0, 1]], k);
-        demoHole(ctx, T, [[3, 0], [3, 1]], k);
+        demoHole(ctx, T, [[0, 0], [1, 0], [2, 0]], k);
+        demoHole(ctx, T, [[1, 2], [2, 2]], k);
       },
     },
   },
@@ -812,25 +843,25 @@ export const RULES: RuleCard[] = [
       duration: 2,
       caption: 'Bright: it lands here',
       draw: (ctx, w, h, t) => {
-        const T = demoTable(w, h, 3, 2, 0.3);
-        const a = demoPiece(0, DOMINO), b = demoPiece(1, SQUARE);
-        demoOutline(ctx, T, OPEN_3X2);
+        const T = demoTable(w, h, 3, 3, 0.3);
+        const a = demoPiece(0, ELL), b = demoPiece(1, PEE);
+        demoBoard(ctx, T, 3);
         demoTray(ctx, T);
-        drawPiece(ctx, b, T.bx + T.cell, T.by, T.cell, 0, false);
+        drawPiece(ctx, b, T.bx + PEE_AT.x * T.cell, T.by + PEE_AT.y * T.cell, T.cell, 0, false);
         const k = seg(t, 0.3, 1.5) * HELD;
         if (k === 0) demoInTray(ctx, T, a, 0, 1);
-        else demoCarry(ctx, T, a, traySpot(T, a, 0, 1), T.tc, { x: 0, y: 0 }, k);
+        else demoCarry(ctx, T, a, traySpot(T, a, 0, 1), T.tc, ELL_AT, k);
       },
     },
     bad: {
       duration: 2,
       caption: "Amber: it won't fit there",
       draw: (ctx, w, h, t) => {
-        const T = demoTable(w, h, 3, 2, 0.3);
-        const a = demoPiece(0, DOMINO), b = demoPiece(1, SQUARE);
-        demoOutline(ctx, T, OPEN_3X2);
+        const T = demoTable(w, h, 3, 3, 0.3);
+        const a = demoPiece(0, ELL), b = demoPiece(1, PEE);
+        demoBoard(ctx, T, 3);
         demoTray(ctx, T);
-        drawPiece(ctx, b, T.bx + T.cell, T.by, T.cell, 0, false);
+        drawPiece(ctx, b, T.bx + PEE_AT.x * T.cell, T.by + PEE_AT.y * T.cell, T.cell, 0, false);
         const k = seg(t, 0.3, 1.5) * HELD;
         if (k === 0) demoInTray(ctx, T, a, 0, 1);
         else demoCarry(ctx, T, a, traySpot(T, a, 0, 1), T.tc, { x: 1, y: 0 }, k, false);
@@ -881,89 +912,19 @@ export const RULES: RuleCard[] = [
       duration: 2,
       caption: 'Dragged off, it goes back',
       draw: (ctx, w, h, t) => {
-        const T = demoTable(w, h, 3, 2, 0.3);
-        const a = demoPiece(0, DOMINO);
-        demoOutline(ctx, T, OPEN_3X2);
+        const T = demoTable(w, h, 3, 3, 0.3);
+        const a = demoPiece(0, ELL);
+        demoBoard(ctx, T, 3);
         demoTray(ctx, T);
         const spot = traySpot(T, a, 0, 1);
         const k = seg(t, 0.3, 1.2);
         if (k > 0) {
           demoGhost(ctx, a, T.bx, T.by, T.cell);
-          demoTrail(ctx, T.bx + T.cell, T.by + T.cell, spot.x - 3, spot.y + T.tc, seg(t, 1.2, 1.4));
+          demoTrail(ctx, T.bx + T.cell, T.by + T.cell * 1.5, spot.x - 3, spot.y + T.tc, seg(t, 1.2, 1.4));
         }
         const x = T.bx + (spot.x - T.bx) * k, y = T.by + (spot.y - T.by) * k, cell = T.cell + (T.tc - T.cell) * k;
         drawPiece(ctx, a, x, y, cell, 0, k > 0 && k < 1);
         if (k > 0 && k < 1) demoFinger(ctx, x + cell * 0.5, y + cell * 0.5, T.cell * 0.2);
-      },
-    },
-  },
-  {
-    title: 'Filled blocks',
-    text: 'Some cells are already filled and left out of the outline, black like the space around it: nothing goes there, so pack around them.',
-    good: {
-      duration: 2.6,
-      caption: 'Packed around the block',
-      draw: (ctx, w, h, t) => {
-        const T = demoTable(w, h, 3, 2);
-        const a = demoPiece(0, BAR3), b = demoPiece(1, [[0, 0], [1, 0]]);
-        demoOutline(ctx, T, [[0, 0], [1, 0], [2, 0], [0, 1], [1, 1]], [[2, 1]], t > 2.1 ? C.good : C.frame);
-        demoTray(ctx, T);
-        const ka = seg(t, 0.3, 1.1), kb = seg(t, 1.2, 2.0);
-        if (ka === 0) demoInTray(ctx, T, a, 0, 2);
-        if (kb === 0) demoInTray(ctx, T, b, 1, 2);
-        if (ka > 0) demoCarry(ctx, T, a, traySpot(T, a, 0, 2), T.tc, { x: 0, y: 0 }, ka);
-        if (kb > 0) demoCarry(ctx, T, b, traySpot(T, b, 1, 2), T.tc, { x: 0, y: 1 }, kb);
-      },
-    },
-    bad: {
-      duration: 2,
-      caption: 'Nothing goes on a block',
-      draw: (ctx, w, h, t) => {
-        const T = demoTable(w, h, 3, 2);
-        const a = demoPiece(0, BAR3), b = demoPiece(1, [[0, 0], [1, 0]]);
-        demoOutline(ctx, T, [[0, 0], [1, 0], [2, 0], [0, 1], [1, 1]], [[2, 1]]);
-        demoTray(ctx, T);
-        demoInTray(ctx, T, b, 1, 2);
-        const k = seg(t, 0.3, 1.5) * HELD;
-        if (k === 0) demoInTray(ctx, T, a, 0, 2);
-        else demoCarry(ctx, T, a, traySpot(T, a, 0, 2), T.tc, { x: 0, y: 1 }, k, false);
-      },
-    },
-  },
-  {
-    title: 'Spare piece',
-    text: 'From the middle of the table one piece in the tray belongs nowhere. Work out which one to leave out.',
-    good: {
-      duration: 2.6,
-      caption: 'The 3-bar was the spare',
-      draw: (ctx, w, h, t) => {
-        const T = demoTable(w, h, 3, 2);
-        const a = demoPiece(0, DOMINO), b = demoPiece(1, SQUARE), spare = demoPiece(2, BAR3);
-        demoOutline(ctx, T, OPEN_3X2, [], t > 2.1 ? C.good : C.frame);
-        demoTray(ctx, T);
-        const ka = seg(t, 0.3, 1.1), kb = seg(t, 1.2, 2.0);
-        if (ka === 0) demoInTray(ctx, T, a, 0, 3);
-        if (kb === 0) demoInTray(ctx, T, b, 1, 3);
-        demoInTray(ctx, T, spare, 2, 3);
-        if (ka > 0) demoCarry(ctx, T, a, traySpot(T, a, 0, 3), T.tc, { x: 0, y: 0 }, ka);
-        if (kb > 0) demoCarry(ctx, T, b, traySpot(T, b, 1, 3), T.tc, { x: 1, y: 0 }, kb);
-      },
-    },
-    bad: {
-      duration: 2.6,
-      caption: 'Use the spare and a hole is left',
-      draw: (ctx, w, h, t) => {
-        const T = demoTable(w, h, 3, 2);
-        const a = demoPiece(0, DOMINO, 1), b = demoPiece(1, SQUARE), spare = demoPiece(2, BAR3);
-        demoOutline(ctx, T, OPEN_3X2);
-        demoTray(ctx, T);
-        const ks = seg(t, 0.3, 1.1), ka = seg(t, 1.2, 2.0);
-        if (ks === 0) demoInTray(ctx, T, spare, 2, 3);
-        if (ka === 0) demoInTray(ctx, T, a, 0, 3);
-        demoInTray(ctx, T, b, 1, 3);
-        if (ks > 0) demoCarry(ctx, T, spare, traySpot(T, spare, 2, 3), T.tc, { x: 0, y: 0 }, ks);
-        if (ka > 0) demoCarry(ctx, T, a, traySpot(T, a, 0, 3), T.tc, { x: 0, y: 1 }, ka);
-        demoHole(ctx, T, [[2, 1]], seg(t, 2.1, 2.4));
       },
     },
   },
@@ -988,17 +949,19 @@ export const RULES: RuleCard[] = [
 ];
 
 /**
- * The flip pictures: an S-shaped outline and a Z-shaped piece in the tray above the flip button.
- * Flipped first, the piece drops in; carried over as it is, its shadow shows it will not fit.
+ * The flip pictures: a 3 by 3 square with an L in place and a P-shaped space beside it, and the
+ * mirrored P in the tray above the flip button. Flipped first, the piece drops in; carried over
+ * as it is, its shadow shows it will not fit.
  */
 function flipPicture(ctx: CanvasRenderingContext2D, w: number, h: number, t: number, flip: boolean): void {
-  const T = demoTable(w, h, 3, 2);
-  demoOutline(ctx, T, [[1, 0], [2, 0], [0, 1], [1, 1]], [], flip && t > 2.6 ? C.good : C.frame);
+  const T = demoTable(w, h, 3, 3);
+  demoBoard(ctx, T, 3, flip && t > 2.6 ? C.good : C.frame);
+  drawPiece(ctx, demoPiece(1, ELL), T.bx + ELL_AT.x * T.cell, T.by + ELL_AT.y * T.cell, T.cell, 0, false);
   demoTray(ctx, T);
   const side = Math.min(32, T.tray.w * 0.62, T.tray.h * 0.42);
   const f = { x: T.tray.x + (T.tray.w - side) / 2, y: T.tray.y + T.tray.h - side - 6, w: side, h: side };
   const flipped = flip && t > 1.05;
-  const p = demoPiece(0, ZIG, 0, flipped);
+  const p = demoPiece(0, QUE, 0, flipped);
   const b = bounds(cellsOf(p));
   const from = { x: T.tray.x + (T.tray.w - b.w * T.tc) / 2, y: T.tray.y + (f.y - T.tray.y - b.h * T.tc) / 2 };
   demoFlip(ctx, f, flip && t > 0.85 && t < 1.05);
@@ -1006,12 +969,12 @@ function flipPicture(ctx: CanvasRenderingContext2D, w: number, h: number, t: num
     // Choose it, press flip, then carry it over.
     const k = seg(t, 1.4, 2.4);
     if (k === 0) drawPiece(ctx, p, from.x, from.y, T.tc, flipped && t < 1.4 ? 1 - seg(t, 1.05, 1.4) : 0, t > 0.45);
-    else demoCarry(ctx, T, p, from, T.tc, { x: 0, y: 0 }, k);
-    if (t > 0.25 && t < 0.55) demoFinger(ctx, from.x + T.tc * 1.5, from.y + T.tc * 0.5, T.cell * 0.2);
+    else demoCarry(ctx, T, p, from, T.tc, PEE_AT, k);
+    if (t > 0.25 && t < 0.55) demoFinger(ctx, from.x + T.tc * 0.5, from.y + T.tc * 1.5, T.cell * 0.2);
     if (t > 0.7 && t < 1.1) demoFinger(ctx, f.x + f.w * 0.66, f.y + f.h * 0.7, T.cell * 0.2);
   } else {
     const k = seg(t, 0.3, 1.5) * HELD;
     if (k === 0) drawPiece(ctx, p, from.x, from.y, T.tc, 0, false);
-    else demoCarry(ctx, T, p, from, T.tc, { x: 0, y: 0 }, k, false);
+    else demoCarry(ctx, T, p, from, T.tc, PEE_AT, k, false);
   }
 }
