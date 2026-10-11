@@ -4,6 +4,8 @@
 import type { Experiment } from '../types';
 import { CurrentLook } from './current';
 import { DenseCloud } from './particles';
+import { ExplorerView } from './explorer';
+import { FingerprintView } from './fingerprint';
 import { GlowSparks } from './glowSparks';
 import { InfernoDensity } from './inferno';
 import { Jewel } from './jewel';
@@ -24,6 +26,8 @@ const entry = (make: () => Experiment): ExperimentEntry => {
 };
 
 export const EXPERIMENTS: ExperimentEntry[] = [
+  entry(() => new FingerprintView()),
+  entry(() => new ExplorerView()),
   entry(() => new GlowSparks()),
   entry(() => new PhaseGlow()),
   entry(() => new PhaseSolid()),

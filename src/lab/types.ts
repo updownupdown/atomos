@@ -2,6 +2,7 @@
 
 import type * as THREE from 'three';
 import type { AtomModel, Threshold } from './model';
+import type { Orbit } from './orbit';
 
 export type Quality = 'low' | 'medium' | 'high' | 'ultra';
 export const QUALITIES: { id: Quality; label: string }[] = [
@@ -40,6 +41,13 @@ export interface Settings {
 export interface LabContext {
   renderer: THREE.WebGLRenderer;
   camera: THREE.PerspectiveCamera;
+  /** The orbit camera: an experiment can take over its touch input (`input = false`) and
+   *  turn or zoom it itself. */
+  orbit?: Orbit;
+  /** The canvas, for experiments that read gestures themselves. */
+  canvas?: HTMLCanvasElement;
+  /** The overlay layer (pointer-events off; children opt back in), for an experiment's HUD. */
+  ui?: HTMLElement;
   /** Drawing buffer size in device pixels. */
   width: number;
   height: number;
@@ -50,7 +58,11 @@ export interface LabContext {
 export interface ExperimentOption {
   id: string;
   label: string;
+  /** A segmented choice; or, with `range`, a slider (choices empty; values stored as strings). */
   choices: { id: string; label: string }[];
+  range?: { min: number; max: number; step: number; format?: (v: number) => string };
+  /** The starting value for a slider. */
+  default?: string;
 }
 
 export interface Experiment {
@@ -60,7 +72,7 @@ export interface Experiment {
   /** Needs the sign of every lobe (phase coloring), so m-sums stay separate orbitals. */
   wantsSign(s: Settings): boolean;
   /** Which shared controls mean something here. */
-  uses: { threshold?: boolean; cutaway?: boolean; brightness?: boolean };
+  uses: { threshold?: boolean; cutaway?: boolean; brightness?: boolean; /** false hides the orbital picker (the experiment shows the whole atom its own way). */ orbital?: boolean };
   options?: ExperimentOption[];
   /** Radius (scene units) the camera should fit; defaults to the model's frame. */
   frame?(model: AtomModel): number;

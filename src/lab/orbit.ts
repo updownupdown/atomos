@@ -11,6 +11,9 @@ export class Orbit {
   /** >1 is closer. */
   zoom = 1;
   autoRotate = true;
+  /** Off: the experiment reads the pointers itself (and turns or zooms through rotateBy and
+   *  setZoom); the wheel is left alone too. */
+  input = true;
   /** Share of the view's height and width the atom may use (the panel can cover the rest). */
   viewFrac = 1;
   viewFracX = 1;
@@ -24,6 +27,7 @@ export class Orbit {
   constructor(private el: HTMLElement, private camera: THREE.PerspectiveCamera) {
     el.style.touchAction = 'none';
     el.addEventListener('pointerdown', (e) => {
+      if (!this.input) return;
       el.setPointerCapture(e.pointerId);
       this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (this.pointers.size === 2) this.pinch = { d: this.spread(), zoom: this.zoom };
@@ -48,6 +52,7 @@ export class Orbit {
     el.addEventListener('pointerup', up);
     el.addEventListener('pointercancel', up);
     el.addEventListener('wheel', (e) => {
+      if (!this.input) return;
       e.preventDefault();
       this.setZoom(this.zoom * Math.exp(-e.deltaY * 0.0015));
     }, { passive: false });
@@ -58,8 +63,16 @@ export class Orbit {
     return Math.max(1, Math.hypot(a.x - b.x, a.y - b.y));
   }
 
-  private setZoom(z: number): void {
+  setZoom(z: number): void {
     this.zoom = Math.max(0.3, Math.min(12, z));
+  }
+
+  /** Turn the view by a drag of (dx, dy) pixels, as one finger does. */
+  rotateBy(dx: number, dy: number): void {
+    const s = 5 / Math.max(300, Math.min(this.el.clientWidth, this.el.clientHeight));
+    this.theta -= dx * s;
+    this.phi = Math.max(0.05, Math.min(Math.PI - 0.05, this.phi - dy * s));
+    this.idleAt = performance.now();
   }
 
   /** Fit a sphere of this radius (scene units) in the shorter side of the view. */
