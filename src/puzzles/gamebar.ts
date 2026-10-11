@@ -1,6 +1,7 @@
 // The frame of every game, the same in Build, Practice and the gate puzzles.
-//   Under the app header, on gray: the game's name, then its stats (Difficulty, Moves, Par, and
-//   how far the board has got). Difficulty is the first to go on a short screen.
+//   Under the app header, on gray: the game's icon and name, then its stats on one line
+//   (Difficulty, Moves, Par). How far the board has got is left to the board and the message
+//   under it, which every game shows. Difficulty is the first to go on a small screen.
 //   Then, on black: Back on the left, named for where it goes ("Gallium", "All games"), and the
 //   game's tools on the right (Undo, Restart, Hint, Info, the microscope), each on a gray plate.
 //   The board sits on black under them; under the board, the foot: one message line (the goal,
@@ -21,8 +22,8 @@ export interface GameBar {
   readonly foot: HTMLElement;
   readonly msg: HTMLElement;
   readonly back: HTMLButtonElement;
-  /** The game's name. */
-  setTitle(name: string): void;
+  /** The game's name, and its icon (HTML) beside it. */
+  setTitle(name: string, iconHtml?: string): void;
   /** Where Back goes, in a word or two: "Gallium", "All games". */
   setBack(label: string): void;
   /** Sets the rating shown as five pips (1 to 10, two per pip). */
@@ -52,12 +53,11 @@ export function createGameBar(tools: HTMLElement[], back: { label: string; onCli
   el.className = 'gbar';
   el.innerHTML = `
     <div class="gbar-head"><div class="gbar-in">
-      <h2 class="gbar-title"></h2>
+      <h2 class="gbar-title"><span class="gbar-icon" aria-hidden="true"></span><span class="gbar-name"></span></h2>
       <div class="gbar-stats">
         <div class="gbar-stat gbar-stat--diff"><span class="gbar-k">Difficulty</span><span class="gbar-v gbar-pips" data-v="diff"></span></div>
         <div class="gbar-stat"><span class="gbar-k">Moves</span><span class="gbar-v" data-v="moves">0</span></div>
         <div class="gbar-stat"><span class="gbar-k" data-k="par">Par</span><span class="gbar-v" data-v="par">${NONE}</span></div>
-        <div class="gbar-stat"><span class="gbar-k" data-k="progress">Progress</span><span class="gbar-v" data-v="progress">${NONE}</span></div>
       </div>
     </div></div>
     <div class="gbar-nav"><div class="gbar-in"><div class="gbar-tools"></div></div></div>`;
@@ -104,18 +104,21 @@ export function createGameBar(tools: HTMLElement[], back: { label: string; onCli
     moves: get('[data-v="moves"]'),
     parK: get('[data-k="par"]'),
     par: get('[data-v="par"]'),
-    progK: get('[data-k="progress"]'),
-    prog: get('[data-v="progress"]'),
   };
   const set = (e: HTMLElement, text: string) => { if (e.textContent !== text) e.textContent = text; };
 
-  const title = get('.gbar-title');
+  const title = get('.gbar-name');
+  const titleIcon = get('.gbar-icon');
+  let shownIcon = '';
   return {
     el,
     foot,
     msg: line,
     back: backBtn,
-    setTitle(name) { set(title, name); },
+    setTitle(name, iconHtml = '') {
+      set(title, name);
+      if (iconHtml !== shownIcon) { shownIcon = iconHtml; titleIcon.innerHTML = iconHtml; titleIcon.hidden = !iconHtml; }
+    },
     setBack(label) { backBtn.setLabel(label); },
     setDifficulty(rating) {
       const on = Math.ceil(rating / 2);
@@ -125,12 +128,11 @@ export function createGameBar(tools: HTMLElement[], back: { label: string; onCli
     },
     update(v, message) {
       if (!v) {
-        set(cells.moves, NONE); set(cells.par, NONE); set(cells.prog, NONE);
+        set(cells.moves, NONE); set(cells.par, NONE);
       } else {
         const s = statsOf(v);
         set(cells.moves, String(v.moves));
         set(cells.parK, s.par.label); set(cells.par, s.par.value);
-        set(cells.progK, s.progress.label); set(cells.prog, s.progress.value);
       }
       set(line, message);
       const a = v && !v.won ? v.action?.() ?? null : null;

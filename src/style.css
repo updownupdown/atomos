@@ -77,7 +77,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   backdrop-filter: blur(6px);
 }
 
-#atom, #overlay {
+#overlay {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -85,7 +85,6 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   display: block;
 }
 
-#atom { touch-action: none; }
 #overlay { pointer-events: none; }
 
 /* Film grain and a vignette over the plate. The noise is an SVG turbulence tile. */
@@ -157,16 +156,20 @@ body.build-home #app .bottom { display: none; }
 .gbar-in { max-width: 560px; margin-inline: auto; padding-inline: var(--sp-3); box-sizing: border-box; }
 .gbar-head { background: var(--c-nav); }
 .gbar-head .gbar-in { display: flex; align-items: center; gap: var(--sp-3); min-height: 52px; padding-block: 6px; }
-.gbar-title { flex: 0 1 auto; min-width: 0; margin: 0; font-size: var(--fs-lg); font-weight: var(--fw-semibold); color: var(--c-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.gbar-stats { flex: 1; display: flex; justify-content: flex-end; gap: var(--sp-4); min-width: 0; }
-.gbar-stat { display: flex; flex-direction: column; align-items: center; gap: 1px; min-width: 0; }
+.gbar-title { flex: 0 1 auto; min-width: 0; display: flex; align-items: center; gap: var(--sp-2); margin: 0; font-size: var(--fs-lg); font-weight: var(--fw-semibold); color: var(--c-text); white-space: nowrap; }
+.gbar-icon { flex: none; display: inline-flex; color: var(--c-text-2); }
+.gbar-icon[hidden] { display: none; }
+.gbar-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* The stats on one line: each label, then its value. */
+.gbar-stats { flex: 1; display: flex; justify-content: flex-end; align-items: baseline; gap: var(--sp-4); min-width: 0; }
+.gbar-stat { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
 .gbar-k { font-size: var(--fs-min); color: var(--c-text-min); white-space: nowrap; }
-.gbar-v { font-size: var(--fs-md); font-weight: var(--fw-semibold); color: var(--c-text); font-variant-numeric: tabular-nums; white-space: nowrap; line-height: 1.3; min-height: 1.3em; }
-.gbar-pips { display: inline-flex; align-items: center; gap: 3px; }
-.gbar-pips i { width: 7px; height: 7px; border-radius: 50%; background: var(--c-surface-3); }
+.gbar-v { font-size: var(--fs-md); font-weight: var(--fw-semibold); color: var(--c-text); font-variant-numeric: tabular-nums; white-space: nowrap; line-height: 1.3; }
+.gbar-pips { display: inline-flex; align-items: center; gap: 3px; align-self: center; }
+.gbar-pips i { width: 7px; height: 7px; border-radius: 50%; background: color-mix(in srgb, var(--c-text) 32%, var(--c-nav)); }
 .gbar-pips i.on { background: var(--c-text); }
-@media (max-height: 700px) { .gbar-stat--diff { display: none; } }
-@media (max-width: 359px) { .gbar-stat--diff { display: none; } }
+/* Small screens: Difficulty steps aside. */
+@media (max-height: 700px), (max-width: 479px) { .gbar-stat--diff { display: none; } }
 .gbar-nav { background: var(--c-bg); }
 .gbar-nav .gbar-in { display: flex; align-items: center; gap: var(--sp-2); padding-block: var(--sp-2) 0; }
 .gbar-back { min-width: 0; flex: 0 1 auto; }
@@ -194,7 +197,6 @@ body[data-screen^='atom'].puzzling { --top: var(--nav-bottom); }
 .build-home { position: absolute; top: calc(var(--top) + var(--build-bar-h, 0px)); left: 0; right: 0; bottom: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0; --atom: var(--c-accent); }
 .build-home { padding-bottom: calc(var(--sp-6) + var(--safe-bottom)); }
 .build-home[hidden] { display: none; }
-body.build-home #atom { display: none; }
 /* The navigator at the bottom (the gallery's atom bar, mounted here once it is shared). */
 #app:has(.build-bar:not(:empty)) { --build-bar-h: 60px; }
 /* The atom bar sits at the top of Build, under the View/Build row, as it does in View. */
@@ -300,13 +302,9 @@ body:not(.build-home) .build-bar { display: none; }
 .bs-stat span { font-size: var(--fs-sm); color: var(--c-text-2); }
 .bs-more { display: inline-flex; align-items: center; gap: var(--sp-2); }
 
-/* While a puzzle is up, it takes the touch and the atom waits dimly behind it. */
+/* While a puzzle is up, it takes the touch. */
 body.puzzling #overlay { pointer-events: auto; touch-action: none; }
 
-body.puzzling #atom { opacity: 0.35; transition: opacity 0.6s; }
-body.stage-nucleus #atom { opacity: 0.12; }
-/* Quanta (the electrons) plays on plain black: no atom behind its grid. */
-body.puzzling:not(.stage-nucleus) #atom { opacity: 0; }
 
 
 .bottom {
@@ -898,18 +896,26 @@ body:not([data-screen='gallery']) .gal-modes { display: none; }
 
 /* Inside a puzzle: Back, then its name. */
 .pg-game { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-/* The board maker, at the foot of a Practice game: a gray pill on a black bar. */
+/* The board maker, at the foot of a Practice game: a settings button floating at the bottom left
+   of the board; open, a gray pill beside it (its X folds it again). It takes no row of its own. */
 .pg-foot { position: relative; flex: none; background: var(--c-bg); padding-bottom: var(--safe-bottom); }
-.pg-gen { padding: 0 var(--sp-3) var(--sp-3); background: var(--c-bg); }
-.pg-bar { display: flex; align-items: center; gap: var(--sp-1); max-width: 560px; margin-inline: auto; padding: 4px var(--sp-2); min-width: 0; border-radius: var(--r-pill); background: var(--c-nav); box-sizing: border-box; }
+.pg-gen { position: absolute; left: var(--sp-3); right: var(--sp-3); bottom: calc(100% + var(--sp-2)); z-index: 3; display: flex; align-items: center; gap: var(--sp-2); pointer-events: none; }
+.pg-gen > * { pointer-events: auto; }
+.pg-fold { flex: none; border-radius: 50%; background: var(--c-nav); color: var(--c-text-2); }
+.pg-fold:hover, .pg-gen.is-open .pg-fold { color: var(--c-text); }
+.pg-bar { flex: 0 1 560px; display: flex; align-items: center; gap: var(--sp-1); min-width: 0; padding: 4px var(--sp-2); border-radius: var(--r-pill); background: var(--c-nav); box-sizing: border-box; }
+.pg-bar[hidden] { display: none; }
 .pg-el { font-size: var(--fs-lg); white-space: nowrap; text-align: center; min-width: 3.6em; flex: none; }
 .pg-bar > .ui-icon-btn, .pg-bar .pg-deal { flex: none; }
 .pg-el b { font-weight: var(--fw-semibold); margin-right: 6px; }
 .pg-el span { color: var(--c-text-2); }
 .pg-el small { color: var(--c-text); margin-right: 6px; font-size: var(--fs-md); font-variant-numeric: tabular-nums; }
-.pg-bar .ui-slider { flex: 1 1 auto; min-width: 100px; }
-.pg-deal { display: flex; align-items: center; gap: 2px; flex: none; }
-.pg-dealno { font-size: var(--fs-md); color: var(--c-text); min-width: 2.6em; font-variant-numeric: tabular-nums; }
+.pg-bar .ui-slider { flex: 1 1 auto; min-width: 80px; }
+.pg-deal { display: flex; align-items: center; gap: 4px; flex: none; height: 40px; padding: 0 var(--sp-2) 0 6px; border: 0; border-radius: var(--r-pill); background: none; color: var(--c-text-2); font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.pg-deal svg { width: 22px; height: 22px; }
+.pg-deal:hover { color: var(--c-text); background: color-mix(in srgb, var(--c-text) 6%, transparent); }
+.pg-deal:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 1px; }
+.pg-dealno { font-size: var(--fs-md); color: var(--c-text); min-width: 2.2em; text-align: left; font-variant-numeric: tabular-nums; }
 .pg-play { position: relative; flex: 1; min-height: 0; }
 .pg-play[hidden] { display: none; }
 #pg-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
@@ -1519,8 +1525,11 @@ body[data-screen^='atom'].build-home .science-fab, body[data-screen='atom-view']
 .nowrap { white-space: nowrap; }
 
 /* The Hint button when the player seems stuck: its icon turns pink, still (only Next pulses). */
-.hint-btn.is-nudge { color: var(--c-go); }
+.hint-btn.is-nudge { color: var(--c-go); animation: hint-glow 2.4s ease-in-out infinite alternate; }
 .hint-btn.is-nudge svg { filter: drop-shadow(0 0 6px var(--c-go-ring)); }
+/* A stuck player's Hint breathes softly between magenta and white. */
+@keyframes hint-glow { from { color: var(--c-go); } to { color: #fff; } }
+@media (prefers-reduced-motion: reduce) { .hint-btn.is-nudge { animation: none; } }
 
 /* A game's own actions beside its message: bold blue words (Test), or a small pill with an icon
    (Chroma's gluon), lit when on. */

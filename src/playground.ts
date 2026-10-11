@@ -45,21 +45,37 @@ export class Playground {
     this.host.onWon = (v) => this.won(v.moves, v.par, v.clean);
     this.renderHome();
 
-    // The board maker at the foot: previous, the element, next, a slider across the range, a new deal.
+    // The board maker, folded into a settings button at the bottom left (the X folds it again):
+    // previous, the element, next, a slider across the range, a new deal.
     const bar = $('pg-bar');
+    const gen = $('pg-gen');
+    const fold = iconButton({ icon: icon('settings'), label: 'Board settings', className: 'pg-fold', onClick: () => setOpen(Boolean(bar.hidden)) });
+    fold.setAttribute('aria-controls', 'pg-bar');
+    const setOpen = (open: boolean) => {
+      bar.hidden = !open;
+      gen.classList.toggle('is-open', open);
+      fold.innerHTML = icon(open ? 'close' : 'settings');
+      fold.setAttribute('aria-expanded', String(open));
+      const label = open ? 'Close board settings' : 'Board settings';
+      fold.setAttribute('aria-label', label);
+      fold.title = label;
+    };
+    gen.prepend(fold);
+    setOpen(false);
     this.prev = iconButton({ icon: icon('chevron-left'), label: 'Previous element', className: 'ui-icon-btn--ghost', onClick: () => this.setZ(this.z - 1) });
     this.next = iconButton({ icon: icon('chevron-right'), label: 'Next element', className: 'ui-icon-btn--ghost', onClick: () => this.setZ(this.z + 1) });
     const label = document.createElement('span');
     label.className = 'pg-el';
     label.id = 'pg-el';
     this.slider = createSlider({ min: 1, max: 118, value: this.z, label: 'Element', format: (v) => element(v).symbol, onInput: (v) => this.setZ(v) });
-    const deal = document.createElement('div');
+    // A new deal: the shuffle and its number are one button.
+    const deal = document.createElement('button');
+    deal.type = 'button';
     deal.className = 'pg-deal';
-    deal.append(iconButton({ icon: icon('shuffle'), label: 'New deal', className: 'ui-icon-btn--ghost', onClick: () => this.load(this.deal + 1) }));
-    const dealNo = document.createElement('span');
-    dealNo.className = 'pg-dealno';
-    dealNo.id = 'pg-dealno';
-    deal.append(dealNo);
+    deal.setAttribute('aria-label', 'New deal');
+    deal.title = 'New deal';
+    deal.innerHTML = `${icon('shuffle')}<span class="pg-dealno" id="pg-dealno"></span>`;
+    deal.onclick = () => this.load(this.deal + 1);
     bar.append(this.prev, label, this.next, this.slider.el, deal);
 
     // The tools beside Back: undo, restart, hint, instructions, the science.
@@ -158,7 +174,7 @@ export class Playground {
 
   private select(id: string): void {
     this.type = PUZZLES.find((p) => p.id === id) ?? PUZZLES[0];
-    this.gbar.setTitle(this.type.name);
+    this.gbar.setTitle(this.type.name, puzzleIcon(this.type.id, 22));
     const [lo, hi] = this.type.zRange;
     this.z = Math.min(hi, Math.max(lo, this.z));
     this.rebuildSlider();
@@ -201,15 +217,18 @@ export class Playground {
     if (!this.type.make) {
       this.host.set(null);
       this.undoBtn.disabled = true;
+      this.restartBtn.disabled = true;
       return;
     }
     const reduced = loadSave().settings.reducedMotion;
+    this.host.reducedMotion = reduced;
     this.host.set(this.type.make(this.z, deal, reduced));
   }
 
   private tick(hint: string): void {
     const v = this.host.current;
     this.undoBtn.disabled = !v?.canUndo();
+    this.restartBtn.disabled = !this.restartOptions().canRestart();
     // The goal before the first move of a game's first plays; then the Hint button's line or the
     // game's short status.
     const help = this.host.hints.line(v);
