@@ -12,7 +12,7 @@ import { showWin } from './puzzles/winPanel';
 import type { Area } from './puzzles/view';
 import { createSlider, iconButton, type Slider } from './ui/components';
 import { countPlay, GOAL_PLAYS } from './core/plays';
-import { aboveOffers, clearOffers, createGameBar, gameFooter, offerRules, type GameBar } from './puzzles/gamebar';
+import { clearOffers, createGameBar, offerRules, type GameBar } from './puzzles/gamebar';
 import { difficulty } from './puzzles/difficulty';
 import { askRestart, confirming, restartButton } from './puzzles/restart';
 import { icon } from './ui/icons';
@@ -45,7 +45,7 @@ export class Playground {
     this.host.onWon = (v) => this.won(v.moves, v.par, v.clean);
     this.renderHome();
 
-    // The element row: previous, the element, next, a slider across the range, a new deal.
+    // The board maker at the foot: previous, the element, next, a slider across the range, a new deal.
     const bar = $('pg-bar');
     this.prev = iconButton({ icon: icon('chevron-left'), label: 'Previous element', className: 'ui-icon-btn--ghost', onClick: () => this.setZ(this.z - 1) });
     this.next = iconButton({ icon: icon('chevron-right'), label: 'Next element', className: 'ui-icon-btn--ghost', onClick: () => this.setZ(this.z + 1) });
@@ -62,7 +62,7 @@ export class Playground {
     deal.append(dealNo);
     bar.append(this.prev, label, this.next, this.slider.el, deal);
 
-    // The bottom row: undo, hold to restart, instructions, the science.
+    // The tools beside Back: undo, restart, hint, instructions, the science.
     this.undoBtn = iconButton({ icon: icon('undo'), label: 'Undo', onClick: () => this.host.undo() });
     this.restartBtn = restartButton(this.restartOptions());
     this.host.onRestartKey = () => void askRestart(this.restartOptions());
@@ -72,9 +72,9 @@ export class Playground {
       this.host.hints.button,
       iconButton({ icon: icon('info'), label: 'Instructions', onClick: () => this.instructions() }),
       scienceButton('ui-icon-btn science-btn'),
-    ]);
+    ], { label: 'All games', onClick: () => this.back() });
     $('pg-gbar').append(this.gbar.el);
-    $('pg-foot').append(gameFooter('Back to Practice', () => this.back()).el);
+    $('pg-foot').prepend(this.gbar.foot);
     $('pg-home-head').append(scienceButton());
 
     window.addEventListener('keydown', (e) => this.key(e));
@@ -108,7 +108,7 @@ export class Playground {
     this.host.wake();
     this.registerScience();
     window.dispatchEvent(new Event('resize'));
-    $('pg-foot').querySelector<HTMLElement>('.gfoot-back')?.focus({ preventScroll: true });
+    this.gbar.back.focus({ preventScroll: true });
   }
 
   /** Back to the list of puzzles. */
@@ -158,7 +158,7 @@ export class Playground {
 
   private select(id: string): void {
     this.type = PUZZLES.find((p) => p.id === id) ?? PUZZLES[0];
-    this.gbar.setTitle(this.type.name, 'Practice');
+    this.gbar.setTitle(this.type.name);
     const [lo, hi] = this.type.zRange;
     this.z = Math.min(hi, Math.max(lo, this.z));
     this.rebuildSlider();
@@ -268,8 +268,7 @@ export class Playground {
     const r = $('pg-canvas').getBoundingClientRect();
     const w = r.width;
     const colW = w < 700 ? w - 16 : Math.min(720, w * 0.7);
-    const bottom = aboveOffers(this.gbar.el, r.bottom - 6) - r.top;
-    return { x: (w - colW) / 2, y: 6, w: colW, h: Math.max(200, bottom - 6) };
+    return { x: (w - colW) / 2, y: 6, w: colW, h: Math.max(200, r.height - 12) };
   }
 
   /** Restart asks first; Nu streaks across the board as it clears. */

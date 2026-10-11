@@ -8,8 +8,8 @@
 //   const table = createElementList({ variant: 'table', onPick: (z) => openAtom(z) });
 //
 // Rows are grouped under small headings that follow the sort (periods, groups, blocks,
-// categories, first letters or how far each atom is built). Pills filter the rows by stage
-// (not started, in progress, completed); a dropdown picks the sort. Tapping a row, or Enter on
+// categories, first letters or how far each atom is built). Pills, behind the Filter button
+// beside the search, filter the rows by stage (not started, in progress, completed); a dropdown picks the sort. Tapping a row, or Enter on
 // it, calls onPick. With `thumbs`, a row that stays on screen a moment swaps its tile for a
 // picture of the atom (the gallery's Collection).
 
@@ -151,12 +151,15 @@ export function createElementList(opts: ElementListOptions = {}): ElementList {
   root.className = `el-list el-list--${variant}`;
   root.innerHTML = `
     <div class="el-tools">
-      <label class="el-search">
-        <span class="el-search-icon">${icon('search', { size: 22 })}</span>
-        <input type="search" placeholder="Search by name, symbol or number" aria-label="Search elements" autocomplete="off" spellcheck="false" enterkeyhint="go">
-        <button type="button" class="el-clear" aria-label="Clear search" hidden>${icon('clear', { size: 26 })}</button>
-      </label>
-      ${variant === 'rows' ? `<div class="el-stages" role="radiogroup" aria-label="Show">${STAGES.map((st) => `<button type="button" role="radio" class="el-stage" data-stage="${st.id}">${st.label}</button>`).join('')}</div>
+      <div class="el-searchrow">
+        <label class="el-search">
+          <span class="el-search-icon">${icon('search', { size: 22 })}</span>
+          <input type="search" placeholder="Search by name, symbol or number" aria-label="Search elements" autocomplete="off" spellcheck="false" enterkeyhint="go">
+          <button type="button" class="el-clear" aria-label="Clear search" hidden>${icon('clear', { size: 26 })}</button>
+        </label>
+        ${variant === 'rows' ? `<button type="button" class="ui-icon-btn el-filter" aria-label="Filter" aria-expanded="false" aria-controls="">${icon('filter', { size: 22 })}</button>` : ''}
+      </div>
+      ${variant === 'rows' ? `<div class="el-stages ui-pills" role="radiogroup" aria-label="Show" hidden>${STAGES.map((st) => `<button type="button" role="radio" class="el-stage ui-pill" data-stage="${st.id}">${st.label}</button>`).join('')}</div>
       <div class="el-bar"><span class="el-count" aria-live="polite"></span>
         <div class="el-sortbox">
           <button type="button" class="el-dir" aria-label="Reverse the order"></button>
@@ -222,7 +225,8 @@ export function createElementList(opts: ElementListOptions = {}): ElementList {
     const pic = thumbCache.get(e.z);
     return `<button type="button" role="option" class="${cls}" data-z="${e.z}" aria-selected="${e.z === opts.current}">
       ${opts.thumbs ? `<span class="el-pic${pic ? ' on' : ''}">${tile(e)}${pic ? `<img src="${pic}" alt="">` : ''}</span>` : tile(e)}
-      <span class="el-main"><b>${locked ? `<i class="el-lockico" role="img" aria-label="Build locked">${icon('lock', { size: 16 })}</i>` : ''}<span>${esc(e.name)}</span></b><span><span class="el-num">${e.z}</span> · ${esc((locked && rowLockNote(e.z, save, true)) || e.series)}</span></span>
+      <span class="el-num">${e.z}</span>
+      <span class="el-main"><b>${locked ? `<i class="el-lockico" role="img" aria-label="Build locked">${icon('lock', { size: 16 })}</i>` : ''}<span>${esc(e.name)}</span></b><span>${esc((locked && rowLockNote(e.z, save, true)) || e.series)}</span></span>
       ${progress(e, save)}
     </button>`;
   };
@@ -268,6 +272,8 @@ export function createElementList(opts: ElementListOptions = {}): ElementList {
     if (variant !== 'rows') return;
     root.querySelectorAll<HTMLButtonElement>('.el-opt').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.key === sort)));
     root.querySelectorAll<HTMLButtonElement>('.el-stage').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.stage === stage)));
+    // The filter button wears a dot while a stage other than All is picked.
+    root.querySelector('.el-filter')?.classList.toggle('is-on', stage !== 'all');
     const btn = root.querySelector<HTMLButtonElement>('.el-sortbtn')!;
     btn.innerHTML = `<span>${sortLabel(sort)}</span>${icon('chevron-down', { size: 18 })}`;
     btn.setAttribute('aria-label', `Sort by ${sortLabel(sort)}`);
@@ -379,6 +385,15 @@ export function createElementList(opts: ElementListOptions = {}): ElementList {
   root.addEventListener('click', (e) => {
     const t = e.target as HTMLElement;
     if (t.closest('.el-sortbtn')) { openMenu(menu?.hidden === true); return; }
+    const filter = t.closest<HTMLButtonElement>('.el-filter');
+    if (filter) {
+      // The stage pills stay folded away until Filter is tapped, to keep the list compact.
+      const pills = root.querySelector<HTMLElement>('.el-stages')!;
+      pills.hidden = !pills.hidden;
+      filter.setAttribute('aria-expanded', String(!pills.hidden));
+      filter.setAttribute('aria-pressed', String(!pills.hidden));
+      return;
+    }
     if (t.closest('.el-dir')) { desc = !desc; remember(opts.storageKey, { key: sort, desc, stage }); render(); toTop(); return; }
     const opt = t.closest<HTMLElement>('.el-opt');
     if (opt?.dataset.key) { openMenu(false); setSort(opt.dataset.key as ListSort, false); return; }

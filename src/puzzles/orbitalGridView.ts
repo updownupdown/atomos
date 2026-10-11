@@ -1,18 +1,23 @@
 // Drawing and touch for Orbital Grid. Each symbol has a stack under (or beside)
-// the grid: drag from a stack onto a cell, or tap a cell and then a stack.
-// Tapping the chosen cell again cycles it; dragging a placed tile moves it, and
-// dragging it off the board clears it. Keys: arrows move, 1-8 or s/p/d/f place,
-// Backspace clears.
+// the grid: drag from a stack onto a cell, or tap a stack to pick it up and then
+// an empty cell (or one of your tiles, to replace it); any other tap puts it
+// back. A cell tapped with nothing picked up does nothing. Dragging a placed
+// tile moves it, and dragging it off the board clears it. Keys: arrows move,
+// 1-8 or s/p/d/f place, Backspace clears.
 //
-// Every symbol is a flat tile in its orbital's color with a centered glyph of
-// dots, after the mark's electrons: s one dot, p two on one axis, d four, f six
-// in a ring. On spin grids spin up is the solid tile with the glyph in dark ink
-// and spin down its negative: a dark tile ringed in the hue with the glyph in
-// the hue, like the mark's solid and hollow nucleons. Dealt tiles are squares
-// with softened corners, yours (and the stacks) are round; the letters live
+// Every symbol is a flat square tile with softened corners in its orbital's
+// color, with a centered glyph of dots, after the mark's electrons: s one dot,
+// p two on one axis, d four, f six in a ring. On spin grids spin up is the
+// solid tile with the glyph in dark ink and spin down its negative: a dark tile
+// ringed in the hue with the glyph in the hue, like the mark's solid and hollow
+// nucleons. Dealt tiles are a little dimmer (80%) than yours; the letters live
 // under the stacks. Each block sits in the shared board frame.
+//
+// Mistakes are never marked on their own: Test, beside the message line, makes
+// every tile you placed pulse for two seconds, amber where it is wrong and green
+// where it is right.
 
-import { conflicts, cycleValue, EMPTY, filledCount, moveTile, nextForced, place, remaining, solved, symbolName, symbolOf, type Orbital, type OrbitalGridState } from './orbitalGrid';
+import { cycleValue, EMPTY, filledCount, moveTile, nextForced, place, remaining, solved, symbolName, symbolOf, type Orbital, type OrbitalGridState } from './orbitalGrid';
 import { C, font, socket, tile } from './palette';
 import { drawFrame, frameWidth } from './frame';
 import { drawHelpMark, type Area, type Help, type Point, type PuzzleView, type RuleCard } from './view';
@@ -32,8 +37,14 @@ const DRAG_PX = 9;
 
 type TileStyle = 'given' | 'placed' | 'key';
 
-/** Corner radius as a share of the tile: dealt tiles square with soft corners, yours (and the stacks you take them from) perfect circles. */
-const RADIUS: Record<TileStyle, number> = { given: 0.12, placed: 0.5, key: 0.5 };
+/** Corner radius as a share of the tile: every tile a square with soft corners, dealt, yours and the stacks alike. */
+const RADIUS: Record<TileStyle, number> = { given: 0.12, placed: 0.12, key: 0.12 };
+/** Dealt tiles are drawn a little dimmer than the ones you place. */
+const GIVEN_ALPHA = 0.8;
+/** How long Test's marks pulse, in ms. */
+const TEST_MS = 2000;
+/** A spent stack's placeholder: gray, so a done symbol reads as put away. */
+const SPENT = '#5b6166';
 /** The spin-down ring's width as a share of the tile. */
 const RING = 0.08;
 /** Kept for the empty-cell calls; an empty cell is now only a faint dot. */
@@ -88,8 +99,8 @@ export function orbitalShape(ctx: CanvasRenderingContext2D, cx: number, cy: numb
  * spin down is the negative, a dark ground washed with the hue inside a thick
  * ring of it. Returns the ink the glyph goes in.
  */
-function tileGround(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, rad: number, orbital: Orbital, up: boolean | null): string {
-  const hue = QUANTA_HUE[orbital];
+function tileGround(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, rad: number, orbital: Orbital, up: boolean | null, gray = false): string {
+  const hue = gray ? SPENT : QUANTA_HUE[orbital];
   if (up !== false) {
     tile(ctx, x, y, w, w, rad, hue);
     return C.tileInk;
@@ -106,16 +117,15 @@ function tileGround(ctx: CanvasRenderingContext2D, x: number, y: number, w: numb
 
 /**
  * A symbol tile, w square at (x, y): its ground (see tileGround) and the
- * orbital's dots, centered. Dealt tiles are squares with soft corners, placed
- * ones and the stacks circles; no outline on either.
+ * orbital's dots, centered. Every tile is a square with soft corners and no
+ * outline; dealt ones are drawn at 80%. `gray` draws it in gray (a spent stack).
  */
-export function drawSymbolTile(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, spin: boolean, k: number, style: TileStyle = 'placed', alpha = 1): void {
+export function drawSymbolTile(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, spin: boolean, k: number, style: TileStyle = 'placed', alpha = 1, gray = false): void {
   const { orbital, up } = symbolOf(spin, k);
   ctx.save();
-  ctx.globalAlpha = alpha;
-  const ink = tileGround(ctx, x, y, w, w * RADIUS[style], orbital, up);
-  // A circle has less room for the f ring than a square.
-  orbitalShape(ctx, x + w / 2, y + w / 2, w * (style === 'given' ? 0.25 : 0.23), orbital, ink);
+  ctx.globalAlpha = alpha * (style === 'given' ? GIVEN_ALPHA : 1);
+  const ink = tileGround(ctx, x, y, w, w * RADIUS[style], orbital, up, gray);
+  orbitalShape(ctx, x + w / 2, y + w / 2, w * 0.25, orbital, ink);
   ctx.restore();
 }
 
@@ -135,14 +145,14 @@ export function symbolLabel(spin: boolean, k: number): string {
   return up === null ? orbital : `${orbital}${up ? '\u2191' : '\u2193'}`;
 }
 
-/** The clash mark: a dark gap, then an amber ring just outside the tile, so it reads on any hue. */
-function drawClash(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, rad: number): void {
+/** Test's mark: a dark gap, then a ring just outside the tile, so it reads on any hue, and a
+ *  small notch in the corner as a second cue. Amber for a wrong tile, green for a right one. */
+function drawClash(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, rad: number, color: string = C.warn): void {
   tile(ctx, x - 1, y - 1, w + 2, w + 2, rad + 1, null, C.bg, 3);
-  tile(ctx, x - 2.5, y - 2.5, w + 5, w + 5, rad + 2.5, null, C.warn, 2);
-  // A small amber notch in the corner, a second cue besides the ring.
+  tile(ctx, x - 2.5, y - 2.5, w + 5, w + 5, rad + 2.5, null, color, 2);
   const d = Math.max(3, w * 0.11);
   ctx.save();
-  ctx.fillStyle = C.warn;
+  ctx.fillStyle = color;
   ctx.strokeStyle = C.bg;
   ctx.lineWidth = 1.5;
   ctx.beginPath();
@@ -153,18 +163,20 @@ function drawClash(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
 }
 
 /**
- * A stack of one symbol: a single round tile (the stack never runs out), with its letter and the
- * count still needed under it. While a tile is dragged off it, a dotted placeholder holds its
- * place. The box is k wide; the label sits below.
+ * A stack of one symbol: a single tile (the stack never runs out), with its letter and the count
+ * still needed under it; once none are needed it turns gray. While a tile is dragged off it, a
+ * dotted placeholder holds its place. `ring` marks the stack picked up. The box is k wide; the
+ * label sits below.
  */
 function drawStack(ctx: CanvasRenderingContext2D, x: number, y: number, k: number, countH: number, spin: boolean, sym: number, left: number, ring: boolean, lifted = false): void {
   const off = Math.max(2, k * 0.06);
   const t = k - 2 * off;
   const done = left <= 0;
   const tx = x + off, ty = y + off;
-  if (lifted) socket(ctx, tx, ty, t, t, t / 2, C.line3);
-  else drawSymbolTile(ctx, tx, ty, t, spin, sym, 'key', done ? 0.35 : 1);
-  if (ring) tile(ctx, tx - 3.5, ty - 3.5, t + 7, t + 7, t / 2 + 3.5, null, C.silver, 2);
+  const rad = t * RADIUS.key;
+  if (lifted) socket(ctx, tx, ty, t, t, rad, C.line3);
+  else drawSymbolTile(ctx, tx, ty, t, spin, sym, 'key', done ? 0.5 : 1, done);
+  if (ring) tile(ctx, tx - 3.5, ty - 3.5, t + 7, t + 7, rad + 3.5, null, C.silver, 2);
   ctx.save();
   ctx.textBaseline = 'middle';
   // Readable labels: at least 13 px, never dimmer than the second text color.
@@ -234,8 +246,14 @@ export class OrbitalGridView implements PuzzleView {
   /** Look here: the cells to ring, for the board it was asked on. */
   private mark: { state: OrbitalGridState; unit: number[]; cell: number } | null = null;
   private reduced: boolean;
-  /** The cell last stepped by tapping it, and when: it shows faint until the taps stop. */
+  /** The cell last stepped from the keyboard (space), and when: it shows faint until the presses stop. */
   private cycled: { cell: number; at: number } | null = null;
+  /** The stack picked up with a tap, waiting for a cell; -1 for none. */
+  private picked = -1;
+  /** The cursor shows only once the keyboard is used. */
+  private keyboard = false;
+  /** Test: when it was pressed, and each placed tile's verdict then (true right, false wrong). */
+  private test: { at: number; marks: Map<number, boolean> } | null = null;
 
   constructor(private readonly initial: OrbitalGridState, reducedMotion: boolean) {
     this.state = initial;
@@ -251,9 +269,22 @@ export class OrbitalGridView implements PuzzleView {
 
   hint(): string {
     if (this.won) return 'Grid complete';
-    const clash = conflicts(this.state).filter(Boolean).length;
-    if (clash) return `${clash} cells clash`;
     return `${filledCount(this.state)} / ${this.state.par} placed`;
+  }
+
+  /** Test, beside the message line: every tile you placed pulses for two seconds, amber where it
+   *  is wrong and green where it is right. It is not a move. */
+  action() {
+    const s = this.state;
+    const any = s.cells.some((v, i) => v !== EMPTY && !s.givens[i]);
+    return { label: 'Test', disabled: !any, run: () => this.runTest() };
+  }
+
+  private runTest(): void {
+    const s = this.state;
+    const marks = new Map<number, boolean>();
+    s.cells.forEach((v, i) => { if (v !== EMPTY && !s.givens[i]) marks.set(i, v === s.solution[i]); });
+    this.test = { at: performance.now(), marks };
   }
 
   help(level: 1 | 2): Help | null {
@@ -297,6 +328,8 @@ export class OrbitalGridView implements PuzzleView {
     this.pressed = null;
     this.selected = this.initial.cells.indexOf(EMPTY);
     this.cycled = null;
+    this.picked = -1;
+    this.test = null;
   }
 
   canUndo(): boolean { return this.history.length > 0; }
@@ -308,11 +341,13 @@ export class OrbitalGridView implements PuzzleView {
     this.state = { ...prev };
     this.drag = null;
     this.cycled = null;
+    this.test = null;
     return true;
   }
 
   private commit(next: OrbitalGridState | null): void {
     if (!next || this.won) return;
+    this.test = null;
     this.history.push(this.state);
     if (this.history.length > 50) this.history.shift();
     this.state = next;
@@ -322,12 +357,7 @@ export class OrbitalGridView implements PuzzleView {
     this.commit(place(this.state, i, v));
   }
 
-  /** Places a stack's symbol in the chosen cell, or clears it when it already holds that symbol. */
-  private choose(v: number): void {
-    const i = this.selected;
-    if (i < 0 || this.state.givens[i]) return;
-    this.set(i, this.state.cells[i] === v ? EMPTY : v);
-  }
+
 
   // ---- input ----------------------------------------------------------------------
 
@@ -386,6 +416,7 @@ export class OrbitalGridView implements PuzzleView {
   down(p: Point): void {
     this.pressed = p;
     this.drag = null;
+    this.keyboard = false;
     if (!this.lay || this.won) return;
     const k = this.keyAt(p);
     if (k >= 0) { this.drag = { from: -1, sym: k, start: p, at: p, live: false }; return; }
@@ -415,21 +446,22 @@ export class OrbitalGridView implements PuzzleView {
       if (!d.live && Math.hypot(p.x - d.start.x, p.y - d.start.y) > DRAG_PX) d.live = true;
       if (d.live) { this.drop(d); return; }
     }
-    if (Math.hypot(p.x - s.x, p.y - s.y) > 16) return;
-    const i = this.cellAt(p);
-    if (i >= 0) {
-      if (i === this.selected && !this.state.givens[i]) {
-        this.set(i, cycleValue(this.state, i));
-        this.cycled = { cell: i, at: performance.now() };
-      }
-      this.selected = i;
-      return;
-    }
+    if (Math.hypot(p.x - s.x, p.y - s.y) > 16) { this.picked = -1; return; }
+    // A tap on a stack picks it up (or puts it back); with one picked up, a tap on an empty cell
+    // or one of your tiles places it there. Any other tap puts it back. A cell tapped with nothing
+    // picked up does nothing.
     const k = this.keyAt(p);
-    if (k >= 0) this.choose(k);
+    if (k >= 0) { this.picked = this.picked === k ? -1 : k; return; }
+    const i = this.cellAt(p);
+    const pick = this.picked;
+    this.picked = -1;
+    if (pick < 0 || i < 0 || this.state.givens[i]) return;
+    if (this.state.cells[i] !== pick) this.set(i, pick);
+    this.selected = i;
   }
 
   private drop(d: Drag): void {
+    this.picked = -1;
     const to = this.dropCell(d);
     if (d.from < 0) {
       // From a stack: onto any cell that can change.
@@ -458,6 +490,7 @@ export class OrbitalGridView implements PuzzleView {
 
   key(e: KeyboardEvent): boolean {
     const n = this.state.size;
+    this.keyboard = true;
     const moveBy = (dr: number, dc: number) => {
       const i = this.selected < 0 ? 0 : this.selected;
       const r = (Math.floor(i / n) + dr + n) % n, c = ((i % n) + dc + n) % n;
@@ -485,7 +518,10 @@ export class OrbitalGridView implements PuzzleView {
       return true;
     }
     if (e.key === 'Backspace' || e.key === 'Delete' || e.key === '0') { this.set(i, EMPTY); return true; }
-    if (e.key === ' ') { if (!this.state.givens[i]) this.set(i, cycleValue(this.state, i)); return true; }
+    if (e.key === ' ') {
+      if (!this.state.givens[i]) { this.set(i, cycleValue(this.state, i)); this.cycled = { cell: i, at: performance.now() }; }
+      return true;
+    }
     return false;
   }
 
@@ -550,8 +586,11 @@ export class OrbitalGridView implements PuzzleView {
     const n = s.size, c = L.cell;
     const pad = Math.max(2, c * 0.06);
     const w = c - pad * 2;
-    const clash = conflicts(s);
     const won = this.won;
+    // Test's marks pulse for two seconds, then go.
+    const test = this.test && now - this.test.at < TEST_MS ? this.test : null;
+    if (this.test && !test && now > this.test.at) this.test = null;
+    const pulse = test ? (this.reduced ? 1 : 0.7 + 0.3 * Math.cos(((now - test.at) / 1000) * Math.PI * 2)) * Math.min(1, (TEST_MS - (now - test.at)) / 300) : 0;
     const d = this.drag?.live ? this.drag : null;
     const target = d ? this.dropCell(d) : -1;
 
@@ -560,7 +599,7 @@ export class OrbitalGridView implements PuzzleView {
     for (let br = 0; br < n; br += s.rh) {
       for (let bc = 0; bc < n; bc += s.rw) {
         const x = this.colX(bc), y = this.rowY(br);
-        drawFrame(ctx, { x: x - fo, y: y - fo, w: s.rw * c + 2 * fo, h: s.rh * c + 2 * fo }, { width: frameWidth(c), radius: c * 0.22 + fo, color: won ? C.good : C.frame });
+        drawFrame(ctx, { x: x - fo, y: y - fo, w: s.rw * c + 2 * fo, h: s.rh * c + 2 * fo }, { width: frameWidth(c), radius: c * 0.12 + fo, color: won ? C.good : C.frame });
       }
     }
 
@@ -578,8 +617,14 @@ export class OrbitalGridView implements PuzzleView {
       const lifted = d !== null && d.from === i;
       if (v === EMPTY || lifted) drawEmpty(ctx, x, y, w);
       else drawSymbolTile(ctx, x, y, w, s.spin, v, s.givens[i] ? 'given' : 'placed', fade(i));
-      if (clash[i] && !s.givens[i] && !lifted) drawClash(ctx, x, y, w, w * RADIUS.placed);
-      if (i === this.selected && !won && !d) tile(ctx, x - 3, y - 3, w + 6, w + 6, (s.givens[i] ? w * RADIUS.given : w / 2) + 3, null, C.accent, 2);
+      const verdict = test?.marks.get(i);
+      if (verdict !== undefined && !lifted && s.cells[i] !== EMPTY) {
+        ctx.save();
+        ctx.globalAlpha = pulse;
+        drawClash(ctx, x, y, w, w * RADIUS.placed, verdict ? C.good : C.warn);
+        ctx.restore();
+      }
+      if (i === this.selected && this.keyboard && !won && !d) tile(ctx, x - 3, y - 3, w + 6, w + 6, w * RADIUS.placed + 3, null, C.accent, 2);
     }
 
     // Look here: the unit that decides it, and the cell.
@@ -593,7 +638,7 @@ export class OrbitalGridView implements PuzzleView {
       };
       if (m.unit.length > 1) { const b = box(m.unit); drawHelpMark(ctx, b.x, b.y, b.w, b.h, now, this.reduced, c * 0.2); }
       const b = box([m.cell]);
-      drawHelpMark(ctx, b.x + pad, b.y + pad, w, w, now, this.reduced, w / 2);
+      drawHelpMark(ctx, b.x + pad, b.y + pad, w, w, now, this.reduced, w * RADIUS.placed);
     }
 
     // The drop target: cyan, under the dragged tile.
@@ -601,18 +646,16 @@ export class OrbitalGridView implements PuzzleView {
       const x = this.colX(target % n) + pad, y = this.rowY(Math.floor(target / n)) + pad;
       ctx.save();
       ctx.globalAlpha = 0.22;
-      tile(ctx, x - 2, y - 2, w + 4, w + 4, w / 2 + 2, C.accent);
+      tile(ctx, x - 2, y - 2, w + 4, w + 4, w * RADIUS.placed + 2, C.accent);
       ctx.restore();
-      tile(ctx, x - 2.5, y - 2.5, w + 5, w + 5, w / 2 + 2.5, null, C.accent, 3);
+      tile(ctx, x - 2.5, y - 2.5, w + 5, w + 5, w * RADIUS.placed + 2.5, null, C.accent, 3);
     }
 
     // The stacks.
     const left = remaining(s);
-    const sel = this.selected;
-    const live = !won && sel >= 0 && !s.givens[sel];
     for (let k = 0; k < n; k++) {
       const { x, y } = this.slotPos(k);
-      drawStack(ctx, x + (L.slotW - L.key) / 2, y + 2, L.key, L.countH, s.spin, k, left[k], live && s.cells[sel] === k, d !== null && d.from < 0 && d.sym === k);
+      drawStack(ctx, x + (L.slotW - L.key) / 2, y + 2, L.key, L.countH, s.spin, k, left[k], !won && this.picked === k, d !== null && d.from < 0 && d.sym === k);
     }
 
     // The tile being dragged rides above the finger.
@@ -623,7 +666,7 @@ export class OrbitalGridView implements PuzzleView {
       ctx.shadowColor = C.bg;
       ctx.shadowBlur = 12;
       ctx.shadowOffsetY = 3;
-      tile(ctx, g.x - size / 2, g.y - size / 2, size, size, size / 2, C.bg);
+      tile(ctx, g.x - size / 2, g.y - size / 2, size, size, size * RADIUS.placed, C.bg);
       ctx.restore();
       drawSymbolTile(ctx, g.x - size / 2, g.y - size / 2, size, s.spin, d.sym, 'placed', 0.94);
     }
@@ -781,9 +824,9 @@ export const RULES: RuleCard[] = [
         if (m > 0.75) {
           ctx.save();
           ctx.globalAlpha = 0.22;
-          tile(ctx, target.x - 2, target.y - 2, target.w + 4, target.w + 4, target.w / 2 + 2, C.accent);
+          tile(ctx, target.x - 2, target.y - 2, target.w + 4, target.w + 4, target.w * RADIUS.placed + 2, C.accent);
           ctx.restore();
-          tile(ctx, target.x - 2, target.y - 2, target.w + 4, target.w + 4, target.w / 2 + 2, null, C.accent, 2);
+          tile(ctx, target.x - 2, target.y - 2, target.w + 4, target.w + 4, target.w * RADIUS.placed + 2, null, C.accent, 2);
         }
         if (t > 0.3) {
           const gs = c * 0.84;
@@ -795,30 +838,30 @@ export const RULES: RuleCard[] = [
   },
   {
     title: 'Or tap',
-    text: 'Tap a cell to choose it, then tap a stack. Tap the cell again to step it through the symbols; the tile stays faint until you stop tapping.',
+    text: 'Tap a stack to pick it up, then tap an empty cell to place it, or one of your tiles to replace it. A tap anywhere else puts the stack back.',
     good: {
-      duration: 2.6,
-      caption: 'Cell, then stack',
+      duration: 2.4,
+      caption: 'Stack, then cell',
       draw: (ctx, w, h, t) => {
         const c = Math.min(w / 4.6, h / 2.6);
         const x0 = (w - 4 * c) / 2, y0 = h * 0.06;
-        const sym = t < 1.5 ? EMPTY : t < 2.3 ? 1 : 2;
-        demoCells(ctx, x0, y0, c, 4, false, [0, sym, 3, EMPTY], [true, false, true, false]);
+        const placed = t >= 1.3;
+        demoCells(ctx, x0, y0, c, 4, false, [0, placed ? 1 : EMPTY, 3, EMPTY], [true, false, true, false]);
         const cell = cellBox(x0, y0, c, 4, 1);
-        if (t > 0.5) tile(ctx, cell.x - 2, cell.y - 2, cell.w + 4, cell.w + 4, cell.w / 2 + 2, null, C.accent, 2);
-        // A tall count row, so the ring round the chosen stack clears its number.
+        // A tall count row, so the ring round the picked stack clears its number.
         const k = c * 0.85, countH = Math.max(14, c * 0.45);
         const sx = (w - 4 * (k + c * 0.15)) / 2, ky = y0 + c + h * 0.08;
-        for (let s = 0; s < 4; s++) drawStack(ctx, sx + s * (k + c * 0.15), ky, k, countH, false, s, 2, sym === s);
-        // Tap the cell, tap the p stack, then tap the cell again to step p to d.
-        const taps: [number, number, number][] = [[0.3, cell.x + cell.w / 2, cell.y + cell.w / 2], [1.2, sx + 1 * (k + c * 0.15) + k / 2, ky + k / 2], [2, cell.x + cell.w / 2, cell.y + cell.w / 2]];
+        const picked = t > 0.4 && !placed;
+        for (let s = 0; s < 4; s++) drawStack(ctx, sx + s * (k + c * 0.15), ky, k, countH, false, s, 2, picked && s === 1);
+        // Tap the p stack, then the empty cell.
+        const taps: [number, number, number][] = [[0.3, sx + 1 * (k + c * 0.15) + k / 2, ky + k / 2], [1.1, cell.x + cell.w / 2, cell.y + cell.w / 2]];
         for (const [at, fx, fy] of taps) if (t > at && t < at + 0.45) finger(ctx, fx, fy, c * 0.26, t < at + 0.25);
       },
     },
   },
   {
     title: 'Counts',
-    text: 'The number beside each stack\'s letter is how many more of that symbol the grid needs. At 0 the stack dims: that symbol is done.',
+    text: 'The number beside each stack\'s letter is how many more of that symbol the grid needs. At 0 the stack turns gray: that symbol is done.',
     good: {
       duration: 2.4,
       caption: 'At 0, p is done',
@@ -839,10 +882,10 @@ export const RULES: RuleCard[] = [
   },
   {
     title: 'Dealt tiles',
-    text: 'Square tiles were dealt and never change. Your tiles are round: drag one to move it, or off the board to clear it.',
+    text: 'Dealt tiles are a little dimmer and never change. Yours are bright: drag one to move it, or off the board to clear it.',
     good: {
       duration: 2.6,
-      caption: 'Round tiles are yours',
+      caption: 'Bright tiles are yours',
       draw: (ctx, w, h, t) => {
         const c = Math.min(w / 4.5, h / 1.9);
         const x0 = (w - 4 * c) / 2, y0 = (h - c) / 2 - c * 0.15;
@@ -872,31 +915,31 @@ export const RULES: RuleCard[] = [
         const v = t < 1.2 || at === 0 ? EMPTY : t < 1.9 ? 2 : 3;
         demoCells(ctx, x, y, c, 4, true, [EMPTY, v, 0, 5], [false, false, true, true]);
         const b = cellBox(x, y, c, 4, at);
-        tile(ctx, b.x - 2, b.y - 2, b.w + 4, b.w + 4, b.w / 2 + 2, null, C.accent, 2);
+        tile(ctx, b.x - 2, b.y - 2, b.w + 4, b.w + 4, b.w * RADIUS.placed + 2, null, C.accent, 2);
       },
     },
   },
   {
-    title: 'Clashes',
-    text: 'A tile whose symbol already sits in its row, column or block gets an amber ring. Move it or change it.',
+    title: 'Test',
+    text: 'Nothing is marked while you play. Tap Test beside the message line: for two seconds your tiles pulse, amber where one is wrong and green where it is right.',
     good: {
-      duration: 1.6,
-      caption: 'p down: no clash',
+      duration: 2,
+      caption: 'Right: green',
       draw: (ctx, w, h, t) => {
         const { c, x, y } = demoRow(w, h);
-        demoCells(ctx, x, y, c, 4, true, [2, 0, EMPTY, 1], [true, true, false, true]);
-        demoArrive(ctx, cellBox(x, y, c, 4, 2), true, 3, (t - 0.3) / 0.6);
+        demoCells(ctx, x, y, c, 4, true, [2, 0, 3, 1], [true, true, false, true]);
+        const a = cellBox(x, y, c, 4, 2);
+        if (t > 0.4) { ctx.save(); ctx.globalAlpha = 0.55 + 0.45 * Math.cos((t - 0.4) * Math.PI * 4); drawClash(ctx, a.x, a.y, a.w, a.w * RADIUS.placed, C.good); ctx.restore(); }
       },
     },
     bad: {
       duration: 2,
-      caption: 'Two p up: amber',
+      caption: 'Wrong: amber',
       draw: (ctx, w, h, t) => {
         const { c, x, y } = demoRow(w, h);
-        demoCells(ctx, x, y, c, 4, true, [2, 0, EMPTY, 1], [true, true, false, true]);
+        demoCells(ctx, x, y, c, 4, true, [2, 0, 2, 1], [true, true, false, true]);
         const a = cellBox(x, y, c, 4, 2);
-        demoArrive(ctx, a, true, 2, (t - 0.3) / 0.6);
-        if (t > 1.1) drawClash(ctx, a.x, a.y, a.w, a.w * RADIUS.placed);
+        if (t > 0.4) { ctx.save(); ctx.globalAlpha = 0.55 + 0.45 * Math.cos((t - 0.4) * Math.PI * 4); drawClash(ctx, a.x, a.y, a.w, a.w * RADIUS.placed); ctx.restore(); }
       },
     },
   },

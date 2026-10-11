@@ -101,7 +101,6 @@
         </div>
       </div>
       <div class="pg-game" id="pg-game" hidden>
-        <div class="pg-bar" id="pg-bar"></div>
         <div class="pg-gbar" id="pg-gbar"></div>
         <div class="pg-play" id="pg-play">
           <canvas id="pg-canvas" aria-label="The puzzle."></canvas>
@@ -110,7 +109,9 @@
           <p class="pg-result">Not built yet</p>
           <p class="muted">On the progression map, with no board to play yet.</p>
         </div>
-        <div id="pg-foot"></div>
+        <div class="pg-foot" id="pg-foot">
+          <div class="pg-gen"><div class="pg-bar" id="pg-bar"></div></div>
+        </div>
       </div>
     </section>
 
@@ -120,6 +121,10 @@
 
     <section id="icons-screen" class="settings-screen" hidden aria-label="Icons">
       <div class="icon-page" id="icon-page"></div>
+    </section>
+
+    <section id="components-screen" class="settings-screen" hidden aria-label="Components">
+      <div class="icon-page cl-page" id="component-page"></div>
     </section>
 
     <div class="modal ui-modal" id="modal" hidden>

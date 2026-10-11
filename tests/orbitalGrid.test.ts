@@ -248,20 +248,46 @@ describe('orbital grid view', () => {
     expect(state(v).cells[b]).toBe(3);
   });
 
-  it('still places by tapping a cell and then a stack', () => {
+  it('places by tapping a stack and then a cell; a cell alone does nothing', () => {
     const s = newOrbitalGrid(5, 1);
     const v = new OrbitalGridView(s, true);
     v.draw(mockCtx().ctx, AREAS[1], 0);
     const i = s.cells.lastIndexOf(EMPTY);
     const tap = (p: Point) => { v.down(p); v.up(p); };
+    // With nothing picked up, a cell does nothing.
     tap(cellAt(v, s, i));
-    tap(slot(v, 2));
-    expect(state(v).cells[i]).toBe(2);
-    // Tapping the same stack again clears it; tapping the cell cycles it.
-    tap(slot(v, 2));
     expect(state(v).cells[i]).toBe(EMPTY);
+    tap(slot(v, 2));
+    tap(cellAt(v, s, i));
+    expect(state(v).cells[i]).toBe(2);
+    // The stack was put back: another tap on the cell does nothing.
+    tap(cellAt(v, s, i));
+    expect(state(v).cells[i]).toBe(2);
+    // Pick a stack and tap the placed tile to replace it.
+    tap(slot(v, 0));
     tap(cellAt(v, s, i));
     expect(state(v).cells[i]).toBe(0);
+    // A tap anywhere else puts a picked stack back.
+    tap(slot(v, 1));
+    tap({ x: 1, y: 1 });
+    tap(cellAt(v, s, i));
+    expect(state(v).cells[i]).toBe(0);
+  });
+
+  it('marks tiles only when Test is pressed: green right, amber wrong', () => {
+    const s = newOrbitalGrid(5, 1);
+    const v = new OrbitalGridView(s, true);
+    const i = s.cells.indexOf(EMPTY);
+    expect(v.action().disabled).toBe(true);
+    (v as unknown as { set(i: number, v: number): void }).set(i, (s.solution[i] + 1) % s.size);
+    expect(v.hint()).not.toMatch(/clash/);
+    const a = v.action();
+    expect(a.label).toBe('Test');
+    expect(a.disabled).toBe(false);
+    a.run();
+    const marks = (v as unknown as { test: { marks: Map<number, boolean> } }).test.marks;
+    expect(marks.get(i)).toBe(false);
+    expect(v.moves).toBe(1);
   });
 
   it('has rule cards with good (and where it can go wrong, bad) pictures whose every frame stays in the box', () => {
@@ -287,10 +313,10 @@ describe('orbital grid view', () => {
         }
       }
     }
-    // The rules that can be broken show it broken: a clash in a block, a clash in a row.
+    // The rules that can be broken show it broken: a clash in a block, a wrong tile under Test.
     const bad = (title: string) => RULES.find((r) => r.title === title)?.bad;
     expect(bad('Once each')).toBeDefined();
-    expect(bad('Clashes')).toBeDefined();
+    expect(bad('Test')).toBeDefined();
     expect(INSTRUCTIONS).toMatch(/<h3>In the game<\/h3>/);
     expect(INSTRUCTIONS).not.toMatch(/How to play/);
   });

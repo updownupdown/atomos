@@ -10,6 +10,7 @@ import type { Game } from './game';
 import type { Playground } from './playground';
 import { onSettingsChange, renderSettings } from './ui/settings';
 import { renderIconPage } from './ui/iconpage';
+import { renderComponentPage } from './ui/componentpage';
 import { icon, type IconName } from './ui/icons';
 import { setScienceHandler } from './ui/science';
 import { markSvg } from './ui/mark';
@@ -71,9 +72,11 @@ export class AppShell {
       openStep: (step) => { this.z = step.z; void this.go('atom', 'build').then(() => this.game?.play(step.z, step.stage)); },
       openAtom: (z) => { this.z = z; void this.go('atom', atomBuilt(z) ? 'view' : 'build'); },
     });
-    const route = () => { if (location.hash === '#icons') void this.go('icons'); };
+    // The two library pages have addresses, so they can be linked and reloaded.
+    const routed = () => (location.hash === '#icons' ? 'icons' : location.hash === '#components' ? 'components' : null);
+    const route = () => { const r = routed(); if (r) void this.go(r); };
     window.addEventListener('hashchange', route);
-    if (location.hash === '#icons') route();
+    if (routed()) route();
     else this.restore(saved);
   }
 
@@ -122,13 +125,15 @@ export class AppShell {
     const showPlay = screen === 'puzzles';
     const showSettings = screen === 'settings';
     const showIcons = screen === 'icons';
+    const showComponents = screen === 'components';
     if (!showGallery) this.gallery.hide();
     if (!showGame) { this.game?.pause(); $('app').hidden = true; }
     if (!showPlay) this.playground?.hide();
     $('settings-screen').hidden = !showSettings;
     $('icons-screen').hidden = !showIcons;
-    // The icon page is the one screen with an address, so it can be linked and reloaded.
-    if (!showIcons && location.hash === '#icons') history.replaceState(null, '', location.pathname + location.search);
+    $('components-screen').hidden = !showComponents;
+    // The library pages are the screens with an address; leaving one drops it.
+    if ((!showIcons && location.hash === '#icons') || (!showComponents && location.hash === '#components')) history.replaceState(null, '', location.pathname + location.search);
 
     if (showGallery) {
       this.gallery.show();
@@ -141,6 +146,9 @@ export class AppShell {
       this.game!.resume();
     } else if (showPlay) {
       this.playground!.show();
+    } else if (showComponents) {
+      renderComponentPage($('component-page'), () => void this.go('gallery'));
+      $('components-screen').scrollTop = 0;
     } else if (showIcons) {
       renderIconPage($('icon-page'), () => void this.go('gallery'));
       $('icons-screen').scrollTop = 0;

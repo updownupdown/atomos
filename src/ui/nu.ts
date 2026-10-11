@@ -175,6 +175,18 @@ export function nuFly(from: Element | DOMRect, to: Element): Promise<void> {
   });
 }
 
+/** Whether a first-time line or offer may still show: Nu is on and it hasn't been acted on. */
+export function firstTimeDue(id: string): boolean {
+  return nuEnabled() && !loadSave().seenLines[id];
+}
+
+/** Records a first-time line or offer as seen, so it never shows again. */
+export function markSeen(id: string): void {
+  const save = loadSave();
+  save.seenLines[id] = Date.now();
+  writeSave(save);
+}
+
 /** A line Nu says once, the first time something happens: the Nu icon and one sentence, placed
  *  just above `anchor`. Nu flies in from the top of the screen and the words fade in. It goes
  *  away (and counts as seen) once the player acts: the next tap anywhere, or a key. If it is
@@ -184,7 +196,7 @@ export function nuFly(from: Element | DOMRect, to: Element): Promise<void> {
  *    firstTimeLine('first-build', 'Each atom is two puzzles: its nucleus and its electrons. Play either one.', cards);
  */
 export function firstTimeLine(id: string, text: string, anchor: Element): HTMLElement | null {
-  if (!nuEnabled() || loadSave().seenLines[id]) return null;
+  if (!firstTimeDue(id)) return null;
   const line = document.createElement('p');
   line.className = 'nu-line';
   line.setAttribute('role', 'status');
@@ -201,9 +213,7 @@ export function firstTimeLine(id: string, text: string, anchor: Element): HTMLEl
     if (performance.now() - shownAt < 600) return; // the tap that brought it doesn't count
     window.removeEventListener('pointerdown', act, true);
     window.removeEventListener('keydown', act, true);
-    const save = loadSave();
-    save.seenLines[id] = Date.now();
-    writeSave(save);
+    markSeen(id);
     if (still || !line.animate) { line.remove(); return; }
     line.animate([{ opacity: 1 }, { opacity: 0, transform: 'translateY(-4px)' }], { duration: 260, easing: 'ease-in' }).finished.finally(() => line.remove());
   };

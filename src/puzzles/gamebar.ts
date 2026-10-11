@@ -1,24 +1,34 @@
-// The header of every game, the same in Build, Practice and the gate puzzles, on the gray header
-// fill: the game's name with what it is for ("Building lithium") on the left and its tools on the
-// right (Undo, Restart, Hint, Info, the microscope); under them the stats in four equal columns
-// (Difficulty, Moves, Par, and how far the board has got); then one message line for the goal,
-// the Hint button's line and the game's own status. Back sits in a footer at the bottom left
-// (gameFooter).
+// The frame of every game, the same in Build, Practice and the gate puzzles.
+//   Under the app header, on gray: the game's name, then its stats (Difficulty, Moves, Par, and
+//   how far the board has got). Difficulty is the first to go on a short screen.
+//   Then, on black: Back on the left, named for where it goes ("Gallium", "All games"), and the
+//   game's tools on the right (Undo, Restart, Hint, Info, the microscope), each on a gray plate.
+//   The board sits on black under them; under the board, the foot: one message line (the goal,
+//   the Hint button's line or the game's own status) with the game's own action beside it, if it
+//   has any (Test; Chroma's gluon).
+// The first time a game is played, a Learn to Play card floats above the foot (offerRules).
 
-import { icon } from '../ui/icons';
-import { firstTimeLine } from '../ui/nu';
+import { backButton, textButton } from '../ui/components';
+import { firstTimeDue, markSeen } from '../ui/nu';
 import { difficultyWord } from './difficulty';
-import type { PuzzleView, Stat } from './view';
+import { icon } from '../ui/icons';
+import type { PuzzleView, Stat, ViewAction } from './view';
 
 export interface GameBar {
+  /** The top: the gray stats bar and the black bar with Back and the tools. */
   readonly el: HTMLElement;
-  /** The message line; first-time lines are placed just above it. */
+  /** Under the board: the message line and the game's action. Callers place it. */
+  readonly foot: HTMLElement;
   readonly msg: HTMLElement;
-  /** The game's name, and a few words on what this play is for ("Building lithium"). */
-  setTitle(name: string, context?: string): void;
+  readonly back: HTMLButtonElement;
+  /** The game's name. */
+  setTitle(name: string): void;
+  /** Where Back goes, in a word or two: "Gallium", "All games". */
+  setBack(label: string): void;
   /** Sets the rating shown as five pips (1 to 10, two per pip). */
   setDifficulty(rating: number): void;
-  /** Refreshes the stats and the message from the view; cheap enough to call every frame. */
+  /** Refreshes the stats, the message and the action from the view; cheap enough to call every
+   *  frame. */
   update(v: PuzzleView | null, message: string): void;
 }
 
@@ -37,26 +47,57 @@ export function statsOf(v: PuzzleView): { par: Stat; progress: Stat } {
   return { par, progress };
 }
 
-export function createGameBar(tools: HTMLElement[], msg?: HTMLElement): GameBar {
+export function createGameBar(tools: HTMLElement[], back: { label: string; onClick: () => void }): GameBar {
   const el = document.createElement('div');
   el.className = 'gbar';
   el.innerHTML = `
-    <div class="gbar-top">
-      <div class="gbar-name"><h2 class="gbar-title"></h2><span class="gbar-ctx"></span></div>
-      <div class="gbar-tools"></div>
-    </div>
-    <div class="gbar-stats">
-      <div class="gbar-stat"><span class="gbar-k">Difficulty</span><span class="gbar-v gbar-pips" data-v="diff"></span></div>
-      <div class="gbar-stat"><span class="gbar-k">Moves</span><span class="gbar-v" data-v="moves">0</span></div>
-      <div class="gbar-stat"><span class="gbar-k" data-k="par">Par</span><span class="gbar-v" data-v="par">${NONE}</span></div>
-      <div class="gbar-stat"><span class="gbar-k" data-k="progress">Progress</span><span class="gbar-v" data-v="progress">${NONE}</span></div>
-    </div>`;
+    <div class="gbar-head"><div class="gbar-in">
+      <h2 class="gbar-title"></h2>
+      <div class="gbar-stats">
+        <div class="gbar-stat gbar-stat--diff"><span class="gbar-k">Difficulty</span><span class="gbar-v gbar-pips" data-v="diff"></span></div>
+        <div class="gbar-stat"><span class="gbar-k">Moves</span><span class="gbar-v" data-v="moves">0</span></div>
+        <div class="gbar-stat"><span class="gbar-k" data-k="par">Par</span><span class="gbar-v" data-v="par">${NONE}</span></div>
+        <div class="gbar-stat"><span class="gbar-k" data-k="progress">Progress</span><span class="gbar-v" data-v="progress">${NONE}</span></div>
+      </div>
+    </div></div>
+    <div class="gbar-nav"><div class="gbar-in"><div class="gbar-tools"></div></div></div>`;
+  const backBtn = backButton(back.label, back.onClick, 'gbar-back');
+  el.querySelector('.gbar-nav .gbar-in')!.prepend(backBtn);
   el.querySelector('.gbar-tools')!.append(...tools);
-  const line = msg ?? document.createElement('p');
-  line.classList.add('gbar-msg');
-  line.setAttribute('role', 'status');
-  line.setAttribute('aria-live', 'polite');
-  el.append(line);
+
+  const foot = document.createElement('div');
+  foot.className = 'gfoot';
+  foot.innerHTML = '<div class="gfoot-line"><p class="gbar-msg" role="status" aria-live="polite"></p></div>';
+  const line = foot.querySelector<HTMLElement>('.gbar-msg')!;
+  // The game's own actions, beside the message: kept as buttons and refreshed in place.
+  const acts = document.createElement('span');
+  acts.className = 'gbar-acts';
+  foot.querySelector('.gfoot-line')!.append(acts);
+  const runs: (() => void)[] = [];
+  const syncActions = (list: ViewAction[]) => {
+    while (acts.children.length > list.length) acts.lastElementChild!.remove();
+    list.forEach((a, k) => {
+      let b = acts.children[k] as HTMLButtonElement | undefined;
+      const kind = a.icon ? 'pill' : 'text';
+      if (!b || b.dataset.kind !== kind || (a.icon && b.dataset.icon !== a.icon)) {
+        const fresh = textButton('', () => runs[k]?.(), a.icon ? 'gbar-act gbar-act--pill' : 'gbar-act');
+        fresh.dataset.kind = kind;
+        if (a.icon) {
+          fresh.dataset.icon = a.icon;
+          fresh.innerHTML = `${icon(a.icon, { size: 18 })}<span></span>`;
+        }
+        if (b) b.replaceWith(fresh); else acts.append(fresh);
+        b = fresh;
+      }
+      runs[k] = a.run;
+      const label = b.querySelector('span') ?? b;
+      set(label as HTMLElement, a.label);
+      b.disabled = Boolean(a.disabled);
+      if (a.pressed !== undefined) b.setAttribute('aria-pressed', String(a.pressed)); else b.removeAttribute('aria-pressed');
+      if (a.ariaLabel) b.setAttribute('aria-label', a.ariaLabel); else b.removeAttribute('aria-label');
+    });
+  };
+
   const get = (sel: string) => el.querySelector<HTMLElement>(sel)!;
   const cells = {
     diff: get('[data-v="diff"]'),
@@ -68,15 +109,14 @@ export function createGameBar(tools: HTMLElement[], msg?: HTMLElement): GameBar 
   };
   const set = (e: HTMLElement, text: string) => { if (e.textContent !== text) e.textContent = text; };
 
-  const title = get('.gbar-title'), ctx = get('.gbar-ctx');
+  const title = get('.gbar-title');
   return {
     el,
+    foot,
     msg: line,
-    setTitle(name, context = '') {
-      set(title, name);
-      set(ctx, context);
-      ctx.hidden = !context;
-    },
+    back: backBtn,
+    setTitle(name) { set(title, name); },
+    setBack(label) { backBtn.setLabel(label); },
     setDifficulty(rating) {
       const on = Math.ceil(rating / 2);
       cells.diff.innerHTML = Array.from({ length: 5 }, (_, i) => `<i class="${i < on ? 'on' : ''}"></i>`).join('');
@@ -93,65 +133,62 @@ export function createGameBar(tools: HTMLElement[], msg?: HTMLElement): GameBar 
         set(cells.progK, s.progress.label); set(cells.prog, s.progress.value);
       }
       set(line, message);
+      const a = v && !v.won ? v.action?.() ?? null : null;
+      syncActions(a ? (Array.isArray(a) ? a : [a]) : []);
     },
   };
 }
 
-/** The first time a game is played, Nu offers its rules under the bar instead of opening them:
- *  Rules opens them, Not now (or any other tap) lets the player start. Shown once per game, and
- *  not at all when Nu is off in Settings; the Info button always has the rules. */
+let dismissOffer: (() => void) | null = null;
+
+/** The first time a game is played, a Learn to Play card floats above its foot, over the board
+ *  (it never shrinks it): Rules opens them, Not now (or any other tap) lets the player start.
+ *  Shown once per game, and not at all when Nu is off in Settings; the Info button always has the
+ *  rules. */
 export function offerRules(bar: GameBar, game: { id: string; name: string }, open: () => void): void {
   clearOffers(bar);
-  const line = firstTimeLine(`rules-${game.id}`, `First time playing ${game.name}? Here's how it works.`, bar.msg);
-  if (!line) return;
-  line.classList.add('gbar-nu');
-  const acts = document.createElement('span');
-  acts.className = 'nu-acts';
+  const id = `rules-${game.id}`;
+  if (!firstTimeDue(id)) return;
+  const card = document.createElement('div');
+  card.className = 'ui-callout ui-callout--float gbar-offer';
+  card.setAttribute('role', 'status');
+  card.innerHTML = '<span class="ui-callout-text"><small>Learn to Play</small><b></b></span><span class="ui-callout-acts"></span>';
+  card.querySelector('b')!.textContent = game.name;
   const rules = document.createElement('button');
-  rules.className = 'primary nu-act';
+  rules.type = 'button';
+  rules.className = 'ui-callout-go';
   rules.textContent = 'Rules';
-  rules.onclick = () => open();
   const later = document.createElement('button');
-  later.className = 'secondary nu-act';
+  later.type = 'button';
+  later.className = 'ui-callout-skip';
   later.textContent = 'Not now';
-  later.onclick = () => line.remove();
-  acts.append(rules, later);
-  line.append(acts);
+  card.querySelector('.ui-callout-acts')!.append(rules, later);
+  bar.foot.append(card);
+
+  const shownAt = performance.now();
+  const done = (seen: boolean) => {
+    window.removeEventListener('pointerdown', away, true);
+    window.removeEventListener('keydown', away, true);
+    if (dismissOffer === drop) dismissOffer = null;
+    if (seen) markSeen(id);
+    card.remove();
+  };
+  const drop = () => done(false);
+  // Any other tap or key lets the player start; the tap that opened the game doesn't count.
+  function away(e: Event): void {
+    if (card.contains(e.target as Node) || performance.now() - shownAt < 600) return;
+    done(true);
+  }
+  rules.onclick = () => { done(true); open(); };
+  later.onclick = () => done(true);
+  window.addEventListener('pointerdown', away, true);
+  window.addEventListener('keydown', away, true);
+  dismissOffer = drop;
 }
 
 /** Takes away an offer still showing (the player left the game before acting on it), so it comes
  *  back the next time instead. */
 export function clearOffers(bar: GameBar): void {
-  bar.el.querySelectorAll('.gbar-nu').forEach((e) => e.remove());
-}
-
-/** The lowest the board may reach (in viewport pixels) so an offer at the bottom never covers it:
- *  `bottom` itself when no offer is showing. */
-export function aboveOffers(scope: ParentNode, bottom: number): number {
-  const offer = scope.querySelector<HTMLElement>('.gbar-nu');
-  if (!offer?.isConnected) return bottom;
-  const r = offer.getBoundingClientRect();
-  return r.height > 0 ? Math.min(bottom, r.top - 8) : bottom;
-}
-
-export interface GameFooter {
-  readonly el: HTMLElement;
-  readonly back: HTMLButtonElement;
-  setLabel(label: string): void;
-}
-
-/** The strip under a game: Back at the bottom left, named for where it goes ("Back to lithium",
- *  "Back to Practice"). */
-export function gameFooter(label: string, onClick: () => void): GameFooter {
-  const el = document.createElement('div');
-  el.className = 'gfoot';
-  const back = document.createElement('button');
-  back.type = 'button';
-  back.className = 'back-plate gfoot-back';
-  back.innerHTML = `${icon('chevron-left', { size: 20 })}<span></span>`;
-  back.onclick = onClick;
-  el.append(back);
-  const setLabel = (l: string) => { back.querySelector('span')!.textContent = l; back.setAttribute('aria-label', l); };
-  setLabel(label);
-  return { el, back, setLabel };
+  if (dismissOffer) dismissOffer();
+  bar.foot.querySelectorAll('.gbar-offer').forEach((e) => e.remove());
 }

@@ -68,6 +68,9 @@
   --c-accent-ink: #06232a;
   --c-target: #e0503a;
   --c-good: #8fd19e;
+  /* Done: a neon green, as saturated as the cyan, for what is built and complete (100%, Built,
+     Flawless, a finished progress ring). */
+  --c-done: #4ff29a;
   --c-warn: #e8b45c;
   /* Rose magenta: the way forward. Only the Next button and Nu, the guide, wear it; never a
      puzzle board, never decoration. Cyan stays the accent (where you are, partial progress). */

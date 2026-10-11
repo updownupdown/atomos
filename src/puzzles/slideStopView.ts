@@ -21,7 +21,7 @@
 import { allSparks, cellX, cellY, cloneSlideStop, cracksOf, isRock, slide, slideRun, solve, solved, type Dir, type SlideStopState, type Tile } from './slideStop';
 import { bead, C, fitGrid, font, tile } from './palette';
 import { drawFrame, frameBox, framePad, frameWidth } from './frame';
-import { drawHelpMark, ease, undoHelp, type Area, type Help, type Illustration, type Point, type PuzzleView, type RuleCard, type Stat } from './view';
+import { drawHelpMark, HINT_RGB, ease, undoHelp, type Area, type Help, type Illustration, type Point, type PuzzleView, type RuleCard, type Stat } from './view';
 
 const SWIPE = 22;
 const MS_PER_CELL = 55;
@@ -345,7 +345,7 @@ function helpSlide(ctx: CanvasRenderingContext2D, s: SlideStopState, g: Geo, end
   const [dx, dy] = dir === 'up' ? [0, -1] : dir === 'down' ? [0, 1] : dir === 'left' ? [-1, 0] : [1, 0];
   const w = c * 0.16;
   ctx.save();
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+  ctx.strokeStyle = `rgba(${HINT_RGB}, 0.95)`;
   ctx.lineWidth = Math.max(2, c * 0.06);
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';

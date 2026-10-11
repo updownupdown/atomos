@@ -2,12 +2,12 @@
 // on every move; the next visit opens on the Gallery, and the Atom tab goes back to that atom
 // and mode. Anything it cannot use means the gallery.
 
-export type Screen = 'gallery' | 'atom' | 'puzzles' | 'settings' | 'icons';
+export type Screen = 'gallery' | 'atom' | 'puzzles' | 'settings' | 'icons' | 'components';
 export type PlaceMode = 'view' | 'build';
 
 export interface Place { screen: Screen; mode: PlaceMode; z: number }
 
-const SCREENS: Screen[] = ['gallery', 'atom', 'puzzles', 'settings', 'icons'];
+const SCREENS: Screen[] = ['gallery', 'atom', 'puzzles', 'settings', 'icons', 'components'];
 const HOME: Place = { screen: 'gallery', mode: 'view', z: 1 };
 
 /** Read a saved place, falling back to the gallery when it is missing or no longer valid. */

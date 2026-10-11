@@ -11,7 +11,7 @@ import { modalOpen } from '../ui/modal';
 import { puzzleType } from './catalog';
 import { PuzzleHost } from './host';
 import { difficulty } from './difficulty';
-import { aboveOffers, createGameBar, gameFooter, offerRules } from './gamebar';
+import { createGameBar, offerRules } from './gamebar';
 import { openRules } from './rulesModal';
 import { showWin } from './winPanel';
 import type { Area } from './view';
@@ -54,8 +54,7 @@ function run(id: UnlockId, info: UnlockInfo): Promise<boolean> {
     const area = (): Area => {
       const r = canvas.getBoundingClientRect();
       const colW = r.width < 700 ? r.width - 16 : Math.min(720, r.width * 0.7);
-      const bottom = aboveOffers(root, r.bottom - 6) - r.top;
-      return { x: (r.width - colW) / 2, y: 6, w: colW, h: Math.max(200, bottom - 6) };
+      return { x: (r.width - colW) / 2, y: 6, w: colW, h: Math.max(200, r.height - 12) };
     };
     const host = new PuzzleHost(canvas, area);
     let closeWin = () => {};
@@ -73,12 +72,11 @@ function run(id: UnlockId, info: UnlockInfo): Promise<boolean> {
       restartButton(restartOpts),
       host.hints.button,
       iconButton({ icon: icon('info'), label: 'Instructions', onClick: rules }),
-    ]);
+    ], { label: 'Gallery', onClick: () => finish(Boolean(loadSave().unlocks[id])) });
     bar.setDifficulty(difficulty(t.id, z));
-    bar.setTitle(t.name, `Unlocking ${info.title}`);
+    bar.setTitle(t.name);
     play.before(bar.el);
-    const foot = gameFooter('Back', () => finish(Boolean(loadSave().unlocks[id])));
-    play.after(foot.el);
+    play.after(bar.foot);
     offerRules(bar, t, rules);
 
     host.onFrame = (v) => {
@@ -124,7 +122,7 @@ function run(id: UnlockId, info: UnlockInfo): Promise<boolean> {
 
     host.set(t.make!(z, 0, reduced));
     window.dispatchEvent(new Event('resize'));
-    foot.back.focus({ preventScroll: true });
+    bar.back.focus({ preventScroll: true });
   });
 }
 

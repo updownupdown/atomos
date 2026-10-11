@@ -2,7 +2,7 @@
 // marks a spot and says why in one line. A second tap on the same board is Show me: the puzzle
 // plays one move. A run that used Show me can't be flawless. When the player seems stuck (about
 // 45 seconds without progress, three undos in a row, or a second restart), the button gets a
-// soft white outline; nothing pops up.
+// pink icon; nothing pops up.
 
 import { iconButton } from '../ui/components';
 import { icon } from '../ui/icons';

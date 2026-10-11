@@ -2,15 +2,14 @@
 // dark ground and on a light tile. Reached from the bottom of Settings (or #icons); Back
 // returns to the gallery.
 
+import { backButton } from './components';
 import { ICON_NAMES, icon } from './icons';
 import { markSvg } from './mark';
 
 /** Fill the page. `onBack` runs when the player taps Back. */
 export function renderIconPage(page: HTMLElement, onBack: () => void): void {
   page.innerHTML = `
-    <div class="ip-head">
-      <button type="button" class="ip-back">${icon('chevron-left')}<span>Back</span></button>
-    </div>
+    <div class="ip-head"></div>
     <h1 class="ip-title">Icons</h1>
     <p class="ip-lede">Every icon in the library, ${ICON_NAMES.length} in all, at 24 and 48 px. Drop a 24 × 24 SVG in <span class="ip-path">src/icons/</span> and it shows up here.</p>
     <div class="ip-grid">
@@ -27,5 +26,5 @@ export function renderIconPage(page: HTMLElement, onBack: () => void): void {
         <figcaption>${n}</figcaption>
       </figure>`).join('')}
     </div>`;
-  page.querySelector<HTMLButtonElement>('.ip-back')!.onclick = onBack;
+  page.querySelector('.ip-head')!.append(backButton('Gallery', onBack));
 }

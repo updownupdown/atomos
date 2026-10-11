@@ -1,0 +1,40 @@
+// Progress marks shared by the Build page and the component library: the rings at the foot of
+// an atom (nucleus, electrons, isotopes) and five difficulty pips.
+
+/** Nucleus disc, electron ring and, when the atom has isotopes, an outer ring of two arcs (lasting
+ *  then fleeting, clockwise from the top) sized by their counts, with a gap between them. A small
+ *  group keeps a fifth of the ring so it stays visible beside a large one. Arcs have round ends;
+ *  a part that is complete is green, one under way cyan. */
+export function progressRings(o: { nucleus: boolean; shells: boolean; lasting: { built: number; total: number }; fleeting: { built: number; total: number } }, size = 64): string {
+  const c = 32, gap = 0.09, w = 5;
+  const arc = (r: number, from: number, to: number, cls: string): string => {
+    if (to - from <= 0.0001) return '';
+    if (to - from >= 0.9999) return `<circle class="${cls}" cx="${c}" cy="${c}" r="${r}" stroke-width="${w}" />`;
+    const pt = (t: number) => `${(c + r * Math.sin(t * 2 * Math.PI)).toFixed(2)} ${(c - r * Math.cos(t * 2 * Math.PI)).toFixed(2)}`;
+    return `<path class="${cls}" d="M ${pt(from)} A ${r} ${r} 0 ${to - from > 0.5 ? 1 : 0} 1 ${pt(to)}" stroke-width="${w}" />`;
+  };
+  const groups = [o.lasting, o.fleeting].filter((g) => g.total > 0);
+  const sum = groups.reduce((a, g) => a + g.total, 0);
+  let shares = groups.map((g) => g.total / sum);
+  if (shares.length === 2) shares = shares.map((x) => Math.min(0.8, Math.max(0.2, x)));
+  let outer = '';
+  let at = 0;
+  const free = 1 - (groups.length > 1 ? gap * groups.length : 0);
+  groups.forEach((g, i) => {
+    const span = shares[i] * free;
+    const from = at + (groups.length > 1 ? gap / 2 : 0);
+    outer += arc(26, from, from + span, 'rg-track') + arc(26, from, from + span * (g.built / g.total), g.built >= g.total ? 'rg-on is-done' : 'rg-on');
+    at = from + span + (groups.length > 1 ? gap / 2 : 0);
+  });
+  return `<svg class="bh-rings-svg" viewBox="0 0 64 64" width="${size}" height="${size}" aria-hidden="true">
+    ${outer}
+    <circle class="${o.shells ? 'rg-on is-done' : 'rg-track'}" cx="${c}" cy="${c}" r="17" stroke-width="${w}" />
+    <circle class="${o.nucleus ? 'rg-fill-on' : 'rg-fill'}" cx="${c}" cy="${c}" r="9" />
+  </svg>`;
+}
+
+/** A rough difficulty as five pips (1 to 10, two per pip), as HTML. */
+export function pipsHtml(rating: number, cls = 'bh-pips'): string {
+  const on = Math.ceil(rating / 2);
+  return `<span class="${cls}" aria-hidden="true">${Array.from({ length: 5 }, (_, i) => `<i class="${i < on ? 'on' : ''}"></i>`).join('')}</span>`;
+}

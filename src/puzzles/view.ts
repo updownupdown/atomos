@@ -1,5 +1,7 @@
 // What the game needs from any puzzle on screen, whatever its rules.
 
+import type { IconName } from '../ui/icons';
+
 export interface Area { x: number; y: number; w: number; h: number }
 export interface Point { x: number; y: number }
 
@@ -34,6 +36,22 @@ export interface PuzzleView {
    *  board has got ("Placed", "3/12"), and rarely `par`, for a game whose par is not in moves
    *  (Aurum's beams). Without it the row reads "N / M word" from the status line. */
   stats?(): { progress?: Stat; par?: Stat };
+  /** A game's own actions, shown as buttons beside the message line (Quanta's and Chroma's
+   *  Test, Chroma's gluon). Null or absent when there are none right now. */
+  action?(): ViewAction | ViewAction[] | null;
+}
+
+/** A game's own action beside its message line: plain bold text, or with an icon, a pill. */
+export interface ViewAction {
+  label: string;
+  run(): void;
+  disabled?: boolean;
+  /** An icon (from src/icons) makes it a small pill, like a tool. */
+  icon?: IconName;
+  /** A toggle that is on (an armed gluon). */
+  pressed?: boolean;
+  /** What a screen reader hears, when the label is short. */
+  ariaLabel?: string;
 }
 
 /** One column of the stats row: a short label over a value. */
@@ -51,14 +69,17 @@ export function undoHelp(n: number): Help {
   return { text: n === 1 ? 'Undo your last move to get back on track.' : `Undo ${n} moves to get back on track.` };
 }
 
-/** The Look here mark: a soft white outline around a box, breathing slowly (still under reduced
- *  motion). r is the corner radius. */
+/** Rose magenta, the hint marks' color (the app's --c-go). */
+export const HINT_RGB = '255, 90, 168';
+
+/** The Look here mark: a soft rose-magenta outline around a box, breathing slowly (still under
+ *  reduced motion). r is the corner radius. */
 export function drawHelpMark(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, now: number, reduced = false, r = 8): void {
   const k = reduced ? 1 : 0.65 + 0.35 * Math.sin(now / 320);
   ctx.save();
-  ctx.strokeStyle = `rgba(255, 255, 255, ${0.9 * k})`;
+  ctx.strokeStyle = `rgba(${HINT_RGB}, ${0.95 * k})`;
   ctx.lineWidth = 3;
-  ctx.shadowColor = 'rgba(255, 255, 255, 0.8)';
+  ctx.shadowColor = `rgba(${HINT_RGB}, 0.8)`;
   ctx.shadowBlur = 10 * k;
   ctx.beginPath();
   ctx.roundRect(x - 3, y - 3, w + 6, h + 6, r);
