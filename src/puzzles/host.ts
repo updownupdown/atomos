@@ -4,6 +4,7 @@
 import { syncPalette } from './palette';
 import { confirming } from './restart';
 import { HintControl } from './hints';
+import { drawWinFx, winHold } from './winFx';
 import type { Area, Point, PuzzleView } from './view';
 
 export class PuzzleHost {
@@ -13,9 +14,14 @@ export class PuzzleHost {
   private paused = false;
   /** Called after each frame with the view, so the host screen can refresh its counters. */
   onFrame: ((view: PuzzleView) => void) | null = null;
-  /** Called once when the view reports a win. */
+  /** Called once when the view reports a win, after the solved board has shown for a moment
+   *  with the win effect (winFx.ts). */
   onWon: ((view: PuzzleView) => void) | null = null;
   private wonReported = false;
+  /** When the current win was first seen (null while unsolved). */
+  private wonAt: number | null = null;
+  /** Calm motion: a short hold and no sparks. */
+  reducedMotion = false;
   /** The Hint button for this canvas: Look here, then Show me. */
   readonly hints = new HintControl(() => this.view, () => this.wake());
   /** The R key: asks before restarting when set (see askRestart); restarts at once otherwise. */
@@ -40,6 +46,7 @@ export class PuzzleHost {
   set(view: PuzzleView | null): void {
     this.view = view;
     this.wonReported = false;
+    this.wonAt = null;
     this.pointerId = null;
     if (!view) this.clear();
     this.wake();
@@ -56,7 +63,7 @@ export class PuzzleHost {
   }
 
   undo(): void {
-    if (this.view?.undo()) { this.wonReported = false; this.hints.undone(); }
+    if (this.view?.undo()) { this.wonReported = false; this.wonAt = null; this.hints.undone(); }
     this.wake();
   }
 
@@ -64,6 +71,7 @@ export class PuzzleHost {
     this.view?.restart();
     this.hints.restarted(this.view);
     this.wonReported = false;
+    this.wonAt = null;
     this.wake();
   }
 
@@ -92,10 +100,16 @@ export class PuzzleHost {
     // Hidden (another tab is showing): nothing to draw into, so the loop stops until the
     // canvas has a size again (the ResizeObserver wakes it).
     if (area.w <= 0 || area.h <= 0 || !this.canvas.clientWidth) return;
-    v.draw(this.ctx(), area, now);
+    const ctx = this.ctx();
+    v.draw(ctx, area, now);
+    if (!v.won) this.wonAt = null;
+    else {
+      this.wonAt ??= now;
+      drawWinFx(ctx, area, now - this.wonAt, this.reducedMotion);
+    }
     this.hints.watch(v, now);
     this.onFrame?.(v);
-    if (v.won && !this.wonReported) {
+    if (v.won && !this.wonReported && now - this.wonAt! >= winHold(this.reducedMotion)) {
       this.wonReported = true;
       this.onWon?.(v);
     }

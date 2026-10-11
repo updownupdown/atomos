@@ -2,6 +2,7 @@
 
 export const ICONS = {
   'atom': '<svg viewBox="0 0 24 24" fill="none"><g stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><path d="M20.08 9.06A8.6 8.6 0 1 1 14.94 3.92"/><circle cx="18.08" cy="5.92" r="2.0" fill="currentColor" stroke="none"/><circle cx="12.00" cy="12.00" r="3.0" fill="currentColor" stroke="none"/></g></svg>',
+  'buoy': '<svg viewBox="0 0 24 24" fill="none"><g stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.75"/><path d="M5.99 5.99L9.35 9.35"/><path d="M14.65 9.35L18.01 5.99"/><path d="M14.65 14.65L18.01 18.01"/><path d="M9.35 14.65L5.99 18.01"/></g></svg>',
   'check': '<svg viewBox="0 0 24 24" fill="none"><g stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12.5L9.5 17.5L19.5 6.5"/></g></svg>',
   'chevron-down': '<svg viewBox="0 0 24 24" fill="none"><g stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9L12 15L18 9"/></g></svg>',
   'chevron-left': '<svg viewBox="0 0 24 24" fill="none"><g stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6L9 12L15 18"/></g></svg>',

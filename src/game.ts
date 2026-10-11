@@ -1,5 +1,3 @@
-import { AtomScene, type ScreenPoint } from './render/scene';
-import { applyPlacement, electronCount, newAtom, resolvePlacement, type Atom } from './core/physics';
 import { FAMILY_COLOURS, MAX_Z, element } from './core/elements';
 import {
   MODE_LABEL, decayProducts, findIsotope, formatDuration, isFleeting, isStable,
@@ -32,6 +30,7 @@ import { createTabs, iconButton, nextButton, playButton } from './ui/components'
 import { askRestart, confirming, restartButton } from './puzzles/restart';
 import { HintControl } from './puzzles/hints';
 import { clearOffers, createGameBar, offerRules, type GameBar } from './puzzles/gamebar';
+import { drawWinFx, winHold } from './puzzles/winFx';
 import { fleetingRing, pipsHtml, progressRings } from './ui/progress';
 import { countPlay, GOAL_PLAYS } from './core/plays';
 import { icon, type IconName } from './ui/icons';
@@ -60,9 +59,7 @@ const STEP_LABEL: Record<StepId, string> = { nucleus: 'Nucleus', shells: 'Electr
 
 export class Game {
   private save: SaveData = loadSave();
-  private scene: AtomScene;
   private z = 1;
-  private atom: Atom = newAtom(1);
   private neutrons = 0;
   private stage: Stage = 'home';
   private puzzle: PuzzleView | null = null;
@@ -91,7 +88,6 @@ export class Game {
   private gbar!: GameBar;
 
   constructor(private hooks: { onElement?: (z: number) => void; onView?: (z: number) => void } = {}) {
-    this.scene = new AtomScene($<HTMLCanvasElement>('atom'));
     this.detail = new Detail($<HTMLCanvasElement>('bh-atom'), { variant: 'build', empty: $('bh-empty') });
     this.bar = createAtomBar({ onChange: (z) => this.start(z), locked: (z) => !rowOpen(rowOf(z), this.save) });
     $('build-bar').append(this.bar.el);
@@ -167,16 +163,11 @@ export class Game {
     this.closeWin();
     this.z = z;
     this.neutrons = element(z).commonA - z;
-    // A built atom shows with all its electrons; one still to build, as a bare nucleus.
-    this.atom = this.save.built[z] ? fullAtom(z) : newAtom(z);
     this.busy = false;
     this.suspended = {};
     this.syncPaused();
     this.hooks.onElement?.(z);
-    const colour = this.colourFor(z);
-    this.scene.setColour(colour);
-    document.documentElement.style.setProperty('--el', colour);
-    this.scene.setAtom(this.atom, this.neutrons, { pDiscovered: true });
+    document.documentElement.style.setProperty('--el', tableColour(z));
     this.detail.show(elementAt(z), false);
     this.detail.setLit(this.litState());
     this.bar.set(z);
@@ -206,15 +197,9 @@ export class Game {
       if (!resumed) this.firstPlays(stage);
       delete this.suspended[stage];
       this.syncPaused();
-      if (stage === 'shells' && !resumed) {
-        // The electrons go on fresh each time they are played.
-        this.atom = newAtom(this.z);
-        this.scene.setAtom(this.atom, this.neutrons, { pDiscovered: true });
-      }
     }
     const home = stage === 'home';
     document.body.classList.toggle('puzzling', !home);
-    document.body.classList.toggle('stage-nucleus', stage === 'nucleus');
     document.body.classList.toggle('build-home', home);
     $('build-home').hidden = !home;
     $('build-head').hidden = home;
@@ -233,9 +218,6 @@ export class Game {
   /** The 3D atom on the Build page runs only while the page shows. */
   private syncDetail(): void {
     const on = !this.paused && this.stage === 'home';
-    // The puzzle's own scene draws only while a puzzle shows: hidden behind the Build page it
-    // would still render full screen every frame, stalling the page's atom.
-    this.scene.setActive(!this.paused && this.stage !== 'home');
     if (on === this.detailOn) return;
     this.detailOn = on;
     if (on) this.detail.start(); else this.detail.stop();
@@ -332,17 +314,12 @@ export class Game {
     window.dispatchEvent(new CustomEvent('atomos:progress', { detail: { z: this.z } }));
   }
 
-  /** The atom's own color from its place in the table, for the faint atom behind a puzzle. */
-  private colourFor(z: number): string {
-    return tableColour(z);
-  }
-
   private refresh(): void {
     const el = element(this.z);
     $('edge').textContent = `ATOMOS 400 ▸ ${el.symbol.toUpperCase()} ${el.z} ▸ PLATE ${String(el.z).padStart(4, '0')}`;
     this.renderStage();
     ($('btn-undo') as HTMLButtonElement).disabled = !this.puzzle?.canUndo() || this.busy;
-    ($('btn-restart') as HTMLButtonElement).disabled = this.puzzle === null || this.busy;
+    ($('btn-restart') as HTMLButtonElement).disabled = !this.restartOptions().canRestart();
     this.sayHint();
   }
 
@@ -354,7 +331,7 @@ export class Game {
   private renderHead(): void {
     const stage = this.stage as Exclude<Stage, 'home'>;
     const t = this.stagePuzzle(stage);
-    this.gbar.setTitle(t.name);
+    this.gbar.setTitle(t.name, puzzleIcon(t.id, 22));
     this.gbar.setBack(element(this.z).name);
     this.gbar.setDifficulty(difficulty(t.id, this.dealtFor(stage)));
   }
@@ -730,6 +707,7 @@ export class Game {
     this.hints.watch(p, now);
     this.renderStage();
     ($('btn-undo') as HTMLButtonElement).disabled = !p.canUndo() || this.busy;
+    ($('btn-restart') as HTMLButtonElement).disabled = !this.restartOptions().canRestart();
     this.sayHint();
     if (p.won && !this.busy) {
       void this.stageSolved();
@@ -743,18 +721,20 @@ export class Game {
     const stage = this.stage as Exclude<Stage, 'home'>;
     this.busy = true;
     const reduced = this.save.settings.reducedMotion;
-    // Let the winning board show for a beat.
+    // Let the solved board show for a couple of seconds, with the win effect over it.
     const hold = performance.now();
     await new Promise<void>((resolve) => {
       const tick = (t: number) => {
-        p.draw(this.overlayCtx(), this.area(), t);
-        if (t - hold > (reduced ? 200 : 900)) resolve();
+        const ctx = this.overlayCtx(), area = this.area();
+        p.draw(ctx, area, t);
+        drawWinFx(ctx, area, t - hold, reduced);
+        if (t - hold > winHold(reduced)) resolve();
         else requestAnimationFrame(tick);
       };
       requestAnimationFrame(tick);
     });
     this.puzzle = null;
-    document.body.classList.remove('puzzling', 'stage-nucleus');
+    document.body.classList.remove('puzzling');
     this.clearOverlay();
     if (stage === 'shape') {
       this.discoverShape(p);
@@ -770,8 +750,6 @@ export class Game {
     }
     const wasBuilt = Boolean(this.save.built[this.z]);
     this.recordStep(stage, p);
-    if (stage === 'shells') this.atom = fullAtom(this.z);
-    this.scene.setAtom(this.atom, this.neutrons, { pDiscovered: true });
     // Back on the Build page, the part just solved lights up in the 3D atom before the win shows.
     this.enter('home');
     $('build-home').scrollTo({ top: 0, behavior: reduced ? 'auto' : 'smooth' });
@@ -893,12 +871,7 @@ export class Game {
     const key = isotopeKey(this.z, el.commonA);
     this.save.isotopes[key] = { ...this.save.isotopes[key], collected: true };
     this.saveProgress();
-    if (step === 'nucleus' && electronCount(this.atom) < this.z) {
-      this.atom = fullAtom(this.z);
-      this.scene.setAtom(this.atom, this.neutrons, { pDiscovered: true });
-    }
     this.detail.setLit(this.litState());
-    this.scene.celebrate();
     sfx.completeSound();
     this.say('');
     const lasting = lastingIsotopes(this.z).length;
@@ -984,7 +957,7 @@ export class Game {
     window.addEventListener('blur', () => this.onCancel());
   }
 
-  private point(e: PointerEvent): ScreenPoint {
+  private point(e: PointerEvent): { x: number; y: number } {
     return { x: e.clientX, y: e.clientY };
   }
 
@@ -1342,7 +1315,6 @@ export class Game {
     const s = this.save.settings;
     sfx.setSound(s.sound);
     sfx.setHaptics(s.haptics);
-    this.scene.setReducedMotion(s.reducedMotion);
     this.detail.setReducedMotion(s.reducedMotion);
   }
 
@@ -1386,17 +1358,6 @@ function superscriptNum(n: number): string {
   return String(Math.round(n)).split('').map((c) => map[c] ?? c).join('');
 }
 
-/** An atom with every electron in place, as a finished build shows it. */
-function fullAtom(z: number): Atom {
-  let atom = newAtom(z);
-  for (let i = 0; i < z; i++) {
-    const r = resolvePlacement(atom);
-    if (r?.kind !== 'placed') break;
-    atom = applyPlacement(atom, r.orbital, r.spin);
-  }
-  return atom;
-}
-
 /** "7.59%", "0.011%": a share of the element found on Earth. */
 function formatPercent(p: number): string {
   return `${p >= 10 ? Math.round(p) : p >= 1 ? p.toFixed(1) : Number(p.toPrecision(2))}%`;
@@ -1405,6 +1366,6 @@ function formatPercent(p: number): string {
 const wait = (ms: number) => new Promise((r) => window.setTimeout(r, ms));
 
 
-export { FAMILY_COLOURS, electronCount };
+export { FAMILY_COLOURS };
 
 

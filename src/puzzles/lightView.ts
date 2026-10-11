@@ -417,8 +417,7 @@ function paintLight(ctx: CanvasRenderingContext2D, s: LightState, g: Geo, progre
   }
 
   // The beam, grown out from the lamp by steps since the last change: per color, runs of
-  // (from, to, distance along the beam at `from`, 1 where the beam ends at `to`). The distance
-  // keeps the photon pulses in step through every turn and split.
+  // (from, to, distance along the beam at `from`, 1 where the beam ends at `to`).
   const segs = new Map<Hue, number[]>();
   const seg = (h: Hue, a: Point, bx: number, by: number, f: number, d: number, end: boolean) => {
     if (f <= 0) return;
@@ -441,8 +440,7 @@ function paintLight(ctx: CanvasRenderingContext2D, s: LightState, g: Geo, progre
       seg(v.outHue, p, p.x + ox * reach, p.y + oy * reach, f * 2 - 1, d + half, out);
     }
   }
-  const t = now / 1000;
-  drawBeam(ctx, segs, c, motion ? t : null);
+  drawBeam(ctx, segs, c);
 
   // Pieces.
   const lit = beam.lit;
@@ -458,15 +456,7 @@ function paintLight(ctx: CanvasRenderingContext2D, s: LightState, g: Geo, progre
   for (const tg of s.targets) {
     if (!shown(tg.cell)) continue;
     const on = targetLit(tg, lit);
-    // A lit ring brightens softly each time a photon pulse reaches it.
-    let flare = 0;
-    if (on && motion) {
-      for (const v of beam.visits) {
-        if (v.cell !== tg.cell || (tg.hue !== 'w' && v.hue !== tg.hue) || progress - v.depth < 0.5) continue;
-        flare = Math.max(flare, pulseAt(v.depth * c + half, c, t));
-      }
-    }
-    targetRing(ctx, tg, center(tg.cell), c, on, motion, flare);
+    targetRing(ctx, tg, center(tg.cell), c, on, motion);
   }
   for (const d of s.darks) if (shown(d)) darkSensor(ctx, center(d), c, lit.has(d), now, motion);
 
@@ -508,30 +498,12 @@ function boardFrame(ctx: CanvasRenderingContext2D, s: LightState, g: Geo): void 
   ctx.restore();
 }
 
-/** Photon pulses on the beam: cells apart, and cells travelled per second. Calm on purpose. */
-const PULSE_GAP = 2.6;
-const PULSE_SPEED = 1.7;
-
 /**
- * How strongly a pulse is arriving at distance `d` along the beam at time `t` (seconds): 1 as one
- * reaches it, falling to 0 over a quarter of the gap to the next.
+ * The laser: per color a soft wide glow, the beam in its color and a hot thin core, steady (no
+ * moving dots). `segs` holds runs as from x, y, to x, y, the distance along the beam at the
+ * start, and 1 where the beam ends at the run's end.
  */
-function pulseAt(d: number, c: number, t: number): number {
-  const gap = PULSE_GAP * c;
-  const u = ((((t * PULSE_SPEED * c - d) % gap) + gap) % gap) / gap;
-  return Math.max(0, 1 - u * 4);
-}
-
-/**
- * The laser: per color a soft wide glow, the beam in its color and a hot thin core. While motion
- * is on (`t` is the time in seconds, null when still), small bright photon pulses run along it
- * from the lamp at a calm pace, a few cells apart, keeping step through every mirror and split
- * (the distance along the beam sets where they are), and fade out where the beam ends. Each pulse
- * is a short tail and a dot in the beam's color with a white center, so a tinted beam keeps its
- * color. `segs` holds runs as from x, y, to x, y, the distance along the beam at the start, and 1
- * where the beam ends at the run's end.
- */
-function drawBeam(ctx: CanvasRenderingContext2D, segs: Map<Hue, number[]>, c: number, t: number | null): void {
+function drawBeam(ctx: CanvasRenderingContext2D, segs: Map<Hue, number[]>, c: number): void {
   ctx.save();
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
@@ -558,60 +530,6 @@ function drawBeam(ctx: CanvasRenderingContext2D, segs: Map<Hue, number[]>, c: nu
     ctx.globalAlpha = white ? 1 : 0.45;
     ctx.lineWidth = Math.max(1, c * 0.016);
     ctx.stroke();
-  }
-  if (t !== null) {
-    const gap = PULSE_GAP * c, head = t * PULSE_SPEED * c;
-    const tail = c * 0.55, fade = c * 0.45;
-    const halo = Math.max(4.5, c * 0.12), core = Math.max(2, c * 0.05);
-    for (const [h, pts] of segs) {
-      const col = hueColor(h);
-      for (let q = 0; q < pts.length; q += 6) {
-        const ax = pts[q], ay = pts[q + 1], len = Math.hypot(pts[q + 2] - ax, pts[q + 3] - ay);
-        if (len < 0.5) continue;
-        const ux = (pts[q + 2] - ax) / len, uy = (pts[q + 3] - ay) / len, d0 = pts[q + 4], end = pts[q + 5] === 1;
-        // The first pulse at or past this run's start, then every gap after it.
-        for (let d = head - Math.floor((head - d0) / gap) * gap; d <= d0 + len; d += gap) {
-          if (d < 0) continue;
-          const sd = d - d0;
-          // Fade in out of the lamp, and out where the beam ends.
-          const k = Math.min(1, d / fade, end ? (len - sd) / fade : 1);
-          if (k <= 0) continue;
-          const x = ax + ux * sd, y = ay + uy * sd;
-          // A tail thinning back along the beam: two strokes, the nearer half brighter.
-          const back = Math.min(sd, tail);
-          ctx.strokeStyle = col;
-          ctx.lineWidth = core * 1.5;
-          ctx.globalAlpha = 0.25 * k;
-          ctx.beginPath();
-          ctx.moveTo(x - ux * back, y - uy * back);
-          ctx.lineTo(x, y);
-          ctx.stroke();
-          ctx.globalAlpha = 0.45 * k;
-          ctx.beginPath();
-          ctx.moveTo(x - ux * back * 0.5, y - uy * back * 0.5);
-          ctx.lineTo(x, y);
-          ctx.stroke();
-          // The photon: a soft halo in the beam's color, then a bright dot with a white heart.
-          ctx.fillStyle = col;
-          ctx.globalAlpha = 0.28 * k;
-          ctx.beginPath();
-          ctx.arc(x, y, halo, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.globalAlpha = 0.5 * k;
-          ctx.beginPath();
-          ctx.arc(x, y, halo * 0.62, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.globalAlpha = k;
-          ctx.beginPath();
-          ctx.arc(x, y, core, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.fillStyle = '#ffffff';
-          ctx.beginPath();
-          ctx.arc(x, y, core * 0.6, 0, Math.PI * 2);
-          ctx.fill();
-        }
-      }
-    }
   }
   ctx.restore();
 }
@@ -643,16 +561,15 @@ function lamp(ctx: CanvasRenderingContext2D, e: Point, dir: Dir, c: number, moti
   bead(ctx, x1, y1, Math.max(3, c * 0.09), C.silver, { glow: motion ? C.silver : undefined });
 }
 
-/** A target ring: red, or its light's color with a small red heart; filled while lit, and a
- *  little brighter for a moment (`flare`, 0 to 1) as each photon pulse arrives. */
-function targetRing(ctx: CanvasRenderingContext2D, t: Target, p: Point, c: number, on: boolean, motion: boolean, flare = 0): void {
+/** A target ring: red, or its light's color with a small red heart; filled while lit. */
+function targetRing(ctx: CanvasRenderingContext2D, t: Target, p: Point, c: number, on: boolean, motion: boolean): void {
   const col = t.hue === 'w' ? C.target : C[t.hue];
   const r = c * 0.22;
   ctx.save();
   if (on) {
-    if (motion) { ctx.shadowColor = col; ctx.shadowBlur = c * (0.3 + 0.25 * flare); }
+    if (motion) { ctx.shadowColor = col; ctx.shadowBlur = c * 0.3; }
     ctx.fillStyle = col;
-    ctx.globalAlpha = 0.5 + 0.25 * flare;
+    ctx.globalAlpha = 0.5;
     ctx.beginPath();
     ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
     ctx.fill();

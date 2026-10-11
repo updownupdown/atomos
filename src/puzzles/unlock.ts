@@ -8,7 +8,7 @@ import { iconButton } from '../ui/components';
 import { askRestart, restartButton } from './restart';
 import { icon } from '../ui/icons';
 import { modalOpen } from '../ui/modal';
-import { puzzleType } from './catalog';
+import { puzzleIcon, puzzleType } from './catalog';
 import { PuzzleHost } from './host';
 import { difficulty } from './difficulty';
 import { createGameBar, offerRules } from './gamebar';
@@ -67,20 +67,22 @@ function run(id: UnlockId, info: UnlockInfo): Promise<boolean> {
 
     const undo = iconButton({ icon: icon('undo'), label: 'Undo', onClick: () => host.undo() });
     const rules = () => openRules(t, { reducedMotion: reduced });
+    const restart = restartButton(restartOpts);
     const bar = createGameBar([
       undo,
-      restartButton(restartOpts),
+      restart,
       host.hints.button,
       iconButton({ icon: icon('info'), label: 'Instructions', onClick: rules }),
     ], { label: 'Gallery', onClick: () => finish(Boolean(loadSave().unlocks[id])) });
     bar.setDifficulty(difficulty(t.id, z));
-    bar.setTitle(t.name);
+    bar.setTitle(t.name, puzzleIcon(t.id, 22));
     play.before(bar.el);
     play.after(bar.foot);
     offerRules(bar, t, rules);
 
     host.onFrame = (v) => {
       undo.disabled = !v.canUndo();
+      restart.disabled = !restartOpts.canRestart();
       const plain = host.status();
       bar.update(v, plain.length > 60 && plain !== host.hints.line(v) ? '' : plain);
     };
@@ -120,6 +122,7 @@ function run(id: UnlockId, info: UnlockInfo): Promise<boolean> {
     }
     window.addEventListener('keydown', key, true);
 
+    host.reducedMotion = reduced;
     host.set(t.make!(z, 0, reduced));
     window.dispatchEvent(new Event('resize'));
     bar.back.focus({ preventScroll: true });

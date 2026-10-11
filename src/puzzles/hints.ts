@@ -26,7 +26,7 @@ export class HintControl {
   /** `current` is the puzzle on screen; `changed` runs after a hint, to redraw. `button` is for
    *  tests; the app makes its own. */
   constructor(private current: () => PuzzleView | null, private changed: () => void = () => {}, button?: HTMLButtonElement) {
-    this.button = button ?? iconButton({ icon: icon('search'), label: 'Hint', onClick: () => this.ask() });
+    this.button = button ?? iconButton({ icon: icon('buoy'), label: 'Hint', onClick: () => this.ask() });
     this.button.classList.add('hint-btn');
   }
 

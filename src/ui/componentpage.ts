@@ -15,6 +15,7 @@ import { openElementPicker } from './picker';
 import { progressHtml } from './modebar';
 import { pipsHtml, progressRings } from './progress';
 import { createGameBar, offerRules, type GameBar } from '../puzzles/gamebar';
+import { puzzleIcon } from '../puzzles/catalog';
 import { showWin } from '../puzzles/winPanel';
 import type { PuzzleView } from '../puzzles/view';
 
@@ -69,7 +70,7 @@ export function renderComponentPage(page: HTMLElement, onBack: () => void): void
   const primary = h('button', 'primary', 'Done');
   const secondary = h('button', 'secondary', 'New deal');
   const danger = h('button', 'secondary danger', 'Reset everything');
-  const nudge = iconButton({ icon: icon('search'), label: 'Hint, nudging', className: 'hint-btn is-nudge' });
+  const nudge = iconButton({ icon: icon('buoy'), label: 'Hint, nudging', className: 'hint-btn is-nudge' });
   const pressed = iconButton({ icon: icon('scale'), label: 'Pressed' });
   pressed.setAttribute('aria-pressed', 'true');
   const disabled = iconButton({ icon: icon('undo'), label: 'Disabled' });
@@ -204,11 +205,11 @@ export function renderComponentPage(page: HTMLElement, onBack: () => void): void
   const bar: GameBar = createGameBar([
     iconButton({ icon: icon('undo'), label: 'Undo' }),
     iconButton({ icon: icon('restart'), label: 'Restart' }),
-    iconButton({ icon: icon('search'), label: 'Hint' }),
+    iconButton({ icon: icon('buoy'), label: 'Hint' }),
     iconButton({ icon: icon('info'), label: 'Instructions' }),
     iconButton({ icon: MICROSCOPE, label: 'The science' }),
   ], { label: 'Gallium', onClick: () => showToast('Back') });
-  bar.setTitle('Quanta');
+  bar.setTitle('Quanta', puzzleIcon('orbitalGrid', 22));
   bar.setDifficulty(3);
   bar.update(fakeView(4), '4 / 12 placed');
   const board = h('div', 'cl-board', '<span>The board</span>');
