@@ -1,6 +1,6 @@
 // Drawing and touch for Spin: tap a cell to set its spin up, tap again for down, again to
-// clear. Dealt cells sit on soft square plates and cannot change; the player's are plain
-// arrows. Links between cells show as a small "=" or "x" on their shared edge. Anything that
+// clear. Up is a red plate and down a blue one, like a magnet's poles, each with its arrow;
+// dealt cells carry dark arrows and cannot change, the player's carry white ones. Links between cells show as a small "=" or "x" on their shared edge. Anything that
 // breaks a rule is outlined in amber as soon as it does.
 //
 // The board is painted by `paintSpin`, which the rule cards' pictures share.
@@ -87,19 +87,38 @@ function linkMark(ctx: CanvasRenderingContext2D, s: SpinState, g: Geo, l: Link):
   ctx.restore();
 }
 
-/** Paints the grid: plates under the dealt cells, every spin as an arrow, the links, and amber
- *  outlines round whatever breaks a rule. */
-export function paintSpin(ctx: CanvasRenderingContext2D, s: SpinState, g: Geo, o: Paint): void {
+/** Spin up is red and spin down blue, like a magnet's poles, so the board reads by color. */
+export const SPIN_UP = '#e0503a';
+export const SPIN_DOWN = '#4f8fe8';
+/** The arrow on a dealt cell: dark, as if printed on the plate. The player's own are white. */
+const GIVEN_INK = '#15171a';
+
+/** Paints the grid: a red or blue plate under every spin with its arrow on top (dark on the
+ *  dealt cells, white on the player's), the links, and amber outlines round whatever breaks a
+ *  rule. `glow` lifts single cells (0 to 1) for the win wave. */
+export function paintSpin(ctx: CanvasRenderingContext2D, s: SpinState, g: Geo, o: Paint & { glow?: (i: number) => number }): void {
   const c = g.c;
   lattice(ctx, s, g);
   const bad = o.mark ? flaws(s) : new Set<number>();
   for (let i = 0; i < s.cells.length; i++) {
     const p = centerOf(s, g, i);
     const v = s.cells[i];
-    if (s.given[i]) tile(ctx, p.x - c * 0.4, p.y - c * 0.4, c * 0.8, c * 0.8, c * 0.16, C.surface3, null);
     const pop = o.pop?.cell === i ? o.pop.k : 1;
-    if (v) arrow(ctx, p.x, p.y, c, v, s.given[i] ? C.silverDim : C.tile, 0.6 + 0.4 * pop);
-    if (bad.has(i)) tile(ctx, p.x - c * 0.44, p.y - c * 0.44, c * 0.88, c * 0.88, c * 0.18, null, C.warn, Math.max(2, c * 0.06));
+    if (v) {
+      const k = 0.55 + 0.45 * pop;
+      const h = c * 0.4 * k;
+      const given = !!s.given[i];
+      tile(ctx, p.x - h, p.y - h, h * 2, h * 2, c * 0.16 * k, v === 1 ? SPIN_UP : SPIN_DOWN, null);
+      const lift = o.glow?.(i) ?? 0;
+      if (lift > 0) {
+        ctx.save();
+        ctx.globalAlpha = 0.45 * lift;
+        tile(ctx, p.x - h, p.y - h, h * 2, h * 2, c * 0.16 * k, '#ffffff', null);
+        ctx.restore();
+      }
+      arrow(ctx, p.x, p.y, c, v, given ? GIVEN_INK : '#ffffff', 0.6 + 0.4 * pop);
+    }
+    if (bad.has(i)) tile(ctx, p.x - c * 0.47, p.y - c * 0.47, c * 0.94, c * 0.94, c * 0.2, null, C.warn, Math.max(2, c * 0.06));
   }
   for (const l of s.links) linkMark(ctx, s, g, l);
 }
@@ -112,6 +131,10 @@ export class SpinView implements PuzzleView {
   private cell = 0;
   private reduced: boolean;
   private mark: { state: SpinState; cell: number } | null = null;
+  /** The cell last set and when, for its plate's pop. */
+  private popped: { cell: number; at: number } | null = null;
+  private wonAt: number | null = null;
+  private now = 0;
 
   constructor(private readonly initial: SpinState, reducedMotion: boolean) {
     this.state = cloneSpin(initial);
@@ -156,12 +179,15 @@ export class SpinView implements PuzzleView {
 
   private apply(next: SpinState | null): void {
     if (!next) return;
+    const changed = next.cells.findIndex((v, i) => v !== this.state.cells[i]);
+    this.popped = changed >= 0 && !this.reduced ? { cell: changed, at: this.now } : null;
     this.history.push(this.state);
     if (this.history.length > 200) this.history.shift();
     this.state = next;
   }
 
   restart(): void {
+    this.popped = null;
     this.state = cloneSpin(this.initial);
     this.history = [];
   }
@@ -203,7 +229,20 @@ export class SpinView implements PuzzleView {
     this.cell = c;
     this.origin = { x: fit.x, y: fit.y };
     const g = { x: fit.x, y: fit.y, c };
-    paintSpin(ctx, s, g, { mark: true });
+    this.now = now;
+    if (!this.won) this.wonAt = null;
+    else this.wonAt ??= now;
+    const k = this.popped ? Math.min(1, (now - this.popped.at) / 160) : 1;
+    const pop = this.popped && k < 1 ? { cell: this.popped.cell, k: popEase(k) } : undefined;
+    if (k >= 1) this.popped = null;
+    // The win: a wave of light runs corner to corner across the plates, once.
+    const t = this.wonAt === null || this.reduced ? -1 : now - this.wonAt;
+    const glow = t >= 0 && t < 1400 ? (i: number) => {
+      const d = (i % s.size) + Math.floor(i / s.size);
+      const u = (t - d * 70) / 360;
+      return u > 0 && u < 1 ? Math.sin(u * Math.PI) : 0;
+    } : undefined;
+    paintSpin(ctx, s, g, { mark: true, pop, glow });
     const m = this.mark?.state === s && !this.won ? this.mark : null;
     if (m) {
       const p = centerOf(s, g, m.cell);
@@ -211,6 +250,9 @@ export class SpinView implements PuzzleView {
     }
   }
 }
+
+/** A small overshoot, so a plate lands with a little bounce. */
+const popEase = (t: number): number => { const u = t - 1; return 1 + 2.2 * u * u * u + 1.2 * u * u; };
 
 /** The room the board frame takes round a grid of this cell size: its padding and half its stroke. */
 const frameRoom = (c: number): number => framePad(c) + frameWidth(c) / 2 + 1;
@@ -280,7 +322,7 @@ function picture(rows: string[], caption: string, links: { a: [number, number]; 
 export const RULES: RuleCard[] = [
   {
     title: 'Spins',
-    text: 'Tap an empty cell for spin up, again for spin down, and again to clear it. Dealt spins on plates cannot change.',
+    text: 'Tap an empty cell for spin up (red), again for spin down (blue), and again to clear it. Dealt spins have dark arrows and cannot change.',
     good: picture(['U.', '.d'], 'Up, then down'),
   },
   {
