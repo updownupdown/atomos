@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ELEMENTS, elementAt } from '../src/gallery/data';
 import { TABS, elementFacts, elementImage, tabHTML } from '../src/gallery/info';
-import { buildOrder, lifeMeter, orbitalFill, rankOf } from '../src/gallery/visuals';
+import { buildOrder, lifeMeter, orbitalAssembly, orbitalFill, rankOf } from '../src/gallery/visuals';
 
 describe('science sheet visuals', () => {
   it('fills orbitals singly before pairing (Hund)', () => {
@@ -13,6 +13,16 @@ describe('science sheet visuals', () => {
 
   it('builds 4s before 3d', () => {
     expect(buildOrder(elementAt(26)).map((s) => s.key)).toEqual(['1s', '2s', '2p', '3s', '3p', '4s', '3d']);
+  });
+
+  it('assembles iron from the nucleus up: nucleus, argon core, 4s, then 3d', () => {
+    const html = orbitalAssembly(elementAt(26));
+    const steps = [...html.matchAll(/<span class="oa-step">(\d*)<\/span>/g)].map((m) => m[1]).filter(Boolean);
+    expect(steps).toEqual(['4', '3', '2', '1']);
+    expect(html.indexOf('3d')).toBeLessThan(html.indexOf('4s'));
+    expect(html).toContain('Argon core');
+    // One drawn orbital per orbital: 4s (1) and 3d (5) outside the core, and the core's 9 under Details.
+    expect(html.match(/class="os-glyph/g)?.length).toBe(15);
   });
 
   it('ranks and scales sensibly', () => {

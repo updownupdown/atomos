@@ -1,4 +1,4 @@
-// The picture at the top of each science tab: a build blueprint for the
+// The picture at the top of each science tab: the orbitals assembled layer by layer for the
 // structure, an album of isotope tiles, axes that place each property among
 // all elements, and a timeline of discoveries. Plain SVG and HTML strings,
 // coloured through the design tokens in style.css.
@@ -13,7 +13,7 @@ const ordinal = (n: number) => {
   return n + (s[(v - 20) % 10] || s[v] || s[0]);
 };
 
-// ---------- Structure: an exploded assembly drawing ----------
+// ---------- Structure: the atom assembled, layer by layer ----------
 
 /** Layers in the order they are usually filled (Madelung: n + l, then n). */
 export function buildOrder(e: Element): Subshell[] {
@@ -28,109 +28,7 @@ export function orbitalFill(count: number, capacity: number): number[] {
 
 const CORE_NAME: Record<string, string> = { He: 'Helium', Ne: 'Neon', Ar: 'Argon', Kr: 'Krypton', Xe: 'Xenon', Rn: 'Radon' };
 
-export function blueprint(e: Element): string {
-  const key = keyIsotope(e);
-  const neutrons = key ? key.a - e.z : null;
-  const core = e.subshells.filter((s) => s.core);
-  const coreCount = core.reduce((n, s) => n + s.count, 0);
-  const outer = buildOrder(e).filter((s) => !s.core);
-
-  const W = 380, cx = 124, calloutX = 252, tilt = 0.32;
-  const rad = (n: number, l: number) => 20 + (n - 1) * 15 + l * 4;
-  const ring = (cy: number, r: number, cls: string) =>
-    `<path class="bp-back ${cls}" d="M ${cx - r} ${cy} A ${r} ${r * tilt} 0 0 1 ${cx + r} ${cy}"/>`
-    + `<path class="bp-front ${cls}" d="M ${cx - r} ${cy} A ${r} ${r * tilt} 0 0 0 ${cx + r} ${cy}"/>`;
-
-  // Parts from the top down; drawn bottom-up so the nucleus sits on the base line.
-  type Part = { h: number; draw: (cy: number, step: number) => string };
-  const parts: Part[] = [];
-  let step = 0;
-  const callout = (cy: number, r: number, n: number, title: string, sub: string, colour?: string) =>
-    `<path class="bp-leader" d="M ${cx + r + 3} ${cy} H ${calloutX - 12}"/>`
-    + `<circle class="bp-step" cx="${calloutX}" cy="${cy}" r="9"/><text class="bp-step-n" x="${calloutX}" y="${cy + 3.5}">${n}</text>`
-    + `<text class="bp-title" x="${calloutX + 15}" y="${cy - 1}"${colour ? ` style="fill:${colour}"` : ''}>${title}</text>`
-    + `<text class="bp-sub" x="${calloutX + 15}" y="${cy + 11}">${sub}</text>`;
-
-  parts.push({
-    h: 46,
-    draw: (cy, n) => {
-      const balls: string[] = [];
-      const pts = [[0, 0], [-5.2, -3], [5.2, -3], [0, -6], [-5.2, 3], [5.2, 3], [0, 6]];
-      pts.forEach(([x, y], i) => balls.push(`<circle class="${i % 2 ? 'bp-neutron' : 'bp-proton'}" cx="${cx + x}" cy="${cy + y * 0.8}" r="3.4"/>`));
-      return balls.join('') + callout(cy, 10, n, 'Nucleus', neutrons == null ? `${e.z} protons` : `${e.z} protons, ${neutrons} neutrons`);
-    },
-  });
-  if (core.length) {
-    const shells = [...new Set(core.map((s) => s.n))];
-    parts.push({
-      h: 40,
-      draw: (cy, n) => shells.map((sn) => ring(cy, rad(sn, 0) + 2, 'bp-core')).join('')
-        + callout(cy, rad(shells[shells.length - 1], 0) + 2, n, `${CORE_NAME[e.core!] ?? e.core} core`, `${coreCount} electrons, ready made`),
-    });
-  }
-  for (const s of outer) {
-    parts.push({
-      h: 42,
-      draw: (cy, n) => {
-        const r = rad(s.n, L_OF[s.l]);
-        const fill = orbitalFill(s.count, s.capacity);
-        const colour = BLOCK_COLOUR[s.l];
-        const dots: string[] = [];
-        fill.forEach((k, i) => {
-          const a = Math.PI * 0.5 + (i / fill.length) * Math.PI * 2;
-          for (let j = 0; j < 2; j++) {
-            const aj = a + (j ? 0.09 : -0.09) * (60 / r);
-            const x = cx + r * Math.cos(aj), y = cy + r * tilt * Math.sin(aj);
-            const back = Math.sin(aj) < 0;
-            dots.push(j < k
-              ? `<circle class="bp-e${back ? ' back' : ''}" cx="${f1(x)}" cy="${f1(y)}" r="3" style="fill:${colour}"/>`
-              : `<circle class="bp-slot${back ? ' back' : ''}" cx="${f1(x)}" cy="${f1(y)}" r="2.5"/>`);
-          }
-        });
-        return `<g style="stroke:${colour}">${ring(cy, r, 'bp-layer')}</g>${dots.join('')}`
-          + callout(cy, r, n, `${s.key}${sup(s.count)}`, `${s.count} of ${s.capacity}`, colour);
-      },
-    });
-  }
-
-  const top = 26, bottom = 52;
-  const H = top + parts.reduce((h, p) => h + p.h, 0) + bottom;
-  let y = H - bottom - parts[0].h / 2;
-  const body: string[] = [];
-  const centres: number[] = [];
-  parts.forEach((p, i) => {
-    if (i) y -= (parts[i - 1].h + p.h) / 2;
-    centres.push(y);
-    body.push(p.draw(y, ++step));
-  });
-  const axis = `<path class="bp-axis" d="M ${cx} ${centres[centres.length - 1] - 26} V ${centres[0] + 22}"/>`;
-  const sheet = `${e.symbol.toUpperCase()}${key ? '-' + key.a : ''}`;
-  const titleBlock = `<g class="bp-block"><rect x="${W - 168}" y="${H - 34}" width="160" height="26"/>`
-    + `<path d="M ${W - 100} ${H - 34} V ${H - 8}"/>`
-    + `<text x="${W - 160}" y="${H - 17}">${sheet}</text><text x="${W - 92}" y="${H - 17}">Not to scale</text></g>`;
-  const svg = `<svg class="bp" viewBox="0 0 ${W} ${H}" role="img" aria-label="Assembly drawing of ${esc(e.name)}, layer by layer">
-    <defs><pattern id="bp-grid" width="12" height="12" patternUnits="userSpaceOnUse"><path d="M 12 0 H 0 V 12" class="bp-gridline"/></pattern></defs>
-    <rect width="${W}" height="${H}" fill="url(#bp-grid)" class="bp-paper"/>
-    <text class="bp-head" x="12" y="18">Assembly · ${esc(e.name)}</text>
-    ${axis}${body.join('')}${titleBlock}
-  </svg>`;
-
-  // The same steps in words.
-  const steps: string[] = [];
-  steps.push(`<li><b>Nucleus.</b> ${e.z} proton${e.z === 1 ? '' : 's'}${neutrons ? ` and ${neutrons} neutron${neutrons === 1 ? '' : 's'}` : ''}, packed into a ball about ${e.nucleusRadius.toFixed(1)} fm in radius.</li>`);
-  if (core.length) steps.push(`<li><b>${CORE_NAME[e.core!] ?? e.core} core.</b> ${coreCount} electrons in ${core.map((s) => s.key).join(', ')}, the same as a finished ${CORE_NAME[e.core!]?.toLowerCase() ?? e.core} atom.</li>`);
-  for (const s of outer) {
-    const fill = orbitalFill(s.count, s.capacity);
-    const single = fill.filter((k) => k === 1).length;
-    const full = s.count === s.capacity;
-    steps.push(`<li><b>${s.key}.</b> Add ${s.count} electron${s.count === 1 ? '' : 's'}${full ? ', filling it' : ` of a possible ${s.capacity}`}${single ? `; ${single} sit${single === 1 ? 's' : ''} alone` : ''}.</li>`);
-  }
-  return `<figure class="bp-figure">${svg}</figure>
-    <ol class="bp-steps">${steps.join('')}</ol>
-    <p class="note">An illustration, like an exploded drawing: real electrons are clouds, not rings, and the layers overlap rather than stack. Each pair of dots is one orbital; hollow dots are room to spare. The 3D tab shows the true shapes and sizes.</p>`;
-}
-
-// ---------- Structure, second and third views: the shells as they are, and the orbital boxes ----------
+// ---------- Structure: the shells as they are, and the orbitals assembled ----------
 
 const SHELL_NAMES = ['K', 'L', 'M', 'N', 'O', 'P', 'Q'];
 
@@ -255,46 +153,75 @@ export function orbitalOutline(l: number, m: number, steps = 360): { d: string; 
   return lobes;
 }
 
-/**
- * Orbitals and their shapes in one map: a row per shell (the outermost at the top), each
- * subshell's orbitals as small 2D shapes (solid when full, paler when half full, outlined when
- * empty) with their electrons' spins under them as arrows, a lone electron in cyan; the
- * noble-gas core dimmed. Details adds each orbital's name and each subshell's count.
- */
-export function orbitalMap(e: Element): string {
-  const byShell = new Map<number, Subshell[]>();
-  for (const s of e.subshells) byShell.set(s.n, [...(byShell.get(s.n) ?? []), s]);
-  const rows = [...byShell.entries()].sort((a, b) => b[0] - a[0]).map(([n, subs]) => {
-    const groups = subs.sort((a, b) => L_OF[a.l] - L_OF[b.l]).map((s) => {
-      const l = L_OF[s.l];
-      const glyphs = orbitalFill(s.count, s.capacity).map((k, oi) => {
-        const paths = orbitalOutline(l, M_ORDER[oi]).map((b) => `<path class="os-lobe ${b.plus ? 'is-plus' : 'is-minus'}" d="${b.d}"/>`).join('');
-        const spins = `${k >= 1 ? `<b class="${k === 1 ? 'is-lone' : ''}">↑</b>` : ''}${k === 2 ? '<b>↓</b>' : ''}`;
-        return `<figure class="os-glyph om-glyph os-fill-${k}" data-l="${s.l}">
-          <svg viewBox="-1 -1 2 2" aria-hidden="true"><path class="os-axis" d="M -0.95 0 H 0.95 M 0 -0.95 V 0.95"/>${paths}</svg>
-          <span class="os-unknown" aria-hidden="true">?</span>
-          <span class="om-spin" aria-label="${k} electron${k === 1 ? '' : 's'}">${spins}</span>
-          <figcaption class="om-name">${ORBITAL_NAMES[s.l][oi]}</figcaption>
-        </figure>`;
-      }).join('');
-      return `<div class="om-group${s.core ? ' is-core' : ''}" style="--b:${BLOCK_COLOUR[s.l]}"><span class="om-key">${s.key}<small class="om-count">${s.count}/${s.capacity}</small></span><div class="om-glyphs">${glyphs}</div></div>`;
-    }).join('');
-    return `<div class="om-row"><span class="ob-shell">${SHELL_NAMES[n - 1]}</span><div class="om-groups">${groups}</div></div>`;
+/** One subshell's orbitals as small 2D shapes (solid when full, paler when half full, outlined
+ *  when empty) with their electrons' spins under them as arrows, a lone electron in cyan. */
+function orbitalGlyphs(s: Subshell): string {
+  const l = L_OF[s.l];
+  return orbitalFill(s.count, s.capacity).map((k, oi) => {
+    const paths = orbitalOutline(l, M_ORDER[oi]).map((b) => `<path class="os-lobe ${b.plus ? 'is-plus' : 'is-minus'}" d="${b.d}"/>`).join('');
+    const spins = `${k >= 1 ? `<b class="${k === 1 ? 'is-lone' : ''}">↑</b>` : ''}${k === 2 ? '<b>↓</b>' : ''}`;
+    return `<figure class="os-glyph om-glyph os-fill-${k}" data-l="${s.l}">
+      <svg viewBox="-1 -1 2 2" aria-hidden="true"><path class="os-axis" d="M -0.95 0 H 0.95 M 0 -0.95 V 0.95"/>${paths}</svg>
+      <span class="os-unknown" aria-hidden="true">?</span>
+      <span class="om-spin" aria-label="${k} electron${k === 1 ? '' : 's'}">${spins}</span>
+      <figcaption class="om-name">${ORBITAL_NAMES[s.l][oi]}</figcaption>
+    </figure>`;
   }).join('');
+}
+
+/**
+ * The atom assembled from the bottom up, as an orbital diagram: the nucleus, the noble-gas core,
+ * then a numbered step per outer layer in the order layers usually fill (lowest energy first),
+ * each layer's orbitals drawn as the textbook cuts through their middles with the electrons'
+ * spins under them. Counts are what the element really has, exceptions included. Details opens
+ * the core layer by layer and adds each orbital's name.
+ */
+export function orbitalAssembly(e: Element): string {
+  const key = keyIsotope(e);
+  const neutrons = key ? key.a - e.z : null;
+  const core = buildOrder(e).filter((s) => s.core);
+  const coreCount = core.reduce((n, s) => n + s.count, 0);
+  const outer = buildOrder(e).filter((s) => !s.core);
+  const coreName = e.core ? `${CORE_NAME[e.core] ?? e.core} core` : '';
+  const layer = (s: Subshell, step: number | null, extra = '') => {
+    const single = orbitalFill(s.count, s.capacity).filter((k) => k === 1).length;
+    const sub = `${s.count} of ${s.capacity}${single ? `, ${single} alone` : ''}`;
+    return `<div class="oa-row${s.core ? ' is-core' : ''}${extra}" style="--b:${BLOCK_COLOUR[s.l]}">
+      <span class="oa-step">${step ?? ''}</span>
+      <div class="oa-body"><span class="oa-label"><b>${s.key}${sup(s.count)}</b><small>${sub}</small></span><div class="om-glyphs">${orbitalGlyphs(s)}</div></div>
+    </div>`;
+  };
+  // Steps count up from the nucleus (1) and the core (2); rows are listed top down.
+  const rows: string[] = [];
+  const first = core.length ? 3 : 2;
+  outer.forEach((s, i) => rows.unshift(layer(s, first + i)));
+  if (core.length) {
+    const coreRows = core.map((s) => layer(s, null, ' oa-core-layer')).reverse().join('');
+    rows.push(`<div class="oa-row oa-core">
+      <span class="oa-step">2</span>
+      <div class="oa-body"><span class="oa-label"><b>${esc(coreName)}</b><small>${coreCount} electrons, as in ${esc((CORE_NAME[e.core!] ?? e.core!).toLowerCase())}</small></span>
+      <div class="oa-core-keys">${core.map((s) => `<span style="--b:${BLOCK_COLOUR[s.l]}">${s.key}${sup(s.count)}</span>`).join('')}</div></div>
+    </div>${coreRows}`);
+  }
+  const balls = [[0, 0], [-5.2, -3], [5.2, -3], [0, -6], [-5.2, 3], [5.2, 3], [0, 6]]
+    .map(([x, y], i) => `<circle class="${i % 2 ? 'oa-neutron' : 'oa-proton'}" cx="${x}" cy="${y * 0.85}" r="3.4"/>`).join('');
+  rows.push(`<div class="oa-row oa-nucleus">
+    <span class="oa-step">1</span>
+    <div class="oa-body"><span class="oa-label"><svg class="oa-nuc" viewBox="-10 -10 20 20" aria-hidden="true">${balls}</svg><b>Nucleus</b><small>${neutrons == null ? `${e.z} proton${e.z === 1 ? '' : 's'}` : `${e.z} protons, ${neutrons} neutrons`}</small></span></div>
+  </div>`);
   const lone = e.unpaired;
   return `<label class="om-toggle"><input type="checkbox" id="om-details"> Details</label>
-    <div class="om">${rows}</div>
+    <div class="om oa" role="img" aria-label="${esc(e.name)} built up layer by layer: ${esc(e.configuration)}">${rows.join('')}</div>
     <p class="note os-hidden-note" hidden></p>
+    <p class="note">Built from the bottom up: the nucleus, ${core.length ? `the finished ${esc(coreName.toLowerCase())}, ` : ''}then each layer in the order layers usually fill, lowest energy first. Each shape is one orbital cut through its middle, as textbooks draw it; the arrows under it are its electrons and their spins${lone ? `, a lone one in cyan` : ''}.</p>
     <div class="om-notes">
-      <p class="note">Each shape is one orbital cut through the middle, as a textbook draws it: how likely the electron is in each direction. The two tones are the wave's two phases. Full orbitals are solid, half-full ones paler, empty ones only outlined.</p>
-      <p class="note">Each orbital holds two electrons of opposite spin, shown under it. ${lone ? `${esc(e.name)} has ${lone} lone electron${lone === 1 ? '' : 's'}, lit in cyan.` : `Every electron in ${esc(e.name.toLowerCase())} is paired.`} The outermost shell is at the top; the noble-gas core is dimmed.</p>
+      <p class="note">Full orbitals are solid, half-full ones paler, empty ones only outlined. The two tones are the wave's two phases. ${lone ? `${esc(e.name)} has ${lone} lone electron${lone === 1 ? '' : 's'}.` : `Every electron in ${esc(e.name.toLowerCase())} is paired.`} The layers overlap in space rather than stack; Shells shows how far out each one reaches.</p>
     </div>`;
 }
 
 export const STRUCTURE_VIEWS: { id: string; label: string }[] = [
-  { id: 'blueprint', label: 'Blueprint' },
-  { id: 'shells', label: 'Shells' },
   { id: 'orbitals', label: 'Orbitals' },
+  { id: 'shells', label: 'Shells' },
 ];
 
 // ---------- Isotopes: an album of tiles ----------

@@ -4,8 +4,7 @@
 // down chevrons for the element before and after, and the Stable and Fleeting tracks' legend,
 // over the tracks on the page below and the ones on Collect above.
 // View's loupe and Build both mount one, so stepping through elements looks and works the
-// same in each. The element block carries the view-transition name 'atom-id', so it can glide
-// from its row on Collect.
+// same in each.
 // Long names (Rutherfordium on a 360px phone) never truncate: fit() steps the name down in size
 // until it fits.
 //

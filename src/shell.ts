@@ -24,7 +24,6 @@ const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as 
 
 import { readPlace, type Screen } from './core/place';
 import { setNavigator } from './core/next';
-import { atomBuilt } from './core/progress';
 import { loadSave } from './core/save';
 export type { Screen };
 export type { AtomMode };
@@ -59,7 +58,7 @@ export class AppShell {
         }
       },
     });
-    this.collect = new Collect($('collect-screen'), { onOpen: (z) => { this.z = z; void this.go('atom', atomBuilt(z) ? 'view' : 'build'); } });
+    this.collect = new Collect($('collect-screen'), { onOpen: (z) => { this.z = z; void this.go('atom', 'build'); } });
     // The atom bar's Collect button.
     document.addEventListener('atomos:collect', () => void this.go('collect'));
     // Escape on the Build page: back where the atom was opened.
@@ -84,10 +83,10 @@ export class AppShell {
       this.game?.reloadSettings();
     });
     this.setNav('collect', 'view');
-    // The Next button anywhere opens its step; an atom opens in Build until it is built, then View.
+    // The Next button anywhere opens its step; an atom opens in Build.
     setNavigator({
       openStep: (step) => { this.z = step.z; void this.go('atom', 'build').then(() => this.game?.play(step.z, step.stage)); },
-      openAtom: (z) => { this.z = z; void this.go('atom', atomBuilt(z) ? 'view' : 'build'); },
+      openAtom: (z) => { this.z = z; void this.go('atom', 'build'); },
     });
     // The two library pages have addresses, so they can be linked and reloaded.
     const routed = () => (location.hash === '#icons' ? 'icons' : location.hash === '#components' ? 'components' : null);
@@ -186,37 +185,22 @@ export class AppShell {
   /** The build screen, once it has been opened; for console checks. */
   get build(): Game | null { return this.game; }
 
-  /** Go to a screen. Between Collect and an atom the element glides from its row to the atom
-   *  bar and back, and between an atom's modes the page slides sideways (view transitions,
-   *  where the browser has them and motion is on); anything else switches at once. */
+  /** Go to a screen. Between an atom's modes the page slides sideways (a view transition,
+   *  where the browser has one and motion is on); anything else switches at once. */
   async go(screen: Screen, mode: AtomMode = this.mode): Promise<void> {
-    const opening = this.screen === 'collect' && screen === 'atom';
-    const closing = this.screen === 'atom' && screen === 'collect';
     const stepping = this.screen === 'atom' && screen === 'atom' && mode !== this.mode;
     const doc = document as Document & { startViewTransition?: (update: () => Promise<void>) => { finished: Promise<void> } };
-    if ((!opening && !closing && !stepping) || !doc.startViewTransition || reducedMotion()) return this.show(screen, mode);
-    if (stepping) {
-      // View, Build and Info sit side by side: the page slides toward the mode picked.
-      if (mode === 'build') await this.loadGame();
-      const root = document.documentElement;
-      const dir = MODES.indexOf(mode) > MODES.indexOf(this.mode) ? 'next' : 'prev';
-      root.dataset.vt = dir;
-      const t = doc.startViewTransition(() => this.show(screen, mode));
-      await t.finished.catch(() => undefined);
-      // A quicker swipe may have started the next slide already; leave its direction be.
-      if (root.dataset.vt === dir) delete root.dataset.vt;
-      return;
-    }
-    // Load Build before the transition starts, so the old screen isn't held while it loads.
-    if (screen === 'atom' && mode === 'build') await this.loadGame();
-    if (opening) this.collect.nameRow(this.z);
-    const z = this.z;
-    const t = doc.startViewTransition(async () => {
-      await this.show(screen, mode);
-      if (closing) this.collect.nameRow(z);
-    });
+    if (!stepping || !doc.startViewTransition || reducedMotion()) return this.show(screen, mode);
+    // View, Build and Info sit side by side: the page slides toward the mode picked. Build loads
+    // first, so the old page isn't held while it does.
+    if (mode === 'build') await this.loadGame();
+    const root = document.documentElement;
+    const dir = MODES.indexOf(mode) > MODES.indexOf(this.mode) ? 'next' : 'prev';
+    root.dataset.vt = dir;
+    const t = doc.startViewTransition(() => this.show(screen, mode));
     await t.finished.catch(() => undefined);
-    this.collect.nameRow(null);
+    // A quicker swipe may have started the next slide already; leave its direction be.
+    if (root.dataset.vt === dir) delete root.dataset.vt;
   }
 
   private async loadGame(): Promise<void> {

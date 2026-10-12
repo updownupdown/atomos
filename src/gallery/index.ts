@@ -13,7 +13,7 @@ import { tabHTML, TABS, type ViewTab } from './info';
 import { guideHTML } from './guide';
 import { icon } from '../ui/icons';
 import { fullScreen, type FullScreen } from './fullscreen';
-import { createSegments, createTabs, iconButton, nextButton, type Segments, type Tabs } from '../ui/components';
+import { createPills, createSegments, createTabs, iconButton, nextButton, type Segments, type Tabs } from '../ui/components';
 import { ISO_FILTERS, STRUCTURE_VIEWS } from './visuals';
 import { createAtomBar, type AtomBar } from './atombar';
 import { isLayoutId, LAYOUT_STORY, LAYOUTS, type LayoutId } from './layouts';
@@ -51,7 +51,7 @@ export class GalleryApp {
   /** The Info page last open, kept while View shows the 3D atom. */
   private page: Exclude<ViewTab, 'model'> = 'overview';
   private isoFilter = 'all';
-  private structView = 'blueprint';
+  private structView = 'orbitals';
   private layoutId: LayoutId = (() => {
     const saved = localStorage.getItem('atomos.gallery.layout');
     return isLayoutId(saved) ? saved : 'spiral';
@@ -236,71 +236,26 @@ export class GalleryApp {
     lists.onclick = () => setOpen(false);
   }
 
-  /** The render style picker: a compact button naming the style, over a small list of the five
-   *  (render/rayLooks.ts). The choice is kept in localStorage. */
+  /** The render style picker: the five styles (render/rayLooks.ts) as a stack of pills at the
+   *  top left, the one on show in the accent. The choice is kept in localStorage. */
   private buildLookPicker(): HTMLElement {
     const KEY = 'atomos.view.look';
     let look: ViewLook = 'particles';
     try { const v = localStorage.getItem(KEY); if (isViewLook(v)) look = v; } catch { /* storage off: particles */ }
-    const wrap = document.createElement('div');
-    wrap.className = 'lh-look';
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'lh-look-btn';
-    btn.setAttribute('aria-expanded', 'false');
-    btn.setAttribute('aria-controls', 'loupe-looks');
-    const list = document.createElement('div');
-    list.id = 'loupe-looks';
-    list.className = 'lh-look-list';
-    list.setAttribute('role', 'group');
-    list.setAttribute('aria-label', 'Render style');
-    list.hidden = true;
-    const rows = VIEW_LOOKS.map((l) => {
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.dataset.id = l.id;
-      b.innerHTML = `<span>${l.label}</span>${icon('check', { size: 16 })}`;
-      b.onclick = () => choose(l.id);
-      list.append(b);
-      return b;
+    const pills = createPills(VIEW_LOOKS.map((l) => ({ id: l.id, label: l.label })), {
+      active: look,
+      label: 'Render style',
+      onChange: (id) => {
+        look = id as ViewLook;
+        this.detail.setLook(look);
+        try { localStorage.setItem(KEY, look); } catch { /* storage off: the choice just resets */ }
+      },
     });
-    wrap.append(btn, list);
-    const paint = () => {
-      const label = VIEW_LOOKS.find((l) => l.id === look)!.label;
-      btn.innerHTML = `<span>${label}</span>${icon('chevron-down', { size: 14 })}`;
-      btn.setAttribute('aria-label', `Render style: ${label}`);
-      for (const b of rows) b.setAttribute('aria-pressed', String(b.dataset.id === look));
-    };
-    const setOpen = (open: boolean) => {
-      list.hidden = !open;
-      btn.setAttribute('aria-expanded', String(open));
-      wrap.classList.toggle('is-open', open);
-      if (open) rows.find((b) => b.dataset.id === look)?.focus();
-    };
-    const choose = (id: ViewLook) => {
-      look = id;
-      this.detail.setLook(id);
-      try { localStorage.setItem(KEY, id); } catch { /* storage off: the choice just resets */ }
-      paint();
-      setOpen(false);
-      btn.focus();
-    };
-    btn.onclick = () => setOpen(Boolean(list.hidden));
-    // Escape closes; arrows walk the list (and stay out of the atom's own arrow keys).
-    wrap.addEventListener('keydown', (ev) => {
-      if (ev.key === 'Escape' && !list.hidden) { setOpen(false); btn.focus(); }
-      else if ((ev.key === 'ArrowDown' || ev.key === 'ArrowUp') && !list.hidden) {
-        const i = rows.indexOf(document.activeElement as HTMLButtonElement);
-        rows[(i + (ev.key === 'ArrowDown' ? 1 : -1) + rows.length) % rows.length].focus();
-      } else return;
-      ev.preventDefault();
-      ev.stopPropagation();
-    });
-    // A tap anywhere else closes it.
-    document.addEventListener('pointerdown', (ev) => { if (!list.hidden && !wrap.contains(ev.target as Node)) setOpen(false); });
-    paint();
+    pills.el.classList.add('lh-looks');
+    // Arrow keys walk the pills and stay out of the atom's own arrow keys.
+    pills.el.addEventListener('keydown', (ev) => { if (ev.key.startsWith('Arrow')) ev.stopPropagation(); });
     this.detail.setLook(look);
-    return wrap;
+    return pills.el;
   }
 
   /** Swipe sideways on a page to move between tabs; tables that scroll sideways keep the gesture. The model turns instead. */
@@ -646,7 +601,7 @@ export class GalleryApp {
     panel.setAttribute('aria-label', TABS.find((t) => t.id === this.tab)!.label);
   }
 
-  /** The structure page's ways to see the atom: the blueprint, the shells, the orbitals with their shapes. */
+  /** The structure page's ways to see the atom: the orbitals assembled layer by layer, and the shells. */
   private mountStructureSwitch(): void {
     const slot = document.getElementById('struct-switch');
     if (!slot) return;

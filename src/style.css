@@ -736,7 +736,7 @@ body:not([data-screen='gallery']) .gal-modes { display: none; }
 .loupe-hud .loupe-tools { bottom: var(--foot); }
 .loupe-hud .dive-readout { top: 70%; }
 /* Top left the render style; top right Play/Pause and full screen, the frame rate, the shortcuts. */
-.lh-tl { position: absolute; left: var(--sp-2); top: var(--sp-2); pointer-events: auto; }
+.lh-tl { position: absolute; left: var(--sp-3); top: var(--sp-3); pointer-events: auto; }
 .lh-tr { position: absolute; right: var(--sp-2); top: var(--sp-2); display: flex; flex-direction: column; align-items: flex-end; gap: var(--sp-2); }
 .lh-btns { display: flex; align-items: center; gap: var(--sp-1); pointer-events: auto; }
 .lh-btn { color: var(--c-text-2); }
@@ -760,19 +760,10 @@ body:not([data-screen='gallery']) .gal-modes { display: none; }
   .lh-keylist.for-mouse { display: flex; }
 }
 /* The render style picker (top left): a ghost button naming the style, over a small dark list. */
-.lh-look { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-1); }
-.lh-look-btn { display: inline-flex; align-items: center; gap: 4px; height: 36px; padding: 0 var(--sp-2) 0 var(--sp-3); border: 0; border-radius: var(--r-pill); background: none; color: var(--c-text-2); font: inherit; font-size: var(--fs-caps-min); font-weight: var(--fw-semibold); letter-spacing: var(--tracking-caps); text-transform: uppercase; cursor: pointer; -webkit-tap-highlight-color: transparent; }
-.lh-look-btn:hover, .lh-look.is-open .lh-look-btn { color: var(--c-text); }
-.lh-look-btn svg { transition: transform var(--dur); }
-.lh-look.is-open .lh-look-btn svg { transform: rotate(180deg); }
-.lh-look-btn:focus-visible, .lh-look-list button:focus-visible { outline: 2px solid var(--c-accent); outline-offset: -2px; }
-.lh-look-list { position: absolute; left: 0; top: 100%; z-index: 3; display: flex; flex-direction: column; min-width: 152px; padding: var(--sp-1); border: 1px solid var(--c-line-2); border-radius: var(--r-md); background: color-mix(in srgb, var(--c-bg) 88%, transparent); box-shadow: var(--shadow-toast); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
-.lh-look-list[hidden] { display: none; }
-.lh-look-list button { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); height: 36px; padding: 0 var(--sp-2) 0 var(--sp-3); border: 0; border-radius: var(--r-sm); background: none; color: var(--c-text-2); font: inherit; font-size: var(--fs-sm); font-weight: var(--fw-medium); text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; }
-.lh-look-list button:hover { color: var(--c-text); background: var(--c-plate); }
-.lh-look-list button svg { visibility: hidden; color: var(--c-accent); }
-.lh-look-list button[aria-pressed='true'] { color: var(--c-text); font-weight: var(--fw-semibold); }
-.lh-look-list button[aria-pressed='true'] svg { visibility: visible; }
+/* The render styles: a stack of pills over the atom, the one on show in the accent. */
+.lh-looks.ui-pills { flex-direction: column; align-items: flex-start; gap: 6px; overflow: visible; pointer-events: auto; }
+.lh-looks .ui-pill { min-height: 30px; padding: 0 var(--sp-3); background: color-mix(in srgb, var(--c-surface-3) 80%, transparent); font-weight: var(--fw-medium); }
+.lh-looks .ui-pill[aria-checked='true'] { background: var(--c-accent); color: var(--c-bg); font-weight: var(--fw-semibold); }
 /* At the nucleus there is no cloud to style. */
 .loupe-hud:has(.lh-explorer.is-nucleus) .lh-tl { visibility: hidden; }
 /* The explorer: the ladder of orbitals on the right edge (inner at the bottom, the focus in the
@@ -848,11 +839,8 @@ body:not([data-screen='gallery']) .gal-modes { display: none; }
 .bar-btn:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
 .bar-btn:disabled { opacity: 0.3; cursor: default; background: var(--c-surface-3); }
 /* The element: its number over its symbol, then its name, a small chevron after it (a tap opens
-   the picker). It glides in from its row on Collect (view-transition name atom-id). */
-::view-transition-group(atom-id) { animation-duration: 0.45s; animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1); }
-::view-transition-old(atom-id), ::view-transition-new(atom-id) { animation-duration: 0.45s; height: 100%; object-fit: none; object-position: left center; }
-::view-transition-old(root), ::view-transition-new(root) { animation-duration: 0.3s; }
-.bar-pick { flex: 1; min-width: 0; align-self: center; height: 48px; display: flex; align-items: center; gap: var(--sp-2); padding: 0 var(--sp-1); border: 0; border-radius: var(--r-sm); background: transparent; color: var(--c-text); font-family: var(--font); text-align: left; cursor: pointer; view-transition-name: atom-id; }
+   the picker). */
+.bar-pick { flex: 1; min-width: 0; align-self: center; height: 48px; display: flex; align-items: center; gap: var(--sp-2); padding: 0 var(--sp-1); border: 0; border-radius: var(--r-sm); background: transparent; color: var(--c-text); font-family: var(--font); text-align: left; cursor: pointer; }
 .bar-pick:hover { background: var(--c-surface-3); }
 .bar-pick:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
 .bar-pick > svg { flex: none; color: var(--c-text-2); }
@@ -1346,33 +1334,29 @@ body[data-screen^='atom'].build-home .science-fab, body[data-screen='atom-view']
 .atom-page details.more summary::before { content: '+ '; color: var(--c-accent); }
 .atom-page details.more[open] summary::before { content: '− '; }
 
-/* Structure: an assembly blueprint, drawn in accent ink on a faint grid. */
-.bp-figure { border: 1px solid var(--c-line-2); border-radius: var(--r-md); overflow: hidden; background: var(--c-plate); }
-.bp { display: block; width: 100%; height: auto; font-family: var(--font); }
-.bp-gridline { fill: none; stroke: var(--c-line); stroke-width: 0.5; }
-.bp-head { fill: var(--c-accent); font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; }
-.bp-axis { stroke: var(--c-accent); stroke-width: 0.6; stroke-dasharray: 10 3 2 3; opacity: 0.6; fill: none; }
-.bp-front, .bp-back { fill: none; stroke-width: 1.3; }
-.bp-back { stroke-dasharray: 3 3; opacity: 0.55; }
-.bp-core { stroke: var(--c-text-3); stroke-width: 1; }
-.bp-layer { stroke: inherit; }
-.bp-e { stroke: var(--c-plate); stroke-width: 0.6; }
-.bp-e.back { opacity: 0.55; }
-.bp-slot { fill: none; stroke: var(--c-text-3); stroke-width: 0.8; }
-.bp-slot.back { opacity: 0.5; }
-.bp-proton { fill: var(--c-silver); }
-.bp-neutron { fill: var(--c-text-2); }
-.bp-leader { stroke: var(--c-accent); stroke-width: 0.6; fill: none; opacity: 0.7; }
-.bp-step { fill: var(--c-plate); stroke: var(--c-accent); stroke-width: 1; }
-.bp-step-n { fill: var(--c-accent); font-size: 9.5px; text-anchor: middle; font-weight: 600; }
-.bp-title { fill: var(--c-text); font-size: 12px; font-weight: 600; }
-.bp-sub { fill: var(--c-text-2); font-size: 9.5px; }
-.bp-block rect, .bp-block path { fill: none; stroke: var(--c-accent); stroke-width: 0.7; opacity: 0.8; }
-.bp-block text { fill: var(--c-accent); font-size: 8.5px; letter-spacing: 0.1em; text-transform: uppercase; }
-.bp-steps { margin: var(--sp-2) 0 var(--sp-3); padding-left: 1.5em; color: var(--c-text-2); }
-.bp-steps li { padding: 3px 0; }
-.bp-steps li::marker { color: var(--c-accent); font-weight: 600; }
-.bp-steps b { color: var(--c-text); font-weight: 600; }
+/* Structure > Orbitals: the atom assembled from the bottom up (visuals.ts orbitalAssembly),
+   one numbered step per row on a line that runs from the nucleus up; each row names its layer
+   and count, its orbitals under that. */
+.oa { position: relative; gap: var(--sp-3); padding: var(--sp-3); border-radius: var(--r-md); background: var(--c-plate); }
+.oa::before { content: ''; position: absolute; left: calc(var(--sp-3) + 11px); top: var(--sp-5); bottom: var(--sp-5); width: 2px; border-radius: 1px; background: var(--c-line-2); }
+.oa-row { position: relative; display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: var(--sp-3); align-items: start; }
+.oa-step { position: relative; z-index: 1; width: 24px; height: 24px; display: grid; place-items: center; border-radius: 50%; background: var(--c-surface-3); color: var(--c-text); font-size: var(--fs-sm); font-weight: var(--fw-semibold); font-variant-numeric: tabular-nums; }
+.oa-step:empty { width: 8px; height: 8px; margin-top: 8px; justify-self: center; }
+.oa-body { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.oa-label { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0 var(--sp-2); min-height: 24px; line-height: 1.2; padding-top: 2px; }
+.oa-label b { font-size: var(--fs-md); font-weight: var(--fw-semibold); color: var(--b, var(--c-text)); }
+.oa-label small { font-size: var(--fs-sm); color: var(--c-text-2); }
+.oa .om-glyphs { flex-wrap: wrap; gap: 4px; }
+.oa .os-glyph.om-glyph { width: 36px; background: var(--c-surface-2); }
+.oa .om-glyph svg { width: 28px; height: 28px; }
+.oa .om-glyph .os-unknown { height: 28px; font-size: 16px; }
+.oa-core-keys { display: flex; flex-wrap: wrap; gap: 2px var(--sp-2); font-size: var(--fs-sm); font-weight: var(--fw-semibold); }
+.oa-core-keys span { color: var(--b); }
+.oa-nuc { align-self: center; width: 22px; height: 22px; }
+.oa-proton { fill: var(--c-silver); }
+.oa-neutron { fill: var(--c-text-2); }
+.oa-row.is-core { opacity: 0.55; }
+.oa:not(.is-detailed) .oa-core-layer { display: none; }
 
 /* Isotopes: an album of collectable tiles. */
 /* Isotopes page: what the player has built. Lasting tiles name their puzzle; fleeting ones that

@@ -8,10 +8,12 @@
 //   ...                                      running down the right edge
 //   [ Up next card ]                          sticky at the foot
 //
-// The list snaps a row to its middle once scrolling settles: that row's name turns white and its
-// picture comes alive (LiveAtom); the rows fade with their distance from the middle. Spacers
-// above and below let the first and last rows reach it too. A swipe sideways changes period. A tap on a row
-// opens the atom. Each atom's picture says how far it is collected (thumbs.ts Tone).
+// Once scrolling settles one row is in focus: it grows to twice the height, its name turns white
+// and its picture comes alive, twice the size (LiveAtom); the rows fade with their distance from
+// it. Which row that is follows a focus line that slides from the top row (scrolled to the top)
+// to the bottom one (scrolled to the end), so every row can be focused without empty space
+// above or below the list. A swipe sideways changes period. A tap on a row opens the atom. Each
+// atom's picture says how far it is collected (thumbs.ts Tone).
 
 import { elementAt } from './data';
 import { atomPicture, LiveAtom, toneOf } from './thumbs';
@@ -33,20 +35,22 @@ export interface CollectHandlers {
   onOpen: (z: number) => void;
 }
 
-/** One period's progress: atoms built, the stable share (every atom's nucleus, electrons and
- *  lasting isotopes) and the fleeting share, each 0 to 1. */
-export function periodProgress(period: number, save: SaveData): { atoms: number; built: number; stable: number; fleeting: number; fleetingTotal: number } {
+/** One period's progress: atoms built, the stable parts built (every atom's nucleus, electrons
+ *  and lasting isotopes) and the fleeting isotopes built, as counts and as shares from 0 to 1. */
+export function periodProgress(period: number, save: SaveData): { atoms: number; built: number; stable: number; stableBuilt: number; stableTotal: number; fleeting: number; fleetingBuilt: number; fleetingTotal: number } {
   const [first, last] = rowSpan(period);
-  let built = 0, stable = 0, fb = 0, ft = 0;
+  let built = 0, sb = 0, st = 0, fb = 0, ft = 0;
   for (let z = first; z <= last; z++) {
     if (atomBuilt(z, save)) built++;
-    stable += atomProgress(z, save);
+    const segs = segmentsOf(z, save);
+    sb += segs.filter((x) => x.done).length;
+    st += segs.length;
     const f = fleetingCount(z, save);
     fb += f.built;
     ft += f.total;
   }
   const atoms = last - first + 1;
-  return { atoms, built, stable: stable / atoms, fleeting: ft ? fb / ft : 0, fleetingTotal: ft };
+  return { atoms, built, stable: st ? sb / st : 0, stableBuilt: sb, stableTotal: st, fleeting: ft ? fb / ft : 0, fleetingBuilt: fb, fleetingTotal: ft };
 }
 
 /** The two tracks' stops for each atom of a period: its stable share as a bar, and its fleeting
@@ -180,11 +184,11 @@ export class Collect {
     const prog = periodProgress(this.period, this.save);
     const fleetOn = fleetingOpen(this.save);
     const bar = (v: number) => `<i class="co-bar${v >= 1 ? ' is-done' : ''}"><i style="width:${(Math.max(0, Math.min(1, v)) * 100).toFixed(1)}%"></i></i>`;
-    const stat = (ico: string, text: string, v: number, aria: string, off = false) =>
-      `<div class="co-stat${off ? ' is-off' : ''}" aria-label="${esc(aria)}"><span class="co-stat-ico">${icon(ico as never, { size: 20 })}</span><span class="co-stat-main"><b>${esc(text)}</b>${bar(v)}</span></div>`;
-    this.statsEl.innerHTML = stat('atom', `${prog.built} atom${prog.built === 1 ? '' : 's'}`, prog.built / prog.atoms, `${prog.built} of ${prog.atoms} atoms built`)
-      + stat('isotope-stable', 'Stable', prog.stable, `Stable ${pct(prog.stable)}`)
-      + stat('isotope-fleeting', 'Fleeting', fleetOn ? prog.fleeting : 0, fleetOn ? `Fleeting ${pct(prog.fleeting)}` : 'Fleeting isotopes open once an atom is built', !fleetOn);
+    const stat = (ico: string, text: string, n: number, of: number, aria: string, off = false) =>
+      `<div class="co-stat${off ? ' is-off' : ''}" aria-label="${esc(aria)}"><span class="co-stat-ico">${icon(ico as never, { size: 20 })}</span><span class="co-stat-main"><b>${esc(text)}</b><span class="co-stat-low">${bar(of ? n / of : 0)}<span class="co-count${n >= of && of ? ' is-done' : ''}">${n}/${of}</span></span></span></div>`;
+    this.statsEl.innerHTML = stat('atom', 'Atoms', prog.built, prog.atoms, `${prog.built} of ${prog.atoms} atoms built`)
+      + stat('isotope-stable', 'Stable', prog.stableBuilt, prog.stableTotal, `Stable: ${prog.stableBuilt} of ${prog.stableTotal} built`)
+      + stat('isotope-fleeting', 'Fleeting', fleetOn ? prog.fleetingBuilt : 0, prog.fleetingTotal, fleetOn ? `Fleeting: ${prog.fleetingBuilt} of ${prog.fleetingTotal} built` : 'Fleeting isotopes open once an atom is built', !fleetOn);
     this.statsEl.append(trackLegend({ labels: false }));
     const open = rowOpen(this.period, this.save);
     this.lockEl.hidden = open;
@@ -192,16 +196,15 @@ export class Collect {
     if (!open) this.lockEl.innerHTML = `<span class="co-lock-ico">${icon('lock', { size: 20 })}</span><span>${esc(periodSentence(rowSpan(this.period)[0], this.save) ?? '')}</span>`;
   }
 
-  /** The period's rows, then focus on atom `focus` (scrolled to the middle). Spacers above and
-   *  below let the first and last rows reach the middle too; the one above carries the tracks
-   *  up to the progress row. */
+  /** The period's rows, then focus on atom `focus`. A strip above the first row carries the
+   *  tracks up to the progress row; one below lets the last row clear the Up next card. */
   private paintRows(focus: number): void {
     const [first, last] = rowSpan(this.period);
     const states = trackStates(periodTracks(this.period, this.save));
     this.live.stop();
     this.list.replaceChildren();
     const lead = document.createElement('div');
-    lead.className = 'co-pad';
+    lead.className = 'co-pad co-pad--top';
     const top = states[0];
     const through = (above: boolean) => ({ stop: null, above, below: above, next: false, nu: false });
     lead.append(trackCell({ stable: through(top.stable.above), fleeting: through(top.fleeting.above) }));
@@ -229,51 +232,79 @@ export class Collect {
       });
     }
     const tail = document.createElement('div');
-    tail.className = 'co-pad';
+    tail.className = 'co-pad co-pad--end';
     this.list.append(tail);
-    this.fitPads();
+    this.fitTail();
     const target = this.list.querySelector<HTMLElement>(`.co-row[data-z="${focus}"]`) ?? this.list.querySelector<HTMLElement>('.co-row');
     if (!target) return;
-    this.list.scrollTop = target.offsetTop - this.pad;
-    this.dim();
     this.focusRow(target);
+    this.list.scrollTop = this.scrollFor(target);
+    this.dim();
   }
 
-  /** The spacers: half the room above and below the middle row, so any row can sit there. The
-   *  Up next card covers the foot of the list, so the middle is that of the room above it. */
-  private pad = 0;
-  private fitPads(): void {
-    const card = this.el.classList.contains('has-upnext') ? this.upNext.offsetHeight + 24 : 0;
-    const row = this.list.querySelector<HTMLElement>('.co-row')?.offsetHeight ?? 100;
-    this.pad = Math.max(0, (this.list.clientHeight - card - row) / 2);
-    const pads = this.list.querySelectorAll<HTMLElement>('.co-pad');
-    pads[0]?.style.setProperty('height', `${this.pad}px`);
-    pads[1]?.style.setProperty('height', `${this.pad + card}px`);
-    this.list.style.setProperty('--co-card', `${card}px`);
+  /** Room below the last row: enough to clear the Up next card. */
+  private fitTail(): void {
+    const card = this.el.classList.contains('has-upnext') && !this.upNext.hidden ? this.upNext.offsetHeight + 24 : 12;
+    this.list.querySelector<HTMLElement>('.co-pad--end')?.style.setProperty('height', `${card}px`);
   }
 
-  /** The middle of the room, in the list's scrolled coordinates. */
-  private get middle(): number {
-    const row = this.list.querySelector<HTMLElement>('.co-row')?.offsetHeight ?? 100;
-    return this.list.scrollTop + this.pad + row / 2;
+  /** Row heights, from the CSS: a row, and the row in focus. */
+  private get heights(): { row: number; big: number } {
+    const cs = getComputedStyle(this.list);
+    return { row: parseFloat(cs.getPropertyValue('--co-row')) || 100, big: parseFloat(cs.getPropertyValue('--co-row-big')) || 184 };
   }
 
-  /** Rows fade with their distance from the middle (CSS reads --k, 0 there to 1 a row away). */
+  /** The focus line, in the list's own coordinates (from its top edge), at scroll `s`: at the
+   *  middle of the top row when scrolled to the top, of the bottom row (above the Up next card)
+   *  when scrolled to the end, and in between in proportion. Null when nothing scrolls. */
+  private line(s = this.list.scrollTop): number | null {
+    const max = this.list.scrollHeight - this.list.clientHeight;
+    if (max <= 1) return null;
+    const { big } = this.heights;
+    const lead = this.list.querySelector<HTMLElement>('.co-pad--top')?.offsetHeight ?? 0;
+    const tail = this.list.querySelector<HTMLElement>('.co-pad--end')?.offsetHeight ?? 0;
+    const a = lead + big / 2;
+    const b = this.list.clientHeight - tail - big / 2;
+    return a + (Math.max(0, Math.min(max, s)) / max) * (b - a);
+  }
+
+  /** The scroll that puts `row`, once it is the row in focus, on the focus line. */
+  private scrollFor(row: HTMLElement): number {
+    const max = this.list.scrollHeight - this.list.clientHeight;
+    if (max <= 1) return 0;
+    const { row: h, big } = this.heights;
+    const rows = [...this.list.querySelectorAll<HTMLElement>('.co-row')];
+    const lead = this.list.querySelector<HTMLElement>('.co-pad--top')?.offsetHeight ?? 0;
+    const tail = this.list.querySelector<HTMLElement>('.co-pad--end')?.offsetHeight ?? 0;
+    const a = lead + big / 2;
+    const b = this.list.clientHeight - tail - big / 2;
+    const c = lead + rows.indexOf(row) * h + big / 2;
+    return Math.max(0, Math.min(max, (c - a) / (1 + (b - a) / max)));
+  }
+
+  /** Rows fade with their distance from the focus line (CSS reads --k, 0 there to 1 a row
+   *  away); with nothing to scroll, from the row in focus. */
   private dim(): void {
-    const mid = this.middle;
+    const line = this.line();
+    const cur = this.list.querySelector<HTMLElement>('.co-row.is-current');
+    const mid = line ?? (cur ? cur.offsetTop - this.list.scrollTop + cur.offsetHeight / 2 : 0);
+    const { row: h } = this.heights;
     for (const r of this.list.querySelectorAll<HTMLElement>('.co-row')) {
-      const k = Math.min(1, Math.abs(r.offsetTop + r.offsetHeight / 2 - mid) / r.offsetHeight);
+      const k = Math.min(1, Math.abs(r.offsetTop - this.list.scrollTop + r.offsetHeight / 2 - mid) / h);
       r.style.setProperty('--k', k.toFixed(3));
     }
   }
 
-  /** Scrolling has stopped: the row in the middle is the one in focus. */
+  /** Scrolling has stopped: the row on the focus line comes into focus and glides onto it. */
   private settle(): void {
     const rows = [...this.list.querySelectorAll<HTMLElement>('.co-row')];
-    if (!rows.length) return;
-    const mid = this.middle;
-    const dist = (r: HTMLElement) => Math.abs(r.offsetTop + r.offsetHeight / 2 - mid);
-    this.focusRow(rows.reduce((best, r) => (dist(r) < dist(best) ? r : best)));
+    const line = this.line();
+    if (!rows.length || line === null) return;
+    const dist = (r: HTMLElement) => Math.abs(r.offsetTop - this.list.scrollTop + r.offsetHeight / 2 - line);
+    const row = rows.reduce((best, r) => (dist(r) < dist(best) ? r : best));
+    if (!row.classList.contains('is-current')) this.focusRow(row);
+    const to = this.scrollFor(row);
+    if (Math.abs(to - this.list.scrollTop) > 1) this.list.scrollTo({ top: to, behavior: reducedMotion() ? 'auto' : 'smooth' });
   }
 
   private focusRow(row: HTMLElement): void {
@@ -296,7 +327,7 @@ export class Collect {
       clearTimeout(this.settleTimer);
       this.settleTimer = window.setTimeout(() => this.settle(), 140);
     }, { passive: true });
-    if (typeof ResizeObserver !== 'undefined') new ResizeObserver(() => { if (this.shown) { this.fitPads(); this.dim(); } }).observe(list);
+    if (typeof ResizeObserver !== 'undefined') new ResizeObserver(() => { if (this.shown) { this.fitTail(); this.dim(); } }).observe(list);
     list.addEventListener('click', (e) => {
       if (this.swiped) return;
       const row = (e.target as HTMLElement).closest<HTMLElement>('.co-row');
@@ -308,7 +339,12 @@ export class Collect {
       if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.handlers.onOpen(Number(row.dataset.z)); }
       else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
         const next = (e.key === 'ArrowDown' ? row.nextElementSibling : row.previousElementSibling) as HTMLElement | null;
-        if (next) { e.preventDefault(); next.focus(); next.scrollIntoView({ block: 'center', behavior: reducedMotion() ? 'auto' : 'smooth' }); }
+        if (next?.classList.contains('co-row')) {
+          e.preventDefault();
+          next.focus({ preventScroll: true });
+          this.focusRow(next);
+          this.list.scrollTo({ top: this.scrollFor(next), behavior: reducedMotion() ? 'auto' : 'smooth' });
+        }
       } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') this.step(e.key === 'ArrowRight' ? 1 : -1);
     });
     // A swipe sideways changes period; up and down scrolls as usual.
@@ -349,13 +385,6 @@ export class Collect {
     card.querySelector('b')!.textContent = resume ? step.label.replace(/^Resume [^·]*·\s*/, '') : step.label;
     card.querySelector<HTMLElement>('.ui-callout-pic')!.innerHTML = puzzleIcon(step.game, 32);
     card.querySelector('.ui-callout-acts')!.replaceChildren(nextButton({ label: resume ? 'Resume' : 'Play', compact: true, landKey: 'collect-upnext', onClick: () => openStep(step) }));
-  }
-
-  /** Give atom `z`'s row the view-transition name the atom bar carries (atom-id), so the one
-   *  glides into the other; null takes it off. Only one element may carry it at a time. */
-  nameRow(z: number | null): void {
-    for (const id of this.list.querySelectorAll<HTMLElement>('.co-id')) id.style.removeProperty('view-transition-name');
-    if (z !== null) this.list.querySelector<HTMLElement>(`.co-row[data-z="${z}"] .co-id`)?.style.setProperty('view-transition-name', 'atom-id');
   }
 
   /** For checks: the period and the atom in focus. */
