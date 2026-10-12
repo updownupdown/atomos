@@ -107,7 +107,7 @@ export function showWin(info: WinInfo, reducedMotion = false, host?: HTMLElement
     const row = root.querySelector<HTMLElement>('.win-level-row')!;
     const lv = info.levels;
     for (let level = 1; level <= 5; level++) {
-      const b = button('', `win-level${level === lv.current ? ' is-current' : ''}`, () => { close(); lv.pick(level); });
+      const b = button('', `win-level lvl-${level}${level === lv.current ? ' is-current' : ''}`, () => { close(); lv.pick(level); });
       const word = levelWord(level);
       b.innerHTML = `<span class="win-pips" aria-hidden="true">${Array.from({ length: 5 }, (_, i) => `<i class="${i < level ? 'on' : ''}"></i>`).join('')}</span><span>${word}</span>`;
       b.setAttribute('aria-label', `${word}${level === lv.current ? ', the level just played' : ''}`);
