@@ -81,6 +81,21 @@ import * as ShellsV from './shellsView';
 import { newDrop } from './drop';
 import { DropView, INSTRUCTIONS as DROP_HOW } from './dropView';
 import * as DropV from './dropView';
+import { newPush } from './push';
+import { PushView, INSTRUCTIONS as PUSH_HOW } from './pushView';
+import * as PushV from './pushView';
+import { newCollide } from './collide';
+import { CollideView, INSTRUCTIONS as COLLIDE_HOW } from './collideView';
+import * as CollideV from './collideView';
+import { newAnnihil } from './annihil';
+import { AnnihilView, INSTRUCTIONS as ANNIHIL_HOW } from './annihilView';
+import * as AnnihilV from './annihilView';
+import { newSolo } from './solo';
+import { SoloView, INSTRUCTIONS as SOLO_HOW } from './soloView';
+import * as SoloV from './soloView';
+import { newBlocks } from './blocks';
+import { BlocksView, INSTRUCTIONS as BLOCKS_HOW } from './blocksView';
+import * as BlocksV from './blocksView';
 import { SUBSHELL_COLORS, type PuzzleView, type RuleCard } from './view';
 
 /** Which atom steps a game builds, from the committed table: "12 nuclei and 3 electron sets". */
@@ -113,6 +128,11 @@ const ICON_SLUG: Record<string, string> = {
   trace: 'trace',
   shells: 'shells',
   drop: 'drop',
+  push: 'push',
+  collide: 'collide',
+  annihil: 'annihil',
+  solo: 'solo',
+  blocks: 'blocks',
 };
 
 /** A puzzle type's icon, or the generic puzzles icon until its own is drawn. */
@@ -629,6 +649,88 @@ export const PUZZLES: PuzzleType[] = [
         <p>The nucleus of ${el.name.toLowerCase()}-${el.commonA} holds ${el.commonA} nucleons: ${z} ${z === 1 ? 'proton' : 'protons'} and ${el.commonA - z} ${el.commonA - z === 1 ? 'neutron' : 'neutrons'}.</p>
         <p>The clusters are real light nuclei: a proton and a neutron make a deuteron, three nucleons make tritium or helium-3, and two protons with two neutrons make an alpha particle, the helium-4 nucleus that heavy atoms throw out when they decay.</p>
         <p class="muted">Game rule: nucleons do not fall into wells or sit in square cells, and a nucleus is not built from clusters dropped one by one.</p>`;
+    },
+  },
+  {
+    id: 'push', name: 'Push', tier: 'reserve',
+    use: 'Practice',
+    get rules() { return rulesOf(PushV); },
+    goal: 'Push every nucleon onto a socket of its own kind.',
+    blurb: 'Walk the probe round a small walled chamber and push protons and neutrons onto their sockets, one at a time and never pulling. Walking is free; par is the fewest pushes.',
+    role: 'A reserve game to try out: a thinking one with a plan to find, for the nucleus pool, if it earns a place.',
+    instructions: PUSH_HOW,
+    zRange: [1, 118],
+    native: (d, seed, reduced) => new PushView(newPush(d, seed), reduced),
+    science: (z) => {
+      const el = element(z);
+      return `<h2>Push: the science</h2>
+        <p>A nucleus is built from two kinds of <b>nucleon</b>: <b>protons</b>, each with one positive charge, and <b>neutrons</b>, with none. ${el.name} has ${z} proton${z === 1 ? '' : 's'}; that count is what makes it ${el.name}, while the number of neutrons can vary from one isotope to the next.</p>
+        <p>Inside the nucleus the nucleons are held by the strong force, which pulls on protons and neutrons alike at very short range and easily beats the protons' electric push on each other.</p>
+        <p class="muted">Game rule: nucleons are not pushed about one at a time, and a nucleus has no sockets; protons and neutrons are colored only to tell them apart.</p>`;
+    },
+  },
+  {
+    id: 'collide', name: 'Collide', tier: 'reserve',
+    use: 'Practice',
+    get rules() { return rulesOf(CollideV); },
+    goal: 'Collect the target particles within the move budget.',
+    blurb: 'Swap two neighboring particles to line up three or more of a kind; they collide and vanish and new ones fall in. Four make a jet, five a shower. Collect the targets before the moves run out.',
+    role: 'A reserve game to try out: a rote, relaxing match-three for the particle chapters, if it earns a place.',
+    instructions: COLLIDE_HOW,
+    zRange: [1, 118],
+    native: (d, seed, reduced) => new CollideView(newCollide(d, seed), reduced),
+    science: () => `<h2>Collide: the science</h2>
+      <p>Everything ordinary is built from a few kinds of particle. <b>Quarks</b> (up, down and strange are three of the six) are never seen alone: they come bound in threes, as protons and neutrons, or in quark and antiquark pairs. <b>Leptons</b> live alone: the electron, its heavier cousin the <b>muon</b>, and the ghostly <b>neutrino</b>, which passes through the whole Earth almost untouched.</p>
+      <p>Physicists meet them by colliding particles at enormous energies. The debris comes out as narrow sprays called <b>jets</b>, the trace of a quark or gluon knocked loose, and as <b>showers</b>, cascades of particles set off when something hits a detector's dense layers.</p>
+      <p class="muted">Game rule: three alike in a line do not vanish, particles do not sit on a grid, and a jet or shower here is only a way to clear tiles.</p>`,
+  },
+  {
+    id: 'annihil', name: 'Annihil', tier: 'reserve',
+    use: 'Practice',
+    get rules() { return rulesOf(AnnihilV); },
+    goal: 'Jump pieces over their opposites until one is left.',
+    blurb: 'A piece jumps over a neighbor of the opposite kind, matter over antimatter or antimatter over matter, into the empty hole beyond, and the one it jumps is annihilated. Clear the board down to a single piece.',
+    role: 'A reserve game to try out: a thinking one with a quick flash on every move, for the particle chapters, if it earns a place.',
+    instructions: ANNIHIL_HOW,
+    zRange: [1, 118],
+    native: (d, seed, reduced) => new AnnihilView(newAnnihil(d, seed), reduced),
+    science: () => `<h2>Annihil: the science</h2>
+      <p>Nearly every kind of particle has an <b>antiparticle</b>, with the same mass and the opposite charge: the electron has the positron, the proton the antiproton. When a particle meets its antiparticle they <b>annihilate</b>: both vanish and their mass turns into energy. An electron and a positron meeting at rest usually become two gamma-ray photons, flying off in opposite directions.</p>
+      <p>Hospitals use this every day: in a PET scan, positrons from a tracer annihilate with electrons in the body, and the scanner reads the paired photons to see where the tracer went.</p>
+      <p>Why the universe is made of matter at all, when the Big Bang should have made equal amounts of both, is still an open question.</p>
+      <p class="muted">Game rule: in a real annihilation both particles vanish; here the jumping piece survives, and the pieces are generic matter and antimatter, not any one particle.</p>`,
+  },
+  {
+    id: 'solo', name: 'Solo', tier: 'reserve',
+    use: 'Practice',
+    get rules() { return rulesOf(SoloV); },
+    goal: 'One electron in every row, column and orbital; none touching.',
+    blurb: 'Place one electron in every row, every column and every colored orbital. No two electrons touch, not even at a corner. Cross off cells as you rule them out.',
+    role: 'A reserve game to try out: a thinking one for the electron pool, if it earns a place.',
+    instructions: SOLO_HOW,
+    zRange: [1, 118],
+    native: (d, seed, reduced) => new SoloView(newSolo(d, seed), reduced),
+    science: () => `<h2>Solo: the science</h2>
+      <p>Electrons in an atom fill <b>subshells</b> made of orbitals: one orbital in an s subshell, three in p, five in d and seven in f. Each orbital can hold two electrons, spinning opposite ways.</p>
+      <p>When a subshell is filling, its electrons spread out first: each orbital takes one electron before any takes a second. This is <b>Hund's rule</b>, and it comes from electrons repelling one another, so they keep apart. A half-filled subshell, one electron in every orbital, is especially stable; nitrogen's 2p and manganese's 3d are examples.</p>
+      <p class="muted">Game rule: orbitals are not patches of a grid, and the rows, columns and "never touching" rule are the puzzle's own.</p>`,
+  },
+  {
+    id: 'blocks', name: 'Blocks', tier: 'reserve',
+    use: 'Practice',
+    get rules() { return rulesOf(BlocksV); },
+    goal: 'Cut the grid into rectangles, one number in each, sized by its number.',
+    blurb: 'Drag from corner to corner to draw rectangles. Each holds exactly one number, which is its area in cells, and together they cover the whole grid.',
+    role: 'A reserve game to try out: a thinking one for the electron pool, if it earns a place.',
+    instructions: BLOCKS_HOW,
+    zRange: [1, 118],
+    native: (d, seed, reduced) => new BlocksView(newBlocks(d, seed), reduced),
+    science: (z) => {
+      const el = element(z);
+      return `<h2>Blocks: the science</h2>
+        <p>An atom's electrons sit in <b>subshells</b> of fixed size. An <span style="color:${SUBSHELL_COLORS.s}">s</span> subshell holds at most 2 electrons, <span style="color:${SUBSHELL_COLORS.p}">p</span> holds 6, <span style="color:${SUBSHELL_COLORS.d}">d</span> holds 10 and <span style="color:${SUBSHELL_COLORS.f}">f</span> holds 14: two for each of its 1, 3, 5 or 7 orbitals.</p>
+        <p>${el.name}'s ${z} electron${z === 1 ? '' : 's'} fill these subshells from the lowest energy up, each one full before the next begins, give or take a few exceptions among the transition metals and the heavier elements.</p>
+        <p class="muted">Game rule: the rectangles only borrow the subshells' colors by size; nothing in an atom is cut into rectangles.</p>`;
     },
   },
 ];
