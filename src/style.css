@@ -1239,29 +1239,49 @@ body:not([data-screen='gallery']) .gal-modes { display: none; }
   .nav { padding-inline: var(--sp-2); gap: var(--sp-1); }
 }
 
-/* Atom screens, top down: the header, the atom bar (View and Build each mount their own in the
-   same place, so it reads as one), then the View / Build row. --top is the bottom of the header
-   plus the mode row; screens add the bar's height (60 px) themselves, as they always have. */
-:root { --nav-bottom: calc(var(--safe-top) + var(--nav-h)); --atom-bar-h: 60px; }
-body[data-screen^='atom'] { --top: calc(var(--nav-bottom) + var(--mode-h)); }
+/* Atom screens, top down: the header, then the atom bar (View and Build each mount their own in
+   the same place, so it reads as one); the View / Build / Info bar floats at the foot. --top is
+   the bottom of the header; screens add the bar's height (60 px) themselves, as they always
+   have. --safe-bottom grows by the floating bar, so whatever sits at the foot of a mode (the
+   View tools, the end of a page) stays clear of it. */
+:root { --nav-bottom: calc(var(--safe-top) + var(--nav-h)); --atom-bar-h: 60px; --dock-gap: var(--sp-3); }
+body[data-screen^='atom'] { --top: var(--nav-bottom); }
+body[data-screen^='atom']:not(.puzzling) { --safe-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--mode-h) + var(--dock-gap)); }
 body[data-screen^='atom'] .loupe-screen > .atom-bar,
 body[data-screen^='atom'] .build-bar { top: var(--nav-bottom); }
 .mode-row {
   position: fixed;
-  left: 0;
-  right: 0;
-  top: calc(var(--nav-bottom) + var(--atom-bar-h));
+  left: 50%;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + var(--dock-gap));
+  width: min(440px, calc(100% - 2 * var(--sp-4)));
+  transform: translateX(-50%);
   height: var(--mode-h);
   z-index: 14;
   display: flex;
   align-items: center;
-  gap: var(--sp-3);
-  padding: 0 var(--sp-3);
+  padding: 4px;
+  border-radius: var(--r-pill);
   background: var(--c-nav);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.55);
+  touch-action: none;
+  view-transition-name: mode-dock;
 }
 .mode-row[hidden] { display: none; }
-/* Inside a Build puzzle the atom bar steps away, so the row moves up under the header. */
-body[data-screen='atom-build']:not(.build-home) .mode-row { top: var(--nav-bottom); }
+.mode-row .mode-seg .ui-seg { height: 100%; padding: 0; background: transparent; }
+.mode-row .mode-seg .ui-seg-opt { min-height: 0; height: 100%; }
+.mode-row .mode-seg { height: 100%; }
+/* Stepping between modes slides the page under the header, atom bar and floating bar, which
+   stay put. */
+.nav { view-transition-name: app-nav; }
+body[data-screen^='atom'] .loupe-screen > .atom-bar, body[data-screen^='atom'] .build-bar { view-transition-name: atom-bar; }
+html[data-vt='next']::view-transition-old(root) { animation: vt-out-left 0.3s var(--ease) both; }
+html[data-vt='next']::view-transition-new(root) { animation: vt-in-right 0.3s var(--ease) both; }
+html[data-vt='prev']::view-transition-old(root) { animation: vt-out-right 0.3s var(--ease) both; }
+html[data-vt='prev']::view-transition-new(root) { animation: vt-in-left 0.3s var(--ease) both; }
+@keyframes vt-out-left { to { transform: translateX(-24%); opacity: 0; } }
+@keyframes vt-out-right { to { transform: translateX(24%); opacity: 0; } }
+@keyframes vt-in-right { from { transform: translateX(24%); opacity: 0; } }
+@keyframes vt-in-left { from { transform: translateX(-24%); opacity: 0; } }
 .mode-seg { flex: 1; min-width: 0; }
 .mode-seg .ui-seg { width: 100%; padding: 3px; border-radius: var(--r-pill); background: var(--c-well); }
 .mode-seg .ui-seg-opt { min-height: 40px; padding: 0 var(--sp-3); border-radius: var(--r-pill); }
