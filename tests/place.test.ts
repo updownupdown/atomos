@@ -8,8 +8,8 @@ describe('readPlace', () => {
   it('keeps other screens', () => {
     expect(readPlace(JSON.stringify({ screen: 'puzzles', mode: 'view', z: 3 })).screen).toBe('puzzles');
   });
-  it('falls back to the gallery when the place is missing or invalid', () => {
-    const home = { screen: 'gallery', mode: 'view', z: 1 };
+  it('falls back to Collect when the place is missing or invalid', () => {
+    const home = { screen: 'collect', mode: 'view', z: 1 };
     expect(readPlace(null)).toEqual(home);
     expect(readPlace('not json')).toEqual(home);
     expect(readPlace(JSON.stringify({ screen: 'lab' }))).toEqual(home);

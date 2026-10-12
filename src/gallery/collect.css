@@ -1,0 +1,65 @@
+/* Collect (collect.ts): the period row and the progress row on the header gray, then the
+   period's atoms on black, one row each, with the two tracks down the right edge. */
+.collect-screen { position: fixed; inset: 0; z-index: 2; display: flex; flex-direction: column; padding-top: var(--top); background: var(--c-bg); font-family: var(--font); }
+.collect-screen[hidden] { display: none; }
+
+/* Periods: "Period", then each number inside two rings of its progress (stable outside,
+   fleeting inside); the one on show on a plate, its number in the accent. */
+.co-periods { display: flex; align-items: center; justify-content: space-between; gap: 0; padding: var(--sp-2) var(--sp-3); background: var(--c-nav); }
+.co-plabel { margin-right: var(--sp-1); font-size: var(--fs-sm); font-weight: var(--fw-semibold); color: var(--c-text-2); }
+.co-period { position: relative; flex: none; width: 42px; height: 42px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--c-text); font-family: var(--font); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.co-period .co-rings { position: absolute; inset: 1px; width: 40px; height: 40px; }
+.co-period b { position: relative; font-size: var(--fs-md); font-weight: var(--fw-semibold); }
+.co-period[aria-selected='true'] { background: var(--c-pick); }
+.co-period[aria-selected='true'] b { color: var(--c-accent); }
+.co-period.is-locked b { color: var(--c-text-2); }
+.co-period:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 1px; }
+.co-ring-track, .co-ring-on { fill: none; stroke-width: 3; }
+.co-ring-track { stroke: var(--c-line-2); }
+.co-ring-on { stroke: var(--c-text); stroke-linecap: round; }
+.co-ring-on.is-done { stroke: var(--c-done); }
+
+/* Progress: atoms built, stable and fleeting, each an icon over its words and bar, and the
+   tracks' legend at the right over the lanes. */
+.co-stats { display: flex; align-items: flex-end; gap: var(--sp-3); padding: var(--sp-1) var(--sp-2) var(--sp-2) var(--sp-4); background: var(--c-nav); }
+.co-stat { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; }
+.co-stat-ico { flex: none; display: grid; color: var(--c-text-2); }
+.co-stat-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+.co-stat-main b { font-size: var(--fs-sm); font-weight: var(--fw-semibold); color: var(--c-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.co-stat.is-off b { color: var(--c-text-2); }
+.co-bar { display: block; height: 4px; border-radius: 2px; background: var(--c-line-2); overflow: hidden; }
+.co-bar i { display: block; height: 100%; border-radius: 2px; background: var(--c-text); }
+.co-bar.is-done i { background: var(--c-done); }
+.co-stats .trk-legend { flex: none; width: 48px; justify-content: flex-end; }
+
+/* A period not open yet: what opens it. Its atoms are gray but can still be opened. */
+.co-lock { display: flex; align-items: center; gap: var(--sp-3); margin: var(--sp-3) var(--sp-3) 0; padding: var(--sp-3) var(--sp-4); border-radius: var(--r-md); background: var(--c-surface-2); font-size: var(--fs-sm); color: var(--c-text); }
+.co-lock[hidden] { display: none; }
+.co-lock-ico { flex: none; display: grid; color: var(--c-warn); }
+
+/* The rows: one snaps to the middle of the room above the Up next card once scrolling stops,
+   and the rest fade with their distance from it (--k). Spacers above and below (.co-pad) let the
+   first and last rows reach the middle; the one above carries the tracks up to the progress row. */
+.co-list { position: relative; flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scroll-snap-type: y mandatory; scroll-padding-bottom: var(--co-card, 0px); touch-action: pan-y; --trk-gap: 0px; }
+.co-pad { display: flex; justify-content: flex-end; padding-right: var(--sp-2); }
+.co-row { display: grid; grid-template-columns: minmax(0, 1fr) 92px minmax(0, 1fr); align-items: stretch; height: 100px; padding: 0 var(--sp-2) 0 var(--sp-4); scroll-snap-align: center; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.co-row:focus-visible { outline: 2px solid var(--c-accent); outline-offset: -2px; }
+.co-id { align-self: center; display: flex; flex-direction: column; min-width: 0; line-height: 1.15; }
+.co-id small { font-size: var(--fs-sm); color: var(--c-text-2); font-variant-numeric: tabular-nums; }
+.co-id b { font-size: var(--fs-xl); font-weight: var(--fw-semibold); color: var(--c-text-2); transition: color 0.3s; }
+.co-name { font-size: var(--fs-md); font-weight: var(--fw-medium); color: var(--c-text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: color 0.3s; }
+.co-row.is-current .co-id b, .co-row.is-current .co-name { color: var(--c-text); }
+/* The picture, fainter away from the middle; in focus it gives way to the live atom. */
+.co-pic { position: relative; align-self: center; width: 92px; height: 92px; }
+.co-pic img, .co-pic .live-atom { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.co-pic img { opacity: calc(1 - 0.45 * var(--k, 1)); }
+.co-row.is-current .co-pic:has(.live-atom) img { opacity: 0; transition: opacity 0.6s; }
+.co-row .trk { justify-self: end; }
+
+/* A swipe sideways brings the next period in from that side. */
+.co-list.slide-l { animation: co-in-l 0.32s var(--ease, ease-out); }
+.co-list.slide-r { animation: co-in-r 0.32s var(--ease, ease-out); }
+@keyframes co-in-l { from { transform: translateX(32px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes co-in-r { from { transform: translateX(-32px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+.co-upnext { bottom: calc(var(--safe-bottom) + var(--sp-3)); }
