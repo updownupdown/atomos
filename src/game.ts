@@ -35,7 +35,6 @@ import { askRestart, confirming, restartButton } from './puzzles/restart';
 import { HintControl } from './puzzles/hints';
 import { clearOffers, createGameBar, offerRules, type GameBar } from './puzzles/gamebar';
 import { drawWinFx, winHold } from './puzzles/winFx';
-import { fleetingRing, progressRings } from './ui/progress';
 import { countPlay, GOAL_PLAYS } from './core/plays';
 import { recordWin } from './core/wins';
 import { icon, type IconName } from './ui/icons';
@@ -652,36 +651,31 @@ export class Game {
       </li>`;
   }
 
-  /** The rings at the foot of the atom: a disc for the nucleus and a ring for the electrons, lit
-   *  once built, and an outer ring for the isotopes, if any: an arc for the lasting ones and one
-   *  for the fleeting ones, sized by how many of each there are, each filling as they are built.
-   *  Beside them, the atom's share built (nucleus, electrons and lasting isotopes) and, smaller,
-   *  the fleeting isotopes' share. */
+  /** Progress over the atom, drawn as the tracks draw it: on the left the Stable share (the
+   *  nucleus, electrons and lasting isotopes) beside a bar like a Stable stop, on the right the
+   *  fleeting isotopes built beside a bar like a Fleeting stop. A bar fills white from the top,
+   *  green once whole. */
   private renderProgress(): void {
     const z = this.z;
-    const pct = Math.round(atomProgress(z, this.save) * 100);
-    const nucleus = stepState(this.save, z, 'nucleus').done;
-    const shells = stepState(this.save, z, 'shells').done;
-    const lasting = lastingIsotopes(z);
-    const lastingDone = lasting.filter((i) => isotopeCollected(this.save, z, i.a)).length;
+    const share = atomProgress(z, this.save);
+    const pct = Math.round(share * 100);
     const fleet = fleetingCount(z, this.save);
     const fleetPct = fleet.total ? Math.round((fleet.built / fleet.total) * 100) : 0;
-    // Left: the rings of what counts toward the atom (nucleus, electrons, lasting isotopes) and
-    // its share, "Stable". Right, mirrored: the fleeting isotopes' own ring and count.
+    const bar = (v: number, done: boolean) => `<i class="bh-pill${done ? ' is-done' : ''}" aria-hidden="true"><b style="height:${Math.round(Math.max(0, Math.min(1, v)) * 100)}%"></b></i>`;
     $('bh-progress').innerHTML = `
       <div class="bh-prog-main">
-        ${progressRings({ nucleus, shells, lasting: { built: lastingDone, total: lasting.length }, fleeting: { built: 0, total: 0 } }, 30)}
+        ${bar(share, pct >= 100)}
         <div class="bh-rings-text">
-          <span>Stable</span>
+          <span>${icon('isotope-stable', { size: 14 })}Stable</span>
           <b${pct >= 100 ? ' class="is-done"' : ''}>${pct}%</b>
         </div>
       </div>
       ${fleet.total ? `<div class="bh-prog-fleet">
         <div class="bh-rings-text">
-          <span>Fleeting</span>
+          <span>Fleeting${icon('isotope-fleeting', { size: 14 })}</span>
           <b${fleet.built >= fleet.total ? ' class="is-done"' : ''}>${fleet.built} of ${fleet.total}</b>
         </div>
-        ${fleetingRing(fleet.built, fleet.total, 30)}
+        ${bar(fleet.total ? fleet.built / fleet.total : 0, fleet.built >= fleet.total)}
       </div>` : ''}`;
     $('bh-progress').setAttribute('aria-label', `${pct}% built${fleet.total ? `, ${fleet.built} of ${fleet.total} fleeting isotopes (${fleetPct}%)` : ''}`);
   }
