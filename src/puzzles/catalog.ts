@@ -51,6 +51,18 @@ import { FissionView, INSTRUCTIONS as FISSION_HOW } from './fissionView';
 import * as FissionV from './fissionView';
 import { atomGame } from '../core/atomGames';
 import { dialFor, elementForDial, difficulty, nativeSpan, zForDial } from './difficulty';
+import { newPlanar } from './planar';
+import { PlanarView, INSTRUCTIONS as PLANAR_HOW } from './planarView';
+import * as PlanarV from './planarView';
+import { newCircuit } from './circuit';
+import { CircuitView, INSTRUCTIONS as CIRCUIT_HOW } from './circuitView';
+import * as CircuitV from './circuitView';
+import { newValence } from './valence';
+import { ValenceView, INSTRUCTIONS as VALENCE_HOW } from './valenceView';
+import * as ValenceV from './valenceView';
+import { newEmit } from './emit';
+import { EmitView, INSTRUCTIONS as EMIT_HOW } from './emitView';
+import * as EmitV from './emitView';
 import { SUBSHELL_COLORS, type PuzzleView, type RuleCard } from './view';
 
 /** Which atom steps a game builds, from the committed table: "12 nuclei and 3 electron sets". */
@@ -73,6 +85,10 @@ const ICON_SLUG: Record<string, string> = {
   slideStop: 'slide-stop', light: 'light', rutherford: 'rutherford', codebreaker: 'codebreaker', colorCharge: 'color-charge',
   bond: 'bond', spin: 'spin', fission: 'fission',
   capture: 'capture',
+  planar: 'planar',
+  circuit: 'circuit',
+  valence: 'valence',
+  emit: 'emit',
 };
 
 /** A puzzle type's icon, or the generic puzzles icon until its own is drawn. */
@@ -412,7 +428,84 @@ export const PUZZLES: PuzzleType[] = [
         <p class="muted">Game rule: the seeds, the doubling of two equal clusters and the 8-nucleon threshold for a capture are the puzzle's. Real heavy nuclei grow from iron-group seeds one neutron at a time and never merge in pairs.</p>`;
     },
   },
+  {
+    id: 'planar', name: 'Planar', tier: 'reserve',
+    use: 'Practice',
+    get rules() { return rulesOf(PlanarV); },
+    goal: 'Drag the atoms until no two bonds cross.',
+    blurb: 'A molecule drawn in a tangle: drag its atoms anywhere until no bond crosses another or runs through an atom.',
+    role: 'A reserve game to try out: a hands-on, spatial one, if it earns a place.',
+    instructions: PLANAR_HOW,
+    zRange: [1, 118],
+    native: (d, seed, reduced) => new PlanarView(newPlanar(d, seed), reduced),
+    science: (z) => {
+      const el = element(z);
+      return `<h2>Planar: the science</h2>
+        <p>Chemists draw a molecule as a <b>structural formula</b>: each atom a point or a letter, each bond a line between two of them. A drawing like this records which atoms are bonded to which, its <b>connectivity</b>, and that alone tells many molecules apart.</p>
+        <p>Most molecules can be drawn flat with no two bonds crossing; mathematicians call such a network of points and lines <b>planar</b>. Rings, chains and branches all can, and so can cages such as cubane and the soccer-ball-shaped buckminsterfullerene, which is why structural formulas stay readable. A few molecules cannot: chemists have built some on purpose whose bonds can never all be drawn flat without a crossing.</p>
+        <p>In a structural formula ${el.name} is written as its symbol, ${el.symbol}, with a line to each atom it is bonded to.</p>
+        <p class="muted">Game rule: the atoms here are unnamed, and the bonds stretch freely; in a real molecule bond lengths and angles are fixed, and its shape is three-dimensional.</p>`;
+    },
+  },
+  {
+    id: 'circuit', name: 'Circuit', tier: 'reserve',
+    use: 'Practice',
+    get rules() { return rulesOf(CircuitV); },
+    goal: 'Turn the tiles until current from the cell reaches every one.',
+    blurb: 'Turn wire tiles so current from the cell reaches every tile and lights every lamp, with no loose ends and no loops.',
+    role: 'A reserve game to try out: a deduction one, if it earns a place.',
+    instructions: CIRCUIT_HOW,
+    zRange: [1, 118],
+    native: (d, seed, reduced) => new CircuitView(newCircuit(d, seed), reduced),
+    science: (z) => {
+      const el = element(z);
+      return `<h2>Circuit: the science</h2>
+        <p>An electric <b>current</b> is a flow of charge, in a metal wire a drift of electrons. A <b>cell</b> pushes it: a chemical reaction inside drives electrons out of its negative terminal, round the circuit and back in at the positive one. A filament lamp lights when current flows through its thin filament and heats it until it glows.</p>
+        <p>Metals conduct because their outermost electrons are not held by any one atom but move freely through the whole solid. ${conducts(z)}</p>
+        <p class="muted">Game rule: current only flows round a closed loop back to the cell, and here the wires end at lamps. Think of each wire as a cable with two conductors, out and back, the way a house is wired.</p>`;
+    },
+  },
+  {
+    id: 'valence', name: 'Valence', tier: 'reserve',
+    use: 'Practice',
+    get rules() { return rulesOf(ValenceV); },
+    goal: 'Bond every atom to its number in one molecule.',
+    blurb: 'Drag between atoms to add single and double bonds. Each atom takes exactly its number of bonds, bonds never cross, and every atom joins one molecule.',
+    role: 'A reserve game to try out: a thinking one for the electron pool, if it earns a place.',
+    instructions: VALENCE_HOW,
+    zRange: [1, 118],
+    native: (d, seed, reduced) => new ValenceView(newValence(d, seed), reduced),
+    science: () => `<h2>Valence: the science</h2>
+      <p>An atom's <b>valence</b> is how many bonds it usually forms: hydrogen makes one, oxygen two, nitrogen three and carbon four. A covalent bond is a pair of electrons shared between two atoms, and the lighter elements tend to bond until their outer shell holds eight electrons (two for hydrogen).</p>
+      <p>Two atoms can share more than one pair. In carbon dioxide, O=C=O, the carbon holds each oxygen with a <b>double bond</b>, so it still has four bonds in all; the two atoms of nitrogen gas share a triple bond.</p>
+      <p class="muted">Game rule: the numbers are bond counts, not elements. Real atoms rarely make more than four bonds (sulfur makes six in sulfur hexafluoride), bonds here go no higher than double, and molecules are not laid out on a grid.</p>`,
+  },
+  {
+    id: 'emit', name: 'Emit', tier: 'reserve',
+    use: 'Practice',
+    get rules() { return rulesOf(EmitV); },
+    goal: 'Light every cell; no lamp in another lamp\u2019s light.',
+    blurb: 'Place lamps that light their row and column up to the walls. Light every open cell, keep every lamp out of the others\u2019 light, and match the numbered walls.',
+    role: 'A reserve game to try out: a thinking one for the electron pool, if it earns a place.',
+    instructions: EMIT_HOW,
+    zRange: [1, 118],
+    native: (d, seed, reduced) => new EmitView(newEmit(d, seed), reduced),
+    science: () => `<h2>Emit: the science</h2>
+      <p>An electron in an atom can only hold certain energies. When one drops from a higher level to a lower one, the atom gives the difference off as a <b>photon</b>, a packet of light whose color is set by the size of the drop. Every element has its own set of levels, so each glows with its own colors, its <b>emission spectrum</b>: the red of a neon sign, the yellow of a sodium street lamp.</p>
+      <p>Light crosses empty space in straight lines, and anything opaque in its way leaves a shadow behind it.</p>
+      <p class="muted">Game rule: real lamps shine every way, not just along a row and a column, and two beams pass through each other unharmed; the rule that no lamp may sit in another's light is the puzzle's.</p>`,
+  },
 ];
+
+/** How element z conducts electricity, in a sentence, for Circuit's science page. */
+function conducts(z: number): string {
+  const el = element(z);
+  if (z >= 100 || z === 85 || z === 87) return `${el.name} has never been made in a piece big enough to wire up, so how well it conducts has never been measured.`;
+  if (z === 6) return 'Carbon is not a metal, but as graphite it conducts: in each of its flat sheets some electrons spread across the whole layer.';
+  if (el.series === 'Metalloids') return `${el.name} is a metalloid: it conducts electricity, but far less well than a typical metal.`;
+  if (/metal/i.test(el.series)) return `${el.name} is a metal, and conducts this way.`;
+  return `${el.name} is not a metal: its electrons stay bound to their own atoms or molecules, so on its own it conducts poorly or not at all.`;
+}
 
 // Every built game deals from the dial: a native game straight from it, a ladder game at the
 // element the dial picks on its ladder (Tokamak keeps the real nucleus's mass number).

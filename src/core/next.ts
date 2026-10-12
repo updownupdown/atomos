@@ -37,6 +37,10 @@ export const GAME_NAMES: Record<string, string> = {
   slideStop: 'Inertia', light: 'Lumen', rutherford: 'Aurum', codebreaker: 'Glyph', colorCharge: 'Chroma',
   bond: 'Bond', spin: 'Spin', fission: 'Fission',
   capture: 'Capture',
+  planar: 'Planar',
+  circuit: 'Circuit',
+  valence: 'Valence',
+  emit: 'Emit',
 };
 
 let paused: { z: number; stage: string; game: string } | null = null;
