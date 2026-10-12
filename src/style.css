@@ -564,7 +564,7 @@ body.puzzling #overlay { pointer-events: auto; touch-action: none; }
 .gate-go { display: inline-flex; align-items: center; justify-content: center; gap: 8px; align-self: stretch; }
 .gate-next { display: flex; flex-direction: column; }
 .gate-look { display: inline-flex; align-items: center; justify-content: center; gap: 8px; align-self: stretch; }
-.layout-switch button.is-locked { color: var(--c-text-3); }
+.layout-switch button.is-locked { color: var(--c-text-min); }
 .seg-lock { display: inline-flex; margin-left: 4px; vertical-align: -2px; }
 
 /* Splash: the mark assembles on the plate while the app boots. See src/ui/splash.ts. */
@@ -654,8 +654,8 @@ body:not([data-screen='gallery']) .gal-modes { display: none; }
    counts and isotopes in small tracked capitals with their numbers a step brighter. */
 .dec-tl { left: var(--sp-4); top: calc(var(--sp-4) + var(--chrome)); align-items: flex-start; gap: 3px; }
 .dec-config { margin-bottom: 4px; font-size: 17px; font-weight: var(--fw-light); letter-spacing: 0.01em; color: var(--c-silver); }
-.dec-line, .dec-cap, .dec-more { font-size: 10px; font-weight: var(--fw-medium); letter-spacing: 0.14em; text-transform: uppercase; color: var(--c-text-3); }
-.dec-line b { font-size: 12px; font-weight: var(--fw-semibold); letter-spacing: 0.04em; color: var(--c-text-2); }
+.dec-line, .dec-cap, .dec-more { font-size: var(--fs-caps-min); font-weight: var(--fw-semibold); letter-spacing: 0.12em; text-transform: uppercase; color: var(--c-text-min); }
+.dec-line b { font-size: var(--fs-min); font-weight: var(--fw-semibold); letter-spacing: 0.04em; color: var(--c-text-2); }
 .dec-tr { right: var(--sp-4); top: calc(var(--sp-4) + var(--chrome)); align-items: flex-end; text-align: right; gap: 3px; }
 /* The true width of the view while diving between the atom and its nucleus. */
 .dive-readout { position: absolute; z-index: 2; left: 0; right: 0; top: calc(var(--chrome) + (100% - var(--chrome)) * 0.7); text-align: center; pointer-events: none; font-family: var(--font); font-size: var(--fs-lg); font-weight: var(--fw-medium); letter-spacing: 0.04em; color: var(--c-silver); font-variant-numeric: tabular-nums; opacity: 0; transition: opacity 0.4s; }
@@ -678,7 +678,7 @@ body:not([data-screen='gallery']) .gal-modes { display: none; }
 .dec-tl, .dec-tr { cursor: pointer; -webkit-tap-highlight-color: transparent; user-select: none; }
 .dec-cap { margin-bottom: 2px; }
 .dec-iso { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 1px; }
-.dec-iso li { display: flex; justify-content: flex-end; gap: var(--sp-3); font-size: var(--fs-xs); font-variant-numeric: tabular-nums; color: var(--c-text-3); }
+.dec-iso li { display: flex; justify-content: flex-end; gap: var(--sp-3); font-size: var(--fs-min); font-variant-numeric: tabular-nums; color: var(--c-text-min); }
 .dec-iso li span { color: var(--c-text-2); }
 .dec-iso li b { min-width: 6ch; font-weight: var(--fw-regular); }
 .dec-iso li.is-stable span { color: var(--c-silver); font-weight: var(--fw-semibold); }
@@ -1404,9 +1404,11 @@ body[data-screen^='atom'].build-home .science-fab, body[data-screen='atom-view']
 .ic-bar { fill: color-mix(in srgb, var(--c-silver) calc(25% + var(--v) * 45%), var(--c-surface-3)); }
 .ic-bar.is-stable { fill: var(--c-accent); }
 .ic-bar.is-key { stroke: var(--c-silver); stroke-width: 1.5; }
-.ic text { fill: var(--c-text-3); font-family: var(--font); font-size: 9px; text-anchor: middle; }
-.ic figcaption { display: flex; justify-content: space-between; gap: var(--sp-2); font-size: var(--fs-xs); color: var(--c-text-3); }
-.ic figcaption span:nth-child(2) { color: var(--c-text-2); text-align: center; }
+/* SVG labels are in viewBox units, sized to draw at 13px or more on a 360px phone. */
+.ic text { fill: var(--c-text-min); font-family: var(--font); font-size: 13px; text-anchor: middle; }
+.ic figcaption { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px var(--sp-2); font-size: var(--fs-min); color: var(--c-text-min); }
+/* The two ends on the first line, the key under them on its own. */
+.ic figcaption span:nth-child(2) { order: 3; flex-basis: 100%; color: var(--c-text-2); text-align: center; }
 .it-filter { margin: var(--sp-4) 0 var(--sp-2); overflow-x: auto; scrollbar-width: none; }
 .it-filter::-webkit-scrollbar { display: none; }
 .it-filter .ui-seg { width: max-content; min-width: 100%; }
@@ -1415,13 +1417,13 @@ body[data-screen^='atom'].build-home .science-fab, body[data-screen='atom-view']
 .it { display: flex; flex-direction: column; }
 .it-row { display: grid; grid-template-columns: minmax(78px, 0.8fr) minmax(0, 1.6fr) minmax(64px, 0.7fr); gap: var(--sp-3); align-items: center; margin-top: 3px; padding: var(--sp-3) var(--sp-3); border-radius: var(--r-sm); background: var(--c-plate); }
 .it-row[hidden] { display: none; }
-.it-headrow { background: none; padding-top: var(--sp-2); padding-bottom: var(--sp-2); font-size: var(--fs-xs); color: var(--c-text-3); text-transform: uppercase; letter-spacing: var(--tracking-caps); }
+.it-headrow { background: none; padding-top: var(--sp-2); padding-bottom: var(--sp-2); font-size: var(--fs-caps-min); font-weight: var(--fw-semibold); color: var(--c-text-min); text-transform: uppercase; letter-spacing: var(--tracking-caps); }
 .it-row.is-key { background: var(--c-surface); border-radius: var(--r-sm); }
 .it-name { display: flex; flex-direction: column; gap: 1px; }
 .it-name b { font-size: var(--fs-lg); font-weight: var(--fw-semibold); color: var(--c-text-2); line-height: 1.1; }
 .it-name b sup { font-size: 0.6em; margin-right: 1px; font-weight: var(--fw-medium); }
 .it-row.is-stable .it-name b { color: var(--c-silver); }
-.it-name span { font-size: var(--fs-xs); color: var(--c-text-3); }
+.it-name span { font-size: var(--fs-min); color: var(--c-text-min); }
 .it-life { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .it-track { position: relative; height: 8px; border-radius: 4px; background: var(--c-surface-2); overflow: hidden; }
 .it-track i { position: absolute; inset: 0 auto 0 0; width: calc(var(--v) * 100%); border-radius: 4px; background: color-mix(in srgb, var(--c-accent) calc(var(--v) * 70%), var(--c-orb-d)); }
@@ -1454,22 +1456,24 @@ body[data-screen^='atom'].build-home .science-fab, body[data-screen='atom-view']
 .pr-dots circle { opacity: 0.6; }
 .pr-guide { stroke: var(--c-silver); stroke-width: 1; opacity: 0.5; }
 .pr-me { stroke: var(--c-silver); stroke-width: 2; }
-.pr-ends { display: flex; justify-content: space-between; gap: var(--sp-2); margin-top: 4px; font-size: var(--fs-xs); color: var(--c-text-3); font-variant-numeric: tabular-nums; }
+.pr-ends { display: flex; justify-content: space-between; gap: var(--sp-2); margin-top: 4px; font-size: var(--fs-min); color: var(--c-text-min); font-variant-numeric: tabular-nums; }
 .ox-bar { fill: var(--c-surface-3); }
 .ox-bar.ox-neg { fill: color-mix(in srgb, var(--c-orb-s) 40%, var(--c-surface-3)); }
 .ox-bar.ox-pos { fill: color-mix(in srgb, var(--c-orb-d) 40%, var(--c-surface-3)); }
 .ox-bar.is-mine.ox-neg { fill: var(--c-orb-s); }
 .ox-bar.is-mine.ox-pos { fill: var(--c-orb-d); }
 .ox-bar.is-mine.ox-zero { fill: var(--c-silver); }
-.ox-lab { fill: var(--c-text-3); font-size: 8px; text-anchor: middle; font-family: var(--font); }
+.ox-lab { fill: var(--c-text-min); font-size: 11px; text-anchor: middle; font-family: var(--font); }
 .ox-lab.is-mine { fill: var(--c-text); font-weight: 600; }
+/* On a phone the oxidation bars take the full width, so their numbers can be read. */
+@media (max-width: 719px) { .pr-ox { grid-template-columns: minmax(0, 1fr); gap: var(--sp-3); } }
 @media (min-width: 720px) { .pr { grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr); gap: var(--sp-5); } }
 
 /* Story: a timeline of discoveries, then the name. */
 .tl { margin: var(--sp-2) 0 var(--sp-3); }
 .tl-svg { display: block; width: 100%; height: auto; font-family: var(--font); }
 .tl-base, .tl-tick { stroke: var(--c-line-3); stroke-width: 1; fill: none; }
-.tl-lab { fill: var(--c-text-3); font-size: 8.5px; text-anchor: middle; }
+.tl-lab { fill: var(--c-text-min); font-size: 13px; text-anchor: middle; }
 .tl-dot { fill: var(--c-text-3); }
 .tl-dot.is-mine { fill: var(--c-accent); filter: drop-shadow(0 0 2px var(--c-accent)) drop-shadow(0 0 6px var(--c-accent)); animation: tl-glow 2.6s ease-in-out infinite alternate; }
 @keyframes tl-glow { from { filter: drop-shadow(0 0 2px var(--c-accent)) drop-shadow(0 0 4px var(--c-accent)); } to { filter: drop-shadow(0 0 3px var(--c-accent)) drop-shadow(0 0 9px var(--c-accent)); } }
@@ -1493,8 +1497,7 @@ body[data-screen^='atom'].build-home .science-fab, body[data-screen='atom-view']
 /* Overview: a photo, a museum label, the headline fact, more facts, then the collection. */
 .ov-photo { position: relative; margin: var(--sp-2) 0 var(--sp-3); border-radius: var(--r-md); overflow: hidden; background: var(--c-plate); border: 1px solid var(--c-line); }
 .ov-photo img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; }
-.ov-photo figcaption { display: flex; flex-direction: column; gap: 2px; padding: var(--sp-2) var(--sp-3); font-size: var(--fs-xs); color: var(--c-text-2); }
-.ov-photo .ov-credit { color: var(--c-text-3); }
+.ov-photo figcaption { display: flex; flex-direction: column; gap: 2px; padding: var(--sp-2) var(--sp-3); font-size: var(--fs-min); color: var(--c-text-min); }
 .ov-photo figcaption a { color: inherit; text-decoration: underline; text-decoration-color: var(--c-line-2); }
 .ov-photo figcaption a:hover { color: var(--c-accent); }
 .ov-photo.is-missing { display: none; }
@@ -1511,7 +1514,7 @@ body[data-screen^='atom'].build-home .science-fab, body[data-screen='atom-view']
 .ov-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; }
 .ov-stats div { display: flex; flex-direction: column; gap: 1px; padding: 6px 10px; border-radius: var(--r-sm); background: var(--c-plate); }
 .ov-stats b { font-size: var(--fs-lg); font-weight: var(--fw-semibold); color: var(--c-text); line-height: 1.15; }
-.ov-stats span { font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--c-text-3); }
+.ov-stats span { font-size: var(--fs-caps-min); font-weight: var(--fw-semibold); letter-spacing: 0.1em; text-transform: uppercase; color: var(--c-text-min); }
 .ov-conf { font-size: var(--fs-md); color: var(--c-silver); }
 .ov-headline { font-size: var(--fs-xl); line-height: 1.35; color: var(--c-text); margin: var(--sp-3) 0 !important; max-width: 40ch; }
 .ov-facts { margin: 0 0 var(--sp-3); padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--sp-2); }
@@ -1567,11 +1570,11 @@ body[data-screen^='atom'].build-home .science-fab, body[data-screen='atom-view']
 .sp-sum { fill: none; stroke: var(--c-silver); stroke-width: 1.4; stroke-linejoin: round; }
 .sp-base { stroke: var(--c-line-2); }
 .sp-tick { stroke: var(--c-line-2); }
-.sp-tl, .sp-unit { fill: var(--c-text-3); font-family: var(--font); font-size: 9px; text-anchor: middle; }
+.sp-tl, .sp-unit { fill: var(--c-text-min); font-family: var(--font); font-size: 13.5px; text-anchor: middle; }
 .sp-unit { text-anchor: end; }
 .sp-shell { fill: var(--c-text); font-family: var(--font); font-size: 12px; font-weight: 700; text-anchor: middle; }
 .sp-vdw { stroke: var(--c-accent); stroke-width: 1; stroke-dasharray: 3 3; }
-.sp-vdw-l { fill: var(--c-accent); font-family: var(--font); font-size: 9px; text-anchor: end; }
+.sp-vdw-l { fill: var(--c-accent); font-family: var(--font); font-size: 13.5px; text-anchor: end; }
 .sp figcaption { color: var(--c-text-2); font-size: var(--fs-sm); margin-top: var(--sp-2); }
 .ob { display: flex; flex-direction: column; gap: var(--sp-2); margin: var(--sp-2) 0 var(--sp-3); }
 .ob-row { display: grid; grid-template-columns: 22px 1fr; gap: var(--sp-2); align-items: center; }
