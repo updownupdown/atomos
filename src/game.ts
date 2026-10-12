@@ -18,6 +18,7 @@ import { createAtomBar, type AtomBar } from './gallery/atombar';
 import { refreshModeProgress } from './ui/modebar';
 import { buildTracks, drawWitness, slowFactor } from './ui/witness';
 import { mergeLevel, orbitalGridLevel } from './puzzles/levels';
+import { atomGame } from './core/atomGames';
 import { MergeView } from './puzzles/mergeView';
 import { OrbitalGridView } from './puzzles/orbitalGridView';
 import { solvedState, type PackingState } from './puzzles/packing';
@@ -251,8 +252,12 @@ export class Game {
       return puzzleType(game).deal!(dz, dealSeed(`fleeting:${game}`, z, a), reduced, a);
     }
     if (stage === 'shape') return puzzleType('codebreaker').make!(SHAPE_GLYPH_Z[shapeAt(z)!], 0, reduced);
-    if (stage === 'shells') return new OrbitalGridView(orbitalGridLevel(z), reduced);
-    return new MergeView(mergeLevel(z), reduced);
+    // The atom's own steps: Tokamak and Quanta keep their fixed levels; any other game in the
+    // committed table (src/data/atom-games.json) deals its board for this element.
+    const game = atomGame(z, stage);
+    if (stage === 'shells' && game === 'orbitalGrid') return new OrbitalGridView(orbitalGridLevel(z), reduced);
+    if (stage === 'nucleus' && game === 'merge') return new MergeView(mergeLevel(z), reduced);
+    return puzzleType(game).deal!(z, dealSeed(`atom:${stage}:${game}`, z, 0), reduced);
   }
 
   /** A game's first plays: Nu offers its rules the first time, and its goal leads the message
@@ -353,7 +358,7 @@ export class Game {
     if (isIso(stage)) return puzzleType(isotopeGame(z, isoA(stage)) ?? 'packing');
     if (isFleet(stage)) return puzzleType(fleetGame(stage));
     if (stage === 'shape') return puzzleType('codebreaker');
-    return puzzleType(stage === 'nucleus' ? 'merge' : 'orbitalGrid');
+    return puzzleType(atomGame(z, stage));
   }
 
   /** What a puzzle adds to this atom, in a sentence. */
@@ -1394,7 +1399,7 @@ export class Game {
     const st = p.state;
     if (this.puzzle instanceof MergeView) {
       st.filled = (st.sockets as number[]).length;
-    } else if (this.stage === 'shells') {
+    } else if (this.puzzle instanceof OrbitalGridView) {
       st.cells = [...(st.solution as number[])];
     } else if ('pieces' in st && 'outline' in st) {
       p.state = solvedState(st as unknown as PackingState) as unknown as Record<string, unknown>;
