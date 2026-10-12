@@ -1,11 +1,9 @@
-// The element list: every element as a roomy row (or a traditional table), with search and
-// sorting. The picker uses the rows; the gallery's Details view uses the table. Both share
-// the same columns, sorting and search, so an element is found the same way everywhere.
+// The element list: every element as a roomy row, with search and sorting, for the picker and
+// the gallery's Collection. Its columns and sorting are shared with Tables (gallery/table.ts),
+// so an element is found the same way everywhere.
 //
 //   const list = createElementList({ onPick: (z) => go(z), current: 26 });
 //   drawer.body.append(list.el);
-//
-//   const table = createElementList({ variant: 'table', onPick: (z) => openAtom(z) });
 //
 // Rows are grouped under small headings that follow the sort (periods, groups, blocks,
 // categories, first letters or how far each atom is built). Pills, behind the Filter button
@@ -21,7 +19,7 @@ import { fleetingOpen, rowLockNote } from '../gallery/locks';
 import { loadSave, type SaveData } from '../core/save';
 import './elementlist.css';
 
-export type SortKey = 'z' | 'name' | 'symbol' | 'weight' | 'group' | 'period' | 'block' | 'series' | 'density' | 'melt' | 'boil' | 'electronegativity' | 'radius' | 'discovered' | 'fleeting';
+export type SortKey = 'z' | 'name' | 'symbol' | 'weight' | 'group' | 'period' | 'block' | 'series' | 'density' | 'melt' | 'boil' | 'electronegativity' | 'radius' | 'discovered' | 'fleeting' | 'state';
 
 interface Column {
   key: SortKey;
@@ -41,6 +39,18 @@ const dash = '–';
 const num = (v: number | null, digits = 2) => (v === null ? dash : String(+v.toFixed(digits)));
 const celsius = (k: number | null) => (k === null ? dash : `${Math.round(k - 273.15)}`);
 
+/** Solid, liquid or gas at room temperature (25 °C), from the melting and boiling points;
+ *  Unknown where they have never been measured. */
+export type RoomState = 'Solid' | 'Liquid' | 'Gas' | 'Unknown';
+export const ROOM_STATES: RoomState[] = ['Solid', 'Liquid', 'Gas', 'Unknown'];
+const ROOM_K = 298.15;
+export function roomState(e: Element): RoomState {
+  if (e.melt === null) return 'Unknown';
+  if (e.melt > ROOM_K) return 'Solid';
+  if (e.boil === null) return 'Unknown';
+  return e.boil > ROOM_K ? 'Liquid' : 'Gas';
+}
+
 export const COLUMNS: Column[] = [
   { key: 'z', label: 'Number', short: '#', value: (e) => e.z, text: (e) => String(e.z), numeric: true, section: (e) => `Period ${e.period}` },
   { key: 'symbol', label: 'Symbol', value: (e) => e.symbol, text: (e) => e.symbol },
@@ -57,11 +67,12 @@ export const COLUMNS: Column[] = [
   { key: 'radius', label: 'Radius', short: 'Radius pm', value: (e) => e.vdw, text: (e) => String(e.vdw), numeric: true },
   // Fleeting isotopes built, out of how many the atom has (they never count toward its 100%).
   { key: 'fleeting', label: 'Fleeting', value: (e, s) => fleetingCount(e.z, s).built, text: (e, s) => { const f = fleetingCount(e.z, s); return `${f.built} / ${f.total}`; }, numeric: true },
+  { key: 'state', label: 'State', value: (e) => { const st = roomState(e); return st === 'Unknown' ? null : ROOM_STATES.indexOf(st); }, text: (e) => roomState(e), section: (e) => roomState(e) },
   { key: 'discovered', label: 'Discovered', value: (e) => e.discoveryYear ?? -1, text: (e) => (e.discoveryYear === null ? 'Ancient' : String(e.discoveryYear)), numeric: true },
 ];
-const COL = Object.fromEntries(COLUMNS.map((c) => [c.key, c])) as Record<SortKey, Column>;
+export const COL = Object.fromEntries(COLUMNS.map((c) => [c.key, c])) as Record<SortKey, Column>;
 
-/** The sorts in the rows' dropdown ('progress' reads the save); the table sorts by any column header. */
+/** The sorts in the dropdown ('progress' reads the save). */
 type ListSort = SortKey | 'progress';
 const LIST_SORTS: ListSort[] = ['z', 'name', 'progress', 'group', 'period', 'block', 'series'];
 const sortLabel = (k: ListSort) => (k === 'progress' ? 'Progress' : COL[k].label);
@@ -73,7 +84,6 @@ export const STAGES: { id: Stage | 'all'; label: string }[] = [
 ];
 const STAGE_HEADING: Record<Stage, string> = { new: 'Not started', started: 'In progress', done: 'Completed' };
 export const stageOf = (pct: number): Stage => (pct >= 100 ? 'done' : pct > 0 ? 'started' : 'new');
-const TABLE_COLUMNS: SortKey[] = ['symbol', 'name', 'z', 'weight', 'group', 'period', 'block', 'series', 'density', 'melt', 'boil', 'electronegativity', 'radius', 'discovered', 'fleeting'];
 
 /** Elements in order for a sort. Missing values go last whichever way the sort runs; ties
  *  fall back to atomic number. */
@@ -91,8 +101,6 @@ export function sortElements(list: Element[], key: SortKey, desc = false, save: 
 }
 
 export interface ElementListOptions {
-  /** 'rows' (default) for picking; 'table' for a traditional sortable table. */
-  variant?: 'rows' | 'table';
   onPick?: (z: number) => void;
   /** The element on screen now; marked and scrolled to. */
   current?: number;
@@ -133,10 +141,8 @@ const remember = (k: string | undefined, v: { key: ListSort; desc: boolean; stag
 };
 
 export function createElementList(opts: ElementListOptions = {}): ElementList {
-  const variant = opts.variant ?? 'rows';
   const saved = recall(opts.storageKey);
   let sort: ListSort = opts.sort ?? saved?.key ?? 'z';
-  if (variant === 'table' && sort === 'progress') sort = 'z';
   let desc = opts.sort ? false : saved?.desc ?? false;
   let stage: Stage | 'all' = saved?.stage ?? 'all';
   let query = '';
@@ -148,7 +154,7 @@ export function createElementList(opts: ElementListOptions = {}): ElementList {
   };
 
   const root = document.createElement('div');
-  root.className = `el-list el-list--${variant}`;
+  root.className = 'el-list';
   root.innerHTML = `
     <div class="el-tools">
       <div class="el-searchrow">
@@ -157,18 +163,18 @@ export function createElementList(opts: ElementListOptions = {}): ElementList {
           <input type="search" placeholder="Name, symbol or number" aria-label="Search elements" autocomplete="off" spellcheck="false" enterkeyhint="go">
           <button type="button" class="el-clear" aria-label="Clear search" hidden>${icon('clear', { size: 26 })}</button>
         </label>
-        ${variant === 'rows' ? `<button type="button" class="ui-icon-btn el-filter" aria-label="Filter" aria-expanded="false" aria-controls="">${icon('filter', { size: 22 })}</button>` : ''}
+        <button type="button" class="ui-icon-btn el-filter" aria-label="Filter" aria-expanded="false" aria-controls="">${icon('filter', { size: 22 })}</button>
       </div>
-      ${variant === 'rows' ? `<div class="el-stages ui-pills" role="radiogroup" aria-label="Show" hidden>${STAGES.map((st) => `<button type="button" role="radio" class="el-stage ui-pill" data-stage="${st.id}">${st.label}</button>`).join('')}</div>
+      <div class="el-stages ui-pills" role="radiogroup" aria-label="Show" hidden>${STAGES.map((st) => `<button type="button" role="radio" class="el-stage ui-pill" data-stage="${st.id}">${st.label}</button>`).join('')}</div>
       <div class="el-bar"><span class="el-count" aria-live="polite"></span>
         <div class="el-sortbox">
           <button type="button" class="el-dir" aria-label="Reverse the order"></button>
           <button type="button" class="el-sortbtn" aria-haspopup="menu" aria-expanded="false"></button>
           <div class="el-menu" role="menu" hidden>${LIST_SORTS.map((k) => `<button type="button" role="menuitemradio" class="el-opt" data-key="${k}"><span>${sortLabel(k)}</span>${icon('check', { size: 20 })}</button>`).join('')}</div>
         </div>
-      </div>` : ''}
+      </div>
     </div>
-    <div class="el-body" role="${variant === 'rows' ? 'listbox' : 'grid'}" aria-label="Elements"></div>
+    <div class="el-body" role="listbox" aria-label="Elements"></div>
     <div class="el-none" hidden><p></p><div class="el-none-act"></div></div>`;
   const input = root.querySelector<HTMLInputElement>('input')!;
   const clear = root.querySelector<HTMLButtonElement>('.el-clear')!;
@@ -183,7 +189,7 @@ export function createElementList(opts: ElementListOptions = {}): ElementList {
   const visible = (): Element[] => {
     // While searching, best matches first, whatever the sort.
     const list = query ? searchElements(query) : sorted();
-    return stage === 'all' || variant === 'table' ? list : list.filter((e) => stageOf(pctOf(e.z)) === stage);
+    return stage === 'all' ? list : list.filter((e) => stageOf(pctOf(e.z)) === stage);
   };
 
   const tile = (e: Element) => `<span class="el-tile" style="--c:${BLOCK_COLOUR[e.block]}"><b>${e.symbol}</b></span>`;
@@ -232,30 +238,7 @@ export function createElementList(opts: ElementListOptions = {}): ElementList {
     watchRows();
   };
 
-  // The Fleeting column joins once fleeting isotopes are open (any atom built).
-  const columns = () => TABLE_COLUMNS.filter((k) => k !== 'fleeting' || fleetingOpen(save));
-  const drawTable = (list: Element[]) => {
-    const head = columns().map((k) => {
-      const c = COL[k];
-      const on = !query && sort === k;
-      const aria = on ? (desc ? 'descending' : 'ascending') : 'none';
-      return `<th scope="col" class="${c.numeric ? 'n' : ''}" aria-sort="${aria}"><button type="button" data-key="${k}">${esc(c.short ?? c.label)}<i class="el-arrow" aria-hidden="true"></i></button></th>`;
-    }).join('');
-    const rows = list.map((e) => {
-      const locked = opts.locked?.(e.z) ?? false;
-      const cells = columns().map((k) => {
-        const c = COL[k];
-        if (k === 'symbol') return `<td><span class="el-sym" style="--c:${BLOCK_COLOUR[e.block]}">${e.symbol}</span></td>`;
-        if (k === 'name') return `<th scope="row">${esc(e.name)}${locked ? `<span class="el-lock" aria-label="Build locked">${icon('lock', { size: 16 })}</span>` : ''}</th>`;
-        return `<td class="${c.numeric ? 'n' : ''}">${esc(c.text(e, save))}</td>`;
-      }).join('');
-      return `<tr class="${locked ? 'is-locked' : ''}${e.z === opts.current ? ' is-current' : ''}" data-z="${e.z}" tabindex="0">${cells}</tr>`;
-    }).join('');
-    body.innerHTML = `<div class="el-scroll"><table><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table></div>`;
-  };
-
   const paintSorts = () => {
-    if (variant !== 'rows') return;
     root.querySelectorAll<HTMLButtonElement>('.el-opt').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.key === sort)));
     root.querySelectorAll<HTMLButtonElement>('.el-stage').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.stage === stage)));
     // The filter button wears a dot while a stage other than All is picked.
@@ -322,7 +305,7 @@ export function createElementList(opts: ElementListOptions = {}): ElementList {
   const paintEmpty = (empty: boolean) => {
     none.hidden = !empty;
     if (!empty) return;
-    const byStage = !query && stage !== 'all' && variant === 'rows';
+    const byStage = !query && stage !== 'all';
     none.querySelector('p')!.textContent = byStage ? EMPTY[stage as Stage] : 'No element matches that.';
     const act = none.querySelector<HTMLElement>('.el-none-act')!;
     act.replaceChildren();
@@ -335,19 +318,17 @@ export function createElementList(opts: ElementListOptions = {}): ElementList {
     const list = visible();
     paintCount(list.length);
     paintEmpty(list.length === 0);
-    if (variant === 'rows') drawRows(list);
-    else drawTable(list);
+    drawRows(list);
     paintSorts();
   };
 
   const toTop = () => {
-    // Back to the top of whatever scrolls: the table's own frame, or the panel around the rows.
-    (root.querySelector('.el-scroll') ?? root.closest('.ui-drawer-body') ?? root).scrollTo({ top: 0 });
+    // Back to the top of whatever scrolls: the panel around the rows, or the list itself.
+    (root.closest('.ui-drawer-body') ?? root).scrollTo({ top: 0 });
   };
-  const setSort = (key: ListSort, flip = true) => {
-    // In the table, picking the active column again flips its direction; a new sort starts
-    // ascending, except progress, which starts with the furthest along.
-    desc = key === sort ? (flip ? !desc : desc) : key === 'progress';
+  const setSort = (key: ListSort) => {
+    // A new sort starts ascending, except progress, which starts with the furthest along.
+    desc = key === sort ? desc : key === 'progress';
     sort = key;
     remember(opts.storageKey, { key: sort, desc, stage });
     render();
@@ -382,17 +363,11 @@ export function createElementList(opts: ElementListOptions = {}): ElementList {
     }
     if (t.closest('.el-dir')) { desc = !desc; remember(opts.storageKey, { key: sort, desc, stage }); render(); toTop(); return; }
     const opt = t.closest<HTMLElement>('.el-opt');
-    if (opt?.dataset.key) { openMenu(false); setSort(opt.dataset.key as ListSort, false); return; }
+    if (opt?.dataset.key) { openMenu(false); setSort(opt.dataset.key as ListSort); return; }
     const pill = t.closest<HTMLElement>('.el-stage');
     if (pill?.dataset.stage) { stage = pill.dataset.stage as Stage | 'all'; remember(opts.storageKey, { key: sort, desc, stage }); render(); toTop(); return; }
-    const th = t.closest<HTMLElement>('th button');
-    if (th?.dataset.key) { setSort(th.dataset.key as SortKey); return; }
     const hit = t.closest<HTMLElement>('[data-z]');
     if (hit && body.contains(hit)) opts.onPick?.(Number(hit.dataset.z));
-  });
-  body.addEventListener('keydown', (e) => {
-    const tr = (e.target as HTMLElement).closest<HTMLElement>('tr[data-z]');
-    if (tr && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); opts.onPick?.(Number(tr.dataset.z)); }
   });
   input.addEventListener('input', () => {
     query = input.value.trim();

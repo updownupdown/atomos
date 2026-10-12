@@ -22,6 +22,7 @@ import { closeModal, openModal } from '../ui/modal';
 import { loadSave, writeSave, type SaveData } from '../core/save';
 import { atomBuilt, fleetingTotal, atomProgress, rowSpan, orbitalShapeUnlocked, rowOf, rowOpen, SHAPE_AT, stepState } from '../core/progress';
 import { createElementList, type ElementList } from '../ui/elementlist';
+import { createTable, type Table } from './table';
 import { nextLabel, nextStep, openAtom, openStep, type NextStep } from '../core/next';
 import { firstTimeLine } from '../ui/nu';
 import { isUnlocked, unlockPuzzle, type UnlockId } from '../core/unlocks';
@@ -80,7 +81,7 @@ export class GalleryApp {
   })();
   /** True when a panel covers the map, so its render loop can rest. */
   private get covered(): boolean { return this.mode !== 'map'; }
-  private list: ElementList | null = null;
+  private list: Table | null = null;
   private collection: ElementList | null = null;
   private modes: Segments | null = null;
   private rings = localStorage.getItem('atomos.gallery.rings') !== 'off';
@@ -124,7 +125,6 @@ export class GalleryApp {
     this.paintOverall();
     this.paintUpNext();
     if (this.current && !$('loupe-screen').hidden) this.paintViewNext();
-    this.list?.refresh();
     // The Isotopes page shows what is built and what has decayed.
     if (this.tab === 'isotopes') this.renderPanel();
   }
@@ -496,7 +496,7 @@ export class GalleryApp {
     this.modes?.select(this.mode);
     $('lens-switch').querySelectorAll<HTMLButtonElement>('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.id === this.layoutId)));
     $('lens-switch').hidden = this.mode !== 'map';
-    $('layout-note').textContent = this.mode === 'details' ? 'Every element in one table: tap a heading to sort, a row to open it'
+    $('layout-note').textContent = this.mode === 'details' ? 'Every element in one table: search, filter, sort and group it, and tap a row to open it'
       : this.mode === 'collection' ? 'Every atom and how far it is built: tap one to open it'
       : LAYOUTS.find((l) => l.id === this.layoutId)!.note;
     $('gallery-screen').classList.toggle('is-details', this.mode === 'details');
@@ -505,12 +505,7 @@ export class GalleryApp {
     $('gal-details').hidden = this.mode !== 'details';
     $('gal-collection').hidden = this.mode !== 'collection';
     if (this.mode === 'details' && !this.list) {
-      this.list = createElementList({
-        variant: 'table',
-        onPick: (z) => this.pick(z),
-        locked: (z) => this.buildLocked(z),
-        storageKey: 'atomos.details.sort',
-      });
+      this.list = createTable({ onPick: (z) => this.pick(z) });
       $('gal-details').append(this.list.el);
     }
     if (this.mode === 'collection' && !this.collection) {
