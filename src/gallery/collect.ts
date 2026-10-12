@@ -351,6 +351,13 @@ export class Collect {
     card.querySelector('.ui-callout-acts')!.replaceChildren(nextButton({ label: resume ? 'Resume' : 'Play', compact: true, landKey: 'collect-upnext', onClick: () => openStep(step) }));
   }
 
+  /** Give atom `z`'s row the view-transition name the atom bar carries (atom-id), so the one
+   *  glides into the other; null takes it off. Only one element may carry it at a time. */
+  nameRow(z: number | null): void {
+    for (const id of this.list.querySelectorAll<HTMLElement>('.co-id')) id.style.removeProperty('view-transition-name');
+    if (z !== null) this.list.querySelector<HTMLElement>(`.co-row[data-z="${z}"] .co-id`)?.style.setProperty('view-transition-name', 'atom-id');
+  }
+
   /** For checks: the period and the atom in focus. */
   get state(): { period: number; z: number; live: { z: number; tone: string } } {
     return { period: this.period, z: this.current, live: this.live.state };

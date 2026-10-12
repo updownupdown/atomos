@@ -21,7 +21,7 @@
 
 /* Progress: atoms built, stable and fleeting, each an icon over its words and bar, and the
    tracks' legend at the right over the lanes. */
-.co-stats { display: flex; align-items: flex-end; gap: var(--sp-3); padding: var(--sp-1) var(--sp-2) var(--sp-2) var(--sp-4); background: var(--c-nav); }
+.co-stats { display: flex; align-items: flex-end; gap: var(--sp-3); padding: var(--sp-1) var(--sp-4) var(--sp-2); background: var(--c-nav); }
 .co-stat { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; }
 .co-stat-ico { flex: none; display: grid; color: var(--c-text-2); }
 .co-stat-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
@@ -41,8 +41,8 @@
    and the rest fade with their distance from it (--k). Spacers above and below (.co-pad) let the
    first and last rows reach the middle; the one above carries the tracks up to the progress row. */
 .co-list { position: relative; flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scroll-snap-type: y mandatory; scroll-padding-bottom: var(--co-card, 0px); touch-action: pan-y; --trk-gap: 0px; }
-.co-pad { display: flex; justify-content: flex-end; padding-right: var(--sp-2); }
-.co-row { display: grid; grid-template-columns: minmax(0, 1fr) 92px minmax(0, 1fr); align-items: stretch; height: 100px; padding: 0 var(--sp-2) 0 var(--sp-4); scroll-snap-align: center; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.co-pad { display: flex; justify-content: flex-end; padding-right: var(--sp-4); }
+.co-row { display: grid; grid-template-columns: minmax(0, 1fr) 92px minmax(0, 1fr); align-items: stretch; height: 100px; padding: 0 var(--sp-4); scroll-snap-align: center; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .co-row:focus-visible { outline: 2px solid var(--c-accent); outline-offset: -2px; }
 .co-id { align-self: center; display: flex; flex-direction: column; min-width: 0; line-height: 1.15; }
 .co-id small { font-size: var(--fs-sm); color: var(--c-text-2); font-variant-numeric: tabular-nums; }

@@ -18,6 +18,7 @@ import { icon, type IconName } from './ui/icons';
 import { setScienceHandler } from './ui/science';
 import { markSvg } from './ui/mark';
 import { initModeBar, refreshModeProgress, showModeBar, type AtomMode } from './ui/modebar';
+import { reducedMotion } from './ui/nu';
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -58,6 +59,8 @@ export class AppShell {
       },
     });
     this.collect = new Collect($('collect-screen'), { onOpen: (z) => { this.z = z; void this.go('atom', atomBuilt(z) ? 'view' : 'build'); } });
+    // The atom bar's Collect button.
+    document.addEventListener('atomos:collect', () => void this.go('collect'));
     // Header: the mark (home) on the left, then the four sections, each an icon over its name.
     $('nav-logo').innerHTML = `${markSvg()}<span class="nav-word">Atomos</span>`;
     $('nav-logo').onclick = () => void this.go('collect');
@@ -115,17 +118,40 @@ export class AppShell {
   /** The build screen, once it has been opened; for console checks. */
   get build(): Game | null { return this.game; }
 
+  /** Go to a screen. Between Collect and an atom the element glides from its row to the atom
+   *  bar and back (a view transition, where the browser has them and motion is on); anything
+   *  else switches at once. */
   async go(screen: Screen, mode: AtomMode = this.mode): Promise<void> {
+    const opening = this.screen === 'collect' && screen === 'atom';
+    const closing = this.screen === 'atom' && screen === 'collect';
+    const doc = document as Document & { startViewTransition?: (update: () => Promise<void>) => { finished: Promise<void> } };
+    if ((!opening && !closing) || !doc.startViewTransition || reducedMotion()) return this.show(screen, mode);
+    // Load Build before the transition starts, so the old screen isn't held while it loads.
+    if (screen === 'atom' && mode === 'build') await this.loadGame();
+    if (opening) this.collect.nameRow(this.z);
+    const z = this.z;
+    const t = doc.startViewTransition(async () => {
+      await this.show(screen, mode);
+      if (closing) this.collect.nameRow(z);
+    });
+    await t.finished.catch(() => undefined);
+    this.collect.nameRow(null);
+  }
+
+  private async loadGame(): Promise<void> {
+    if (this.game) return;
+    const { Game } = await import('./game');
+    const want = this.z;
+    this.game = new Game({ onElement: (z) => this.setZ(z), onView: (z) => { this.setZ(z); void this.go('atom', 'view'); }, onInfo: (z) => { this.setZ(z); void this.go('atom', 'info'); } });
+    this.z = want;
+  }
+
+  private async show(screen: Screen, mode: AtomMode): Promise<void> {
     if (screen === 'puzzles' && !this.playground) {
       const { Playground } = await import('./playground');
       this.playground = new Playground();
     }
-    if (screen === 'atom' && mode === 'build' && !this.game) {
-      const { Game } = await import('./game');
-      const want = this.z;
-      this.game = new Game({ onElement: (z) => this.setZ(z), onView: (z) => { this.setZ(z); void this.go('atom', 'view'); }, onInfo: (z) => { this.setZ(z); void this.go('atom', 'info'); } });
-      this.z = want;
-    }
+    if (screen === 'atom' && mode === 'build') await this.loadGame();
     // Back to Collect from an atom: on that atom's period, centered on it.
     const fromAtom = this.screen === 'atom';
     this.screen = screen;
