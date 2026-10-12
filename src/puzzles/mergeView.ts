@@ -1,6 +1,6 @@
 // Drawing and touch for the Merge puzzle (Tokamak): a swipe slides the board; a cluster of the
-// wanted size flies up into the nucleus. Shards of the reactor wall sit dark on the board from
-// period 5 on. In capture mode one socket wants exactly the mass number.
+// wanted size flies up into the nucleus. Pale tungsten blocks from the reactor's armor sit on the
+// board from period 5 on. In capture mode one socket wants exactly the mass number.
 
 import { ALL_SYMBOLS } from '../core/elements';
 import { bestSwipe, biggest, cloneMerge, closestPair, inReach, jammed, mergeOf, slide, wanted, won, type Dir, type MergeState, type Tile } from './merge';
@@ -187,11 +187,11 @@ export class MergeView implements PuzzleView {
 
     this.drawGoal(ctx, x0 - pad, y0 - pad - goalH, side + 2 * pad);
 
-    // The board: the shared frame, the wall shards, and a faint dot at each empty cell's center.
+    // The board: the shared frame, the tungsten blocks, and a faint dot at each empty cell's center.
     drawFrame(ctx, { x: x0 - pad, y: y0 - pad, w: side + 2 * pad, h: side + 2 * pad }, { width: frameWidth(cell), radius: cell * 0.2 + pad });
     for (const i of this.state.walls) {
       const c = center(i);
-      drawShard(ctx, c.x, c.y, r, i, frameWidth(cell));
+      drawTungsten(ctx, c.x, c.y, r, this.reduced ? null : sheenAt(now, i));
     }
     ctx.fillStyle = C.line2;
     for (let i = 0; i < n * n; i++) {
@@ -326,50 +326,88 @@ export class MergeView implements PuzzleView {
 /** Capture mode's name beside its socket. */
 const CAPTURE_TAG = 'Capture: exactly';
 
+/** How long one sheen takes to cross a tungsten block, and how often one comes round. */
+const SHEEN_MS = 1800;
+const SHEEN_EVERY_MS = 7000;
+
+/** Where a block's sheen is at time `now` (0 to 1 while it crosses, null between), each block on
+ *  its own beat so they never flash together. */
+export function sheenAt(now: number, k: number): number | null {
+  const t = (now + k * 2300) % SHEEN_EVERY_MS;
+  return t < SHEEN_MS ? t / SHEEN_MS : null;
+}
+
+/** Tungsten's brushed face: bright at the top left, cooler at the bottom right, with a faint
+ *  band of polish across the middle. */
+function tungstenFace(ctx: CanvasRenderingContext2D, x: number, y: number, s: number): CanvasGradient {
+  const g = ctx.createLinearGradient(x - s, y - s, x + s * 0.6, y + s);
+  g.addColorStop(0, '#f2f5f6');
+  g.addColorStop(0.45, '#d3d9dc');
+  g.addColorStop(0.55, '#dfe4e6');
+  g.addColorStop(1, '#aeb7bc');
+  return g;
+}
+
 /**
- * A shard of the reactor wall: a dark faceted crystal on the frame's own stroke, with one lighter
- * face. Its outline wobbles a little per cell, so two shards are never the same stone.
+ * A tungsten block from the reactor's divertor armor: a plate of cool, pale metal castellated into
+ * nine monoblocks by deep seams, each with a lit top edge and a shaded foot, in a soft pale halo.
+ * It carries no number and has squarer corners than a cluster, so it never reads as one. `sheen`
+ * (0 to 1, null for none) is a slow band of light sweeping across it. (x, y) is its center and r
+ * half a cluster's side.
  */
-export function drawShard(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, k: number, width: number): void {
+export function drawTungsten(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, sheen: number | null = null): void {
   if (!(r > 0)) return;
-  const pts: [number, number][] = [];
-  const n = 7;
-  for (let i = 0; i < n; i++) {
-    const a = -Math.PI / 2 + (i * 2 * Math.PI) / n + 0.22 * Math.sin(k * 1.7 + i * 2.3);
-    const rr = r * (0.72 + 0.16 * Math.sin(k * 2.9 + i * 1.3));
-    pts.push([x + Math.cos(a) * rr, y + Math.sin(a) * rr]);
-  }
-  const core: [number, number] = [x - r * 0.12, y - r * 0.08];
-  ctx.save();
-  ctx.lineJoin = 'round';
-  ctx.beginPath();
-  pts.forEach(([px, py], i) => (i ? ctx.lineTo(px, py) : ctx.moveTo(px, py)));
-  ctx.closePath();
-  ctx.fillStyle = C.surface2;
-  ctx.fill();
-  // The lit faces: two triangles from the core to the upper rim.
-  ctx.fillStyle = C.surface3;
-  for (const [a, b] of [[n - 1, 0], [0, 1]]) {
+  const n = 3;
+  const s = r * 0.96;
+  const rad = s * 0.16;
+  const seam = Math.max(1.5, s * 0.085);
+  const side = (s * 2 - (n - 1) * seam) / n;
+  const blocks: [number, number][] = [];
+  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) blocks.push([x - s + i * (side + seam), y - s + j * (side + seam)]);
+  const faces = () => {
     ctx.beginPath();
-    ctx.moveTo(core[0], core[1]);
-    ctx.lineTo(pts[a][0], pts[a][1]);
-    ctx.lineTo(pts[b][0], pts[b][1]);
-    ctx.closePath();
-    ctx.fill();
+    for (const [bx, by] of blocks) ctx.roundRect(bx, by, side, side, rad * 0.6);
+  };
+  ctx.save();
+  // The plate behind, dark metal seen down in the seams, in a pale halo.
+  ctx.shadowColor = 'rgba(214, 224, 230, 0.35)';
+  ctx.shadowBlur = r * 0.35;
+  ctx.fillStyle = '#5d666c';
+  ctx.beginPath();
+  ctx.roundRect(x - s, y - s, s * 2, s * 2, rad);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  // The monoblocks, then a lit top edge and a shaded foot on each, so they stand as blocks.
+  ctx.fillStyle = tungstenFace(ctx, x, y, s);
+  faces();
+  ctx.fill();
+  for (const [bx, by] of blocks) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.roundRect(bx, by, side, side, rad * 0.6);
+    ctx.clip();
+    ctx.fillStyle = 'rgba(60, 68, 74, 0.28)';
+    ctx.fillRect(bx, by + side * 0.84, side, side * 0.16);
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
+    ctx.fillRect(bx, by, side, side * 0.1);
+    ctx.restore();
   }
-  // The facet edges, faint, then the outline in the frame's stroke.
-  ctx.strokeStyle = C.frame;
-  ctx.globalAlpha = 0.55;
-  ctx.lineWidth = Math.max(1.5, width * 0.45);
-  ctx.beginPath();
-  for (const i of [0, 2, 4, 5]) { ctx.moveTo(core[0], core[1]); ctx.lineTo(pts[i][0], pts[i][1]); }
-  ctx.stroke();
-  ctx.globalAlpha = 1;
-  ctx.lineWidth = width;
-  ctx.beginPath();
-  pts.forEach(([px, py], i) => (i ? ctx.lineTo(px, py) : ctx.moveTo(px, py)));
-  ctx.closePath();
-  ctx.stroke();
+  // The sheen: a soft diagonal band of light that crosses the faces and is gone.
+  if (sheen !== null) {
+    ctx.save();
+    faces();
+    ctx.clip();
+    const c = (sheen * 2 - 1) * s * 2.2;
+    const w = s * 0.55;
+    const band = ctx.createLinearGradient(x + c - w, y + c - w, x + c + w, y + c + w);
+    const peak = Math.sin(Math.PI * sheen) * 0.85;
+    band.addColorStop(0, 'rgba(255, 255, 255, 0)');
+    band.addColorStop(0.5, `rgba(255, 255, 255, ${peak.toFixed(3)})`);
+    band.addColorStop(1, 'rgba(255, 255, 255, 0)');
+    ctx.fillStyle = band;
+    ctx.fillRect(x - s, y - s, s * 2, s * 2);
+    ctx.restore();
+  }
   ctx.restore();
 }
 
@@ -475,7 +513,7 @@ export function sup(s: string): string {
 
 export const INSTRUCTIONS = `
 <h3>In the game</h3>
-<p class="meta">Builds the nucleus of every element from helium to oganesson (hydrogen has nothing to gather). The sockets are the mass number of the element's most common isotope written in powers of two, and every cluster shows its true nucleon count. Periods 1 to 3 deal single nucleons and stay gentle. From period 4 the biggest socket can be 64 times the smallest cluster dealt (heavier nuclei deal bigger clusters to stay there); period 5 adds a shard of the reactor wall in the middle of the board, period 6 climbs to 128, and period 7 has two shards on the edges. Every deal is first played through by a look-ahead player: shards go only where it still wins, Show me follows its line, and from period 4 par is its swipe count plus 30% and four. Going over par or cracking a cluster costs the star; a board with no swipe left is lost, though undo still steps back.</p>`;
+<p class="meta">Builds the nucleus of every element from helium to oganesson (hydrogen has nothing to gather). The sockets are the mass number of the element's most common isotope written in powers of two, and every cluster shows its true nucleon count. Periods 1 to 3 deal single nucleons and stay gentle. From period 4 the biggest socket can be 64 times the smallest cluster dealt (heavier nuclei deal bigger clusters to stay there); period 5 adds a tungsten block from the reactor's armor in the middle of the board, period 6 climbs to 128, and period 7 has two blocks on the edges. Every deal is first played through by a look-ahead player: blocks go only where it still wins, Show me follows its line, and from period 4 par is its swipe count plus 30% and four. Going over par or cracking a cluster costs the star; a board with no swipe left is lost, though undo still steps back.</p>`;
 
 export const CAPTURE_INSTRUCTIONS = `
 <h3>In the game</h3>
@@ -492,6 +530,8 @@ const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
 const seg = (t: number, a: number, b: number) => ease(clamp01((t - a) / (b - a)));
 const mix = (a: number, b: number, k: number) => a + (b - a) * k;
 const cl = (v: number, spoiled = false) => ({ v, spoiled });
+/** A rule card's tungsten sheen: one slow pass in the middle of the card, none in the still. */
+const cardSheen = (t: number) => (t > 0.15 && t < 1.85 ? (t - 0.15) / 1.7 : null);
 
 /** A row of four dashed board cells, as on the board. */
 interface Row { cell: number; r: number; cy: number; x0: number; at: (n: number) => number }
@@ -745,14 +785,14 @@ export const RULES: RuleCard[] = [
     },
   },
   {
-    title: 'Wall shards',
-    text: 'From period 5 on, shards of the reactor wall sit on the board. Clusters stop against them and never pass through.',
+    title: 'Tungsten blocks',
+    text: 'From period 5 on, tungsten blocks from the reactor\'s armor sit on the board. Clusters stop against them and never pass through.',
     good: {
       duration: 2,
-      caption: 'Stops at the shard',
+      caption: 'Stops at the block',
       draw: (ctx, w, h, t) => {
         const row = plainRow(ctx, w, h), k = seg(t, 0.55, 0.95);
-        drawShard(ctx, row.at(1), row.cy, row.r, 1, 3);
+        drawTungsten(ctx, row.at(1), row.cy, row.r, cardSheen(t));
         swipeArrow(ctx, row, (t - 0.25) / 0.8);
         drawCluster(ctx, cl(1), row.at(0), row.cy, row.r);
         drawCluster(ctx, cl(2), mix(row.at(3), row.at(2), k), row.cy, row.r);
@@ -764,7 +804,7 @@ export const RULES: RuleCard[] = [
       caption: 'No merging through it',
       draw: (ctx, w, h, t) => {
         const row = plainRow(ctx, w, h), k = seg(t, 0.55, 0.95);
-        drawShard(ctx, row.at(1), row.cy, row.r, 1, 3);
+        drawTungsten(ctx, row.at(1), row.cy, row.r, cardSheen(t));
         swipeArrow(ctx, row, (t - 0.25) / 0.8);
         drawCluster(ctx, cl(2), row.at(0), row.cy, row.r);
         drawCluster(ctx, cl(2), mix(row.at(3), row.at(2), k), row.cy, row.r);
