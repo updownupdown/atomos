@@ -1,6 +1,7 @@
-// Drawing and touch for Fission: tap a nucleus and watch the chain. Each nucleus is a cluster of
-// violet nucleons breathing in a soft halo, with chevrons set out from it for the ways its
-// neutrons fly. A neutron is a white-hot bead with a fading ice-blue trail that crosses the plate
+// Drawing and touch for Fission: tap a nucleus and watch the chain. Each nucleus is a small flat
+// cluster of nucleons breathing in a soft halo, its hue set by how many neutrons it releases
+// (teal for one, azure for two, violet for three), with narrow chevrons set
+// well out from it for the ways its neutrons fly. Everything is flat: no sheen or shading. A neutron is a white-hot bead with a fading ice-blue trail that crosses the plate
 // one wave at a time; what it hits splits on the next wave. Moderator blocks are plain wall
 // blocks. A split nucleus stays as two dim fragments.
 //
@@ -73,13 +74,17 @@ function block(ctx: CanvasRenderingContext2D, x: number, y: number, c: number): 
   ctx.fill();
 }
 
-/** Uranium sits in the f block, so a nucleus wears the f orbital's violet. */
-const VIOLET = '#a865d6';
-const BODY = '#26163a';
-/** Protons a bright lavender, neutrons a gray violet, as the palette has protons warm and
- *  neutrons gray. */
-const NUCLEON_A = '#d4a8f5';
-const NUCLEON_B = '#7f6a9c';
+/** A nucleus's colors by how many neutrons it releases, one to three (the most a board deals):
+ *  a calm sweep round the cool side of the wheel, teal, azure and the f orbital's violet (uranium
+ *  sits in the f block), so the size of a burst reads by color as well as by its chevrons. Each
+ *  has its halo hue, a deep plate, light protons and mid-tone neutrons, all flat. */
+interface Hue { glow: string; body: string; proton: string; neutron: string }
+const HUES: Hue[] = [
+  { glow: '#3fc2b0', body: '#123a37', proton: '#a6ece1', neutron: '#3f9f93' },
+  { glow: '#5b97ea', body: '#152d52', proton: '#b6d2f8', neutron: '#4a76b8' },
+  { glow: '#a865d6', body: '#30194a', proton: '#dcbcf4', neutron: '#8458ae' },
+];
+const hueFor = (arrows: number): Hue => HUES[Math.max(1, Math.min(HUES.length, popcount(arrows))) - 1];
 /** Neutrons fly white-hot with a cool ice-blue glow. */
 const ICE = '#bfeeff';
 const HOT = '#f4fcff';
@@ -90,22 +95,23 @@ const NUCLEONS: [number, number][] = [[0, 0], ...Array.from({ length: 6 }, (_, k
   return [Math.cos(a) * 0.6, Math.sin(a) * 0.6];
 })];
 
-/** A nucleus: a cluster of nucleons on a deep violet plate, breathing softly in a violet halo,
- *  with a chevron well out from its rim for each way its neutrons fly. Split, it is two dim
- *  fragments on a faint plate with no chevrons. `flash` 0 to 1 lights it as it splits; `pulse`
- *  0 to 1 is the idle breath (0 when motion is off). */
+/** A nucleus: a flat cluster of nucleons on a deep plate, breathing softly in a halo of its hue,
+ *  with a narrow chevron well out from its rim for each way its neutrons fly. Split, it is two
+ *  dim fragments on a faint plate with no chevrons. `flash` 0 to 1 lights it as it splits;
+ *  `pulse` 0 to 1 is the idle breath (0 when motion is off). */
 export function nucleus(ctx: CanvasRenderingContext2D, x: number, y: number, c: number, arrows: number, split: boolean, flash = 0, pulse = 0): void {
-  const r = c * 0.22;
+  const r = c * 0.17;
+  const hue = hueFor(arrows);
   ctx.save();
   if (split) {
-    ctx.fillStyle = VIOLET;
-    ctx.globalAlpha = 0.17;
+    ctx.fillStyle = hue.glow;
+    ctx.globalAlpha = 0.15;
     ctx.beginPath();
     ctx.arc(x, y, r * 1.05, 0, Math.PI * 2);
     ctx.fill();
     // Two fragments, flung apart along the diagonal.
     ctx.globalAlpha = 0.6;
-    ctx.fillStyle = NUCLEON_B;
+    ctx.fillStyle = hue.neutron;
     for (const k of [-1, 1]) {
       ctx.beginPath();
       ctx.arc(x + k * r * 0.42, y - k * r * 0.42, r * 0.26, 0, Math.PI * 2);
@@ -130,41 +136,40 @@ export function nucleus(ctx: CanvasRenderingContext2D, x: number, y: number, c: 
     ctx.restore();
     return;
   }
-  // The halo: a wide faint violet band that breathes.
-  ctx.fillStyle = VIOLET;
-  ctx.globalAlpha = 0.16 + 0.1 * pulse;
+  // The halo: a wide faint band of the nucleus's hue that breathes.
+  ctx.fillStyle = hue.glow;
+  ctx.globalAlpha = 0.18 + 0.1 * pulse;
   ctx.beginPath();
-  ctx.arc(x, y, r * (1.24 + 0.08 * pulse), 0, Math.PI * 2);
+  ctx.arc(x, y, r * (1.3 + 0.08 * pulse), 0, Math.PI * 2);
   ctx.fill();
-  // The plate, glowing faintly from within.
+  // The plate, glowing faintly in its hue.
   ctx.globalAlpha = 1;
-  ctx.shadowColor = VIOLET;
-  ctx.shadowBlur = c * (0.12 + 0.1 * pulse);
-  ctx.fillStyle = BODY;
+  ctx.shadowColor = hue.glow;
+  ctx.shadowBlur = c * (0.1 + 0.08 * pulse);
+  ctx.fillStyle = hue.body;
   ctx.beginPath();
   ctx.arc(x, y, r, 0, Math.PI * 2);
   ctx.fill();
   ctx.shadowBlur = 0;
-  // The nucleons, lit from the top left by a linear sheen.
-  const nr = r * 0.32;
+  // The nucleons, flat: light protons and mid-tone neutrons.
+  const nr = r * 0.3;
   NUCLEONS.forEach(([ox, oy], k) => {
-    const px = x + ox * r, py = y + oy * r;
-    const base = k > 0 && k % 2 === 0 ? NUCLEON_B : NUCLEON_A;
-    ctx.fillStyle = linear(ctx, px - nr, py - nr, px + nr, py + nr, [[0, '#f6ecff'], [0.4, base], [1, base]], base);
+    ctx.fillStyle = k > 0 && k % 2 === 0 ? hue.neutron : hue.proton;
     ctx.beginPath();
-    ctx.arc(px, py, nr, 0, Math.PI * 2);
+    ctx.arc(x + ox * r, y + oy * r, nr, 0, Math.PI * 2);
     ctx.fill();
   });
-  // The chevrons, set well out from the rim so the nucleus has room to breathe.
+  // The chevrons: narrow and pointed so their heading reads at a glance, set well out from the
+  // rim so the nucleus has room to breathe.
   ctx.strokeStyle = C.silver;
-  ctx.lineWidth = Math.max(1.75, c * 0.06);
+  ctx.lineWidth = Math.max(1.5, c * 0.045);
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
-  const k = c * 0.1, along = c * 0.065;
+  const k = c * 0.06, along = c * 0.085;
   for (let d = 0; d < 4; d++) {
     if (!(arrows & (1 << d))) continue;
     const dx = DX[d], dy = DY[d];
-    const tx = x + dx * c * 0.43, ty = y + dy * c * 0.43;
+    const tx = x + dx * c * 0.42, ty = y + dy * c * 0.42;
     ctx.beginPath();
     ctx.moveTo(tx - dx * along + dy * k, ty - dy * along + dx * k);
     ctx.lineTo(tx, ty);
@@ -473,13 +478,13 @@ function picture(rows: string[], taps: [number, number][], caption: string, bad 
 export const RULES: RuleCard[] = [
   {
     title: 'Tap',
-    text: 'Tap a nucleus and it splits, sending a neutron the way each of its chevrons points. A neutron flies straight until it hits something, or leaves the plate.',
-    good: picture(['2.2.', '....', '....'], [[0, 0]], 'Two split in one'),
+    text: 'Tap a nucleus and it splits, sending a neutron the way each of its chevrons points: a teal one sends one, blue two, violet three. A neutron flies straight until it hits something, or leaves the plate.',
+    good: picture(['2.3.', '....', '....'], [[0, 0]], 'Two split in one'),
   },
   {
     title: 'Chain',
     text: 'A nucleus hit by a neutron splits too, and sends out its own. Follow the chevrons to see how far a tap reaches.',
-    good: picture(['2..4', '....', '1..8'], [[0, 0]], 'One tap, a chain'),
+    good: picture(['2..d', '....', '3..8'], [[0, 0]], 'One tap, a chain'),
   },
   {
     title: 'Moderators',

@@ -1,8 +1,9 @@
-// Drawing and touch for Planar: drag atoms until no two bonds cross. Atoms are green jewels in
-// black rings, each drifting slowly through the greens (lime to emerald to teal) on its own
-// phase; clear bonds blend between their atoms' greens. A bond that crosses another or runs
-// through an atom goes gray, with an amber dot in a black ring at every crossing. The atom in
-// hand lights cyan. When nothing crosses, the whole molecule glows green.
+// Drawing and touch for Planar: drag atoms until no two bonds cross. Atoms are flat teal discs
+// in black rings, glowing softly and shimmering gently within the teals, each on its own phase;
+// clear bonds follow their atoms' teal. A bond that crosses another or runs through an atom goes
+// gray, with an amber dot in a black ring at every crossing. The atom in hand turns violet, and
+// its clear bonds fade from teal into violet toward it. When nothing crosses, the whole molecule
+// glows green. Everything is flat: no sheen, no shading, no catch lights.
 //
 // The board is painted by `paintPlanar`, which the rule cards' pictures share.
 
@@ -31,13 +32,13 @@ interface Paint {
   mark: boolean;
   /** Atom radius in pixels. */
   r: number;
-  /** The atom in hand, lit cyan. */
+  /** The atom in hand, lit violet. */
   held?: number;
   /** The win glow, 0 to 1: bonds turn green. */
   glow?: number;
   /** Problems already worked out for these positions. */
   problems?: Problems;
-  /** The clock, in milliseconds, for the atoms' slow drift through the greens. */
+  /** The clock, in milliseconds, for the atoms' gentle shimmer within the teals. */
   now?: number;
   /** False under reduced motion: the atoms hold their colors still. */
   motion?: boolean;
@@ -54,12 +55,17 @@ function lattice(ctx: CanvasRenderingContext2D, g: Geo): void {
   drawFrame(ctx, frameBox(g.x, g.y, g.s, g.s, c), { width: frameWidth(c), radius: c * 0.2 + framePad(c), color: C.frame });
 }
 
-/** An atom's place in the green spectrum, lime (90) through emerald to teal green (160): each
- *  atom drifts slowly on its own phase, so the molecule shimmers. Still when motion is off. */
+/** An atom's teal: a narrow band round hue 172, each atom drifting slowly on its own phase so
+ *  the molecule shimmers without ever leaving teal. Still when motion is off. */
 function hueOf(i: number, now: number, motion: boolean): number {
   const t = motion ? now / 2600 : 0;
-  return 125 + 35 * Math.sin(t + i * 1.9);
+  return 172 + 6 * Math.sin(t + i * 1.9);
 }
+
+/** A teal at this hue: calm, luminous, flat. */
+const teal = (h: number, a = 1): string => hsl(h, 62, 50, a);
+/** The atom in hand: the f orbital's violet. */
+const HELD = '#a865d6';
 
 const hsl = (h: number, s: number, l: number, a = 1): string => `hsla(${h.toFixed(1)}, ${s}%, ${l}%, ${a})`;
 
@@ -76,9 +82,9 @@ function linear(ctx: CanvasRenderingContext2D, x0: number, y0: number, x1: numbe
 const CROSSED = '#8c9295';
 
 /**
- * An atom: a green jewel in a black ring, lit from the top left, glowing softly in its own hue.
- * In hand it lights cyan. `dim` is for an atom a bond runs through or another atom sits on:
- * duller and unlit, inside its amber ring.
+ * An atom: a flat teal disc in a black ring, glowing softly in its own teal. In hand it turns
+ * violet and grows a little. `dim` is for an atom a bond runs through or another atom sits on:
+ * a muted teal with no glow, inside its amber ring.
  */
 function atom(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, hue: number, o: { held?: boolean; dim?: boolean; glow?: number }): void {
   const held = !!o.held, glow = o.glow ?? 0;
@@ -89,28 +95,18 @@ function atom(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, hu
   ctx.beginPath();
   ctx.arc(x, y, R + Math.max(2, r * 0.38), 0, Math.PI * 2);
   ctx.fill();
-  const sat = o.dim ? 30 : 72;
-  if (held) { ctx.shadowColor = C.accent; ctx.shadowBlur = r * 1.4; }
-  else if (!o.dim) { ctx.shadowColor = glow > 0 ? C.good : hsl(hue, 80, 55); ctx.shadowBlur = r * (0.9 + 0.6 * glow); }
-  const mid = hsl(hue, sat, o.dim ? 50 : 54);
-  ctx.fillStyle = held
-    ? linear(ctx, x - R, y - R, x + R, y + R, [[0, '#d8f5fc'], [0.5, C.accent], [1, '#3f9fb5']], C.accent)
-    : linear(ctx, x - R, y - R, x + R, y + R, [[0, hsl(hue, sat, o.dim ? 72 : 80)], [0.5, mid], [1, hsl(hue, sat, o.dim ? 32 : 34)]], mid);
+  if (held) { ctx.shadowColor = HELD; ctx.shadowBlur = r * 1.3; }
+  else if (!o.dim) { ctx.shadowColor = glow > 0 ? C.good : teal(hue); ctx.shadowBlur = r * (0.8 + 0.6 * glow); }
+  ctx.fillStyle = held ? HELD : o.dim ? hsl(hue, 22, 42) : teal(hue);
   ctx.beginPath();
   ctx.arc(x, y, R, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.shadowBlur = 0;
-  // A small highlight, the jewel's catch light.
-  ctx.fillStyle = '#ffffff';
-  ctx.globalAlpha = o.dim ? 0.3 : 0.6;
-  ctx.beginPath();
-  ctx.arc(x - R * 0.34, y - R * 0.34, R * 0.2, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
 }
 
 /** Paints the board: the frame, every bond and every atom. Clear bonds blend between their
- *  atoms' greens; crossed bonds go gray, with an amber dot ringed in black on each crossing. */
+ *  atoms' teals (into violet toward the atom in hand); crossed bonds go gray, with an amber dot
+ *  ringed in black on each crossing. */
 export function paintPlanar(ctx: CanvasRenderingContext2D, pos: Pt[], edges: [number, number][], g: Geo, o: Paint): void {
   lattice(ctx, g);
   const r = o.r;
@@ -139,7 +135,8 @@ export function paintPlanar(ctx: CanvasRenderingContext2D, pos: Pt[], edges: [nu
         ctx.strokeStyle = CROSSED;
         ctx.globalAlpha = 0.8;
       } else {
-        ctx.strokeStyle = linear(ctx, p.x, p.y, q.x, q.y, [[0, hsl(hues[a], 62, 52)], [1, hsl(hues[b], 62, 52)]], hsl(hues[a], 62, 52));
+        const end = (k: number): string => (k === o.held ? HELD : teal(hues[k]));
+        ctx.strokeStyle = linear(ctx, p.x, p.y, q.x, q.y, [[0, end(a)], [1, end(b)]], end(a));
         ctx.globalAlpha = 0.9;
         if (glow > 0) { ctx.shadowColor = C.good; ctx.shadowBlur = lw * 3 * glow; }
       }
