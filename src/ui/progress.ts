@@ -36,9 +36,9 @@ export function progressRings(o: { nucleus: boolean; shells: boolean; lasting: {
   </svg>`;
 }
 
-/** A rough difficulty as five pips (1 to 10, two per pip), as HTML. */
-export function pipsHtml(rating: number, cls = 'bh-pips'): string {
-  const on = Math.ceil(rating / 2);
+/** A difficulty dial (1 to 100, twenty per pip) as five pips, as HTML. */
+export function pipsHtml(dial: number, cls = 'bh-pips'): string {
+  const on = Math.min(5, Math.max(1, Math.ceil(dial / 20)));
   return `<span class="${cls}" aria-hidden="true">${Array.from({ length: 5 }, (_, i) => `<i class="${i < on ? 'on' : ''}"></i>`).join('')}</span>`;
 }
 

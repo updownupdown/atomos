@@ -238,10 +238,21 @@
   border-radius: 3px;
   background: var(--c-surface-3);
 }
+.ui-slider-off {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: var(--c-warn);
+  opacity: 0.75;
+}
+.ui-slider-off--lo { left: 0; width: calc(var(--off-lo, 0) * 100%); border-radius: 3px 0 0 3px; }
+.ui-slider-off--hi { right: 0; width: calc(var(--off-hi, 0) * 100%); border-radius: 0 3px 3px 0; }
 .ui-slider-fill {
   position: absolute;
-  inset: 0 auto 0 0;
-  width: calc(var(--t) * 100%);
+  top: 0;
+  bottom: 0;
+  left: calc(var(--off-lo, 0) * 100%);
+  width: calc((var(--t) - var(--off-lo, 0)) * 100%);
   border-radius: inherit;
   background: var(--c-accent);
 }

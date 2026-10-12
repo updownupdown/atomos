@@ -10,7 +10,7 @@ import { syncPalette, C } from './palette';
 import { nextButton } from '../ui/components';
 import { icon } from '../ui/icons';
 import { puzzleIcon } from './catalog';
-import { difficultyWord } from './difficulty';
+import { levelWord } from './difficulty';
 
 export interface WinStat {
   label: string;
@@ -108,7 +108,7 @@ export function showWin(info: WinInfo, reducedMotion = false, host?: HTMLElement
     const lv = info.levels;
     for (let level = 1; level <= 5; level++) {
       const b = button('', `win-level${level === lv.current ? ' is-current' : ''}`, () => { close(); lv.pick(level); });
-      const word = difficultyWord(level * 2);
+      const word = levelWord(level);
       b.innerHTML = `<span class="win-pips" aria-hidden="true">${Array.from({ length: 5 }, (_, i) => `<i class="${i < level ? 'on' : ''}"></i>`).join('')}</span><span>${word}</span>`;
       b.setAttribute('aria-label', `${word}${level === lv.current ? ', the level just played' : ''}`);
       if (level === lv.current) b.setAttribute('aria-current', 'true');

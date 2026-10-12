@@ -50,6 +50,7 @@ import { newFission } from './fission';
 import { FissionView, INSTRUCTIONS as FISSION_HOW } from './fissionView';
 import * as FissionV from './fissionView';
 import { atomGame } from '../core/atomGames';
+import { dialFor, elementForDial, difficulty, nativeSpan, zForDial } from './difficulty';
 import { SUBSHELL_COLORS, type PuzzleView, type RuleCard } from './view';
 
 /** Which atom steps a game builds, from the committed table: "12 nuclei and 3 electron sets". */
@@ -114,11 +115,23 @@ export interface PuzzleType {
   rules?: RuleCard[];
   /** Elements it makes sense for (inclusive). */
   zRange: [number, number];
-  /** Present once the puzzle is built; planned types have none. Deal number n of element z. */
-  make?: (z: number, deal: number, reducedMotion: boolean) => PuzzleView;
-  /** The board for element z from a given seed; `a` is the mass number, for puzzles that build a
-   *  particular isotope's nucleus (Tokamak). */
+  /** A ladder game's generator: its board for element z from a seed, harder the heavier the
+   *  element (src/puzzles/difficulty.ts walks the ladder for a dial); `a` is the mass number, for
+   *  puzzles that build a particular isotope's nucleus (Tokamak). */
+  ladder?: (z: number, seed: number, reducedMotion: boolean, a?: number) => PuzzleView;
+  /** A native game's generator: its board at dial d (1 to 100) from a seed. */
+  native?: (d: number, seed: number, reducedMotion: boolean, z: number, a?: number) => PuzzleView;
+  /** The dial span of a native game, when it is not the whole 1 to 100. */
+  nativeSpan?: [number, number];
+  /** Present once the puzzle is built; planned types have none. A board at dial d, for element z
+   *  (Tokamak's nucleus; the science) and mass number a. */
+  dealAt?: (d: number, seed: number, reducedMotion: boolean, z: number, a?: number) => PuzzleView;
+  /** The board for atom z from a seed, at the atom's dial (atomDial, brought into the game's span). */
   deal?: (z: number, seed: number, reducedMotion: boolean, a?: number) => PuzzleView;
+  /** Deal number n for atom z. */
+  make?: (z: number, deal: number, reducedMotion: boolean) => PuzzleView;
+  /** Deal number n at dial d, for the Puzzles screen. */
+  makeAt?: (d: number, deal: number, reducedMotion: boolean) => PuzzleView;
   /** How to play, and notes for playtesting, as sheet HTML for the Instructions modal. */
   instructions?: string;
   /** The science behind it, as sheet HTML. */
@@ -152,7 +165,7 @@ export const PUZZLES: PuzzleType[] = [
     get live() { return `Build mode: ${atomSteps('merge')}; any fleeting isotope, by choice.`; },
     instructions: MERGE_HOW,
     zRange: [2, 118],
-    deal: (z, seed, reduced, a) => new MergeView(newMerge({ z, a: a ?? element(z).commonA }, seed), reduced),
+    ladder: (z, seed, reduced, a) => new MergeView(newMerge({ z, a: a ?? element(z).commonA }, seed), reduced),
     science: (z) => {
       const el = element(z);
       const parts = [];
@@ -174,7 +187,7 @@ export const PUZZLES: PuzzleType[] = [
     get live() { return `Build mode: ${atomSteps('orbitalGrid')}.`; },
     instructions: GRID_HOW,
     zRange: [1, 118],
-    deal: (z, seed, reduced) => new OrbitalGridView(newOrbitalGrid(z, seed), reduced),
+    ladder: (z, seed, reduced) => new OrbitalGridView(newOrbitalGrid(z, seed), reduced),
     science: (z) => {
       const el = element(z);
       return `<h2>Quanta: the science</h2>
@@ -193,7 +206,7 @@ export const PUZZLES: PuzzleType[] = [
     get live() { return `Build mode: ${atomSteps('sliding')}; 41 lasting isotopes, and any fleeting isotope by choice.`; },
     instructions: SLIDING_HOW,
     zRange: [27, 118],
-    deal: (z, seed, reduced) => new SlidingView(newSliding(z, seed), reduced),
+    ladder: (z, seed, reduced) => new SlidingView(newSliding(z, seed), reduced),
     science: (z) => {
       const el = element(z);
       return `<h2>Nova: the science</h2>
@@ -213,7 +226,7 @@ export const PUZZLES: PuzzleType[] = [
     get live() { return `Build mode: ${atomSteps('packing')}; 72 lasting isotopes, and any fleeting isotope by choice.`; },
     instructions: PACKING_HOW,
     zRange: [1, 118],
-    deal: (z, seed, reduced) => new PackingView(newPacking(z, seed), reduced),
+    ladder: (z, seed, reduced) => new PackingView(newPacking(z, seed), reduced),
     science: (z) => {
       const el = element(z);
       return `<h2>Tessera: the science</h2>
@@ -232,7 +245,7 @@ export const PUZZLES: PuzzleType[] = [
     get live() { return `Build mode: ${atomSteps('lines')}; 41 lasting isotopes, and any fleeting isotope by choice.`; },
     instructions: LINES_HOW,
     zRange: [1, 118],
-    deal: (z, seed, reduced) => new LinesView(newLines(z, seed), reduced),
+    ladder: (z, seed, reduced) => new LinesView(newLines(z, seed), reduced),
     science: (z) => {
       const el = element(z);
       return `<h2>Flux: the science</h2>
@@ -251,7 +264,7 @@ export const PUZZLES: PuzzleType[] = [
     get live() { return `Build mode: ${atomSteps('slideStop')}; 38 lasting isotopes, and any fleeting isotope by choice.`; },
     instructions: SLIDESTOP_HOW,
     zRange: [1, 118],
-    deal: (z, seed, reduced) => new SlideStopView(newSlideStop(z, seed), reduced),
+    ladder: (z, seed, reduced) => new SlideStopView(newSlideStop(z, seed), reduced),
     science: () => `<h2>Inertia: the science</h2>
       <p>A thing in motion keeps moving until a force acts on it: Newton's first law. On the lattice the nuclei are the only obstacles, so the electron slides until one stops it.</p>
       <p>Electrons in a metal behave a little like this. They move freely through the lattice and are scattered only by defects and vibrations; the colder and purer the metal, the further they travel between collisions, which is why resistance falls with temperature.</p>
@@ -267,7 +280,7 @@ export const PUZZLES: PuzzleType[] = [
     live: 'Build mode: any fleeting isotope by choice.',
     instructions: LIGHT_HOW,
     zRange: [1, 118],
-    deal: (z, seed, reduced) => new LightView(newLight(z, seed), reduced),
+    ladder: (z, seed, reduced) => new LightView(newLight(z, seed), reduced),
     science: () => `<h2>Lumen: the science</h2>
       <p>Light reflects from a mirror at the angle it arrived, and its path runs the same backwards: ray optics. Everything we know about atoms began with light: the sharp colored lines in an element's spectrum are photons released as electrons drop between energy levels, and each element has its own set.</p>
       <p>A spectrometer is exactly this puzzle made serious: slits, mirrors and a prism or grating steering light onto a detector.</p>
@@ -284,7 +297,7 @@ export const PUZZLES: PuzzleType[] = [
     get live() { return `Build mode: ${atomSteps('rutherford')}; 30 lasting isotopes, and any fleeting isotope by choice.`; },
     instructions: RUTHERFORD_HOW,
     zRange: [1, 118],
-    deal: (z, seed, reduced) => new RutherfordView(newRutherford(z, seed), reduced),
+    ladder: (z, seed, reduced) => new RutherfordView(newRutherford(z, seed), reduced),
     science: () => `<h2>Aurum: the science</h2>
       <p>In 1909 Hans Geiger and Ernest Marsden fired alpha particles at a sheet of gold foil. Nearly all passed straight through, but about one in eight thousand bounced back, which Rutherford said was as surprising as a shell rebounding off tissue paper. The only explanation: almost all of the atom's mass and all its positive charge sit in a <b>nucleus</b> tens of thousands of times smaller than the atom.</p>
       <p>The lesson was that an atom is almost entirely empty: probe it at random and you nearly always pass straight through.</p>
@@ -300,7 +313,7 @@ export const PUZZLES: PuzzleType[] = [
     live: 'Tables: the Ribbon and Circle lenses on the map. Atoms: six looks and the nucleus view. Build mode: the p, d and f orbital shapes on boron, scandium and cerium.',
     instructions: CODE_HOW,
     zRange: [104, 118],
-    deal: (z, seed, reduced) => new CodebreakerView(newCodebreaker(z, seed), reduced),
+    ladder: (z, seed, reduced) => new CodebreakerView(newCodebreaker(z, seed), reduced),
     science: (z) => {
       const el = element(z);
       return `<h2>Glyph: the science</h2>
@@ -319,7 +332,7 @@ export const PUZZLES: PuzzleType[] = [
     get live() { return `Build mode: ${atomSteps('colorCharge')}; 72 lasting isotopes, and any fleeting isotope by choice.`; },
     instructions: CHARGE_HOW,
     zRange: [1, 118],
-    deal: (z, seed, reduced) => new ColorChargeView(newColorCharge(z, seed), reduced),
+    ladder: (z, seed, reduced) => new ColorChargeView(newColorCharge(z, seed), reduced),
     science: () => `<h2>Chroma: the science</h2>
       <p>Protons and neutrons are each made of three <b>quarks</b>, held by the strong force. Quarks carry a kind of charge physicists call <b>color</b>, with three values nicknamed red, green and blue. A quark is never found alone: quarks only exist in groups whose colors cancel to "white".</p>
       <p>There are two ways to cancel. Three quarks, one of each color, make a <b>baryon</b> such as the proton. A quark and an antiquark carrying the matching anticolor make a <b>meson</b>, such as the pion. Three antiquarks make an <b>antibaryon</b>, such as the antiproton.</p>
@@ -335,7 +348,7 @@ export const PUZZLES: PuzzleType[] = [
     role: 'A reserve game to try out: a rote, hands-on one for the nucleus pool, if it earns a place.',
     instructions: BOND_HOW,
     zRange: [1, 118],
-    deal: (z, seed, reduced) => new BondView(newBond(z, seed), reduced),
+    ladder: (z, seed, reduced) => new BondView(newBond(z, seed), reduced),
     science: (z) => {
       const el = element(z);
       return `<h2>Bond: the science</h2>
@@ -353,7 +366,7 @@ export const PUZZLES: PuzzleType[] = [
     role: 'A reserve game to try out: a thinking one for the electron pool, if it earns a place.',
     instructions: SPIN_HOW,
     zRange: [1, 118],
-    deal: (z, seed, reduced) => new SpinView(newSpin(z, seed), reduced),
+    ladder: (z, seed, reduced) => new SpinView(newSpin(z, seed), reduced),
     science: (z) => {
       const el = element(z);
       return `<h2>Spin: the science</h2>
@@ -371,7 +384,7 @@ export const PUZZLES: PuzzleType[] = [
     role: 'A reserve game to try out: a rote one with a chain reaction to watch, for the nucleus pool, if it earns a place.',
     instructions: FISSION_HOW,
     zRange: [1, 118],
-    deal: (z, seed, reduced) => new FissionView(newFission(z, seed), reduced),
+    ladder: (z, seed, reduced) => new FissionView(newFission(z, seed), reduced),
     science: (z) => {
       const el = element(z);
       return `<h2>Fission: the science</h2>
@@ -382,7 +395,20 @@ export const PUZZLES: PuzzleType[] = [
   },
 ];
 
-for (const p of PUZZLES) if (p.deal) p.make = (z, n, reduced) => p.deal!(z, dealSeed(p.id, z, n), reduced);
+// Every built game deals from the dial: a native game straight from it, a ladder game at the
+// element the dial picks on its ladder (Tokamak keeps the real nucleus's mass number).
+for (const p of PUZZLES) {
+  const { ladder, native } = p;
+  if (native) {
+    nativeSpan(p.id, ...(p.nativeSpan ?? []));
+    p.dealAt = (d, seed, reduced, z, a) => native(dialFor(p.id, d), seed, reduced, z, a);
+  } else if (ladder) {
+    p.dealAt = (d, seed, reduced, z, a) => ladder(zForDial(p.id, d, z), seed, reduced, a ?? element(z).commonA);
+  } else continue;
+  p.deal = (z, seed, reduced, a) => p.dealAt!(difficulty(p.id, z), seed, reduced, z, a);
+  p.make = (z, n, reduced) => p.deal!(z, dealSeed(p.id, z, n), reduced);
+  p.makeAt = (d, n, reduced) => p.dealAt!(dialFor(p.id, d), dealSeed(`${p.id}@dial`, d, n), reduced, elementForDial(p.id, dialFor(p.id, d)));
+}
 
 export function puzzleType(id: string): PuzzleType {
   return PUZZLES.find((p) => p.id === id)!;

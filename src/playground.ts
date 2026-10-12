@@ -1,10 +1,10 @@
 // The Puzzles screen: a home that lists every game, one section each (its game card, the
 // player's wins at each difficulty level, a still of the board and what the game is), and each
-// game on its own (any element, any deal) behind it, with Back to return. Nothing here builds
+// game on its own (any difficulty on the 1 to 100 dial, any deal) behind it, with Back to
+// return. Nothing here builds
 // atoms; the game proper reaches puzzles through each atom's Build mode. How-to text lives in the
 // Instructions sheet behind the "i".
 
-import { elementAt as element } from './gallery/data';
 import { loadSave } from './core/save';
 import { PUZZLES, puzzleIcon, type PuzzleType } from './puzzles/catalog';
 import { gameCard } from './puzzles/gameCard';
@@ -15,7 +15,7 @@ import type { Area } from './puzzles/view';
 import { createSlider, iconButton, type Slider } from './ui/components';
 import { countPlay, GOAL_PLAYS } from './core/plays';
 import { clearOffers, createGameBar, offerRules, type GameBar } from './puzzles/gamebar';
-import { difficulty, difficultyLevel, difficultyRange, elementsAtLevel, LEVELS, levelWord } from './puzzles/difficulty';
+import { dialFor, difficultyLevel, difficultyRange, difficultyWord, elementForDial, LEVELS, levelInGame, levelWord } from './puzzles/difficulty';
 import { recordWin, winsOf } from './core/wins';
 import { askRestart, confirming, restartButton } from './puzzles/restart';
 import { icon } from './ui/icons';
@@ -26,7 +26,8 @@ const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as 
 export class Playground {
   private host: PuzzleHost;
   private type: PuzzleType = PUZZLES[0];
-  private z = 6;
+  /** The difficulty dial, 1 to 100, the board is dealt at. */
+  private dial = 30;
   private deal = 0;
   private shownHint = '';
   /** The game's goal, shown before the first move of its first plays. */
@@ -47,7 +48,8 @@ export class Playground {
     this.renderHome();
 
     // The board maker, folded into a settings button at the left of the status line (the X folds
-    // it again): previous, the element, next, a slider across the range, a new deal.
+    // it again): easier, the difficulty, harder, a slider across the dial, a new deal. The slider
+    // runs 1 to 100 for every game; the ends a game cannot deal show amber.
     const bar = $('pg-bar');
     const gen = $('pg-gen');
     const fold = iconButton({ icon: icon('settings'), label: 'Board settings', className: 'pg-fold', onClick: () => setOpen(Boolean(bar.hidden)) });
@@ -63,12 +65,12 @@ export class Playground {
     };
     gen.prepend(fold);
     setOpen(false);
-    this.prev = iconButton({ icon: icon('chevron-left'), label: 'Previous element', className: 'ui-icon-btn--ghost', onClick: () => this.setZ(this.z - 1) });
-    this.next = iconButton({ icon: icon('chevron-right'), label: 'Next element', className: 'ui-icon-btn--ghost', onClick: () => this.setZ(this.z + 1) });
+    this.prev = iconButton({ icon: icon('chevron-left'), label: 'Easier', className: 'ui-icon-btn--ghost', onClick: () => this.setDial(this.dial - 1) });
+    this.next = iconButton({ icon: icon('chevron-right'), label: 'Harder', className: 'ui-icon-btn--ghost', onClick: () => this.setDial(this.dial + 1) });
     const label = document.createElement('span');
     label.className = 'pg-el';
     label.id = 'pg-el';
-    this.slider = createSlider({ min: 1, max: 118, value: this.z, label: 'Element', format: (v) => element(v).symbol, onInput: (v) => this.setZ(v) });
+    this.slider = createSlider({ min: 1, max: 100, value: this.dial, label: 'Difficulty', format: dialText, onInput: (v) => this.setDial(v) });
     // A new deal: the shuffle and its number are one button.
     const deal = document.createElement('button');
     deal.type = 'button';
@@ -202,44 +204,47 @@ export class Playground {
   private select(id: string): void {
     this.type = PUZZLES.find((p) => p.id === id) ?? PUZZLES[0];
     this.gbar.setTitle(this.type.name, puzzleIcon(this.type.id, 22));
-    const [lo, hi] = this.type.zRange;
-    this.z = Math.min(hi, Math.max(lo, this.z));
+    this.dial = dialFor(this.type.id, this.dial);
     this.rebuildSlider();
     $('pg-planned').hidden = Boolean(this.type.make);
     $('pg-play').hidden = !this.type.make;
     this.load(0);
   }
 
-  /** The slider's range follows the puzzle type; rebuilt when it changes. */
+  /** The slider always spans the whole dial; the part the game cannot deal follows the puzzle
+   *  type, so it is rebuilt when that changes. */
   private rebuildSlider(): void {
-    const [lo, hi] = this.type.zRange;
-    const fresh = createSlider({ min: lo, max: Math.max(hi, lo + 1), value: this.z, label: 'Element', format: (v) => element(v).symbol, onInput: (v) => this.setZ(v) });
+    const { lo, hi } = difficultyRange(this.type.id);
+    const fresh = createSlider({ min: 1, max: 100, value: this.dial, label: 'Difficulty', format: dialText, allowed: [lo, hi], onInput: (v) => this.setDial(v) });
     this.slider.el.replaceWith(fresh.el);
     this.slider = fresh;
-    fresh.el.style.visibility = lo === hi ? 'hidden' : '';
   }
 
-  private setZ(z: number): void {
-    const [lo, hi] = this.type.zRange;
-    if (z < lo || z > hi || z === this.z) return;
-    this.z = z;
+  private setDial(d: number): void {
+    const next = dialFor(this.type.id, d);
+    if (next === this.dial) return;
+    this.dial = next;
     this.load(0);
+  }
+
+  /** The element the board is dealt for, which a few games show (Tokamak's nucleus). */
+  private get z(): number {
+    return elementForDial(this.type.id, this.dial);
   }
 
   private load(deal: number): void {
     this.deal = deal;
     this.solved = false;
     this.closeWin();
-    const el = element(this.z);
-    const [lo, hi] = this.type.zRange;
-    $('pg-el').innerHTML = `<small>${el.z}</small><b>${el.symbol}</b>`;
-    $('pg-el').title = el.name;
-    this.slider.set(this.z);
-    this.prev.disabled = this.z <= lo;
-    this.next.disabled = this.z >= hi;
+    const { lo, hi } = difficultyRange(this.type.id);
+    $('pg-el').innerHTML = `<b>${this.dial}%</b>`;
+    $('pg-el').title = dialText(this.dial);
+    this.slider.set(this.dial);
+    this.prev.disabled = this.dial <= lo;
+    this.next.disabled = this.dial >= hi;
     $('pg-dealno').textContent = `#${deal + 1}`;
     this.shownHint = '';
-    this.gbar.setDifficulty(difficulty(this.type.id, this.z));
+    this.gbar.setDifficulty(this.dial);
     this.gbar.update(null, '');
     if (!this.type.make) {
       this.host.set(null);
@@ -249,7 +254,7 @@ export class Playground {
     }
     const reduced = loadSave().settings.reducedMotion;
     this.host.reducedMotion = reduced;
-    this.host.set(this.type.make(this.z, deal, reduced));
+    this.host.set(this.type.makeAt!(this.dial, deal, reduced));
   }
 
   private tick(hint: string): void {
@@ -269,13 +274,12 @@ export class Playground {
   private won(moves: number, par: number | null, clean: boolean): void {
     this.solved = true;
     const t = this.type;
-    const el = element(this.z);
     const flawless = clean && (par === null || moves <= par);
-    recordWin(t.id, difficulty(t.id, this.z), flawless);
+    recordWin(t.id, this.dial, flawless);
     this.closeWin = showWin({
       outcome: flawless ? 'flawless' : 'won',
       headline: flawless ? 'Flawless' : 'Solved',
-      title: `${t.name} · ${el.name}`,
+      title: `${t.name} · ${dialText(this.dial)}`,
       game: t.id,
       stats: [
         { label: 'Moves', value: String(moves) },
@@ -297,7 +301,7 @@ export class Playground {
     this.closeWin = showWin({
       outcome: 'lost',
       headline: 'Out of guesses',
-      title: `${t.name} · ${element(this.z).name}`,
+      title: `${t.name} · ${dialText(this.dial)}`,
       game: t.id,
       stats: [{ label: 'Moves', value: String(moves) }, { label: 'Deal', value: `#${this.deal + 1}` }],
       actions: [
@@ -308,19 +312,19 @@ export class Playground {
     }, loadSave().settings.reducedMotion);
   }
 
-  /** The levels row on the win sheet: another board of this game at any level it reaches. */
+  /** The levels row on the win sheet: another board of this game at any level it reaches, at a
+   *  fresh dial inside that level. */
   private levels(): WinLevels {
-    const [lo, hi] = this.type.zRange;
     const id = this.type.id;
-    const at = (level: number) => elementsAtLevel(id, level, lo, hi);
     return {
-      current: difficultyLevel(difficulty(id, this.z)),
-      reachable: [1, 2, 3, 4, 5].filter((l) => at(l).length > 0),
+      current: difficultyLevel(this.dial),
+      reachable: [1, 2, 3, 4, 5].filter((l) => levelInGame(id, l)),
       pick: (level) => {
-        const zs = at(level);
-        const z = zs[Math.floor(Math.random() * zs.length)];
-        if (z === this.z) this.load(this.deal + 1);
-        else { this.z = z; this.load(0); }
+        const span = levelInGame(id, level);
+        if (!span) return;
+        const d = span.lo + Math.floor(Math.random() * (span.hi - span.lo + 1));
+        if (d === this.dial) this.load(this.deal + 1);
+        else { this.dial = d; this.load(0); }
       },
     };
   }
@@ -356,7 +360,12 @@ export class Playground {
   }
 }
 
-/** A still of the puzzle on carbon (or its first element), drawn once for its section. */
+/** The dial as the slider and the win sheet say it: "Hard · 68%". */
+function dialText(d: number): string {
+  return `${difficultyWord(d)} · ${d}%`;
+}
+
+/** A still of the puzzle at an easy dial, drawn once for its section. */
 function drawThumb(c: HTMLCanvasElement, p: PuzzleType): void {
   if (!p.make) return;
   const css = 112;
@@ -367,10 +376,8 @@ function drawThumb(c: HTMLCanvasElement, p: PuzzleType): void {
   if (!ctx) return;
   // Lay the board out at a phone-sized area, then shrink it into the thumbnail.
   const L = 340;
-  const [lo, hi] = p.zRange;
-  const z = Math.min(hi, Math.max(lo, 6));
   try {
-    const view = p.make(z, 0, true);
+    const view = p.makeAt!(30, 0, true);
     ctx.scale((css * dpr) / L, (css * dpr) / L);
     view.draw(ctx, { x: 6, y: 6, w: L - 12, h: L - 12 }, performance.now() + 60_000);
   } catch {

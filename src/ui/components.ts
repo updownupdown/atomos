@@ -256,6 +256,9 @@ export interface SliderOptions {
   onInput?: (v: number) => void;
   /** Fires once the drag or key press settles. */
   onChange?: (v: number) => void;
+  /** The part of the range that can be picked; the track outside it shows amber, as unavailable,
+   *  and the thumb stops at its ends. Defaults to the whole range. */
+  allowed?: [number, number];
 }
 
 export interface Slider {
@@ -275,14 +278,19 @@ export function snapValue(v: number, min: number, max: number, step = 1): number
 export function createSlider(o: SliderOptions): Slider {
   const step = o.step ?? 1;
   const fmt = o.format ?? ((v: number) => String(v));
-  const root = el('div', 'ui-slider', '<span class="ui-slider-track"><span class="ui-slider-fill"></span></span><span class="ui-slider-thumb"><span class="ui-slider-bubble"></span></span>');
+  const root = el('div', 'ui-slider', '<span class="ui-slider-track"><span class="ui-slider-off ui-slider-off--lo"></span><span class="ui-slider-off ui-slider-off--hi"></span><span class="ui-slider-fill"></span></span><span class="ui-slider-thumb"><span class="ui-slider-bubble"></span></span>');
+  const span = o.max > o.min ? o.max - o.min : 1;
+  const okLo = Math.max(o.min, o.allowed?.[0] ?? o.min);
+  const okHi = Math.min(o.max, o.allowed?.[1] ?? o.max);
+  root.style.setProperty('--off-lo', String((okLo - o.min) / span));
+  root.style.setProperty('--off-hi', String((o.max - okHi) / span));
   root.setAttribute('role', 'slider');
   root.tabIndex = 0;
   root.setAttribute('aria-label', o.label);
-  root.setAttribute('aria-valuemin', String(o.min));
-  root.setAttribute('aria-valuemax', String(o.max));
+  root.setAttribute('aria-valuemin', String(okLo));
+  root.setAttribute('aria-valuemax', String(okHi));
   const bubble = root.querySelector<HTMLElement>('.ui-slider-bubble')!;
-  let value = snapValue(o.value, o.min, o.max, step);
+  let value = snapValue(o.value, okLo, okHi, step);
 
   const paint = () => {
     const t = o.max > o.min ? (value - o.min) / (o.max - o.min) : 0;
@@ -292,7 +300,7 @@ export function createSlider(o: SliderOptions): Slider {
     bubble.textContent = fmt(value);
   };
   const update = (v: number, fire: boolean) => {
-    const next = snapValue(v, o.min, o.max, step);
+    const next = snapValue(v, okLo, okHi, step);
     if (next === value) return false;
     value = next;
     paint();
@@ -330,8 +338,8 @@ export function createSlider(o: SliderOptions): Slider {
     const delta: Record<string, number> = { ArrowRight: step, ArrowUp: step, ArrowLeft: -step, ArrowDown: -step, PageUp: big, PageDown: -big };
     let next: number | null = null;
     if (e.key in delta) next = value + delta[e.key];
-    else if (e.key === 'Home') next = o.min;
-    else if (e.key === 'End') next = o.max;
+    else if (e.key === 'Home') next = okLo;
+    else if (e.key === 'End') next = okHi;
     if (next === null) return;
     e.preventDefault();
     if (update(next, true)) o.onChange?.(value);
