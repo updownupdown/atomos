@@ -23,17 +23,19 @@ import { OrbitalGridView } from './puzzles/orbitalGridView';
 import { solvedState, type PackingState } from './puzzles/packing';
 import { type Area, type PuzzleView } from './puzzles/view';
 import { dealSeed, puzzleIcon, puzzleType, type PuzzleType } from './puzzles/catalog';
-import { difficulty, difficultyWord } from './puzzles/difficulty';
+import { difficulty } from './puzzles/difficulty';
 import { openRules } from './puzzles/rulesModal';
 import { showWin, type WinAction } from './puzzles/winPanel';
 import { winTrack } from './puzzles/winTrack';
 import { closeModal, modalOpen, openModal } from './ui/modal';
 import { createTabs, iconButton, nextButton, playButton } from './ui/components';
+import { gameCard } from './puzzles/gameCard';
+import { trackLegend, trackOverlay, type TrackItem, type TrackOverlay } from './ui/tracks';
 import { askRestart, confirming, restartButton } from './puzzles/restart';
 import { HintControl } from './puzzles/hints';
 import { clearOffers, createGameBar, offerRules, type GameBar } from './puzzles/gamebar';
 import { drawWinFx, winHold } from './puzzles/winFx';
-import { fleetingRing, pipsHtml, progressRings } from './ui/progress';
+import { fleetingRing, progressRings } from './ui/progress';
 import { countPlay, GOAL_PLAYS } from './core/plays';
 import { recordWin } from './core/wins';
 import { icon, type IconName } from './ui/icons';
@@ -78,6 +80,10 @@ export class Game {
   private lostShown = false;
   /** The next step, as of the last time the Build page was drawn. */
   private nextHere: NextStep | null = null;
+  /** The game cards renderHome() is about to mount, by stage. */
+  private cardMounts = new Map<string, { id: string; name: string; rating: number; extra: string; verb: string; next: boolean; locked: boolean; what: string }>();
+  /** The progress tracks down the right of the Build page. */
+  private tracks: TrackOverlay | null = null;
   private busy = false;
   private overlay = $<HTMLCanvasElement>('overlay');
   private modalCleanup: (() => void) | null = null;
@@ -420,6 +426,7 @@ export class Game {
     const steps = stepsOf(z);
     this.nextHere = nextStep(this.save, z);
     $('bh-in').innerHTML = [
+      '<div class="bh-trk-head"></div>',
       open ? '' : this.section('lock', `Row ${row} is locked`, `${need.built} of ${need.need}`, '',
         `Row ${row} opens once you've built ${need.need} of the ${this.rowSize(row - 1)} atoms in row ${row - 1}. ${shut} to open it.`),
       this.section('nucleus', STEP_LABEL.nucleus, '', z === 1 ? this.hydrogenNucleus() : step('nucleus'), '', '', z === 1 || this.stepState(z, 'nucleus').done),
@@ -439,16 +446,8 @@ export class Game {
     $('bh-sci-row').append(scienceButton());
 
     const root = $('bh-in');
-    const verbIcon: Record<string, IconName> = { Replay: 'restart', Unlock: 'unlock', Resume: 'play', Play: 'play' };
-    root.querySelectorAll<HTMLElement>('.bh-slot').forEach((slot) => {
-      const stage = slot.dataset.slot as Stage;
-      const go = () => this.enter(stage);
-      const verb = slot.dataset.verb!;
-      const b = slot.dataset.next === '1'
-        ? nextButton({ label: verb, onClick: go, compact: true, landKey: `build:${z}`, className: 'bh-go' })
-        : playButton({ label: verb, ariaLabel: `${verb} ${slot.dataset.what}`, onClick: go, compact: true, className: 'bh-plain', icon: verbIcon[verb], locked: slot.dataset.locked === '1' });
-      slot.replaceWith(b);
-    });
+    this.mountCards(root);
+    this.drawTracks(root);
     root.querySelector<HTMLButtonElement>('#bh-bench')?.addEventListener('click', () => this.showBench(z));
     this.firstLines();
     root.querySelectorAll<HTMLElement>('[data-fleet]').forEach((r) => {
@@ -489,19 +488,19 @@ export class Game {
   private fleetingGrid(list: ReturnType<typeof fleetingIsotopes>, open: boolean): string {
     const el = element(this.z);
     return `<table class="bh-fleet${open ? '' : ' is-shut'}" aria-label="${el.name}'s fleeting isotopes">
-      <thead><tr><th scope="col">Isotope</th><th scope="col" class="n">Neutrons</th><th scope="col" class="n">Half-life</th><th scope="col" class="c">Status</th><th scope="col"><span class="sr-only">Open</span></th></tr></thead>
+      <thead><tr><th scope="col">Isotope</th><th scope="col" class="n">Neutrons</th><th scope="col" class="n">Half-life</th><th scope="col" class="c"><span class="sr-only">Decayed</span></th><th scope="col"><span class="sr-only">Open</span></th></tr></thead>
       <tbody>${list.map((i) => {
         const done = isotopeCollected(this.save, this.z, i.a);
         const gone = done && this.fleetDecayed(i.a, i.halfLife);
         const life = i.halfLife === null ? 'unknown' : formatDuration(i.halfLife);
         const state = done ? (gone ? ', built, decayed' : ', built') : '';
-        return `<tr class="${done ? 'is-built' : ''}"${open ? ` data-fleet="${i.a}" tabindex="0" role="button" aria-label="${el.symbol}-${i.a}, half-life ${life}${state}"` : ''}>
+        return `<tr class="${done ? 'is-built' : ''}" data-a="${i.a}"${open ? ` data-fleet="${i.a}" tabindex="0" role="button" aria-label="${el.symbol}-${i.a}, half-life ${life}${state}"` : ''}>
           <th scope="row">${el.symbol}-${i.a}</th><td class="n">${i.a - el.z}</td><td class="n">${life}</td>
-          <td class="c"><span class="bh-fleet-st"><i class="bh-st-done${done ? ' on' : ''}">${icon('done', { size: 18 })}</i><i class="bh-st-gone${gone ? ' on' : ''}">${icon('decayed', { size: 18 })}</i></span></td>
+          <td class="c">${gone ? `<i class="bh-st-gone on">${icon('decayed', { size: 18 })}</i>` : ''}</td>
           <td class="bh-fleet-go">${icon('chevron-right', { size: 18 })}</td>
         </tr>`;
       }).join('')}</tbody></table>
-      <p class="bh-fleet-legend"><span><i class="bh-st-done on">${icon('done', { size: 16 })}</i>Built</span><span><i class="bh-st-gone on">${icon('decayed', { size: 16 })}</i>Decayed</span></p>`;
+      <p class="bh-fleet-legend"><span><i class="bh-st-gone on">${icon('decayed', { size: 16 })}</i>Decayed: built, and gone by now</span></p>`;
   }
 
   /** A fleeting isotope's sheet: what it is, and the puzzles it can be built with, each at the
@@ -515,24 +514,32 @@ export class Game {
     const used = this.save.isotopes[isotopeKey(this.z, a)]?.game;
     const life = iso.halfLife === null ? 'Its half-life has never been measured' : `Half-life ${formatDuration(iso.halfLife)}`;
     const dz = fleetingDealZ(this.z, iso);
-    const rows = ISOTOPE_GAMES_LIST.map((g) => {
-      const t = puzzleType(g);
-      const rating = difficulty(g, g === 'merge' ? this.z : dz);
-      return `<li><button class="bh-pick" data-game="${g}">
-        <span class="bh-mark" aria-hidden="true">${puzzleIcon(g, 32)}</span>
-        <span class="bh-pick-body"><b>${t.name}</b><span class="bh-diff">${pipsHtml(rating)}${difficultyWord(rating)}</span></span>
-        ${icon('play', { size: 18 })}
-      </button></li>`;
-    }).join('');
     const sheet = this.openModal(`
       <h2>${el.name}-${a}</h2>
       <p>${n} neutron${n === 1 ? '' : 's'}. ${life}.${done ? ` Built${used ? ` with ${puzzleType(used).name}` : ''}; ${this.fleetDecayed(a, iso.halfLife) ? 'it has long since decayed, but stays in your collection' : 'it is decaying now, and stays in your collection after'}.` : ''}</p>
       <p class="muted">Pick a puzzle to build it${done ? ' again' : ''}. The shorter an isotope lives, the harder its board.</p>
-      <ul class="bh-picks">${rows}</ul>`);
-    sheet.querySelectorAll<HTMLButtonElement>('[data-game]').forEach((b) => (b.onclick = () => {
-      this.closeModal();
-      this.enter(`fl-${a}-${b.dataset.game as IsotopeGame}`);
-    }));
+      <ul class="bh-picks"></ul>`);
+    const list = sheet.querySelector<HTMLElement>('.bh-picks')!;
+    for (const g of ISOTOPE_GAMES_LIST) {
+      const name = puzzleType(g).name;
+      const li = document.createElement('li');
+      li.append(gameCard({
+        id: g,
+        name,
+        difficulty: difficulty(g, g === 'merge' ? this.z : dz),
+        extra: g === used ? 'Built with this' : undefined,
+        action: {
+          label: g === used ? 'Replay' : 'Play',
+          kind: done ? 'secondary' : 'primary',
+          ariaLabel: `Build ${el.name}-${a} with ${name}`,
+          onClick: () => {
+            this.closeModal();
+            this.enter(`fl-${a}-${g}`);
+          },
+        },
+      }));
+      list.append(li);
+    }
   }
 
   /** One part of the Build page under a full-width heading: its name, how far it has got on the
@@ -574,50 +581,74 @@ export class Game {
     const gated = Boolean(o.gate) && !o.done;
     const cls = o.locked ? 'is-locked' : gated ? 'is-gate is-next' : o.done ? (o.flawless ? 'is-flawless' : 'is-done') : 'is-next';
     const flawless = o.done && o.flawless && !isIso(o.stage);
-    const state = paused ? 'In progress'
-      : o.done ? `${icon(flawless ? 'star' : 'check', { size: 14 })}${o.gate ? 'Discovered' : flawless ? 'Flawless' : 'Built'}`
-      : '';
-    const note = o.locked ? o.locked
-      : gated && !paused ? o.gate
-      : paused ? `${paused.moves} move${paused.moves === 1 ? '' : 's'} so far`
+    const state = paused ? `<span class="bh-state is-paused">In progress</span><span class="bh-note">${paused.moves} move${paused.moves === 1 ? '' : 's'} so far</span>`
+      : o.done ? `<span class="bh-state ${flawless ? 'is-flawless' : 'is-built'}">${icon(flawless ? 'star' : 'check', { size: 16 })}${o.gate ? 'Discovered' : flawless ? 'Flawless' : 'Built'}</span>${o.best !== undefined ? `<span class="bh-note">Best ${o.best}</span>` : ''}`
+      : o.locked ? `<span class="bh-note">${o.locked}</span>`
+      : gated ? `<span class="bh-note">${o.gate}</span>`
       : '';
     const verb = paused ? 'Resume' : o.done ? 'Replay' : gated ? 'Unlock' : 'Play';
     const isNext = !o.locked && this.nextHere?.z === this.z && this.nextHere.stage === o.stage;
-    // The button is mounted after render: Next on the next step, the gray pill on the rest.
-    const play = `<span class="bh-slot" data-slot="${o.stage}" data-next="${isNext ? 1 : 0}" data-verb="${o.locked ? 'Locked' : verb}" data-what="${t.name}${o.iso ? `: ${o.iso}` : ''}"${o.locked ? ' data-locked="1"' : ''}></span>`;
-    const rating = difficulty(t.id, this.dealtFor(o.stage));
-
+    this.cardMounts.set(o.stage, {
+      id: t.id,
+      name: o.title ?? t.name,
+      rating: difficulty(t.id, this.dealtFor(o.stage)),
+      extra: o.iso ? `${o.iso} · ${o.text}` : o.text,
+      verb: o.locked ? 'Locked' : verb,
+      next: isNext,
+      locked: Boolean(o.locked),
+      what: `${t.name}${o.iso ? `: ${o.iso}` : ''}`,
+    });
     return `
-      <li class="bh-row ${cls}${isNext ? ' is-go' : ''}">
-        <div class="bh-step">
-          <span class="bh-mark" aria-hidden="true">${puzzleIcon(t.id, 32)}</span>
-          <div class="bh-step-body">
-            <h4 class="bh-step-name">${o.title ?? t.name}</h4>
-            <p class="bh-diff">${pipsHtml(rating)}${difficultyWord(rating)}</p>
-            ${o.iso ? `<p class="bh-iso">${o.iso}</p>` : ''}
-            <p class="bh-adds">${o.text}</p>
-            ${note ? `<p class="bh-where">${note}</p>` : ''}
-          </div>
-          <div class="bh-side">
-            ${state ? `<span class="bh-state">${state}</span>` : ''}
-            ${play}
-          </div>
-        </div>
+      <li class="bh-row ${cls}${isNext ? ' is-go' : ''}" data-row="${o.stage}">
+        <div class="bh-gc" data-gc="${o.stage}"></div>
+        <div class="bh-side">${state}</div>
       </li>`;
   }
 
-  /** Hydrogen's nucleus, ready from the start. */
+  /** The Stable and Fleeting tracks down the right of the page: a stop for the nucleus, the
+   *  electrons and each lasting isotope on the Stable lane, one for each fleeting isotope on the
+   *  Fleeting lane, green from the top while progress runs unbroken, Nu on the next stop. */
+  private drawTracks(root: HTMLElement): void {
+    this.tracks?.remove();
+    const items: TrackItem[] = [];
+    root.querySelectorAll<HTMLElement>('[data-row], tr[data-a]').forEach((el) => {
+      const stage = el.dataset.row;
+      if (el.dataset.a) {
+        items.push({ el, row: { fleeting: { done: isotopeCollected(this.save, this.z, Number(el.dataset.a)), locked: !this.save.built[this.z] } } });
+      } else if (stage === 'nucleus' || stage === 'shells') {
+        items.push({ el, row: { stable: { done: this.stepState(this.z, stage).done } } });
+      } else if (stage?.startsWith('iso-')) {
+        items.push({ el, row: { stable: { done: isotopeCollected(this.save, this.z, Number(stage.slice(4))), locked: !this.save.built[this.z] } } });
+      }
+    });
+    const head = root.querySelector<HTMLElement>('.bh-trk-head');
+    if (head) head.append(trackLegend());
+    this.tracks = trackOverlay(root, items, { top: () => (head ? head.offsetTop + head.offsetHeight : 0) });
+  }
+
+  /** Puts the game cards into the rows renderHome() drew: the Next button on the next step,
+   *  the gray Play (or Replay, Resume, Unlock, Locked) on the rest. */
+  private mountCards(root: HTMLElement): void {
+    const verbIcon: Record<string, IconName> = { Replay: 'restart', Unlock: 'unlock', Resume: 'play', Play: 'play' };
+    root.querySelectorAll<HTMLElement>('.bh-gc').forEach((slot) => {
+      const stage = slot.dataset.gc as Exclude<Stage, 'home'>;
+      const m = this.cardMounts.get(stage);
+      if (!m) return;
+      const go = () => this.enter(stage);
+      const button = m.next
+        ? nextButton({ label: m.verb, onClick: go, compact: true, landKey: `build:${this.z}`, className: 'bh-go' })
+        : playButton({ label: m.verb, ariaLabel: `${m.verb} ${m.what}`, onClick: go, compact: true, className: 'bh-plain', icon: verbIcon[m.verb], locked: m.locked });
+      slot.append(gameCard({ id: m.id, name: m.name, difficulty: m.rating, extra: m.extra, button }));
+    });
+    this.cardMounts.clear();
+  }
+
+  /** Hydrogen's nucleus, ready from the start: a lone proton, no game to play. */
   private hydrogenNucleus(): string {
     return `
-      <li class="bh-row is-done">
-        <div class="bh-step">
-          <span class="bh-mark" aria-hidden="true">${icon('atom', { size: 32 })}</span>
-          <div class="bh-step-body">
-            <h4 class="bh-step-name">A lone proton</h4>
-            <p class="bh-adds">Ready from the start</p>
-          </div>
-          <div class="bh-side"><span class="bh-state">${icon('check', { size: 14 })}Built</span></div>
-        </div>
+      <li class="bh-row is-done" data-row="nucleus">
+        <div class="bh-gc"><div class="gcard bh-proton"><div class="gcard-in"><span class="gcard-icon" aria-hidden="true">${icon('atom', { size: 36 })}</span><div class="gcard-body"><b class="gcard-name">A lone proton</b><span class="gcard-extra">Ready from the start</span></div></div></div></div>
+        <div class="bh-side"><span class="bh-state is-built">${icon('check', { size: 16 })}Built</span></div>
       </li>`;
   }
 
