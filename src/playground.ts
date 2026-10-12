@@ -4,14 +4,15 @@
 // Instructions sheet behind the "i".
 //
 // The home: a box pinned to the top of the list tells about the game in focus (the top card
-// under it, ringed in blue, its Play button too): the game playing itself, its goal, and its
-// five difficulty levels with the wins at each, which pick the level Play deals at (remembered
-// per game). The game cards stack under the box; scrolling brings the next card up into focus,
-// and tapping a card brings it there.
+// under it, ringed in the color of the level it is set to, its Play filled in that color): the
+// game playing itself, its goal, and its five difficulty levels with the wins at each, which
+// pick the level Play deals at (remembered per game). Each card's pips show that level. The
+// game cards stack under the box; scrolling brings the next card up into focus, and tapping a
+// card brings it there.
 
 import { loadSave } from './core/save';
 import { PUZZLES, puzzleIcon, type PuzzleType } from './puzzles/catalog';
-import { gameCard } from './puzzles/gameCard';
+import { gameCard, setCardDifficulty } from './puzzles/gameCard';
 import { PuzzleHost } from './puzzles/host';
 import { openRules } from './puzzles/rulesModal';
 import { showWin, type WinLevels } from './puzzles/winPanel';
@@ -157,6 +158,7 @@ export class Playground {
     this.host.pause();
     $('pg-game').hidden = true;
     $('pg-home').hidden = false;
+    this.paintCard(this.type.id);
     this.paintWins(this.type);
     this.paintFocus(true);
     this.demo.start();
@@ -217,7 +219,7 @@ export class Playground {
       sec.append(gameCard({
         id: p.id,
         name: p.name,
-        difficulty: difficultyRange(p.id),
+        difficulty: this.dialOf(p.id),
         action: p.make ? { label: 'Play', onClick: () => this.open(p.id) } : undefined,
         extra: p.make ? undefined : 'Not built yet',
       }));
@@ -271,6 +273,8 @@ export class Playground {
     if (!p) return;
     $('pg-list').querySelectorAll<HTMLElement>('.pg-sec').forEach((sec) => {
       const on = sec.dataset.id === p.id;
+      sec.classList.toggle('is-focus', on);
+      if (on) sec.style.setProperty('--lvl', `var(--c-lvl-${difficultyLevel(this.dialOf(p.id))})`);
       const card = sec.querySelector<HTMLElement>('.gcard');
       const go = sec.querySelector<HTMLElement>('.gcard-go');
       if (card) ringOn(card, on ? 'focus' : null);
@@ -318,6 +322,14 @@ export class Playground {
     });
   }
 
+  /** A card's pips, and the focus color, after its dial has changed. */
+  private paintCard(id: string): void {
+    const sec = $('pg-list').querySelector<HTMLElement>(`.pg-sec[data-id="${id}"]`);
+    if (!sec) return;
+    setCardDifficulty(sec, this.dialOf(id));
+    sec.style.setProperty('--lvl', `var(--c-lvl-${difficultyLevel(this.dialOf(id))})`);
+  }
+
   /** The dial a game opens at: where it was last played or picked, or an easy board. */
   private dialOf(id: string): number {
     return dialFor(id, lastDial(id) ?? 30);
@@ -329,6 +341,7 @@ export class Playground {
     if (!span) return;
     const now = this.dialOf(id);
     if (difficultyLevel(now) !== level) rememberDial(id, Math.round((span.lo + span.hi) / 2));
+    this.paintCard(id);
     const p = PUZZLES.find((g) => g.id === id);
     if (p) this.paintWins(p);
     $('pg-levels').querySelector<HTMLElement>(`[data-level="${level}"]`)?.focus({ preventScroll: true });

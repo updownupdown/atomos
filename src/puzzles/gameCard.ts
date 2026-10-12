@@ -1,14 +1,16 @@
 // The game card: one game, the same everywhere in the app (the Puzzles home, the Build page).
 // A fully rounded plate: the game's icon, always black on a white circle set in from the edge,
 // so a game reads apart from everything else on screen; then its name and difficulty (five
-// pips and a word); then its round button at the far end: Play filled blue (the Next button,
+// pips, the lit ones all in the level's color, the rest gray; the word is only read out and
+// shown on hover); then its round button at the far end: Play filled blue (the Next button,
 // magenta, where it is the next step), Replay a blue ring. The button shows only its icon; its
 // word is read out. An optional extra line sits under the difficulty, for screens with no room
 // beside the card (the Build page puts what a step builds to the card's right instead). Only
 // the button acts.
 //
 //   gameCard({ id: 'merge', name: 'Tokamak', difficulty: 34, action: { label: 'Play', onClick } })
-//   gameCard({ ..., difficulty: { lo: 5, hi: 25 } })   // a game's whole range, on the Puzzles home
+//   gameCard({ ..., difficulty: { lo: 5, hi: 25 } })   // a game's whole range
+//   setCardDifficulty(card, 63)                         // the Puzzles home, after a level is picked
 
 import { puzzleIcon } from './catalog';
 import { icon } from '../ui/icons';
@@ -47,6 +49,23 @@ function pips(from: number, to: number): string {
   return Array.from({ length: LEVELS }, (_, i) => `<i class="${i + 1 >= from && i + 1 <= to ? 'on' : ''}"></i>`).join('');
 }
 
+/** The pips and the spoken word for a dial or a span of it. */
+function paintDifficulty(diff: HTMLElement, difficulty: number | { lo: number; hi: number }): void {
+  const d = typeof difficulty === 'number' ? { lo: difficulty, hi: difficulty } : difficulty;
+  const from = difficultyLevel(d.lo);
+  const to = difficultyLevel(d.hi);
+  const word = from === to ? difficultyWord(d.lo) : `${difficultyWord(d.lo)} to ${difficultyWord(d.hi)}`;
+  diff.innerHTML = `<span class="gcard-pips" aria-hidden="true">${pips(typeof difficulty === 'number' ? 1 : from, to)}</span><span class="sr-only"></span>`;
+  diff.querySelector('.sr-only')!.textContent = `Difficulty: ${word}`;
+  diff.title = `Difficulty: ${word}`;
+}
+
+/** Shows a new dial on a card already built (the level picked on the Puzzles home). */
+export function setCardDifficulty(card: HTMLElement, dial: number): void {
+  const diff = card.querySelector<HTMLElement>('.gcard-diff');
+  if (diff) paintDifficulty(diff, dial);
+}
+
 /** A game's card: icon square, name, difficulty and its Play button. */
 export function gameCard(o: GameCardOptions): HTMLElement {
   const card = document.createElement('div');
@@ -70,16 +89,10 @@ export function gameCard(o: GameCardOptions): HTMLElement {
   body.append(name);
 
   if (o.difficulty !== undefined) {
-    const d = typeof o.difficulty === 'number' ? { lo: o.difficulty, hi: o.difficulty } : o.difficulty;
-    const from = difficultyLevel(d.lo);
-    const to = difficultyLevel(d.hi);
-    const word = from === to ? difficultyWord(d.lo) : `${difficultyWord(d.lo)}–${difficultyWord(d.hi)}`;
     const diff = document.createElement('span');
     diff.className = 'gcard-diff';
-    diff.innerHTML = `<span class="gcard-pips" aria-hidden="true">${pips(typeof o.difficulty === 'number' ? 1 : from, to)}</span><span class="gcard-word"></span>`;
-    diff.querySelector('.gcard-word')!.textContent = word;
-    diff.title = `Difficulty: ${from === to ? word : `${difficultyWord(d.lo)} to ${difficultyWord(d.hi)}`}`;
     body.append(diff);
+    paintDifficulty(diff, o.difficulty);
   }
 
   if (o.extra !== undefined) {

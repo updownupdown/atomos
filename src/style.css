@@ -948,8 +948,11 @@ body:not([data-screen='gallery']) .gal-modes { display: none; }
 .pg-list { display: flex; flex-direction: column; gap: var(--sp-4); padding-top: 14px; }
 .pg-sec { min-width: 0; scroll-snap-align: start; cursor: pointer; }
 .pg-sec .gcard-go { cursor: pointer; }
-/* The Play button in focus: its ring sits off the button by a band of the card's gray. */
+/* The game in focus wears its level's color (--lvl, set with the level picked): its ring, and
+   its Play filled in it. The Play's ring sits off the button by a band of the card's gray. */
 .gcard .gcard-go.ui-ring { --ring-gap: 3px; --ring-gap-c: var(--c-surface-2); }
+.pg-sec.is-focus .gcard, .pg-sec.is-focus .gcard-go { --ring: var(--lvl, var(--c-accent)); }
+.pg-sec.is-focus .gcard .gcard-go.primary { background: var(--lvl, var(--c-accent)); color: #050607; }
 @media (min-width: 700px) {
   .pg-focus-in { grid-template-columns: auto minmax(0, 1fr); grid-template-areas: 'demo text' 'demo levels'; padding: var(--sp-4); }
   .pg-levels { align-self: end; }
@@ -1052,7 +1055,12 @@ body:not([data-screen='gallery']) .gal-modes { display: none; }
 .win-level:hover:not(:disabled) { background: var(--c-surface-3); }
 .win-level.is-current { background: var(--c-accent); color: var(--c-accent-ink); font-weight: var(--fw-semibold); }
 .win-level:disabled { opacity: 0.35; cursor: default; }
-.win-level.is-current .win-pips i.on { background: var(--c-accent-ink); }
+.win .win-level.is-current .win-pips i.on { background: #050607; }
+.win-level.is-current.lvl-1 { background: var(--c-lvl-1); color: #050607; }
+.win-level.is-current.lvl-2 { background: var(--c-lvl-2); color: #050607; }
+.win-level.is-current.lvl-3 { background: var(--c-lvl-3); color: #050607; }
+.win-level.is-current.lvl-4 { background: var(--c-lvl-4); color: #050607; }
+.win-level.is-current.lvl-5 { background: var(--c-lvl-5); color: #050607; }
 .win-pips { display: flex; gap: 3px; }
 .win-pips i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: 0.3; }
 .win-pips i.on { opacity: 1; }
@@ -1826,10 +1834,11 @@ body[data-screen^='atom'].build-home .science-fab, body[data-screen='atom-view']
 @keyframes guided { 0% { box-shadow: 0 0 0 0 var(--c-go-ring); } 60% { box-shadow: 0 0 0 8px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
 @media (prefers-reduced-motion: reduce) { .guide-time { animation: none; } .ui-icon-btn.is-guided { animation: none; box-shadow: 0 0 0 3px var(--c-go-ring); } }
 
-/* Difficulty pips everywhere (game cards, the game bar, Build's picks, the win sheet): each lit
-   pip in its level's color, Very easy blue to Expert red. */
-:is(.gcard-pips, .gbar-pips, .bh-pips, .win-pips) i.on:nth-child(1) { background: var(--c-lvl-1); opacity: 1; }
-:is(.gcard-pips, .gbar-pips, .bh-pips, .win-pips) i.on:nth-child(2) { background: var(--c-lvl-2); opacity: 1; }
-:is(.gcard-pips, .gbar-pips, .bh-pips, .win-pips) i.on:nth-child(3) { background: var(--c-lvl-3); opacity: 1; }
-:is(.gcard-pips, .gbar-pips, .bh-pips, .win-pips) i.on:nth-child(4) { background: var(--c-lvl-4); opacity: 1; }
-:is(.gcard-pips, .gbar-pips, .bh-pips, .win-pips) i.on:nth-child(5) { background: var(--c-lvl-5); opacity: 1; }
+/* Difficulty pips everywhere (game cards, the game bar, Build's picks, the win sheet): the lit
+   pips all take the color of the level the last one stands for, Very easy blue to Expert red;
+   the rest stay gray. One blue pip is Very easy; five red ones, Expert. */
+:is(.gcard-pips, .gbar-pips, .bh-pips, .win-pips):has(i.on:nth-child(1)) i.on { background: var(--c-lvl-1); opacity: 1; }
+:is(.gcard-pips, .gbar-pips, .bh-pips, .win-pips):has(i.on:nth-child(2)) i.on { background: var(--c-lvl-2); opacity: 1; }
+:is(.gcard-pips, .gbar-pips, .bh-pips, .win-pips):has(i.on:nth-child(3)) i.on { background: var(--c-lvl-3); opacity: 1; }
+:is(.gcard-pips, .gbar-pips, .bh-pips, .win-pips):has(i.on:nth-child(4)) i.on { background: var(--c-lvl-4); opacity: 1; }
+:is(.gcard-pips, .gbar-pips, .bh-pips, .win-pips):has(i.on:nth-child(5)) i.on { background: var(--c-lvl-5); opacity: 1; }
