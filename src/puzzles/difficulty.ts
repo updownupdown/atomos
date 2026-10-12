@@ -14,6 +14,9 @@ const RANGE: Record<string, { lo: number; hi: number; from: number; to: number }
   rutherford: { lo: 4, hi: 6, from: 1, to: 118 },
   codebreaker: { lo: 5, hi: 6, from: 1, to: 118 },
   colorCharge: { lo: 2, hi: 7, from: 1, to: 118 },
+  bond: { lo: 2, hi: 7, from: 1, to: 118 },
+  spin: { lo: 2, hi: 7, from: 1, to: 118 },
+  fission: { lo: 2, hi: 6, from: 1, to: 118 },
 };
 
 /** The rating, 1 to 10, of a game's board for element z. */

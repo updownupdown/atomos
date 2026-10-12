@@ -1,7 +1,8 @@
 // Every puzzle type in the game, in one list, so the Puzzles home can show where each one sits
 // and the game can ask for a board by id. Every game has one job: Tokamak builds every nucleus
 // and Quanta every atom's electrons; Tessera, Chroma, Flux, Nova, Inertia and Aurum build
-// isotopes, and Lumen fleeting ones; Glyph opens the display unlocks.
+// isotopes, and Lumen fleeting ones; Glyph opens the display unlocks. Bond, Spin and Fission are
+// reserve games, played from Practice only, until they earn a place.
 
 import { elementAt as element } from '../gallery/data';
 import { ICON_NAMES, icon } from '../ui/icons';
@@ -37,6 +38,15 @@ import * as CodeV from './codebreakerView';
 import * as RutherfordV from './rutherfordView';
 import * as GridV from './orbitalGridView';
 import * as ChargeV from './colorChargeView';
+import { newBond } from './bond';
+import { BondView, INSTRUCTIONS as BOND_HOW } from './bondView';
+import * as BondV from './bondView';
+import { newSpin } from './spin';
+import { SpinView, INSTRUCTIONS as SPIN_HOW } from './spinView';
+import * as SpinV from './spinView';
+import { newFission } from './fission';
+import { FissionView, INSTRUCTIONS as FISSION_HOW } from './fissionView';
+import * as FissionV from './fissionView';
 import { SUBSHELL_COLORS, type PuzzleView, type RuleCard } from './view';
 
 /** A view module's rule cards, once it exports them. */
@@ -46,6 +56,7 @@ const rulesOf = (m: object): RuleCard[] | undefined => (m as { RULES?: RuleCard[
 const ICON_SLUG: Record<string, string> = {
   merge: 'merge', orbitalGrid: 'orbital-grid', sliding: 'sliding', packing: 'packing', lines: 'field-lines',
   slideStop: 'slide-stop', light: 'light', rutherford: 'rutherford', codebreaker: 'codebreaker', colorCharge: 'color-charge',
+  bond: 'bond', spin: 'spin', fission: 'fission',
 };
 
 /** A puzzle type's icon, or the generic puzzles icon until its own is drawn. */
@@ -300,6 +311,60 @@ export const PUZZLES: PuzzleType[] = [
       <p>There are two ways to cancel. Three quarks, one of each color, make a <b>baryon</b> such as the proton. A quark and an antiquark carrying the matching anticolor make a <b>meson</b>, such as the pion. Three antiquarks make an <b>antibaryon</b>, such as the antiproton.</p>
       <p><b>Gluons</b> carry the strong force and carry color themselves, so exchanging one changes the colors of both quarks; in the game that is the swap.</p>
       <p class="muted">Game rule: color charge has nothing to do with real color, and quarks do not sit on a grid; the shapes on the board are only for play.</p>`,
+  },
+  {
+    id: 'bond', name: 'Bond', tier: 'reserve',
+    use: 'Practice',
+    get rules() { return rulesOf(BondV); },
+    goal: 'Join every pair of dots; paths never cross.',
+    blurb: 'Drag a path from each dot to its partner of the same color. Paths never cross, and every cell ends up on a path.',
+    role: 'A reserve game to try out: a rote, hands-on one for the nucleus pool, if it earns a place.',
+    instructions: BOND_HOW,
+    zRange: [1, 118],
+    deal: (z, seed, reduced) => new BondView(newBond(z, seed), reduced),
+    science: (z) => {
+      const el = element(z);
+      return `<h2>Bond: the science</h2>
+        <p>Atoms join by sharing electrons in pairs: a <b>covalent bond</b> is two electrons, one from each atom, held between them. ${el.name}'s outermost electrons are the ones that bond, and the pairs it can make are what its chemistry is built from.</p>
+        <p>A bond is a pair, and a pair is a bond: drawing one line between two matching dots is the whole idea, made into a puzzle.</p>
+        <p class="muted">Game rule: bonds do not run along paths on a grid, and nothing in a molecule fills every cell.</p>`;
+    },
+  },
+  {
+    id: 'spin', name: 'Spin', tier: 'reserve',
+    use: 'Practice',
+    get rules() { return rulesOf(SpinV); },
+    goal: 'Fill the grid with ups and downs, balanced and never three alike.',
+    blurb: 'Tap cells to set spin up or down. Every row and column holds as many ups as downs, three alike never sit in a line, and linked cells match or differ as marked.',
+    role: 'A reserve game to try out: a thinking one for the electron pool, if it earns a place.',
+    instructions: SPIN_HOW,
+    zRange: [1, 118],
+    deal: (z, seed, reduced) => new SpinView(newSpin(z, seed), reduced),
+    science: (z) => {
+      const el = element(z);
+      return `<h2>Spin: the science</h2>
+        <p>Every electron carries <b>spin</b>, a quantum property with two settings, called up and down. Two electrons can share an orbital only with opposite spins: the Pauli exclusion principle, which is why ${el.name}'s ${z} electrons fill their orbitals in pairs.</p>
+        <p>Spin is also why a filled shell is magnetically quiet: its ups and downs cancel. ${el.name}'s unpaired spins, if it has any, are what make it magnetic.</p>
+        <p class="muted">Game rule: the balanced rows and the "never three" rule are the puzzle's, not the atom's.</p>`;
+    },
+  },
+  {
+    id: 'fission', name: 'Fission', tier: 'reserve',
+    use: 'Practice',
+    get rules() { return rulesOf(FissionV); },
+    goal: 'Split every nucleus in the fewest taps.',
+    blurb: 'Tap a nucleus: its neutrons fly the way its chevrons point and split what they hit, and so on down the chain. Split every nucleus in as few taps as the board allows.',
+    role: 'A reserve game to try out: a rote one with a chain reaction to watch, for the nucleus pool, if it earns a place.',
+    instructions: FISSION_HOW,
+    zRange: [1, 118],
+    deal: (z, seed, reduced) => new FissionView(newFission(z, seed), reduced),
+    science: (z) => {
+      const el = element(z);
+      return `<h2>Fission: the science</h2>
+        <p>Some heavy nuclei split when a neutron hits them: <b>fission</b>. Uranium-235 breaks into two lighter nuclei and throws out two or three more neutrons, and if those hit more uranium the splitting feeds itself: a <b>chain reaction</b>. A reactor keeps it steady with moderators and control rods that slow and soak up neutrons; a bomb lets it run away.</p>
+        <p>${z >= 90 ? `${el.name} is heavy enough that some of its isotopes can be split this way.` : `${el.name} is far too light to split: its nucleus is more tightly bound than its pieces would be, so breaking it costs energy instead of releasing it.`}</p>
+        <p class="muted">Game rule: real neutrons fly off in every direction, not along chevrons, and a chain needs enough fuel packed closely, not a well-aimed tap.</p>`;
+    },
   },
 ];
 
