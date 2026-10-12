@@ -69,6 +69,12 @@ import * as SortV from './sortView';
 import { newFlood } from './flood';
 import { FloodView, INSTRUCTIONS as FLOOD_HOW } from './floodView';
 import * as FloodV from './floodView';
+import { newDipole } from './dipole';
+import { DipoleView, INSTRUCTIONS as DIPOLE_HOW } from './dipoleView';
+import * as DipoleV from './dipoleView';
+import { newTrace } from './trace';
+import { TraceView, INSTRUCTIONS as TRACE_HOW } from './traceView';
+import * as TraceV from './traceView';
 import { SUBSHELL_COLORS, type PuzzleView, type RuleCard } from './view';
 
 /** Which atom steps a game builds, from the committed table: "12 nuclei and 3 electron sets". */
@@ -97,6 +103,8 @@ const ICON_SLUG: Record<string, string> = {
   emit: 'emit',
   sort: 'sort',
   flood: 'flood',
+  dipole: 'dipole',
+  trace: 'trace',
 };
 
 /** A puzzle type's icon, or the generic puzzles icon until its own is drawn. */
@@ -536,6 +544,42 @@ export const PUZZLES: PuzzleType[] = [
         <p>A <b>crystal</b> is atoms stacked in one repeating pattern, a lattice, that runs unbroken through the whole piece. It grows from a small seed: atoms from the melt or solution around it settle onto its faces in the places the lattice has ready for them, so the pattern spreads outward one layer at a time.</p>
         <p>Snowflakes, salt and quartz are crystals, and almost every solid metal is a mass of tiny crystal grains, each its own lattice. Growing one large crystal, as is done for the silicon in computer chips, takes a seed and slow, steady cooling.</p>
         <p class="muted">Game rule: a real crystal adds atoms of its own kind; it does not change what it is made of to take in its neighbors.</p>`;
+    },
+  },
+  {
+    id: 'dipole', name: 'Dipole', tier: 'reserve',
+    use: 'Practice',
+    get rules() { return rulesOf(DipoleV); },
+    goal: 'Place the magnets so every edge number is met and like poles never touch.',
+    blurb: 'Each domino is a magnet, + at one end and − at the other, or a blank. The numbers count the + and − poles in each row and column, and like poles never touch.',
+    role: 'A reserve game to try out: a thinking one, if it earns a place.',
+    instructions: DIPOLE_HOW,
+    zRange: [1, 118],
+    native: (d, seed, reduced) => new DipoleView(newDipole(d, seed), reduced),
+    science: (z) => {
+      const el = element(z);
+      return `<h2>Dipole: the science</h2>
+        <p>Every magnet has two poles, north and south, and cutting one in half only makes two smaller magnets: nobody has ever found a lone pole. Such a pair of equal and opposite ends is a <b>dipole</b>. Like poles push each other away and opposite poles pull together.</p>
+        <p>Electrons are tiny magnetic dipoles too, because of their spin. In most atoms they pair up and cancel. ${[26, 27, 28, 64].includes(z) ? `${el.name} is one of the few elements whose unpaired spins line up by themselves in the solid, which makes it a magnet in its own right.` : `${el.name} is not one of the few elements, such as iron, cobalt and nickel, whose unpaired spins line up by themselves into a magnet.`}</p>
+        <p class="muted">Game rule: a magnet's poles are north and south; the + and − here borrow the signs of an electric dipole, and real like poles can touch if pushed together.</p>`;
+    },
+  },
+  {
+    id: 'trace', name: 'Trace', tier: 'reserve',
+    use: 'Practice',
+    get rules() { return rulesOf(TraceV); },
+    goal: 'Draw one trail through every cell, meeting the numbers in order.',
+    blurb: 'Drag from the 1 and lay one trail through every cell exactly once, meeting the numbers in order and ending on the last. Walls block the way.',
+    role: 'A reserve game to try out: a thinking one with a single path to find, if it earns a place.',
+    instructions: TRACE_HOW,
+    zRange: [1, 118],
+    native: (d, seed, reduced) => new TraceView(newTrace(d, seed), reduced),
+    science: (z) => {
+      const el = element(z);
+      return `<h2>Trace: the science</h2>
+        <p>Charged particles leave trails. In a <b>cloud chamber</b> or a <b>bubble chamber</b>, an electron passing through leaves a line of droplets or bubbles behind it, and physicists read what happened from the shape of the track: a tight spiral in a magnetic field is a light, slow particle such as an electron; a short, thick, straight track is a heavy one such as an alpha particle.</p>
+        <p>${el.name} has ${z} electron${z === 1 ? '' : 's'}; knock one loose with enough energy and a chamber would show its track for a fraction of a second.</p>
+        <p class="muted">Game rule: a real track is a smooth curve through space, not a walk from cell to cell, and nothing makes it visit every place once in order.</p>`;
     },
   },
 ];
