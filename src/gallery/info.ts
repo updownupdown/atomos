@@ -9,7 +9,7 @@ import STORY from '../data/element-story.json';
 import IMAGES from '../data/element-images.json';
 import { disclosureHTML } from '../ui/components';
 import { loadSave, type SaveData } from '../core/save';
-import { blueprint, discoveryTimeline, isotopeTable, orbitalMap, propertyAxes, shellPlot } from './visuals';
+import { discoveryTimeline, isotopeTable, orbitalAssembly, propertyAxes, shellPlot } from './visuals';
 
 export type Tab = 'overview' | 'structure' | 'isotopes' | 'properties' | 'story';
 export const TABS: { id: Tab; label: string }[] = [
@@ -131,9 +131,8 @@ function structure(e: Element): string {
   const key = keyIsotope(e);
   return `
     <div class="st-switch" id="struct-switch"></div>
-    <div class="st-view" data-view="blueprint">${blueprint(e)}</div>
+    <div class="st-view" data-view="orbitals">${orbitalAssembly(e)}</div>
     <div class="st-view" data-view="shells" hidden>${shellPlot(e)}</div>
-    <div class="st-view" data-view="orbitals" hidden>${orbitalMap(e)}</div>
     ${disclosureHTML({ title: 'All the numbers', hint: `${e.subshells.length} layers`, body: `
     ${row('Configuration', `${e.configuration.split(' ').map((s) => s.slice(0, 2) + sup(s.slice(2))).join(' ')}`)}
     ${row('Short form', shortConfiguration(e))}

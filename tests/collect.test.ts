@@ -33,7 +33,9 @@ describe('Collect', () => {
     expect(p).toMatchObject({ atoms: 8, built: 2 });
     expect(p.stable).toBeGreaterThan(0);
     expect(p.stable).toBeLessThan(1);
-    expect(periodProgress(1, defaultSave())).toMatchObject({ atoms: 2, built: 0, stable: 0, fleeting: 0 });
+    expect(p.stableBuilt).toBeGreaterThanOrEqual(4);
+    expect(p.stable).toBeCloseTo(p.stableBuilt / p.stableTotal);
+    expect(periodProgress(1, defaultSave())).toMatchObject({ atoms: 2, built: 0, stable: 0, stableBuilt: 0, fleeting: 0, fleetingBuilt: 0 });
   });
   it('gives each atom a stable bar and, when it has fleeting isotopes, a fleeting one', () => {
     const save = collect(built(defaultSave(), 1, 2), 1, 'lasting');
