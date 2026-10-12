@@ -1044,11 +1044,11 @@ export class Game {
 
   private onKey(e: KeyboardEvent): void {
     if (this.paused || $('app').hidden || modalOpen() || confirming() || document.querySelector('.win')) return;
-    // Escape steps back: from a puzzle to the Build page, from the Build page to Collect (as the
-    // atom's View does).
+    // Escape steps back: from a puzzle to the Build page, from the Build page to where the atom
+    // was opened (Collect or Tables), as the atom's View does.
     if (e.key === 'Escape') {
       if (this.stage !== 'home') this.toHome();
-      else $('app').dispatchEvent(new CustomEvent('atomos:collect', { bubbles: true, detail: { z: this.z } }));
+      else $('app').dispatchEvent(new CustomEvent('atomos:close-atom', { bubbles: true, detail: { z: this.z } }));
       e.preventDefault();
       return;
     }
