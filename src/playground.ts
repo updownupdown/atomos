@@ -205,12 +205,13 @@ export class Playground {
     ], { duration: 420, easing: 'cubic-bezier(0.5, 0, 0.75, 0)' }).finished.then(land, land);
   }
 
-  /** The home: the pinned box about the game in focus, then one card per game, playable ones
-   *  first. Tapping a card (not its Play) brings it into focus. */
+  /** The home: the pinned box about the game in focus, then one card per game in alphabetical
+   *  order, playable ones first. Tapping a card (not its Play) brings it into focus. */
   private renderHome(): void {
     const list = $('pg-list');
     list.replaceChildren();
-    const games = [...PUZZLES.filter((p) => p.make), ...PUZZLES.filter((p) => !p.make)];
+    const az = [...PUZZLES].sort((a, b) => a.name.localeCompare(b.name));
+    const games = [...az.filter((p) => p.make), ...az.filter((p) => !p.make)];
     for (const p of games) {
       const sec = document.createElement('section');
       sec.className = 'pg-sec';

@@ -13,7 +13,7 @@ import { drawHelpMark, ease, undoHelp, type Area, type Help, type Illustration, 
 
 export const INSTRUCTIONS = `
 <h3>In the game</h3>
-<p class="meta">Drop is a reserve game, played from the Practice screen. The well grows from 4 wide and 3 deep on Very easy to 6 by 6 on Hard and 7 wide by 5 deep on Expert, and the clusters from mostly ones, twos and threes to mostly fours. On Very easy boards the whole queue is in view and every cluster comes the right way up; from Easy on, clusters come turned at random and the queue shows four ahead, then three, then two. Every deal is built by filling the well with clusters that each land flush, so it can always be filled; harder deals are kept only when they hold enough drops that look fine but leave the well impossible to finish. Par is one move per drop plus the fewest turns any answer needs, found by searching every way the surface of the well can grow.</p>
+<p class="meta">Well is a reserve game, played from the Puzzles screen. The well grows from 4 wide and 3 deep on Very easy to 6 by 6 on Hard and 7 wide by 5 deep on Expert, and the clusters from mostly ones, twos and threes to mostly fours. On Very easy boards the whole queue is in view and every cluster comes the right way up; from Easy on, clusters come turned at random and the queue shows four ahead, then three, then two. Every deal is built by filling the well with clusters that each land flush, so it can always be filled; harder deals are kept only when they hold enough drops that look fine but leave the well impossible to finish. Par is one move per drop plus the fewest turns any answer needs, found by searching every way the surface of the well can grow.</p>
 `;
 
 const PROTON = '#e0583f';

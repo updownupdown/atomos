@@ -12,7 +12,7 @@ import { drawHelpMark, ease, undoHelp, type Area, type Help, type Illustration, 
 
 export const INSTRUCTIONS = `
 <h3>In the game</h3>
-<p class="meta">Sort is a reserve game, played from the Practice screen. The easiest boards hold 3 lines of 3 bands with two spare vials, lightly mixed; the lines rise to 9 and the vials to 5 bands, fully mixed, through Hard. The top of Expert keeps 6 or 7 lines of 4 but leaves only one spare vial, so every pour has to be planned. Each deal is checked by a solver that tries pours in order of promise (an A* search) and proves the fewest; that count is par, and a deal is kept only when par is not too low for its level. Undo is free.</p>
+<p class="meta">Vials is a reserve game, played from the Puzzles screen. The easiest boards hold 3 lines of 3 bands with two spare vials, lightly mixed; the lines rise to 9 and the vials to 5 bands, fully mixed, through Hard. The top of Expert keeps 6 or 7 lines of 4 but leaves only one spare vial, so every pour has to be planned. Each deal is checked by a solver that tries pours in order of promise (an A* search) and proves the fewest; that count is par, and a deal is kept only when par is not too low for its level. Undo is free.</p>
 `;
 
 /** Milliseconds a pour takes, by bands moved. */

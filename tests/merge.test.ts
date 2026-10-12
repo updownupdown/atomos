@@ -524,12 +524,12 @@ describe('capture mode', () => {
 
   it('says capture mode in the status line, and shows the biggest cluster', () => {
     const v = new MergeView(newCapture(U, 3), true);
-    expect(v.hint()).toBe('Capture mode: build exactly 238');
-    expect(v.stats().progress.label).toBe('Capture');
+    expect(v.hint()).toBe('Kiln mode: build exactly 238');
+    expect(v.stats().progress.label).toBe('Kiln');
     expect(v.stats().progress.value).toMatch(/^\d+\/238$/);
     const stuck: Tile[] = [];
     for (let i = 0; i < 16; i++) stuck.push(t(((i + Math.floor(i / 4)) % 2) ? 3 : 5, i + 1));
-    expect(new MergeView(capture(U, stuck), true).hint()).toBe('Capture mode: jammed, undo or restart');
+    expect(new MergeView(capture(U, stuck), true).hint()).toBe('Kiln mode: jammed, undo or restart');
   });
 
   it('Show me finishes capture boards, and Look here explains in plain lines', () => {
@@ -565,13 +565,13 @@ describe('capture mode', () => {
     expect(CAPTURE_INSTRUCTIONS).toMatch(/^\s*<h3>In the game<\/h3>\s*<p class="meta">/);
   });
 
-  it('is in the catalog as Capture, dealt in capture mode', () => {
+  it('is in the catalog as Kiln, dealt in capture mode', () => {
     const type = puzzleType('capture');
-    expect(type.name).toBe('Capture');
+    expect(type.name).toBe('Kiln');
     expect(type.tier).toBe('reserve');
-    expect(GAME_NAMES.capture).toBe('Capture');
+    expect(GAME_NAMES.capture).toBe('Kiln');
     const v = type.make!(92, 0, true);
-    expect(v.hint()).toBe('Capture mode: build exactly 238');
+    expect(v.hint()).toBe('Kiln mode: build exactly 238');
     const area = { x: 0, y: 0, w: 360, h: 520 };
     expect(inside(record((ctx) => v.draw(ctx, area, performance.now())).pts, area)).toBe(true);
   });

@@ -12,7 +12,7 @@ import { drawHelpMark, type Area, type Help, type Illustration, type Point, type
 
 export const INSTRUCTIONS = `
 <h3>In the game</h3>
-<p class="meta">Bond is a reserve game, played from the Practice screen. The grid is 5 by 5 up to neon with 3 or 4 pairs, 6 by 6 to krypton with 4 or 5, 7 by 7 to radon with 5 to 7 and 8 by 8 beyond with 6 to 8. Each board is dealt from one path through every cell, cut at each tight turn into the pairs, and kept only when the solver finds exactly one answer. Par is one stroke per pair; a redrawn or cut path costs a stroke.</p>
+<p class="meta">Tether is a reserve game, played from the Puzzles screen. The grid is 5 by 5 up to neon with 3 or 4 pairs, 6 by 6 to krypton with 4 or 5, 7 by 7 to radon with 5 to 7 and 8 by 8 beyond with 6 to 8. Each board is dealt from one path through every cell, cut at each tight turn into the pairs, and kept only when the solver finds exactly one answer. Par is one stroke per pair; a redrawn or cut path costs a stroke.</p>
 `;
 
 /** The pairs' colors and their names, for the hint line. Kept away from red, amber and rose. */

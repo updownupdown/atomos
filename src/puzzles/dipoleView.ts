@@ -14,7 +14,7 @@ import { drawHelpMark, ease, type Area, type Help, type Illustration, type Point
 
 export const INSTRUCTIONS = `
 <h3>In the game</h3>
-<p class="meta">Dipole is a reserve game, played from the Practice screen. The board grows from 5 by 6 cells on the easiest setting through 6 by 6, 7 by 8 and 8 by 8 to 10 by 10 at Expert. The first few boards deal a magnet or two in place; from Easy on, some of the edge numbers are left out, up to about two in five at Expert. Every board has exactly one answer, and the generator checks that it can be reached by deduction alone, with no guessing: directly on the easiest boards, with a few steps of "what if" on the hardest. Par is one tap per magnet, on its + end; marking blanks is free.</p>
+<p class="meta">Dipole is a reserve game, played from the Puzzles screen. The board grows from 5 by 6 cells on the easiest setting through 6 by 6, 7 by 8 and 8 by 8 to 10 by 10 at Expert. The first few boards deal a magnet or two in place; from Easy on, some of the edge numbers are left out, up to about two in five at Expert. Every board has exactly one answer, and the generator checks that it can be reached by deduction alone, with no guessing: directly on the easiest boards, with a few steps of "what if" on the hardest. Par is one tap per magnet, on its + end; marking blanks is free.</p>
 `;
 
 /** The poles' colors: red +, blue −, like a bar magnet's painted ends. */

@@ -401,7 +401,7 @@ export const PUZZLES: PuzzleType[] = [
       <p class="muted">Game rule: color charge has nothing to do with real color, and quarks do not sit on a grid; the shapes on the board are only for play.</p>`,
   },
   {
-    id: 'bond', name: 'Bond', tier: 'reserve',
+    id: 'bond', name: 'Tether', tier: 'reserve',
     use: 'Practice',
     get rules() { return rulesOf(BondV); },
     goal: 'Join every pair of dots; paths never cross.',
@@ -412,14 +412,14 @@ export const PUZZLES: PuzzleType[] = [
     ladder: (z, seed, reduced) => new BondView(newBond(z, seed), reduced),
     science: (z) => {
       const el = element(z);
-      return `<h2>Bond: the science</h2>
+      return `<h2>Tether: the science</h2>
         <p>Atoms join by sharing electrons in pairs: a <b>covalent bond</b> is two electrons, one from each atom, held between them. ${el.name}'s outermost electrons are the ones that bond, and the pairs it can make are what its chemistry is built from.</p>
         <p>A bond is a pair, and a pair is a bond: drawing one line between two matching dots is the whole idea, made into a puzzle.</p>
         <p class="muted">Game rule: bonds do not run along paths on a grid, and nothing in a molecule fills every cell.</p>`;
     },
   },
   {
-    id: 'spin', name: 'Spin', tier: 'reserve',
+    id: 'spin', name: 'Parity', tier: 'reserve',
     use: 'Practice',
     get rules() { return rulesOf(SpinV); },
     goal: 'Fill the grid with ups and downs, balanced and never three alike.',
@@ -430,14 +430,14 @@ export const PUZZLES: PuzzleType[] = [
     ladder: (z, seed, reduced) => new SpinView(newSpin(z, seed), reduced),
     science: (z) => {
       const el = element(z);
-      return `<h2>Spin: the science</h2>
+      return `<h2>Parity: the science</h2>
         <p>Every electron carries <b>spin</b>, a quantum property with two settings, called up and down. Two electrons can share an orbital only with opposite spins: the Pauli exclusion principle, which is why ${el.name}'s ${z} electrons fill their orbitals in pairs.</p>
         <p>Spin is also why a filled shell is magnetically quiet: its ups and downs cancel. ${el.name}'s unpaired spins, if it has any, are what make it magnetic.</p>
         <p class="muted">Game rule: the balanced rows and the "never three" rule are the puzzle's, not the atom's.</p>`;
     },
   },
   {
-    id: 'fission', name: 'Fission', tier: 'reserve',
+    id: 'fission', name: 'Cascade', tier: 'reserve',
     use: 'Practice',
     get rules() { return rulesOf(FissionV); },
     goal: 'Split every nucleus in the fewest taps.',
@@ -448,17 +448,17 @@ export const PUZZLES: PuzzleType[] = [
     ladder: (z, seed, reduced) => new FissionView(newFission(z, seed), reduced),
     science: (z) => {
       const el = element(z);
-      return `<h2>Fission: the science</h2>
+      return `<h2>Cascade: the science</h2>
         <p>Some heavy nuclei split when a neutron hits them: <b>fission</b>. Uranium-235 breaks into two lighter nuclei and throws out two or three more neutrons, and if those hit more uranium the splitting feeds itself: a <b>chain reaction</b>. A reactor keeps it steady with moderators and control rods that slow and soak up neutrons; a bomb lets it run away.</p>
         <p>${z >= 90 ? `${el.name} is heavy enough that some of its isotopes can be split this way.` : `${el.name} is far too light to split: its nucleus is more tightly bound than its pieces would be, so breaking it costs energy instead of releasing it.`}</p>
         <p class="muted">Game rule: real neutrons fly off in every direction, not along chevrons, and a chain needs enough fuel packed closely, not a well-aimed tap.</p>`;
     },
   },
   {
-    id: 'capture', name: 'Capture', tier: 'reserve',
+    id: 'capture', name: 'Kiln', tier: 'reserve',
     use: 'Practice',
     get rules() { return MergeV.CAPTURE_RULES; },
-    goal: 'Capture mode: build one cluster of exactly the mass number.',
+    goal: 'Kiln mode: build one cluster of exactly the mass number.',
     blurb: 'Tokamak in capture mode: equal clusters double, and a cluster of 8 or more captures any lone neutron it meets, growing by one. Build one cluster of exactly the mass number.',
     role: "A reserve game to try out: Tokamak's capture mode for the nuclei past iron, if it earns a place.",
     instructions: CAPTURE_HOW,
@@ -466,14 +466,14 @@ export const PUZZLES: PuzzleType[] = [
     ladder: (z, seed, reduced, a) => new MergeView(newCapture({ z, a: a ?? element(z).commonA }, seed), reduced),
     science: (z) => {
       const el = element(z);
-      return `<h2>Capture: the science</h2>
+      return `<h2>Kiln: the science</h2>
         <p>Iron and nickel have the most tightly bound nuclei, so fusing anything heavier costs energy instead of releasing it. Almost every nucleus past iron was built by <b>neutron capture</b>: a neutron has no charge, so the nucleus does not push it away, and it is captured, raising the mass number by one. When the new nucleus is unstable, one of its neutrons beta-decays into a proton and the nucleus moves one element up.</p>
         <p>The <b>s-process</b> (slow) captures neutrons often years apart inside old giant stars, building on iron seeds up to lead and bismuth. The <b>r-process</b> (rapid) captures many within seconds, in merging neutron stars and perhaps rare supernovae, and is the only way to make thorium and uranium. ${sup(String(el.commonA))}${el.symbol}, ${el.name}'s most common isotope, has ${el.commonA} nucleons: ${z} protons and ${el.commonA - z} neutrons.</p>
         <p class="muted">Game rule: the seeds, the doubling of two equal clusters and the 8-nucleon threshold for a capture are the puzzle's. Real heavy nuclei grow from iron-group seeds one neutron at a time and never merge in pairs.</p>`;
     },
   },
   {
-    id: 'planar', name: 'Planar', tier: 'reserve',
+    id: 'planar', name: 'Unfurl', tier: 'reserve',
     use: 'Practice',
     get rules() { return rulesOf(PlanarV); },
     goal: 'Drag the atoms until no two bonds cross.',
@@ -484,7 +484,7 @@ export const PUZZLES: PuzzleType[] = [
     native: (d, seed, reduced) => new PlanarView(newPlanar(d, seed), reduced),
     science: (z) => {
       const el = element(z);
-      return `<h2>Planar: the science</h2>
+      return `<h2>Unfurl: the science</h2>
         <p>Chemists draw a molecule as a <b>structural formula</b>: each atom a point or a letter, each bond a line between two of them. A drawing like this records which atoms are bonded to which, its <b>connectivity</b>, and that alone tells many molecules apart.</p>
         <p>Most molecules can be drawn flat with no two bonds crossing; mathematicians call such a network of points and lines <b>planar</b>. Rings, chains and branches all can, and so can cages such as cubane and the soccer-ball-shaped buckminsterfullerene, which is why structural formulas stay readable. A few molecules cannot: chemists have built some on purpose whose bonds can never all be drawn flat without a crossing.</p>
         <p>In a structural formula ${el.name} is written as its symbol, ${el.symbol}, with a line to each atom it is bonded to.</p>
@@ -492,7 +492,7 @@ export const PUZZLES: PuzzleType[] = [
     },
   },
   {
-    id: 'circuit', name: 'Circuit', tier: 'reserve',
+    id: 'circuit', name: 'Volta', tier: 'reserve',
     use: 'Practice',
     get rules() { return rulesOf(CircuitV); },
     goal: 'Turn the tiles until current from the cell reaches every one.',
@@ -503,7 +503,7 @@ export const PUZZLES: PuzzleType[] = [
     native: (d, seed, reduced) => new CircuitView(newCircuit(d, seed), reduced),
     science: (z) => {
       const el = element(z);
-      return `<h2>Circuit: the science</h2>
+      return `<h2>Volta: the science</h2>
         <p>An electric <b>current</b> is a flow of charge, in a metal wire a drift of electrons. A <b>cell</b> pushes it: a chemical reaction inside drives electrons out of its negative terminal, round the circuit and back in at the positive one. A filament lamp lights when current flows through its thin filament and heats it until it glows.</p>
         <p>Metals conduct because their outermost electrons are not held by any one atom but move freely through the whole solid. ${conducts(z)}</p>
         <p class="muted">Game rule: current only flows round a closed loop back to the cell, and here the wires end at lamps. Think of each wire as a cable with two conductors, out and back, the way a house is wired.</p>`;
@@ -540,7 +540,7 @@ export const PUZZLES: PuzzleType[] = [
       <p class="muted">Game rule: real lamps shine every way, not just along a row and a column, and two beams pass through each other unharmed; the rule that no lamp may sit in another's light is the puzzle's.</p>`,
   },
   {
-    id: 'sort', name: 'Sort', tier: 'reserve',
+    id: 'sort', name: 'Vials', tier: 'reserve',
     use: 'Practice',
     get rules() { return rulesOf(SortV); },
     goal: 'Pour each color of light into a vial of its own.',
@@ -551,7 +551,7 @@ export const PUZZLES: PuzzleType[] = [
     native: (d, seed, reduced) => new SortView(newSort(d, seed), reduced),
     science: (z) => {
       const el = element(z);
-      return `<h2>Sort: the science</h2>
+      return `<h2>Vials: the science</h2>
         <p>A hot gas of one element glows only at certain wavelengths: its <b>emission lines</b>. Each line is light given off when an electron drops from one energy level to a lower one, and the gap between the two levels fixes the line's color. Hydrogen's four visible lines sit at 656 nm (red), 486 nm (blue-green), 434 nm (blue-violet) and 410 nm (violet).</p>
         <p>A spectrometer spreads mixed light out by wavelength so the lines stand apart, and every element's pattern is its own. ${z <= 99 ? `${el.name}'s lines are how it can be picked out in a flame, a lamp or the light of a star.` : `${el.name} has only ever been made a few atoms at a time, so its lines are mostly worked out by calculation rather than measured.`}</p>
         <p class="muted">Game rule: light is not poured, and the bands' colors are play colors, not ${el.name}'s real lines.</p>`;
@@ -593,7 +593,7 @@ export const PUZZLES: PuzzleType[] = [
     },
   },
   {
-    id: 'trace', name: 'Trace', tier: 'reserve',
+    id: 'trace', name: 'Tracer', tier: 'reserve',
     use: 'Practice',
     get rules() { return rulesOf(TraceV); },
     goal: 'Draw one trail through every cell, meeting the numbers in order.',
@@ -604,7 +604,7 @@ export const PUZZLES: PuzzleType[] = [
     native: (d, seed, reduced) => new TraceView(newTrace(d, seed), reduced),
     science: (z) => {
       const el = element(z);
-      return `<h2>Trace: the science</h2>
+      return `<h2>Tracer: the science</h2>
         <p>Charged particles leave trails. In a <b>cloud chamber</b> or a <b>bubble chamber</b>, an electron passing through leaves a line of droplets or bubbles behind it, and physicists read what happened from the shape of the track: a tight spiral in a magnetic field is a light, slow particle such as an electron; a short, thick, straight track is a heavy one such as an alpha particle.</p>
         <p>${el.name} has ${z} electron${z === 1 ? '' : 's'}; knock one loose with enough energy and a chamber would show its track for a fraction of a second.</p>
         <p class="muted">Game rule: a real track is a smooth curve through space, not a walk from cell to cell, and nothing makes it visit every place once in order.</p>`;
@@ -633,7 +633,7 @@ export const PUZZLES: PuzzleType[] = [
     },
   },
   {
-    id: 'drop', name: 'Drop', tier: 'reserve',
+    id: 'drop', name: 'Well', tier: 'reserve',
     use: 'Practice',
     get rules() { return rulesOf(DropV); },
     goal: 'Fill the well to the brim with the falling clusters.',
@@ -644,7 +644,7 @@ export const PUZZLES: PuzzleType[] = [
     native: (d, seed, reduced) => new DropView(newDrop(d, seed), reduced),
     science: (z) => {
       const el = element(z);
-      return `<h2>Drop: the science</h2>
+      return `<h2>Well: the science</h2>
         <p>Nucleons pack together at almost the same density in nearly every nucleus, about 0.16 nucleons per cubic femtometer. Like a drop of liquid, a nucleus grows in volume with the number of particles in it and has no room left for gaps. This is the <b>liquid drop model</b>, which George Gamow proposed in 1928 and Carl Friedrich von Weizsäcker turned into a formula for nuclear masses.</p>
         <p>The nucleus of ${el.name.toLowerCase()}-${el.commonA} holds ${el.commonA} nucleons: ${z} ${z === 1 ? 'proton' : 'protons'} and ${el.commonA - z} ${el.commonA - z === 1 ? 'neutron' : 'neutrons'}.</p>
         <p>The clusters are real light nuclei: a proton and a neutron make a deuteron, three nucleons make tritium or helium-3, and two protons with two neutrons make an alpha particle, the helium-4 nucleus that heavy atoms throw out when they decay.</p>
@@ -652,7 +652,7 @@ export const PUZZLES: PuzzleType[] = [
     },
   },
   {
-    id: 'push', name: 'Push', tier: 'reserve',
+    id: 'push', name: 'Shepherd', tier: 'reserve',
     use: 'Practice',
     get rules() { return rulesOf(PushV); },
     goal: 'Push every nucleon onto a socket of its own kind.',
@@ -663,14 +663,14 @@ export const PUZZLES: PuzzleType[] = [
     native: (d, seed, reduced) => new PushView(newPush(d, seed), reduced),
     science: (z) => {
       const el = element(z);
-      return `<h2>Push: the science</h2>
+      return `<h2>Shepherd: the science</h2>
         <p>A nucleus is built from two kinds of <b>nucleon</b>: <b>protons</b>, each with one positive charge, and <b>neutrons</b>, with none. ${el.name} has ${z} proton${z === 1 ? '' : 's'}; that count is what makes it ${el.name}, while the number of neutrons can vary from one isotope to the next.</p>
         <p>Inside the nucleus the nucleons are held by the strong force, which pulls on protons and neutrons alike at very short range and easily beats the protons' electric push on each other.</p>
         <p class="muted">Game rule: nucleons are not pushed about one at a time, and a nucleus has no sockets; protons and neutrons are colored only to tell them apart.</p>`;
     },
   },
   {
-    id: 'collide', name: 'Collide', tier: 'reserve',
+    id: 'collide', name: 'Hadron', tier: 'reserve',
     use: 'Practice',
     get rules() { return rulesOf(CollideV); },
     goal: 'Collect the target particles within the move budget.',
@@ -679,13 +679,13 @@ export const PUZZLES: PuzzleType[] = [
     instructions: COLLIDE_HOW,
     zRange: [1, 118],
     native: (d, seed, reduced) => new CollideView(newCollide(d, seed), reduced),
-    science: () => `<h2>Collide: the science</h2>
+    science: () => `<h2>Hadron: the science</h2>
       <p>Everything ordinary is built from a few kinds of particle. <b>Quarks</b> (up, down and strange are three of the six) are never seen alone: they come bound in threes, as protons and neutrons, or in quark and antiquark pairs. <b>Leptons</b> live alone: the electron, its heavier cousin the <b>muon</b>, and the ghostly <b>neutrino</b>, which passes through the whole Earth almost untouched.</p>
       <p>Physicists meet them by colliding particles at enormous energies. The debris comes out as narrow sprays called <b>jets</b>, the trace of a quark or gluon knocked loose, and as <b>showers</b>, cascades of particles set off when something hits a detector's dense layers.</p>
       <p class="muted">Game rule: three alike in a line do not vanish, particles do not sit on a grid, and a jet or shower here is only a way to clear tiles.</p>`,
   },
   {
-    id: 'annihil', name: 'Annihil', tier: 'reserve',
+    id: 'annihil', name: 'Nullis', tier: 'reserve',
     use: 'Practice',
     get rules() { return rulesOf(AnnihilV); },
     goal: 'Jump pieces over their opposites until one is left.',
@@ -694,14 +694,14 @@ export const PUZZLES: PuzzleType[] = [
     instructions: ANNIHIL_HOW,
     zRange: [1, 118],
     native: (d, seed, reduced) => new AnnihilView(newAnnihil(d, seed), reduced),
-    science: () => `<h2>Annihil: the science</h2>
+    science: () => `<h2>Nullis: the science</h2>
       <p>Nearly every kind of particle has an <b>antiparticle</b>, with the same mass and the opposite charge: the electron has the positron, the proton the antiproton. When a particle meets its antiparticle they <b>annihilate</b>: both vanish and their mass turns into energy. An electron and a positron meeting at rest usually become two gamma-ray photons, flying off in opposite directions.</p>
       <p>Hospitals use this every day: in a PET scan, positrons from a tracer annihilate with electrons in the body, and the scanner reads the paired photons to see where the tracer went.</p>
       <p>Why the universe is made of matter at all, when the Big Bang should have made equal amounts of both, is still an open question.</p>
       <p class="muted">Game rule: in a real annihilation both particles vanish; here the jumping piece survives, and the pieces are generic matter and antimatter, not any one particle.</p>`,
   },
   {
-    id: 'solo', name: 'Solo', tier: 'reserve',
+    id: 'solo', name: 'Solus', tier: 'reserve',
     use: 'Practice',
     get rules() { return rulesOf(SoloV); },
     goal: 'One electron in every row, column and orbital; none touching.',
@@ -710,13 +710,13 @@ export const PUZZLES: PuzzleType[] = [
     instructions: SOLO_HOW,
     zRange: [1, 118],
     native: (d, seed, reduced) => new SoloView(newSolo(d, seed), reduced),
-    science: () => `<h2>Solo: the science</h2>
+    science: () => `<h2>Solus: the science</h2>
       <p>Electrons in an atom fill <b>subshells</b> made of orbitals: one orbital in an s subshell, three in p, five in d and seven in f. Each orbital can hold two electrons, spinning opposite ways.</p>
       <p>When a subshell is filling, its electrons spread out first: each orbital takes one electron before any takes a second. This is <b>Hund's rule</b>, and it comes from electrons repelling one another, so they keep apart. A half-filled subshell, one electron in every orbital, is especially stable; nitrogen's 2p and manganese's 3d are examples.</p>
       <p class="muted">Game rule: orbitals are not patches of a grid, and the rows, columns and "never touching" rule are the puzzle's own.</p>`,
   },
   {
-    id: 'blocks', name: 'Blocks', tier: 'reserve',
+    id: 'blocks', name: 'Cubit', tier: 'reserve',
     use: 'Practice',
     get rules() { return rulesOf(BlocksV); },
     goal: 'Cut the grid into rectangles, one number in each, sized by its number.',
@@ -727,7 +727,7 @@ export const PUZZLES: PuzzleType[] = [
     native: (d, seed, reduced) => new BlocksView(newBlocks(d, seed), reduced),
     science: (z) => {
       const el = element(z);
-      return `<h2>Blocks: the science</h2>
+      return `<h2>Cubit: the science</h2>
         <p>An atom's electrons sit in <b>subshells</b> of fixed size. An <span style="color:${SUBSHELL_COLORS.s}">s</span> subshell holds at most 2 electrons, <span style="color:${SUBSHELL_COLORS.p}">p</span> holds 6, <span style="color:${SUBSHELL_COLORS.d}">d</span> holds 10 and <span style="color:${SUBSHELL_COLORS.f}">f</span> holds 14: two for each of its 1, 3, 5 or 7 orbitals.</p>
         <p>${el.name}'s ${z} electron${z === 1 ? '' : 's'} fill these subshells from the lowest energy up, each one full before the next begins, give or take a few exceptions among the transition metals and the heavier elements.</p>
         <p class="muted">Game rule: the rectangles only borrow the subshells' colors by size; nothing in an atom is cut into rectangles.</p>`;

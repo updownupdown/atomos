@@ -14,7 +14,7 @@ import { drawHelpMark, ease, type Area, type Help, type Illustration, type Point
 
 export const INSTRUCTIONS = `
 <h3>In the game</h3>
-<p class="meta">Circuit is a reserve game, played from the Practice screen. The grid grows from 4 by 4 to 8 by 8 in nine steps. Easy boards have long straight runs and can be worked out tile by tile from the edges; harder ones have more branches and bends, fewer straight pieces, and are picked to need a look one tile ahead here and there. The wiring is a tree grown over the whole grid, and it is kept only when a solver can work it out without guessing, so every board has exactly one answer. A tap turns a tile a quarter turn clockwise and a left swipe turns it back, each quarter turn one move; par is the fewest quarter turns that bring every tile into place. Hold a tile to lock it; locking is free.</p>
+<p class="meta">Volta is a reserve game, played from the Puzzles screen. The grid grows from 4 by 4 to 8 by 8 in nine steps. Easy boards have long straight runs and can be worked out tile by tile from the edges; harder ones have more branches and bends, fewer straight pieces, and are picked to need a look one tile ahead here and there. The wiring is a tree grown over the whole grid, and it is kept only when a solver can work it out without guessing, so every board has exactly one answer. A tap turns a tile a quarter turn clockwise and a left swipe turns it back, each quarter turn one move; par is the fewest quarter turns that bring every tile into place. Hold a tile to lock it; locking is free.</p>
 `;
 
 /** Milliseconds a quarter turn takes to show. */

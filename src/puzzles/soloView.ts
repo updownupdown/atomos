@@ -15,7 +15,7 @@ import { drawHelpMark, ease, type Area, type Help, type Illustration, type Point
 
 export const INSTRUCTIONS = `
 <h3>In the game</h3>
-<p class="meta">Solo is a reserve game, played from the Practice screen. The grid grows with the dial from 5 by 5 (Very easy) through 6, 7, 8 and 9 to 10 by 10 at the top of Expert, with as many orbitals as rows. Every board has exactly one answer, checked by a solver, and a step-by-step solver that works the way a person does reaches it without guessing. Each deal is picked from several by how many harder steps it takes: easy dials keep the boards that fall almost entirely to "one cell left"; hard dials keep the ones that most need an orbital boxed into a row, a squeeze, or two or three orbitals sharing rows. Orbitals are a mix of sizes, with a few small ones as footholds. Par is one electron per row; crosses are free.</p>
+<p class="meta">Solus is a reserve game, played from the Puzzles screen. The grid grows with the dial from 5 by 5 (Very easy) through 6, 7, 8 and 9 to 10 by 10 at the top of Expert, with as many orbitals as rows. Every board has exactly one answer, checked by a solver, and a step-by-step solver that works the way a person does reaches it without guessing. Each deal is picked from several by how many harder steps it takes: easy dials keep the boards that fall almost entirely to "one cell left"; hard dials keep the ones that most need an orbital boxed into a row, a squeeze, or two or three orbitals sharing rows. Orbitals are a mix of sizes, with a few small ones as footholds. Par is one electron per row; crosses are free.</p>
 `;
 
 /** The orbitals' fills and their names, for the hint line: soft, dark enough for the silver

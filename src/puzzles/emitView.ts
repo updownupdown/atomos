@@ -13,7 +13,7 @@ import { drawHelpMark, ease, type Area, type Help, type Illustration, type Point
 
 export const INSTRUCTIONS = `
 <h3>In the game</h3>
-<p class="meta">Emit is a reserve game, played from the Practice screen. The grid grows from 6 by 6 to 10 by 10. Walls take about a quarter of it, laid mostly in a half-turn pattern, and fewer keep their numbers as it gets harder: all of them on the easiest boards, about half on the hardest. Each board is kept only when the solver can finish it by deduction, which proves it has exactly one answer. Very easy boards need only the basic rules; from Easy on a board may need ruling out a spot whose lamp would leave a cell or a number stranded, and from Medium on a step of looking ahead; Hard and Expert boards are picked to need it. Par is the number of lamps in the answer; crosses are free.</p>
+<p class="meta">Emit is a reserve game, played from the Puzzles screen. The grid grows from 6 by 6 to 10 by 10. Walls take about a quarter of it, laid mostly in a half-turn pattern, and fewer keep their numbers as it gets harder: all of them on the easiest boards, about half on the hardest. Each board is kept only when the solver can finish it by deduction, which proves it has exactly one answer. Very easy boards need only the basic rules; from Easy on a board may need ruling out a spot whose lamp would leave a cell or a number stranded, and from Medium on a step of looking ahead; Hard and Expert boards are picked to need it. Par is the number of lamps in the answer; crosses are free.</p>
 `;
 
 /** Milliseconds for the light to cross one cell, to fade in, and to fade when a lamp goes. */
