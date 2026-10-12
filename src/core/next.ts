@@ -41,6 +41,8 @@ export const GAME_NAMES: Record<string, string> = {
   circuit: 'Circuit',
   valence: 'Valence',
   emit: 'Emit',
+  sort: 'Sort',
+  flood: 'Flood',
 };
 
 let paused: { z: number; stage: string; game: string } | null = null;
