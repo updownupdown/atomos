@@ -38,11 +38,16 @@ const TWINKLE_BURST = 1;
 const TWINKLE_S = 2.4;
 /** Seconds the live atom takes to zoom from the shared scale to fill its square. */
 const ZOOM_S = 0.6;
+/** The live atom is the collected gem: many more, finer points than a picture, a little less
+ *  bright overall so the detail shows rather than a glare. */
+const LIVE_PER_SLOT = 1000;
+const LIVE_POINT = 0.7;
+const LIVE_BRIGHT = 0.75;
 
-function applyTone(view: AtomView, tone: Tone): void {
+function applyTone(view: AtomView, tone: Tone, bright = 1): void {
   view.setLit(tone === 'gray' ? { nucleus: false, electrons: 0 } : { nucleus: true, electrons: Infinity });
   view.setTint(tone === 'white' ? '#ffffff' : tone === 'green' ? token('--c-done', '#4ff29a') : null);
-  view.setDim(TONE_DIM[tone]);
+  view.setDim(TONE_DIM[tone] * bright);
 }
 
 const SIZE = 200;
@@ -59,7 +64,7 @@ function makeCamera(): { camera: THREE.PerspectiveCamera; dist: number } {
   return { camera, dist };
 }
 
-const makeView = (dist: number, perSlot = 220) => new AtomView({ perSlot, shapes: false, pointSize: SIZE * 0.126 * (dist / 14), haze: true });
+const makeView = (dist: number, perSlot = 220, point = 1) => new AtomView({ perSlot, shapes: false, pointSize: SIZE * 0.126 * point * (dist / 14), haze: true });
 
 /** Scene units from the center to the edge of a square that atom `z`'s cloud just fills. */
 const fitHalf = (z: number) => (elementAt(z).vdw / 100) * 1.06;
@@ -142,13 +147,12 @@ export class LiveAtom {
     this.canvas.setAttribute('aria-hidden', 'true');
     const cam = makeCamera();
     this.camera = cam.camera;
-    // Denser than the pictures, so the cloud stays full as it zooms in.
-    this.view = makeView(cam.dist, 420);
+    this.view = makeView(cam.dist, LIVE_PER_SLOT, LIVE_POINT);
     this.view.group.rotation.x = TILT;
     this.scene.add(this.view.group);
     try {
       this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true, alpha: true });
-      this.renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+      this.renderer.setPixelRatio(Math.min(3, window.devicePixelRatio || 1));
       this.renderer.setClearColor(0x000000, 0);
     } catch { /* no WebGL: the flat picture stays */ }
   }
@@ -166,7 +170,7 @@ export class LiveAtom {
     this.tone = tone;
     this.still = still;
     if (still) this.age = ZOOM_S + TWINKLE_S;
-    applyTone(this.view, tone);
+    applyTone(this.view, tone, LIVE_BRIGHT);
     this.step(0);
   }
 
