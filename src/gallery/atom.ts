@@ -95,7 +95,7 @@ void main() {
   float cyc = uTime * rate + seed * 17.0;
   float k = fract(cyc);
   float other = mod(floor(cyc), 2.0);
-  vec3 home = mix(position, position2, other * uLive);
+  vec3 home = mix(position, position2, other * step(0.001, uLive));
   float glow = sin(k * 3.14159);
   float life = glow * glow;
   float lit = mix(1.0, life, uLive);
@@ -265,7 +265,7 @@ export class AtomView {
         uSize: { value: this.opts.pointSize }, uOrbitals: { value: 1 }, uDim: { value: 1 }, uAlpha: { value: 1 }, uSizeMul: { value: 1 },
         uColor: { value: new THREE.Vector3(...glow) },
         uTone: { value: 0 },
-        uTime: { value: 0 }, uLive: { value: this.live && !soft ? 1 : 0 }, uSharp: { value: this.opts.sharp === false || soft ? 0 : 1 },
+        uTime: { value: 0 }, uLive: { value: this.live && !soft ? this.liveAmount : 0 }, uSharp: { value: this.opts.sharp === false || soft ? 0 : 1 },
       },
       vertexShader: POINT_VERT, fragmentShader: POINT_FRAG,
       transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
@@ -445,8 +445,17 @@ export class AtomView {
   setLive(on: boolean): void {
     this.live = on;
     this.reduced = !on;
-    for (const layer of this.layers.values()) layer.material.uniforms.uLive.value = on ? 1 : 0;
+    this.liveAmount = on ? 1 : 0;
+    for (const layer of this.layers.values()) layer.material.uniforms.uLive.value = this.liveAmount;
   }
+
+  /** How strongly the live cloud twinkles, 0 (still, though transitions still ease) to 1. */
+  setTwinkle(amount: number): void {
+    this.live = amount > 0;
+    this.liveAmount = amount;
+    for (const layer of this.layers.values()) layer.material.uniforms.uLive.value = amount;
+  }
+  private liveAmount = 1;
 
   /** Advance transitions and the live cloud; call once per frame. */
   update(dt: number): void {

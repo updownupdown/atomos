@@ -13,27 +13,25 @@ import { tabHTML, TABS, type ViewTab } from './info';
 import { guideHTML } from './guide';
 import { icon } from '../ui/icons';
 import { fullScreen, type FullScreen } from './fullscreen';
-import { createCallout, createSegments, createTabs, iconButton, nextButton, swipeToDismiss, type Segments, type Tabs } from '../ui/components';
+import { createSegments, createTabs, iconButton, nextButton, type Segments, type Tabs } from '../ui/components';
 import { ISO_FILTERS, STRUCTURE_VIEWS } from './visuals';
 import { createAtomBar, type AtomBar } from './atombar';
 import { isLayoutId, LAYOUT_STORY, LAYOUTS, type LayoutId } from './layouts';
 import { setScienceHandler, setScienceOpen } from '../ui/science';
 import { closeModal, openModal } from '../ui/modal';
 import { loadSave, writeSave, type SaveData } from '../core/save';
-import { atomBuilt, fleetingTotal, atomProgress, rowSpan, orbitalShapeUnlocked, rowOf, rowOpen, SHAPE_AT, stepState } from '../core/progress';
-import { createElementList, type ElementList } from '../ui/elementlist';
+import { atomBuilt, atomProgress, rowSpan, orbitalShapeUnlocked, rowOf, rowOpen, SHAPE_AT, stepState } from '../core/progress';
 import { createTable, type Table } from './table';
-import { nextLabel, nextStep, openAtom, openStep, type NextStep } from '../core/next';
+import { nextLabel, nextStep, openAtom, openStep } from '../core/next';
 import { firstTimeLine } from '../ui/nu';
 import { isUnlocked, unlockPuzzle, type UnlockId } from '../core/unlocks';
-import { PUZZLES, puzzleIcon } from '../puzzles/catalog';
+import { PUZZLES } from '../puzzles/catalog';
 import { playUnlock } from '../puzzles/unlock';
 import { isLookId, lensUnlock, lookOf, lookUnlock, LOOKS, type LookId } from './looks';
-import { atomThumb } from './thumbs';
 import { fleetingOpen, periodNeed, periodSentence, rowLockNote } from './locks';
 import { isViewLook, VIEW_LOOKS, type ViewLook } from '../render/rayLooks';
 
-type GalleryMode = 'collection' | 'map' | 'details';
+type GalleryMode = 'map' | 'details';
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -49,12 +47,6 @@ export class GalleryApp {
   private gallery: Gallery;
   private detail: Detail;
   private current: Element | null = null;
-  /** The Up next card, floating at the foot of the Collection list. */
-  private upNext = Object.assign(createCallout({ kicker: '', title: '', pic: '', className: 'ui-callout--float up-next' }), { hidden: true });
-  /** The Up next step swiped away, by key: it comes back once the next step changes. */
-  private upNextGone: string | null = null;
-  /** The whole collection's progress, in the Collection's search row between search and Filter. */
-  private overall = Object.assign(document.createElement('span'), { className: 'gal-prog' });
   private tab: ViewTab = 'model';
   /** The Info page last open, kept while View shows the 3D atom. */
   private page: Exclude<ViewTab, 'model'> = 'overview';
@@ -73,16 +65,14 @@ export class GalleryApp {
   private nucleusOn = false;
   /** Orbital kinds whose shapes Glyph has not discovered yet. */
   private hiddenShapes: OrbitalShape[] = [];
-  /** The gallery shows the Collection (every atom with its progress, the default), the atoms
-   *  on a map, or every element in a sortable Details table. */
+  /** Tables shows every element in one table (Details, the default) or the atoms on a map. */
   private mode: GalleryMode = (() => {
     const saved = localStorage.getItem('atomos.gallery.mode');
-    return saved === 'map' || saved === 'details' ? saved : 'collection';
+    return saved === 'map' ? saved : 'details';
   })();
   /** True when a panel covers the map, so its render loop can rest. */
   private get covered(): boolean { return this.mode !== 'map'; }
   private list: Table | null = null;
-  private collection: ElementList | null = null;
   private modes: Segments | null = null;
   private rings = localStorage.getItem('atomos.gallery.rings') !== 'off';
   private tabs!: Tabs;
@@ -92,7 +82,6 @@ export class GalleryApp {
   constructor(private handlers: GalleryHandlers) {
     this.gallery = new Gallery($('gal'), $('gal-labels'));
     this.detail = new Detail($('loupe'), { variant: 'view', hud: $('loupe-explorer') });
-    swipeToDismiss(this.upNext, () => { this.upNextGone = this.upNext.dataset.key ?? null; this.upNext.hidden = true; });
     this.gallery.setReducedMotion(this.save.settings.reducedMotion);
     this.detail.setReducedMotion(this.save.settings.reducedMotion);
     this.buildControls();
@@ -116,30 +105,14 @@ export class GalleryApp {
     const save = this.save;
     this.gallery.setCollected(got, (z) => atomProgress(z, save));
     this.gallery.setLocked((z) => rowLockNote(z, this.save));
-    this.collection?.refresh();
     this.paintGates();
     // A part solved while away lights up when the atom is next on screen.
     if (this.current) this.detail.setLit(this.litOf(this.current.z), true);
     // Glyph discovers the p, d and f shapes (on the Build pages of B, Sc and Ce); the Structure page's 2D shapes keep the secret.
     this.hiddenShapes = (Object.keys(SHAPE_AT) as OrbitalShape[]).filter((l) => !orbitalShapeUnlocked(l, save));
-    this.paintOverall();
-    this.paintUpNext();
     if (this.current && !$('loupe-screen').hidden) this.paintViewNext();
     // The Isotopes page shows what is built and what has decayed.
     if (this.tab === 'isotopes') this.renderPanel();
-  }
-
-  /** The whole collection's progress: every atom's share built, averaged ("Stable"), over the
-   *  share of fleeting isotopes built once they are open (any atom built). */
-  private paintOverall(): void {
-    const save = this.save;
-    const main = ELEMENTS.reduce((t, e) => t + atomProgress(e.z, save), 0) / MAX_Z;
-    const n = Math.round(main * 100);
-    const f = fleetingOpen(save) ? fleetingTotal(save) : null;
-    const fp = f?.total ? Math.round((f.built / f.total) * 100) : null;
-    this.overall.innerHTML = `<span${n >= 100 ? ' class="is-done"' : ''}>Stable: <b>${n}%</b></span>`
-      + (fp !== null ? `<span${fp >= 100 ? ' class="is-done"' : ''}>Fleeting: <b>${fp}%</b></span>` : '');
-    this.overall.setAttribute('aria-label', `Collection ${n}% built${f ? `; ${f.built} of ${f.total} fleeting isotopes` : ''}`);
   }
 
   /** Whether this atom's row is not open yet (two thirds of the row above unbuilt). It stays
@@ -160,14 +133,13 @@ export class GalleryApp {
   private buildControls(): void {
     $('look-chip').innerHTML = `${icon('paint', { size: 18 })}<span>Color</span>`;
     $('look-chip').onclick = () => this.openLooks();
-    // Three views in the row under the header, styled like View/Build; under Map, a row at the
+    // Two views in the row under the header, styled like View/Build; under Map, a row at the
     // bottom picks the arrangement (the lenses).
     this.modes = createSegments([
-      { id: 'collection', label: 'Collection' },
-      { id: 'map', label: 'Map' },
       { id: 'details', label: 'Details' },
+      { id: 'map', label: 'Map' },
     ], {
-      label: 'Gallery view',
+      label: 'Tables view',
       active: this.mode,
       onChange: (id) => {
         if (id === 'map') this.setLayout(this.layoutId);
@@ -419,7 +391,7 @@ export class GalleryApp {
       </div>`);
     sheet.querySelector<HTMLButtonElement>('.gate-go')!.onclick = async () => {
       closeModal();
-      const won = await playUnlock(id, { title, note: `${title} is open: find it ${id.startsWith('lens:') ? 'under the gallery' : 'under Color, top left'}.` });
+      const won = await playUnlock(id, { title, note: `${title} is open: find it on the Map in Tables, ${id.startsWith('lens:') ? 'along the bottom' : 'under Color, top left'}.` });
       if (won) { this.save = loadSave(); then(); }
     };
   }
@@ -477,7 +449,7 @@ export class GalleryApp {
     }));
   }
 
-  /** Switch between the Collection, the map and the Details table. */
+  /** Switch between the map and the Details table. */
   private setMode(mode: GalleryMode): void {
     const was = this.covered;
     this.mode = mode;
@@ -497,65 +469,23 @@ export class GalleryApp {
     $('lens-switch').querySelectorAll<HTMLButtonElement>('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.id === this.layoutId)));
     $('lens-switch').hidden = this.mode !== 'map';
     $('layout-note').textContent = this.mode === 'details' ? 'Every element in one table: search, filter, sort and group it, and tap a row to open it'
-      : this.mode === 'collection' ? 'Every atom and how far it is built: tap one to open it'
       : LAYOUTS.find((l) => l.id === this.layoutId)!.note;
     $('gallery-screen').classList.toggle('is-details', this.mode === 'details');
-    $('gallery-screen').classList.toggle('is-collection', this.mode === 'collection');
     $('gallery-screen').classList.toggle('is-map', this.mode === 'map');
     $('gal-details').hidden = this.mode !== 'details';
-    $('gal-collection').hidden = this.mode !== 'collection';
     if (this.mode === 'details' && !this.list) {
       this.list = createTable({ onPick: (z) => this.pick(z) });
       $('gal-details').append(this.list.el);
     }
-    if (this.mode === 'collection' && !this.collection) {
-      this.collection = createElementList({
-        // A row opens the atom's Build page, where its progress is.
-        onPick: (z) => this.handlers.onBuild(z),
-        locked: (z) => this.buildLocked(z),
-        storageKey: 'atomos.collection.sort',
-        thumbs: (z) => atomThumb(z, this.litOf(z)),
-        fleetingTotal: true,
-      });
-      $('gal-collection').append(this.collection.el, this.upNext);
-      this.collection.el.querySelector('.el-filter')?.before(this.overall);
-      this.paintUpNext();
-    }
   }
 
-  /** The Up next card above the Collection: the one next thing to do (nextStep), with the Next
-   *  button. It doubles as Continue for a returning player: a half-done puzzle comes first. */
-  private paintUpNext(): void {
-    const step = nextStep(this.save);
-    const card = this.upNext;
-    card.hidden = !step;
-    if (!step) { card.replaceChildren(); return; }
-    const key = `${step.kind}/${step.z}/${step.stage}`;
-    // Swiped away: it stays away until there is a different next step.
-    if (this.upNextGone === key) { card.hidden = true; return; }
-    if (card.dataset.key !== key) {
-      card.dataset.key = key;
-      // Two lines: "Up next: Quanta" over "Promethium's electrons", the game's icon on the left.
-      const resume = step.kind === 'resume';
-      card.querySelector('small')!.textContent = `${resume ? 'Continue' : 'Up next'}: ${step.gameName}`;
-      card.querySelector('b')!.textContent = resume ? step.label.replace(/^Resume [^·]*·\s*/, '') : step.label;
-      card.querySelector<HTMLElement>('.ui-callout-pic')!.innerHTML = puzzleIcon(step.game, 32);
-      card.querySelector('.ui-callout-acts')!.replaceChildren(nextButton({ label: resume ? 'Resume' : 'Play', compact: true, landKey: 'gallery-upnext', onClick: () => openStep(step) }));
-    }
-    this.setUpNextShown(true);
-  }
-
-  /** Nu's line the first time a Glyph look is open: said over the Collection, the first time it
-   *  is on screen afterwards. */
+  /** Nu's line the first time a Glyph look is open: said under Tables' views row, the first time
+   *  Tables is on screen afterwards. */
   private sayLookLine(): void {
-    if (this.mode !== 'collection' || !this.collection || $('gallery-screen').hidden || !$('loupe-screen').hidden) return;
+    if ($('gallery-screen').hidden || !$('loupe-screen').hidden) return;
     if (!Object.keys(this.save.unlocks).some((id) => id.startsWith('look:'))) return;
-    firstTimeLine('first-glyph', 'A new way to color the table is ready in the Gallery. Find it under Color on the Map.', this.collection.el);
-  }
-
-  /** Only one Next button may show at once: the card stands aside under the atom view or a sheet. */
-  private setUpNextShown(on: boolean): void {
-    this.upNext.classList.toggle('is-away', !on || !$('loupe-screen').hidden);
+    const anchor = this.mode === 'details' ? this.list?.el : $('layout-note');
+    if (anchor) firstTimeLine('first-glyph', 'A new way to color the table is ready. Find it under Color on the Map.', anchor);
   }
 
   /** Run the map's render loop, unless a panel covers it. */
@@ -569,7 +499,7 @@ export class GalleryApp {
     if (e) tag.textContent = `${e.z} ${e.name}${this.collected(e.z) ? '' : ' · not yet collected'}`;
   }
 
-  /** An atom tapped in the Collection, Map or Details: one still to build opens Build, a built
+  /** An atom tapped on the Map or in Details: one still to build opens Build, a built
    *  one opens View, and one whose period is shut says what opens it. */
   private pick(z: number): void {
     if (this.buildLocked(z)) { this.offerPeriod(z); return; }
@@ -588,7 +518,7 @@ export class GalleryApp {
         <p class="gate-why">${icon('lock', { size: 20 })}<span>${periodSentence(z, this.save) ?? ''}</span></p>
         <div class="gate-next"></div>
         <button class="secondary gate-look">${icon('mode-view', { size: 20 })}<span>Look at ${e.name.toLowerCase()}</span></button>
-      </div>`, () => this.setUpNextShown(true));
+      </div>`);
     // The first time a locked period is tapped, Nu says what opens it instead of the plain line.
     const why = sheet.querySelector<HTMLElement>('.gate-why')!;
     const p = periodNeed(z, this.save);
@@ -598,7 +528,6 @@ export class GalleryApp {
       new MutationObserver((_, o) => { if (!said.isConnected) { why.style.display = ''; o.disconnect(); } }).observe(why.parentElement!, { childList: true });
     }
     if (step) {
-      this.setUpNextShown(false);
       sheet.querySelector('.gate-next')!.append(nextButton({ label: nextLabel(step), landKey: 'period-sheet', onClick: () => { closeModal(); openStep(step); } }));
     }
     sheet.querySelector<HTMLButtonElement>('.gate-look')!.onclick = () => { closeModal(); this.open(e); };
@@ -622,7 +551,6 @@ export class GalleryApp {
     }
     this.registerScience();
     this.paintViewNext();
-    this.setUpNextShown(false);
     this.handlers.onLoupe?.(e.z);
   }
 
@@ -676,7 +604,7 @@ export class GalleryApp {
     this.detail.stop();
     if (this.current) this.gallery.focus(this.current.z);
     this.startMap();
-    window.setTimeout(() => { screen.hidden = true; this.registerScience(); this.paintUpNext(); }, 220);
+    window.setTimeout(() => { screen.hidden = true; this.registerScience(); }, 220);
     this.handlers.onLoupe?.(null);
   }
 

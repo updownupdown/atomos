@@ -628,22 +628,9 @@ body.puzzling #overlay { pointer-events: auto; touch-action: none; }
 .gal-details { position: absolute; inset: 0; z-index: 1; display: flex; flex-direction: column; padding: var(--top) 0 0; background: var(--c-bg); }
 .gal-details[hidden] { display: none; }
 #gallery-screen.is-details .gal-labels, #gallery-screen.is-details .gal-hover { display: none; }
-/* The Collection: every atom as a row with its progress, over the map. The list scrolls under
-   its own search, pills and sort. */
-.gal-collection { position: absolute; inset: 0; z-index: 1; display: flex; flex-direction: column; padding: var(--top) 0 0; background: var(--c-bg); }
-.gal-collection .el-body, .gal-collection .el-none { padding-inline: var(--sp-3); }
-.gal-collection[hidden] { display: none; }
-.gal-collection .el-list { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-bottom: calc(var(--safe-bottom) + var(--sp-5)); }
-.gal-collection .el-tools { padding: var(--sp-2) var(--sp-3) var(--sp-3); background: var(--c-nav); }
-/* On the header gray: a black search field and a paler Filter button. */
-.gal-collection .el-search input { background: var(--c-bg); }
-.gal-collection .el-filter { background: var(--c-surface-3); color: var(--c-text); }
-.gal-collection .el-dir, .gal-collection .el-sortbtn { background: var(--c-bg); }
-#gallery-screen.is-collection .gal-labels, #gallery-screen.is-collection .gal-hover { display: none; }
-/* The color chip and the lens switch belong to the Map; the Collection and Details have neither. */
+/* The color chip and the lens switch belong to the Map; Details has neither. */
 #gallery-screen:not(.is-map) .look-chip, #gallery-screen:not(.is-map) .look-legend, #gallery-screen:not(.is-map) .gal-bottom { display: none; }
-/* The views row: Collection, Map, Details under the header, styled as the View/Build row, with
-   the whole collection's progress on the right. */
+/* Tables' views row: Details and Map under the header, styled as the View/Build row. */
 body[data-screen='gallery'] { --top: calc(var(--nav-bottom) + var(--mode-h)); }
 .mode-row.gal-modes { top: var(--nav-bottom); }
 body:not([data-screen='gallery']) .gal-modes { display: none; }
@@ -700,15 +687,12 @@ body:not([data-screen='gallery']) .gal-modes { display: none; }
 .view-next > * { pointer-events: auto; }
 .loupe-screen.has-next .loupe-tools { bottom: calc(var(--sp-3) + var(--safe-bottom) + 60px); }
 .loupe-screen.has-next .atom-panel { padding-bottom: calc(var(--safe-bottom) + 76px); }
-/* The Up next card above the Collection list: the atom, what to do next, and the Next button. */
-/* Up next floats at the foot of the Collection (a callout), over the list's end. */
+/* Up next floats at the foot of Collect (a callout), over the list's end. */
 .up-next.is-away .ui-next { display: none; }
 .up-tile { width: 44px; height: 44px; display: grid; place-items: center; border-radius: var(--r-sm); background: var(--c-surface-2); color: var(--c-text); font-size: 18px; font-weight: var(--fw-bold); transition: opacity 0.4s; }
 /* Up next: the game's icon on its plate, and both lines in white. */
 .up-next .ui-callout-pic { width: 48px; height: 48px; margin-left: 0; border-radius: 8px; background: var(--c-surface-2); color: var(--c-text); }
 .up-next .ui-callout-text small, .up-next .ui-callout-text b { color: var(--c-text); }
-#gallery-screen .gal-collection .el-list { padding-bottom: calc(var(--safe-bottom) + 112px); }
-.gal-collection .up-next { bottom: calc(var(--safe-bottom) + var(--sp-3)); }
 
 .loupe-tools { position: absolute; left: 0; right: 0; bottom: calc(var(--sp-3) + var(--safe-bottom)); z-index: 2; display: flex; align-items: flex-end; justify-content: space-between; gap: var(--sp-2); padding: 0 var(--sp-3); pointer-events: none; }
 .loupe-tools > * { pointer-events: auto; }
@@ -1272,9 +1256,6 @@ body[data-screen='atom-build']:not(.build-home) .mode-row { top: var(--nav-botto
    the extras (fleeting isotopes) when the atom has any. */
 .mode-prog { flex: none; display: inline-flex; align-items: center; gap: var(--sp-2); color: var(--c-text); }
 /* The whole collection's progress, between the search and Filter: Stable over Fleeting. */
-.gal-prog { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; font-size: var(--fs-xs); line-height: 1.15; color: var(--c-text-2); white-space: nowrap; font-variant-numeric: tabular-nums; }
-.gal-prog b { font-weight: var(--fw-semibold); color: var(--c-text); }
-.gal-prog .is-done, .gal-prog .is-done b { color: var(--c-done); }
 .mode-figs { display: flex; flex-direction: column; line-height: 1.1; }
 .mode-sub { font-size: 11px; font-weight: var(--fw-medium); color: var(--c-text-2); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .mode-ring { display: inline-grid; place-items: center; }

@@ -17,11 +17,11 @@
   </head>
   <body>
     <header class="nav" id="nav" aria-label="Main">
-      <button class="nav-logo" id="nav-logo" aria-label="Atomos: back to the gallery" title="Atomos"></button>
+      <button class="nav-logo" id="nav-logo" aria-label="Atomos: back to Collect" title="Atomos"></button>
       <nav class="nav-tabs" aria-label="Sections">
-        <button id="nav-gallery" aria-current="page"><span class="nav-ico"></span><span class="nav-lab">Tables</span></button>
-        <button id="nav-atom" aria-current="false"><span class="nav-ico"></span><span class="nav-lab">Atom</span></button>
-        <button id="nav-puzzles" aria-current="false"><span class="nav-ico"></span><span class="nav-lab">Practice</span></button>
+        <button id="nav-gallery" aria-current="false"><span class="nav-ico"></span><span class="nav-lab">Tables</span></button>
+        <button id="nav-collect" aria-current="page"><span class="nav-ico"></span><span class="nav-lab">Collect</span></button>
+        <button id="nav-puzzles" aria-current="false"><span class="nav-ico"></span><span class="nav-lab">Puzzles</span></button>
         <button id="nav-settings" aria-current="false"><span class="nav-ico"></span><span class="nav-lab">Settings</span></button>
       </nav>
       <div class="nav-end" aria-hidden="true"></div>
@@ -48,7 +48,6 @@
       </header>
       <div class="gal-hover" id="gal-hover" hidden></div>
       <div class="gal-details" id="gal-details" hidden></div>
-      <div class="gal-collection" id="gal-collection" hidden></div>
       <footer class="gal-bottom">
         <div class="seg layout-switch lens-switch" id="lens-switch" role="group" aria-label="Arrangement" hidden></div>
         <p class="layout-note" id="layout-note"></p>
@@ -77,6 +76,9 @@
         <div class="view-next" id="view-next" hidden></div>
       </section>
     </div>
+
+    <!-- Collect: one period's atoms and how far each is collected (src/gallery/collect.ts). -->
+    <section id="collect-screen" class="collect-screen" hidden aria-label="Collect"></section>
 
     <div id="app" hidden>
       <canvas id="overlay" aria-label="The puzzle. Swipe to slide nuclei, or drag round a ring to turn it."></canvas>
