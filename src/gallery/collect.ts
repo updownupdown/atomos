@@ -8,9 +8,9 @@
 //   ...                                      running down the right edge
 //   [ Up next card ]                          sticky at the foot
 //
-// Once scrolling settles one row is in focus: it grows to twice the height, its name turns white
-// and its picture comes alive, twice the size (LiveAtom); the rows fade with their distance from
-// it. Which row that is follows a focus line that slides from the top row (scrolled to the top)
+// Once scrolling settles one row is in focus: its name turns white and its picture comes alive,
+// zoomed to fill its square without growing the row (LiveAtom); the rows fade with their distance
+// from it. Which row that is follows a focus line that slides from the top row (scrolled to the top)
 // to the bottom one (scrolled to the end), so every row can be focused without empty space
 // above or below the list. A swipe sideways changes period. A tap on a row opens the atom. Each
 // atom's picture says how far it is collected (thumbs.ts Tone).
@@ -248,10 +248,9 @@ export class Collect {
     this.list.querySelector<HTMLElement>('.co-pad--end')?.style.setProperty('height', `${card}px`);
   }
 
-  /** Row heights, from the CSS: a row, and the row in focus. */
-  private get heights(): { row: number; big: number } {
-    const cs = getComputedStyle(this.list);
-    return { row: parseFloat(cs.getPropertyValue('--co-row')) || 100, big: parseFloat(cs.getPropertyValue('--co-row-big')) || 184 };
+  /** Row height, from the CSS (the row in focus is no taller). */
+  private get rowHeight(): number {
+    return parseFloat(getComputedStyle(this.list).getPropertyValue('--co-row')) || 100;
   }
 
   /** The focus line, in the list's own coordinates (from its top edge), at scroll `s`: at the
@@ -260,7 +259,7 @@ export class Collect {
   private line(s = this.list.scrollTop): number | null {
     const max = this.list.scrollHeight - this.list.clientHeight;
     if (max <= 1) return null;
-    const { big } = this.heights;
+    const big = this.rowHeight;
     const lead = this.list.querySelector<HTMLElement>('.co-pad--top')?.offsetHeight ?? 0;
     const tail = this.list.querySelector<HTMLElement>('.co-pad--end')?.offsetHeight ?? 0;
     const a = lead + big / 2;
@@ -272,7 +271,7 @@ export class Collect {
   private scrollFor(row: HTMLElement): number {
     const max = this.list.scrollHeight - this.list.clientHeight;
     if (max <= 1) return 0;
-    const { row: h, big } = this.heights;
+    const h = this.rowHeight, big = h;
     const rows = [...this.list.querySelectorAll<HTMLElement>('.co-row')];
     const lead = this.list.querySelector<HTMLElement>('.co-pad--top')?.offsetHeight ?? 0;
     const tail = this.list.querySelector<HTMLElement>('.co-pad--end')?.offsetHeight ?? 0;
@@ -288,7 +287,7 @@ export class Collect {
     const line = this.line();
     const cur = this.list.querySelector<HTMLElement>('.co-row.is-current');
     const mid = line ?? (cur ? cur.offsetTop - this.list.scrollTop + cur.offsetHeight / 2 : 0);
-    const { row: h } = this.heights;
+    const h = this.rowHeight;
     for (const r of this.list.querySelectorAll<HTMLElement>('.co-row')) {
       const k = Math.min(1, Math.abs(r.offsetTop - this.list.scrollTop + r.offsetHeight / 2 - mid) / h);
       r.style.setProperty('--k', k.toFixed(3));

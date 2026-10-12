@@ -83,7 +83,7 @@ function surfaceGeometry(block: Block, oi: number): THREE.BufferGeometry {
 
 const POINT_VERT = `
 attribute float slot; attribute float orbital; attribute float sign; attribute float seed; attribute vec3 position2;
-uniform float uScale, uFrom, uTo, uT, uSize, uOrbitals, uDim, uSizeMul, uTime, uLive, uTone;
+uniform float uScale, uFrom, uTo, uT, uSize, uOrbitals, uDim, uSizeMul, uTime, uLive, uSwap, uTone;
 uniform vec3 uColor;
 varying vec3 vColor; varying float vAlpha;
 float hash(float x) { return fract(sin(x) * 43758.5453); }
@@ -95,7 +95,7 @@ void main() {
   float cyc = uTime * rate + seed * 17.0;
   float k = fract(cyc);
   float other = mod(floor(cyc), 2.0);
-  vec3 home = mix(position, position2, other * step(0.001, uLive));
+  vec3 home = mix(position, position2, other * uSwap);
   float glow = sin(k * 3.14159);
   float life = glow * glow;
   float lit = mix(1.0, life, uLive);
@@ -265,7 +265,7 @@ export class AtomView {
         uSize: { value: this.opts.pointSize }, uOrbitals: { value: 1 }, uDim: { value: 1 }, uAlpha: { value: 1 }, uSizeMul: { value: 1 },
         uColor: { value: new THREE.Vector3(...glow) },
         uTone: { value: 0 },
-        uTime: { value: 0 }, uLive: { value: this.live && !soft ? this.liveAmount : 0 }, uSharp: { value: this.opts.sharp === false || soft ? 0 : 1 },
+        uTime: { value: 0 }, uLive: { value: this.live && !soft ? this.liveAmount : 0 }, uSwap: { value: this.live && !soft ? this.swap : 0 }, uSharp: { value: this.opts.sharp === false || soft ? 0 : 1 },
       },
       vertexShader: POINT_VERT, fragmentShader: POINT_FRAG,
       transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
@@ -446,16 +446,28 @@ export class AtomView {
     this.live = on;
     this.reduced = !on;
     this.liveAmount = on ? 1 : 0;
-    for (const layer of this.layers.values()) layer.material.uniforms.uLive.value = this.liveAmount;
+    this.swap = this.liveAmount;
+    for (const layer of this.layers.values()) {
+      layer.material.uniforms.uLive.value = this.liveAmount;
+      layer.material.uniforms.uSwap.value = this.swap;
+    }
   }
 
-  /** How strongly the live cloud twinkles, 0 (still, though transitions still ease) to 1. */
-  setTwinkle(amount: number): void {
+  /** How strongly the live cloud twinkles, 0 (still, though transitions still ease) to 1. With
+   *  `hold`, a twinkle easing down to 0 freezes where it is rather than jumping its points back
+   *  to their first places. */
+  setTwinkle(amount: number, hold = false): void {
     this.live = amount > 0;
     this.liveAmount = amount;
-    for (const layer of this.layers.values()) layer.material.uniforms.uLive.value = amount;
+    if (amount > 0 || !hold) this.swap = amount > 0 ? 1 : 0;
+    for (const layer of this.layers.values()) {
+      layer.material.uniforms.uLive.value = amount;
+      layer.material.uniforms.uSwap.value = this.swap;
+    }
   }
   private liveAmount = 1;
+  /** Whether points show their second sample when their cycle says so (1) or only their first. */
+  private swap = 1;
 
   /** Advance transitions and the live cloud; call once per frame. */
   update(dt: number): void {

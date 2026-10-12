@@ -5,7 +5,8 @@
 // The tone says how far the atom is collected: gray until it is built, white once its nucleus
 // and electrons are, green once its stable isotopes are too, and in full color once its fleeting
 // ones are. LiveAtom draws the same picture alive, on its own small canvas, for the one row in
-// focus.
+// focus: it zooms from the shared scale to fill its square, and twinkles brightly for a moment
+// as it first appears.
 
 import * as THREE from 'three';
 import { AtomView } from './atom';
@@ -27,9 +28,16 @@ export function toneOf(z: number, save: SaveData): Tone {
 /** How much the live atom twinkles in each tone: only an atom collected in full. */
 export const TONE_TWINKLE: Record<Tone, number> = { gray: 0, white: 0, green: 0, color: 0.4 };
 
-/** Brightness by tone: gray stays faint; full color is lifted, its blues and purples being darker
- *  than white. */
-const TONE_DIM: Record<Tone, number> = { gray: 0.4, white: 1.1, green: 1.2, color: 1.6 };
+/** Brightness by tone: gray stays fainter; full color is lifted, its blues and purples being
+ *  darker than white. */
+const TONE_DIM: Record<Tone, number> = { gray: 1.1, white: 2.4, green: 2.6, color: 3.4 };
+
+/** The twinkle as a live atom first appears: up to this much, easing down to its tone's over
+ *  TWINKLE_S seconds. */
+const TWINKLE_BURST = 1;
+const TWINKLE_S = 2.4;
+/** Seconds the live atom takes to zoom from the shared scale to fill its square. */
+const ZOOM_S = 0.6;
 
 function applyTone(view: AtomView, tone: Tone): void {
   view.setLit(tone === 'gray' ? { nucleus: false, electrons: 0 } : { nucleus: true, electrons: Infinity });
@@ -37,7 +45,7 @@ function applyTone(view: AtomView, tone: Tone): void {
   view.setDim(TONE_DIM[tone]);
 }
 
-const SIZE = 168;
+const SIZE = 200;
 /** Scene units (100 pm) from the center to the edge of a picture, the same for every atom:
  *  300 pm, so the largest (cesium, francium) just touch the edge. */
 const HALF = 3.0;
@@ -51,7 +59,15 @@ function makeCamera(): { camera: THREE.PerspectiveCamera; dist: number } {
   return { camera, dist };
 }
 
-const makeView = (dist: number) => new AtomView({ perSlot: 160, shapes: false, pointSize: SIZE * 0.1 * (dist / 14), haze: true });
+const makeView = (dist: number, perSlot = 220) => new AtomView({ perSlot, shapes: false, pointSize: SIZE * 0.126 * (dist / 14), haze: true });
+
+/** Scene units from the center to the edge of a square that atom `z`'s cloud just fills. */
+const fitHalf = (z: number) => (elementAt(z).vdw / 100) * 1.06;
+
+/** Put `camera` at the distance that shows `half` scene units from the center to the edge. */
+function frame(camera: THREE.PerspectiveCamera, half: number): void {
+  camera.position.set(0, 0, half / Math.tan((camera.fov * Math.PI) / 360));
+}
 
 let renderer: THREE.WebGLRenderer | null = null;
 let scene: THREE.Scene;
@@ -71,7 +87,9 @@ function setup(): boolean {
   }
   renderer.setPixelRatio(1);
   renderer.setSize(SIZE, SIZE, false);
-  renderer.setClearColor(0x000000, 0);
+  // Drawn on opaque black, the page's own background: the cloud adds light far faster than it
+  // adds alpha, so a transparent picture would lose most of its glow when saved.
+  renderer.setClearColor(0x000000, 1);
   scene = new THREE.Scene();
   const cam = makeCamera();
   camera = cam.camera;
@@ -116,13 +134,16 @@ export class LiveAtom {
   private still = false;
   private z = 0;
   private tone: Tone = 'gray';
+  /** Seconds since the atom appeared, driving its zoom and first twinkle. */
+  private age = 0;
 
   constructor() {
     this.canvas.className = 'live-atom';
     this.canvas.setAttribute('aria-hidden', 'true');
     const cam = makeCamera();
     this.camera = cam.camera;
-    this.view = makeView(cam.dist);
+    // Denser than the pictures, so the cloud stays full as it zooms in.
+    this.view = makeView(cam.dist, 420);
     this.view.group.rotation.x = TILT;
     this.scene.add(this.view.group);
     try {
@@ -136,12 +157,27 @@ export class LiveAtom {
 
   /** Show atom `z` in a tone; `still` (reduced motion) draws one frame and holds it. */
   show(z: number, tone: Tone, still: boolean): void {
-    if (z !== this.z) { this.view.setElement(elementAt(z), false); this.view.group.rotation.y = 0; }
+    if (z !== this.z) {
+      this.view.setElement(elementAt(z), false);
+      this.view.group.rotation.y = 0;
+      this.age = 0;
+    }
     this.z = z;
     this.tone = tone;
     this.still = still;
+    if (still) this.age = ZOOM_S + TWINKLE_S;
     applyTone(this.view, tone);
-    this.view.setTwinkle(still ? 0 : TONE_TWINKLE[tone]);
+    this.step(0);
+  }
+
+  /** The zoom and twinkle for the atom's age. */
+  private step(dt: number): void {
+    this.age += dt;
+    const ease = (t: number) => { const k = Math.max(0, Math.min(1, t)); return k * k * (3 - 2 * k); };
+    frame(this.camera, HALF + (fitHalf(this.z) - HALF) * ease(this.age / ZOOM_S));
+    const base = this.still ? 0 : TONE_TWINKLE[this.tone];
+    const burst = 1 - ease(this.age / TWINKLE_S);
+    this.view.setTwinkle(base + (TWINKLE_BURST - base) * burst * (this.still ? 0 : 1), true);
   }
 
   start(): void {
@@ -168,6 +204,7 @@ export class LiveAtom {
     const size = r.getSize(new THREE.Vector2());
     if (size.x !== w || size.y !== h) r.setSize(w, h, false);
     this.view.group.rotation.y += dt * 0.35;
+    if (this.age < ZOOM_S + TWINKLE_S) this.step(dt);
     this.view.update(dt);
     r.render(this.scene, this.camera);
   }
