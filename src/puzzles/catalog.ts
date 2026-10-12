@@ -75,6 +75,12 @@ import * as DipoleV from './dipoleView';
 import { newTrace } from './trace';
 import { TraceView, INSTRUCTIONS as TRACE_HOW } from './traceView';
 import * as TraceV from './traceView';
+import { newShells } from './shells';
+import { ShellsView, INSTRUCTIONS as SHELLS_HOW } from './shellsView';
+import * as ShellsV from './shellsView';
+import { newDrop } from './drop';
+import { DropView, INSTRUCTIONS as DROP_HOW } from './dropView';
+import * as DropV from './dropView';
 import { SUBSHELL_COLORS, type PuzzleView, type RuleCard } from './view';
 
 /** Which atom steps a game builds, from the committed table: "12 nuclei and 3 electron sets". */
@@ -105,6 +111,8 @@ const ICON_SLUG: Record<string, string> = {
   flood: 'flood',
   dipole: 'dipole',
   trace: 'trace',
+  shells: 'shells',
+  drop: 'drop',
 };
 
 /** A puzzle type's icon, or the generic puzzles icon until its own is drawn. */
@@ -580,6 +588,47 @@ export const PUZZLES: PuzzleType[] = [
         <p>Charged particles leave trails. In a <b>cloud chamber</b> or a <b>bubble chamber</b>, an electron passing through leaves a line of droplets or bubbles behind it, and physicists read what happened from the shape of the track: a tight spiral in a magnetic field is a light, slow particle such as an electron; a short, thick, straight track is a heavy one such as an alpha particle.</p>
         <p>${el.name} has ${z} electron${z === 1 ? '' : 's'}; knock one loose with enough energy and a chamber would show its track for a fraction of a second.</p>
         <p class="muted">Game rule: a real track is a smooth curve through space, not a walk from cell to cell, and nothing makes it visit every place once in order.</p>`;
+    },
+  },
+  {
+    id: 'shells', name: 'Shells', tier: 'reserve',
+    use: 'Practice',
+    get rules() { return rulesOf(ShellsV); },
+    goal: 'Turn the rings until every bead faces its mark.',
+    blurb: 'Drag the rings round the nucleus. Every bead must face a mark on the ring outside it, and the outermost ring the dial; linked rings turn together, so the order of the turns is the puzzle.',
+    role: 'A reserve game to try out: a thinking one for the electron pool, if it earns a place.',
+    instructions: SHELLS_HOW,
+    zRange: [1, 118],
+    native: (d, seed, reduced) => new ShellsView(newShells(d, seed), reduced),
+    science: (z) => {
+      const el = element(z);
+      const byShell: number[] = [];
+      for (const sub of el.subshells) byShell[sub.n - 1] = (byShell[sub.n - 1] ?? 0) + sub.count;
+      const counts = byShell.map((c) => c ?? 0);
+      return `<h2>Shells: the science</h2>
+        <p>An atom's electrons sit in <b>shells</b> round the nucleus, named K, L, M, N, O, P and Q from the inside out. Shell n can hold at most 2n² electrons: 2 in the first, 8 in the second, 18 in the third and 32 in the fourth. The shells split into sub-shells, s, p, d and f, whose colors the rings borrow.</p>
+        <p>${el.name}'s ${z === 1 ? 'one electron sits' : `${z} electrons sit`} in ${counts.length === 1 ? 'one shell' : `${counts.length} shells`}${counts.length > 1 ? `, holding ${counts.join(', ')} from the inside out` : ''}.</p>
+        <p>Niels Bohr drew the shells as rings in 1913, and the picture stuck, though quantum mechanics later replaced the rings with clouds of probability.</p>
+        <p class="muted">Game rule: shells do not turn like the dials of a lock, their electrons do not sit in slots, and real shells hold far more electrons than a ring here has beads. Each ring's color is just its own, borrowed from the sub-shell palette.</p>`;
+    },
+  },
+  {
+    id: 'drop', name: 'Drop', tier: 'reserve',
+    use: 'Practice',
+    get rules() { return rulesOf(DropV); },
+    goal: 'Fill the well to the brim with the falling clusters.',
+    blurb: 'Clusters of protons and neutrons come one by one. Choose where each falls, and which way it is turned, so the well fills to the brim with no gap; a gap sealed under a cluster stays.',
+    role: 'A reserve game to try out: a rote, hands-on one for the nucleus pool, if it earns a place.',
+    instructions: DROP_HOW,
+    zRange: [1, 118],
+    native: (d, seed, reduced) => new DropView(newDrop(d, seed), reduced),
+    science: (z) => {
+      const el = element(z);
+      return `<h2>Drop: the science</h2>
+        <p>Nucleons pack together at almost the same density in nearly every nucleus, about 0.16 nucleons per cubic femtometer. Like a drop of liquid, a nucleus grows in volume with the number of particles in it and has no room left for gaps. This is the <b>liquid drop model</b>, which George Gamow proposed in 1928 and Carl Friedrich von Weizsäcker turned into a formula for nuclear masses.</p>
+        <p>The nucleus of ${el.name.toLowerCase()}-${el.commonA} holds ${el.commonA} nucleons: ${z} ${z === 1 ? 'proton' : 'protons'} and ${el.commonA - z} ${el.commonA - z === 1 ? 'neutron' : 'neutrons'}.</p>
+        <p>The clusters are real light nuclei: a proton and a neutron make a deuteron, three nucleons make tritium or helium-3, and two protons with two neutrons make an alpha particle, the helium-4 nucleus that heavy atoms throw out when they decay.</p>
+        <p class="muted">Game rule: nucleons do not fall into wells or sit in square cells, and a nucleus is not built from clusters dropped one by one.</p>`;
     },
   },
 ];
