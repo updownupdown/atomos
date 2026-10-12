@@ -50,6 +50,8 @@ export const GAME_NAMES: Record<string, string> = {
   push: 'Push',
   collide: 'Collide',
   annihil: 'Annihil',
+  solo: 'Solo',
+  blocks: 'Blocks',
 };
 
 let paused: { z: number; stage: string; game: string } | null = null;

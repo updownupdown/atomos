@@ -90,6 +90,12 @@ import * as CollideV from './collideView';
 import { newAnnihil } from './annihil';
 import { AnnihilView, INSTRUCTIONS as ANNIHIL_HOW } from './annihilView';
 import * as AnnihilV from './annihilView';
+import { newSolo } from './solo';
+import { SoloView, INSTRUCTIONS as SOLO_HOW } from './soloView';
+import * as SoloV from './soloView';
+import { newBlocks } from './blocks';
+import { BlocksView, INSTRUCTIONS as BLOCKS_HOW } from './blocksView';
+import * as BlocksV from './blocksView';
 import { SUBSHELL_COLORS, type PuzzleView, type RuleCard } from './view';
 
 /** Which atom steps a game builds, from the committed table: "12 nuclei and 3 electron sets". */
@@ -125,6 +131,8 @@ const ICON_SLUG: Record<string, string> = {
   push: 'push',
   collide: 'collide',
   annihil: 'annihil',
+  solo: 'solo',
+  blocks: 'blocks',
 };
 
 /** A puzzle type's icon, or the generic puzzles icon until its own is drawn. */
@@ -691,6 +699,39 @@ export const PUZZLES: PuzzleType[] = [
       <p>Hospitals use this every day: in a PET scan, positrons from a tracer annihilate with electrons in the body, and the scanner reads the paired photons to see where the tracer went.</p>
       <p>Why the universe is made of matter at all, when the Big Bang should have made equal amounts of both, is still an open question.</p>
       <p class="muted">Game rule: in a real annihilation both particles vanish; here the jumping piece survives, and the pieces are generic matter and antimatter, not any one particle.</p>`,
+  },
+  {
+    id: 'solo', name: 'Solo', tier: 'reserve',
+    use: 'Practice',
+    get rules() { return rulesOf(SoloV); },
+    goal: 'One electron in every row, column and orbital; none touching.',
+    blurb: 'Place one electron in every row, every column and every colored orbital. No two electrons touch, not even at a corner. Cross off cells as you rule them out.',
+    role: 'A reserve game to try out: a thinking one for the electron pool, if it earns a place.',
+    instructions: SOLO_HOW,
+    zRange: [1, 118],
+    native: (d, seed, reduced) => new SoloView(newSolo(d, seed), reduced),
+    science: () => `<h2>Solo: the science</h2>
+      <p>Electrons in an atom fill <b>subshells</b> made of orbitals: one orbital in an s subshell, three in p, five in d and seven in f. Each orbital can hold two electrons, spinning opposite ways.</p>
+      <p>When a subshell is filling, its electrons spread out first: each orbital takes one electron before any takes a second. This is <b>Hund's rule</b>, and it comes from electrons repelling one another, so they keep apart. A half-filled subshell, one electron in every orbital, is especially stable; nitrogen's 2p and manganese's 3d are examples.</p>
+      <p class="muted">Game rule: orbitals are not patches of a grid, and the rows, columns and "never touching" rule are the puzzle's own.</p>`,
+  },
+  {
+    id: 'blocks', name: 'Blocks', tier: 'reserve',
+    use: 'Practice',
+    get rules() { return rulesOf(BlocksV); },
+    goal: 'Cut the grid into rectangles, one number in each, sized by its number.',
+    blurb: 'Drag from corner to corner to draw rectangles. Each holds exactly one number, which is its area in cells, and together they cover the whole grid.',
+    role: 'A reserve game to try out: a thinking one for the electron pool, if it earns a place.',
+    instructions: BLOCKS_HOW,
+    zRange: [1, 118],
+    native: (d, seed, reduced) => new BlocksView(newBlocks(d, seed), reduced),
+    science: (z) => {
+      const el = element(z);
+      return `<h2>Blocks: the science</h2>
+        <p>An atom's electrons sit in <b>subshells</b> of fixed size. An <span style="color:${SUBSHELL_COLORS.s}">s</span> subshell holds at most 2 electrons, <span style="color:${SUBSHELL_COLORS.p}">p</span> holds 6, <span style="color:${SUBSHELL_COLORS.d}">d</span> holds 10 and <span style="color:${SUBSHELL_COLORS.f}">f</span> holds 14: two for each of its 1, 3, 5 or 7 orbitals.</p>
+        <p>${el.name}'s ${z} electron${z === 1 ? '' : 's'} fill these subshells from the lowest energy up, each one full before the next begins, give or take a few exceptions among the transition metals and the heavier elements.</p>
+        <p class="muted">Game rule: the rectangles only borrow the subshells' colors by size; nothing in an atom is cut into rectangles.</p>`;
+    },
   },
 ];
 
