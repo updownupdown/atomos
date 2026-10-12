@@ -3,11 +3,10 @@ import TABLE from '../src/data/atom-games.json';
 import ISOTOPES from '../src/data/isotope-games.json';
 import { POOLS, assignAtomGames, loadOf, tally, type AtomGames } from '../src/core/assign';
 import { atomGame } from '../src/core/atomGames';
-import { fleetingDealZ } from '../src/core/progress';
+import { atomDial, dialFor, difficulty, difficultyRange, difficultyWord, fleetingDial, halfLifeBump, levelSpan, zForDial } from '../src/puzzles/difficulty';
 import { nextStep } from '../src/core/next';
 import { defaultSave } from '../src/core/save';
-import { puzzleType } from '../src/puzzles/catalog';
-import type { Isotope } from '../src/gallery/data';
+import { PUZZLES, puzzleType } from '../src/puzzles/catalog';
 
 const table = TABLE as AtomGames;
 
@@ -71,15 +70,44 @@ describe('atom steps from two pools', () => {
   });
 });
 
-describe('fleeting isotopes deal a little harder the shorter they live', () => {
-  const iso = (halfLife: number | null) => ({ a: 1, halfLife } as unknown as Isotope);
-  it('climbs one element per factor of ten below a year, sixteen at most', () => {
-    expect(fleetingDealZ(50, iso(3.0e7))).toBe(50);
-    expect(fleetingDealZ(50, iso(86400))).toBe(53);
-    expect(fleetingDealZ(50, iso(1))).toBe(57);
-    expect(fleetingDealZ(50, iso(1e-9))).toBe(66);
-    expect(fleetingDealZ(50, iso(1e-21))).toBe(66);
-    expect(fleetingDealZ(50, iso(null))).toBe(63);
-    expect(fleetingDealZ(110, iso(1e-9))).toBe(118);
+describe('the difficulty dial', () => {
+  it('climbs gently across the table for atoms, never reaching Expert', () => {
+    expect([1, 26, 54, 86, 118].map(atomDial)).toEqual([5, 24, 41, 58, 75]);
+    for (let z = 2; z <= 118; z++) expect(atomDial(z)).toBeGreaterThanOrEqual(atomDial(z - 1));
+    expect(difficultyWord(atomDial(118))).toBe('Hard');
+  });
+
+  it('adds one point per factor of ten a fleeting half-life falls short of a year, sixteen at most', () => {
+    expect(halfLifeBump(3.0e7)).toBe(0);
+    expect(halfLifeBump(86400)).toBe(3);
+    expect(halfLifeBump(1)).toBe(7);
+    expect(halfLifeBump(1e-9)).toBe(16);
+    expect(halfLifeBump(1e-21)).toBe(16);
+    expect(halfLifeBump(null)).toBe(13);
+    expect(fleetingDial(118, 1e-9)).toBe(91);
+  });
+
+  it('buckets 1 to 100 into five words', () => {
+    expect([1, 20, 21, 40, 41, 60, 61, 80, 81, 100].map(difficultyWord)).toEqual(['Very easy', 'Very easy', 'Easy', 'Easy', 'Medium', 'Medium', 'Hard', 'Hard', 'Expert', 'Expert']);
+    expect(levelSpan(3)).toEqual({ lo: 41, hi: 60 });
+  });
+
+  it('deals every built game at any dial, clamped into its span', () => {
+    for (const p of PUZZLES.filter((q) => q.makeAt)) {
+      const { lo, hi } = difficultyRange(p.id);
+      expect(lo, p.id).toBeGreaterThanOrEqual(1);
+      expect(hi, p.id).toBeLessThanOrEqual(100);
+      expect(dialFor(p.id, 1)).toBe(lo);
+      expect(dialFor(p.id, 100)).toBe(hi);
+    }
+  });
+
+  it('walks a ladder game\'s elements, and keeps a bound game on its own element', () => {
+    expect(zForDial('sliding', 25, 50)).toBe(27);
+    expect(zForDial('sliding', 85, 50)).toBe(118);
+    expect(zForDial('orbitalGrid', 99, 50)).toBe(50);
+    expect(zForDial('merge', 99, 50)).toBe(50);
+    expect(difficulty('sliding', 1)).toBe(25);
+    expect(difficulty('lines', 118)).toBe(75);
   });
 });

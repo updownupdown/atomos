@@ -37,12 +37,12 @@ export function winsOf(game: string): LevelWins[] {
   });
 }
 
-/** Counts a win of this game on a board rated `rating` (1 to 10, see difficulty.ts); `flawless`
- *  when it was clean and on or under par. */
-export function recordWin(game: string, rating: number, flawless: boolean): void {
+/** Counts a win of this game on a board dealt at `dial` (1 to 100, see difficulty.ts), in its
+ *  bucket; `flawless` when it was clean and on or under par. */
+export function recordWin(game: string, dial: number, flawless: boolean): void {
   const all = read();
   const g = isRecord(all[game]) ? all[game] : {};
-  const level = String(difficultyLevel(rating));
+  const level = String(difficultyLevel(dial));
   const e: unknown = g[level];
   const [solved, clean] = Array.isArray(e) ? [count(e[0]), count(e[1])] : [0, 0];
   g[level] = [solved + 1, clean + (flawless ? 1 : 0)];

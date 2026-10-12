@@ -7,8 +7,8 @@
 // beside the card (the Build page puts what a step builds to the card's right instead). Only
 // the button acts.
 //
-//   gameCard({ id: 'merge', name: 'Tokamak', difficulty: 4, action: { label: 'Play', onClick } })
-//   gameCard({ ..., difficulty: { lo: 1, hi: 3 } })   // a game's whole range, on the Puzzles home
+//   gameCard({ id: 'merge', name: 'Tokamak', difficulty: 34, action: { label: 'Play', onClick } })
+//   gameCard({ ..., difficulty: { lo: 5, hi: 25 } })   // a game's whole range, on the Puzzles home
 
 import { puzzleIcon } from './catalog';
 import { icon } from '../ui/icons';
@@ -31,7 +31,7 @@ export interface GameCardOptions {
   /** The puzzle type's id (catalog.ts), for its icon. */
   id: string;
   name: string;
-  /** A board's rating, 1 to 10, or a game's range of them. Omit to leave the gauge out. */
+  /** A board's difficulty dial, 1 to 100, or a game's span of it. Omit to leave the gauge out. */
   difficulty?: number | { lo: number; hi: number };
   /** The button at the right; omit for a card with nothing to do. */
   action?: GameCardAction;

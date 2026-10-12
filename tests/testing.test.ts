@@ -43,10 +43,10 @@ describe('progress presets for testing', () => {
 
 describe('difficulty', () => {
   it('rise with the element within each game', () => {
-    expect(difficulty('sliding', 27)).toBe(3);
-    expect(difficulty('sliding', 118)).toBe(9);
-    expect(difficulty('merge', 2)).toBe(1);
-    expect(difficultyWord(difficulty('sliding', 118))).toBe('Expert');
+    expect(difficulty('sliding', 27)).toBe(25);
+    expect(difficulty('sliding', 118)).toBe(75);
+    expect(difficulty('merge', 2)).toBe(5);
+    expect(difficultyWord(difficulty('sliding', 118))).toBe('Hard');
     expect(difficultyWord(1)).toBe('Very easy');
   });
 });

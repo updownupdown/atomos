@@ -6,7 +6,7 @@ import {
 import { frontier, loadSave, writeSave, type OrbitalShape, type SaveData, type StepId } from './core/save';
 // The gallery's gate puzzles (lenses, nucleus view, looks); loaded here so they are ready.
 import './puzzles/unlock';
-import { atomBuilt, atomProgress, fleetingCount, fleetingDealZ, fleetingIsotopes, isotopeCollected, isotopeGame, ISOTOPE_GAMES_LIST, lastingIsotopes, rowNeed, rowOf, rowOpen, rowSpan, segmentsOf, shapeAt, stepState, stepsOf, type IsotopeGame, type StepState } from './core/progress';
+import { atomBuilt, atomProgress, fleetingCount, fleetingIsotopes, isotopeCollected, isotopeGame, ISOTOPE_GAMES_LIST, lastingIsotopes, rowNeed, rowOf, rowOpen, rowSpan, segmentsOf, shapeAt, stepState, stepsOf, type IsotopeGame, type StepState } from './core/progress';
 import { SHAPE_GLYPH_Z } from './core/unlocks';
 import { nextLabel, nextStep, nextStepElsewhere, nextStepHere, notePaused, type NextStep } from './core/next';
 import { atomFact } from './core/facts';
@@ -24,7 +24,7 @@ import { OrbitalGridView } from './puzzles/orbitalGridView';
 import { solvedState, type PackingState } from './puzzles/packing';
 import { type Area, type PuzzleView } from './puzzles/view';
 import { dealSeed, puzzleIcon, puzzleType, type PuzzleType } from './puzzles/catalog';
-import { difficulty } from './puzzles/difficulty';
+import { difficulty, fleetingDialFor } from './puzzles/difficulty';
 import { openRules } from './puzzles/rulesModal';
 import { showWin, type WinAction } from './puzzles/winPanel';
 import { winTrack } from './puzzles/winTrack';
@@ -248,8 +248,7 @@ export class Game {
     if (isFleet(stage)) {
       const a = fleetA(stage);
       const game = fleetGame(stage);
-      const dz = game === 'merge' ? z : this.fleetDealZ(a);
-      return puzzleType(game).deal!(dz, dealSeed(`fleeting:${game}`, z, a), reduced, a);
+      return puzzleType(game).dealAt!(this.fleetDial(game, a), dealSeed(`fleeting:${game}`, z, a), reduced, z, a);
     }
     if (stage === 'shape') return puzzleType('codebreaker').make!(SHAPE_GLYPH_Z[shapeAt(z)!], 0, reduced);
     // The atom's own steps: Tokamak and Quanta keep their fixed levels; any other game in the
@@ -269,10 +268,11 @@ export class Game {
     offerRules(this.gbar, t, () => this.openRulesFor(t));
   }
 
-  /** The element a fleeting isotope's board is dealt for: harder the shorter it lives. */
-  private fleetDealZ(a: number): number {
+  /** The dial a fleeting isotope's board is dealt at in a game: a little harder the shorter it
+   *  lives. */
+  private fleetDial(game: string, a: number): number {
     const iso = fleetingIsotopes(this.z).find((i) => i.a === a);
-    return iso ? fleetingDealZ(this.z, iso) : this.z;
+    return fleetingDialFor(game, this.z, iso?.halfLife ?? null);
   }
 
   /** Back to the Build page, keeping a puzzle that is under way. */
@@ -350,7 +350,7 @@ export class Game {
     const t = this.stagePuzzle(stage);
     this.gbar.setTitle(t.name, puzzleIcon(t.id, 22));
     this.gbar.setBack(element(this.z).name);
-    this.gbar.setDifficulty(difficulty(t.id, this.dealtFor(stage)));
+    this.gbar.setDifficulty(this.stageDial(stage));
   }
 
   /** The catalog entry for a puzzle on this atom. */
@@ -519,7 +519,6 @@ export class Game {
     const done = isotopeCollected(this.save, this.z, a);
     const used = this.save.isotopes[isotopeKey(this.z, a)]?.game;
     const life = iso.halfLife === null ? 'Its half-life has never been measured' : `Half-life ${formatDuration(iso.halfLife)}`;
-    const dz = fleetingDealZ(this.z, iso);
     const sheet = this.openModal(`
       <h2>${el.name}-${a}</h2>
       <p>${n} neutron${n === 1 ? '' : 's'}. ${life}.${done ? ` Built${used ? ` with ${puzzleType(used).name}` : ''}; ${this.fleetDecayed(a, iso.halfLife) ? 'it has long since decayed, but stays in your collection' : 'it is decaying now, and stays in your collection after'}.` : ''}</p>
@@ -532,7 +531,7 @@ export class Game {
       li.append(gameCard({
         id: g,
         name,
-        difficulty: difficulty(g, g === 'merge' ? this.z : dz),
+        difficulty: fleetingDialFor(g, this.z, iso.halfLife),
         extra: g === used ? 'Built with this' : undefined,
         action: {
           label: g === used ? 'Replay' : 'Play',
@@ -570,10 +569,11 @@ export class Game {
     return `${el.z} proton${el.z === 1 ? '' : 's'}, ${this.neutrons} neutron${this.neutrons === 1 ? '' : 's'}`;
   }
 
-  /** The element a stage's board is dealt for, which sets how hard it is. */
-  private dealtFor(stage: Exclude<Stage, 'home'>): number {
-    if (isFleet(stage)) return fleetGame(stage) === 'merge' ? this.z : this.fleetDealZ(fleetA(stage));
-    return stage === 'shape' ? SHAPE_GLYPH_Z[shapeAt(this.z)!] : this.z;
+  /** The dial a stage's board is dealt at, which is how hard it shows. */
+  private stageDial(stage: Exclude<Stage, 'home'>): number {
+    const id = this.stagePuzzle(stage).id;
+    if (isFleet(stage)) return this.fleetDial(id, fleetA(stage));
+    return difficulty(id, stage === 'shape' ? SHAPE_GLYPH_Z[shapeAt(this.z)!] : this.z);
   }
 
   /** One puzzle card: the puzzle's icon on its own at the left; then, in one column, its name
@@ -596,7 +596,7 @@ export class Game {
     this.cardMounts.set(o.stage, {
       id: t.id,
       name: o.title ?? t.name,
-      rating: difficulty(t.id, this.dealtFor(o.stage)),
+      rating: this.stageDial(o.stage),
       verb: o.locked ? 'Locked' : verb,
       next: isNext,
       locked: Boolean(o.locked),
@@ -889,7 +889,7 @@ export class Game {
     const el = element(this.z);
     const z = this.z;
     const game = this.stagePuzzle(stage).id;
-    recordWin(game, difficulty(game, this.dealtFor(stage)), o.flawless);
+    recordWin(game, this.stageDial(stage), o.flawless);
     this.closeWin = showWin({
       outcome: o.flawless ? 'flawless' : 'won',
       headline: o.headline,

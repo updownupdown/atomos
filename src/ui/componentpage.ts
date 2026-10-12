@@ -197,7 +197,7 @@ export function renderComponentPage(page: HTMLElement, onBack: () => void): void
       progressRings({ nucleus: true, shells: false, lasting: { built: 1, total: 3 }, fleeting: { built: 0, total: 20 } }),
       progressRings({ nucleus: true, shells: true, lasting: { built: 3, total: 3 }, fleeting: { built: 8, total: 20 } })),
     spec('Built and Flawless', 'Over Replay on a finished step.', h('span', 'is-done', state('Built', 'check').outerHTML), h('span', 'is-flawless', state('Flawless', 'star').outerHTML)),
-    spec('Difficulty pips', 'Game cards and the game bar: five pips, two ratings each.', h('span', 'bh-diff', `${pipsHtml(3)} Easy`), h('span', 'bh-diff', `${pipsHtml(8)} Hard`)),
+    spec('Difficulty pips', 'Game cards and the game bar: five pips, twenty dial points each.', h('span', 'bh-diff', `${pipsHtml(30)} Easy`), h('span', 'bh-diff', `${pipsHtml(70)} Hard`)),
   );
 
   // ---- Game frame ----
@@ -209,7 +209,7 @@ export function renderComponentPage(page: HTMLElement, onBack: () => void): void
     iconButton({ icon: icon('info'), label: 'Instructions' }),
   ], { label: 'Gallium', onClick: () => showToast('Back') }, [iconButton({ icon: MICROSCOPE, label: 'The science' })]);
   bar.setTitle('Quanta', puzzleIcon('orbitalGrid', 22));
-  bar.setDifficulty(3);
+  bar.setDifficulty(30);
   bar.update(fakeView(4), '4 / 12 placed');
   const board = h('div', 'cl-board', '<span>The board</span>');
   frame.append(bar.el, board);

@@ -13,7 +13,7 @@
 
 import { backButton, textButton } from '../ui/components';
 import { guideRules } from './guide';
-import { difficultyWord } from './difficulty';
+import { difficultyLevel, difficultyWord } from './difficulty';
 import { icon } from '../ui/icons';
 import type { PuzzleView, Stat, ViewAction } from './view';
 
@@ -30,7 +30,8 @@ export interface GameBar {
   /** Where Back goes, in a word or two: "Gallium", "All games". */
   setBack(label: string): void;
   /** Sets the rating shown as five pips (1 to 10, two per pip). */
-  setDifficulty(rating: number): void;
+  /** The board's difficulty dial, 1 to 100 (src/puzzles/difficulty.ts), as five pips. */
+  setDifficulty(dial: number): void;
   /** Refreshes the stats, the message and the action from the view; cheap enough to call every
    *  frame. */
   update(v: PuzzleView | null, message: string): void;
@@ -125,11 +126,11 @@ export function createGameBar(tools: HTMLElement[], back: { label: string; onCli
       if (iconHtml !== shownIcon) { shownIcon = iconHtml; titleIcon.innerHTML = iconHtml; titleIcon.hidden = !iconHtml; }
     },
     setBack(label) { backBtn.setLabel(label); },
-    setDifficulty(rating) {
-      const on = Math.ceil(rating / 2);
+    setDifficulty(dial) {
+      const on = difficultyLevel(dial);
       cells.diff.innerHTML = Array.from({ length: 5 }, (_, i) => `<i class="${i < on ? 'on' : ''}"></i>`).join('');
-      cells.diff.setAttribute('aria-label', difficultyWord(rating));
-      cells.diff.title = difficultyWord(rating);
+      cells.diff.setAttribute('aria-label', `${difficultyWord(dial)}, ${Math.round(dial)} of 100`);
+      cells.diff.title = `${difficultyWord(dial)} · ${Math.round(dial)}`;
     },
     update(v, message) {
       if (!v) {

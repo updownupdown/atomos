@@ -70,17 +70,6 @@ export function isotopeGame(z: number, a: number): IsotopeGame | null {
   return GAME_OF[`${z}-${a}`] ?? null;
 }
 
-/** The element a fleeting isotope's board is dealt for: a little harder the shorter it lives.
- *  One element per factor of ten below a year, so a day-long isotope deals 3 elements up, a
- *  second-long one 7 and a nanosecond one 16, the most; unmeasured half-lives count as a
- *  microsecond (13). */
-export function fleetingDealZ(z: number, i: Isotope): number {
-  const YEAR = 3.156e7;
-  const t = i.halfLife ?? 1e-6;
-  const bump = Math.min(16, Math.max(0, Math.round(Math.log10(YEAR / Math.max(t, 1e-30)))));
-  return Math.min(118, z + bump);
-}
-
 /** An atom's fleeting isotopes built so far, out of how many there are. */
 export function fleetingCount(z: number, save: SaveData = loadSave()): { built: number; total: number } {
   const all = fleetingIsotopes(z);
