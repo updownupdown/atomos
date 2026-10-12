@@ -978,14 +978,16 @@ export class Game {
     const stage = this.stage as Exclude<Stage, 'home'>;
     const t = this.stagePuzzle(stage);
     this.lostShown = true;
+    const undo = Boolean(p.loss?.undo && p.canUndo());
     this.closeWin = showWin({
       outcome: 'lost',
-      headline: 'Out of guesses',
+      headline: p.loss?.headline ?? 'Out of guesses',
       title: `${t.name} · ${element(this.z).name}`,
       game: t.id,
       stats: this.winStats(p),
       actions: [
-        { label: 'Try again', primary: true, onClick: () => this.restartPuzzle() },
+        ...(undo ? [{ label: 'Undo', primary: true, onClick: () => this.undo() }] : []),
+        { label: 'Try again', primary: !undo, onClick: () => this.restartPuzzle() },
         { label: `Back to ${element(this.z).name}`, onClick: () => this.toHome() },
       ],
     }, this.save.settings.reducedMotion);
@@ -1064,6 +1066,8 @@ export class Game {
 
   private undo(): void {
     if (this.busy || !this.puzzle?.undo()) return;
+    this.closeWin();
+    this.lostShown = false;
     this.hints.undone();
     this.refresh();
     this.ensureLoop();

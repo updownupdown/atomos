@@ -91,14 +91,17 @@ describe('every game has one job', () => {
     expect(PUZZLES.find((p) => p.name === 'Tokamak')!.zRange).toEqual([2, 118]);
   });
 
-  it('Tokamak keeps heavy nuclei short, with true cluster sizes', () => {
-    expect(clusterUnit(56)).toBe(1);
-    expect(mergePar(56)).toBe(41);
-    for (const e of ELEMENTS.filter((x) => x.z > 26)) {
-      expect(mergePar(e.commonA)).toBeLessThanOrEqual(45);
+  it('Tokamak keeps true cluster sizes, with par a budget on a vetted line past period 3', () => {
+    expect(clusterUnit(56, 64)).toBe(1);
+    expect(clusterUnit(238, 128)).toBe(1);
+    expect(mergePar(40)).toBe(29);
+    for (const e of ELEMENTS.filter((x) => x.z > 1 && x.z % 3 === 0)) {
       const s = newMerge({ z: e.z, a: e.commonA }, e.z);
       expect(s.sockets.reduce((a, b) => a + b, 0)).toBe(e.commonA);
       for (const t of s.cells) if (t) expect(Number.isInteger(Math.log2(t.v))).toBe(true);
+      expect(s.plan, e.symbol).not.toBeNull();
+      if (e.z > 18) expect(s.par, e.symbol).toBeGreaterThan(s.plan!.dirs.length);
+      else expect(s.par, e.symbol).toBe(mergePar(e.commonA));
     }
   });
 });

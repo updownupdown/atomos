@@ -10,8 +10,8 @@ import { elementAt as element } from '../gallery/data';
 import { ICON_NAMES, icon } from '../ui/icons';
 import type { IconName } from '../ui/icons.gen';
 import { applyPlacement, configuration, newAtom, resolvePlacement } from '../core/physics';
-import { newMerge } from './merge';
-import { MergeView, sup, INSTRUCTIONS as MERGE_HOW } from './mergeView';
+import { newCapture, newMerge } from './merge';
+import { MergeView, sup, INSTRUCTIONS as MERGE_HOW, CAPTURE_INSTRUCTIONS as CAPTURE_HOW } from './mergeView';
 import { newSliding } from './sliding';
 import { SlidingView, INSTRUCTIONS as SLIDING_HOW } from './slidingView';
 import { newPacking } from './packing';
@@ -72,6 +72,7 @@ const ICON_SLUG: Record<string, string> = {
   merge: 'merge', orbitalGrid: 'orbital-grid', sliding: 'sliding', packing: 'packing', lines: 'field-lines',
   slideStop: 'slide-stop', light: 'light', rutherford: 'rutherford', codebreaker: 'codebreaker', colorCharge: 'color-charge',
   bond: 'bond', spin: 'spin', fission: 'fission',
+  capture: 'capture',
 };
 
 /** A puzzle type's icon, or the generic puzzles icon until its own is drawn. */
@@ -173,7 +174,7 @@ export const PUZZLES: PuzzleType[] = [
       return `<h2>Tokamak: the science</h2>
         <p>A nucleus is protons and neutrons, its <b>nucleons</b>, held together by the strong force. ${sup(String(el.commonA))}${el.symbol}, ${el.name}'s most common isotope, has ${el.commonA} of them: ${z} protons and ${el.commonA - z} neutrons.</p>
         <p>Stars build the elements up to iron by <b>fusion</b>: light nuclei slam together and stick, releasing energy. Hydrogen fuses to helium in the Sun; three heliums make carbon in red giants.</p>
-        ${z > 26 ? `<p>Past iron, fusion costs more energy than it gives, so ${el.name} was never made this way. Heavy nuclei are built by <b>neutron capture</b>: slowly inside old giant stars, or in seconds when neutron stars collide, with some of the captured neutrons turning into protons. Here the board is just a game, dealing bigger clusters so a heavy nucleus takes about as long as iron's.</p>` : ''}
+        ${z > 26 ? `<p>Past iron, fusion costs more energy than it gives, so ${el.name} was never made this way. Heavy nuclei are built by <b>neutron capture</b>: slowly inside old giant stars, or in seconds when neutron stars collide, with some of the captured neutrons turning into protons. Here the board is just a game: the heaviest nuclei are dealt bigger clusters, and shards of the reactor wall get in the way.</p>` : ''}
         <p class="muted">Game rule: the board counts nucleons in clusters that double when two of a size meet, and ${el.commonA} written that way is ${parts.join(' + ')}. Real nuclei are not assembled by pairing clusters, and nothing slides about inside a star.</p>`;
     },
   },
@@ -391,6 +392,24 @@ export const PUZZLES: PuzzleType[] = [
         <p>Some heavy nuclei split when a neutron hits them: <b>fission</b>. Uranium-235 breaks into two lighter nuclei and throws out two or three more neutrons, and if those hit more uranium the splitting feeds itself: a <b>chain reaction</b>. A reactor keeps it steady with moderators and control rods that slow and soak up neutrons; a bomb lets it run away.</p>
         <p>${z >= 90 ? `${el.name} is heavy enough that some of its isotopes can be split this way.` : `${el.name} is far too light to split: its nucleus is more tightly bound than its pieces would be, so breaking it costs energy instead of releasing it.`}</p>
         <p class="muted">Game rule: real neutrons fly off in every direction, not along chevrons, and a chain needs enough fuel packed closely, not a well-aimed tap.</p>`;
+    },
+  },
+  {
+    id: 'capture', name: 'Capture', tier: 'reserve',
+    use: 'Practice',
+    get rules() { return MergeV.CAPTURE_RULES; },
+    goal: 'Capture mode: build one cluster of exactly the mass number.',
+    blurb: 'Tokamak in capture mode: equal clusters double, and a cluster of 8 or more captures any lone neutron it meets, growing by one. Build one cluster of exactly the mass number.',
+    role: "A reserve game to try out: Tokamak's capture mode for the nuclei past iron, if it earns a place.",
+    instructions: CAPTURE_HOW,
+    zRange: [27, 118],
+    ladder: (z, seed, reduced, a) => new MergeView(newCapture({ z, a: a ?? element(z).commonA }, seed), reduced),
+    science: (z) => {
+      const el = element(z);
+      return `<h2>Capture: the science</h2>
+        <p>Iron and nickel have the most tightly bound nuclei, so fusing anything heavier costs energy instead of releasing it. Almost every nucleus past iron was built by <b>neutron capture</b>: a neutron has no charge, so the nucleus does not push it away, and it is captured, raising the mass number by one. When the new nucleus is unstable, one of its neutrons beta-decays into a proton and the nucleus moves one element up.</p>
+        <p>The <b>s-process</b> (slow) captures neutrons often years apart inside old giant stars, building on iron seeds up to lead and bismuth. The <b>r-process</b> (rapid) captures many within seconds, in merging neutron stars and perhaps rare supernovae, and is the only way to make thorium and uranium. ${sup(String(el.commonA))}${el.symbol}, ${el.name}'s most common isotope, has ${el.commonA} nucleons: ${z} protons and ${el.commonA - z} neutrons.</p>
+        <p class="muted">Game rule: the seeds, the doubling of two equal clusters and the 8-nucleon threshold for a capture are the puzzle's. Real heavy nuclei grow from iron-group seeds one neutron at a time and never merge in pairs.</p>`;
     },
   },
 ];

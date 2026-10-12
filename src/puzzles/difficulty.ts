@@ -29,7 +29,8 @@ export const DIAL_MAX = 100;
 interface Span { lo: number; hi: number; from?: number; to?: number; bound?: boolean }
 
 const SPAN: Record<string, Span> = {
-  merge: { lo: 5, hi: 25, from: 2, to: 26, bound: true },
+  merge: { lo: 5, hi: 65, from: 2, to: 118, bound: true },
+  capture: { lo: 25, hi: 55, from: 27, to: 118, bound: true },
   orbitalGrid: { lo: 15, hi: 45, from: 1, to: 118, bound: true },
   sliding: { lo: 25, hi: 85, from: 27, to: 118 },
   packing: { lo: 15, hi: 65, from: 1, to: 118 },

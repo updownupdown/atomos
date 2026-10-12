@@ -11,7 +11,7 @@ import { gameCard } from './puzzles/gameCard';
 import { PuzzleHost } from './puzzles/host';
 import { openRules } from './puzzles/rulesModal';
 import { showWin, type WinLevels } from './puzzles/winPanel';
-import type { Area } from './puzzles/view';
+import type { Area, PuzzleView } from './puzzles/view';
 import { createSlider, iconButton, type Slider } from './ui/components';
 import { countPlay, GOAL_PLAYS } from './core/plays';
 import { clearOffers, createGameBar, offerRules, type GameBar } from './puzzles/gamebar';
@@ -44,7 +44,7 @@ export class Playground {
     this.host = new PuzzleHost($('pg-canvas'), () => this.area());
     this.host.onFrame = () => this.tick(this.host.status());
     this.host.onWon = (v) => this.won(v.moves, v.par, v.clean);
-    this.host.onLost = (v) => this.lost(v.moves);
+    this.host.onLost = (v) => this.lost(v);
     this.renderHome();
 
     // The board maker, folded into a settings button at the left of the status line (the X folds
@@ -296,16 +296,18 @@ export class Playground {
 
   /** Out of guesses: the same board again, a new deal, or back to the list. Tapping outside
    *  leaves the board to look over. */
-  private lost(moves: number): void {
+  private lost(v: PuzzleView): void {
     const t = this.type;
+    const undo = Boolean(v.loss?.undo && v.canUndo());
     this.closeWin = showWin({
       outcome: 'lost',
-      headline: 'Out of guesses',
+      headline: v.loss?.headline ?? 'Out of guesses',
       title: `${t.name} · ${dialText(this.dial)}`,
       game: t.id,
-      stats: [{ label: 'Moves', value: String(moves) }, { label: 'Deal', value: `#${this.deal + 1}` }],
+      stats: [{ label: 'Moves', value: String(v.moves) }, { label: 'Deal', value: `#${this.deal + 1}` }],
       actions: [
-        { label: 'Try again', primary: true, onClick: () => this.host.restart() },
+        ...(undo ? [{ label: 'Undo', primary: true, onClick: () => this.host.undo() }] : []),
+        { label: 'Try again', primary: !undo, onClick: () => this.host.restart() },
         { label: 'New deal', onClick: () => this.load(this.deal + 1) },
         { label: 'All puzzles', onClick: () => this.back() },
       ],
