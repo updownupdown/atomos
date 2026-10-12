@@ -580,31 +580,25 @@
 .ui-pill:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
 @media (max-width: 380px) { .ui-pill { padding: 0 10px; } }
 
-/* ---- Animated border: the one way the app says "this one". A thick ring on the edge, a little
-   see-through, with a second ring breathing out of it and fading; never blurred. Its color is
-   --ring, which a caller may set (the Puzzles home rings the game in focus in its level's color). Blue (.ui-ring) for the focused
-   thing (the top game card on Puzzles and its Play button, the rules card being shown), magenta
-   (.ui-ring--go) for the way forward (Up next, Nu's cards). --ring-gap leaves a band of the
-   parent's color between the element and the ring, for an element that is already the ring's
-   color (a blue Play button): set --ring-gap-c to that parent's color. Set with ringOn(). ---- */
+/* ---- Animated border: the one way the app says "this one". A thick solid ring on the edge that
+   comes and goes: fully clear, then fully there, then clear again; never blurred, never spread.
+   Its color is --ring, which a caller may set (the Puzzles home rings the game in focus in its
+   level's color). Blue (.ui-ring) for the thing in focus (the top game card on Puzzles, the
+   rules card being shown), magenta (.ui-ring--go) for the way forward (Up next, Nu's cards).
+   --ring-gap leaves a band of --ring-gap-c between the element and the ring. Set with ringOn(). */
 .ui-ring { --ring: var(--c-accent); --ring-w: 3px; --ring-gap: 0px; --ring-gap-c: transparent; position: relative; }
 .ui-ring--go { --ring: var(--c-go); }
 .ui-ring::after {
-  --ring-band: color-mix(in srgb, var(--ring) 58%, transparent);
-  --ring-0: color-mix(in srgb, var(--ring) 0%, transparent);
   content: '';
   position: absolute;
   inset: 0;
   border-radius: inherit;
   pointer-events: none;
-  box-shadow: 0 0 0 var(--ring-gap) var(--ring-gap-c), 0 0 0 calc(var(--ring-gap) + var(--ring-w)) var(--ring-band);
-  animation: ui-ring 2.4s ease-out infinite;
+  box-shadow: 0 0 0 var(--ring-gap) var(--ring-gap-c), 0 0 0 calc(var(--ring-gap) + var(--ring-w)) var(--ring);
+  animation: ui-ring 2.4s ease-in-out infinite;
 }
-@keyframes ui-ring {
-  0% { box-shadow: 0 0 0 var(--ring-gap) var(--ring-gap-c), 0 0 0 calc(var(--ring-gap) + var(--ring-w)) var(--ring-band), 0 0 0 calc(var(--ring-gap) + var(--ring-w)) var(--ring-band); }
-  75%, 100% { box-shadow: 0 0 0 var(--ring-gap) var(--ring-gap-c), 0 0 0 calc(var(--ring-gap) + var(--ring-w)) var(--ring-band), 0 0 0 calc(var(--ring-gap) + var(--ring-w) + 11px) var(--ring-0); }
-}
-.ui-ring.is-still::after { animation: none; }
-@media (prefers-reduced-motion: reduce) { .ui-ring::after { animation: none; } }
+@keyframes ui-ring { 0%, 100% { opacity: 0; } 50% { opacity: 1; } }
+.ui-ring.is-still::after { animation: none; opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .ui-ring::after { animation: none; opacity: 1; } }
 /* The component library's sample of the animated border. */
 .cl-ring-demo { display: inline-flex; align-items: center; min-height: 44px; padding: 0 var(--sp-4); margin: var(--sp-3); border-radius: var(--r-pill); background: var(--c-surface-2); color: var(--c-text); font-size: var(--fs-sm); font-weight: var(--fw-semibold); }

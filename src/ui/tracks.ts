@@ -2,11 +2,15 @@
 // running down the right edge of a list of rows (the Build page's steps, the Collect screen's
 // atoms in a period, the win sheet's few stops) without ever shifting sideways. Where a row has
 // something to build the lane widens into a stop: a dot for one thing, a short bar for many
-// (an atom's share). Each lane is green from its first stop for as long as progress runs
-// unbroken (gray until something is done); below the first gap it is gray, and anything done
-// further down shows white, never green.
-// Nu circles the stop where the Stable lane's green ends, or, once Stable is whole, where the
-// Fleeting lane's does. A part just won rings white for a moment.
+// (an atom's share). A lane is green from its very top for as long as progress runs unbroken
+// (gray from the top only while its first stop is not done); below the first gap it is gray,
+// and anything done further down shows white, never green. Stops are plain fills: gray not
+// done, white done, green in the green run; no outlines.
+// The stop where the Stable lane's green ends (or, once Stable is whole, the Fleeting lane's) is
+// pink, and Nu swims beside it. A part just won rings white for a moment.
+// The overlay form can also run as one single track (the atom's Build page): Stable's stops and
+// then Fleeting's on the one line, with a Stable and a Fleeting icon in circles on the line where
+// each part starts.
 //
 // Use: describe each row's stops, let trackStates() work out the green run and Nu, then put
 // trackCell(state) at the right edge of each row (the row must be position: relative or a
@@ -16,6 +20,8 @@
 //   const states = trackStates(rows.map((r) => ({ stable: { done: r.built }, fleeting: null })));
 //   rowEls.forEach((el, i) => el.append(trackCell(states[i])));
 //   header.append(trackLegend());            // "Stable" and "Fleeting" over their lanes
+//   trackOverlay(page, [{ el: head, mark: 'stable' }, { el: step, row: { stable: { done } } }, ...],
+//     { single: true })                     // one track, marks where each part starts
 
 import { icon } from './icons';
 
@@ -63,9 +69,10 @@ export function trackStates(rows: TrackRow[], opts: { nu?: boolean } = {}): Trac
   const out: TrackState[] = rows.map(() => ({ stable: blank(), fleeting: blank() }));
   const whole: Record<Lane, boolean> = { stable: true, fleeting: true };
   for (const lane of lanes) {
-    // run: nothing undone so far; lit: and something done, so the lane has gone green.
+    // run: nothing undone so far; lit: the lane has gone green, which it is from the very top
+    // once its first stop is done.
     let run = true;
-    let lit = false;
+    let lit = Boolean(rows.find((r) => r[lane])?.[lane]?.done);
     rows.forEach((r, i) => {
       const stop = r[lane] ?? null;
       const s = out[i][lane];
@@ -121,10 +128,14 @@ function stopHtml(s: LaneState): string {
   ].filter(Boolean).join(' ');
   if (st.kind === 'bar') {
     const share = Math.max(0, Math.min(1, st.share ?? (st.done ? 1 : 0)));
-    return `<i class="${cls}"><b style="height:${Math.round(share * 100)}%"></b></i>`;
+    return `<i class="${cls}"><b style="height:${Math.round(share * 100)}%"></b></i>${s.nu ? SWIM : ''}`;
   }
-  return `<i class="${cls}"></i>`;
+  return `<i class="${cls}"></i>${s.nu ? SWIM : ''}`;
 }
+
+/** Nu swimming beside the pink stop: a dot drifting on two slow swings, up and down and side to
+ *  side, so it wanders in loops near the stop (still under Reduce motion). */
+const SWIM = '<em class="trk-swim"><b></b></em>';
 
 /** "Stable" and "Fleeting" with their icons, each over its lane: put it at the right edge of
  *  the row above the first, like a cell. */
@@ -140,7 +151,11 @@ export function trackLegend(opts: { labels?: boolean } = {}): HTMLElement {
 export interface TrackItem {
   /** The row; its stops sit on its vertical middle. */
   el: HTMLElement;
-  row: TrackRow;
+  /** Its stops; omit for a mark. */
+  row?: TrackRow;
+  /** A single track only: a Stable or Fleeting icon in a circle on the line at the element's
+   *  middle, where that part starts. */
+  mark?: Lane;
 }
 
 export interface TrackOverlay {
@@ -151,29 +166,43 @@ export interface TrackOverlay {
 
 /** The lanes drawn over a whole block of mixed content (headings, cards, a table) as one layer
  *  at its right edge, from `top` (px, default the block's top) to its bottom: stops at each
- *  item's middle, lines between. The block must be position: relative. Redraws itself when the
- *  block changes size. */
-export function trackOverlay(container: HTMLElement, items: TrackItem[], opts: { top?: () => number; nu?: boolean } = {}): TrackOverlay {
+ *  item's middle, lines between. `single`: one track instead of two lanes, Stable's stops and
+ *  Fleeting's on the same line in item order, starting at the first mark. The block must be
+ *  position: relative. Redraws itself when the block changes size. */
+export function trackOverlay(container: HTMLElement, items: TrackItem[], opts: { top?: () => number; nu?: boolean; single?: boolean } = {}): TrackOverlay {
   const layer = document.createElement('div');
-  layer.className = 'trk-ov';
+  layer.className = `trk-ov${opts.single ? ' trk-ov--single' : ''}`;
   layer.setAttribute('aria-hidden', 'true');
   container.append(layer);
   let list = items;
   const draw = () => {
     const box = container.getBoundingClientRect();
     if (!box.height) return;
-    const states = trackStates(list.map((i) => i.row), { nu: opts.nu });
+    // One track: every stop on the Stable line, in order.
+    const rowOf = (it: TrackItem): TrackRow => (opts.single ? { stable: it.row?.stable ?? it.row?.fleeting ?? null } : it.row ?? {});
+    const states = trackStates(list.map(rowOf), { nu: opts.nu });
     const ys = list.map((i) => {
       const r = i.el.getBoundingClientRect();
       return r.top - box.top + r.height / 2;
     });
-    const top = opts.top?.() ?? 0;
+    const firstMark = opts.single ? list.findIndex((it) => it.mark) : -1;
+    const top = firstMark >= 0 ? ys[firstMark] : opts.top?.() ?? 0;
     const bottom = container.scrollHeight;
     let html = '';
-    for (const lane of ['stable', 'fleeting'] as Lane[]) {
+    for (const lane of (opts.single ? ['stable'] : ['stable', 'fleeting']) as Lane[]) {
       let y0 = top;
       let green = false;
-      list.forEach((_, i) => {
+      list.forEach((it, i) => {
+        if (it.mark && opts.single) {
+          // The line up to a mark is green when the run reaches the next stop.
+          const ahead = states.findIndex((st, k) => k > i && st[lane].stop);
+          const lit = ahead >= 0 ? states[ahead][lane].above : green;
+          if (i !== firstMark) html += seg(lane, y0, ys[i], lit);
+          html += `<span class="trk-mark${lit ? ' is-run' : ''}" style="top:${ys[i]}px">${icon(it.mark === 'stable' ? 'isotope-stable' : 'isotope-fleeting', { size: 16 })}</span>`;
+          y0 = ys[i];
+          green = lit;
+          return;
+        }
         const s = states[i][lane];
         if (!s.stop) return;
         html += seg(lane, y0, ys[i], s.above);

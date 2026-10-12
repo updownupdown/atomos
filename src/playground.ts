@@ -4,11 +4,12 @@
 // Instructions sheet behind the "i".
 //
 // The home: a box pinned to the top of the list tells about the game in focus (the top card
-// under it, ringed in the color of the level it is set to, its Play filled in that color): the
-// game playing itself, its goal, and its five difficulty levels with the wins at each, which
-// pick the level Play deals at (remembered per game). Each card's pips show that level. The
-// game cards stack under the box; scrolling brings the next card up into focus, and tapping a
-// card brings it there.
+// under it, its border coming and going in the color of the level it is set to, its Play
+// filled in that color and its pips showing that level): the game playing itself, its goal,
+// and its five difficulty levels with the wins at each, which pick the level Play deals at
+// (remembered per game). The other cards show the levels their game reaches in white pips and a
+// white-ringed Play. Scrolling brings the next card up into focus; tapping a card brings it
+// there; a long press pins a game to the top of the list (a pin by its name) or unpins it.
 
 import { loadSave } from './core/save';
 import { PUZZLES, puzzleIcon, type PuzzleType } from './puzzles/catalog';
@@ -17,11 +18,11 @@ import { PuzzleHost } from './puzzles/host';
 import { openRules } from './puzzles/rulesModal';
 import { showWin, type WinLevels } from './puzzles/winPanel';
 import type { Area, PuzzleView } from './puzzles/view';
-import { createSlider, iconButton, ringOn, type Slider } from './ui/components';
+import { createSlider, iconButton, ringOn, showToast, type Slider } from './ui/components';
 import { countPlay, GOAL_PLAYS } from './core/plays';
 import { clearOffers, createGameBar, offerRules, type GameBar } from './puzzles/gamebar';
 import { dialFor, difficultyLevel, difficultyRange, difficultyWord, elementForDial, LEVELS, levelInGame, levelWord } from './puzzles/difficulty';
-import { lastDial, recordWin, rememberDial, winsOf } from './core/wins';
+import { lastDial, pinnedGames, recordWin, rememberDial, setPinned, winsOf } from './core/wins';
 import { GameDemo } from './puzzles/demo';
 import { askRestart, confirming, restartButton } from './puzzles/restart';
 import { icon } from './ui/icons';
@@ -205,33 +206,91 @@ export class Playground {
     ], { duration: 420, easing: 'cubic-bezier(0.5, 0, 0.75, 0)' }).finished.then(land, land);
   }
 
-  /** The home: the pinned box about the game in focus, then one card per game in alphabetical
-   *  order, playable ones first. Tapping a card (not its Play) brings it into focus. */
-  private renderHome(): void {
+  /** The home: the pinned box about the game in focus, then one card per game: pinned games
+   *  first, then the rest, each part in alphabetical order with playable games first; a line on
+   *  pinning at the end. Tapping a card (not its Play) brings it into focus; a long press (or a
+   *  right click) pins or unpins it. */
+  private renderHome(keep = ''): void {
     const list = $('pg-list');
     list.replaceChildren();
+    const pins = new Set(pinnedGames());
     const az = [...PUZZLES].sort((a, b) => a.name.localeCompare(b.name));
-    const games = [...az.filter((p) => p.make), ...az.filter((p) => !p.make)];
+    const order = (ps: PuzzleType[]) => [...ps.filter((p) => p.make), ...ps.filter((p) => !p.make)];
+    const games = [...order(az.filter((p) => pins.has(p.id))), ...order(az.filter((p) => !pins.has(p.id)))];
     for (const p of games) {
       const sec = document.createElement('section');
       sec.className = 'pg-sec';
       sec.dataset.id = p.id;
-      sec.setAttribute('aria-label', p.name);
+      sec.setAttribute('aria-label', pins.has(p.id) ? `${p.name}, pinned` : p.name);
       sec.append(gameCard({
         id: p.id,
         name: p.name,
-        difficulty: this.dialOf(p.id),
+        difficulty: difficultyRange(p.id),
+        pipsBeside: true,
+        pinned: pins.has(p.id),
         action: p.make ? { label: 'Play', onClick: () => this.open(p.id) } : undefined,
         extra: p.make ? undefined : 'Not built yet',
       }));
+      this.longPress(sec, () => this.togglePin(p));
       sec.addEventListener('click', (e) => {
+        if (this.pressed) { this.pressed = false; e.preventDefault(); e.stopPropagation(); return; }
         if ((e.target as HTMLElement).closest('button')) return;
         this.bringToFocus(p.id);
-      });
+      }, true);
       list.append(sec);
     }
-    this.focusId = games[0]?.id ?? '';
+    const hint = document.createElement('p');
+    hint.className = 'pg-pin-hint';
+    hint.textContent = 'Long-press to pin and unpin games';
+    list.append(hint);
+    this.focusId = games.some((g) => g.id === keep) ? keep : games[0]?.id ?? '';
     this.paintFocus(true);
+  }
+
+  /** A long press just fired: the click that ends it is swallowed. */
+  private pressed = false;
+
+  /** Runs `fire` when the element is held still for half a second, or right-clicked. */
+  private longPress(el: HTMLElement, fire: () => void): void {
+    let timer = 0;
+    let start: { x: number; y: number } | null = null;
+    let firedAt = 0;
+    const stop = () => { window.clearTimeout(timer); timer = 0; start = null; };
+    el.addEventListener('pointerdown', (e) => {
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      start = { x: e.clientX, y: e.clientY };
+      timer = window.setTimeout(() => {
+        timer = 0;
+        firedAt = performance.now();
+        this.pressed = true;
+        fire();
+      }, 500);
+    });
+    el.addEventListener('pointermove', (e) => {
+      if (start && Math.hypot(e.clientX - start.x, e.clientY - start.y) > 10) stop();
+    });
+    el.addEventListener('pointerup', stop);
+    el.addEventListener('pointercancel', stop);
+    el.addEventListener('pointerleave', stop);
+    // Phones raise a context menu on a long press: the press has done the job. A right click on
+    // a computer pins too.
+    el.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      if (performance.now() - firedAt < 1000) return;
+      stop();
+      fire();
+    });
+  }
+
+  /** Pins or unpins a game: the list sorts again with that game kept in focus. */
+  private togglePin(p: PuzzleType): void {
+    const on = !pinnedGames().includes(p.id);
+    setPinned(p.id, on);
+    navigator.vibrate?.(12);
+    this.renderHome(p.id);
+    this.layoutHome();
+    this.bringToFocus(p.id, true);
+    showToast(on ? `${p.name} pinned to the top` : `${p.name} unpinned`);
   }
 
   /** Room under the last card, so that it too can scroll up under the box. */
@@ -240,8 +299,10 @@ export class Playground {
     if (home.hidden || !home.clientHeight) return;
     const box = $('pg-focus');
     home.style.setProperty('--focus-h', `${box.offsetHeight}px`);
-    const last = $('pg-list').lastElementChild as HTMLElement | null;
-    const room = home.clientHeight - box.offsetHeight - (last?.offsetHeight ?? 0) - 30;
+    const secs = $('pg-list').querySelectorAll<HTMLElement>('.pg-sec');
+    const last = secs[secs.length - 1];
+    const hint = $('pg-list').querySelector<HTMLElement>('.pg-pin-hint');
+    const room = home.clientHeight - box.offsetHeight - (last?.offsetHeight ?? 0) - (hint?.offsetHeight ?? 0) - 46;
     $('pg-list').style.paddingBottom = `${Math.max(0, room)}px`;
     this.findFocus();
   }
@@ -259,13 +320,13 @@ export class Playground {
   }
 
   /** Scrolls a game's card up under the box. */
-  private bringToFocus(id: string): void {
+  private bringToFocus(id: string, now = false): void {
     const sec = $('pg-list').querySelector<HTMLElement>(`.pg-sec[data-id="${id}"]`);
     if (!sec) return;
     const home = $('pg-home');
     // Where the card sits in the list, less the box that will be pinned over the top.
     const at = sec.getBoundingClientRect().top - home.getBoundingClientRect().top + home.scrollTop;
-    home.scrollTo({ top: Math.max(0, at - $('pg-focus').offsetHeight - 14), behavior: reducedMotion() ? 'auto' : 'smooth' });
+    home.scrollTo({ top: Math.max(0, at - $('pg-focus').offsetHeight - 14), behavior: now || reducedMotion() ? 'auto' : 'smooth' });
   }
 
   /** The box and the rings for the game in focus. */
@@ -276,10 +337,11 @@ export class Playground {
       const on = sec.dataset.id === p.id;
       sec.classList.toggle('is-focus', on);
       if (on) sec.style.setProperty('--lvl', `var(--c-lvl-${difficultyLevel(this.dialOf(p.id))})`);
+      // In focus, the pips show the level Play deals at, in its color; elsewhere, the levels the
+      // game reaches, in white.
+      setCardDifficulty(sec, on ? this.dialOf(sec.dataset.id!) : difficultyRange(sec.dataset.id!));
       const card = sec.querySelector<HTMLElement>('.gcard');
-      const go = sec.querySelector<HTMLElement>('.gcard-go');
       if (card) ringOn(card, on ? 'focus' : null);
-      if (go) ringOn(go, on && !go.hasAttribute('disabled') ? 'focus' : null);
     });
     const box = $('pg-focus');
     if (!force && box.dataset.id === p.id) return;
@@ -327,7 +389,8 @@ export class Playground {
   private paintCard(id: string): void {
     const sec = $('pg-list').querySelector<HTMLElement>(`.pg-sec[data-id="${id}"]`);
     if (!sec) return;
-    setCardDifficulty(sec, this.dialOf(id));
+    const on = sec.classList.contains('is-focus');
+    setCardDifficulty(sec, on ? this.dialOf(id) : difficultyRange(id));
     sec.style.setProperty('--lvl', `var(--c-lvl-${difficultyLevel(this.dialOf(id))})`);
   }
 
