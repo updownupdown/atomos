@@ -13,7 +13,7 @@ import { drawHelpMark, type Area, type Help, type Illustration, type Point, type
 
 export const INSTRUCTIONS = `
 <h3>In the game</h3>
-<p class="meta">Trace is a reserve game, played from the Practice screen. The grid grows from 5 by 5 on the easiest setting through 6 by 6 and 7 by 7 to 8 by 8 at Hard and Expert. Easy boards number about two cells in five; at Expert only about one in seven, so the trail between them has to be worked out. Walls arrive from Easy on, one or two at first and up to about ten. Every board is dealt from one trail through every cell and has exactly one answer, checked by the solver. Par is one stroke from each number to the next.</p>
+<p class="meta">Tracer is a reserve game, played from the Puzzles screen. The grid grows from 5 by 5 on the easiest setting through 6 by 6 and 7 by 7 to 8 by 8 at Hard and Expert. Easy boards number about two cells in five; at Expert only about one in seven, so the trail between them has to be worked out. Walls arrive from Easy on, one or two at first and up to about ten. Every board is dealt from one trail through every cell and has exactly one answer, checked by the solver. Par is one stroke from each number to the next.</p>
 `;
 
 /** The trail's colors: deep blue where it starts, cyan along its length, near white at the head. */

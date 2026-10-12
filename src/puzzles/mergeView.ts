@@ -57,18 +57,18 @@ export class MergeView implements PuzzleView {
    *  biggest cluster against the mass number. */
   stats(): { progress: { label: string; value: string } } {
     const s = this.state;
-    if (this.capture) return { progress: { label: 'Capture', value: `${this.won ? s.target.a : biggest(s)}/${s.target.a}` } };
+    if (this.capture) return { progress: { label: 'Kiln', value: `${this.won ? s.target.a : biggest(s)}/${s.target.a}` } };
     return { progress: { label: 'Fused', value: `${s.filled}/${s.sockets.length}` } };
   }
 
   hint(): string {
     const want = wanted(this.state);
-    const lead = this.capture ? 'Capture mode: ' : '';
-    if (this.won) return this.capture ? `Capture mode: ${this.state.target.a} built` : 'Nucleus complete';
+    const lead = this.capture ? 'Kiln mode: ' : '';
+    if (this.won) return this.capture ? `Kiln mode: ${this.state.target.a} built` : 'Nucleus complete';
     if (this.stuck) return `${lead}${lead ? 'jammed' : 'Jammed'}, undo or restart`;
-    if (this.state.cells.some((c) => c?.spoiled)) return this.capture ? 'Capture mode: overshot, it crumbles next swipe' : 'Cracked: it crumbles next swipe';
+    if (this.state.cells.some((c) => c?.spoiled)) return this.capture ? 'Kiln mode: overshot, it crumbles next swipe' : 'Cracked: it crumbles next swipe';
     if (want === null) return '';
-    return this.capture ? `Capture mode: build exactly ${want}` : `Next: ${an(want)} ${want}`;
+    return this.capture ? `Kiln mode: build exactly ${want}` : `Next: ${an(want)} ${want}`;
   }
 
   help(level: 1 | 2): Help | null {
@@ -324,7 +324,7 @@ export class MergeView implements PuzzleView {
 }
 
 /** Capture mode's name beside its socket. */
-const CAPTURE_TAG = 'Capture: exactly';
+const CAPTURE_TAG = 'Kiln: exactly';
 
 /** How long one sheen takes to cross a tungsten block, and how often one comes round. */
 const SHEEN_MS = 1800;
@@ -517,7 +517,7 @@ export const INSTRUCTIONS = `
 
 export const CAPTURE_INSTRUCTIONS = `
 <h3>In the game</h3>
-<p class="meta">Capture mode, played from Puzzles only, for the elements past iron (cobalt to oganesson). The nucleus wants one cluster of exactly its mass number. The board deals seed clusters (the mass number halved two to four times and rounded down: four from tin's 120 on when few neutrons are left over), double seeds and lone neutrons, so a few doublings and at most six captures finish it. Every deal is first played through by a look-ahead player; Show me follows its line, and par is its swipe count plus 30% and four. Overshooting (a crack) or going over par costs the star; a board with no swipe left is lost, though undo still steps back.</p>`;
+<p class="meta">Kiln, played from Puzzles only, for the elements past iron (cobalt to oganesson). The nucleus wants one cluster of exactly its mass number. The board deals seed clusters (the mass number halved two to four times and rounded down: four from tin's 120 on when few neutrons are left over), double seeds and lone neutrons, so a few doublings and at most six captures finish it. Every deal is first played through by a look-ahead player; Show me follows its line, and par is its swipe count plus 30% and four. Overshooting (a crack) or going over par costs the star; a board with no swipe left is lost, though undo still steps back.</p>`;
 
 // ---- rules ------------------------------------------------------------------------
 //

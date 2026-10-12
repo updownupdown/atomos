@@ -14,7 +14,7 @@ import { drawHelpMark, ease, type Area, type Help, type Illustration, type Point
 
 export const INSTRUCTIONS = `
 <h3>In the game</h3>
-<p class="meta">Planar is a reserve game, played from the Practice screen. The easiest board holds 6 atoms and 7 bonds; the hardest, 22 atoms and about 43 bonds, with the bonds per atom rising steadily in between. Every molecule is first laid out with no crossings, then dealt round a ring in a scrambled order, so it can always be untangled. Par is how many atoms that hidden layout moves, once it is turned to keep as many dealt atoms in place as it can. It is a soft target: any drawing with nothing crossing wins, and a good eye can sometimes beat it.</p>
+<p class="meta">Unfurl is a reserve game, played from the Puzzles screen. The easiest board holds 6 atoms and 7 bonds; the hardest, 22 atoms and about 43 bonds, with the bonds per atom rising steadily in between. Every molecule is first laid out with no crossings, then dealt round a ring in a scrambled order, so it can always be untangled. Par is how many atoms that hidden layout moves, once it is turned to keep as many dealt atoms in place as it can. It is a soft target: any drawing with nothing crossing wins, and a good eye can sometimes beat it.</p>
 `;
 
 /** Above this many crossings, only the atom in hand's crossings are dotted. */

@@ -14,7 +14,7 @@ import { drawHelpMark, ease, undoHelp, type Area, type Help, type Illustration, 
 
 export const INSTRUCTIONS = `
 <h3>In the game</h3>
-<p class="meta">Push is a reserve game, played from the Practice screen. The chamber grows from 4 by 4 to 7 by 7 inside its walls, with more wall set into it as the difficulty rises. It holds one nucleon on the easiest boards, two from the top of Very easy through Easy, three through Medium and most of Hard, and four from the top of Hard on.</p>
+<p class="meta">Shepherd is a reserve game, played from the Puzzles screen. The chamber grows from 4 by 4 to 7 by 7 inside its walls, with more wall set into it as the difficulty rises. It holds one nucleon on the easiest boards, two from the top of Very easy through Easy, three through Medium and most of Hard, and four from the top of Hard on.</p>
 <p class="meta">Par is the fewest pushes that solve the chamber; walking never counts. Every deal is made backwards, by pulling the nucleons off their sockets, so every one can be solved, and par is proven by a search over every position the nucleons and the probe can reach. It rises from 2 to 5 pushes on the easiest boards to around 24 to 36 on the hardest. From the middle of Easy on, a deal is kept only when pushing each nucleon straight at its socket does not solve it, and the shortest solution takes some nucleon away from its socket or the long way round, more of them the harder the board. Undo is free, and a nucleon that can never reach a socket again is outlined so you know to take it back.</p>
 `;
 

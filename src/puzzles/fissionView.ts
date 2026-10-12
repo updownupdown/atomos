@@ -14,7 +14,7 @@ import { drawHelpMark, ease, type Area, type Help, type Illustration, type Point
 
 export const INSTRUCTIONS = `
 <h3>In the game</h3>
-<p class="meta">Fission is a reserve game, played from the Practice screen. The plate grows from 4 by 4 to 7 by 7 and the nuclei from 5 to 16; moderator blocks appear from sodium on. Par is the fewest taps that split everything, found by trying every tap, pair and triple: 1 up to calcium, 2 to barium, 3 to rutherfordium and 4 beyond. On a par-1 board at most one or two nuclei finish it in one, so the puzzle is finding them. Every chain is fixed by the board, so nothing is luck.</p>
+<p class="meta">Cascade is a reserve game, played from the Puzzles screen. The plate grows from 4 by 4 to 7 by 7 and the nuclei from 5 to 16; moderator blocks appear from sodium on. Par is the fewest taps that split everything, found by trying every tap, pair and triple: 1 up to calcium, 2 to barium, 3 to rutherfordium and 4 beyond. On a par-1 board at most one or two nuclei finish it in one, so the puzzle is finding them. Every chain is fixed by the board, so nothing is luck.</p>
 `;
 
 /** Milliseconds per wave of the chain: a neutron's flight, then the nucleus it hit splits. */

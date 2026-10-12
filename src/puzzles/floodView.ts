@@ -14,7 +14,7 @@ import { drawHelpMark, undoHelp, type Area, type Help, type Illustration, type P
 
 export const INSTRUCTIONS = `
 <h3>In the game</h3>
-<p class="meta">Flood is a reserve game, played from the Practice screen. The board grows from 5 by 5 in 3 colors to 12 by 12 in 6, and the spare picks beyond par fall from 4 on the easiest boards to none at the top of Expert. Par is the fewest picks a solver finds: an A* search proves it the fewest on most boards up to about 9 by 9; on bigger ones a beam search finds a short route, which the player may sometimes beat. Running out of picks ends the run; undo is free.</p>
+<p class="meta">Flood is a reserve game, played from the Puzzles screen. The board grows from 5 by 5 in 3 colors to 12 by 12 in 6, and the spare picks beyond par fall from 4 on the easiest boards to none at the top of Expert. Par is the fewest picks a solver finds: an A* search proves it the fewest on most boards up to about 9 by 9; on bigger ones a beam search finds a short route, which the player may sometimes beat. Running out of picks ends the run; undo is free.</p>
 `;
 
 /** Milliseconds per step of the ripple, out from the corner. */

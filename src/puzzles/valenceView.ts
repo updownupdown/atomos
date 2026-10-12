@@ -13,7 +13,7 @@ import { drawHelpMark, ease, type Area, type Help, type Illustration, type Point
 
 export const INSTRUCTIONS = `
 <h3>In the game</h3>
-<p class="meta">Valence is a reserve game, played from the Practice screen. The grid grows from 7 by 7 with 8 atoms on the easiest boards to 10 across and 13 down with about 29 on the hardest, with fewer double bonds and more rings as it goes. Each board is grown as a random molecule and kept only when the solver can finish it by deduction, which proves it has exactly one answer. Very easy boards need only counting; from Easy on a board may need the one-molecule rule (a lone link must hold a bond, and no bond may close off a finished group), and from Medium on a step of looking ahead; Hard and Expert boards are picked to need it where they can. Par is one drag per bond in the answer, so a double bond counts two.</p>
+<p class="meta">Valence is a reserve game, played from the Puzzles screen. The grid grows from 7 by 7 with 8 atoms on the easiest boards to 10 across and 13 down with about 29 on the hardest, with fewer double bonds and more rings as it goes. Each board is grown as a random molecule and kept only when the solver can finish it by deduction, which proves it has exactly one answer. Very easy boards need only counting; from Easy on a board may need the one-molecule rule (a lone link must hold a bond, and no bond may close off a finished group), and from Medium on a step of looking ahead; Hard and Expert boards are picked to need it where they can. Par is one drag per bond in the answer, so a double bond counts two.</p>
 `;
 
 /** Milliseconds a bond takes to grow from its atom. */

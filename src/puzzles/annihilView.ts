@@ -11,7 +11,7 @@ import { drawHelpMark, ease, undoHelp, type Area, type Help, type Illustration, 
 
 export const INSTRUCTIONS = `
 <h3>In the game</h3>
-<p class="meta">Annihil is a reserve game, played from the Practice screen. The board grows from a 4 by 4 square with 4 pieces to a 7 by 7 board with notched corners and 15 pieces. Every board is built backward from a single piece by undoing jumps, then solved forward to be sure it clears. Eight boards are built for each deal and ranked by how often random jumping would clear them: the bottom of the dial deals the most forgiving, the top the one with the most dead ends. Par is the jumps it takes, one fewer than the pieces, so finishing is the whole challenge. With no jump left and more than one piece, undo or restart.</p>
+<p class="meta">Nullis is a reserve game, played from the Puzzles screen. The board grows from a 4 by 4 square with 4 pieces to a 7 by 7 board with notched corners and 15 pieces. Every board is built backward from a single piece by undoing jumps, then solved forward to be sure it clears. Eight boards are built for each deal and ranked by how often random jumping would clear them: the bottom of the dial deals the most forgiving, the top the one with the most dead ends. Par is the jumps it takes, one fewer than the pieces, so finishing is the whole challenge. With no jump left and more than one piece, undo or restart.</p>
 `;
 
 /** Matter red and antimatter blue: the approved pair for two opposite states on a board. */

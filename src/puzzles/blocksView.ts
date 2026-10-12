@@ -15,7 +15,7 @@ import { drawHelpMark, ease, SUBSHELL_COLORS, type Area, type Help, type Illustr
 
 export const INSTRUCTIONS = `
 <h3>In the game</h3>
-<p class="meta">Blocks is a reserve game, played from the Practice screen. The grid grows with the dial from 5 by 5 (Very easy) to 10 by 10 at the top of Expert, and the largest rectangle from 5 cells to 14. Every board has exactly one answer, checked by a solver, and a step-by-step solver that works the way a person does reaches it without guessing. Each deal is picked from several by how many harder steps it takes: easy dials keep boards where each number fits one way as you go; hard dials keep ones where you must see which number alone can reach a cell, or which way would box another in. Par is one rectangle per number; tapping one away is free, but every rectangle drawn counts.</p>
+<p class="meta">Cubit is a reserve game, played from the Puzzles screen. The grid grows with the dial from 5 by 5 (Very easy) to 10 by 10 at the top of Expert, and the largest rectangle from 5 cells to 14. Every board has exactly one answer, checked by a solver, and a step-by-step solver that works the way a person does reaches it without guessing. Each deal is picked from several by how many harder steps it takes: easy dials keep boards where each number fits one way as you go; hard dials keep ones where you must see which number alone can reach a cell, or which way would box another in. Par is one rectangle per number; tapping one away is free, but every rectangle drawn counts.</p>
 `;
 
 /** The subshell a rectangle's size would fill, and its color. */

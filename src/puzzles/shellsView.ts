@@ -15,7 +15,7 @@ import { drawHelpMark, ease, type Area, type Help, type Illustration, type Point
 
 export const INSTRUCTIONS = `
 <h3>In the game</h3>
-<p class="meta">Shells is a reserve game, played from the Practice screen. Very easy boards have three rings of eight slots and no links, so working from the outside in is enough; the rings grow to four from Medium and five from Hard, the slots to twelve and the beads to six on a ring. Links arrive from Easy on: one at first, then two or three that make chains. Par is the fewest turns that line everything up, one per ring that needs turning, worked out exactly from the links. From Medium on, a board is kept only when lining up pairs one at a time, from the outside in or the inside out, takes more turns than par.</p>
+<p class="meta">Shells is a reserve game, played from the Puzzles screen. Very easy boards have three rings of eight slots and no links, so working from the outside in is enough; the rings grow to four from Medium and five from Hard, the slots to twelve and the beads to six on a ring. Links arrive from Easy on: one at first, then two or three that make chains. Par is the fewest turns that line everything up, one per ring that needs turning, worked out exactly from the links. From Medium on, a board is kept only when lining up pairs one at a time, from the outside in or the inside out, takes more turns than par.</p>
 `;
 
 /** The rings' colors, innermost first: the orbital colors, then silver for a fifth ring. */

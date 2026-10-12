@@ -13,7 +13,7 @@ import { drawHelpMark, type Area, type Help, type Illustration, type Point, type
 
 export const INSTRUCTIONS = `
 <h3>In the game</h3>
-<p class="meta">Spin is a reserve game, played from the Practice screen. The grid is 4 by 4 for hydrogen and helium, 6 by 6 up to barium and 8 by 8 from lanthanum on. Fewer cells are dealt filled as the element gets heavier, from half the board down to a fifth, and more links are dealt. Every board has exactly one answer, checked by the generator. Par is the fewest taps that fill it: one for an up, two for a down.</p>
+<p class="meta">Parity is a reserve game, played from the Puzzles screen. The grid is 4 by 4 for hydrogen and helium, 6 by 6 up to barium and 8 by 8 from lanthanum on. Fewer cells are dealt filled as the element gets heavier, from half the board down to a fifth, and more links are dealt. Every board has exactly one answer, checked by the generator. Par is the fewest taps that fill it: one for an up, two for a down.</p>
 `;
 
 interface Geo { x: number; y: number; c: number }
