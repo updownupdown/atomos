@@ -278,16 +278,17 @@ body:not(.build-home) .build-bar { display: none; }
 .bh-trk-head { display: flex; justify-content: flex-end; padding-right: calc(var(--trk-right) - 10px); margin-bottom: calc(-1 * var(--sp-3)); }
 .bh-sec > :not(.bh-steps) { max-width: calc(100% - var(--trk-room)); }
 .bh-sec > .bh-fleet { width: calc(100% - var(--trk-room)); }
-.bh-row { display: grid; grid-template-columns: minmax(0, 1fr) clamp(118px, 33%, 200px); align-items: center; gap: var(--sp-3); }
+.bh-row { display: grid; grid-template-columns: minmax(0, 1fr) clamp(140px, 40%, 240px); align-items: center; gap: var(--sp-3); }
 .bh-gc { min-width: 0; }
 .bh-gc .gcard { width: 100%; }
-.bh-gc .gcard-go { margin-right: var(--sp-2); }
 
 .bh-side { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 2px; min-width: 0; padding-right: var(--trk-room); }
 .bh-state { display: inline-flex; align-items: center; gap: 4px; font-size: var(--fs-min); font-weight: var(--fw-semibold); color: var(--c-text-2); }
 .bh-state svg { flex: none; }
 .bh-state.is-built, .bh-state.is-flawless { color: var(--c-done); }
 .bh-note { font-size: var(--fs-min); line-height: 1.25; color: var(--c-text-min); }
+/* What a step builds ("6 protons, 6 neutrons"), beside its card. */
+.bh-what { margin-bottom: 2px; font-size: var(--fs-min); line-height: 1.3; color: var(--c-text-2); }
 .bh-bench { align-self: flex-start; }
 /* Fleeting isotopes: a table, one row per isotope (name, neutrons, half-life, a decayed mark once
    built); a row opens the choice of puzzle. */
@@ -1729,11 +1730,12 @@ body[data-screen^='atom'].build-home .science-fab, body[data-screen='atom-view']
    no outline, so a game card reads apart from every other card in the app. The card sizes to
    the width it is given (it is a size container, so give it a width in a row); under 300 px,
    two thirds of a phone on the Build page, the square and the button tighten. */
-.gcard { container: gcard / inline-size; display: block; min-width: 0; border-radius: var(--r-md); background: var(--c-surface-2); color: var(--c-text); font-family: var(--font); overflow: hidden; }
-.gcard-in { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; min-height: 76px; }
-.gcard-icon { grid-row: 1 / span 2; align-self: stretch; display: grid; place-items: center; width: 76px; background: #fff; color: #000; }
-.gcard-icon svg { width: 40px; height: 40px; }
-.gcard-body { flex: 1 1 auto; display: flex; flex-direction: column; gap: 4px; min-width: 0; padding: var(--sp-2) var(--sp-3); }
+.gcard { container: gcard / inline-size; display: block; min-width: 0; border-radius: 999px; background: var(--c-surface-2); color: var(--c-text); font-family: var(--font); }
+.gcard-in { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; min-height: 72px; padding: 6px; }
+/* The game's icon: always black, on a white circle set in from the card's edge. */
+.gcard-icon { display: grid; place-items: center; width: 60px; height: 60px; border-radius: 50%; background: #fff; color: #000; }
+.gcard-icon svg { width: 34px; height: 34px; }
+.gcard-body { display: flex; flex-direction: column; gap: 4px; min-width: 0; padding: 4px 10px 4px 12px; }
 .gcard-name { font-size: var(--fs-lg); font-weight: var(--fw-semibold); line-height: var(--lh-tight); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .gcard-diff { display: flex; align-items: center; flex-wrap: wrap; gap: 2px 8px; min-width: 0; }
 .gcard-pips { display: inline-flex; align-items: center; gap: 3px; flex: none; }
@@ -1741,21 +1743,23 @@ body[data-screen^='atom'].build-home .science-fab, body[data-screen='atom-view']
 .gcard-pips i.on { background: var(--c-text); }
 .gcard-word { font-size: var(--fs-min); color: var(--c-text-min); line-height: 1.25; }
 .gcard-extra { font-size: var(--fs-min); color: var(--c-text-min); line-height: 1.25; }
-.gcard .gcard-go { flex: none; min-height: 40px; margin-right: var(--sp-3); padding: 0 var(--sp-4); font-size: var(--fs-md); }
-.gcard .gcard-go.secondary:hover { background: var(--c-surface-3); }
+/* The button: a circle with its icon; the word is for screen readers. Play is filled blue (the
+   Next button keeps its magenta), Replay a blue ring, Locked gray. */
+.gcard .gcard-go { flex: none; display: grid; place-items: center; width: 52px; height: 52px; min-height: 0; margin: 0 4px 0 0; padding: 0; border: 0; border-radius: 50%; }
+.gcard .gcard-go > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.gcard .gcard-go svg { width: 22px; height: 22px; }
+.gcard .gcard-go.primary, .gcard .ui-play.gcard-go:not(.gcard-replay):not(.ui-play--locked) { background: var(--c-accent); color: var(--c-bg); }
+.gcard .gcard-go.secondary, .gcard .ui-play.gcard-replay { background: transparent; color: var(--c-accent); box-shadow: inset 0 0 0 2px var(--c-accent); }
+.gcard .gcard-go.secondary:hover, .gcard .ui-play.gcard-replay:hover { background: color-mix(in srgb, var(--c-accent) 12%, transparent); }
 .gcard .gcard-go:focus-visible { outline: 2px solid var(--c-text); outline-offset: 2px; }
-@container gcard (max-width: 300px) {
-  .gcard-icon { width: 64px; }
-  .gcard-icon svg { width: 34px; height: 34px; }
-  .gcard-body { padding-inline: 10px; }
+@container gcard (max-width: 260px) {
+  .gcard-in { min-height: 64px; padding: 5px; }
+  .gcard-icon { width: 52px; height: 52px; }
+  .gcard-icon svg { width: 30px; height: 30px; }
+  .gcard-body { padding-inline: 8px; }
   .gcard-name { font-size: var(--fs-md); }
-  .gcard .gcard-go { margin-right: 10px; padding: 0 14px; }
-}
-/* Narrower still (the Build page's two thirds): the button moves under the name. */
-@container gcard (max-width: 250px) {
-  .gcard-in { grid-template-columns: auto minmax(0, 1fr); }
-  .gcard-body { padding: var(--sp-2) 10px 0; }
-  .gcard .gcard-go { grid-column: 2; justify-self: start; margin: var(--sp-2) 0 var(--sp-2) 10px; }
+  .gcard .gcard-go { width: 44px; height: 44px; margin-right: 2px; }
+  .gcard .gcard-go svg { width: 20px; height: 20px; }
 }
 
 /* ---- Progress tracks (src/ui/tracks.ts) ---------------------------------------------------------
