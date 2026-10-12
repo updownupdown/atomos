@@ -8,11 +8,11 @@
 //   its board settings there), one message (the goal, the Hint button's line or the game's own
 //   status) and the game's own action on the right, if it has any (Test; Chroma's gluon).
 //   The board sits on black under it all.
-// The first time a game is played, a Learn to Play card floats under the status line
-// (offerRules).
+// The first game a player ever plays, Nu's card floats under the status line and flies into the
+// i button (offerRules, guide.ts).
 
 import { backButton, textButton } from '../ui/components';
-import { firstTimeDue, markSeen } from '../ui/nu';
+import { guideRules } from './guide';
 import { difficultyWord } from './difficulty';
 import { icon } from '../ui/icons';
 import type { PuzzleView, Stat, ViewAction } from './view';
@@ -146,56 +146,17 @@ export function createGameBar(tools: HTMLElement[], back: { label: string; onCli
   };
 }
 
-let dismissOffer: (() => void) | null = null;
-
-/** The first time a game is played, a Learn to Play card floats under the status line, over the
- *  board (it never shrinks it): Rules opens them, Not now (or any other tap) lets the player start.
- *  Shown once per game, and not at all when Nu is off in Settings; the Info button always has the
- *  rules. */
-export function offerRules(bar: GameBar, game: { id: string; name: string }, open: () => void): void {
+/** The first game a player ever plays, Nu's card floats under the status line, over the board,
+ *  says the rules are under the i button, and after a few seconds flies into it (guide.ts). Once
+ *  per player, not per game; the Info button always has the rules. `game` and `open` are kept
+ *  for callers; the card has nothing to tap. */
+export function offerRules(bar: GameBar, _game?: { id: string; name: string }, _open?: () => void): void {
   clearOffers(bar);
-  const id = `rules-${game.id}`;
-  if (!firstTimeDue(id)) return;
-  const card = document.createElement('div');
-  card.className = 'ui-callout ui-callout--float gbar-offer';
-  card.setAttribute('role', 'status');
-  card.innerHTML = '<span class="ui-callout-text"><small>Learn to Play</small><b></b></span><span class="ui-callout-acts"></span>';
-  card.querySelector('b')!.textContent = game.name;
-  const rules = document.createElement('button');
-  rules.type = 'button';
-  rules.className = 'ui-callout-go';
-  rules.textContent = 'Rules';
-  const later = document.createElement('button');
-  later.type = 'button';
-  later.className = 'ui-callout-skip';
-  later.textContent = 'Not now';
-  card.querySelector('.ui-callout-acts')!.append(rules, later);
-  bar.foot.append(card);
-
-  const shownAt = performance.now();
-  const done = (seen: boolean) => {
-    window.removeEventListener('pointerdown', away, true);
-    window.removeEventListener('keydown', away, true);
-    if (dismissOffer === drop) dismissOffer = null;
-    if (seen) markSeen(id);
-    card.remove();
-  };
-  const drop = () => done(false);
-  // Any other tap or key lets the player start; the tap that opened the game doesn't count.
-  function away(e: Event): void {
-    if (card.contains(e.target as Node) || performance.now() - shownAt < 600) return;
-    done(true);
-  }
-  rules.onclick = () => { done(true); open(); };
-  later.onclick = () => done(true);
-  window.addEventListener('pointerdown', away, true);
-  window.addEventListener('keydown', away, true);
-  dismissOffer = drop;
+  guideRules(bar.foot, bar.el.querySelector<HTMLElement>('button[aria-label="Instructions"]'));
 }
 
 /** Takes away an offer still showing (the player left the game before acting on it), so it comes
  *  back the next time instead. */
 export function clearOffers(bar: GameBar): void {
-  if (dismissOffer) dismissOffer();
   bar.foot.querySelectorAll('.gbar-offer').forEach((e) => e.remove());
 }

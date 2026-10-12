@@ -2,10 +2,11 @@
 // marks a spot and says why in one line. A second tap on the same board is Show me: the puzzle
 // plays one move. A run that used Show me can't be flawless. When the player seems stuck (about
 // 45 seconds without progress, three undos in a row, or a second restart), the button gets a
-// pink icon; nothing pops up.
+// pink icon; the first time ever, Nu's card says what Hint does and flies into it (guide.ts).
 
 import { iconButton } from '../ui/components';
 import { icon } from '../ui/icons';
+import { guideHint } from './guide';
 import type { PuzzleView } from './view';
 
 const STUCK_MS = 45_000;
@@ -100,6 +101,8 @@ export class HintControl {
   }
 
   private nudge(on: boolean): void {
+    // The first time ever, Nu's card says what Hint does and flies into the button.
+    if (on && !this.button.classList.contains('is-nudge')) guideHint(this.button);
     this.button.classList.toggle('is-nudge', on);
   }
 }

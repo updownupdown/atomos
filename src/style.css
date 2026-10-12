@@ -1783,3 +1783,15 @@ body[data-screen^='atom'].build-home .science-fab, body[data-screen='atom-view']
 .trk-seg.is-run { background: var(--c-good); }
 .trk-at { position: absolute; width: 0; height: 0; }
 .trk-at .trk-stop { top: 0; }
+
+/* Nu's guide cards in a game (src/puzzles/guide.ts): nothing to tap, so taps reach the board;
+   a thin line along the bottom runs out before the card flies into its button. */
+.guide-card { pointer-events: none; overflow: hidden; transform-origin: center; }
+.guide-card .ui-callout-pic { width: 40px; height: 40px; }
+.guide-card .ui-callout-text b { white-space: normal; font-size: var(--fs-md); line-height: 1.35; }
+.guide-time { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: var(--c-go); transform-origin: left; animation: guide-time var(--guide-ms, 3s) linear forwards; }
+@keyframes guide-time { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+/* Where a guide card landed: the button rings pink twice. */
+.ui-icon-btn.is-guided { color: var(--c-go); animation: guided 1.3s ease-out 2; }
+@keyframes guided { 0% { box-shadow: 0 0 0 0 var(--c-go-ring); } 60% { box-shadow: 0 0 0 8px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
+@media (prefers-reduced-motion: reduce) { .guide-time { animation: none; } .ui-icon-btn.is-guided { animation: none; box-shadow: 0 0 0 3px var(--c-go-ring); } }
