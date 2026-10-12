@@ -42,15 +42,15 @@ function lattice(ctx: CanvasRenderingContext2D, s: SpinState, g: Geo): void {
   }
 }
 
-/** An arrow for a spin, up or down, in the cell's middle: a short shaft under a wide, flat
- *  chevron, so it reads as a direction rather than a tall glyph. */
+/** An arrow for a spin, up or down, in the cell's middle: a fine shaft under a narrow chevron
+ *  head, drawn in thin strokes so it reads as a crisp mark rather than a chunky glyph. */
 export function arrow(ctx: CanvasRenderingContext2D, x: number, y: number, c: number, spin: Spin, color: string, scale = 1): void {
   if (!spin) return;
-  const h = c * 0.2 * scale, w = c * 0.2 * scale, drop = c * 0.15 * scale;
+  const h = c * 0.22 * scale, w = c * 0.11 * scale, drop = c * 0.12 * scale;
   const dir = spin === 1 ? -1 : 1;
   ctx.save();
   ctx.strokeStyle = color;
-  ctx.lineWidth = Math.max(2, c * 0.085 * scale);
+  ctx.lineWidth = Math.max(1.5, c * 0.05 * scale);
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
   ctx.beginPath();
