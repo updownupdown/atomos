@@ -1,8 +1,8 @@
 // Collect: the atoms of one period at a time, and how far each is collected.
 //
 //   header
-//   Period  1 2 3 4 5 6 7     each with a ring of its progress (stable outside, fleeting inside)
-//   Atoms ▬  Stable ▬  Fleeting ▬            Stable | Fleeting   (the tracks' legend)
+//   Period  1 2 3 4 5 6 7     each in a ring of its progress: stable right, fleeting left
+//   ⚛ Atoms 80%  ◎ Stable 20%  ∘ Fleeting 66%
 //   ┌ locked period: what opens it ┐
 //   26 Fe Iron        (atom)        │ │     one row per atom, on black, with the two tracks
 //   ...                                      running down the right edge
@@ -21,7 +21,7 @@ import { atomBuilt, atomProgress, fleetingCount, rowOf, rowOpen, rowSpan, segmen
 import { loadSave, type SaveData } from '../core/save';
 import { nextStep, openStep, type NextStep } from '../core/next';
 import { fleetingOpen, periodSentence } from './locks';
-import { trackCell, trackLegend, trackStates, type TrackRow } from '../ui/tracks';
+import { trackCell, trackStates, type TrackRow } from '../ui/tracks';
 import { createCallout, nextButton, swipeToDismiss } from '../ui/components';
 import { puzzleIcon } from '../puzzles/catalog';
 import { icon } from '../ui/icons';
@@ -74,17 +74,43 @@ export function periodTracks(period: number, save: SaveData): TrackRow[] {
 }
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
-const pct = (v: number) => `${Math.round(v * 100)}%`;
 
-/** Two rings round a period's number: stable outside, fleeting inside. */
-function ringsSvg(stable: number, fleeting: number, fleetOn: boolean): string {
-  const arc = (r: number, v: number, cls: string) => {
-    const c = 2 * Math.PI * r;
-    const on = Math.max(0, Math.min(1, v));
-    return `<circle class="co-ring-track" cx="20" cy="20" r="${r}"/>`
-      + (on > 0 ? `<circle class="co-ring-on ${cls}${on >= 1 ? ' is-done' : ''}" cx="20" cy="20" r="${r}" stroke-dasharray="${(c * on).toFixed(2)} ${c.toFixed(2)}" transform="rotate(-90 20 20)"/>` : '');
+/** The share as a whole percent, never rounding a start up to nothing or a near miss up to all. */
+export function pctLabel(v: number): string {
+  if (v <= 0) return '0%';
+  if (v >= 1) return '100%';
+  return `${Math.min(99, Math.max(1, Math.round(v * 100)))}%`;
+}
+
+/** Degrees left open between the ring's two halves, at the top and at the bottom. */
+const RING_GAP = 24;
+
+/** One ring round a period's number, in two halves: stable on the right, running down from the
+ *  top, and fleeting on the left, running up from the bottom. Each half is a gray track with
+ *  its progress over it. Made once; paintRing() fills it. */
+function ringSvg(): string {
+  const half = (cls: string) => `<circle class="co-ring-track ${cls}" cx="20" cy="20" r="17"/><circle class="co-ring-on ${cls}" cx="20" cy="20" r="17"/>`;
+  return `<svg class="co-ring" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true">${half('is-stable')}${half('is-fleeting')}</svg>`;
+}
+
+function paintRing(svg: SVGElement, stable: number, fleeting: number): void {
+  const c = 2 * Math.PI * 17;
+  const span = (180 - RING_GAP) / 360;
+  const arc = (el: Element | null, share: number, start: number) => {
+    if (!el) return;
+    const on = c * span * Math.max(0, Math.min(1, share));
+    el.setAttribute('stroke-dasharray', `${on.toFixed(2)} ${c.toFixed(2)}`);
+    el.setAttribute('transform', `rotate(${start} 20 20)`);
+    el.classList.toggle('is-empty', share <= 0);
+    el.classList.toggle('is-done', share >= 1);
   };
-  return `<svg class="co-rings" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true">${arc(18, stable, 'is-stable')}${fleetOn ? arc(14, fleeting, 'is-fleeting') : ''}</svg>`;
+  // 0 degrees points right, so the top is -90 and the bottom 90.
+  arc(svg.querySelector('.co-ring-track.is-stable'), 1, -90 + RING_GAP / 2);
+  arc(svg.querySelector('.co-ring-on.is-stable'), stable, -90 + RING_GAP / 2);
+  arc(svg.querySelector('.co-ring-track.is-fleeting'), 1, 90 + RING_GAP / 2);
+  arc(svg.querySelector('.co-ring-on.is-fleeting'), fleeting, 90 + RING_GAP / 2);
+  svg.querySelector('.co-ring-track.is-stable')?.classList.remove('is-done');
+  svg.querySelector('.co-ring-track.is-fleeting')?.classList.remove('is-done');
 }
 
 export class Collect {
@@ -120,6 +146,7 @@ export class Collect {
       b.className = 'co-period';
       b.setAttribute('role', 'tab');
       b.dataset.p = String(p);
+      b.innerHTML = `${ringSvg()}<b>${p}</b>`;
       b.onclick = () => this.setPeriod(p, null);
       this.periodsEl.append(b);
     }
@@ -173,23 +200,22 @@ export class Collect {
       const p = Number(b.dataset.p);
       const prog = periodProgress(p, this.save);
       const open = rowOpen(p, this.save);
-      b.innerHTML = `${ringsSvg(prog.stable, prog.fleeting, fleetOn)}<b>${p}</b>`;
+      paintRing(b.querySelector('svg')!, prog.stable, fleetOn ? prog.fleeting : 0);
       b.classList.toggle('is-locked', !open);
       b.setAttribute('aria-selected', String(p === this.period));
-      b.setAttribute('aria-label', `Period ${p}: ${pct(prog.stable)} stable${fleetOn ? `, ${pct(prog.fleeting)} fleeting` : ''}${open ? '' : ', locked'}`);
+      b.setAttribute('aria-label', `Period ${p}: ${pctLabel(prog.stable)} stable${fleetOn ? `, ${pctLabel(prog.fleeting)} fleeting` : ''}${open ? '' : ', locked'}`);
     });
   }
 
   private paintStats(): void {
     const prog = periodProgress(this.period, this.save);
     const fleetOn = fleetingOpen(this.save);
-    const bar = (v: number) => `<i class="co-bar${v >= 1 ? ' is-done' : ''}"><i style="width:${(Math.max(0, Math.min(1, v)) * 100).toFixed(1)}%"></i></i>`;
-    const stat = (ico: string, text: string, n: number, of: number, aria: string, off = false) =>
-      `<div class="co-stat${off ? ' is-off' : ''}" aria-label="${esc(aria)}"><span class="co-stat-ico">${icon(ico as never, { size: 20 })}</span><span class="co-stat-main"><b>${esc(text)}</b><span class="co-stat-low">${bar(of ? n / of : 0)}<span class="co-count${n >= of && of ? ' is-done' : ''}">${n}/${of}</span></span></span></div>`;
-    this.statsEl.innerHTML = stat('atom', 'Atoms', prog.built, prog.atoms, `${prog.built} of ${prog.atoms} atoms built`)
-      + stat('isotope-stable', 'Stable', prog.stableBuilt, prog.stableTotal, `Stable: ${prog.stableBuilt} of ${prog.stableTotal} built`)
-      + stat('isotope-fleeting', 'Fleeting', fleetOn ? prog.fleetingBuilt : 0, prog.fleetingTotal, fleetOn ? `Fleeting: ${prog.fleetingBuilt} of ${prog.fleetingTotal} built` : 'Fleeting isotopes open once an atom is built', !fleetOn);
-    this.statsEl.append(trackLegend({ labels: false }));
+    const stat = (ico: string, text: string, share: number, aria: string, off = false) =>
+      `<div class="co-stat${off ? ' is-off' : ''}${share >= 1 && !off ? ' is-done' : ''}" aria-label="${esc(aria)}"><span class="co-stat-ico">${icon(ico as never, { size: 20 })}</span><b>${esc(text)}</b><span class="co-pct">${off ? '0%' : pctLabel(share)}</span></div>`;
+    const of = (n: number, total: number) => (total ? n / total : 0);
+    this.statsEl.innerHTML = stat('atom', 'Atoms', of(prog.built, prog.atoms), `${prog.built} of ${prog.atoms} atoms built`)
+      + stat('isotope-stable', 'Stable', prog.stable, `Stable: ${prog.stableBuilt} of ${prog.stableTotal} built`)
+      + stat('isotope-fleeting', 'Fleeting', prog.fleeting, fleetOn ? `Fleeting: ${prog.fleetingBuilt} of ${prog.fleetingTotal} built` : 'Fleeting isotopes open once an atom is built', !fleetOn);
     const open = rowOpen(this.period, this.save);
     this.lockEl.hidden = open;
     this.el.classList.toggle('is-locked', !open);
@@ -218,7 +244,7 @@ export class Collect {
       row.dataset.z = String(z);
       const tone = toneOf(z, this.save);
       row.dataset.tone = tone;
-      row.setAttribute('aria-label', `${e.name}, ${e.symbol}, ${z}: ${pct(atomProgress(z, this.save))} built`);
+      row.setAttribute('aria-label', `${e.name}, ${e.symbol}, ${z}: ${pctLabel(atomProgress(z, this.save))} built`);
       row.innerHTML = `<span class="co-id"><small>${z}</small><b>${e.symbol}</b><span class="co-name">${esc(e.name)}</span></span><span class="co-pic"></span>`;
       row.append(trackCell(states[z - first], { cap: z === last ? 'bottom' : undefined }));
       this.list.append(row);
@@ -294,7 +320,7 @@ export class Collect {
     }
   }
 
-  /** Scrolling has stopped: the row on the focus line comes into focus and glides onto it. */
+  /** Scrolling has stopped: the row on the focus line comes into focus, where it is (no snap). */
   private settle(): void {
     const rows = [...this.list.querySelectorAll<HTMLElement>('.co-row')];
     const line = this.line();
@@ -302,8 +328,6 @@ export class Collect {
     const dist = (r: HTMLElement) => Math.abs(r.offsetTop - this.list.scrollTop + r.offsetHeight / 2 - line);
     const row = rows.reduce((best, r) => (dist(r) < dist(best) ? r : best));
     if (!row.classList.contains('is-current')) this.focusRow(row);
-    const to = this.scrollFor(row);
-    if (Math.abs(to - this.list.scrollTop) > 1) this.list.scrollTo({ top: to, behavior: reducedMotion() ? 'auto' : 'smooth' });
   }
 
   private focusRow(row: HTMLElement): void {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { defaultSave, type SaveData } from '../src/core/save';
-import { periodProgress, periodTracks } from '../src/gallery/collect';
+import { pctLabel, periodProgress, periodTracks } from '../src/gallery/collect';
 import { toneOf } from '../src/gallery/thumbs';
 import { lastingIsotopes, fleetingIsotopes } from '../src/core/progress';
 
@@ -46,5 +46,15 @@ describe('Collect', () => {
     expect(rows[0].fleeting).toMatchObject({ kind: 'bar', done: false });
     // A period not open yet: its stops are locked.
     expect(periodTracks(4, defaultSave()).every((r) => r.stable?.locked)).toBe(true);
+  });
+});
+
+describe('pctLabel', () => {
+  it('never rounds a start down to nothing or a near miss up to all', () => {
+    expect(pctLabel(0)).toBe('0%');
+    expect(pctLabel(0.001)).toBe('1%');
+    expect(pctLabel(0.2)).toBe('20%');
+    expect(pctLabel(0.998)).toBe('99%');
+    expect(pctLabel(1)).toBe('100%');
   });
 });

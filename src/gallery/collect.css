@@ -3,41 +3,35 @@
 .collect-screen { position: fixed; inset: 0; z-index: 2; display: flex; flex-direction: column; padding-top: var(--top); background: var(--c-bg); font-family: var(--font); }
 .collect-screen[hidden] { display: none; }
 
-/* Periods: "Period", then each number inside two rings of its progress (stable outside,
-   fleeting inside); the one on show on a plate, its number in the accent. */
+/* Periods: "Period", then each number in one ring of its progress, split in two halves (stable
+   right, fleeting left, collect.ts paintRing); the one on show on a plate, its number in the
+   accent and its ring drawn thick, easing there as the period changes. */
 .co-periods { display: flex; align-items: center; justify-content: space-between; gap: 0; padding: var(--sp-2) var(--sp-3); background: var(--c-nav); }
 .co-plabel { margin-right: var(--sp-1); font-size: var(--fs-sm); font-weight: var(--fw-semibold); color: var(--c-text-2); }
 .co-period { position: relative; flex: none; width: 42px; height: 42px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--c-text); font-family: var(--font); cursor: pointer; -webkit-tap-highlight-color: transparent; }
-.co-period .co-rings { position: absolute; inset: 1px; width: 40px; height: 40px; }
+.co-period .co-ring { position: absolute; inset: 1px; width: 40px; height: 40px; opacity: 0.35; transition: opacity 0.35s var(--ease); }
 .co-period b { position: relative; font-size: var(--fs-md); font-weight: var(--fw-semibold); }
 .co-period[aria-selected='true'] { background: var(--c-pick); }
-/* Only the period on show carries its rings in full; the others' stay faint. */
-.co-period:not([aria-selected='true']) .co-rings { opacity: 0.3; }
-.co-period:not([aria-selected='true']) .co-ring-track, .co-period:not([aria-selected='true']) .co-ring-on { stroke-width: 2; }
+.co-period[aria-selected='true'] .co-ring { opacity: 1; }
 .co-period[aria-selected='true'] b { color: var(--c-accent); }
 .co-period.is-locked b { color: var(--c-text-2); }
 .co-period:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 1px; }
-.co-ring-track, .co-ring-on { fill: none; stroke-width: 3; }
+.co-ring-track, .co-ring-on { fill: none; stroke-width: 2; stroke-linecap: round; transition: stroke-width 0.35s var(--ease); }
+.co-period[aria-selected='true'] .co-ring-track, .co-period[aria-selected='true'] .co-ring-on { stroke-width: 4; }
 .co-ring-track { stroke: var(--c-line-2); }
-.co-ring-on { stroke: var(--c-text); stroke-linecap: round; }
+.co-ring-on { stroke: var(--c-text); }
+.co-ring-on.is-empty { stroke: none; }
 .co-ring-on.is-done { stroke: var(--c-done); }
+@media (prefers-reduced-motion: reduce) { .co-ring, .co-ring-track, .co-ring-on { transition: none; } }
 
-/* Progress: atoms built, stable and fleeting, each an icon over its words and bar, and the
-   tracks' legend at the right over the lanes. */
-.co-stats { display: flex; align-items: flex-end; gap: var(--sp-3); padding: var(--sp-1) var(--sp-4) var(--sp-2); background: var(--c-nav); }
-.co-stat { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; }
+/* Progress: one line, each share an icon, its word and its percent. */
+.co-stats { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); padding: var(--sp-1) var(--sp-4) var(--sp-3); background: var(--c-nav); }
+.co-stat { min-width: 0; display: flex; align-items: center; gap: 6px; font-size: var(--fs-sm); white-space: nowrap; }
 .co-stat-ico { flex: none; display: grid; color: var(--c-text-2); }
-.co-stat-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.co-stat-low { display: flex; align-items: center; gap: 6px; min-width: 0; }
-.co-stat-low .co-bar { flex: 1; min-width: 16px; }
-.co-stat-main b { font-size: var(--fs-sm); font-weight: var(--fw-semibold); color: var(--c-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.co-count { flex: none; font-size: var(--fs-sm); font-weight: var(--fw-medium); color: var(--c-text); font-variant-numeric: tabular-nums; }
-.co-count.is-done { color: var(--c-done); }
-.co-stat.is-off b, .co-stat.is-off .co-count { color: var(--c-text-2); }
-.co-bar { display: block; height: 4px; border-radius: 2px; background: var(--c-line-2); overflow: hidden; }
-.co-bar i { display: block; height: 100%; border-radius: 2px; background: var(--c-text); }
-.co-bar.is-done i { background: var(--c-done); }
-.co-stats .trk-legend { flex: none; width: 48px; justify-content: flex-end; }
+.co-stat b { font-weight: var(--fw-semibold); color: var(--c-text); }
+.co-pct { font-weight: var(--fw-medium); color: var(--c-text); font-variant-numeric: tabular-nums; }
+.co-stat.is-done .co-pct { color: var(--c-done); }
+.co-stat.is-off b, .co-stat.is-off .co-pct { color: var(--c-text-2); }
 
 /* A period not open yet: what opens it. Its atoms are gray but can still be opened. */
 .co-lock { display: flex; align-items: center; gap: var(--sp-3); margin: var(--sp-3) var(--sp-3) 0; padding: var(--sp-3) var(--sp-4); border-radius: var(--r-md); background: var(--c-surface-2); font-size: var(--fs-sm); color: var(--c-text); }
