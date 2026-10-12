@@ -121,6 +121,8 @@ export class Game {
   }
 
   get currentZ(): number { return this.z; }
+  /** A puzzle is open, rather than the Build page. */
+  get inPuzzle(): boolean { return this.stage !== 'home'; }
 
   /** Opens one of an atom's puzzles, from the Next button anywhere in the app. A puzzle under way
    *  is kept to pick up later; a stage that isn't open yet leaves the player on the Build page. */
@@ -1036,8 +1038,15 @@ export class Game {
   }
 
   private onKey(e: KeyboardEvent): void {
-    if (this.paused || $('app').hidden || modalOpen() || confirming() || $('app').querySelector('.win')) return;
-    if (e.key === 'Escape' && this.stage !== 'home') { this.toHome(); e.preventDefault(); return; }
+    if (this.paused || $('app').hidden || modalOpen() || confirming() || document.querySelector('.win')) return;
+    // Escape steps back: from a puzzle to the Build page, from the Build page to Collect (as the
+    // atom's View does).
+    if (e.key === 'Escape') {
+      if (this.stage !== 'home') this.toHome();
+      else $('app').dispatchEvent(new CustomEvent('atomos:collect', { bubbles: true, detail: { z: this.z } }));
+      e.preventDefault();
+      return;
+    }
     if (e.key === 'u' || (e.key === 'z' && (e.ctrlKey || e.metaKey))) return this.undo();
     if (e.key === 'r' && !e.ctrlKey && !e.metaKey) { void askRestart(this.restartOptions()); return; }
     if (e.key === 'h' && !e.ctrlKey && !e.metaKey && this.puzzle) { this.hints.ask(); return; }

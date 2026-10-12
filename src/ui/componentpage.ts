@@ -1,6 +1,6 @@
 // The component library page: every shared button, choice, overlay and mark in the app, working,
 // each with a line on where it is used, so they can be tuned in one place. Reached from the
-// bottom of Settings (or #components), like the icon library; Back returns to the gallery.
+// bottom of Settings (or #components), like the icon library; Back returns to Settings.
 // Everything here is the real component (components.ts, gamebar.ts, progress.ts and the
 // stylesheets), never a copy, so a change to one shows here and in the app at once.
 
@@ -63,7 +63,7 @@ function fakeView(moves: number): PuzzleView {
 export function renderComponentPage(page: HTMLElement, onBack: () => void): void {
   page.replaceChildren();
   const head = h('div', 'ip-head');
-  head.append(backButton('Tables', onBack));
+  head.append(backButton('Settings', onBack));
   page.append(head, h('h1', 'ip-title', 'Components'), h('p', 'ip-lede', 'Every shared button, choice, overlay and mark, working. They are the real components, so tuning one here tunes it everywhere it is used. Icons have their own <a href="#icons">library</a>.'));
 
   // ---- Buttons ----
