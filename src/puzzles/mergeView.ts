@@ -1,9 +1,10 @@
-// Drawing and touch for the Merge puzzle: a swipe slides the board; a cluster
-// of the wanted size flies up into the nucleus.
+// Drawing and touch for the Merge puzzle (Tokamak): a swipe slides the board; a cluster of the
+// wanted size flies up into the nucleus. Shards of the reactor wall sit dark on the board from
+// period 5 on. In capture mode one socket wants exactly the mass number.
 
 import { ALL_SYMBOLS } from '../core/elements';
-import { bestSwipe, cloneMerge, closestPair, inReach, jammed, mergeOf, slide, wanted, won, type Dir, type MergeState, type Tile } from './merge';
-import { drawHelpMark, HINT_RGB, ease, MONO, undoHelp, type Area, type Help, type Point, type PuzzleView, type RuleCard } from './view';
+import { bestSwipe, biggest, cloneMerge, closestPair, inReach, jammed, mergeOf, slide, wanted, won, type Dir, type MergeState, type Tile } from './merge';
+import { drawHelpMark, HINT_RGB, ease, undoHelp, type Area, type Help, type Point, type PuzzleView, type RuleCard } from './view';
 import { C, font, tile as roundTile } from './palette';
 import { drawFrame, frameWidth, framePad } from './frame';
 
@@ -15,6 +16,11 @@ const SWIPE = 22;
 const ARROW_MS = 900;
 
 const symbolOf = (z: number) => ALL_SYMBOLS[z - 1] ?? '?';
+/** "an 8", "an 18", "a 32": the article a number takes when read aloud. */
+const an = (n: number) => {
+  const d = String(n);
+  return d[0] === '8' || ((d.length === 2 || d.length === 5) && (d.startsWith('11') || d.startsWith('18'))) ? 'an' : 'a';
+};
 
 export class MergeView implements PuzzleView {
   private state: MergeState;
@@ -35,23 +41,34 @@ export class MergeView implements PuzzleView {
     this.reduced = reducedMotion;
   }
 
+  private get capture(): boolean { return this.state.mode === 'capture'; }
+
   get won(): boolean { return won(this.state); }
   get stuck(): boolean { return jammed(this.state); }
+  /** A jammed board is lost; undo still steps back from it. */
+  get failed(): boolean { return this.stuck; }
+  get loss(): { headline: string; undo: boolean } { return { headline: 'Jammed', undo: true }; }
   get moves(): number { return this.state.moves; }
   get par(): number | null { return this.state.par; }
-  get clean(): boolean { return this.state.spoils === 0; }
+  /** Flawless: no cracks, and within par (par is the swipe budget). */
+  get clean(): boolean { return this.state.spoils === 0 && this.state.moves <= this.state.par; }
 
-  /** The game bar's Progress column: the nucleus's clusters fused so far. */
+  /** The game bar's Progress column: the nucleus's clusters fused so far, or in capture mode the
+   *  biggest cluster against the mass number. */
   stats(): { progress: { label: string; value: string } } {
-    return { progress: { label: 'Fused', value: `${this.state.filled}/${this.state.sockets.length}` } };
+    const s = this.state;
+    if (this.capture) return { progress: { label: 'Capture', value: `${this.won ? s.target.a : biggest(s)}/${s.target.a}` } };
+    return { progress: { label: 'Fused', value: `${s.filled}/${s.sockets.length}` } };
   }
 
   hint(): string {
     const want = wanted(this.state);
-    if (this.won) return 'Nucleus complete';
-    if (this.stuck) return 'Jammed: restart';
-    if (this.state.cells.some((c) => c?.spoiled)) return 'Cracked: it crumbles next swipe';
-    return want === null ? '' : `Next: a ${want}`;
+    const lead = this.capture ? 'Capture mode: ' : '';
+    if (this.won) return this.capture ? `Capture mode: ${this.state.target.a} built` : 'Nucleus complete';
+    if (this.stuck) return `${lead}${lead ? 'jammed' : 'Jammed'}, undo or restart`;
+    if (this.state.cells.some((c) => c?.spoiled)) return this.capture ? 'Capture mode: overshot, it crumbles next swipe' : 'Cracked: it crumbles next swipe';
+    if (want === null) return '';
+    return this.capture ? `Capture mode: build exactly ${want}` : `Next: ${an(want)} ${want}`;
   }
 
   help(level: 1 | 2): Help | null {
@@ -65,15 +82,20 @@ export class MergeView implements PuzzleView {
       this.swipe(dir);
       this.shown = { state: this.state, dir, at: performance.now() };
       const flew = this.state.flown[0]?.tile.v;
-      const text = flew ? `Swiped ${dir}, and ${flew === 8 ? 'an' : 'a'} ${flew} flew into the nucleus.`
+      const text = flew ? (this.capture ? `Swiped ${dir}, and the ${flew} is complete.` : `Swiped ${dir}, and ${an(flew)} ${flew} flew into the nucleus.`)
+        : merge?.capture ? `Swiped ${dir} so the ${merge.makes - 1} captured a neutron.`
         : merge ? `Swiped ${dir} to merge two ${merge.makes / 2}s.`
         : `Swiped ${dir} to set up the next merge.`;
       return { text, moved: true };
     }
-    // Ring the merge the best swipe makes, or else the best pair still to bring together.
+    // Ring the join the best swipe makes, or else the best pair still to bring together.
     const pair = merge ? { ...merge, lined: true } : closestPair(s);
     if (pair) {
       this.mark = { state: s, cells: pair.cells };
+      if (pair.capture) {
+        const big = pair.makes - 1;
+        return { text: pair.lined ? `This ${big} can capture this neutron.` : `This ${big} can capture this neutron once they line up.` };
+      }
       const v = pair.makes / 2;
       const text = pair.makes === want ? `These two ${v}s can merge into the ${want} the nucleus wants.`
         : pair.lined ? `These two ${v}s can merge toward the target.`
@@ -165,11 +187,15 @@ export class MergeView implements PuzzleView {
 
     this.drawGoal(ctx, x0 - pad, y0 - pad - goalH, side + 2 * pad);
 
-    // The board: the shared frame, and a faint dot at each empty cell's center.
+    // The board: the shared frame, the wall shards, and a faint dot at each empty cell's center.
     drawFrame(ctx, { x: x0 - pad, y: y0 - pad, w: side + 2 * pad, h: side + 2 * pad }, { width: frameWidth(cell), radius: cell * 0.2 + pad });
+    for (const i of this.state.walls) {
+      const c = center(i);
+      drawShard(ctx, c.x, c.y, r, i, frameWidth(cell));
+    }
     ctx.fillStyle = C.line2;
     for (let i = 0; i < n * n; i++) {
-      if (this.state.cells[i]) continue;
+      if (this.state.cells[i] || this.state.walls.includes(i)) continue;
       const c = center(i);
       ctx.beginPath();
       ctx.arc(c.x, c.y, Math.max(1.5, cell * 0.035), 0, Math.PI * 2);
@@ -240,18 +266,20 @@ export class MergeView implements PuzzleView {
   }
 
   /** The goal row's shape for a width: the nucleus's name with its sockets beside it when they
-   *  fit, or on a row of their own below it. */
-  private goalLayout(ctx: CanvasRenderingContext2D, w: number): { h: number; beside: boolean; sr: number; gap: number; labelW: number } {
+   *  fit, or on a row of their own below it. Capture mode adds its name before the one socket. */
+  private goalLayout(ctx: CanvasRenderingContext2D, w: number): { h: number; beside: boolean; sr: number; gap: number; labelW: number; tagW: number } {
     const n = this.state.sockets.length;
     ctx.font = font(26, 700);
     const labelW = ctx.measureText(`${sup(String(this.state.target.a))}${symbolOf(this.state.target.z)}`).width;
+    ctx.font = font(15, 600);
+    const tagW = this.capture ? ctx.measureText(CAPTURE_TAG).width + 12 : 0;
     let sr = 20, gap = sr * 2 + 12;
-    const beside = n * gap <= w - labelW - 20;
+    const beside = n * gap + tagW <= w - labelW - 20;
     if (!beside) {
-      gap = Math.min(gap, w / n);
+      gap = Math.min(gap, (w - tagW) / n);
       sr = Math.max(10, Math.min(sr, gap / 2 - 4));
     }
-    return { h: beside ? sr * 2 + 8 : 34 + sr * 2 + 8, beside, sr, gap, labelW };
+    return { h: beside ? sr * 2 + 8 : 34 + sr * 2 + 8, beside, sr, gap, labelW, tagW };
   }
 
   /** The nucleus being gathered: its name, and a socket per wanted cluster (the next one white). */
@@ -270,6 +298,16 @@ export class MergeView implements PuzzleView {
     const total = s.sockets.length * L.gap;
     let cx = x + w - total + L.gap / 2;
     const cy = L.beside ? y + L.sr + 4 : y + 34 + L.sr + 4;
+    if (this.capture) {
+      // Capture mode says so beside its one socket.
+      ctx.save();
+      ctx.font = font(15, 600);
+      ctx.fillStyle = C.text2;
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(CAPTURE_TAG, cx - L.sr - 10, cy + 1);
+      ctx.restore();
+    }
     this.socketAt = [];
     s.sockets.forEach((v, i) => {
       this.socketAt.push({ x: cx, y: cy });
@@ -283,6 +321,56 @@ export class MergeView implements PuzzleView {
   private drawTile(ctx: CanvasRenderingContext2D, tile: Tile, x: number, y: number, r: number, alpha: number, lit: boolean): void {
     drawCluster(ctx, tile, x, y, r, alpha, lit);
   }
+}
+
+/** Capture mode's name beside its socket. */
+const CAPTURE_TAG = 'Capture: exactly';
+
+/**
+ * A shard of the reactor wall: a dark faceted crystal on the frame's own stroke, with one lighter
+ * face. Its outline wobbles a little per cell, so two shards are never the same stone.
+ */
+export function drawShard(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, k: number, width: number): void {
+  if (!(r > 0)) return;
+  const pts: [number, number][] = [];
+  const n = 7;
+  for (let i = 0; i < n; i++) {
+    const a = -Math.PI / 2 + (i * 2 * Math.PI) / n + 0.22 * Math.sin(k * 1.7 + i * 2.3);
+    const rr = r * (0.72 + 0.16 * Math.sin(k * 2.9 + i * 1.3));
+    pts.push([x + Math.cos(a) * rr, y + Math.sin(a) * rr]);
+  }
+  const core: [number, number] = [x - r * 0.12, y - r * 0.08];
+  ctx.save();
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  pts.forEach(([px, py], i) => (i ? ctx.lineTo(px, py) : ctx.moveTo(px, py)));
+  ctx.closePath();
+  ctx.fillStyle = C.surface2;
+  ctx.fill();
+  // The lit faces: two triangles from the core to the upper rim.
+  ctx.fillStyle = C.surface3;
+  for (const [a, b] of [[n - 1, 0], [0, 1]]) {
+    ctx.beginPath();
+    ctx.moveTo(core[0], core[1]);
+    ctx.lineTo(pts[a][0], pts[a][1]);
+    ctx.lineTo(pts[b][0], pts[b][1]);
+    ctx.closePath();
+    ctx.fill();
+  }
+  // The facet edges, faint, then the outline in the frame's stroke.
+  ctx.strokeStyle = C.frame;
+  ctx.globalAlpha = 0.55;
+  ctx.lineWidth = Math.max(1.5, width * 0.45);
+  ctx.beginPath();
+  for (const i of [0, 2, 4, 5]) { ctx.moveTo(core[0], core[1]); ctx.lineTo(pts[i][0], pts[i][1]); }
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+  ctx.lineWidth = width;
+  ctx.beginPath();
+  pts.forEach(([px, py], i) => (i ? ctx.lineTo(px, py) : ctx.moveTo(px, py)));
+  ctx.closePath();
+  ctx.stroke();
+  ctx.restore();
 }
 
 /** Corner radius of a cluster tile, as a share of its side. */
@@ -319,7 +407,7 @@ export function drawCluster(ctx: CanvasRenderingContext2D, tile: Pick<Tile, 'v' 
   roundTile(ctx, x - r, y - r, side, side, rad, hue);
   ctx.shadowBlur = 0;
   if (tile.spoiled) {
-    ctx.strokeStyle = C.bad;
+    ctx.strokeStyle = C.warn;
     ctx.lineWidth = Math.max(1.5, r * 0.08);
     ctx.beginPath();
     ctx.moveTo(x - r * 0.7, y - r * 0.5);
@@ -387,7 +475,11 @@ export function sup(s: string): string {
 
 export const INSTRUCTIONS = `
 <h3>In the game</h3>
-<p class="meta">Builds the nucleus of every element from helium to iron (hydrogen has nothing to gather). The sockets are the mass number of the element's most common isotope written in powers of two, so the number of sockets and their sizes set the difficulty. Par is a nucleon budget (about 0.7 swipes per nucleon), still a first guess: light elements are easy enough that random swiping often beats it. No cracks means a flawless build.</p>`;
+<p class="meta">Builds the nucleus of every element from helium to oganesson (hydrogen has nothing to gather). The sockets are the mass number of the element's most common isotope written in powers of two, and every cluster shows its true nucleon count. Periods 1 to 3 deal single nucleons and stay gentle. From period 4 the biggest socket can be 64 times the smallest cluster dealt (heavier nuclei deal bigger clusters to stay there); period 5 adds a shard of the reactor wall in the middle of the board, period 6 climbs to 128, and period 7 has two shards on the edges. Every deal is first played through by a look-ahead player: shards go only where it still wins, Show me follows its line, and from period 4 par is its swipe count plus 30% and four. Going over par or cracking a cluster costs the star; a board with no swipe left is lost, though undo still steps back.</p>`;
+
+export const CAPTURE_INSTRUCTIONS = `
+<h3>In the game</h3>
+<p class="meta">Capture mode, played from Puzzles only, for the elements past iron (cobalt to oganesson). The nucleus wants one cluster of exactly its mass number. The board deals seed clusters (the mass number halved two to four times and rounded down: four from tin's 120 on when few neutrons are left over), double seeds and lone neutrons, so a few doublings and at most six captures finish it. Every deal is first played through by a look-ahead player; Show me follows its line, and par is its swipe count plus 30% and four. Overshooting (a crack) or going over par costs the star; a board with no swipe left is lost, though undo still steps back.</p>`;
 
 // ---- rules ------------------------------------------------------------------------
 //
@@ -618,7 +710,7 @@ export const RULES: RuleCard[] = [
   },
   {
     title: 'Cracks',
-    text: 'A cluster bigger than anything still wanted cracks, and crumbles away on your next swipe. No cracks means a flawless build.',
+    text: 'A cluster bigger than anything still wanted cracks, and crumbles away on your next swipe. No cracks, within par, means a flawless build.',
     good: {
       duration: 2.4,
       caption: 'Two 1s make the 2 still wanted',
@@ -648,6 +740,195 @@ export const RULES: RuleCard[] = [
           drawCluster(ctx, cl(2), mix(g.at(2), g.at(0), k), g.cy, g.r);
           drawCluster(ctx, cl(2), g.at(0), g.cy, g.r);
         } else drawCluster(ctx, cl(4, t > 1.25), g.at(0), g.cy, g.r * popScale(t, 0.95));
+        waitRing(ctx, g.at(0), g.cy, g.r + 4, seg(t, 1.3, 1.6));
+      },
+    },
+  },
+  {
+    title: 'Wall shards',
+    text: 'From period 5 on, shards of the reactor wall sit on the board. Clusters stop against them and never pass through.',
+    good: {
+      duration: 2,
+      caption: 'Stops at the shard',
+      draw: (ctx, w, h, t) => {
+        const row = plainRow(ctx, w, h), k = seg(t, 0.55, 0.95);
+        drawShard(ctx, row.at(1), row.cy, row.r, 1, 3);
+        swipeArrow(ctx, row, (t - 0.25) / 0.8);
+        drawCluster(ctx, cl(1), row.at(0), row.cy, row.r);
+        drawCluster(ctx, cl(2), mix(row.at(3), row.at(2), k), row.cy, row.r);
+        if (t > 1.2) drawCluster(ctx, cl(1), row.at(3), row.cy, row.r * seg(t, 1.2, 1.5));
+      },
+    },
+    bad: {
+      duration: 2,
+      caption: 'No merging through it',
+      draw: (ctx, w, h, t) => {
+        const row = plainRow(ctx, w, h), k = seg(t, 0.55, 0.95);
+        drawShard(ctx, row.at(1), row.cy, row.r, 1, 3);
+        swipeArrow(ctx, row, (t - 0.25) / 0.8);
+        drawCluster(ctx, cl(2), row.at(0), row.cy, row.r);
+        drawCluster(ctx, cl(2), mix(row.at(3), row.at(2), k), row.cy, row.r);
+        if (t > 1.1) {
+          ctx.save();
+          ctx.globalAlpha = seg(t, 1.1, 1.4);
+          notEqual(ctx, row.at(1), row.cy - row.r - 6, 4);
+          ctx.restore();
+        }
+      },
+    },
+  },
+  {
+    title: 'Jammed',
+    text: 'A full board with no swipe left is lost. Undo steps back from it, and Restart deals the same board again.',
+    good: {
+      duration: 1.8,
+      caption: 'A merge frees a cell',
+      draw: (ctx, w, h, t) => {
+        const row = plainRow(ctx, w, h), k = seg(t, 0.55, 0.95);
+        swipeArrow(ctx, row, (t - 0.25) / 0.8);
+        if (t < 0.95) {
+          drawCluster(ctx, cl(2), row.at(0), row.cy, row.r);
+          drawCluster(ctx, cl(2), mix(row.at(1), row.at(0), k), row.cy, row.r);
+        } else drawCluster(ctx, cl(4), row.at(0), row.cy, row.r * popScale(t, 0.95));
+        drawCluster(ctx, cl(1), mix(row.at(2), row.at(1), k), row.cy, row.r);
+        drawCluster(ctx, cl(8), mix(row.at(3), row.at(2), k), row.cy, row.r);
+      },
+    },
+    bad: {
+      duration: 1.8,
+      caption: 'No swipe left',
+      draw: (ctx, w, h, t) => {
+        const row = plainRow(ctx, w, h);
+        swipeArrow(ctx, row, (t - 0.25) / 0.8);
+        [2, 1, 4, 1].forEach((v, i) => drawCluster(ctx, cl(v), row.at(i), row.cy, row.r));
+        for (let i = 0; i < 3; i++) {
+          ctx.save();
+          ctx.globalAlpha = seg(t, 0.9 + i * 0.15, 1.2 + i * 0.15);
+          notEqual(ctx, (row.at(i) + row.at(i + 1)) / 2, row.cy - row.r - 6, 4);
+          ctx.restore();
+        }
+      },
+    },
+  },
+];
+
+// ---- capture mode's rules ---------------------------------------------------------
+
+/** One socket centered above a row, for capture mode's target. */
+function targetRow(ctx: CanvasRenderingContext2D, w: number, h: number): Row & { sr: number; sx: number; sy: number } {
+  const g = nucleusRow(ctx, w, h);
+  return { ...g, sx: w / 2, sy: g.sy };
+}
+
+export const CAPTURE_RULES: RuleCard[] = [
+  {
+    title: 'Swipe',
+    text: 'Swipe, or press an arrow key, to slide every cluster as far as it goes. A seed cluster or a lone neutron drops in after each swipe.',
+    good: {
+      duration: 2,
+      caption: 'All slide left',
+      draw: (ctx, w, h, t) => {
+        const row = plainRow(ctx, w, h), k = seg(t, 0.55, 0.95);
+        swipeArrow(ctx, row, (t - 0.25) / 0.8);
+        drawCluster(ctx, cl(27), mix(row.at(1), row.at(0), k), row.cy, row.r);
+        drawCluster(ctx, cl(14), mix(row.at(3), row.at(1), k), row.cy, row.r);
+        if (t > 1.2) drawCluster(ctx, cl(1), row.at(3), row.cy, row.r * seg(t, 1.2, 1.5));
+      },
+    },
+  },
+  {
+    title: 'Doubling',
+    text: 'Two clusters of the same size that meet merge into one twice as big. Any size doubles: 27 and 27 make 54.',
+    good: {
+      duration: 1.8,
+      caption: 'Two 27s make 54',
+      draw: (ctx, w, h, t) => {
+        const row = plainRow(ctx, w, h), k = seg(t, 0.55, 0.95);
+        swipeArrow(ctx, row, (t - 0.25) / 0.8);
+        if (t < 0.95) {
+          drawCluster(ctx, cl(27), mix(row.at(1), row.at(0), k), row.cy, row.r);
+          drawCluster(ctx, cl(27), mix(row.at(3), row.at(0), k), row.cy, row.r);
+        } else drawCluster(ctx, cl(54), row.at(0), row.cy, row.r * popScale(t, 0.95));
+      },
+    },
+    bad: {
+      duration: 1.8,
+      caption: "27 and 28 don't merge",
+      draw: (ctx, w, h, t) => {
+        const row = plainRow(ctx, w, h), k = seg(t, 0.55, 0.95);
+        swipeArrow(ctx, row, (t - 0.25) / 0.8);
+        drawCluster(ctx, cl(27), mix(row.at(1), row.at(0), k), row.cy, row.r);
+        drawCluster(ctx, cl(28), mix(row.at(3), row.at(1), k), row.cy, row.r);
+        if (t > 1.1) {
+          ctx.save();
+          ctx.globalAlpha = seg(t, 1.1, 1.4);
+          notEqual(ctx, (row.at(0) + row.at(1)) / 2, row.cy - row.r - 6, 4);
+          ctx.restore();
+        }
+      },
+    },
+  },
+  {
+    title: 'Neutron capture',
+    text: 'A lone neutron that meets a cluster of 8 or more is captured, and the cluster grows by one. Two lone neutrons never pair up.',
+    good: {
+      duration: 1.8,
+      caption: 'A 27 captures one',
+      draw: (ctx, w, h, t) => {
+        const row = plainRow(ctx, w, h), k = seg(t, 0.55, 0.95);
+        swipeArrow(ctx, row, (t - 0.25) / 0.8);
+        if (t < 0.95) {
+          drawCluster(ctx, cl(27), row.at(0), row.cy, row.r);
+          drawCluster(ctx, cl(1), mix(row.at(3), row.at(0), k), row.cy, row.r);
+        } else drawCluster(ctx, cl(28), row.at(0), row.cy, row.r * popScale(t, 0.95));
+      },
+    },
+    bad: {
+      duration: 1.8,
+      caption: 'A 4 is too small',
+      draw: (ctx, w, h, t) => {
+        const row = plainRow(ctx, w, h), k = seg(t, 0.55, 0.95);
+        swipeArrow(ctx, row, (t - 0.25) / 0.8);
+        drawCluster(ctx, cl(4), row.at(0), row.cy, row.r);
+        drawCluster(ctx, cl(1), mix(row.at(3), row.at(1), k), row.cy, row.r);
+        if (t > 1.1) {
+          ctx.save();
+          ctx.globalAlpha = seg(t, 1.1, 1.4);
+          notEqual(ctx, (row.at(0) + row.at(1)) / 2, row.cy - row.r - 6, 4);
+          ctx.restore();
+        }
+      },
+    },
+  },
+  {
+    title: 'Exactly',
+    text: 'The nucleus wants one cluster of exactly its mass number. A cluster that overshoots it cracks and crumbles away.',
+    good: {
+      duration: 2.4,
+      caption: 'Two 28s make the 56',
+      draw: (ctx, w, h, t) => {
+        const g = targetRow(ctx, w, h), k = seg(t, 0.55, 0.95), f = clamp01((t - 1.05) / 0.8);
+        const inside = f >= 1;
+        drawSocket(ctx, g.sx, g.sy, g.sr, 56, inside ? 'filled' : 'next');
+        swipeArrow(ctx, g, (t - 0.25) / 0.8);
+        if (t < 0.95) {
+          drawCluster(ctx, cl(28), mix(g.at(2), g.at(0), k), g.cy, g.r);
+          drawCluster(ctx, cl(28), g.at(0), g.cy, g.r);
+        } else if (!inside) fly(ctx, 56, g.at(0), g.cy, g.sx, g.sy, g.r, g.sr, h * 0.1, f);
+        else flightArc(ctx, g.at(0), g.cy - g.r, g.sx, g.sy + g.sr, h * 0.06);
+      },
+    },
+    bad: {
+      duration: 2,
+      caption: '58 overshoots 56',
+      draw: (ctx, w, h, t) => {
+        const g = targetRow(ctx, w, h), k = seg(t, 0.55, 0.95);
+        drawSocket(ctx, g.sx, g.sy, g.sr, 56, 'next');
+        swipeArrow(ctx, g, (t - 0.25) / 0.8);
+        if (t < 0.95) {
+          drawCluster(ctx, cl(29), mix(g.at(2), g.at(0), k), g.cy, g.r);
+          drawCluster(ctx, cl(29), g.at(0), g.cy, g.r);
+        } else drawCluster(ctx, cl(58), g.at(0), g.cy, g.r * popScale(t, 0.95));
         waitRing(ctx, g.at(0), g.cy, g.r + 4, seg(t, 1.3, 1.6));
       },
     },

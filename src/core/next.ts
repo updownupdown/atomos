@@ -36,6 +36,7 @@ export const GAME_NAMES: Record<string, string> = {
   merge: 'Tokamak', orbitalGrid: 'Quanta', sliding: 'Nova', packing: 'Tessera', lines: 'Flux',
   slideStop: 'Inertia', light: 'Lumen', rutherford: 'Aurum', codebreaker: 'Glyph', colorCharge: 'Chroma',
   bond: 'Bond', spin: 'Spin', fission: 'Fission',
+  capture: 'Capture',
 };
 
 let paused: { z: number; stage: string; game: string } | null = null;

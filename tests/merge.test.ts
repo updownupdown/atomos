@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { element } from '../src/core/elements';
-import { bestSwipe, inReach, jammed, newMerge, slide, socketsFor, wanted, won, type MergeState, type Tile } from '../src/puzzles/merge';
-import { INSTRUCTIONS, MergeView, RULES } from '../src/puzzles/mergeView';
+import {
+  bestSwipe, captureMix, captureShape, clusterUnit, inReach, jammed, joined, mergeShape, newCapture, newMerge, slide, socketsFor, spawnMix,
+  wanted, won, type MergeState, type Tile,
+} from '../src/puzzles/merge';
+import { CAPTURE_INSTRUCTIONS, CAPTURE_RULES, INSTRUCTIONS, MergeView, RULES } from '../src/puzzles/mergeView';
+import { mergeLevel } from '../src/puzzles/levels';
+import { puzzleType } from '../src/puzzles/catalog';
+import { GAME_NAMES } from '../src/core/next';
+import { checkRules, inside } from './rulesCheck';
 import { C } from '../src/puzzles/palette';
 import type { RuleCard } from '../src/puzzles/view';
 
@@ -312,17 +319,18 @@ function checkPictures(rules: RuleCard[]): void {
 
 describe('rule cards', () => {
   it('have a title, plain text and pictures that stay in their box', () => {
-    expect(RULES.map((r) => r.title)).toEqual(['Swipe', 'Merge', 'Clusters', 'The nucleus', 'Into the nucleus', 'Cracks']);
+    expect(RULES.map((r) => r.title)).toEqual(['Swipe', 'Merge', 'Clusters', 'The nucleus', 'Into the nucleus', 'Cracks', 'Wall shards', 'Jammed']);
     checkPictures(RULES);
     for (const r of RULES) expect(r.good, r.title).toBeDefined();
   });
 
   it('shows the mistake beside the right move where there is one to make', () => {
-    expect(RULES.filter((r) => r.bad).map((r) => r.title)).toEqual(['Merge', 'Into the nucleus', 'Cracks']);
-    // The mistake is flagged in amber, or by the board's own crack.
+    expect(RULES.filter((r) => r.bad).map((r) => r.title)).toEqual(['Merge', 'Into the nucleus', 'Cracks', 'Wall shards', 'Jammed']);
+    // The mistake is flagged in amber (the board's own crack is amber too).
     for (const r of RULES.filter((x) => x.bad)) {
       const { colors } = record((ctx) => r.bad!.draw(ctx, 140, 104, r.bad!.duration));
-      expect(colors.has(C.warn) || (r.title === 'Cracks' && colors.has(C.bad)), r.title).toBe(true);
+      expect(colors.has(C.warn), r.title).toBe(true);
+      expect(colors.has(C.bad), r.title).toBe(false);
     }
     // The right move's still flags nothing.
     for (const r of RULES) expect(record((ctx) => r.good!.draw(ctx, 140, 104, r.good!.duration)).colors.has(C.warn), r.title).toBe(false);
@@ -331,5 +339,239 @@ describe('rule cards', () => {
   it('keeps only the game meta in INSTRUCTIONS', () => {
     expect(INSTRUCTIONS).toMatch(/<h3>In the game<\/h3>/);
     expect(INSTRUCTIONS).not.toMatch(/How to play/);
+  });
+});
+
+// ---- harder boards: climb, wall shards, par as a budget, jams lost ------------------------------
+
+describe('harder boards', () => {
+  const real = (z: number, seed: number) => newMerge({ z, a: element(z).commonA }, seed);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const stateOf = (v: MergeView): MergeState => (v as any).state;
+
+  it('shapes the board by period', () => {
+    expect(mergeShape(18)).toMatchObject({ climb: 32, walls: 0, budget: false });
+    expect(mergeShape(19)).toMatchObject({ climb: 64, walls: 0, budget: true });
+    expect(mergeShape(37)).toMatchObject({ climb: 64, walls: 1, inner: 1 });
+    expect(mergeShape(55)).toMatchObject({ climb: 128, walls: 1, inner: 1 });
+    expect(mergeShape(87)).toMatchObject({ climb: 128, walls: 2, inner: 0 });
+    // The climb caps the biggest socket over the smallest dealt cluster; labels stay true.
+    expect(clusterUnit(238, 128)).toBe(1);
+    expect(clusterUnit(131, 64)).toBe(2);
+    expect(spawnMix({ z: 54, a: 131 }, 64).kinds).toEqual([2, 4, 8]);
+  });
+
+  it('places wall shards by seed, where the greedy player still wins', () => {
+    for (const z of [37, 50, 79, 92, 118]) for (const seed of [1, 2, 3, 4]) {
+      const s = real(z, seed);
+      const again = real(z, seed);
+      expect(again.walls).toEqual(s.walls);
+      expect(again.cells.map((t) => t?.v ?? 0)).toEqual(s.cells.map((t) => t?.v ?? 0));
+      const shape = mergeShape(z);
+      expect(s.walls.length).toBeLessThanOrEqual(shape.walls);
+      for (const w of s.walls) expect(s.cells[w]).toBeNull();
+      // Two shards never share a row or a column; an inner shard sits in the middle four.
+      if (s.walls.length === 2) {
+        const [a, b] = s.walls;
+        expect(a % 4).not.toBe(b % 4);
+        expect(Math.floor(a / 4)).not.toBe(Math.floor(b / 4));
+      }
+      if (shape.inner && s.walls.length === 1) expect([5, 6, 9, 10]).toContain(s.walls[0]);
+      // The plan is a winning line: replaying it finishes the nucleus, within par.
+      let p: MergeState = s;
+      for (const d of s.plan!.dirs) p = slide(p, d)!;
+      expect(won(p)).toBe(true);
+      expect(s.plan!.dirs.length).toBeLessThan(s.par);
+    }
+    // Most heavy deals keep every shard their period asks for.
+    let kept = 0;
+    for (let seed = 1; seed <= 12; seed++) if (real(100, seed).walls.length === 2) kept++;
+    expect(kept).toBeGreaterThanOrEqual(10);
+  });
+
+  it('stops tiles against a shard and never merges through one', () => {
+    const s = board(C12, [t(1, 1), null, null, t(2, 2), ...empty(12)]);
+    s.walls = [1];
+    const n = slide(s, 'left')!;
+    expect(n.cells[0]).toMatchObject({ v: 1 });
+    expect(n.cells[1]).toBeNull();
+    expect(n.cells[2]).toMatchObject({ v: 2 });
+    const m = board(C12, [t(2, 1), null, null, t(2, 2), ...empty(12)]);
+    m.walls = [1];
+    const k = slide(m, 'left')!;
+    expect(k.cells[0]).toMatchObject({ v: 2 });
+    expect(k.cells[2]).toMatchObject({ v: 2 });
+    // Nothing is ever dealt onto a shard.
+    let q = real(60, 3);
+    for (let i = 0; i < 40 && !won(q); i++) {
+      q = slide(q, (['left', 'up', 'right', 'down'] as const)[i % 4]) ?? slide(q, 'down') ?? q;
+      for (const w of q.walls) expect(q.cells[w]).toBeNull();
+    }
+  });
+
+  it('loses a jammed board, and undo steps back from it', () => {
+    const stuck: Tile[] = [];
+    for (let i = 0; i < 16; i++) stuck.push(t(((i + Math.floor(i / 4)) % 2) ? 1 : 2, i + 1));
+    const v = new MergeView(board(C12, stuck), true);
+    expect(v.failed).toBe(true);
+    expect(v.loss).toEqual({ headline: 'Jammed', undo: true });
+    expect(v.hint()).toBe('Jammed, undo or restart');
+    const w = new MergeView(board(C12, [t(1, 1), null, null, null, ...empty(12)]), true);
+    expect(w.failed).toBe(false);
+  });
+
+  it('costs the star past par', () => {
+    const s = board({ z: 2, a: 4 }, [t(2, 1), t(2, 2), null, null, ...empty(12)]);
+    const v = new MergeView(s, true);
+    v.key({ key: 'ArrowLeft' } as KeyboardEvent);
+    expect(v.won).toBe(true);
+    expect(v.clean).toBe(true);
+    const over = new MergeView({ ...s, par: 0 }, true);
+    over.key({ key: 'ArrowLeft' } as KeyboardEvent);
+    expect(over.won).toBe(true);
+    expect(over.clean).toBe(false);
+  });
+
+  it('Show me follows the vetted line and wins within par on walled boards', () => {
+    for (const z of [40, 79, 92, 118]) {
+      const v = new MergeView(real(z, 5), true);
+      const plan = stateOf(v).plan!;
+      while (!v.won && v.moves < 600) expect(v.help(2)!.moved).toBe(true);
+      expect(v.won).toBe(true);
+      expect(v.moves).toBe(plan.dirs.length);
+      expect(v.clean).toBe(true);
+    }
+  });
+
+  it('keeps every build seed working and deals fast', () => {
+    let worst = 0;
+    for (let z = 1; z <= 118; z += 3) {
+      const t0 = performance.now();
+      const s = mergeLevel(z);
+      worst = Math.max(worst, performance.now() - t0);
+      expect(s.target.z).toBe(z);
+      expect(s.cells.filter(Boolean).length).toBe(3);
+    }
+    expect(worst).toBeLessThan(600);
+  });
+
+  it('draws the shards inside the area', () => {
+    const area = { x: 0, y: 0, w: 360, h: 520 };
+    const v = new MergeView(real(92, 2), false);
+    expect(stateOf(v).walls.length).toBeGreaterThan(0);
+    // record() (below) also measures text, which the goal row needs.
+    expect(inside(record((ctx) => v.draw(ctx, area, performance.now())).pts, area)).toBe(true);
+  });
+});
+
+// ---- capture mode ---------------------------------------------------------------------------------
+
+describe('capture mode', () => {
+  const U = { z: 92, a: 238 };
+  const capture = (target: { z: number; a: number }, tiles: (Tile | null)[]) => {
+    const s = newCapture(target, 1);
+    s.cells = tiles.map((x) => (x ? { ...x } : null));
+    s.nextId = 100;
+    return s;
+  };
+  const plain = (text: string) => {
+    expect(text).toMatch(/^[A-Z][^<>—–]*\.$/);
+    expect(text).not.toMatch(/\. /);
+    expect(text.length).toBeLessThanOrEqual(80);
+  };
+
+  it('splits the mass number into seeds, doublings and a few neutrons', () => {
+    for (let a = 56; a <= 300; a++) {
+      const c = captureShape(a);
+      expect(c.seed * 2 ** c.levels + c.neutrons).toBe(a);
+      expect(c.neutrons).toBeLessThanOrEqual(6);
+      expect(c.levels).toBeGreaterThanOrEqual(2);
+    }
+    expect(captureShape(238)).toEqual({ seed: 29, levels: 3, neutrons: 6 });
+    expect(captureShape(295)).toEqual({ seed: 73, levels: 2, neutrons: 3 });
+    expect(captureShape(132)).toEqual({ seed: 8, levels: 4, neutrons: 4 });
+    expect(captureMix(238).kinds).toEqual([1, 29, 58]);
+  });
+
+  it('doubles equal clusters and captures a lone neutron into a cluster of 8 or more', () => {
+    expect(joined('capture', 27, 27)).toBe(54);
+    expect(joined('capture', 27, 28)).toBe(0);
+    expect(joined('capture', 1, 8)).toBe(9);
+    expect(joined('capture', 29, 1)).toBe(30);
+    expect(joined('capture', 1, 7)).toBe(0);
+    expect(joined('capture', 1, 1)).toBe(0);
+    expect(joined('sockets', 1, 1)).toBe(2);
+    expect(joined('sockets', 1, 8)).toBe(0);
+    const s = capture(U, [t(29, 1), null, null, t(1, 2), ...empty(12)]);
+    const n = slide(s, 'left')!;
+    expect(n.cells[0]).toMatchObject({ v: 30 });
+    // Two neutrons slide together and stay two.
+    const m = slide(capture(U, [t(1, 1), t(1, 2), null, null, ...empty(12)]), 'right')!;
+    expect(m.cells[2]).toMatchObject({ v: 1 });
+    expect(m.cells[3]).toMatchObject({ v: 1 });
+  });
+
+  it('wins on exactly the mass number and spoils an overshoot', () => {
+    const fe = { z: 26, a: 56 };
+    const w = slide(capture(fe, [t(28, 1), t(28, 2), null, null, ...empty(12)]), 'left')!;
+    expect(won(w)).toBe(true);
+    const o = slide(capture(fe, [t(29, 1), t(29, 2), null, null, ...empty(12)]), 'left')!;
+    expect(won(o)).toBe(false);
+    expect(o.cells[0]).toMatchObject({ v: 58, spoiled: true });
+    expect(o.spoils).toBe(1);
+  });
+
+  it('says capture mode in the status line, and shows the biggest cluster', () => {
+    const v = new MergeView(newCapture(U, 3), true);
+    expect(v.hint()).toBe('Capture mode: build exactly 238');
+    expect(v.stats().progress.label).toBe('Capture');
+    expect(v.stats().progress.value).toMatch(/^\d+\/238$/);
+    const stuck: Tile[] = [];
+    for (let i = 0; i < 16; i++) stuck.push(t(((i + Math.floor(i / 4)) % 2) ? 3 : 5, i + 1));
+    expect(new MergeView(capture(U, stuck), true).hint()).toBe('Capture mode: jammed, undo or restart');
+  });
+
+  it('Show me finishes capture boards, and Look here explains in plain lines', () => {
+    for (const z of [27, 47, 79, 92, 118]) for (const seed of [1, 2]) {
+      const v = new MergeView(newCapture({ z, a: element(z).commonA }, seed), true);
+      for (let k = 0; k < 400 && !v.won; k++) {
+        if (k % 5 === 0) plain(v.help(1)!.text);
+        const h = v.help(2)!;
+        plain(h.text);
+        expect(h.moved).toBe(true);
+      }
+      expect(v.won, `z ${z} seed ${seed}`).toBe(true);
+      expect(v.moves).toBeLessThanOrEqual(v.par!);
+    }
+  });
+
+  it('deals the same board for a seed, fast', () => {
+    let worst = 0;
+    for (let z = 27; z <= 118; z += 7) {
+      const t0 = performance.now();
+      const a = newCapture({ z, a: element(z).commonA }, z);
+      worst = Math.max(worst, performance.now() - t0);
+      const b = newCapture({ z, a: element(z).commonA }, z);
+      expect(a.cells.map((x) => x?.v ?? 0)).toEqual(b.cells.map((x) => x?.v ?? 0));
+      expect(a.plan).not.toBeNull();
+    }
+    // Typically well under 100 ms; the margin is for a busy test machine.
+    expect(worst).toBeLessThan(500);
+  });
+
+  it('has rule cards that follow the house rules', () => {
+    checkRules(CAPTURE_RULES, ['Doubling', 'Neutron capture', 'Exactly']);
+    expect(CAPTURE_INSTRUCTIONS).toMatch(/^\s*<h3>In the game<\/h3>\s*<p class="meta">/);
+  });
+
+  it('is in the catalog as Capture, dealt in capture mode', () => {
+    const type = puzzleType('capture');
+    expect(type.name).toBe('Capture');
+    expect(type.tier).toBe('reserve');
+    expect(GAME_NAMES.capture).toBe('Capture');
+    const v = type.make!(92, 0, true);
+    expect(v.hint()).toBe('Capture mode: build exactly 238');
+    const area = { x: 0, y: 0, w: 360, h: 520 };
+    expect(inside(record((ctx) => v.draw(ctx, area, performance.now())).pts, area)).toBe(true);
   });
 });

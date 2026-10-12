@@ -9,8 +9,11 @@ export interface PuzzleView {
   readonly won: boolean;
   /** No move can change anything; only a restart helps. */
   readonly stuck: boolean;
-  /** Lost for good: no undo can help (Glyph out of guesses). The Lost sheet shows. */
+  /** Lost: the Lost sheet shows (Glyph out of guesses, a jammed Tokamak board). */
   readonly failed?: boolean;
+  /** How the Lost sheet words this view's loss, and whether Undo can still step back from it (a
+   *  jammed Tokamak board can; Glyph's spent guesses cannot). Glyph's wording when absent. */
+  readonly loss?: { headline: string; undo: boolean };
   readonly moves: number;
   readonly par: number | null;
   /** Solved without the mistake this puzzle counts against a flawless build. */
