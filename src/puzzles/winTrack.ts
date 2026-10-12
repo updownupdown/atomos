@@ -1,24 +1,19 @@
-// The win sheet's picture of an atom's progress: two short vertical tracks, Stable and Fleeting,
-// in the manner of the Collect screen's. The Stable track has a stop for each thing to build
-// (the nucleus, the electrons, each lasting isotope); it is green from the top as far as the
-// progress runs unbroken, the part just won rings white, and Nu circles the next stop. The
-// Fleeting track fills with the share of fleeting isotopes built.
-// Stand-in until the Collect screen's shared tracks land; the sheet only needs an element.
+// The win sheet's picture of an atom's progress, drawn with the shared tracks (src/ui/tracks.ts)
+// so it reads the same as the Build page's: a row for each thing to build on the Stable lane
+// (the nucleus, the electrons, each lasting isotope), then a row with the Fleeting lane's share
+// as a bar. Green runs from the top as far as progress is unbroken, the part just won rings
+// white, and Nu circles the next stop. Only the part just won and the next one are named.
 
 import { fleetingCount, segmentsOf } from '../core/progress';
 import type { SaveData } from '../core/save';
-import { icon } from '../ui/icons';
+import { trackCell, trackLegend, trackStates, type TrackRow } from '../ui/tracks';
 
 /** `just`: the parts this win completed, as segment ids ('nucleus', 'shells', or a mass
  *  number) or 'fleeting'. */
 export function winTrack(z: number, save: SaveData, just: string[]): HTMLElement {
   const segs = segmentsOf(z, save);
-  const firstGap = segs.findIndex((s) => !s.done);
-  const run = firstGap < 0 ? segs.length : firstGap;
   const next = segs.find((s) => !s.done);
   const fl = fleetingCount(z, save);
-  const flShare = fl.total ? fl.built / fl.total : 0;
-  const stableDone = run === segs.length;
   const el = document.createElement('div');
   el.className = 'wt';
   el.setAttribute('role', 'img');
@@ -29,26 +24,27 @@ export function winTrack(z: number, save: SaveData, just: string[]): HTMLElement
     fl.total ? `Fleeting ${fl.built} of ${fl.total}.` : '',
     next ? `Next: ${next.label}.` : '',
   ].filter(Boolean).join(' '));
-  const stops = segs.map((s, i) => {
-    const cls = [
-      'wt-stop',
-      s.done ? 'is-done' : '',
-      i < run ? 'is-run' : '',
-      just.includes(s.id) ? 'is-just' : '',
-      s === next ? 'is-next' : '',
-    ].filter(Boolean).join(' ');
-    const label = just.includes(s.id) || s === next ? `<span class="wt-label">${s.label}</span>` : '';
-    return `<li class="${cls}"><i></i>${label}</li>`;
-  }).join('');
-  el.innerHTML = `
-    <div class="wt-col wt-col--stable">
-      <span class="wt-key">${icon('isotope-stable', { size: 16 })}Stable</span>
-      <ol class="wt-line">${stops}</ol>
-    </div>
-    ${fl.total ? `<div class="wt-col wt-col--fleeting${stableDone ? ' is-open' : ''}${just.includes('fleeting') ? ' is-just' : ''}">
-      <span class="wt-key">${icon('isotope-fleeting', { size: 16 })}Fleeting</span>
-      <div class="wt-bar"><i style="height:${Math.round(flShare * 100)}%"></i></div>
-      <span class="wt-count">${fl.built}/${fl.total}</span>
-    </div>` : ''}`;
+
+  const rows: TrackRow[] = segs.map((s) => ({ stable: { done: s.done, just: just.includes(s.id) } }));
+  const labels = segs.map((s) => (just.includes(s.id) || s === next ? s.label : ''));
+  if (fl.total) {
+    rows.push({ fleeting: { done: fl.built === fl.total, kind: 'bar', share: fl.built / fl.total, just: just.includes('fleeting') } });
+    labels.push(`${fl.built}/${fl.total}`);
+  }
+  const states = trackStates(rows);
+
+  const head = document.createElement('div');
+  head.className = 'wt-head';
+  head.append(trackLegend({ labels: false }));
+  const list = document.createElement('ol');
+  list.className = 'wt-rows';
+  states.forEach((state, i) => {
+    const li = document.createElement('li');
+    li.className = `wt-row${rows[i].fleeting ? ' wt-row--fleeting' : ''}${state.stable.nu || state.fleeting.nu ? ' is-next' : ''}`;
+    li.innerHTML = `<span class="wt-label">${labels[i]}</span>`;
+    li.append(trackCell(state, { cap: i === states.length - 1 ? 'bottom' : undefined }));
+    list.append(li);
+  });
+  el.append(head, list);
   return el;
 }

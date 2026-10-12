@@ -1052,31 +1052,15 @@ body:not([data-screen='gallery']) .gal-modes { display: none; }
 
 /* The win sheet's tracks (winTrack.ts): Stable stops green as far as progress runs unbroken, the
    part just won ringed white, Nu circling the next; Fleeting filling with its share. */
-.wt { display: flex; justify-content: flex-end; gap: var(--sp-4); height: 100%; min-height: 150px; padding: var(--sp-2) var(--sp-3); border-radius: var(--r-md); background: var(--c-surface-2); }
-.wt-col { display: flex; flex-direction: column; align-items: center; gap: var(--sp-2); min-width: 0; }
-.wt-col--stable { flex: 1; align-items: flex-end; }
-.wt-key { display: flex; align-items: center; gap: 4px; font-size: var(--fs-caps-min); font-weight: var(--fw-semibold); letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--c-text-min); }
-.wt-col--stable .wt-key { margin-right: -2px; }
-.wt-line { flex: 1; align-self: stretch; display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
-.wt-stop { position: relative; flex: 1; display: flex; align-items: center; justify-content: flex-end; gap: var(--sp-2); min-height: 12px; max-height: 28px; padding-right: 3px; }
-.wt-stop::before { content: ''; position: absolute; top: 0; bottom: 0; right: 7px; width: 2px; background: var(--c-line-3); }
-.wt-stop:first-child::before { top: 50%; }
-.wt-stop:last-child::before { bottom: 50%; }
-.wt-stop.is-run::before { background: var(--c-good); }
-.wt-stop i { order: 2; flex: none; position: relative; width: 10px; height: 10px; border-radius: 50%; background: var(--c-surface-3); box-shadow: 0 0 0 2px var(--c-surface-2); }
-.wt-stop.is-done i { background: var(--c-text); }
-.wt-stop.is-run i { background: var(--c-good); }
-.wt-stop.is-just i { box-shadow: 0 0 0 2px var(--c-surface-2), 0 0 0 4px var(--c-text); animation: wt-just 1.4s var(--ease) 2; }
-.wt-stop.is-next i { background: var(--c-surface-2); box-shadow: 0 0 0 2px var(--c-go); animation: wt-nu 2.4s ease-in-out infinite; }
-.wt-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-min); line-height: 1; color: var(--c-text); }
-.wt-stop.is-next .wt-label { color: var(--c-text-2); }
-.wt-bar { position: relative; flex: 1; width: 8px; border-radius: 4px; background: var(--c-surface-3); overflow: hidden; }
-.wt-bar i { position: absolute; left: 0; right: 0; top: 0; border-radius: 4px; background: var(--c-good); }
-.wt-col--fleeting.is-just .wt-bar { box-shadow: 0 0 0 2px var(--c-text); }
-.wt-count { font-size: var(--fs-min); font-variant-numeric: tabular-nums; color: var(--c-text); }
-.win--still .wt-stop i { animation: none; }
-@keyframes wt-just { 0% { transform: scale(0.6); } 40% { transform: scale(1.5); } 100% { transform: scale(1); } }
-@keyframes wt-nu { 50% { box-shadow: 0 0 0 2px var(--c-go), 0 0 10px 3px var(--c-go-ring); } }
+.wt { --trk-bg: var(--c-surface-2); display: flex; flex-direction: column; height: 100%; min-height: 150px; padding: var(--sp-2) var(--sp-3) var(--sp-2) var(--sp-2); border-radius: var(--r-md); background: var(--trk-bg); }
+.wt-head { display: flex; justify-content: flex-end; padding-bottom: var(--sp-1); }
+.wt-rows { flex: 1; display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
+.wt-row { flex: 1; display: flex; align-items: center; justify-content: flex-end; gap: var(--sp-2); min-height: 18px; max-height: 30px; }
+.wt-row--fleeting { min-height: 36px; max-height: 44px; }
+.wt-row .trk { --w: 48px; }
+.wt-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-min); line-height: 1; color: var(--c-text); font-variant-numeric: tabular-nums; }
+.wt-row.is-next .wt-label { color: var(--c-text-2); }
+.win--still .trk-stop { animation: none; }
 
 .how h3 { margin-top: var(--sp-4); }
 .how ul { padding-left: 1.2em; margin: var(--sp-1) 0; }
