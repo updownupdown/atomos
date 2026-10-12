@@ -88,10 +88,66 @@ export class AppShell {
     });
     // The two library pages have addresses, so they can be linked and reloaded.
     const routed = () => (location.hash === '#icons' ? 'icons' : location.hash === '#components' ? 'components' : null);
-    const route = () => { const r = routed(); if (r) void this.go(r); };
+    // Off a library page's address (Back from it): back to Settings, where its link is.
+    const route = () => { const r = routed(); if (r) void this.go(r); else if (this.screen === 'icons' || this.screen === 'components') void this.go('settings'); };
     window.addEventListener('hashchange', route);
     if (routed()) route();
     else this.restore(saved);
+    this.watchBack();
+  }
+
+  /** The system's Back (Android's back gesture, the browser's Back button) steps back through
+   *  the app the way the on-screen Back and Escape do, instead of leaving it: one history entry
+   *  stands above home whenever the player is anywhere else (another screen, a puzzle, a sheet
+   *  over Collect). Popping it takes one step back and, if that isn't home yet, puts the entry
+   *  back. At home, with nothing open, Back leaves the app as usual. */
+  private watchBack(): void {
+    let dropping = false;
+    const armed = () => (history.state as { atomos?: number } | null)?.atomos === 1;
+    // A library page's address coming or going is the hash's own navigation, not a step back.
+    let hash = location.hash;
+    const sync = () => {
+      hash = location.hash;
+      if (dropping) return;
+      if (!this.atHome()) { if (!armed()) history.pushState({ atomos: 1 }, ''); }
+      else if (armed()) { dropping = true; history.back(); }
+    };
+    window.addEventListener('popstate', () => {
+      if (dropping) { dropping = false; return; }
+      if (location.hash !== hash) { hash = location.hash; return; }
+      this.stepBack();
+      // The step may take a moment (a screen loading, a sheet fading): re-arm after it.
+      window.setTimeout(sync, 300);
+    });
+    this.syncBack = () => window.setTimeout(sync, 0);
+    // Sheets, dialogs and the win sheet come and go from anywhere.
+    new MutationObserver(() => this.syncBack()).observe(document.body, { childList: true });
+    new MutationObserver(() => this.syncBack()).observe($('modal'), { attributes: true, attributeFilter: ['hidden'] });
+    this.syncBack();
+  }
+
+  private syncBack: () => void = () => {};
+
+  /** Something sits over the screen that Escape closes: a sheet, a dialog, a drawer, the win
+   *  sheet or a gate puzzle. */
+  private overlayOpen(): boolean {
+    return !$('modal').hidden || Boolean(document.querySelector('.win, .ui-confirm, .ui-drawer, .unlock-screen'));
+  }
+
+  private atHome(): boolean {
+    return this.screen === 'collect' && !this.overlayOpen();
+  }
+
+  /** One step back, as the on-screen Back would take it. */
+  private stepBack(): void {
+    const escape = () => { document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })); };
+    // Whatever is open closes first; a puzzle goes back to its list or Build page; an atom's
+    // View or Info closes to Collect (the gallery answers Escape for those).
+    if (this.overlayOpen()) return escape();
+    if (this.screen === 'atom' && (this.mode !== 'build' || this.game?.inPuzzle)) return escape();
+    if (this.screen === 'puzzles' && this.playground?.inPuzzle) return escape();
+    if (this.screen === 'icons' || this.screen === 'components') { void this.go('settings'); return; }
+    if (this.screen !== 'collect') void this.go('collect');
   }
 
   /** Where the app opens. A player who hasn't built anything yet starts on hydrogen's Build
@@ -204,10 +260,10 @@ export class AppShell {
     } else if (showPlay) {
       this.playground!.show();
     } else if (showComponents) {
-      renderComponentPage($('component-page'), () => void this.go('gallery'));
+      renderComponentPage($('component-page'), () => void this.go('settings'));
       $('components-screen').scrollTop = 0;
     } else if (showIcons) {
-      renderIconPage($('icon-page'), () => void this.go('gallery'));
+      renderIconPage($('icon-page'), () => void this.go('settings'));
       $('icons-screen').scrollTop = 0;
     } else if (showSettings) {
       renderSettings($('settings-page'));
@@ -231,5 +287,6 @@ export class AppShell {
     showModeBar(screen === 'atom', mode);
     document.body.dataset.screen = screen === 'atom' ? `atom-${mode}` : screen;
     this.remember(screen, mode);
+    this.syncBack();
   }
 }

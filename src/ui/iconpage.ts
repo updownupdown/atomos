@@ -1,6 +1,6 @@
 // The icon library page: every icon in src/icons/, by name, at the sizes the app uses, on the
 // dark ground and on a light tile. Reached from the bottom of Settings (or #icons); Back
-// returns to the gallery.
+// returns to Settings.
 
 import { backButton } from './components';
 import { ICON_NAMES, icon } from './icons';
@@ -26,5 +26,5 @@ export function renderIconPage(page: HTMLElement, onBack: () => void): void {
         <figcaption>${n}</figcaption>
       </figure>`).join('')}
     </div>`;
-  page.querySelector('.ip-head')!.append(backButton('Tables', onBack));
+  page.querySelector('.ip-head')!.append(backButton('Settings', onBack));
 }

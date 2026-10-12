@@ -1,5 +1,6 @@
-// A gate puzzle played over everything, to open part of the gallery: a lens (Lumen), the nucleus
-// view (Aurum) or a look (Glyph). The gallery calls playUnlock from a locked item's Unlock button;
+// A gate puzzle played over everything, to open a way of seeing the collection: a lens (Lumen),
+// the nucleus view (Aurum) or a look (Glyph). Tables and the atom view call playUnlock from a
+// locked item's Unlock button;
 // a win records the unlock and fires 'atomos:progress' so every screen can refresh.
 
 import { loadSave, writeSave } from '../core/save';
@@ -73,7 +74,7 @@ function run(id: UnlockId, info: UnlockInfo): Promise<boolean> {
       restart,
       host.hints.button,
       iconButton({ icon: icon('info'), label: 'Instructions', onClick: rules }),
-    ], { label: 'Gallery', onClick: () => finish(Boolean(loadSave().unlocks[id])) });
+    ], { label: backLabel(), onClick: () => finish(Boolean(loadSave().unlocks[id])) });
     bar.setDifficulty(difficulty(t.id, z));
     bar.setTitle(t.name, puzzleIcon(t.id, 22));
     play.before(bar.el);
@@ -148,3 +149,15 @@ function run(id: UnlockId, info: UnlockInfo): Promise<boolean> {
 // So the flow can be tried from the console before the gallery wires its buttons.
 declare global { interface Window { atomosUnlock?: typeof playUnlock } }
 window.atomosUnlock = playUnlock;
+
+/** Back on a gate puzzle names the screen under it. */
+function backLabel(): string {
+  const screen = document.body.dataset.screen ?? '';
+  if (screen === 'gallery') return 'Tables';
+  if (screen === 'collect') return 'Collect';
+  if (screen.startsWith('atom')) {
+    const name = [...document.querySelectorAll<HTMLElement>('.atom-bar .bar-name')].find((e) => e.offsetParent);
+    return name?.textContent?.trim() || 'Back';
+  }
+  return 'Back';
+}

@@ -97,7 +97,8 @@ export class Playground {
     window.addEventListener('keydown', (e) => this.key(e));
   }
 
-  private get inPuzzle(): boolean {
+  /** A puzzle is open (not the list of puzzles). */
+  get inPuzzle(): boolean {
     return !$('pg-game').hidden;
   }
 
