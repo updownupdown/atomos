@@ -1,9 +1,11 @@
-// The moment a board is solved: it stays on screen for a couple of seconds while light plays
-// over it (a ring opening from the middle, a sheen sweeping across, sparks in the orbital colors
-// drifting out and glints twinkling over the board), and only then does the win panel come. Build,
-// Practice and the gate puzzles all hold for WIN_HOLD_MS and draw drawWinFx over the board.
+// The moment a board is solved: it stays on screen for a couple of seconds while light passes
+// through it, and only then does the win panel come. The board takes one slow breath (it swells
+// a little and settles) while a wave of light opens from its middle and runs out through the
+// pieces, lighting each one as it passes, then the pieces hold a faint glow that fades. The light
+// falls only on what the board has drawn (the canvas is clear around it), never on the empty
+// black. No sparks, no glints. Build, Puzzles and the gate puzzles all hold for WIN_HOLD_MS and
+// draw the solved board through drawSolved.
 
-import { C } from './palette';
 import type { Area } from './view';
 
 /** How long the solved board shows before the win panel (calm motion: a short beat). */
@@ -12,105 +14,65 @@ export const WIN_HOLD_REDUCED_MS = 400;
 
 export const winHold = (reduced: boolean) => (reduced ? WIN_HOLD_REDUCED_MS : WIN_HOLD_MS);
 
-const SPARKS = Array.from({ length: 28 }, (_, i) => {
-  const a = i * 2.39996 + Math.sin(i * 12.9898) * 0.3;
-  return { a, speed: 0.55 + ((i * 37) % 11) / 22, size: 1.2 + ((i * 53) % 7) / 4, delay: ((i * 29) % 9) / 30, tint: i % 5 };
-});
-
-/** Glints scattered over the board, each twinkling once: where (0..1 of the area), when and how big. */
-const GLINTS = Array.from({ length: 14 }, (_, i) => ({
-  x: 0.1 + 0.8 * ((i * 0.618034) % 1),
-  y: 0.1 + 0.8 * ((i * 0.381966 + 0.27) % 1),
-  delay: 0.25 + ((i * 7) % 12) / 10,
-  size: 7 + ((i * 5) % 6) * 1.6,
-}));
-
 const ease = (x: number) => 1 - (1 - x) ** 3;
 const clamp01 = (x: number) => Math.max(0, Math.min(1, x));
 
-/** Draws the win effect over a solved board, `ms` after the win (nothing in calm motion). */
+/** The board's breath, `ms` after the win: its scale, 1 to 1.03 and back over 0.9 s. */
+export function winScale(ms: number, reduced = false): number {
+  if (reduced) return 1;
+  const k = clamp01(ms / 900);
+  return 1 + 0.03 * Math.sin(Math.PI * k) ** 2;
+}
+
+/** Draws a solved board `ms` after the win: `draw` paints the board, breathing about the area's
+ *  middle, and the light passes through it. */
+export function drawSolved(ctx: CanvasRenderingContext2D, area: Area, ms: number, reduced: boolean, draw: () => void): void {
+  const s = winScale(ms, reduced);
+  if (s === 1) draw();
+  else {
+    const cx = area.x + area.w / 2, cy = area.y + area.h / 2;
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.scale(s, s);
+    ctx.translate(-cx, -cy);
+    draw();
+    ctx.restore();
+  }
+  drawWinFx(ctx, area, ms, reduced);
+}
+
+/** The light over a solved board, `ms` after the win (nothing under Reduce motion). It is drawn
+ *  'source-atop', so it lands only on the board's own pixels. */
 export function drawWinFx(ctx: CanvasRenderingContext2D, area: Area, ms: number, reduced = false): void {
+  if (reduced) return;
   const t = ms / 1000;
   const cx = area.x + area.w / 2, cy = area.y + area.h / 2;
   const R = Math.hypot(area.w, area.h) / 2;
   ctx.save();
-  if (!reduced) {
-    // A ring of light opening from the middle and fading as it passes the edge.
-    const k = clamp01(t / 1.1);
-    if (k < 1) {
-      ctx.globalAlpha = (1 - k) * 0.7;
-      ctx.strokeStyle = C.silver;
-      ctx.lineWidth = 2 + 6 * (1 - k);
+  ctx.globalCompositeOperation = 'source-atop';
+  ctx.strokeStyle = '#ffffff';
+  // The wave: a broad band of light, soft at its edges, opening from the middle to past the corners.
+  const k = clamp01(t / 1.2);
+  if (k > 0 && k < 1) {
+    const r = R * 1.15 * ease(k);
+    const w = R * 0.16;
+    const fade = 1 - k * k;
+    // Six strokes, widest and faintest first, stack into a band that is brightest at its middle.
+    for (let i = 0; i < 6; i++) {
+      const lw = w * (2.4 - i * 0.4);
+      ctx.globalAlpha = 0.09 * fade;
+      ctx.lineWidth = lw;
       ctx.beginPath();
-      ctx.arc(cx, cy, R * ease(k), 0, Math.PI * 2);
+      ctx.arc(cx, cy, Math.max(0.5, r), 0, Math.PI * 2);
       ctx.stroke();
     }
-    // A soft sheen sweeping across the board, once.
-    const s = clamp01((t - 0.15) / 0.9);
-    if (s > 0 && s < 1) {
-      ctx.save();
-      roundRect(ctx, area.x, area.y, area.w, area.h, 12);
-      ctx.clip();
-      const x = area.x - area.w * 0.4 + (area.w * 1.8) * ease(s);
-      const g = ctx.createLinearGradient(x - 80, area.y, x + 80, area.y + area.h * 0.35);
-      g.addColorStop(0, 'rgba(255,255,255,0)');
-      g.addColorStop(0.5, 'rgba(255,255,255,0.16)');
-      g.addColorStop(1, 'rgba(255,255,255,0)');
-      ctx.globalAlpha = 1;
-      ctx.fillStyle = g;
-      ctx.fillRect(area.x, area.y, area.w, area.h);
-      ctx.restore();
-    }
-    // Glints twinkling over the board, one after another.
-    for (const g of GLINTS) {
-      const u = clamp01((t - g.delay) / 0.7);
-      if (u <= 0 || u >= 1) continue;
-      glint(ctx, area.x + area.w * g.x, area.y + area.h * g.y, g.size * Math.sin(u * Math.PI), u * 1.4, Math.sin(u * Math.PI));
-    }
-    // Sparks in the orbital colors drifting out from the middle.
-    const tints = [C.silver, C.s, C.p, C.d, C.f];
-    for (const p of SPARKS) {
-      ctx.fillStyle = tints[p.tint];
-      const u = clamp01((t - p.delay) / 1.6);
-      if (u <= 0 || u >= 1) continue;
-      const d = R * 0.95 * p.speed * ease(u);
-      ctx.globalAlpha = (1 - u) * 0.9;
-      ctx.beginPath();
-      ctx.arc(cx + Math.cos(p.a) * d, cy + Math.sin(p.a) * d, p.size * (1 - u * 0.5), 0, Math.PI * 2);
-      ctx.fill();
-    }
+  }
+  // The afterglow: every piece a little brighter, fading out.
+  const g = clamp01((t - 0.5) / 1.4);
+  if (g > 0 && g < 1) {
+    ctx.globalAlpha = 0.2 * Math.sin(Math.PI * g);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(area.x - area.w * 0.05, area.y - area.h * 0.05, area.w * 1.1, area.h * 1.1);
   }
   ctx.restore();
-}
-
-/** A four-pointed glint of white light, turned by `spin`. */
-function glint(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, spin: number, alpha: number): void {
-  if (r <= 0.5) return;
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.rotate(spin);
-  ctx.globalAlpha = alpha;
-  ctx.fillStyle = C.silver;
-  ctx.shadowColor = C.silver;
-  ctx.shadowBlur = r;
-  ctx.beginPath();
-  const w = r * 0.18;
-  for (let k = 0; k < 4; k++) {
-    const a = (k * Math.PI) / 2;
-    ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
-    ctx.lineTo(Math.cos(a + Math.PI / 4) * w, Math.sin(a + Math.PI / 4) * w);
-  }
-  ctx.closePath();
-  ctx.fill();
-  ctx.restore();
-}
-
-function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number): void {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.arcTo(x + w, y, x + w, y + h, r);
-  ctx.arcTo(x + w, y + h, x, y + h, r);
-  ctx.arcTo(x, y + h, x, y, r);
-  ctx.arcTo(x, y, x + w, y, r);
-  ctx.closePath();
 }

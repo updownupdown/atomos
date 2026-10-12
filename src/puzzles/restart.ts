@@ -1,8 +1,13 @@
 // Restart, everywhere a puzzle is played: a tap asks first ("Restart this board?"), and on yes Nu
-// streaks across the board while the fresh one deals in behind it.
+// streaks across the board while the fresh one deals in behind it. A double tap restarts at once,
+// without asking; the question says so at its foot.
 
 import { confirmDialog, iconButton } from '../ui/components';
 import { icon } from '../ui/icons';
+import { nuStreak } from '../ui/nu';
+
+/** How long a first tap waits for a second before it asks. */
+export const DOUBLE_TAP_MS = 300;
 
 export interface RestartOptions {
   /** Clears the board. Runs once, as Nu sets off (or straight away under Reduce motion). */
@@ -32,12 +37,37 @@ export async function askRestart(o: RestartOptions): Promise<boolean> {
     nu: 'restart',
     sweepOver: o.sweepOver?.() ?? null,
     onSweep: (p) => { go(); o.onSweep?.(p); },
+    note: 'Double-tap Restart to skip this question.',
   });
   if (ok) go();
   return ok;
 }
 
-/** The toolbar's Restart button, which asks first. */
+/** Restarts without asking (a double tap): Nu streaks across the board as it clears. */
+export async function restartNow(o: RestartOptions): Promise<boolean> {
+  if (o.canRestart && !o.canRestart()) return false;
+  let done = false;
+  const go = () => { if (!done) { done = true; o.restart(); } };
+  await nuStreak(o.sweepOver?.() ?? null, (p) => { go(); o.onSweep?.(p); });
+  go();
+  return true;
+}
+
+/** The toolbar's Restart button: a tap asks first, a double tap restarts at once. The first tap
+ *  waits DOUBLE_TAP_MS for a second before it asks. */
 export function restartButton(o: RestartOptions): HTMLButtonElement {
-  return iconButton({ icon: icon('restart'), label: 'Restart', onClick: () => void askRestart(o) });
+  let wait = 0;
+  return iconButton({
+    icon: icon('restart'),
+    label: 'Restart',
+    onClick: () => {
+      if (wait) {
+        window.clearTimeout(wait);
+        wait = 0;
+        void restartNow(o);
+        return;
+      }
+      wait = window.setTimeout(() => { wait = 0; void askRestart(o); }, DOUBLE_TAP_MS);
+    },
+  });
 }

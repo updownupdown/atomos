@@ -1,9 +1,13 @@
-// The Puzzles screen: a home that lists every game, one section each (its game card, the
-// player's wins at each difficulty level, a still of the board and what the game is), and each
-// game on its own (any difficulty on the 1 to 100 dial, any deal) behind it, with Back to
-// return. Nothing here builds
-// atoms; the game proper reaches puzzles through each atom's Build mode. How-to text lives in the
+// The Puzzles screen: a home that lists every game, and each game on its own (any difficulty on
+// the 1 to 100 dial, any deal) behind it, with Back to return. Nothing here builds atoms; the
+// game proper reaches puzzles through each atom's Build mode. How-to text lives in the
 // Instructions sheet behind the "i".
+//
+// The home: a box pinned to the top of the list tells about the game in focus (the top card
+// under it, ringed in blue, its Play button too): the game playing itself, its goal, and its
+// five difficulty levels with the wins at each, which pick the level Play deals at (remembered
+// per game). The game cards stack under the box; scrolling brings the next card up into focus,
+// and tapping a card brings it there.
 
 import { loadSave } from './core/save';
 import { PUZZLES, puzzleIcon, type PuzzleType } from './puzzles/catalog';
@@ -12,14 +16,16 @@ import { PuzzleHost } from './puzzles/host';
 import { openRules } from './puzzles/rulesModal';
 import { showWin, type WinLevels } from './puzzles/winPanel';
 import type { Area, PuzzleView } from './puzzles/view';
-import { createSlider, iconButton, type Slider } from './ui/components';
+import { createSlider, iconButton, ringOn, type Slider } from './ui/components';
 import { countPlay, GOAL_PLAYS } from './core/plays';
 import { clearOffers, createGameBar, offerRules, type GameBar } from './puzzles/gamebar';
 import { dialFor, difficultyLevel, difficultyRange, difficultyWord, elementForDial, LEVELS, levelInGame, levelWord } from './puzzles/difficulty';
-import { recordWin, winsOf } from './core/wins';
+import { lastDial, recordWin, rememberDial, winsOf } from './core/wins';
+import { GameDemo } from './puzzles/demo';
 import { askRestart, confirming, restartButton } from './puzzles/restart';
 import { icon } from './ui/icons';
 import { modalOpen } from './ui/modal';
+import { reducedMotion } from './ui/nu';
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -34,39 +40,34 @@ export class Playground {
   private goal = '';
   private solved = false;
   private slider: Slider;
-  private prev: HTMLButtonElement;
-  private next: HTMLButtonElement;
   private undoBtn: HTMLButtonElement;
   private restartBtn: HTMLButtonElement;
   private gbar: GameBar;
+  /** The board settings' button, and its pill's open state. */
+  private fold: HTMLButtonElement;
+  private foldTimer = 0;
+  /** The game in focus on the home: the top card, told about in the pinned box. */
+  private focusId = '';
+  private demo: GameDemo;
 
   constructor() {
     this.host = new PuzzleHost($('pg-canvas'), () => this.area());
     this.host.onFrame = () => this.tick(this.host.status());
     this.host.onWon = (v) => this.won(v.moves, v.par, v.clean);
     this.host.onLost = (v) => this.lost(v);
+    this.demo = new GameDemo($('pg-demo') as HTMLCanvasElement, () => reducedMotion());
     this.renderHome();
 
     // The board maker, folded into a settings button at the left of the status line (the X folds
-    // it again): easier, the difficulty, harder, a slider across the dial, a new deal. The slider
-    // runs 1 to 100 for every game; the ends a game cannot deal show amber.
+    // it again): "Difficulty: 60%", a slider across the dial, filled in the level's color, and a
+    // new deal. The slider runs 1 to 100 for every game; the ends a game cannot deal show white.
+    // A game opens with it unfolded; three seconds later it folds itself back into the button.
     const bar = $('pg-bar');
     const gen = $('pg-gen');
-    const fold = iconButton({ icon: icon('settings'), label: 'Board settings', className: 'pg-fold', onClick: () => setOpen(Boolean(bar.hidden)) });
-    fold.setAttribute('aria-controls', 'pg-bar');
-    const setOpen = (open: boolean) => {
-      bar.hidden = !open;
-      gen.classList.toggle('is-open', open);
-      fold.innerHTML = icon(open ? 'close' : 'settings');
-      fold.setAttribute('aria-expanded', String(open));
-      const label = open ? 'Close board settings' : 'Board settings';
-      fold.setAttribute('aria-label', label);
-      fold.title = label;
-    };
-    gen.prepend(fold);
-    setOpen(false);
-    this.prev = iconButton({ icon: icon('chevron-left'), label: 'Easier', className: 'ui-icon-btn--ghost', onClick: () => this.setDial(this.dial - 1) });
-    this.next = iconButton({ icon: icon('chevron-right'), label: 'Harder', className: 'ui-icon-btn--ghost', onClick: () => this.setDial(this.dial + 1) });
+    this.fold = iconButton({ icon: icon('settings'), label: 'Board settings', className: 'pg-fold', onClick: () => this.setOpen(Boolean(bar.hidden)) });
+    this.fold.setAttribute('aria-controls', 'pg-bar');
+    gen.prepend(this.fold);
+    this.setOpen(false);
     const label = document.createElement('span');
     label.className = 'pg-el';
     label.id = 'pg-el';
@@ -79,7 +80,11 @@ export class Playground {
     deal.title = 'New deal';
     deal.innerHTML = `${icon('shuffle')}<span class="pg-dealno" id="pg-dealno"></span>`;
     deal.onclick = () => this.load(this.deal + 1);
-    bar.append(this.prev, label, this.next, this.slider.el, deal);
+    bar.append(label, this.slider.el, deal);
+    // Touching the pill keeps it open.
+    const keep = () => this.keepOpen();
+    bar.addEventListener('pointerdown', keep);
+    bar.addEventListener('focusin', keep);
 
     // The tools beside Back: undo, restart, hint, instructions.
     this.undoBtn = iconButton({ icon: icon('undo'), label: 'Undo', onClick: () => this.host.undo() });
@@ -96,6 +101,13 @@ export class Playground {
     this.gbar.foot.classList.add('has-gen');
     this.gbar.foot.querySelector('.gfoot-line')!.prepend(gen);
 
+    // The home: the card under the pinned box is the one in focus.
+    let pending = 0;
+    $('pg-home').addEventListener('scroll', () => {
+      if (!pending) pending = requestAnimationFrame(() => { pending = 0; this.findFocus(); });
+    }, { passive: true });
+    new ResizeObserver(() => this.layoutHome()).observe($('pg-home'));
+
     window.addEventListener('keydown', (e) => this.key(e));
   }
 
@@ -107,16 +119,20 @@ export class Playground {
   show(): void {
     $('puzzles-screen').hidden = false;
     if (this.inPuzzle) this.host.wake();
+    else this.demo.start();
     window.dispatchEvent(new Event('resize'));
+    this.layoutHome();
   }
 
   hide(): void {
     $('puzzles-screen').hidden = true;
     this.host.pause();
+    this.demo.stop();
   }
 
-  /** Opens one puzzle from the home list. */
+  /** Opens one puzzle from the home list, at the dial it was last played or picked at. */
   open(id: string): void {
+    this.demo.stop();
     $('pg-home').hidden = true;
     $('pg-game').hidden = false;
     this.select(id);
@@ -127,20 +143,68 @@ export class Playground {
     this.host.wake();
     window.dispatchEvent(new Event('resize'));
     this.gbar.back.focus({ preventScroll: true });
+    // The board settings show open for a few seconds, then fold into their button.
+    this.setOpen(true);
+    this.foldTimer = window.setTimeout(() => this.foldAway(), 3000);
   }
 
   /** Back to the list of puzzles. */
   back(): void {
     this.closeWin();
     clearOffers(this.gbar);
+    this.keepOpen();
+    this.setOpen(false);
     this.host.pause();
     $('pg-game').hidden = true;
     $('pg-home').hidden = false;
     this.paintWins(this.type);
+    this.paintFocus(true);
+    this.demo.start();
     $('pg-list').querySelector<HTMLElement>(`[data-game="${this.type.id}"] .gcard-go`)?.focus({ preventScroll: false });
   }
 
-  /** One section per game, playable ones first: its card, its wins, a still and its blurb. */
+  /** Opens or folds the board settings pill. */
+  private setOpen(open: boolean): void {
+    const bar = $('pg-bar');
+    bar.hidden = !open;
+    $('pg-gen').classList.toggle('is-open', open);
+    this.fold.innerHTML = icon(open ? 'close' : 'settings');
+    this.fold.setAttribute('aria-expanded', String(open));
+    const label = open ? 'Close board settings' : 'Board settings';
+    this.fold.setAttribute('aria-label', label);
+    this.fold.title = label;
+    if (!open) this.keepOpen();
+  }
+
+  /** Cancels the pill's fold on its own (the player has reached for it, or left). */
+  private keepOpen(): void {
+    window.clearTimeout(this.foldTimer);
+    this.foldTimer = 0;
+  }
+
+  /** The pill shrinks into its settings button, which then rings once. */
+  private foldAway(): void {
+    this.foldTimer = 0;
+    const bar = $('pg-bar');
+    if (bar.hidden || !this.inPuzzle) return;
+    const land = () => {
+      this.setOpen(false);
+      this.fold.classList.remove('is-landed');
+      void this.fold.offsetWidth;
+      this.fold.classList.add('is-landed');
+      window.setTimeout(() => this.fold.classList.remove('is-landed'), 1000);
+    };
+    if (reducedMotion() || typeof bar.animate !== 'function') { land(); return; }
+    const a = bar.getBoundingClientRect();
+    const b = this.fold.getBoundingClientRect();
+    bar.animate([
+      { transform: 'translateX(0) scaleX(1)', opacity: 1 },
+      { transform: `translateX(${b.left + b.width / 2 - a.left}px) scaleX(${Math.max(0.04, b.width / a.width)})`, opacity: 0 },
+    ], { duration: 420, easing: 'cubic-bezier(0.5, 0, 0.75, 0)' }).finished.then(land, land);
+  }
+
+  /** The home: the pinned box about the game in focus, then one card per game, playable ones
+   *  first. Tapping a card (not its Play) brings it into focus. */
   private renderHome(): void {
     const list = $('pg-list');
     list.replaceChildren();
@@ -157,54 +221,123 @@ export class Playground {
         action: p.make ? { label: 'Play', onClick: () => this.open(p.id) } : undefined,
         extra: p.make ? undefined : 'Not built yet',
       }));
-      const wins = document.createElement('div');
-      wins.className = 'pg-wins';
-      wins.setAttribute('role', 'list');
-      wins.setAttribute('aria-label', `${p.name} wins by difficulty`);
-      sec.append(wins);
-      const about = document.createElement('div');
-      about.className = 'pg-about';
-      about.innerHTML = `${p.make ? `<canvas class="pg-thumb" aria-hidden="true"></canvas>` : ''}<p class="pg-blurb"></p>`;
-      about.querySelector('.pg-blurb')!.textContent = p.blurb;
-      sec.append(about);
+      sec.addEventListener('click', (e) => {
+        if ((e.target as HTMLElement).closest('button')) return;
+        this.bringToFocus(p.id);
+      });
       list.append(sec);
-      this.paintWins(p);
-      const thumb = about.querySelector<HTMLCanvasElement>('canvas.pg-thumb');
-      if (thumb) drawThumb(thumb, p);
+    }
+    this.focusId = games[0]?.id ?? '';
+    this.paintFocus(true);
+  }
+
+  /** Room under the last card, so that it too can scroll up under the box. */
+  private layoutHome(): void {
+    const home = $('pg-home');
+    if (home.hidden || !home.clientHeight) return;
+    const box = $('pg-focus');
+    home.style.setProperty('--focus-h', `${box.offsetHeight}px`);
+    const last = $('pg-list').lastElementChild as HTMLElement | null;
+    const room = home.clientHeight - box.offsetHeight - (last?.offsetHeight ?? 0) - 30;
+    $('pg-list').style.paddingBottom = `${Math.max(0, room)}px`;
+    this.findFocus();
+  }
+
+  /** The card in focus: the first whose middle is below the pinned box. */
+  private findFocus(): void {
+    const line = $('pg-focus').getBoundingClientRect().bottom;
+    const secs = [...$('pg-list').querySelectorAll<HTMLElement>('.pg-sec')];
+    const hit = secs.find((sec) => { const r = sec.getBoundingClientRect(); return r.top + r.height / 2 > line; }) ?? secs[secs.length - 1];
+    const id = hit?.dataset.id ?? '';
+    if (id && id !== this.focusId) {
+      this.focusId = id;
+      this.paintFocus(false);
     }
   }
 
-  /** A game's wins at each of the five levels: the solved count and the flawless stars. Levels
-   *  its boards never reach are an empty outline; levels not yet won show a dash. */
+  /** Scrolls a game's card up under the box. */
+  private bringToFocus(id: string): void {
+    const sec = $('pg-list').querySelector<HTMLElement>(`.pg-sec[data-id="${id}"]`);
+    if (!sec) return;
+    const home = $('pg-home');
+    // Where the card sits in the list, less the box that will be pinned over the top.
+    const at = sec.getBoundingClientRect().top - home.getBoundingClientRect().top + home.scrollTop;
+    home.scrollTo({ top: Math.max(0, at - $('pg-focus').offsetHeight - 14), behavior: reducedMotion() ? 'auto' : 'smooth' });
+  }
+
+  /** The box and the rings for the game in focus. */
+  private paintFocus(force: boolean): void {
+    const p = PUZZLES.find((g) => g.id === this.focusId);
+    if (!p) return;
+    $('pg-list').querySelectorAll<HTMLElement>('.pg-sec').forEach((sec) => {
+      const on = sec.dataset.id === p.id;
+      const card = sec.querySelector<HTMLElement>('.gcard');
+      const go = sec.querySelector<HTMLElement>('.gcard-go');
+      if (card) ringOn(card, on ? 'focus' : null);
+      if (go) ringOn(go, on && !go.hasAttribute('disabled') ? 'focus' : null);
+    });
+    const box = $('pg-focus');
+    if (!force && box.dataset.id === p.id) return;
+    box.dataset.id = p.id;
+    box.setAttribute('aria-label', p.name);
+    $('pg-focus-name').textContent = p.name;
+    $('pg-focus-goal').textContent = p.goal || p.blurb;
+    this.paintWins(p);
+    this.demo.show(p);
+  }
+
+  /** The focused game's five levels: its wins at each (the solved count and the flawless stars),
+   *  and the one Play deals at, filled in its color. Tapping a level picks it. Levels its boards
+   *  never reach are an empty outline; levels not yet won show a dash. */
   private paintWins(p: PuzzleType): void {
-    const row = $('pg-list').querySelector<HTMLElement>(`.pg-sec[data-id="${p.id}"] .pg-wins`);
-    if (!row) return;
+    const row = $('pg-levels');
+    if ($('pg-focus').dataset.id !== p.id) return;
     const { lo, hi } = difficultyRange(p.id);
     const from = difficultyLevel(lo);
     const to = difficultyLevel(hi);
     const wins = winsOf(p.id);
+    const picked = difficultyLevel(this.dialOf(p.id));
+    row.setAttribute('aria-label', `${p.name} difficulty, with wins at each level`);
     row.innerHTML = Array.from({ length: LEVELS }, (_, i) => {
       const level = i + 1;
       const word = levelWord(level);
       if (level < from || level > to) {
-        return `<div class="pg-lvl is-off" role="listitem" title="${word}: not dealt in ${p.name}"><span class="pg-lvl-word">${word}</span><span class="pg-lvl-none"></span><span class="sr-only">: not dealt</span></div>`;
+        return `<button type="button" class="pg-lvl is-off" role="radio" aria-checked="false" disabled title="${word}: not dealt in ${p.name}"><span class="pg-lvl-word">${word}</span><span class="pg-lvl-none"></span><span class="sr-only">: not dealt</span></button>`;
       }
       const w = wins[i];
-      if (!w.solved) {
-        return `<div class="pg-lvl" role="listitem" title="${word}: not solved yet"><span class="pg-lvl-word">${word}</span><span class="pg-lvl-val"><span class="pg-lvl-dash" aria-hidden="true">–</span><span class="sr-only">: not solved yet</span></span></div>`;
-      }
-      const say = `${word}: ${w.solved} solved, ${w.flawless} flawless`;
-      return `<div class="pg-lvl is-won" role="listitem" title="${say}"><span class="sr-only">${say}</span><span class="pg-lvl-word" aria-hidden="true">${word}</span><span class="pg-lvl-val" aria-hidden="true">`
-        + `<span class="pg-lvl-n">${icon('check', { size: 12 })}${w.solved}</span>`
-        + (w.flawless ? `<span class="pg-lvl-star">${icon('star', { size: 12 })}${w.flawless}</span>` : '')
-        + `</span></div>`;
+      const on = level === picked;
+      const say = w.solved ? `${word}: ${w.solved} solved, ${w.flawless} flawless` : `${word}: not solved yet`;
+      const val = w.solved
+        ? `<span class="pg-lvl-n">${icon('check', { size: 12 })}${w.solved}</span>` + (w.flawless ? `<span class="pg-lvl-star">${icon('star', { size: 12 })}${w.flawless}</span>` : '')
+        : `<span class="pg-lvl-dash">–</span>`;
+      return `<button type="button" class="pg-lvl lvl-${level}${on ? ' is-on' : ''}${w.solved ? ' is-won' : ''}" role="radio" aria-checked="${on}" data-level="${level}" title="${say}" aria-label="${say}">`
+        + `<span class="pg-lvl-word" aria-hidden="true">${word}</span><span class="pg-lvl-val" aria-hidden="true">${val}</span></button>`;
     }).join('');
+    row.querySelectorAll<HTMLButtonElement>('.pg-lvl[data-level]').forEach((b) => {
+      b.onclick = () => this.pickLevel(p.id, Number(b.dataset.level));
+    });
+  }
+
+  /** The dial a game opens at: where it was last played or picked, or an easy board. */
+  private dialOf(id: string): number {
+    return dialFor(id, lastDial(id) ?? 30);
+  }
+
+  /** Picks a level on the home: the remembered dial if it is in that level, else its middle. */
+  private pickLevel(id: string, level: number): void {
+    const span = levelInGame(id, level);
+    if (!span) return;
+    const now = this.dialOf(id);
+    if (difficultyLevel(now) !== level) rememberDial(id, Math.round((span.lo + span.hi) / 2));
+    const p = PUZZLES.find((g) => g.id === id);
+    if (p) this.paintWins(p);
+    $('pg-levels').querySelector<HTMLElement>(`[data-level="${level}"]`)?.focus({ preventScroll: true });
   }
 
   private select(id: string): void {
     this.type = PUZZLES.find((p) => p.id === id) ?? PUZZLES[0];
     this.gbar.setTitle(this.type.name, puzzleIcon(this.type.id, 22));
-    this.dial = dialFor(this.type.id, this.dial);
+    this.dial = this.dialOf(this.type.id);
     this.rebuildSlider();
     $('pg-planned').hidden = Boolean(this.type.make);
     $('pg-play').hidden = !this.type.make;
@@ -236,13 +369,12 @@ export class Playground {
     this.deal = deal;
     this.solved = false;
     this.closeWin();
-    const { lo, hi } = difficultyRange(this.type.id);
-    $('pg-el').innerHTML = `<b>${this.dial}%</b>`;
+    $('pg-el').textContent = `Difficulty: ${this.dial}%`;
     $('pg-el').title = dialText(this.dial);
     this.slider.set(this.dial);
-    this.prev.disabled = this.dial <= lo;
-    this.next.disabled = this.dial >= hi;
+    this.slider.el.style.setProperty('--slider-fill', `var(--c-lvl-${difficultyLevel(this.dial)})`);
     $('pg-dealno').textContent = `#${deal + 1}`;
+    rememberDial(this.type.id, this.dial);
     this.shownHint = '';
     this.gbar.setDifficulty(this.dial);
     this.gbar.update(null, '');
@@ -365,24 +497,4 @@ export class Playground {
 /** The dial as the slider and the win sheet say it: "Hard · 68%". */
 function dialText(d: number): string {
   return `${difficultyWord(d)} · ${d}%`;
-}
-
-/** A still of the puzzle at an easy dial, drawn once for its section. */
-function drawThumb(c: HTMLCanvasElement, p: PuzzleType): void {
-  if (!p.make) return;
-  const css = 112;
-  const dpr = Math.min(2, window.devicePixelRatio || 1);
-  c.width = css * dpr;
-  c.height = css * dpr;
-  const ctx = c.getContext('2d');
-  if (!ctx) return;
-  // Lay the board out at a phone-sized area, then shrink it into the thumbnail.
-  const L = 340;
-  try {
-    const view = p.makeAt!(30, 0, true);
-    ctx.scale((css * dpr) / L, (css * dpr) / L);
-    view.draw(ctx, { x: 6, y: 6, w: L - 12, h: L - 12 }, performance.now() + 60_000);
-  } catch {
-    // A thumbnail is decoration; a view that cannot draw small just leaves its card plain.
-  }
 }

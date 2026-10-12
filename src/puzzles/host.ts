@@ -4,7 +4,7 @@
 import { syncPalette } from './palette';
 import { confirming } from './restart';
 import { HintControl } from './hints';
-import { drawWinFx, winHold } from './winFx';
+import { drawSolved, winHold } from './winFx';
 import type { Area, Point, PuzzleView } from './view';
 
 export class PuzzleHost {
@@ -109,11 +109,10 @@ export class PuzzleHost {
     // canvas has a size again (the ResizeObserver wakes it).
     if (area.w <= 0 || area.h <= 0 || !this.canvas.clientWidth) return;
     const ctx = this.ctx();
-    v.draw(ctx, area, now);
-    if (!v.won) this.wonAt = null;
+    if (!v.won) { this.wonAt = null; v.draw(ctx, area, now); }
     else {
       this.wonAt ??= now;
-      drawWinFx(ctx, area, now - this.wonAt, this.reducedMotion);
+      drawSolved(ctx, area, now - this.wonAt, this.reducedMotion, () => v.draw(ctx, area, now));
     }
     this.hints.watch(v, now);
     this.onFrame?.(v);

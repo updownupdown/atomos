@@ -34,7 +34,9 @@
 .ui-close { position: absolute; top: var(--sp-3); right: var(--sp-3); z-index: 1; background: none; border-radius: 50%; color: var(--c-text); }
 .ui-close:hover { background: var(--c-surface-2); }
 
-/* ---- Modal frame: the card floats with the page visible all round it ---- */
+/* ---- Modal frame: the card floats with the page visible all round it, under a pale mask. The
+   card is pure black inside a thick pale-gray edge, and its pinned header is that same gray, so
+   edge and header read as one frame (the logo's thick line), with no thin rules. ---- */
 .ui-modal {
   position: fixed;
   inset: 0;
@@ -43,7 +45,7 @@
   align-items: center;
   justify-content: center;
   padding: calc(var(--sp-4) + var(--safe-top, 0px)) var(--sp-4) calc(var(--sp-4) + var(--safe-bottom, 0px));
-  background: var(--c-scrim);
+  background: var(--c-scrim-pale);
   -webkit-backdrop-filter: var(--blur-mask);
   backdrop-filter: var(--blur-mask);
   animation: ui-fade var(--dur) var(--ease);
@@ -55,8 +57,8 @@
   max-height: 100%;
   overflow-y: auto;
   overscroll-behavior: contain;
-  background: var(--c-surface);
-  border: 1px solid var(--c-line);
+  background: var(--c-bg);
+  border: var(--modal-edge) solid var(--c-modal-head);
   border-radius: var(--r-lg);
   box-shadow: var(--shadow-modal);
   padding: var(--sp-5) var(--sp-5) var(--sp-5);
@@ -72,7 +74,7 @@
   align-items: center;
   margin: calc(-1 * var(--sp-5)) calc(-1 * var(--sp-5)) var(--sp-3);
   padding: var(--sp-3) calc(var(--hit) + var(--sp-4)) var(--sp-3) var(--sp-5);
-  background: var(--c-surface);
+  background: var(--c-modal-head);
 }
 .ui-modal-head > h1, .ui-modal-head > h2, .ui-modal-head > h3 { margin: 0 !important; }
 .ui-modal-head > .ui-close { top: 50%; transform: translateY(-50%); right: var(--sp-3); }
@@ -242,8 +244,8 @@
   position: absolute;
   top: 0;
   bottom: 0;
-  background: var(--c-warn);
-  opacity: 0.75;
+  background: var(--c-text);
+  opacity: 0.85;
 }
 .ui-slider-off--lo { left: 0; width: calc(var(--off-lo, 0) * 100%); border-radius: 3px 0 0 3px; }
 .ui-slider-off--hi { right: 0; width: calc(var(--off-hi, 0) * 100%); border-radius: 0 3px 3px 0; }
@@ -254,7 +256,7 @@
   left: calc(var(--off-lo, 0) * 100%);
   width: calc((var(--t) - var(--off-lo, 0)) * 100%);
   border-radius: inherit;
-  background: var(--c-accent);
+  background: var(--slider-fill, var(--c-accent));
 }
 .ui-slider-thumb {
   position: absolute;
@@ -458,18 +460,19 @@
 .ui-next:hover { filter: brightness(1.06); }
 .ui-next:active { transform: scale(0.97); }
 .ui-next:focus-visible, .ui-play:focus-visible { outline: 2px solid var(--c-text); outline-offset: 3px; }
+/* A live Next button breathes the magenta ring out of its edge (the ring below, without the
+   solid band: the button is already magenta). */
 .ui-next::after {
   content: '';
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  box-shadow: 0 0 0 0 var(--c-go-ring);
   pointer-events: none;
 }
 .ui-next.is-live::after { animation: ui-next-ring 2.4s ease-out infinite; }
 @keyframes ui-next-ring {
-  0% { box-shadow: 0 0 0 0 var(--c-go-ring); }
-  70%, 100% { box-shadow: 0 0 0 12px rgba(255, 90, 168, 0); }
+  0% { box-shadow: 0 0 0 0 rgba(255, 90, 168, 0.85); }
+  75%, 100% { box-shadow: 0 0 0 12px rgba(255, 90, 168, 0); }
 }
 .ui-next--compact, .ui-play--compact { min-height: 36px; padding: 0 var(--sp-4) 0 var(--sp-3); font-size: var(--fs-sm); }
 .nu-icon { flex: none; overflow: visible; }
@@ -493,6 +496,7 @@
 .ui-confirm-actions { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-2); }
 .ui-confirm-actions button { min-width: 0; padding: 0 var(--sp-3); }
 .ui-confirm-actions .ui-confirm-problem { background: var(--c-warn); color: #2a1c02; }
+.ui-confirm-card .ui-confirm-note { margin: var(--sp-4) 0 0; font-size: var(--fs-sm); color: var(--c-text-2); }
 
 /* Nu circles the action's icon while the dialog waits. */
 .nu-orbit { position: relative; width: 76px; height: 76px; margin: 0 auto var(--sp-3); display: grid; place-items: center; }
@@ -550,9 +554,6 @@
    Floats over the page (.ui-callout--float pins it to the bottom of its positioned container),
    so it never pushes content about. ---- */
 .ui-callout { position: relative; display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-3) var(--sp-3) var(--sp-3) var(--sp-4); border-radius: 11px; background: var(--c-surface-3); color: var(--c-go); font-family: var(--font); box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6); touch-action: pan-y; }
-/* The same ring that breathes out of the Next button. */
-.ui-callout::after { content: ''; position: absolute; inset: 0; border-radius: inherit; box-shadow: 0 0 0 0 var(--c-go-ring); pointer-events: none; animation: ui-next-ring 2.4s ease-out infinite; }
-@media (prefers-reduced-motion: reduce) { .ui-callout::after { animation: none; box-shadow: 0 0 0 3px var(--c-go-ring); } }
 .ui-callout.is-swiping { transition: none; }
 .ui-callout.is-leaving { transition: transform 0.22s ease-in, opacity 0.22s ease-in; opacity: 0; }
 .ui-callout[hidden] { display: none; }
@@ -578,3 +579,29 @@
 .ui-pill[aria-checked='true'] { background: var(--c-accent); color: var(--c-bg); }
 .ui-pill:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
 @media (max-width: 380px) { .ui-pill { padding: 0 10px; } }
+
+/* ---- Animated border: the one way the app says "this one". A thick solid ring on the edge, with
+   a second ring breathing out of it and fading; never blurred. Blue (.ui-ring) for the focused
+   thing (the top game card on Puzzles and its Play button, the rules card being shown), magenta
+   (.ui-ring--go) for the way forward (Up next, Nu's cards). --ring-gap leaves a band of the
+   parent's color between the element and the ring, for an element that is already the ring's
+   color (a blue Play button): set --ring-gap-c to that parent's color. Set with ringOn(). ---- */
+.ui-ring { --ring: var(--c-accent); --ring-0: rgba(111, 208, 230, 0); --ring-w: 3px; --ring-gap: 0px; --ring-gap-c: transparent; position: relative; }
+.ui-ring--go { --ring: var(--c-go); --ring-0: rgba(255, 90, 168, 0); }
+.ui-ring::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow: 0 0 0 var(--ring-gap) var(--ring-gap-c), 0 0 0 calc(var(--ring-gap) + var(--ring-w)) var(--ring);
+  animation: ui-ring 2.4s ease-out infinite;
+}
+@keyframes ui-ring {
+  0% { box-shadow: 0 0 0 var(--ring-gap) var(--ring-gap-c), 0 0 0 calc(var(--ring-gap) + var(--ring-w)) var(--ring), 0 0 0 calc(var(--ring-gap) + var(--ring-w)) var(--ring); }
+  75%, 100% { box-shadow: 0 0 0 var(--ring-gap) var(--ring-gap-c), 0 0 0 calc(var(--ring-gap) + var(--ring-w)) var(--ring), 0 0 0 calc(var(--ring-gap) + var(--ring-w) + 11px) var(--ring-0); }
+}
+.ui-ring.is-still::after { animation: none; }
+@media (prefers-reduced-motion: reduce) { .ui-ring::after { animation: none; } }
+/* The component library's sample of the animated border. */
+.cl-ring-demo { display: inline-flex; align-items: center; min-height: 44px; padding: 0 var(--sp-4); margin: var(--sp-3); border-radius: var(--r-pill); background: var(--c-surface-2); color: var(--c-text); font-size: var(--fs-sm); font-weight: var(--fw-semibold); }

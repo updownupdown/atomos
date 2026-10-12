@@ -35,7 +35,7 @@ import { trackLegend, trackOverlay, type TrackItem, type TrackOverlay } from './
 import { askRestart, confirming, restartButton } from './puzzles/restart';
 import { HintControl } from './puzzles/hints';
 import { clearOffers, createGameBar, offerRules, type GameBar } from './puzzles/gamebar';
-import { drawWinFx, winHold } from './puzzles/winFx';
+import { drawSolved, winHold } from './puzzles/winFx';
 import { countPlay, GOAL_PLAYS } from './core/plays';
 import { recordWin } from './core/wins';
 import { icon, type IconName } from './ui/icons';
@@ -764,8 +764,7 @@ export class Game {
     await new Promise<void>((resolve) => {
       const tick = (t: number) => {
         const ctx = this.overlayCtx(), area = this.area();
-        p.draw(ctx, area, t);
-        drawWinFx(ctx, area, t - hold, reduced);
+        drawSolved(ctx, area, t - hold, reduced, () => p.draw(ctx, area, t));
         if (t - hold > winHold(reduced)) resolve();
         else requestAnimationFrame(tick);
       };
