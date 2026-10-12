@@ -11,6 +11,7 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "icons": "node scripts/icons.mjs",
+    "atoms:assign": "node scripts/assign-atoms.ts",
     "predev": "node scripts/icons.mjs",
     "prebuild": "node scripts/icons.mjs"
   },

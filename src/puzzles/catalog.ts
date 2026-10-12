@@ -1,8 +1,10 @@
 // Every puzzle type in the game, in one list, so the Puzzles home can show where each one sits
-// and the game can ask for a board by id. Every game has one job: Tokamak builds every nucleus
-// and Quanta every atom's electrons; Tessera, Chroma, Flux, Nova, Inertia and Aurum build
-// isotopes, and Lumen fleeting ones; Glyph opens the display unlocks. Bond, Spin and Fission are
-// reserve games, played from Practice only, until they earn a place.
+// and the game can ask for a board by id. An atom's nucleus and electrons are each built by one
+// puzzle from a pool, fixed per atom in src/data/atom-games.json (src/core/assign.ts): the
+// nucleus from Tokamak, Inertia, Tessera and Nova, the electrons from Quanta, Flux, Chroma and
+// Aurum. Tessera, Chroma, Flux, Nova, Inertia and Aurum also build lasting isotopes, and Lumen
+// fleeting ones; Glyph opens the display unlocks. Reserve games are played from the Puzzles
+// screen only, until they earn a place.
 
 import { elementAt as element } from '../gallery/data';
 import { ICON_NAMES, icon } from '../ui/icons';
@@ -47,7 +49,19 @@ import * as SpinV from './spinView';
 import { newFission } from './fission';
 import { FissionView, INSTRUCTIONS as FISSION_HOW } from './fissionView';
 import * as FissionV from './fissionView';
+import { atomGame } from '../core/atomGames';
 import { SUBSHELL_COLORS, type PuzzleView, type RuleCard } from './view';
+
+/** Which atom steps a game builds, from the committed table: "12 nuclei and 3 electron sets". */
+function atomSteps(id: string): string {
+  let nuclei = 0, shells = 0;
+  for (let z = 1; z <= 118; z++) {
+    if (atomGame(z, 'nucleus') === id && z > 1) nuclei++;
+    if (atomGame(z, 'shells') === id) shells++;
+  }
+  const parts = [nuclei ? `${nuclei} ${nuclei === 1 ? 'nucleus' : 'nuclei'}` : '', shells ? `${shells} atoms' electrons` : ''].filter(Boolean);
+  return parts.length ? parts.join(' and ') : 'no atom steps';
+}
 
 /** A view module's rule cards, once it exports them. */
 const rulesOf = (m: object): RuleCard[] | undefined => (m as { RULES?: RuleCard[] }).RULES;
@@ -69,8 +83,8 @@ export type Tier = 'every' | 'facet' | 'gate' | 'reserve';
 
 /** What each tier means, for the Puzzles home. */
 export const TIER_NOTE: Record<Tier, string> = {
-  every: 'Played for every atom you build: its nucleus and its electrons.',
-  facet: 'Build isotopes. Each lasting isotope has its own puzzle; for a fleeting one you pick.',
+  every: 'The first two puzzles you meet, building nuclei and electrons; other puzzles share those steps atom by atom.',
+  facet: 'Build isotopes, and share the atom steps. Each lasting isotope has its own puzzle; for a fleeting one you pick.',
   gate: 'Open new ways to see the collection: map lenses, looks, the nucleus view and orbital shapes.',
   reserve: 'Built to try out; no place in the game yet.',
 };
@@ -134,8 +148,8 @@ export const PUZZLES: PuzzleType[] = [
     get rules() { return rulesOf(MergeV); },
     goal: 'Merge clusters into the ones the nucleus needs.',
     blurb: 'Swipe to slide the board; two clusters of the same size merge. Gather the clusters the nucleus wants.',
-    role: 'Builds the nucleus of every element, and is one of the puzzles a fleeting isotope can be built with.',
-    live: 'Build mode: every nucleus from helium to oganesson; any fleeting isotope, by choice.',
+    role: 'Builds nuclei, sharing that step with the other hands-on puzzles, and is one of the puzzles a fleeting isotope can be built with.',
+    get live() { return `Build mode: ${atomSteps('merge')}; any fleeting isotope, by choice.`; },
     instructions: MERGE_HOW,
     zRange: [2, 118],
     deal: (z, seed, reduced, a) => new MergeView(newMerge({ z, a: a ?? element(z).commonA }, seed), reduced),
@@ -156,8 +170,8 @@ export const PUZZLES: PuzzleType[] = [
     get rules() { return rulesOf(GridV); },
     goal: 'Fill the grid with no symbol twice in a row, column or block.',
     blurb: 'Fill the grid so every row, column and outlined block holds each orbital once. Drag symbols from the stacks under the grid.',
-    role: 'Settles the electrons of every element, standing in for Shell Rings until a better electron puzzle is found.',
-    live: 'Build mode: the electrons of every element.',
+    role: 'Settles electrons, sharing that step with the other thinking puzzles.',
+    get live() { return `Build mode: ${atomSteps('orbitalGrid')}.`; },
     instructions: GRID_HOW,
     zRange: [1, 118],
     deal: (z, seed, reduced) => new OrbitalGridView(newOrbitalGrid(z, seed), reduced),
@@ -176,7 +190,7 @@ export const PUZZLES: PuzzleType[] = [
     goal: 'Clear a path so the red bar can slide out.',
     blurb: 'Slide the bars and blocks out of the way so the red key bar can slide out.',
     role: 'Builds isotopes, leaning toward the heavy atoms, where its deepest boards are.',
-    live: 'Build mode: 41 lasting isotopes, and any fleeting isotope by choice.',
+    get live() { return `Build mode: ${atomSteps('sliding')}; 41 lasting isotopes, and any fleeting isotope by choice.`; },
     instructions: SLIDING_HOW,
     zRange: [27, 118],
     deal: (z, seed, reduced) => new SlidingView(newSliding(z, seed), reduced),
@@ -196,7 +210,7 @@ export const PUZZLES: PuzzleType[] = [
     goal: 'Fill the square around its gaps, using every piece.',
     blurb: 'Drag every piece into the square, around the studded gaps, until it is full; they fit in only one way. Tap a piece to turn it.',
     role: 'Builds isotopes, leaning toward the lighter atoms.',
-    live: 'Build mode: 72 lasting isotopes, and any fleeting isotope by choice.',
+    get live() { return `Build mode: ${atomSteps('packing')}; 72 lasting isotopes, and any fleeting isotope by choice.`; },
     instructions: PACKING_HOW,
     zRange: [1, 118],
     deal: (z, seed, reduced) => new PackingView(newPacking(z, seed), reduced),
@@ -215,7 +229,7 @@ export const PUZZLES: PuzzleType[] = [
     goal: 'Draw one line from + to − that keeps every mark happy.',
     blurb: 'Draw one line from a + charge to a − charge that keeps every mark on the board happy.',
     role: 'Builds isotopes, leaning toward the heavy atoms; planned for a chapter per particle (17).',
-    live: 'Build mode: 41 lasting isotopes, and any fleeting isotope by choice.',
+    get live() { return `Build mode: ${atomSteps('lines')}; 41 lasting isotopes, and any fleeting isotope by choice.`; },
     instructions: LINES_HOW,
     zRange: [1, 118],
     deal: (z, seed, reduced) => new LinesView(newLines(z, seed), reduced),
@@ -234,7 +248,7 @@ export const PUZZLES: PuzzleType[] = [
     goal: 'Absorb every photon, then stop on the red ring.',
     blurb: 'Swipe and the electron slides until something stops it. Absorb every photon, then stop on the red ring.',
     role: 'Builds isotopes. (Rows of the table now open by progress instead.)',
-    live: 'Build mode: 38 lasting isotopes, and any fleeting isotope by choice.',
+    get live() { return `Build mode: ${atomSteps('slideStop')}; 38 lasting isotopes, and any fleeting isotope by choice.`; },
     instructions: SLIDESTOP_HOW,
     zRange: [1, 118],
     deal: (z, seed, reduced) => new SlideStopView(newSlideStop(z, seed), reduced),
@@ -267,7 +281,7 @@ export const PUZZLES: PuzzleType[] = [
     goal: 'Probe every empty cell; too many direct hits ruin the plate.',
     blurb: 'Probe the foil cell by cell and fire the few alpha beams the plate grants; counts and beam tracks reveal where every nucleus sits. Read them well: the plate takes only a few direct hits before it is ruined.',
     role: 'Builds isotopes, leaning toward the lighter atoms.',
-    live: 'Build mode: 30 lasting isotopes, and any fleeting isotope by choice.',
+    get live() { return `Build mode: ${atomSteps('rutherford')}; 30 lasting isotopes, and any fleeting isotope by choice.`; },
     instructions: RUTHERFORD_HOW,
     zRange: [1, 118],
     deal: (z, seed, reduced) => new RutherfordView(newRutherford(z, seed), reduced),
@@ -302,7 +316,7 @@ export const PUZZLES: PuzzleType[] = [
     goal: 'Clear the grid in color-neutral groups.',
     blurb: 'Bind the quarks into color-neutral groups until the grid is clear; on heavier elements a gluon can swap two colors.',
     role: 'Builds isotopes, leaning toward the lighter atoms; planned for the quark and gluon chapters of the particles too.',
-    live: 'Build mode: 72 lasting isotopes, and any fleeting isotope by choice.',
+    get live() { return `Build mode: ${atomSteps('colorCharge')}; 72 lasting isotopes, and any fleeting isotope by choice.`; },
     instructions: CHARGE_HOW,
     zRange: [1, 118],
     deal: (z, seed, reduced) => new ColorChargeView(newColorCharge(z, seed), reduced),

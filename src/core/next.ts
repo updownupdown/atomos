@@ -9,6 +9,7 @@
 // Fleeting isotopes are never the next step: they are for when the player wants more.
 // openStep() and openAtom() take the player there; the app shell supplies the way (setNavigator).
 
+import { atomGame } from './atomGames';
 import { MAX_Z, elementAt } from '../gallery/data';
 import { SHAPE_AT, atomBuilt, isotopeGame, isotopeCollected, lastingIsotopes, rowOf, rowOpen, shapeAt, stepState, stepsOf } from './progress';
 import { loadSave, type OrbitalShape, type SaveData, type StepId } from './save';
@@ -48,9 +49,10 @@ const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 function stepNext(z: number, id: StepId): NextStep {
   const name = elementAt(z).name;
+  const game = atomGame(z, id === 'nucleus' ? 'nucleus' : 'shells');
   return id === 'nucleus'
-    ? { z, kind: 'nucleus', game: 'merge', gameName: GAME_NAMES.merge, label: `${name}'s nucleus`, stage: 'nucleus' }
-    : { z, kind: 'electrons', game: 'orbitalGrid', gameName: GAME_NAMES.orbitalGrid, label: `${name}'s electrons`, stage: 'shells' };
+    ? { z, kind: 'nucleus', game, gameName: GAME_NAMES[game], label: `${name}'s nucleus`, stage: 'nucleus' }
+    : { z, kind: 'electrons', game, gameName: GAME_NAMES[game], label: `${name}'s electrons`, stage: 'shells' };
 }
 
 function shapeNext(z: number, l: OrbitalShape): NextStep {

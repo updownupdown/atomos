@@ -57,3 +57,11 @@ export function elementsAtLevel(game: string, level: number, lo: number, hi: num
   for (let z = lo; z <= hi; z++) if (difficultyLevel(difficulty(game, z)) === level) out.push(z);
   return out;
 }
+
+/**
+ * The difficulty dial, 1 to 100, that newer games deal from instead of the element: 1 to 20 is
+ * Very easy, 21 to 40 Easy, 41 to 60 Medium, 61 to 80 Hard and 81 to 100 Expert. Until the
+ * assignment moves onto the dial, an element's boards are dealt at a dial that rises evenly
+ * across the table.
+ */
+export const zDial = (z: number): number => Math.round(1 + (99 * (Math.min(118, Math.max(1, z)) - 1)) / 117);

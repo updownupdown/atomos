@@ -1,5 +1,5 @@
-// The seeds that make each atom's build boards the same for everyone. Tokamak
-// (merge) builds every nucleus; Quanta (orbital grid) settles every atom's electrons.
+// The seeds that make each atom's build boards the same for everyone, for the atoms whose
+// nucleus is Tokamak's (merge) or whose electrons are Quanta's (orbital grid).
 
 import { element } from '../core/elements';
 import { newMerge, type MergeState } from './merge';

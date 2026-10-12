@@ -1,10 +1,11 @@
 // How far each atom's Build has got, for the Build page, the mode row and the gallery.
 //
-// An atom is built from two puzzles, in either order: its nucleus (Tokamak) and its electrons
-// (Quanta). Once it is built, its isotopes open, in two groups. Lasting isotopes (stable, or
-// with a half-life over a year) each have a fixed puzzle and count toward the atom's 100%.
-// Fleeting isotopes (everything shorter) have their own count: the player picks any isotope
-// puzzle for each, and once built they stay in the collection, shown as decayed.
+// An atom is built from two puzzles, in either order: its nucleus and its electrons, each
+// with the puzzle the committed table gives it (src/core/atomGames.ts). Once it is built, its
+// isotopes open, in two groups. Lasting isotopes (stable, or with a half-life over a year)
+// each have a fixed puzzle and count toward the atom's 100%. Fleeting isotopes (everything
+// shorter) have their own count: the player picks any isotope puzzle for each, and once built
+// they stay in the collection, shown as decayed.
 
 import { elementAt, type Isotope } from '../gallery/data';
 import ISOTOPE_GAMES from '../data/isotope-games.json';
@@ -69,11 +70,14 @@ export function isotopeGame(z: number, a: number): IsotopeGame | null {
   return GAME_OF[`${z}-${a}`] ?? null;
 }
 
-/** The element a fleeting isotope's board is dealt for: the shorter its half-life, the harder
- *  the board. Unmeasured half-lives deal hardest. To be tuned in playtesting. */
+/** The element a fleeting isotope's board is dealt for: a little harder the shorter it lives.
+ *  One element per factor of ten below a year, so a day-long isotope deals 3 elements up, a
+ *  second-long one 7 and a nanosecond one 16, the most; unmeasured half-lives count as a
+ *  microsecond (13). */
 export function fleetingDealZ(z: number, i: Isotope): number {
-  const t = i.halfLife;
-  const bump = t === null ? 40 : t > 86400 ? 0 : t > 3600 ? 8 : t > 1 ? 16 : t > 1e-3 ? 24 : 32;
+  const YEAR = 3.156e7;
+  const t = i.halfLife ?? 1e-6;
+  const bump = Math.min(16, Math.max(0, Math.round(Math.log10(YEAR / Math.max(t, 1e-30)))));
   return Math.min(118, z + bump);
 }
 
