@@ -63,7 +63,7 @@ function fakeView(moves: number): PuzzleView {
 export function renderComponentPage(page: HTMLElement, onBack: () => void): void {
   page.replaceChildren();
   const head = h('div', 'ip-head');
-  head.append(backButton('Gallery', onBack));
+  head.append(backButton('Tables', onBack));
   page.append(head, h('h1', 'ip-title', 'Components'), h('p', 'ip-lede', 'Every shared button, choice, overlay and mark, working. They are the real components, so tuning one here tunes it everywhere it is used. Icons have their own <a href="#icons">library</a>.'));
 
   // ---- Buttons ----

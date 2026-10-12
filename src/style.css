@@ -615,11 +615,9 @@ body.puzzling #overlay { pointer-events: auto; touch-action: none; }
 .layout-switch button { flex: none; font-size: 12px; padding: 0 12px; min-height: 36px; }
 .lens-switch[hidden] { display: none; }
 /* Details: every element in the shared sortable table, filling the space between the count and the switch. */
-.gal-details { position: absolute; inset: 0; z-index: 1; display: flex; flex-direction: column; padding: calc(var(--top) + var(--sp-3)) var(--sp-3) calc(var(--safe-bottom) + var(--sp-3)); background: var(--c-bg); }
+/* Tables (gallery/table.ts): its tools on the header gray, the table on black. */
+.gal-details { position: absolute; inset: 0; z-index: 1; display: flex; flex-direction: column; padding: var(--top) 0 0; background: var(--c-bg); }
 .gal-details[hidden] { display: none; }
-.gal-details .el-list { flex: 1; min-height: 0; }
-.gal-details .el-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-.gal-details .el-scroll { flex: 0 1 auto; min-height: 0; }
 #gallery-screen.is-details .gal-labels, #gallery-screen.is-details .gal-hover { display: none; }
 /* The Collection: every atom as a row with its progress, over the map. The list scrolls under
    its own search, pills and sort. */

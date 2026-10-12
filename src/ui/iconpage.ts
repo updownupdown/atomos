@@ -26,5 +26,5 @@ export function renderIconPage(page: HTMLElement, onBack: () => void): void {
         <figcaption>${n}</figcaption>
       </figure>`).join('')}
     </div>`;
-  page.querySelector('.ip-head')!.append(backButton('Gallery', onBack));
+  page.querySelector('.ip-head')!.append(backButton('Tables', onBack));
 }

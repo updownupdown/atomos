@@ -1,0 +1,59 @@
+/* Tables (table.ts): the search, filters, sort and grouping on the header gray, and the table
+   on black beneath, scrolling both ways with its heading row and symbol column held in place. */
+.tb { flex: 1; min-height: 0; display: flex; flex-direction: column; font-family: var(--font); }
+.tb-tools { display: flex; flex-direction: column; gap: var(--sp-3); padding: var(--sp-2) var(--sp-3) var(--sp-3); background: var(--c-nav); }
+.tb-tools .el-search input { background: var(--c-bg); }
+.tb-tools .el-filter { background: var(--c-surface-3); color: var(--c-text); }
+
+/* Filters: a row of pills for each, any number picked; an element shows if it matches one
+   picked value in every filter that has any. */
+.tb-filters { display: flex; flex-direction: column; gap: var(--sp-3); }
+.tb-filters[hidden] { display: none; }
+.tb-fgroup { display: flex; flex-direction: column; gap: var(--sp-1); }
+.tb-fgroup small { font-size: var(--fs-caps-min); font-weight: var(--fw-semibold); letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--c-text-2); }
+.tb-fgroup .ui-pills { flex-wrap: wrap; gap: 6px; }
+.tb-fgroup .ui-pill { background: var(--c-bg); }
+.tb-fgroup .ui-pill[aria-checked='true'] { background: var(--c-accent); }
+.tb-clearf { align-self: flex-start; min-height: 36px; padding: 0 var(--sp-3); border: 0; border-radius: var(--r-pill); background: transparent; color: var(--c-accent); font-family: var(--font); font-size: var(--fs-sm); font-weight: var(--fw-semibold); cursor: pointer; }
+.tb-clearf[hidden] { display: none; }
+.el-none .tb-clearf { background: var(--c-surface-2); }
+
+/* Sort (with its direction) and Group as two dropdowns, the count after them. */
+.tb-bar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+.tb-bar .el-sortbtn, .tb-bar .el-dir { background: var(--c-bg); }
+.tb-btn small { font-size: var(--fs-sm); font-weight: var(--fw-medium); color: var(--c-text-2); }
+.tb-count { margin-left: auto; }
+.tb-menu--left { left: 0; right: auto; }
+.tb-menu { max-height: min(60vh, 520px); overflow-y: auto; }
+.is-searching .tb-box { opacity: 0.4; }
+
+/* The table */
+.tb-scroll { flex: 0 1 auto; min-height: 0; overflow: auto; overscroll-behavior: contain; padding-bottom: calc(var(--safe-bottom) + var(--sp-4)); }
+.tb-scroll[hidden] { display: none; }
+.tb-scroll table { border-collapse: separate; border-spacing: 0; min-width: 100%; font-size: var(--fs-sm); font-variant-numeric: tabular-nums; }
+.tb-scroll thead th { position: sticky; top: 0; z-index: 2; height: 40px; padding: 0; background: var(--c-surface-3); text-align: left; white-space: nowrap; }
+.tb-scroll thead th.n { text-align: right; }
+.tb-scroll thead button { display: inline-flex; align-items: center; gap: 4px; width: 100%; min-height: 40px; padding: 0 var(--sp-3); border: 0; background: transparent; color: var(--c-text-2); font: inherit; font-weight: var(--fw-semibold); cursor: pointer; }
+.tb-scroll thead th.n button { justify-content: flex-end; }
+.tb-scroll thead button:hover { color: var(--c-text); }
+.tb-scroll thead th[aria-sort='ascending'] button, .tb-scroll thead th[aria-sort='descending'] button { color: var(--c-accent); }
+.tb-arrow::after { content: ''; }
+th[aria-sort='ascending'] .tb-arrow::after { content: '↑'; }
+th[aria-sort='descending'] .tb-arrow::after { content: '↓'; }
+.tb-scroll td, .tb-scroll tbody th { height: 44px; padding: 0 var(--sp-3); white-space: nowrap; color: var(--c-text-2); text-align: left; font-weight: var(--fw-regular); background: var(--c-bg); }
+.tb-scroll tbody th { color: var(--c-text); font-weight: var(--fw-semibold); }
+.tb-scroll td.n { text-align: right; }
+.tb-scroll td.is-sort { color: var(--c-text); }
+/* The symbol column stays put while the table scrolls sideways. */
+.tb-scroll thead th:first-child, .tb-scroll tbody td:first-child { position: sticky; left: 0; z-index: 1; }
+.tb-scroll thead th:first-child { z-index: 3; }
+.tb-sym { display: inline-grid; place-items: center; min-width: 34px; height: 28px; padding: 0 6px; border-radius: 6px; background: color-mix(in srgb, var(--c) 20%, var(--c-surface-2)); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--c) 38%, transparent); color: var(--c-text); font-weight: var(--fw-bold); }
+.tb-scroll tbody tr[data-z] { cursor: pointer; }
+/* Soft alternating plates, just enough to follow a row across. */
+.tb-scroll tbody tr.alt > * { background: var(--c-plate); }
+.tb-scroll tbody tr[data-z]:hover > * { background: var(--c-surface-2); }
+.tb-scroll tbody tr:focus-visible { outline: 2px solid var(--c-accent); outline-offset: -2px; }
+/* A section's heading row when grouped, held under the heading row while its rows scroll by. */
+.tb-scroll .tb-sec th { position: sticky; top: 40px; z-index: 1; height: 36px; padding: 0 var(--sp-3); background: var(--c-nav); text-align: left; white-space: nowrap; }
+.tb-scroll .tb-sec th span { position: sticky; left: var(--sp-3); font-size: var(--fs-caps-min); font-weight: var(--fw-semibold); letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--c-text); }
+.tb-scroll .tb-sec th small { margin-left: var(--sp-2); font-size: var(--fs-sm); font-weight: var(--fw-medium); color: var(--c-text-2); }
