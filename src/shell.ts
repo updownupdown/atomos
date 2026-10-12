@@ -51,16 +51,19 @@ export class AppShell {
         if (z !== null) {
           this.setZ(z);
           // An atom opened over Tables (Look at, on a locked atom's sheet) is the Atom screen now.
+          if (this.screen === 'gallery') this.atomFrom = 'gallery';
           if (this.screen === 'gallery' || this.screen === 'atom') { this.screen = 'atom'; this.setNav('atom', this.mode === 'info' ? 'info' : 'view'); }
         } else if (this.screen === 'atom') {
-          // Closed from inside (Escape): back to Collect, on this atom.
-          void this.go('collect');
+          // Closed from inside (Escape): back where it was opened, Collect on this atom or Tables.
+          this.closeAtom();
         }
       },
     });
     this.collect = new Collect($('collect-screen'), { onOpen: (z) => { this.z = z; void this.go('atom', atomBuilt(z) ? 'view' : 'build'); } });
     // The atom bar's Collect button.
     document.addEventListener('atomos:collect', () => void this.go('collect'));
+    // Escape on the Build page: back where the atom was opened.
+    document.addEventListener('atomos:close-atom', () => this.closeAtom());
     // Header: the mark (home) on the left, then the four sections, each an icon over its name.
     $('nav-logo').innerHTML = `${markSvg()}<span class="nav-word">Atomos</span>`;
     $('nav-logo').onclick = () => void this.go('collect');
@@ -142,12 +145,21 @@ export class AppShell {
   private stepBack(): void {
     const escape = () => { document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })); };
     // Whatever is open closes first; a puzzle goes back to its list or Build page; an atom's
-    // View or Info closes to Collect (the gallery answers Escape for those).
+    // View or Info closes to where it was opened (the gallery answers Escape for those).
     if (this.overlayOpen()) return escape();
     if (this.screen === 'atom' && (this.mode !== 'build' || this.game?.inPuzzle)) return escape();
     if (this.screen === 'puzzles' && this.playground?.inPuzzle) return escape();
     if (this.screen === 'icons' || this.screen === 'components') { void this.go('settings'); return; }
+    if (this.screen === 'atom') return this.closeAtom();
     if (this.screen !== 'collect') void this.go('collect');
+  }
+
+  /** Where an atom was opened from: Tables, or Collect (anything else). Back and Escape return
+   *  there; the atom bar's Collect button always goes to Collect. */
+  private atomFrom: 'gallery' | 'collect' = 'collect';
+
+  private closeAtom(): void {
+    void this.go(this.atomFrom);
   }
 
   /** Where the app opens. A player who hasn't built anything yet starts on hydrogen's Build
@@ -223,6 +235,7 @@ export class AppShell {
     if (screen === 'atom' && mode === 'build') await this.loadGame();
     // Back to Collect from an atom: on that atom's period, centered on it.
     const fromAtom = this.screen === 'atom';
+    if (screen === 'atom' && this.screen !== 'atom') this.atomFrom = this.screen === 'gallery' ? 'gallery' : 'collect';
     this.screen = screen;
     this.mode = screen === 'atom' ? mode : this.mode;
     this.setNav(screen, this.mode);
