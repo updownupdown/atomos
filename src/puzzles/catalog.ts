@@ -234,7 +234,7 @@ export const PUZZLES: PuzzleType[] = [
       return `<h2>Tokamak: the science</h2>
         <p>A nucleus is protons and neutrons, its <b>nucleons</b>, held together by the strong force. ${sup(String(el.commonA))}${el.symbol}, ${el.name}'s most common isotope, has ${el.commonA} of them: ${z} protons and ${el.commonA - z} neutrons.</p>
         <p>Stars build the elements up to iron by <b>fusion</b>: light nuclei slam together and stick, releasing energy. Hydrogen fuses to helium in the Sun; three heliums make carbon in red giants.</p>
-        ${z > 26 ? `<p>Past iron, fusion costs more energy than it gives, so ${el.name} was never made this way. Heavy nuclei are built by <b>neutron capture</b>: slowly inside old giant stars, or in seconds when neutron stars collide, with some of the captured neutrons turning into protons. Here the board is just a game: the heaviest nuclei are dealt bigger clusters, and shards of the reactor wall get in the way.</p>` : ''}
+        ${z > 26 ? `<p>Past iron, fusion costs more energy than it gives, so ${el.name} was never made this way. Heavy nuclei are built by <b>neutron capture</b>: slowly inside old giant stars, or in seconds when neutron stars collide, with some of the captured neutrons turning into protons. Here the board is just a game: the heaviest nuclei are dealt bigger clusters, and tungsten blocks from the reactor's armor get in the way.</p>` : ''}
         <p class="muted">Game rule: the board counts nucleons in clusters that double when two of a size meet, and ${el.commonA} written that way is ${parts.join(' + ')}. Real nuclei are not assembled by pairing clusters, and nothing slides about inside a star.</p>`;
     },
   },
