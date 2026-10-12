@@ -47,6 +47,7 @@ export const GAME_NAMES: Record<string, string> = {
   trace: 'Trace',
   shells: 'Shells',
   drop: 'Drop',
+  push: 'Push',
 };
 
 let paused: { z: number; stage: string; game: string } | null = null;

@@ -81,6 +81,9 @@ import * as ShellsV from './shellsView';
 import { newDrop } from './drop';
 import { DropView, INSTRUCTIONS as DROP_HOW } from './dropView';
 import * as DropV from './dropView';
+import { newPush } from './push';
+import { PushView, INSTRUCTIONS as PUSH_HOW } from './pushView';
+import * as PushV from './pushView';
 import { SUBSHELL_COLORS, type PuzzleView, type RuleCard } from './view';
 
 /** Which atom steps a game builds, from the committed table: "12 nuclei and 3 electron sets". */
@@ -113,6 +116,7 @@ const ICON_SLUG: Record<string, string> = {
   trace: 'trace',
   shells: 'shells',
   drop: 'drop',
+  push: 'push',
 };
 
 /** A puzzle type's icon, or the generic puzzles icon until its own is drawn. */
@@ -629,6 +633,24 @@ export const PUZZLES: PuzzleType[] = [
         <p>The nucleus of ${el.name.toLowerCase()}-${el.commonA} holds ${el.commonA} nucleons: ${z} ${z === 1 ? 'proton' : 'protons'} and ${el.commonA - z} ${el.commonA - z === 1 ? 'neutron' : 'neutrons'}.</p>
         <p>The clusters are real light nuclei: a proton and a neutron make a deuteron, three nucleons make tritium or helium-3, and two protons with two neutrons make an alpha particle, the helium-4 nucleus that heavy atoms throw out when they decay.</p>
         <p class="muted">Game rule: nucleons do not fall into wells or sit in square cells, and a nucleus is not built from clusters dropped one by one.</p>`;
+    },
+  },
+  {
+    id: 'push', name: 'Push', tier: 'reserve',
+    use: 'Practice',
+    get rules() { return rulesOf(PushV); },
+    goal: 'Push every nucleon onto a socket of its own kind.',
+    blurb: 'Walk the probe round a small walled chamber and push protons and neutrons onto their sockets, one at a time and never pulling. Walking is free; par is the fewest pushes.',
+    role: 'A reserve game to try out: a thinking one with a plan to find, for the nucleus pool, if it earns a place.',
+    instructions: PUSH_HOW,
+    zRange: [1, 118],
+    native: (d, seed, reduced) => new PushView(newPush(d, seed), reduced),
+    science: (z) => {
+      const el = element(z);
+      return `<h2>Push: the science</h2>
+        <p>A nucleus is built from two kinds of <b>nucleon</b>: <b>protons</b>, each with one positive charge, and <b>neutrons</b>, with none. ${el.name} has ${z} proton${z === 1 ? '' : 's'}; that count is what makes it ${el.name}, while the number of neutrons can vary from one isotope to the next.</p>
+        <p>Inside the nucleus the nucleons are held by the strong force, which pulls on protons and neutrons alike at very short range and easily beats the protons' electric push on each other.</p>
+        <p class="muted">Game rule: nucleons are not pushed about one at a time, and a nucleus has no sockets; protons and neutrons are colored only to tell them apart.</p>`;
     },
   },
 ];
