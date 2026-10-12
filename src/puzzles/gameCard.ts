@@ -1,17 +1,22 @@
 // The game card: one game, the same everywhere in the app (the Puzzles home, the Build page).
-// The game's icon fills a white square the full height of the card, inked black, so a game
-// reads apart from everything else on screen; then its name and difficulty (five pips and a
-// word), then its Play button inside the card. An optional extra line sits under the
-// difficulty. The card is a plain filled surface; only the button acts.
+// A fully rounded plate: the game's icon, always black on a white circle set in from the edge,
+// so a game reads apart from everything else on screen; then its name and difficulty (five
+// pips and a word); then its round button at the far end: Play filled blue (the Next button,
+// magenta, where it is the next step), Replay a blue ring. The button shows only its icon; its
+// word is read out. An optional extra line sits under the difficulty, for screens with no room
+// beside the card (the Build page puts what a step builds to the card's right instead). Only
+// the button acts.
 //
 //   gameCard({ id: 'merge', name: 'Tokamak', difficulty: 4, action: { label: 'Play', onClick } })
 //   gameCard({ ..., difficulty: { lo: 1, hi: 3 } })   // a game's whole range, on the Puzzles home
 
 import { puzzleIcon } from './catalog';
+import { icon } from '../ui/icons';
 import { difficultyLevel, difficultyWord, LEVELS } from './difficulty';
 
 export interface GameCardAction {
-  /** "Play", "Replay" or another word or two. */
+  /** "Play", "Replay" or another word or two: read out, and shown as its icon (Replay's arrow,
+   *  else the play triangle). */
   label: string;
   onClick: () => void;
   /** Replay and other second choices take the outline button; Play is filled. Defaults to
@@ -94,7 +99,8 @@ export function gameCard(o: GameCardOptions): HTMLElement {
     const b = document.createElement('button');
     b.type = 'button';
     b.className = `${a.kind ?? (a.label === 'Replay' ? 'secondary' : 'primary')} gcard-go`;
-    b.textContent = a.label;
+    b.innerHTML = `${icon(a.label === 'Replay' ? 'restart' : 'play', { size: 20 })}<span class="gcard-label"></span>`;
+    b.querySelector('.gcard-label')!.textContent = a.label;
     b.setAttribute('aria-label', a.ariaLabel ?? `${a.label} ${o.name}`);
     b.disabled = Boolean(a.disabled);
     b.onclick = () => a.onClick();

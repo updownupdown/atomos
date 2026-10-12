@@ -81,7 +81,7 @@ export class Game {
   /** The next step, as of the last time the Build page was drawn. */
   private nextHere: NextStep | null = null;
   /** The game cards renderHome() is about to mount, by stage. */
-  private cardMounts = new Map<string, { id: string; name: string; rating: number; extra: string; verb: string; next: boolean; locked: boolean; what: string }>();
+  private cardMounts = new Map<string, { id: string; name: string; rating: number; verb: string; next: boolean; locked: boolean; what: string }>();
   /** The progress tracks down the right of the Build page. */
   private tracks: TrackOverlay | null = null;
   private busy = false;
@@ -536,7 +536,6 @@ export class Game {
         extra: g === used ? 'Built with this' : undefined,
         action: {
           label: g === used ? 'Replay' : 'Play',
-          kind: done ? 'secondary' : 'primary',
           ariaLabel: `Build ${el.name}-${a} with ${name}`,
           onClick: () => {
             this.closeModal();
@@ -598,16 +597,17 @@ export class Game {
       id: t.id,
       name: o.title ?? t.name,
       rating: difficulty(t.id, this.dealtFor(o.stage)),
-      extra: o.iso ? `${o.iso} · ${o.text}` : o.text,
       verb: o.locked ? 'Locked' : verb,
       next: isNext,
       locked: Boolean(o.locked),
       what: `${t.name}${o.iso ? `: ${o.iso}` : ''}`,
     });
+    // What the step builds sits beside the card, over how far it has got.
+    const what = `<span class="bh-what">${o.iso ? `${o.iso} · ${o.text}` : o.text}</span>`;
     return `
       <li class="bh-row ${cls}${isNext ? ' is-go' : ''}" data-row="${o.stage}">
         <div class="bh-gc" data-gc="${o.stage}"></div>
-        <div class="bh-side">${state}</div>
+        <div class="bh-side">${what}${state}</div>
       </li>`;
   }
 
@@ -643,8 +643,8 @@ export class Game {
       const go = () => this.enter(stage);
       const button = m.next
         ? nextButton({ label: m.verb, onClick: go, compact: true, landKey: `build:${this.z}`, className: 'bh-go' })
-        : playButton({ label: m.verb, ariaLabel: `${m.verb} ${m.what}`, onClick: go, compact: true, className: 'bh-plain', icon: verbIcon[m.verb], locked: m.locked });
-      slot.append(gameCard({ id: m.id, name: m.name, difficulty: m.rating, extra: m.extra, button }));
+        : playButton({ ariaLabel: `${m.verb} ${m.what}`, onClick: go, className: m.verb === 'Replay' ? 'gcard-replay' : '', icon: verbIcon[m.verb], locked: m.locked });
+      slot.append(gameCard({ id: m.id, name: m.name, difficulty: m.rating, button }));
     });
     this.cardMounts.clear();
   }
@@ -653,8 +653,8 @@ export class Game {
   private hydrogenNucleus(): string {
     return `
       <li class="bh-row is-done" data-row="nucleus">
-        <div class="bh-gc"><div class="gcard bh-proton"><div class="gcard-in"><span class="gcard-icon" aria-hidden="true">${icon('atom', { size: 36 })}</span><div class="gcard-body"><b class="gcard-name">A lone proton</b><span class="gcard-extra">Ready from the start</span></div></div></div></div>
-        <div class="bh-side"><span class="bh-state is-built">${icon('check', { size: 16 })}Built</span></div>
+        <div class="bh-gc"><div class="gcard bh-proton"><div class="gcard-in"><span class="gcard-icon" aria-hidden="true">${icon('atom', { size: 36 })}</span><div class="gcard-body"><b class="gcard-name">A lone proton</b></div></div></div></div>
+        <div class="bh-side"><span class="bh-what">Ready from the start</span><span class="bh-state is-built">${icon('check', { size: 16 })}Built</span></div>
       </li>`;
   }
 
