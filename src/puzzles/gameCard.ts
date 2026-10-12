@@ -30,6 +30,8 @@ export interface GameCardOptions {
   difficulty?: number | { lo: number; hi: number };
   /** The button at the right; omit for a card with nothing to do. */
   action?: GameCardAction;
+  /** A ready-made button instead (the app's Next button, a locked Play), in the same place. */
+  button?: HTMLElement;
   /** A line under the difficulty: text, or an element the caller keeps updating. */
   extra?: string | HTMLElement;
   className?: string;
@@ -45,6 +47,10 @@ export function gameCard(o: GameCardOptions): HTMLElement {
   const card = document.createElement('div');
   card.className = `gcard${o.className ? ` ${o.className}` : ''}`;
   card.dataset.game = o.id;
+  // The card is the size container; its inside lays out by the width it gets.
+  const inner = document.createElement('div');
+  inner.className = 'gcard-in';
+  card.append(inner);
 
   const art = document.createElement('span');
   art.className = 'gcard-icon';
@@ -78,9 +84,12 @@ export function gameCard(o: GameCardOptions): HTMLElement {
     body.append(extra);
   }
 
-  card.append(art, body);
+  inner.append(art, body);
 
-  if (o.action) {
+  if (o.button) {
+    o.button.classList.add('gcard-go');
+    inner.append(o.button);
+  } else if (o.action) {
     const a = o.action;
     const b = document.createElement('button');
     b.type = 'button';
@@ -89,7 +98,7 @@ export function gameCard(o: GameCardOptions): HTMLElement {
     b.setAttribute('aria-label', a.ariaLabel ?? `${a.label} ${o.name}`);
     b.disabled = Boolean(a.disabled);
     b.onclick = () => a.onClick();
-    card.append(b);
+    inner.append(b);
   }
   return card;
 }

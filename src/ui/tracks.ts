@@ -2,8 +2,9 @@
 // running down the right edge of a list of rows (the Build page's steps, the Collect screen's
 // atoms in a period, the win sheet's few stops) without ever shifting sideways. Where a row has
 // something to build the lane widens into a stop: a dot for one thing, a short bar for many
-// (an atom's share). Each lane is green from the top for as long as progress runs unbroken;
-// below the first gap it is gray, and anything done further down shows white, never green.
+// (an atom's share). Each lane is green from its first stop for as long as progress runs
+// unbroken (gray until something is done); below the first gap it is gray, and anything done
+// further down shows white, never green.
 // Nu circles the stop where the Stable lane's green ends, or, once Stable is whole, where the
 // Fleeting lane's does. A part just won rings white for a moment.
 //
@@ -62,18 +63,20 @@ export function trackStates(rows: TrackRow[], opts: { nu?: boolean } = {}): Trac
   const out: TrackState[] = rows.map(() => ({ stable: blank(), fleeting: blank() }));
   const whole: Record<Lane, boolean> = { stable: true, fleeting: true };
   for (const lane of lanes) {
+    // run: nothing undone so far; lit: and something done, so the lane has gone green.
     let run = true;
+    let lit = false;
     rows.forEach((r, i) => {
       const stop = r[lane] ?? null;
       const s = out[i][lane];
       s.stop = stop;
-      s.above = run;
+      s.above = run && lit;
       if (stop && !stop.done) {
-        if (run) s.next = true;
+        if (run && !stop.locked) s.next = true;
         run = false;
         whole[lane] = false;
-      }
-      s.below = run;
+      } else if (stop && run) lit = true;
+      s.below = run && lit;
     });
   }
   if (opts.nu !== false) {
@@ -105,7 +108,7 @@ function lane(name: Lane, s: LaneState): string {
 
 function stopHtml(s: LaneState): string {
   const st = s.stop!;
-  const run = s.above && st.done;
+  const run = st.done && (s.above || s.below);
   const cls = [
     'trk-stop',
     st.kind === 'bar' ? 'trk-stop--bar' : '',
@@ -132,4 +135,66 @@ export function trackLegend(opts: { labels?: boolean } = {}): HTMLElement {
     <span class="trk-key trk-key--stable" title="Stable">${icon('isotope-stable', { size: 16 })}<span>Stable</span></span>
     <span class="trk-key trk-key--fleeting" title="Fleeting">${icon('isotope-fleeting', { size: 16 })}<span>Fleeting</span></span>`;
   return el;
+}
+
+export interface TrackItem {
+  /** The row; its stops sit on its vertical middle. */
+  el: HTMLElement;
+  row: TrackRow;
+}
+
+export interface TrackOverlay {
+  /** New rows or new progress: redraws. */
+  update(items?: TrackItem[]): void;
+  remove(): void;
+}
+
+/** The lanes drawn over a whole block of mixed content (headings, cards, a table) as one layer
+ *  at its right edge, from `top` (px, default the block's top) to its bottom: stops at each
+ *  item's middle, lines between. The block must be position: relative. Redraws itself when the
+ *  block changes size. */
+export function trackOverlay(container: HTMLElement, items: TrackItem[], opts: { top?: () => number; nu?: boolean } = {}): TrackOverlay {
+  const layer = document.createElement('div');
+  layer.className = 'trk-ov';
+  layer.setAttribute('aria-hidden', 'true');
+  container.append(layer);
+  let list = items;
+  const draw = () => {
+    const box = container.getBoundingClientRect();
+    if (!box.height) return;
+    const states = trackStates(list.map((i) => i.row), { nu: opts.nu });
+    const ys = list.map((i) => {
+      const r = i.el.getBoundingClientRect();
+      return r.top - box.top + r.height / 2;
+    });
+    const top = opts.top?.() ?? 0;
+    const bottom = container.scrollHeight;
+    let html = '';
+    for (const lane of ['stable', 'fleeting'] as Lane[]) {
+      let y0 = top;
+      let green = false;
+      list.forEach((_, i) => {
+        const s = states[i][lane];
+        if (!s.stop) return;
+        html += seg(lane, y0, ys[i], s.above);
+        html += `<span class="trk-at trk-lane--${lane}" style="top:${ys[i]}px">${stopHtml(s)}</span>`;
+        y0 = ys[i];
+        green = s.below;
+      });
+      html += seg(lane, y0, bottom, green);
+    }
+    layer.innerHTML = html;
+  };
+  const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => draw()) : null;
+  ro?.observe(container);
+  draw();
+  return {
+    update(next) { if (next) list = next; draw(); },
+    remove() { ro?.disconnect(); layer.remove(); },
+  };
+}
+
+function seg(lane: Lane, y0: number, y1: number, green: boolean): string {
+  if (y1 <= y0) return '';
+  return `<span class="trk-seg trk-lane--${lane}${green ? ' is-run' : ''}" style="top:${y0}px;height:${y1 - y0}px"></span>`;
 }

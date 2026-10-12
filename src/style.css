@@ -250,30 +250,34 @@ body:not(.build-home) .build-bar { display: none; }
 .bh-sec-blurb { margin: calc(-1 * var(--sp-2)) 0 0; font-size: var(--fs-md); line-height: var(--lh); color: #8b9398; }
 .bh-iso { margin: var(--sp-1) 0 0; font-size: var(--fs-md); font-weight: var(--fw-semibold); color: var(--c-text); }
 .bh-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
-.bh-step { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: var(--sp-2) var(--sp-3); padding: var(--sp-4); border-radius: 6px; background: var(--c-surface); border: 2px solid color-mix(in srgb, var(--c-text) 9%, transparent); }
 .bh-row.is-locked { opacity: 0.55; }
 .bh-mark { position: relative; flex: none; width: 48px; height: 48px; border-radius: 4px; display: grid; place-items: center; background: var(--c-surface-2); color: var(--c-text); }
-/* Name, difficulty, what it builds and a note, all in one column beside the icon. */
-.bh-step-body { min-width: 0; }
-.bh-step-name { margin: 0; font-size: var(--fs-lg); font-weight: var(--fw-semibold); line-height: 1.25; }
-/* A rough difficulty: five pips and a word. */
+/* A rough difficulty: five pips and a word (the fleeting isotope's choice of games). */
 .bh-diff { display: flex; align-items: center; gap: var(--sp-2); margin: 2px 0 0; font-size: var(--fs-sm); color: var(--c-text-2); }
 .bh-pips { display: inline-flex; gap: 3px; }
 .bh-pips i { width: 6px; height: 6px; border-radius: 50%; background: var(--c-surface-3); }
 .bh-pips i.on { background: var(--c-text-2); }
-.bh-adds { margin: var(--sp-1) 0 0; font-size: var(--fs-md); line-height: var(--lh); color: var(--c-text-2); }
-.bh-where { margin: var(--sp-1) 0 0; font-size: var(--fs-min); color: var(--c-text-min); }
-/* On the right: Built or Flawless (with a check or a star) over the button; every button is the
-   same pill, an icon and a word. */
-.bh-side { display: flex; flex-direction: column; align-items: center; gap: var(--sp-2); min-width: 64px; }
-.bh-state { display: inline-flex; align-items: center; gap: 4px; font-size: var(--fs-caps-min); font-weight: var(--fw-semibold); letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--c-text-2); white-space: nowrap; text-align: center; }
-.is-done .bh-state, .is-flawless .bh-state { color: var(--c-done); }
-.bh-side .ui-play, .bh-side .ui-next { min-width: 96px; }
+/* Each step: the game card on the left two thirds; on the right third, Built or Flawless and a
+   note, then the two progress tracks (src/ui/tracks.ts), which keep to the page's right edge. */
+.bh-in { position: relative; --trk-right: calc(var(--sp-4) + 10px); --trk-bg: var(--c-bg); --trk-room: 60px; }
+.bh-trk-head { display: flex; justify-content: flex-end; padding-right: calc(var(--trk-right) - 10px); margin-bottom: calc(-1 * var(--sp-3)); }
+.bh-sec > :not(.bh-steps) { max-width: calc(100% - var(--trk-room)); }
+.bh-sec > .bh-fleet { width: calc(100% - var(--trk-room)); }
+.bh-row { display: grid; grid-template-columns: minmax(0, 1fr) clamp(118px, 33%, 200px); align-items: center; gap: var(--sp-3); }
+.bh-gc { min-width: 0; }
+.bh-gc .gcard { width: 100%; }
+.bh-gc .gcard-go { margin-right: var(--sp-2); }
+
+.bh-side { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 2px; min-width: 0; padding-right: var(--trk-room); }
+.bh-state { display: inline-flex; align-items: center; gap: 4px; font-size: var(--fs-min); font-weight: var(--fw-semibold); color: var(--c-text-2); }
+.bh-state svg { flex: none; }
+.bh-state.is-built, .bh-state.is-flawless { color: var(--c-done); }
+.bh-note { font-size: var(--fs-min); line-height: 1.25; color: var(--c-text-min); }
 .bh-bench { align-self: flex-start; }
 /* Fleeting isotopes: a table, one row per isotope (name, neutrons, half-life, a decayed mark once
    built); a row opens the choice of puzzle. */
 .bh-fleet { width: 100%; border-collapse: collapse; font-size: var(--fs-md); font-variant-numeric: tabular-nums; }
-.bh-fleet th, .bh-fleet td { padding: 0 var(--sp-2); height: 44px; text-align: left; border-bottom: 1px solid var(--c-line); white-space: nowrap; }
+.bh-fleet th, .bh-fleet td { padding: 0 6px; height: 44px; text-align: left; border-bottom: 1px solid var(--c-line); white-space: nowrap; }
 .bh-fleet thead th { height: 32px; font-size: var(--fs-caps-min); font-weight: var(--fw-semibold); letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--c-text-2); border-bottom-color: var(--c-line-2); }
 .bh-fleet tbody th { font-weight: var(--fw-semibold); color: var(--c-text); }
 .bh-fleet td { color: var(--c-text-2); }
@@ -295,11 +299,7 @@ body:not(.build-home) .build-bar { display: none; }
 .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 /* The choice of puzzle for a fleeting isotope. */
 .bh-picks { list-style: none; margin: var(--sp-3) 0 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
-.bh-pick { width: 100%; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: var(--sp-3); padding: var(--sp-2) var(--sp-3) var(--sp-2) var(--sp-2); border: 0; border-radius: 6px; background: var(--c-surface-2); color: var(--c-text); text-align: left; }
-.bh-pick .bh-mark { width: 48px; height: 48px; background: var(--c-surface-3); }
-.bh-pick-body { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; text-align: left; }
-.bh-pick-body b { font-size: var(--fs-lg); font-weight: var(--fw-semibold); }
-.bh-pick-body .bh-diff { margin: 0; }
+.bh-picks .gcard { width: 100%; }
 
 /* The Build microscope: a tab per part of the atom, a few big numbers and a line each. */
 .bs-tabs { margin: 0 0 var(--sp-4); }
@@ -1724,8 +1724,9 @@ body[data-screen^='atom'].build-home .science-fab, body[data-screen='atom-view']
    no outline, so a game card reads apart from every other card in the app. The card sizes to
    the width it is given (it is a size container, so give it a width in a row); under 300 px,
    two thirds of a phone on the Build page, the square and the button tighten. */
-.gcard { container: gcard / inline-size; display: flex; align-items: center; min-width: 0; min-height: 76px; border-radius: var(--r-md); background: var(--c-surface-2); color: var(--c-text); font-family: var(--font); overflow: hidden; }
-.gcard-icon { flex: none; align-self: stretch; display: grid; place-items: center; width: 76px; background: #fff; color: #000; }
+.gcard { container: gcard / inline-size; display: block; min-width: 0; border-radius: var(--r-md); background: var(--c-surface-2); color: var(--c-text); font-family: var(--font); overflow: hidden; }
+.gcard-in { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; min-height: 76px; }
+.gcard-icon { grid-row: 1 / span 2; align-self: stretch; display: grid; place-items: center; width: 76px; background: #fff; color: #000; }
 .gcard-icon svg { width: 40px; height: 40px; }
 .gcard-body { flex: 1 1 auto; display: flex; flex-direction: column; gap: 4px; min-width: 0; padding: var(--sp-2) var(--sp-3); }
 .gcard-name { font-size: var(--fs-lg); font-weight: var(--fw-semibold); line-height: var(--lh-tight); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1745,3 +1746,58 @@ body[data-screen^='atom'].build-home .science-fab, body[data-screen='atom-view']
   .gcard-name { font-size: var(--fs-md); }
   .gcard .gcard-go { margin-right: 10px; padding: 0 14px; }
 }
+/* Narrower still (the Build page's two thirds): the button moves under the name. */
+@container gcard (max-width: 250px) {
+  .gcard-in { grid-template-columns: auto minmax(0, 1fr); }
+  .gcard-body { padding: var(--sp-2) 10px 0; }
+  .gcard .gcard-go { grid-column: 2; justify-self: start; margin: var(--sp-2) 0 var(--sp-2) 10px; }
+}
+
+/* ---- Progress tracks (src/ui/tracks.ts) ---------------------------------------------------------
+   Two lanes down the right edge of a list of rows, Stable then Fleeting, never shifting sideways.
+   A lane is green from the top while progress runs unbroken, gray after the first gap; done parts
+   below a gap show white. A row's cell fills its height; --trk-gap on the list bridges the space
+   between rows; --trk-bg is the color behind, cut around each stop. */
+.trk { --w: 48px; --lane-gap: 28px; position: relative; flex: none; align-self: stretch; width: var(--w); min-height: 24px; pointer-events: none; }
+.trk-lane { position: absolute; top: calc(var(--trk-gap, 0px) / -2); bottom: calc(var(--trk-gap, 0px) / -2); width: 0; }
+.trk-lane--stable { right: calc(10px + var(--lane-gap)); }
+.trk-lane--fleeting { right: 10px; }
+.trk-lane::before, .trk-lane::after { content: ''; position: absolute; left: -1.5px; width: 3px; background: var(--c-line-3); }
+.trk-lane::before { top: 0; bottom: 50%; }
+.trk-lane::after { top: 50%; bottom: 0; }
+.trk-lane.is-above::before, .trk-lane.is-below::after { background: var(--c-good); }
+.trk--cap-top .trk-lane::before, .trk--cap-bottom .trk-lane::after { display: none; }
+.trk--cap-top .trk-lane { top: 0; }
+.trk--cap-bottom .trk-lane { bottom: 0; }
+.trk-stop { position: absolute; z-index: 1; left: 0; top: 50%; width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 50%; background: var(--c-surface-3); box-shadow: 0 0 0 3px var(--trk-bg, var(--c-bg)); }
+.trk-stop.is-done { background: var(--c-text); }
+.trk-stop.is-run { background: var(--c-good); }
+.trk-stop.is-next { background: var(--trk-bg, var(--c-bg)); box-shadow: 0 0 0 3px var(--trk-bg, var(--c-bg)), inset 0 0 0 2px var(--c-text-2); }
+.trk-stop.is-nu { box-shadow: 0 0 0 3px var(--trk-bg, var(--c-bg)), inset 0 0 0 2.5px var(--c-go), 0 0 0 5px var(--c-go-ring); animation: trk-nu 2.4s ease-in-out infinite; }
+.trk-stop.is-just { box-shadow: 0 0 0 3px var(--trk-bg, var(--c-bg)), 0 0 0 5px var(--c-text); animation: trk-just 1.4s var(--ease) 2; }
+.trk-stop.is-locked { opacity: 0.4; }
+.trk-stop--bar { width: 8px; height: min(70%, 44px); margin: 0 0 0 -4px; transform: translateY(-50%); border-radius: 4px; overflow: hidden; }
+.trk-stop--bar.is-done:not(.is-run) b, .trk-stop--bar:not(.is-done) b { background: var(--c-text); }
+.trk-stop--bar b { position: absolute; left: 0; right: 0; top: 0; background: var(--c-good); }
+.trk-stop--bar.is-done, .trk-stop--bar.is-run { background: var(--c-surface-3); }
+.trk-stop--bar.is-nu { animation: trk-nu-bar 2.4s ease-in-out infinite; box-shadow: 0 0 0 3px var(--trk-bg, var(--c-bg)), 0 0 0 5px var(--c-go); }
+.trk-stop--bar.is-just { animation: none; }
+.trk-legend { --lane-gap: 28px; display: flex; align-items: flex-end; gap: calc(var(--lane-gap) - 20px); }
+/* Each key stands over its lane: the icon on top, the word running up beneath it. */
+.trk-key { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 20px; font-size: var(--fs-caps-min); font-weight: var(--fw-semibold); letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--c-text-min); white-space: nowrap; }
+.trk-key span { writing-mode: vertical-rl; transform: rotate(180deg); line-height: 20px; }
+.trk-key svg { flex: none; width: 20px; height: 20px; color: var(--c-text-2); }
+.trk-legend--icons .trk-key span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+@media (prefers-reduced-motion: reduce) { .trk-stop { animation: none !important; } }
+@keyframes trk-nu { 50% { box-shadow: 0 0 0 3px var(--trk-bg, var(--c-bg)), inset 0 0 0 2.5px var(--c-go), 0 0 0 5px var(--c-go-ring), 0 0 12px 4px var(--c-go-ring); } }
+@keyframes trk-nu-bar { 50% { box-shadow: 0 0 0 3px var(--trk-bg, var(--c-bg)), 0 0 0 5px var(--c-go), 0 0 12px 6px var(--c-go-ring); } }
+@keyframes trk-just { 0% { transform: scale(0.6); } 40% { transform: scale(1.5); } 100% { transform: scale(1); } }
+/* The overlay form: one layer over a whole block, lanes at its right edge (--trk-right, the
+   Fleeting lane's distance from the edge). */
+.trk-ov { --lane-gap: 28px; position: absolute; top: 0; right: var(--trk-right, 10px); bottom: 0; width: 0; pointer-events: none; z-index: 1; }
+.trk-ov .trk-lane--stable { right: auto; left: calc(-1 * var(--lane-gap)); }
+.trk-ov .trk-lane--fleeting { right: auto; left: 0; }
+.trk-seg { position: absolute; width: 3px; margin-left: -1.5px; background: var(--c-line-3); }
+.trk-seg.is-run { background: var(--c-good); }
+.trk-at { position: absolute; width: 0; height: 0; }
+.trk-at .trk-stop { top: 0; }
