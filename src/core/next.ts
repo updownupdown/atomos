@@ -48,6 +48,8 @@ export const GAME_NAMES: Record<string, string> = {
   shells: 'Shells',
   drop: 'Drop',
   push: 'Push',
+  collide: 'Collide',
+  annihil: 'Annihil',
 };
 
 let paused: { z: number; stage: string; game: string } | null = null;

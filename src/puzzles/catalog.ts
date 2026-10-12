@@ -84,6 +84,12 @@ import * as DropV from './dropView';
 import { newPush } from './push';
 import { PushView, INSTRUCTIONS as PUSH_HOW } from './pushView';
 import * as PushV from './pushView';
+import { newCollide } from './collide';
+import { CollideView, INSTRUCTIONS as COLLIDE_HOW } from './collideView';
+import * as CollideV from './collideView';
+import { newAnnihil } from './annihil';
+import { AnnihilView, INSTRUCTIONS as ANNIHIL_HOW } from './annihilView';
+import * as AnnihilV from './annihilView';
 import { SUBSHELL_COLORS, type PuzzleView, type RuleCard } from './view';
 
 /** Which atom steps a game builds, from the committed table: "12 nuclei and 3 electron sets". */
@@ -117,6 +123,8 @@ const ICON_SLUG: Record<string, string> = {
   shells: 'shells',
   drop: 'drop',
   push: 'push',
+  collide: 'collide',
+  annihil: 'annihil',
 };
 
 /** A puzzle type's icon, or the generic puzzles icon until its own is drawn. */
@@ -652,6 +660,37 @@ export const PUZZLES: PuzzleType[] = [
         <p>Inside the nucleus the nucleons are held by the strong force, which pulls on protons and neutrons alike at very short range and easily beats the protons' electric push on each other.</p>
         <p class="muted">Game rule: nucleons are not pushed about one at a time, and a nucleus has no sockets; protons and neutrons are colored only to tell them apart.</p>`;
     },
+  },
+  {
+    id: 'collide', name: 'Collide', tier: 'reserve',
+    use: 'Practice',
+    get rules() { return rulesOf(CollideV); },
+    goal: 'Collect the target particles within the move budget.',
+    blurb: 'Swap two neighboring particles to line up three or more of a kind; they collide and vanish and new ones fall in. Four make a jet, five a shower. Collect the targets before the moves run out.',
+    role: 'A reserve game to try out: a rote, relaxing match-three for the particle chapters, if it earns a place.',
+    instructions: COLLIDE_HOW,
+    zRange: [1, 118],
+    native: (d, seed, reduced) => new CollideView(newCollide(d, seed), reduced),
+    science: () => `<h2>Collide: the science</h2>
+      <p>Everything ordinary is built from a few kinds of particle. <b>Quarks</b> (up, down and strange are three of the six) are never seen alone: they come bound in threes, as protons and neutrons, or in quark and antiquark pairs. <b>Leptons</b> live alone: the electron, its heavier cousin the <b>muon</b>, and the ghostly <b>neutrino</b>, which passes through the whole Earth almost untouched.</p>
+      <p>Physicists meet them by colliding particles at enormous energies. The debris comes out as narrow sprays called <b>jets</b>, the trace of a quark or gluon knocked loose, and as <b>showers</b>, cascades of particles set off when something hits a detector's dense layers.</p>
+      <p class="muted">Game rule: three alike in a line do not vanish, particles do not sit on a grid, and a jet or shower here is only a way to clear tiles.</p>`,
+  },
+  {
+    id: 'annihil', name: 'Annihil', tier: 'reserve',
+    use: 'Practice',
+    get rules() { return rulesOf(AnnihilV); },
+    goal: 'Jump pieces over their opposites until one is left.',
+    blurb: 'A piece jumps over a neighbor of the opposite kind, matter over antimatter or antimatter over matter, into the empty hole beyond, and the one it jumps is annihilated. Clear the board down to a single piece.',
+    role: 'A reserve game to try out: a thinking one with a quick flash on every move, for the particle chapters, if it earns a place.',
+    instructions: ANNIHIL_HOW,
+    zRange: [1, 118],
+    native: (d, seed, reduced) => new AnnihilView(newAnnihil(d, seed), reduced),
+    science: () => `<h2>Annihil: the science</h2>
+      <p>Nearly every kind of particle has an <b>antiparticle</b>, with the same mass and the opposite charge: the electron has the positron, the proton the antiproton. When a particle meets its antiparticle they <b>annihilate</b>: both vanish and their mass turns into energy. An electron and a positron meeting at rest usually become two gamma-ray photons, flying off in opposite directions.</p>
+      <p>Hospitals use this every day: in a PET scan, positrons from a tracer annihilate with electrons in the body, and the scanner reads the paired photons to see where the tracer went.</p>
+      <p>Why the universe is made of matter at all, when the Big Bang should have made equal amounts of both, is still an open question.</p>
+      <p class="muted">Game rule: in a real annihilation both particles vanish; here the jumping piece survives, and the pieces are generic matter and antimatter, not any one particle.</p>`,
   },
 ];
 
