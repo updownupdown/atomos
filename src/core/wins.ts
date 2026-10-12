@@ -49,3 +49,27 @@ export function recordWin(game: string, dial: number, flawless: boolean): void {
   all[game] = g;
   try { localStorage.setItem(KEY, JSON.stringify(all)); } catch { /* storage off: the win goes uncounted */ }
 }
+
+const DIAL_KEY = 'atomos.dials.v1';
+
+/** The difficulty dial (1 to 100) each game was last played or picked at on the Puzzles screen,
+ *  so it opens there again. Null for a game not yet played there. */
+export function lastDial(game: string): number | null {
+  try {
+    const v: unknown = JSON.parse(localStorage.getItem(DIAL_KEY) ?? '{}');
+    const d = isRecord(v) ? v[game] : undefined;
+    return typeof d === 'number' && Number.isFinite(d) ? Math.max(1, Math.min(100, Math.round(d))) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Remembers the dial a game was last played or picked at. */
+export function rememberDial(game: string, dial: number): void {
+  try {
+    const v: unknown = JSON.parse(localStorage.getItem(DIAL_KEY) ?? '{}');
+    const all: Record<string, unknown> = isRecord(v) ? v : {};
+    all[game] = Math.round(dial);
+    localStorage.setItem(DIAL_KEY, JSON.stringify(all));
+  } catch { /* storage off: the next visit opens at the default */ }
+}

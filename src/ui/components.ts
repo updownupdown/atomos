@@ -256,7 +256,7 @@ export interface SliderOptions {
   onInput?: (v: number) => void;
   /** Fires once the drag or key press settles. */
   onChange?: (v: number) => void;
-  /** The part of the range that can be picked; the track outside it shows amber, as unavailable,
+  /** The part of the range that can be picked; the track outside it shows white, as unavailable,
    *  and the thumb stops at its ends. Defaults to the whole range. */
   allowed?: [number, number];
 }
@@ -491,6 +491,20 @@ export function playButton(o: PlayButtonOptions): HTMLButtonElement {
   return b;
 }
 
+// ---- Animated border ---------------------------------------------------------------------------
+
+export type RingTone = 'focus' | 'go';
+
+/** Puts the app's animated border on an element, or takes it off (null): a thick solid ring with
+ *  a second one breathing out of it. 'focus' is blue, for the one thing in focus (the top game
+ *  card on Puzzles, the rules card being shown); 'go' is magenta, for the way forward (Up next,
+ *  Nu's cards). It holds still under Reduce motion. The element needs no ::after of its own. */
+export function ringOn(e: HTMLElement, tone: RingTone | null): void {
+  e.classList.toggle('ui-ring', tone !== null);
+  e.classList.toggle('ui-ring--go', tone === 'go');
+  e.classList.toggle('is-still', tone !== null && reducedMotion());
+}
+
 // ---- Callout: a floating card at the foot of a screen ----------------------------------------
 
 export interface CalloutOptions {
@@ -509,7 +523,7 @@ export interface CalloutOptions {
  *  text, kicker over title, buttons on the right. It is positioned absolutely by its container
  *  (`.ui-callout--float` pins it to the bottom), so it never pushes the page about. */
 export function createCallout(o: CalloutOptions): HTMLElement {
-  const c = el('div', `ui-callout ${o.className ?? ''}`.trim(),
+  const c = el('div', `ui-callout ui-ring ui-ring--go${reducedMotion() ? ' is-still' : ''} ${o.className ?? ''}`.trim(),
     `${o.pic !== undefined ? `<span class="ui-callout-pic">${o.pic}</span>` : ''}<span class="ui-callout-text"><small></small><b></b></span><span class="ui-callout-acts"></span>`);
   c.querySelector('small')!.textContent = o.kicker;
   c.querySelector('b')!.textContent = o.title;
@@ -607,6 +621,8 @@ export interface ConfirmOptions {
   /** Runs every frame of the streak with p from 0 to 1, so the caller can fade what lies behind
    *  Nu's trail. Called once with 1 under Reduce motion. */
   onSweep?: (p: number) => void;
+  /** A small line under the buttons: a tip ("Double-tap Restart to skip this question."). */
+  note?: string;
 }
 
 /** Asks before an action that can't be undone: a title, one line, Cancel and the action. It
@@ -633,6 +649,7 @@ export function confirmDialog(o: ConfirmOptions): Promise<boolean> {
   cancel.type = ok.type = 'button';
   actions.append(cancel, ok);
   card.append(actions);
+  if (o.note) card.append(el('p', 'ui-confirm-note', esc(o.note)));
   scrim.append(card);
   const before = document.activeElement as HTMLElement | null;
   document.body.append(scrim);

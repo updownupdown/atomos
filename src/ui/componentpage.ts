@@ -6,7 +6,7 @@
 
 import {
   backButton, closeButton, confirmDialog, createCallout, createPills, createSegments, createSlider, createSwitch, createTabs,
-  disclosureHTML, iconButton, nextButton, playButton, showToast, textButton,
+  disclosureHTML, iconButton, nextButton, playButton, ringOn, showToast, textButton,
 } from './components';
 import { icon, MICROSCOPE } from './icons';
 import { openModal } from './modal';
@@ -78,12 +78,11 @@ export function renderComponentPage(page: HTMLElement, onBack: () => void): void
   const gluon = textButton('', () => gluon.setAttribute('aria-pressed', String(gluon.getAttribute('aria-pressed') !== 'true')), 'gbar-act gbar-act--pill');
   gluon.innerHTML = `${icon('gluon', { size: 18 })}<span>Gluon ×2</span>`;
   gluon.setAttribute('aria-pressed', 'false');
-  const ruleBtn = h('button', 'rule-play', `<i class="rule-ico">${icon('play', { size: 16 })}</i><span>Play</span>`);
-  ruleBtn.onclick = () => {
-    const on = ruleBtn.classList.toggle('is-playing');
-    ruleBtn.querySelector('.rule-ico')!.innerHTML = icon(on ? 'stop' : 'play', { size: 16 });
-    ruleBtn.querySelector('span')!.textContent = on ? 'Stop' : 'Play';
-  };
+  // The animated border: blue for the thing in focus, magenta for the way forward.
+  const ringFocus = h('span', 'cl-ring-demo', 'In focus');
+  ringOn(ringFocus, 'focus');
+  const ringGo = h('span', 'cl-ring-demo', 'The way forward');
+  ringOn(ringGo, 'go');
   const filter = iconButton({ icon: icon('filter', { size: 22 }), label: 'Filter', className: 'el-filter' });
   filter.onclick = () => filter.setAttribute('aria-expanded', String(filter.getAttribute('aria-expanded') !== 'true'));
   const go = h('button', 'ui-callout-go', 'Rules');
@@ -103,7 +102,7 @@ export function renderComponentPage(page: HTMLElement, onBack: () => void): void
       pressed, disabled, nudge, iconButton({ icon: icon('chevron-left'), label: 'Ghost', className: 'ui-icon-btn--ghost' }), (() => { const c = closeButton(() => undefined); c.style.position = 'static'; return c; })()),
     spec('Text and pill actions', 'Beside a game\'s message line: Test (Quanta, Chroma), and Chroma\'s Gluon toggle.', textButton('Test', () => showToast('Test')), gluon),
     spec('Callout buttons', 'Inside Learn to Play: the pink one forward, the pale one to wave it off.', go, skip),
-    spec('Rule Play / Stop', 'Each card in a game\'s rules; Stop while it plays.', ruleBtn),
+    spec('Animated border', 'ringOn(el, tone): the top game card on Puzzles and its Play, the rules card in focus (blue); Up next and Nu\'s cards (magenta).', ringFocus, ringGo),
     spec('Filter', 'Right of the Collection search: unfolds the stage pills.', filter),
   );
 

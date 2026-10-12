@@ -1,11 +1,14 @@
 // The Instructions modal for any puzzle: its goal, large, under a Goal heading, then one card
 // per rule. Each card has its title and text, then its pictures side by side, the rule kept and
-// the rule broken, drawn as stills as wide as the sheet allows. Each card plays once on its own
-// when it has scrolled past the middle of the screen, in order; a card's Play (Stop while it
-// plays) replays it, and tapping a picture plays just that one. Only one plays at a time.
+// the rule broken, drawn as stills as wide as the sheet allows. The card crossing the middle of
+// the sheet is the one in focus: it wears the blue animated border and its pictures play, one
+// after the other, over and over; the rest hold their finished stills. Scrolled to the very end,
+// the last card is in focus; tapping a card brings it to the middle. There are no Play buttons.
+// Under Reduce motion the focused card is ringed but its pictures stay still.
 // Shared by Build and the Puzzles screen.
 
 import { openModal } from '../ui/modal';
+import { ringOn } from '../ui/components';
 import { icon } from '../ui/icons';
 import type { PuzzleType } from './catalog';
 import { syncPalette } from './palette';
@@ -37,10 +40,7 @@ export function openRules(t: PuzzleType, opts: { reducedMotion?: boolean; footer
     }).join('');
     return `
     <li class="rule" data-i="${i}">
-      <div class="rule-head">
-        <b>${escape(r.title)}</b>
-        ${pics.length ? `<button class="rule-play" data-i="${i}" type="button" aria-label="Play the example for ${escape(r.title)}"><i class="rule-ico">${icon('play', { size: 16 })}</i><span>Play</span></button>` : ''}
-      </div>
+      <div class="rule-head"><b>${escape(r.title)}</b></div>
       <p>${escape(r.text)}</p>
       ${pics.length ? `<div class="rule-pics${pair ? ' rule-pics--pair' : ''}">${figures}</div>` : ''}
     </li>`;
@@ -71,8 +71,8 @@ function picsOf(r: RuleCard): { kind: Kind; ill: Illustration }[] {
   return out;
 }
 
-/** Draws the stills, wires Play and the pictures, and plays each card once as it passes the
- *  middle of the screen. Returns a function that stops everything (the modal closing). */
+/** Draws the stills, then keeps the card across the middle of the sheet in focus, playing its
+ *  pictures in a loop. Returns a function that stops everything (the modal closing). */
 function wire(root: HTMLElement, rules: RuleCard[], reduced: boolean): () => void {
   syncPalette();
   const dpr = Math.min(2, window.devicePixelRatio || 1);
@@ -90,124 +90,85 @@ function wire(root: HTMLElement, rules: RuleCard[], reduced: boolean): () => voi
     paint(canvas, ill, ill.duration);
   });
 
-  let playing: { btn: HTMLButtonElement; stop: () => void } | null = null;
-  /** Cards that have passed the middle and not yet played on their own, in order. */
-  const queue: string[] = [];
-  const played = new Set<string>();
-  const next = () => {
-    if (playing) return;
-    const i = queue.shift();
-    if (i === undefined) return;
-    const btn = root.querySelector<HTMLButtonElement>(`.rule-play[data-i="${i}"]`);
-    if (btn) start(btn, pics.get(i) ?? [], true);
-    else next();
+  const cards = [...root.querySelectorAll<HTMLElement>('.rule[data-i]')];
+  let active: HTMLElement | null = null;
+  let stopLoop = () => {};
+  const focus = (card: HTMLElement | null) => {
+    if (card === active) return;
+    if (active) ringOn(active, null);
+    stopLoop();
+    stopLoop = () => {};
+    active = card;
+    if (!card) return;
+    ringOn(card, 'focus');
+    const list = pics.get(card.dataset.i!);
+    if (list?.length && !reduced) stopLoop = loop(list, root);
   };
-  const start = (btn: HTMLButtonElement, list: Pic[], auto = false) => {
-    played.add(btn.dataset.i!);
-    const run = play(list, btn, reduced, root, () => {
-      if (playing?.btn !== btn) return;
-      playing = null;
-      // The next card in line plays once this one has finished on its own.
-      if (auto || queue.length) window.setTimeout(next, 250);
+  /** The card across the sheet's middle line; the last one at the very end; else the nearest. */
+  const pick = (): HTMLElement | null => {
+    if (!cards.length) return null;
+    const box = root.getBoundingClientRect();
+    const mid = box.top + box.height / 2;
+    const last = cards[cards.length - 1];
+    const end = root.scrollHeight > root.clientHeight + 2 && root.scrollTop + root.clientHeight >= root.scrollHeight - 2;
+    if (end && last.getBoundingClientRect().bottom <= box.bottom + 1) return last;
+    let best = cards[0], gap = Infinity;
+    for (const c of cards) {
+      const r = c.getBoundingClientRect();
+      const d = mid < r.top ? r.top - mid : mid > r.bottom ? mid - r.bottom : 0;
+      if (d < gap) { gap = d; best = c; }
+    }
+    return best;
+  };
+  let pending = 0;
+  const onScroll = () => {
+    if (!pending) pending = requestAnimationFrame(() => { pending = 0; focus(pick()); });
+  };
+  root.addEventListener('scroll', onScroll, { passive: true });
+  window.addEventListener('resize', onScroll);
+  // Tapping a card brings it to the middle.
+  for (const c of cards) {
+    c.addEventListener('click', () => {
+      c.scrollIntoView({ block: 'center', behavior: reduced ? 'auto' : 'smooth' });
+      focus(c);
     });
-    playing = { btn, stop: run };
-  };
-  root.querySelectorAll<HTMLButtonElement>('.rule-play').forEach((btn) => {
-    btn.onclick = () => {
-      const same = playing?.btn === btn;
-      const was = playing;
-      playing = null;
-      was?.stop();
-      if (same) return;
-      start(btn, pics.get(btn.dataset.i!) ?? []);
-    };
-  });
-  // Tapping a picture plays just that picture.
-  for (const [i, list] of pics) {
-    const btn = root.querySelector<HTMLButtonElement>(`.rule-play[data-i="${i}"]`);
-    if (!btn) continue;
-    for (const pic of list) {
-      pic.canvas.onclick = () => {
-        const was = playing;
-        playing = null;
-        was?.stop();
-        start(btn, [pic]);
-      };
-    }
   }
-
-  // Each card plays once by itself when its pictures pass the middle of the screen (or are
-  // above it when the sheet opens), one at a time, in order. Not under Reduce motion.
-  if (reduced || typeof IntersectionObserver === 'undefined') return () => { playing?.stop(); };
-  const seen = new IntersectionObserver((entries) => {
-    for (const e of entries) {
-      const i = (e.target as HTMLElement).dataset.i!;
-      const past = e.isIntersecting || e.boundingClientRect.top < (e.rootBounds?.top ?? 0);
-      if (!past || played.has(i) || queue.includes(i)) continue;
-      queue.push(i);
-    }
-    queue.sort((a, b) => Number(a) - Number(b));
-    next();
-  }, { root, rootMargin: '0px 0px -50% 0px' });
-  root.querySelectorAll<HTMLElement>('.rule[data-i]').forEach((card) => {
-    const target = card.querySelector<HTMLElement>('.rule-pics');
-    if (target) { target.dataset.i = card.dataset.i; seen.observe(target); }
-  });
+  requestAnimationFrame(() => focus(pick()));
   return () => {
-    seen.disconnect();
-    queue.length = 0;
-    const was = playing;
-    playing = null;
-    was?.stop();
+    root.removeEventListener('scroll', onScroll);
+    window.removeEventListener('resize', onScroll);
+    cancelAnimationFrame(pending);
+    focus(null);
   };
 }
 
-/** Plays a card's pictures one after the other, each from its start to its finished still. */
-function play(list: Pic[], btn: HTMLButtonElement, reduced: boolean, root: HTMLElement, done: () => void): () => void {
+/** Plays a card's pictures one after the other, each from its start to its finished still, and
+ *  then again from the first, until stopped; stopping leaves the finished stills. */
+function loop(list: Pic[], root: HTMLElement): () => void {
   let raf = 0;
-  let timer = 0;
   let k = 0;
   let t0 = performance.now();
   let over = false;
-  const label = btn.querySelector('span')!;
-  const ico = btn.querySelector('.rule-ico')!;
-  const end = () => {
-    if (over) return;
-    over = true;
-    cancelAnimationFrame(raf);
-    window.clearTimeout(timer);
-    btn.classList.remove('is-playing');
-    label.textContent = 'Play';
-    ico.innerHTML = icon('play', { size: 16 });
-    list.forEach((p) => { p.canvas.classList.remove('is-live'); paint(p.canvas, p.ill, p.ill.duration); });
-    done();
-  };
-  btn.classList.add('is-playing');
-  label.textContent = 'Stop';
-  ico.innerHTML = icon('stop', { size: 16 });
-  // Every picture starts from its first frame, so the sequence reads in order.
   list.forEach((p) => paint(p.canvas, p.ill, 0));
-  if (reduced) {
-    // No motion: the first frames for a beat, then the finished stills.
-    timer = window.setTimeout(end, 1200);
-    return end;
-  }
   const frame = (now: number) => {
-    if (!root.isConnected) return;
+    if (over || !root.isConnected) return;
     const p = list[k];
     const t = (now - t0) / 1000;
-    p.canvas.classList.add('is-live');
     paint(p.canvas, p.ill, Math.min(t, p.ill.duration));
-    if (t >= p.ill.duration + 0.6) {
-      p.canvas.classList.remove('is-live');
-      k += 1;
+    if (t >= p.ill.duration + 0.9) {
+      k = (k + 1) % list.length;
       t0 = now;
-      if (k >= list.length) { end(); return; }
+      // The next picture starts from its first frame; a lone picture starts over.
+      paint(list[k].canvas, list[k].ill, 0);
     }
     raf = requestAnimationFrame(frame);
   };
   raf = requestAnimationFrame(frame);
-  return end;
+  return () => {
+    over = true;
+    cancelAnimationFrame(raf);
+    list.forEach((p) => paint(p.canvas, p.ill, p.ill.duration));
+  };
 }
 
 function paint(canvas: HTMLCanvasElement, ill: Illustration, t: number): void {

@@ -48,6 +48,11 @@
   --c-tile: #e4e8ea;
   --c-tile-ink: #101112;
   --c-scrim: rgba(5, 6, 7, 0.62);
+  /* The mask under a modal: paler than the scrim, so the black card stands off the page. */
+  --c-scrim-pale: rgba(58, 63, 69, 0.55);
+  /* A modal's edge and its pinned header. */
+  --c-modal-head: #33383d;
+  --modal-edge: 4px;
   /* Masks behind modals and drawers blur the page. Where backdrop-filter is missing the mask
      is simply the dark scrim above, which already reads on its own. */
   --blur-mask: blur(8px);
@@ -67,7 +72,8 @@
   --c-accent: #6fd0e6;
   --c-accent-ink: #06232a;
   --c-target: #e0503a;
-  --c-good: #8fd19e;
+  /* Good, in rules pictures and toasts: the same neon green as done. */
+  --c-good: #4ff29a;
   /* Done: a neon green, as saturated as the cyan, for what is built and complete (100%, Built,
      Flawless, a finished progress ring). */
   --c-done: #4ff29a;
@@ -78,6 +84,13 @@
   --c-go-ink: #2a0418;
   --c-go-ring: rgba(255, 90, 168, 0.45);
   --c-bad: #ef6a55;
+  /* The five difficulty levels, Very easy to Expert: blue, green, yellow, orange, red. They color
+     the difficulty pips, the Puzzles level picker and the slider's fill, and nothing else. */
+  --c-lvl-1: #58a6ff;
+  --c-lvl-2: #4fd67a;
+  --c-lvl-3: #f4d545;
+  --c-lvl-4: #f59a3c;
+  --c-lvl-5: #f05a4a;
   /* Orbital colours: the same in every atom and every puzzle. */
   --c-orb-s: #5f8ae0;
   --c-orb-p: #2ea57a;

@@ -105,7 +105,14 @@
     <section id="puzzles-screen" hidden aria-label="Puzzles">
       <div class="pg-home" id="pg-home">
         <div class="pg-home-in">
-          <div class="pg-home-head" id="pg-home-head"><h1 class="pg-home-title">Puzzles</h1></div>
+          <h1 class="sr-only">Puzzles</h1>
+          <div class="pg-focus" id="pg-focus" role="region">
+            <div class="pg-focus-in">
+              <canvas class="pg-demo" id="pg-demo" aria-hidden="true"></canvas>
+              <div class="pg-focus-text"><b class="pg-focus-name" id="pg-focus-name"></b><p class="pg-focus-goal" id="pg-focus-goal"></p></div>
+              <div class="pg-levels" id="pg-levels" role="radiogroup"></div>
+            </div>
+          </div>
           <div class="pg-list" id="pg-list"></div>
         </div>
       </div>
