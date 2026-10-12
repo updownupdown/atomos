@@ -63,6 +63,12 @@ import * as ValenceV from './valenceView';
 import { newEmit } from './emit';
 import { EmitView, INSTRUCTIONS as EMIT_HOW } from './emitView';
 import * as EmitV from './emitView';
+import { newSort } from './sort';
+import { SortView, INSTRUCTIONS as SORT_HOW } from './sortView';
+import * as SortV from './sortView';
+import { newFlood } from './flood';
+import { FloodView, INSTRUCTIONS as FLOOD_HOW } from './floodView';
+import * as FloodV from './floodView';
 import { SUBSHELL_COLORS, type PuzzleView, type RuleCard } from './view';
 
 /** Which atom steps a game builds, from the committed table: "12 nuclei and 3 electron sets". */
@@ -89,6 +95,8 @@ const ICON_SLUG: Record<string, string> = {
   circuit: 'circuit',
   valence: 'valence',
   emit: 'emit',
+  sort: 'sort',
+  flood: 'flood',
 };
 
 /** A puzzle type's icon, or the generic puzzles icon until its own is drawn. */
@@ -494,6 +502,41 @@ export const PUZZLES: PuzzleType[] = [
       <p>An electron in an atom can only hold certain energies. When one drops from a higher level to a lower one, the atom gives the difference off as a <b>photon</b>, a packet of light whose color is set by the size of the drop. Every element has its own set of levels, so each glows with its own colors, its <b>emission spectrum</b>: the red of a neon sign, the yellow of a sodium street lamp.</p>
       <p>Light crosses empty space in straight lines, and anything opaque in its way leaves a shadow behind it.</p>
       <p class="muted">Game rule: real lamps shine every way, not just along a row and a column, and two beams pass through each other unharmed; the rule that no lamp may sit in another's light is the puzzle's.</p>`,
+  },
+  {
+    id: 'sort', name: 'Sort', tier: 'reserve',
+    use: 'Practice',
+    get rules() { return rulesOf(SortV); },
+    goal: 'Pour each color of light into a vial of its own.',
+    blurb: 'Tap a vial, then another: the like bands on top pour across onto the same color or into an empty vial. Gather every line of the spectrum whole, in as few pours as the board allows.',
+    role: 'A reserve game to try out: a rote, satisfying one, if it earns a place.',
+    instructions: SORT_HOW,
+    zRange: [1, 118],
+    native: (d, seed, reduced) => new SortView(newSort(d, seed), reduced),
+    science: (z) => {
+      const el = element(z);
+      return `<h2>Sort: the science</h2>
+        <p>A hot gas of one element glows only at certain wavelengths: its <b>emission lines</b>. Each line is light given off when an electron drops from one energy level to a lower one, and the gap between the two levels fixes the line's color. Hydrogen's four visible lines sit at 656 nm (red), 486 nm (blue-green), 434 nm (blue-violet) and 410 nm (violet).</p>
+        <p>A spectrometer spreads mixed light out by wavelength so the lines stand apart, and every element's pattern is its own. ${z <= 99 ? `${el.name}'s lines are how it can be picked out in a flame, a lamp or the light of a star.` : `${el.name} has only ever been made a few atoms at a time, so its lines are mostly worked out by calculation rather than measured.`}</p>
+        <p class="muted">Game rule: light is not poured, and the bands' colors are play colors, not ${el.name}'s real lines.</p>`;
+    },
+  },
+  {
+    id: 'flood', name: 'Flood', tier: 'reserve',
+    use: 'Practice',
+    get rules() { return rulesOf(FloodV); },
+    goal: 'Grow the crystal over the whole board within the picks allowed.',
+    blurb: 'Tap a color: the crystal in the corner takes it, and every touching cell of that color joins. Plan the order of colors to fill the board within the picks allowed.',
+    role: 'A reserve game to try out: a planning one with a growth to watch, if it earns a place.',
+    instructions: FLOOD_HOW,
+    zRange: [1, 118],
+    native: (d, seed, reduced) => new FloodView(newFlood(d, seed), reduced),
+    science: () => {
+      return `<h2>Flood: the science</h2>
+        <p>A <b>crystal</b> is atoms stacked in one repeating pattern, a lattice, that runs unbroken through the whole piece. It grows from a small seed: atoms from the melt or solution around it settle onto its faces in the places the lattice has ready for them, so the pattern spreads outward one layer at a time.</p>
+        <p>Snowflakes, salt and quartz are crystals, and almost every solid metal is a mass of tiny crystal grains, each its own lattice. Growing one large crystal, as is done for the silicon in computer chips, takes a seed and slow, steady cooling.</p>
+        <p class="muted">Game rule: a real crystal adds atoms of its own kind; it does not change what it is made of to take in its neighbors.</p>`;
+    },
   },
 ];
 
