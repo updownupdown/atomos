@@ -4,7 +4,7 @@
 // page both drive an OrbitalCloud with it.
 //
 // Spotlight modes: Rhythm walks the orbitals to the atom's beat; Scan walks the ladder of
-// orbitals (inner to outer) and back, easing from one to the next and resting on each (a soft
+// orbitals (inner to outer) and back, or from the largest in to the smallest and over again, easing from one to the next and resting on each (a soft
 // pulse as it lands, unless pulses are off), the camera easing after it when it follows; By angle lights whichever orbital shows its shape best from
 // where you look; All lit shows everything at once.
 
@@ -29,6 +29,11 @@ export interface SpotlightOptions {
   /** The share of points the rest keeps (instead of the `rest` style's own), so the whole
    *  structure stays readable round what is lit. */
   restShare?: number;
+  /** Scan's direction: 'bounce' (default) walks the ladder out and back; 'in' starts on the
+   *  largest orbital, walks in to the smallest, then jumps back out to the largest. */
+  scanDir?: 'bounce' | 'in';
+  /** 0 to 1: lifts every orbital's twinkle to full, not only the lit one's (a tap's twinkle). */
+  twinkleAll?: number;
 }
 
 export const SPOTLIGHT_DEFAULTS: SpotlightOptions = {
@@ -87,7 +92,7 @@ export class Spotlight {
   private targets(o: SpotlightOptions, eye: THREE.Vector3, dt: number, lit?: ArrayLike<number>): number[] {
     const set = this.set!, fp = this.fp!;
     if (o.spot === 'all') return set.orbitals.map(() => 1);
-    if (o.spot === 'scan') return this.scan(dt, lit);
+    if (o.spot === 'scan') return this.scan(dt, lit, o.scanDir);
     if (o.spot === 'angle') {
       // Light whichever orbital shows its shape best from here: a cigar side-on, a disc or a
       // cross face-on. Round ones never win on their own.
@@ -115,19 +120,22 @@ export class Spotlight {
   /** Scan: the built orbitals along the ladder (inner to outer) and back, a step every few
    *  seconds (the atom's own pace, slow). Each step rests on its orbital, then eases on to the
    *  next; the light spreads a little to the neighbours while it moves. */
-  private scan(dt: number, lit?: ArrayLike<number>): number[] {
+  private scan(dt: number, lit?: ArrayLike<number>, dir: SpotlightOptions['scanDir'] = 'bounce'): number[] {
     const set = this.set!, fp = this.fp!;
     const order = set.orbitals.filter((x) => !lit || lit[x.index] > 0.5).map((x) => x.index);
+    if (dir === 'in') order.reverse();
     this.scanOrder = order;
     const n = order.length;
     const out = set.orbitals.map(() => 0);
     if (!n) return out;
     const stepS = Math.max(3.5, Math.min(6, (2 * fp.dwell * 60) / fp.bpm));
     this.scanT += dt / stepS;
-    const loop = Math.max(1, 2 * (n - 1));
+    // Inward, the last step rests on the smallest orbital for the whole step, then the scan
+    // starts over on the largest.
+    const loop = dir === 'in' ? n : Math.max(1, 2 * (n - 1));
     const s = n > 1 ? this.scanT % loop : 0;
     const j = Math.floor(s);
-    const q = j + smooth(Math.max(0, Math.min(1, (s - j - SCAN_REST) / (1 - SCAN_REST))));
+    const q = dir === 'in' && j === n - 1 ? j : j + smooth(Math.max(0, Math.min(1, (s - j - SCAN_REST) / (1 - SCAN_REST))));
     const pos = q <= n - 1 ? q : loop - q;
     this.scanPos = pos;
     // A new step lands on its orbital: the soft pulse starts.
@@ -214,7 +222,7 @@ export class Spotlight {
           // All lit: everything in, at a third, so the sum doesn't flare.
           * (o.spot === 'all' ? 0.35 : 1 - e + e * share),
         sat: satFloor + (1 - satFloor) * e,
-        twinkle: (0.35 + 0.75 * e) * (1 + scatter * 2.5) * (x.electrons === 1 ? 1.25 : 1),
+        twinkle: ((0.35 + 0.75 * e) * (1 - (o.twinkleAll ?? 0)) + 1.4 * (o.twinkleAll ?? 0)) * (1 + scatter * 2.5) * (x.electrons === 1 ? 1.25 : 1),
         breath: fp.breath * e * (0.5 - 0.5 * Math.cos((this.beat / fp.dwell) * Math.PI * 2)),
         flash: (accent + flashSkip * 0.6 + landing) * e,
       });
@@ -229,6 +237,13 @@ export class Spotlight {
     (u.uPulse.value as THREE.Vector4).set(rip < 0 ? -1 : rip * set.r90 * 0.9, set.r90 * 0.12, rip < 0 ? 0 : 1.6 * (1 - rip / 2), 0);
     (u.uPulseCol.value as THREE.Vector3).set(...fp.accent);
     return this.view;
+  }
+
+  /** Scan: the orbital it rests on or is nearest to now (its index in the set), or null. */
+  get scanOrbital(): number | null {
+    const order = this.scanOrder;
+    if (!order.length) return null;
+    return order[Math.max(0, Math.min(order.length - 1, Math.round(this.scanPos)))];
   }
 
   /** The orbital with the most light now. */

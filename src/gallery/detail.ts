@@ -1,12 +1,14 @@
 // The app's 3D atom, on the Build page and in View. One canvas, one WebGL context.
 //
-// Build ('build'): settings fixed; a tap makes it twinkle for two seconds. Nothing is drawn
-// until the nucleus is built (the page shows "Nucleus not built" instead and no frame runs);
-// then the nucleus as opaque balls in inferno colors (nucleus.ts); once the electrons are
-// built, the whole atom as its Atom fingerprint (render/spotlight.ts): each orbital its own
-// twinkling cloud, lit one at a time as the light walks the ladder of orbitals and back,
-// easing between them and resting on each, the rest tinted; the camera keeps the whole atom
-// in view, with the size circles.
+// Build ('build'): settings fixed; a tap sets the whole atom twinkling, fast, for a moment.
+// Nothing is drawn until the nucleus is built (the page shows "Nucleus not built" instead and
+// no frame runs); then the nucleus as opaque balls in inferno colors (nucleus.ts); once the
+// electrons are built, the whole atom as its Atom fingerprint (render/spotlight.ts): each
+// orbital its own twinkling cloud, lit one at a time from the largest in to the smallest and
+// then the largest again, easing between them and resting on each, its name under the atom,
+// the rest tinted. The camera keeps the whole atom in view, with the size circles turning
+// slowly like the rings of a gyroscope. The canvas reaches below its stage, under the page,
+// and fades out there, so the atom is not cut off at the bottom.
 //
 // View ('view'): the Orbital explorer (render/explorer.ts). Swipe up and down to glide through
 // the orbitals (on release it settles on one), sideways for more or less focus (solo, ghost,
@@ -70,14 +72,20 @@ const sampleSlice = (frameMs: number) => Math.max(5, Math.min(30, frameMs * 0.25
 const PLAY_DWELL_S = 3.6;
 const PLAY_CONTEXT = 0.5;
 const PLAY_RESUME_MS = 5000;
-/** Build: how long a tap's twinkle lasts, rising to full and back. */
-const TAP_TWINKLE_S = 2;
+/** Build: how long a tap's twinkle lasts, rising to full and back, and how much faster the
+ *  points flicker at its height. */
+const TAP_TWINKLE_S = 1.8;
+const TAP_TWINKLE_RATE = 3.5;
+/** Build: each size circle turns once in 4 s (the smallest) to 8 s (the largest), about its
+ *  own axis, and is drawn a quarter fainter than in View. */
+const GYRO_S = [4, 8];
+const BUILD_RING_FADE = 0.75;
 
 /** The Build page's fixed look: the owner's pick from the lab, scanning through the orbitals
  *  along the ladder (resting on each) with the whole atom in view, no light pulses, and the rest
  *  of the atom kept visible enough to read its structure round the lit orbital. */
 const BUILD_LOOK: SpotlightOptions = {
-  spot: 'scan', rest: 'tint', palette: 'print', tempo: 0.5, camera: 'still', twinkle: 0.25, brightness: 3, pulse: 0, restShare: 0.75,
+  spot: 'scan', rest: 'tint', palette: 'print', tempo: 0.5, camera: 'still', twinkle: 0.25, brightness: 3, pulse: 0, restShare: 0.75, scanDir: 'in',
 };
 
 /** An orbit camera that frames a radius, easing in powers of ten (so a dive of five decades
@@ -174,6 +182,15 @@ export class Detail {
   private litTo = new Float32Array(64);
   private empty: HTMLElement | null;
   private legend: HTMLElement | null;
+  /** Build: the scanned orbital's name, the size circles' turns, and the twinkle's own clock
+   *  (it runs faster during a tap's twinkle). */
+  private orbitalEl: HTMLParagraphElement | null = null;
+  private shownOrbital = -1;
+  private gyro: { line: THREE.Line; r: number; period: number; axis: THREE.Vector3; base: number }[] = [];
+  private twinkleClock = 0;
+  /** Build: how far the canvas reaches below its stage (CSS px), and the fit's correction for it. */
+  private bleed = 0;
+  private fitScale = 1;
   private nucleusOn = false;
   /** Where the dive stands: 0 the whole atom, 1 the nucleus; the dive's progress (1 = done). */
   private dive = 0;
@@ -243,9 +260,22 @@ export class Detail {
     this.ringScene.add(this.atomRings);
     if (this.legend) {
       const line = (style: string) => `<svg width="16" height="4" aria-hidden="true"><line x1="1" y1="2" x2="15" y2="2" stroke="currentColor" stroke-width="1.5"${style === 'dashed' ? ' stroke-dasharray="3 2.5"' : ''}/></svg>`;
-      this.legend.innerHTML = CLOUD_RINGS.map((r, i) => `<li>${line(r.style)}<span>${r.pm * 2}${i === CLOUD_RINGS.length - 1 ? ' pm' : ''}</span></li>`).join('');
+      this.legend.innerHTML = CLOUD_RINGS.map((r) => `<li>${line(r.style)}<span>${r.pm * 2} pm</span></li>`).join('');
     }
-    if (this.variant === 'build') this.bindTap(canvas);
+    if (this.variant === 'build') {
+      this.bindTap(canvas);
+      // The orbital the light rests on, named at the bottom of the stage.
+      this.orbitalEl = document.createElement('p');
+      this.orbitalEl.className = 'atom-orbital';
+      this.orbitalEl.setAttribute('aria-hidden', 'true');
+      canvas.parentElement?.append(this.orbitalEl);
+      this.atomRings.children.forEach((ln, i, all) => {
+        const k = all.length > 1 ? i / (all.length - 1) : 0;
+        // Each turns about its own axis in the picture's plane, a quarter turn apart in step.
+        const line = ln as THREE.Line;
+        this.gyro.push({ line, r: CLOUD_RINGS[i].pm / 100, period: GYRO_S[0] + (GYRO_S[1] - GYRO_S[0]) * k, axis: new THREE.Vector3(Math.cos(i * 1.9), Math.sin(i * 1.9), 0), base: (line.material as THREE.LineBasicMaterial).opacity * BUILD_RING_FADE });
+      });
+    }
     new ResizeObserver(() => this.resize()).observe(canvas);
     this.resize();
   }
@@ -310,6 +340,7 @@ export class Detail {
       const mode = this.buildMode;
       if (this.empty) this.empty.hidden = mode !== 'empty';
       if (this.legend) this.legend.hidden = mode !== 'cloud';
+      if (this.orbitalEl) this.orbitalEl.hidden = mode !== 'cloud';
       this.canvas.style.visibility = mode === 'empty' ? 'hidden' : '';
       if (mode === 'nucleus' && this.element) this.nucleus.show(this.element);
     }
@@ -460,6 +491,21 @@ export class Detail {
     this.width = size.x;
     this.height = size.y;
     this.camera.aspect = size.x / size.y;
+    this.camera.clearViewOffset();
+    this.fitScale = 1;
+    const stage = this.variant === 'build' ? this.canvas.parentElement : null;
+    this.bleed = stage ? Math.max(0, r.height - stage.clientHeight) : 0;
+    if (this.bleed > 0) {
+      // The canvas runs `bleed` below the stage: draw it as the top of a view `bleed` taller
+      // still, so the atom stays centered on the stage, and frame the atom as the stage alone
+      // would have.
+      const k = size.y / r.height;
+      const H = r.height - this.bleed;
+      const fullH = (H + 2 * this.bleed) * k;
+      this.camera.aspect = size.x / fullH;
+      this.camera.setViewOffset(size.x, fullH, 0, this.bleed * k, size.x, size.y);
+      this.fitScale = Math.min(r.width, H + 2 * this.bleed) / Math.min(r.width, H);
+    }
     this.camera.updateProjectionMatrix();
     this.cloud.resize({ width: size.x, height: size.y });
   }
@@ -554,18 +600,17 @@ export class Detail {
   /** When the atom was last tapped (seconds of this.time). */
   private twinkleAt = -99;
 
-  /** The tap's twinkle: up to full and back down, eased in and out, over two seconds. */
-  private twinkleBoost(base: number): number {
+  /** The tap's twinkle: 0 at rest, up to 1 and back down, eased in and out. */
+  private get twinkleBoost(): number {
     const t = (this.time - this.twinkleAt) / TAP_TWINKLE_S;
-    if (t < 0 || t >= 1 || this.reducedMotion) return base;
-    const k = 0.5 - 0.5 * Math.cos(t * Math.PI * 2);
-    return base + (1 - base) * k;
+    if (t < 0 || t >= 1 || this.reducedMotion) return 0;
+    return 0.5 - 0.5 * Math.cos(t * Math.PI * 2);
   }
 
   private frameBuild(mode: 'empty' | 'nucleus' | 'cloud', dt: number): void {
     const r = this.renderer;
     if (mode === 'nucleus' && this.element) {
-      this.rig.fit(nucleusExtent(this.element) * 1.2 * UNITS_PER_FM);
+      this.rig.fit(nucleusExtent(this.element) * 1.2 * UNITS_PER_FM * this.fitScale);
       this.rig.update(dt, false, 0.22);
       this.nucleus.group.scale.setScalar(UNITS_PER_FM);
       this.nucleus.intensity = 1;
@@ -573,16 +618,49 @@ export class Detail {
       return;
     }
     if (!this.set) return;
-    const o = this.reducedMotion ? { ...BUILD_LOOK, twinkle: 0, tempo: 0.25 } : { ...BUILD_LOOK, twinkle: this.twinkleBoost(BUILD_LOOK.twinkle) };
+    // A tap: the whole atom twinkles, harder and faster, for a moment.
+    const boost = this.twinkleBoost;
+    const o: SpotlightOptions = this.reducedMotion ? { ...BUILD_LOOK, twinkle: 0, tempo: 0.25 }
+      : { ...BUILD_LOOK, twinkle: BUILD_LOOK.twinkle + (1.5 - BUILD_LOOK.twinkle) * boost, twinkleAll: boost };
+    this.twinkleClock += dt * (1 + (TAP_TWINKLE_RATE - 1) * boost);
     const view = this.spotlight.step(this.cloud, dt, this.time, o, this.camera.position, this.litNow);
     this.cloud.wantDense(this.spotlight.denseWants, DENSE_BUILD / Math.sqrt(this.spotlight.denseSplit));
     if (!this.sampling) this.cloud.sampleDense(this.slice);
-    this.rig.fit(view * 1.12 * this.wpa0);
+    this.rig.fit(view * 1.12 * this.wpa0 * this.fitScale);
     this.rig.update(dt, false, 0.22);
-    this.cloud.renderLayer(this.ctx, this.time);
+    this.cloud.renderLayer(this.ctx, this.twinkleClock);
     this.cloud.draw(r);
-    this.ringScene.quaternion.copy(this.camera.quaternion);
+    this.paintGyro();
     r.render(this.ringScene, this.camera);
+    this.paintOrbital();
+  }
+
+  /** Build: the size circles face the camera, each turning about its own axis in the picture's
+   *  plane like the rings of a gyroscope. One that would run well off the sides fades away. */
+  private paintGyro(): void {
+    this.ringScene.quaternion.copy(this.camera.quaternion);
+    // Half the canvas's width at the atom, in scene units.
+    const c = this.camera;
+    const halfW = c.position.length() * Math.tan((c.fov * Math.PI) / 360) * c.aspect;
+    const still = this.reducedMotion;
+    for (const g of this.gyro) {
+      const r = g.r;
+      g.line.quaternion.setFromAxisAngle(g.axis, still ? 0 : (this.time / g.period) * Math.PI * 2);
+      const a = 1 - step(1.02, 1.12, r / halfW);
+      g.line.visible = a > 0.01;
+      (g.line.material as THREE.LineBasicMaterial).opacity = g.base * a;
+    }
+    // The legend lists only the circles on show.
+    this.legend?.querySelectorAll('li').forEach((li, i) => { const on = this.gyro[i]?.line.visible ?? true; if (li.hidden === on) li.hidden = !on; });
+  }
+
+  /** Build: the name of the orbital the light rests on, under the atom. */
+  private paintOrbital(): void {
+    const el = this.orbitalEl, set = this.set;
+    const i = this.spotlight.scanOrbital;
+    if (!el || !set || i === null || i === this.shownOrbital) return;
+    this.shownOrbital = i;
+    el.textContent = set.orbitals[i]?.label ?? '';
   }
 
   private get ctx() {
