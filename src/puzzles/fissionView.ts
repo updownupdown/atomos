@@ -1,12 +1,13 @@
-// Drawing and touch for Fission: tap a nucleus and watch the chain. Each nucleus is a disc with
-// small chevrons at its rim for the ways its neutrons fly. A neutron is a small bead that
-// crosses the plate one wave at a time; what it hits splits on the next wave. Moderator blocks
-// are plain wall blocks. A split nucleus stays as a faint ring.
+// Drawing and touch for Fission: tap a nucleus and watch the chain. Each nucleus is a cluster of
+// violet nucleons breathing in a soft halo, with chevrons set out from it for the ways its
+// neutrons fly. A neutron is a white-hot bead with a fading ice-blue trail that crosses the plate
+// one wave at a time; what it hits splits on the next wave. Moderator blocks are plain wall
+// blocks. A split nucleus stays as two dim fragments.
 //
 // The board is painted by `paintFission`, which the rule cards' pictures share.
 
 import { allSplit, chainFrom, cloneFission, DX, DY, nucleusAt, plan, solved, tap, type Chain, type FissionState } from './fission';
-import { bead, C, fitGrid, tile } from './palette';
+import { C, fitGrid, tile } from './palette';
 import { drawFrame, frameBox, framePad, frameWidth } from './frame';
 import { drawHelpMark, ease, type Area, type Help, type Illustration, type Point, type PuzzleView, type RuleCard, type Stat } from './view';
 
@@ -31,6 +32,18 @@ interface Paint {
   motion: boolean;
   /** Rule pictures: outline every unsplit nucleus in amber. */
   flag?: boolean;
+  /** The clock for the nuclei's idle breath, when it differs from `now` (the rule pictures run
+   *  their own clock for the chain, which restarts each loop). */
+  idle?: number;
+}
+
+/** A linear gradient through the stops, or the fallback where the canvas has no gradients (a
+ *  test stand-in). */
+function linear(ctx: CanvasRenderingContext2D, x0: number, y0: number, x1: number, y1: number, stops: [number, string][], fallback: string): CanvasGradient | string {
+  const g = ctx.createLinearGradient(x0, y0, x1, y1) as CanvasGradient | undefined;
+  if (!g) return fallback;
+  for (const [at, color] of stops) g.addColorStop(at, color);
+  return g;
 }
 
 const centerOf = (s: FissionState, g: Geo, i: number): Point => ({ x: g.x + ((i % s.size) + 0.5) * g.c, y: g.y + (Math.floor(i / s.size) + 0.5) * g.c });
@@ -60,64 +73,137 @@ function block(ctx: CanvasRenderingContext2D, x: number, y: number, c: number): 
   ctx.fill();
 }
 
-/** A nucleus: a disc with a chevron at its rim for each way its neutrons fly. Split, it is a
- *  faint hollow ring with no chevrons. `flash` 0 to 1 lights it as it splits. */
-export function nucleus(ctx: CanvasRenderingContext2D, x: number, y: number, c: number, arrows: number, split: boolean, flash = 0): void {
-  const r = c * 0.26;
+/** Uranium sits in the f block, so a nucleus wears the f orbital's violet. */
+const VIOLET = '#a865d6';
+const BODY = '#26163a';
+/** Protons a bright lavender, neutrons a gray violet, as the palette has protons warm and
+ *  neutrons gray. */
+const NUCLEON_A = '#d4a8f5';
+const NUCLEON_B = '#7f6a9c';
+/** Neutrons fly white-hot with a cool ice-blue glow. */
+const ICE = '#bfeeff';
+const HOT = '#f4fcff';
+
+/** Nucleon offsets in a nucleus, as fractions of its radius: one in the middle, six round it. */
+const NUCLEONS: [number, number][] = [[0, 0], ...Array.from({ length: 6 }, (_, k): [number, number] => {
+  const a = Math.PI / 6 + (k * Math.PI) / 3;
+  return [Math.cos(a) * 0.6, Math.sin(a) * 0.6];
+})];
+
+/** A nucleus: a cluster of nucleons on a deep violet plate, breathing softly in a violet halo,
+ *  with a chevron well out from its rim for each way its neutrons fly. Split, it is two dim
+ *  fragments on a faint plate with no chevrons. `flash` 0 to 1 lights it as it splits; `pulse`
+ *  0 to 1 is the idle breath (0 when motion is off). */
+export function nucleus(ctx: CanvasRenderingContext2D, x: number, y: number, c: number, arrows: number, split: boolean, flash = 0, pulse = 0): void {
+  const r = c * 0.22;
   ctx.save();
   if (split) {
-    ctx.strokeStyle = C.text2;
-    ctx.lineWidth = Math.max(1, c * 0.035);
-    ctx.setLineDash([c * 0.06, c * 0.05]);
+    ctx.fillStyle = VIOLET;
+    ctx.globalAlpha = 0.17;
     ctx.beginPath();
-    ctx.arc(x, y, r * 0.8, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.setLineDash([]);
-    if (flash > 0) {
-      ctx.globalAlpha = flash;
-      ctx.strokeStyle = C.silver;
-      ctx.lineWidth = Math.max(1.5, c * 0.05);
+    ctx.arc(x, y, r * 1.05, 0, Math.PI * 2);
+    ctx.fill();
+    // Two fragments, flung apart along the diagonal.
+    ctx.globalAlpha = 0.6;
+    ctx.fillStyle = NUCLEON_B;
+    for (const k of [-1, 1]) {
       ctx.beginPath();
-      ctx.arc(x, y, r * (1 + 0.8 * (1 - flash)), 0, Math.PI * 2);
-      ctx.stroke();
+      ctx.arc(x + k * r * 0.42, y - k * r * 0.42, r * 0.26, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    if (flash > 0) {
+      // A burst of white-hot light that swells and fades: a soft filled disc, no thin ring.
+      ctx.globalAlpha = flash * 0.55;
+      ctx.fillStyle = ICE;
+      ctx.shadowColor = ICE;
+      ctx.shadowBlur = c * 0.35 * flash;
+      ctx.beginPath();
+      ctx.arc(x, y, r * (0.9 + 0.9 * (1 - flash)), 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.globalAlpha = flash;
+      ctx.fillStyle = HOT;
+      ctx.beginPath();
+      ctx.arc(x, y, r * 0.45 * flash, 0, Math.PI * 2);
+      ctx.fill();
     }
     ctx.restore();
     return;
   }
-  bead(ctx, x, y, r, C.proton, { rim: C.silverDim });
+  // The halo: a wide faint violet band that breathes.
+  ctx.fillStyle = VIOLET;
+  ctx.globalAlpha = 0.16 + 0.1 * pulse;
+  ctx.beginPath();
+  ctx.arc(x, y, r * (1.24 + 0.08 * pulse), 0, Math.PI * 2);
+  ctx.fill();
+  // The plate, glowing faintly from within.
+  ctx.globalAlpha = 1;
+  ctx.shadowColor = VIOLET;
+  ctx.shadowBlur = c * (0.12 + 0.1 * pulse);
+  ctx.fillStyle = BODY;
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  // The nucleons, lit from the top left by a linear sheen.
+  const nr = r * 0.32;
+  NUCLEONS.forEach(([ox, oy], k) => {
+    const px = x + ox * r, py = y + oy * r;
+    const base = k > 0 && k % 2 === 0 ? NUCLEON_B : NUCLEON_A;
+    ctx.fillStyle = linear(ctx, px - nr, py - nr, px + nr, py + nr, [[0, '#f6ecff'], [0.4, base], [1, base]], base);
+    ctx.beginPath();
+    ctx.arc(px, py, nr, 0, Math.PI * 2);
+    ctx.fill();
+  });
+  // The chevrons, set well out from the rim so the nucleus has room to breathe.
   ctx.strokeStyle = C.silver;
-  ctx.lineWidth = Math.max(1.5, c * 0.05);
+  ctx.lineWidth = Math.max(1.75, c * 0.06);
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
-  const k = c * 0.09;
+  const k = c * 0.1, along = c * 0.065;
   for (let d = 0; d < 4; d++) {
     if (!(arrows & (1 << d))) continue;
     const dx = DX[d], dy = DY[d];
-    const tx = x + dx * (r + c * 0.15), ty = y + dy * (r + c * 0.15);
+    const tx = x + dx * c * 0.43, ty = y + dy * c * 0.43;
     ctx.beginPath();
-    ctx.moveTo(tx - dx * k + dy * k, ty - dy * k + dx * k);
+    ctx.moveTo(tx - dx * along + dy * k, ty - dy * along + dx * k);
     ctx.lineTo(tx, ty);
-    ctx.lineTo(tx - dx * k - dy * k, ty - dy * k - dx * k);
+    ctx.lineTo(tx - dx * along - dy * k, ty - dy * along - dx * k);
     ctx.stroke();
   }
   ctx.restore();
 }
 
-/** A neutron in flight: a small silver bead with a short fading streak behind it. */
+/** A neutron in flight: a white-hot bead in an ice-blue glow, trailing a streak that fades out
+ *  behind it. */
 function neutron(ctx: CanvasRenderingContext2D, from: Point, to: Point, k: number, c: number): void {
   const x = from.x + (to.x - from.x) * k, y = from.y + (to.y - from.y) * k;
-  const bx = from.x + (to.x - from.x) * Math.max(0, k - 0.25), by = from.y + (to.y - from.y) * Math.max(0, k - 0.25);
+  const tail = Math.max(0, k - 0.45);
+  const bx = from.x + (to.x - from.x) * tail, by = from.y + (to.y - from.y) * tail;
   ctx.save();
-  ctx.strokeStyle = C.silver;
+  if (Math.hypot(x - bx, y - by) > 1) {
+    ctx.strokeStyle = linear(ctx, bx, by, x, y, [[0, 'rgba(191, 238, 255, 0)'], [1, 'rgba(191, 238, 255, 0.55)']], ICE);
+    ctx.lineWidth = Math.max(2.5, c * 0.1);
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(bx, by);
+    ctx.lineTo(x, y);
+    ctx.stroke();
+  }
+  const r = Math.max(2.5, c * 0.085);
+  ctx.fillStyle = ICE;
   ctx.globalAlpha = 0.35;
-  ctx.lineWidth = Math.max(2, c * 0.08);
-  ctx.lineCap = 'round';
   ctx.beginPath();
-  ctx.moveTo(bx, by);
-  ctx.lineTo(x, y);
-  ctx.stroke();
+  ctx.arc(x, y, r * 1.7, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalAlpha = 1;
+  ctx.shadowColor = ICE;
+  ctx.shadowBlur = r * 2.2;
+  ctx.fillStyle = HOT;
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.fill();
   ctx.restore();
-  bead(ctx, x, y, Math.max(2.5, c * 0.1), C.silver, { glow: C.silver });
 }
 
 /**
@@ -138,9 +224,9 @@ export function paintFission(ctx: CanvasRenderingContext2D, s: FissionState, g: 
   // The chain's trails: a faint line along each flight that has landed, until the next tap.
   if (a) {
     ctx.save();
-    ctx.strokeStyle = C.text3;
-    ctx.globalAlpha = 0.4;
-    ctx.lineWidth = Math.max(1, c * 0.03);
+    ctx.strokeStyle = ICE;
+    ctx.globalAlpha = 0.07;
+    ctx.lineWidth = Math.max(3, c * 0.08);
     ctx.lineCap = 'round';
     for (const f of a.chain.flights) {
       if (wave < f.step + 1) continue;
@@ -165,7 +251,9 @@ export function paintFission(ctx: CanvasRenderingContext2D, s: FissionState, g: 
       if (shown && since < 320) flash = 1 - since / 320;
     }
     if (o.flag && !isSplit) tile(ctx, p.x - c * 0.44, p.y - c * 0.44, c * 0.88, c * 0.88, c * 0.18, null, C.warn, Math.max(2, c * 0.06));
-    nucleus(ctx, p.x, p.y, c, nu.arrows, shown, flash);
+    // Each nucleus breathes on its own phase, so the plate never pulses in step.
+    const pulse = o.motion ? 0.5 + 0.5 * Math.sin((o.idle ?? o.now) / 900 + nu.cell * 1.7) : 0;
+    nucleus(ctx, p.x, p.y, c, nu.arrows, shown, flash, pulse);
   });
   if (a && o.motion) {
     for (const f of a.chain.flights) {
@@ -377,7 +465,7 @@ function picture(rows: string[], taps: [number, number][], caption: string, bad 
       // The picture's clock runs in its own waves; scale it to the board's.
       const now = u * 1000 * (WAVE / (PWAVE * 1000));
       const settled = u >= clock;
-      paintFission(ctx, st, { x: fit.x, y: fit.y, c: fit.cell }, { anim, now, motion: true, flag: bad && settled });
+      paintFission(ctx, st, { x: fit.x, y: fit.y, c: fit.cell }, { anim, now, motion: true, flag: bad && settled, idle: performance.now() });
     },
   };
 }
