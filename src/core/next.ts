@@ -43,6 +43,10 @@ export const GAME_NAMES: Record<string, string> = {
   emit: 'Emit',
   sort: 'Sort',
   flood: 'Flood',
+  dipole: 'Dipole',
+  trace: 'Trace',
+  shells: 'Shells',
+  drop: 'Drop',
 };
 
 let paused: { z: number; stage: string; game: string } | null = null;
