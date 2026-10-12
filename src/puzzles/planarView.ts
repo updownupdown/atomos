@@ -1,7 +1,8 @@
-// Drawing and touch for Planar: drag atoms until no two bonds cross. Atoms are silver beads
-// with a dark core; bonds are thick lines, slate blue while clear and amber while they cross
-// another bond or run through an atom, with an amber dot at every crossing. The atom in hand
-// lights cyan. When nothing crosses, every bond glows green.
+// Drawing and touch for Planar: drag atoms until no two bonds cross. Atoms are green jewels in
+// black rings, each drifting slowly through the greens (lime to emerald to teal) on its own
+// phase; clear bonds blend between their atoms' greens. A bond that crosses another or runs
+// through an atom goes gray, with an amber dot in a black ring at every crossing. The atom in
+// hand lights cyan. When nothing crosses, the whole molecule glows green.
 //
 // The board is painted by `paintPlanar`, which the rule cards' pictures share.
 
@@ -15,8 +16,6 @@ export const INSTRUCTIONS = `
 <p class="meta">Planar is a reserve game, played from the Practice screen. The easiest board holds 6 atoms and 7 bonds; the hardest, 22 atoms and about 43 bonds, with the bonds per atom rising steadily in between. Every molecule is first laid out with no crossings, then dealt round a ring in a scrambled order, so it can always be untangled. Par is how many atoms that hidden layout moves, once it is turned to keep as many dealt atoms in place as it can. It is a soft target: any drawing with nothing crossing wins, and a good eye can sometimes beat it.</p>
 `;
 
-/** Clear bonds: a calm slate blue. */
-const BOND = '#8fb0cc';
 /** Above this many crossings, only the atom in hand's crossings are dotted. */
 const DOTS = 24;
 /** Milliseconds an atom glides when Show me or Undo moves it. */
@@ -28,7 +27,7 @@ const GLOW = 700;
 interface Geo { x: number; y: number; s: number }
 
 interface Paint {
-  /** Flag crossings, bonds through atoms and atoms on atoms in amber. */
+  /** Flag problems: crossed bonds gray, crossings, bonds through atoms and atoms on atoms in amber. */
   mark: boolean;
   /** Atom radius in pixels. */
   r: number;
@@ -38,6 +37,10 @@ interface Paint {
   glow?: number;
   /** Problems already worked out for these positions. */
   problems?: Problems;
+  /** The clock, in milliseconds, for the atoms' slow drift through the greens. */
+  now?: number;
+  /** False under reduced motion: the atoms hold their colors still. */
+  motion?: boolean;
 }
 
 const at = (g: Geo, p: Pt): Point => ({ x: g.x + p.x * g.s, y: g.y + p.y * g.s });
@@ -51,25 +54,63 @@ function lattice(ctx: CanvasRenderingContext2D, g: Geo): void {
   drawFrame(ctx, frameBox(g.x, g.y, g.s, g.s, c), { width: frameWidth(c), radius: c * 0.2 + framePad(c), color: C.frame });
 }
 
-/** An atom: a silver bead with a dark core, cyan when in hand, green-lit on a win. */
-function atom(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, held: boolean, glow: number): void {
+/** An atom's place in the green spectrum, lime (90) through emerald to teal green (160): each
+ *  atom drifts slowly on its own phase, so the molecule shimmers. Still when motion is off. */
+function hueOf(i: number, now: number, motion: boolean): number {
+  const t = motion ? now / 2600 : 0;
+  return 125 + 35 * Math.sin(t + i * 1.9);
+}
+
+const hsl = (h: number, s: number, l: number, a = 1): string => `hsla(${h.toFixed(1)}, ${s}%, ${l}%, ${a})`;
+
+/** A linear gradient through the stops, or the fallback where the canvas has no gradients (a
+ *  test stand-in). */
+function linear(ctx: CanvasRenderingContext2D, x0: number, y0: number, x1: number, y1: number, stops: [number, string][], fallback: string): CanvasGradient | string {
+  const g = ctx.createLinearGradient(x0, y0, x1, y1) as CanvasGradient | undefined;
+  if (!g) return fallback;
+  for (const [at, color] of stops) g.addColorStop(at, color);
+  return g;
+}
+
+/** Crossed bonds lose their color: a plain mid gray. */
+const CROSSED = '#8c9295';
+
+/**
+ * An atom: a green jewel in a black ring, lit from the top left, glowing softly in its own hue.
+ * In hand it lights cyan. `dim` is for an atom a bond runs through or another atom sits on:
+ * duller and unlit, inside its amber ring.
+ */
+function atom(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, hue: number, o: { held?: boolean; dim?: boolean; glow?: number }): void {
+  const held = !!o.held, glow = o.glow ?? 0;
+  const R = r * (held ? 1.15 : 1);
   ctx.save();
-  if (held) { ctx.shadowColor = C.accent; ctx.shadowBlur = r * 1.4; }
-  else if (glow > 0) { ctx.shadowColor = C.good; ctx.shadowBlur = r * 1.2 * glow; }
-  ctx.fillStyle = held ? C.accent : C.silver;
+  // The black ring, standing the atom off its bonds.
+  ctx.fillStyle = C.bg;
   ctx.beginPath();
-  ctx.arc(x, y, r * (held ? 1.15 : 1), 0, Math.PI * 2);
+  ctx.arc(x, y, R + Math.max(2, r * 0.38), 0, Math.PI * 2);
+  ctx.fill();
+  const sat = o.dim ? 30 : 72;
+  if (held) { ctx.shadowColor = C.accent; ctx.shadowBlur = r * 1.4; }
+  else if (!o.dim) { ctx.shadowColor = glow > 0 ? C.good : hsl(hue, 80, 55); ctx.shadowBlur = r * (0.9 + 0.6 * glow); }
+  const mid = hsl(hue, sat, o.dim ? 50 : 54);
+  ctx.fillStyle = held
+    ? linear(ctx, x - R, y - R, x + R, y + R, [[0, '#d8f5fc'], [0.5, C.accent], [1, '#3f9fb5']], C.accent)
+    : linear(ctx, x - R, y - R, x + R, y + R, [[0, hsl(hue, sat, o.dim ? 72 : 80)], [0.5, mid], [1, hsl(hue, sat, o.dim ? 32 : 34)]], mid);
+  ctx.beginPath();
+  ctx.arc(x, y, R, 0, Math.PI * 2);
   ctx.fill();
   ctx.shadowBlur = 0;
-  ctx.fillStyle = C.tileInk;
-  ctx.globalAlpha = 0.75;
+  // A small highlight, the jewel's catch light.
+  ctx.fillStyle = '#ffffff';
+  ctx.globalAlpha = o.dim ? 0.3 : 0.6;
   ctx.beginPath();
-  ctx.arc(x, y, r * 0.3, 0, Math.PI * 2);
+  ctx.arc(x - R * 0.34, y - R * 0.34, R * 0.2, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
 }
 
-/** Paints the board: the frame, every bond and every atom, with the problems in amber. */
+/** Paints the board: the frame, every bond and every atom. Clear bonds blend between their
+ *  atoms' greens; crossed bonds go gray, with an amber dot ringed in black on each crossing. */
 export function paintPlanar(ctx: CanvasRenderingContext2D, pos: Pt[], edges: [number, number][], g: Geo, o: Paint): void {
   lattice(ctx, g);
   const r = o.r;
@@ -82,19 +123,26 @@ export function paintPlanar(ctx: CanvasRenderingContext2D, pos: Pt[], edges: [nu
     for (const [a, b] of pr.overlaps) { badAtom.add(a); badAtom.add(b); }
   }
   const glow = o.glow ?? 0;
+  const motion = o.motion ?? true;
+  const hues = pos.map((_, i) => hueOf(i, o.now ?? 0, motion));
   // Thinner bonds on crowded boards, so the tangle stays readable.
   const lw = Math.max(2.5, r * (edges.length > 28 ? 0.32 : 0.42));
   ctx.save();
   ctx.lineCap = 'round';
   ctx.lineWidth = lw;
-  // Clear bonds first, then the amber ones on top so a crossing always reads.
-  for (const pass of [false, true]) {
+  // Gray crossed bonds first, then the clear ones in color over them.
+  for (const crossed of [true, false]) {
     edges.forEach(([a, b], e) => {
-      if (badEdge.has(e) !== pass) return;
+      if (badEdge.has(e) !== crossed) return;
       const p = at(g, pos[a]), q = at(g, pos[b]);
-      ctx.strokeStyle = pass ? C.warn : glow > 0 ? C.good : BOND;
-      if (!pass && glow > 0) { ctx.shadowColor = C.good; ctx.shadowBlur = lw * 3 * glow; }
-      ctx.globalAlpha = pass ? 1 : 0.9;
+      if (crossed) {
+        ctx.strokeStyle = CROSSED;
+        ctx.globalAlpha = 0.8;
+      } else {
+        ctx.strokeStyle = linear(ctx, p.x, p.y, q.x, q.y, [[0, hsl(hues[a], 62, 52)], [1, hsl(hues[b], 62, 52)]], hsl(hues[a], 62, 52));
+        ctx.globalAlpha = 0.9;
+        if (glow > 0) { ctx.shadowColor = C.good; ctx.shadowBlur = lw * 3 * glow; }
+      }
       ctx.beginPath();
       ctx.moveTo(p.x, p.y);
       ctx.lineTo(q.x, q.y);
@@ -103,8 +151,8 @@ export function paintPlanar(ctx: CanvasRenderingContext2D, pos: Pt[], edges: [nu
     });
   }
   ctx.restore();
-  // A dot on every crossing, ringed in the board's black so it stands off both bonds. On a
-  // thick tangle only the crossings of the atom in hand get one, so the dots stay meaningful.
+  // A dot on every crossing, in a wide black ring so it stands off both bonds. On a thick
+  // tangle only the crossings of the atom in hand get one, so the dots stay meaningful.
   if (pr) {
     const many = pr.crossings.length > DOTS;
     const mine = (e: number) => o.held !== undefined && edges[e].includes(o.held);
@@ -114,7 +162,7 @@ export function paintPlanar(ctx: CanvasRenderingContext2D, pos: Pt[], edges: [nu
       const x = at(g, crossPoint(pos[a], pos[b], pos[c], pos[d]));
       ctx.fillStyle = C.bg;
       ctx.beginPath();
-      ctx.arc(x.x, x.y, lw * 1.25, 0, Math.PI * 2);
+      ctx.arc(x.x, x.y, lw * 1.55, 0, Math.PI * 2);
       ctx.fill();
       ctx.fillStyle = C.warn;
       ctx.beginPath();
@@ -130,14 +178,14 @@ export function paintPlanar(ctx: CanvasRenderingContext2D, pos: Pt[], edges: [nu
       ctx.strokeStyle = C.warn;
       ctx.lineWidth = Math.max(2, r * 0.3);
       ctx.beginPath();
-      ctx.arc(q.x, q.y, r * 1.45, 0, Math.PI * 2);
+      ctx.arc(q.x, q.y, r * 1.6, 0, Math.PI * 2);
       ctx.stroke();
       ctx.restore();
     }
-    atom(ctx, q.x, q.y, r, false, glow);
+    atom(ctx, q.x, q.y, r, hues[i], { dim: badAtom.has(i), glow });
   });
   // The atom in hand last, over everything.
-  if (o.held !== undefined && o.held >= 0) { const q = at(g, pos[o.held]); atom(ctx, q.x, q.y, r, true, 0); }
+  if (o.held !== undefined && o.held >= 0) { const q = at(g, pos[o.held]); atom(ctx, q.x, q.y, r, hues[o.held], { held: true }); }
 }
 
 export class PlanarView implements PuzzleView {
@@ -306,7 +354,7 @@ export class PlanarView implements PuzzleView {
     if (!done) this.wonAt = null;
     else this.wonAt ??= now;
     const glow = done ? (this.reduced ? 1 : Math.min(1, (now - this.wonAt!) / GLOW)) : 0;
-    paintPlanar(ctx, pos, s.edges, g, { mark: true, r: ATOM_R * g.s, held: this.drag?.atom, glow });
+    paintPlanar(ctx, pos, s.edges, g, { mark: true, r: ATOM_R * g.s, held: this.drag?.atom, glow, now, motion: !this.reduced });
     const m = this.mark?.state === s && !done && !this.drag ? this.mark : null;
     if (m) {
       const q = at(g, pos[m.atom]);
@@ -361,7 +409,7 @@ function picture(atoms: [number, number][], edges: [number, number][], drags: Dr
       const g = fitBoard({ x: 0, y: 0, w, h }, 2);
       const end = LEAD + drags.length * (DRAG + 0.15);
       const glow = o.win ? Math.max(0, Math.min(1, (u - end) / 0.3)) : 0;
-      paintPlanar(ctx, pos, edges, g, { mark: !!o.bad, r: g.s * 0.065, held, glow, problems: o.bad ? problemsOf(pos, edges, 0.065, 0.12) : undefined });
+      paintPlanar(ctx, pos, edges, g, { mark: !!o.bad, r: g.s * 0.065, held, glow, now: performance.now(), problems: o.bad ? problemsOf(pos, edges, 0.065, 0.12) : undefined });
     },
   };
 }
@@ -378,7 +426,7 @@ export const RULES: RuleCard[] = [
   },
   {
     title: 'No crossing',
-    text: 'Bonds may meet only at the atoms they join. A bond that crosses another turns amber.',
+    text: 'Bonds may meet only at the atoms they join. A bond that crosses another loses its color and turns gray.',
     good: picture(RING, RING_BONDS, [{ atom: 4, to: [0.62, 0.62] }], 'All clear'),
     bad: picture(RING, RING_BONDS, [{ atom: 4, to: [0.5, 0.91] }], 'Bonds cross', { bad: true }),
   },

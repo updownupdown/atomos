@@ -10,8 +10,8 @@
 //
 // Heavier nuclei take their difficulty from the board, not from fake numbers:
 // the clusters keep their true sizes, the climb from the smallest dealt cluster
-// to the biggest socket grows with the period, and from period 5 on shards of
-// the reactor wall sit on the board, cells that never move and that tiles stop
+// to the biggest socket grows with the period, and from period 5 on tungsten
+// blocks of the reactor's armor sit on the board, cells that never move and that tiles stop
 // against. Every deal is played through by a greedy player before it is dealt:
 // the walls go only where that player still wins, its line is the hint's plan,
 // and its swipe count sets par. A board with no swipe left is lost.
@@ -63,7 +63,7 @@ export interface MergeState {
   size: number;
   mode: MergeMode;
   cells: (Tile | null)[];
-  /** Cells taken by a shard of the reactor wall: nothing moves into them, tiles stop against them. */
+  /** Cells taken by a tungsten block of the reactor's armor: nothing moves into them, tiles stop against them. */
   walls: number[];
   target: Nucleus;
   /** Cluster sizes the nucleus wants, largest first (capture: just the mass number). */
@@ -93,19 +93,19 @@ export interface Mix {
 }
 
 /** How a nucleus's board is shaped: `climb` caps the mass number over the smallest dealt cluster
- *  (so the biggest socket is at most that many of them), `walls` is how many wall shards it has,
+ *  (so the biggest socket is at most that many of them), `walls` is how many tungsten blocks it has,
  *  and `budget` says par is measured from the greedy player (else the old nucleon formula). */
 export interface MergeShape {
   climb: number;
   walls: number;
-  /** How many of the shards sit in the middle four cells (the rest sit mid-edge). */
+  /** How many of the blocks sit in the middle four cells (the rest sit mid-edge). */
   inner: number;
   budget: boolean;
 }
 
 /** The board for an element, by period: periods 1 to 3 as they always were; periods 4 and 5 climb
- *  to 64 and period 5 adds a wall shard; periods 6 and 7 climb to 128 with one shard; the last row
- *  from radium on has two shards on a climb of 64 (two shards on 128 are too much for anyone). */
+ *  to 64 and period 5 adds a tungsten block; periods 6 and 7 climb to 128 with one block; the last row
+ *  from radium on has two blocks on a climb of 64 (two blocks on 128 are too much for anyone). */
 export function mergeShape(z: number): MergeShape {
   if (z <= 18) return { climb: 32, walls: 0, inner: 0, budget: false };
   if (z <= 36) return { climb: 64, walls: 0, inner: 0, budget: true };
@@ -163,19 +163,19 @@ export function budgetPar(greedy: number): number {
 const PAR_SLACK = 1.3;
 const PAR_PAD = 4;
 
-/** Wall layouts tried per deal before the board gives up a shard. */
+/** Wall layouts tried per deal before the board gives up a block. */
 const WALL_TRIES = 10;
 /** The greedy player's swipe limit when vetting a deal (capture boards are short or lost). */
 const VET_LIMIT = 700;
 const CAPTURE_LIMIT = 200;
 
-/** Cells a wall shard may take: one of the middle four, which cuts a row and a column at once, or
+/** Cells a tungsten block may take: one of the middle four, which cuts a row and a column at once, or
  *  the middle of an edge row or column, which cuts only one. Never a corner, which changes little. */
 const INNER_CELLS = [5, 6, 9, 10];
 const EDGE_CELLS = [1, 2, 4, 7, 8, 11, 13, 14];
 
 /** Wall layouts for a deal, from their own generator so the tiles dealt stay those of the seed:
- *  `walls` shards, the first `inner` of them in the middle four. Two shards never share a row or
+ *  `walls` blocks, the first `inner` of them in the middle four. Two blocks never share a row or
  *  a column, so no line is cut twice. */
 export function wallLayouts(seed: number, walls: number, inner = 0): number[][] {
   const rng = seeded((seed * 2654435761 + walls * 97 + inner * 7 + 13) >>> 0);
@@ -335,7 +335,7 @@ function lines(size: number, dir: Dir): number[][] {
 
 const runCache = new Map<string, number[][]>();
 
-/** The stretches tiles slide along: each line, cut at the wall shards on it. */
+/** The stretches tiles slide along: each line, cut at the tungsten blocks on it. */
 function runs(size: number, dir: Dir, walls: number[]): number[][] {
   const key = `${size}|${dir}|${walls.join(',')}`;
   let out = runCache.get(key);

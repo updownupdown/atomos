@@ -1,11 +1,12 @@
 // Drawing and touch for Bond: drag from a dot through empty cells to its partner. Dots are beads
-// in their pair's color; a path is a thick rounded line of that color. Dragging back along a
+// in their pair's color set in a thick dark ring; a path is a thick line of that color, cased in
+// the same dark, that bends round each turn in a wide curve. Dragging back along a
 // path pulls it in, and dragging into another path cuts that one off where you enter.
 //
 // The board is painted by `paintBond`, which the rule cards' pictures share.
 
 import { answerFor, begin, cloneBond, complete, extend, firstWrong, neighbors, occupancy, solved, type BondState } from './bond';
-import { bead, C, fitGrid } from './palette';
+import { C, fitGrid } from './palette';
 import { drawFrame, frameBox, framePad, frameWidth } from './frame';
 import { drawHelpMark, type Area, type Help, type Illustration, type Point, type PuzzleView, type RuleCard, type Stat } from './view';
 
@@ -53,42 +54,79 @@ function lattice(ctx: CanvasRenderingContext2D, s: BondState, g: Geo): void {
   }
 }
 
+/** How wide a path is, its dark casing, a turn's bend (on the center line), and a dot. */
+const PATH_W = 0.4;
+const RING_W = 0.075;
+const TURN_R = 0.42;
+const DOT_R = 0.29;
+/** The dark of the casing and the rings. */
+const INK = '#000000';
+
+/** Traces a path's center line through the given points, each turn bent round an arc. A turn's
+ *  radius is held to half of any inner leg (two turns can share one) and to all of an end leg. */
+function trace(ctx: CanvasRenderingContext2D, pts: Point[], radius: number): void {
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x, pts[0].y);
+  for (let i = 1; i < pts.length - 1; i++) {
+    const a = pts[i - 1], q = pts[i], b = pts[i + 1];
+    const inA = Math.hypot(q.x - a.x, q.y - a.y), outB = Math.hypot(b.x - q.x, b.y - q.y);
+    const straight = Math.abs((q.x - a.x) * (b.y - q.y) - (q.y - a.y) * (b.x - q.x)) < 1e-6;
+    if (straight) { ctx.lineTo(q.x, q.y); continue; }
+    const r = Math.min(radius, i === 1 ? inA : inA / 2, i === pts.length - 2 ? outB : outB / 2);
+    ctx.arcTo(q.x, q.y, b.x, b.y, r);
+  }
+  const end = pts[pts.length - 1];
+  ctx.lineTo(end.x, end.y);
+}
+
+/** A dot: its pair's color in a thick dark ring that also cuts it clean from its own path. */
+function dot(ctx: CanvasRenderingContext2D, x: number, y: number, c: number, hue: string): void {
+  ctx.fillStyle = INK;
+  ctx.beginPath();
+  ctx.arc(x, y, c * (DOT_R + RING_W), 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = hue;
+  ctx.beginPath();
+  ctx.arc(x, y, c * DOT_R, 0, Math.PI * 2);
+  ctx.fill();
+}
+
 /** Paints the grid, every path and every dot. */
 export function paintBond(ctx: CanvasRenderingContext2D, s: BondState, g: Geo, o: Paint = {}): void {
   const c = g.c;
   lattice(ctx, s, g);
-  // Paths first, under the dots.
+  // Paths first, under the dots: the dark casing, then the color inside it.
   s.paths.forEach((path, p) => {
     const reveal = o.reveal?.[p] ?? 1;
     const count = Math.max(1, Math.min(path.length, Math.ceil(path.length * reveal)));
     if (path.length < 2 || count < 2) return;
     const hue = BOND_HUES[p % BOND_HUES.length].color;
-    ctx.save();
-    ctx.strokeStyle = hue;
-    ctx.globalAlpha = complete(s, p) ? 0.95 : 0.75;
-    ctx.lineWidth = c * 0.38;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.beginPath();
-    for (let i = 0; i < count; i++) {
-      const q = centerOf(s, g, path[i]);
-      if (i) ctx.lineTo(q.x, q.y); else ctx.moveTo(q.x, q.y);
-    }
+    const pts: Point[] = [];
+    for (let i = 0; i < count; i++) pts.push(centerOf(s, g, path[i]));
     // A path still being revealed ends part way to its next cell.
     const frac = path.length * reveal - (count - 1);
     if (count < path.length && frac > 0 && frac < 1) {
-      const a = centerOf(s, g, path[count - 1]), b = centerOf(s, g, path[count]);
-      ctx.lineTo(a.x + (b.x - a.x) * frac, a.y + (b.y - a.y) * frac);
+      const a = pts[count - 1], b = centerOf(s, g, path[count]);
+      pts.push({ x: a.x + (b.x - a.x) * frac, y: a.y + (b.y - a.y) * frac });
     }
+    ctx.save();
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    trace(ctx, pts, c * TURN_R);
+    ctx.strokeStyle = INK;
+    ctx.lineWidth = c * (PATH_W + RING_W * 2);
+    ctx.stroke();
+    ctx.strokeStyle = hue;
+    ctx.globalAlpha = complete(s, p) ? 1 : 0.72;
+    ctx.lineWidth = c * PATH_W;
     ctx.stroke();
     ctx.restore();
   });
   s.pairs.forEach(([a, b], p) => {
     const hue = BOND_HUES[p % BOND_HUES.length].color;
-    const done = complete(s, p);
     for (const cell of [a, b]) {
       const q = centerOf(s, g, cell);
-      bead(ctx, q.x, q.y, c * 0.3, hue, { rim: C.bg, glow: done ? hue : undefined });
+      dot(ctx, q.x, q.y, c, hue);
     }
   });
   if (o.flag) {

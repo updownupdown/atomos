@@ -276,6 +276,7 @@ function record(draw: (ctx: CanvasRenderingContext2D) => void): { pts: [number, 
       if (k === 'arc') return (x: number, y: number, r: number) => { rec(x - r, y - r); rec(x + r, y + r); };
       if (k === 'ellipse') return (x: number, y: number, rx: number, ry: number) => { rec(x - rx, y - ry); rec(x + rx, y + ry); };
       if (k === 'rect' || k === 'roundRect' || k === 'fillRect' || k === 'strokeRect') return (x: number, y: number, w: number, h: number) => { rec(x, y); rec(x + w, y + h); };
+      if (k === 'createLinearGradient') return () => ({ addColorStop: () => {} });
       if (k === 'measureText') return (s: string) => ({ width: s.length * 7 });
       return () => {};
     },
@@ -319,13 +320,13 @@ function checkPictures(rules: RuleCard[]): void {
 
 describe('rule cards', () => {
   it('have a title, plain text and pictures that stay in their box', () => {
-    expect(RULES.map((r) => r.title)).toEqual(['Swipe', 'Merge', 'Clusters', 'The nucleus', 'Into the nucleus', 'Cracks', 'Wall shards', 'Jammed']);
+    expect(RULES.map((r) => r.title)).toEqual(['Swipe', 'Merge', 'Clusters', 'The nucleus', 'Into the nucleus', 'Cracks', 'Tungsten blocks', 'Jammed']);
     checkPictures(RULES);
     for (const r of RULES) expect(r.good, r.title).toBeDefined();
   });
 
   it('shows the mistake beside the right move where there is one to make', () => {
-    expect(RULES.filter((r) => r.bad).map((r) => r.title)).toEqual(['Merge', 'Into the nucleus', 'Cracks', 'Wall shards', 'Jammed']);
+    expect(RULES.filter((r) => r.bad).map((r) => r.title)).toEqual(['Merge', 'Into the nucleus', 'Cracks', 'Tungsten blocks', 'Jammed']);
     // The mistake is flagged in amber (the board's own crack is amber too).
     for (const r of RULES.filter((x) => x.bad)) {
       const { colors } = record((ctx) => r.bad!.draw(ctx, 140, 104, r.bad!.duration));
@@ -342,7 +343,7 @@ describe('rule cards', () => {
   });
 });
 
-// ---- harder boards: climb, wall shards, par as a budget, jams lost ------------------------------
+// ---- harder boards: climb, tungsten blocks, par as a budget, jams lost ------------------------------
 
 describe('harder boards', () => {
   const real = (z: number, seed: number) => newMerge({ z, a: element(z).commonA }, seed);
@@ -361,7 +362,7 @@ describe('harder boards', () => {
     expect(spawnMix({ z: 54, a: 131 }, 64).kinds).toEqual([2, 4, 8]);
   });
 
-  it('places wall shards by seed, where the greedy player still wins', () => {
+  it('places tungsten blocks by seed, where the greedy player still wins', () => {
     for (const z of [37, 50, 79, 92, 118]) for (const seed of [1, 2, 3, 4]) {
       const s = real(z, seed);
       const again = real(z, seed);
@@ -370,7 +371,7 @@ describe('harder boards', () => {
       const shape = mergeShape(z);
       expect(s.walls.length).toBeLessThanOrEqual(shape.walls);
       for (const w of s.walls) expect(s.cells[w]).toBeNull();
-      // Two shards never share a row or a column; an inner shard sits in the middle four.
+      // Two blocks never share a row or a column; an inner block sits in the middle four.
       if (s.walls.length === 2) {
         const [a, b] = s.walls;
         expect(a % 4).not.toBe(b % 4);
@@ -383,13 +384,13 @@ describe('harder boards', () => {
       expect(won(p)).toBe(true);
       expect(s.plan!.dirs.length).toBeLessThan(s.par);
     }
-    // Most heavy deals keep every shard their period asks for.
+    // Most heavy deals keep every block their period asks for.
     let kept = 0;
     for (let seed = 1; seed <= 12; seed++) if (real(100, seed).walls.length === 2) kept++;
     expect(kept).toBeGreaterThanOrEqual(10);
   });
 
-  it('stops tiles against a shard and never merges through one', () => {
+  it('stops tiles against a block and never merges through one', () => {
     const s = board(C12, [t(1, 1), null, null, t(2, 2), ...empty(12)]);
     s.walls = [1];
     const n = slide(s, 'left')!;
@@ -401,7 +402,7 @@ describe('harder boards', () => {
     const k = slide(m, 'left')!;
     expect(k.cells[0]).toMatchObject({ v: 2 });
     expect(k.cells[2]).toMatchObject({ v: 2 });
-    // Nothing is ever dealt onto a shard.
+    // Nothing is ever dealt onto a block.
     let q = real(60, 3);
     for (let i = 0; i < 40 && !won(q); i++) {
       q = slide(q, (['left', 'up', 'right', 'down'] as const)[i % 4]) ?? slide(q, 'down') ?? q;
@@ -455,7 +456,7 @@ describe('harder boards', () => {
     expect(worst).toBeLessThan(600);
   });
 
-  it('draws the shards inside the area', () => {
+  it('draws the blocks inside the area', () => {
     const area = { x: 0, y: 0, w: 360, h: 520 };
     const v = new MergeView(real(92, 2), false);
     expect(stateOf(v).walls.length).toBeGreaterThan(0);

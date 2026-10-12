@@ -1,7 +1,8 @@
 // Drawing and touch for Spin: tap a cell to set its spin up, tap again for down, again to
-// clear. Up is a red plate and down a blue one, like a magnet's poles, each with its arrow;
-// dealt cells carry dark arrows and cannot change, the player's carry white ones. Links between cells show as a small "=" or "x" on their shared edge. Anything that
-// breaks a rule is outlined in amber as soon as it does.
+// clear. Up is a red plate and down a blue one, like a magnet's poles, each with a white chevron
+// arrow; the player's plates are solid, dealt ones are the same hue held back and cannot change.
+// Links between cells show as a small "=" or "x" in a dark disc on their shared edge. Anything
+// that breaks a rule is outlined in amber as soon as it does.
 //
 // The board is painted by `paintSpin`, which the rule cards' pictures share.
 
@@ -41,22 +42,23 @@ function lattice(ctx: CanvasRenderingContext2D, s: SpinState, g: Geo): void {
   }
 }
 
-/** An arrow for a spin: up or down, in the cell's middle. */
+/** An arrow for a spin, up or down, in the cell's middle: a short shaft under a wide, flat
+ *  chevron, so it reads as a direction rather than a tall glyph. */
 export function arrow(ctx: CanvasRenderingContext2D, x: number, y: number, c: number, spin: Spin, color: string, scale = 1): void {
   if (!spin) return;
-  const h = c * 0.3 * scale, w = c * 0.14 * scale;
+  const h = c * 0.2 * scale, w = c * 0.2 * scale, drop = c * 0.15 * scale;
   const dir = spin === 1 ? -1 : 1;
   ctx.save();
   ctx.strokeStyle = color;
-  ctx.lineWidth = Math.max(2, c * 0.09 * scale);
+  ctx.lineWidth = Math.max(2, c * 0.085 * scale);
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
   ctx.beginPath();
   ctx.moveTo(x, y - dir * h);
   ctx.lineTo(x, y + dir * h);
-  ctx.moveTo(x - w, y + dir * (h - w));
+  ctx.moveTo(x - w, y + dir * (h - drop));
   ctx.lineTo(x, y + dir * h);
-  ctx.lineTo(x + w, y + dir * (h - w));
+  ctx.lineTo(x + w, y + dir * (h - drop));
   ctx.stroke();
   ctx.restore();
 }
@@ -68,9 +70,9 @@ function linkMark(ctx: CanvasRenderingContext2D, s: SpinState, g: Geo, l: Link):
   const c = g.c;
   const r = c * 0.13;
   ctx.save();
-  ctx.fillStyle = C.bg;
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.9)';
   ctx.beginPath();
-  ctx.arc(x, y, r * 1.35, 0, Math.PI * 2);
+  ctx.arc(x, y, r * 1.6, 0, Math.PI * 2);
   ctx.fill();
   ctx.strokeStyle = C.silverDim;
   ctx.lineWidth = Math.max(1.5, c * 0.045);
@@ -87,15 +89,17 @@ function linkMark(ctx: CanvasRenderingContext2D, s: SpinState, g: Geo, l: Link):
   ctx.restore();
 }
 
-/** Spin up is red and spin down blue, like a magnet's poles, so the board reads by color. */
-export const SPIN_UP = '#e0503a';
-export const SPIN_DOWN = '#4f8fe8';
-/** The arrow on a dealt cell: dark, as if printed on the plate. The player's own are white. */
-const GIVEN_INK = '#15171a';
+/** Spin up is red and spin down blue, like a magnet's poles, so the board reads by color. Both
+ *  are deep enough for a white arrow to stand out on them (over 5:1). */
+export const SPIN_UP = '#c23b28';
+export const SPIN_DOWN = '#2f68cc';
+/** How much of its hue a dealt plate keeps: the same pole, held back, so the player's own solid
+ *  plates stand out from the ones that cannot change. */
+const GIVEN_ALPHA = 0.5;
 
-/** Paints the grid: a red or blue plate under every spin with its arrow on top (dark on the
- *  dealt cells, white on the player's), the links, and amber outlines round whatever breaks a
- *  rule. `glow` lifts single cells (0 to 1) for the win wave. */
+/** Paints the grid: a red or blue plate under every spin with a white arrow on top (solid for
+ *  the player's, held back for the dealt ones), the links, and amber outlines round whatever
+ *  breaks a rule. `glow` lifts single cells (0 to 1) for the win wave. */
 export function paintSpin(ctx: CanvasRenderingContext2D, s: SpinState, g: Geo, o: Paint & { glow?: (i: number) => number }): void {
   const c = g.c;
   lattice(ctx, s, g);
@@ -108,7 +112,10 @@ export function paintSpin(ctx: CanvasRenderingContext2D, s: SpinState, g: Geo, o
       const k = 0.55 + 0.45 * pop;
       const h = c * 0.4 * k;
       const given = !!s.given[i];
+      ctx.save();
+      if (given) ctx.globalAlpha = GIVEN_ALPHA;
       tile(ctx, p.x - h, p.y - h, h * 2, h * 2, c * 0.16 * k, v === 1 ? SPIN_UP : SPIN_DOWN, null);
+      ctx.restore();
       const lift = o.glow?.(i) ?? 0;
       if (lift > 0) {
         ctx.save();
@@ -116,7 +123,7 @@ export function paintSpin(ctx: CanvasRenderingContext2D, s: SpinState, g: Geo, o
         tile(ctx, p.x - h, p.y - h, h * 2, h * 2, c * 0.16 * k, '#ffffff', null);
         ctx.restore();
       }
-      arrow(ctx, p.x, p.y, c, v, given ? GIVEN_INK : '#ffffff', 0.6 + 0.4 * pop);
+      arrow(ctx, p.x, p.y, c, v, '#ffffff', 0.6 + 0.4 * pop);
     }
     if (bad.has(i)) tile(ctx, p.x - c * 0.47, p.y - c * 0.47, c * 0.94, c * 0.94, c * 0.2, null, C.warn, Math.max(2, c * 0.06));
   }
@@ -322,7 +329,7 @@ function picture(rows: string[], caption: string, links: { a: [number, number]; 
 export const RULES: RuleCard[] = [
   {
     title: 'Spins',
-    text: 'Tap an empty cell for spin up (red), again for spin down (blue), and again to clear it. Dealt spins have dark arrows and cannot change.',
+    text: 'Tap an empty cell for spin up (red), again for spin down (blue), and again to clear it. Dealt spins sit on dimmer plates and cannot change.',
     good: picture(['U.', '.d'], 'Up, then down'),
   },
   {
