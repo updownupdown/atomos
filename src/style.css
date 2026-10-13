@@ -230,38 +230,37 @@ body:not(.build-home) .build-bar { display: none; }
 #bh-atom { touch-action: pan-y; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 /* The microscope, on its own row at the foot of the Build page. */
 .bh-sci-row { display: flex; justify-content: center; padding-top: var(--sp-2); border-top: 1px solid var(--c-line); }
-/* Progress at the top of the atom, drawn like the tracks' stops: a bar for the Stable share
-   (left) and one for the fleeting isotopes (right), white from the top, green once whole. */
-.bh-pill { position: relative; flex: none; display: block; width: 8px; height: 36px; border-radius: 4px; background: var(--c-surface-3); overflow: hidden; }
-.bh-pill b { position: absolute; left: 0; right: 0; top: 0; background: var(--c-text); }
-.bh-pill.is-done b { background: var(--c-good); }
-.bh-rings-text span { display: inline-flex; align-items: center; gap: 4px; }
-.bh-rings-text span svg { color: var(--c-text-2); }
-.bh-rings { position: absolute; left: var(--sp-4); right: var(--sp-4); top: var(--sp-2); display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); pointer-events: none; }
-/* Left: the atom's rings and share ("Stable"); right, mirrored: the fleeting ring and count. */
-.bh-prog-main, .bh-prog-fleet { display: flex; align-items: center; gap: var(--sp-2); }
-.bh-prog-fleet .bh-rings-text { align-items: flex-end; text-align: right; }
+/* Progress at the foot of the atom, on the right: Stable over Fleeting, each a line of its name
+   and percent beside a ring around its icon (white under way, green once whole). */
+.bh-rings { position: absolute; right: var(--sp-4); bottom: var(--sp-2); z-index: 1; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; pointer-events: none; }
+.bh-prog-line { display: flex; align-items: center; gap: var(--sp-2); font-variant-numeric: tabular-nums; text-shadow: 0 0 6px #000, 0 0 2px #000; }
+.bh-prog-line span { font-size: var(--fs-sm); color: var(--c-text); }
+.bh-prog-line b { min-width: 3.2em; text-align: right; font-size: var(--fs-lg); font-weight: var(--fw-semibold); color: var(--c-text); }
+.bh-prog-line.is-done b { color: var(--c-done); }
+.icon-ring { position: relative; flex: none; display: grid; place-items: center; color: var(--c-text); }
+.icon-ring svg:first-child { position: absolute; inset: 0; }
+.icon-ring .ir-track, .icon-ring .ir-on { fill: none; stroke: #454b52; stroke-linecap: round; }
+.icon-ring .ir-on { stroke: var(--c-text); }
+.icon-ring.is-done .ir-on { stroke: var(--c-good); }
+/* The atom's rings (progressRings, on the component page). */
 .bh-rings-svg { display: block; flex: none; }
 .bh-rings-svg .rg-track, .bh-rings-svg .rg-on { fill: none; stroke: #454b52; stroke-linecap: round; }
 .bh-rings-svg .rg-on { stroke: var(--c-text); }
 .bh-rings-svg .rg-on.is-done { stroke: var(--c-done); }
 .bh-rings-svg .rg-fill { fill: #454b52; }
 .bh-rings-svg .rg-fill-on { fill: var(--c-done); }
-.bh-rings-text { display: flex; flex-direction: column; gap: 2px; line-height: 1.1; }
-.bh-rings-text b { font-size: var(--fs-lg); font-weight: var(--fw-semibold); color: var(--c-text); font-variant-numeric: tabular-nums; }
-.bh-rings-text b.is-done { color: var(--c-done); }
-.bh-rings-text span { font-size: var(--fs-sm); color: var(--c-text-2); font-variant-numeric: tabular-nums; }
 
 /* A section per part of the atom, each under a full-width heading, its puzzle cards below. */
 .bh-in { max-width: 592px; margin: 0 auto; padding: var(--sp-2) var(--sp-4) var(--sp-6); display: flex; flex-direction: column; gap: var(--sp-6); }
 .bh-sec { display: flex; flex-direction: column; gap: var(--sp-3); }
 .bh-sec-head { display: flex; align-items: center; gap: var(--sp-2); width: 100%; }
 .bh-sec-head h3 { margin: 0; font-size: 20px; font-weight: var(--fw-semibold); }
-/* The count reads like the line under the heading; a green check once the part is complete. */
+/* The count reads like the line under the heading, just left of the track (which draws a green
+   check by it once the part is complete). */
 .bh-sec-count { margin-left: auto; font-size: var(--fs-md); color: #8b9398; font-variant-numeric: tabular-nums; }
-.bh-sec-done { display: grid; color: var(--c-done); }
-.bh-sec-head .bh-sec-count + .bh-sec-done { margin-left: 0; }
-.bh-sec-head h3 + .bh-sec-done { margin-left: auto; }
+/* Where Stable's and Fleeting's parts of the track start (their icons sit on it here). */
+.bh-part { height: 0; }
+.bh-part[data-part='stable'] { margin: 22px 0 4px; }
 .bh-sec-blurb { margin: calc(-1 * var(--sp-2)) 0 0; font-size: var(--fs-md); line-height: var(--lh); color: #8b9398; }
 .bh-iso { margin: var(--sp-1) 0 0; font-size: var(--fs-md); font-weight: var(--fw-semibold); color: var(--c-text); }
 .bh-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
@@ -274,8 +273,9 @@ body:not(.build-home) .build-bar { display: none; }
 .bh-pips i.on { background: var(--c-text-2); }
 /* Each step: the game card on the left two thirds; on the right third, Built or Flawless and a
    note, then the two progress tracks (src/ui/tracks.ts), which keep to the page's right edge. */
-.bh-in { position: relative; --trk-right: calc(var(--sp-4) + 10px); --trk-bg: var(--c-bg); --trk-room: 60px; }
+.bh-in { position: relative; --trk-right: calc(var(--sp-4) + 14px); --trk-bg: var(--c-bg); --trk-room: 60px; }
 .bh-sec > :not(.bh-steps) { max-width: calc(100% - var(--trk-room)); }
+.bh-sec > .bh-sec-head { max-width: calc(100% - 42px); }
 .bh-sec > .bh-fleet { width: calc(100% - var(--trk-room)); }
 .bh-row { display: grid; grid-template-columns: minmax(0, 1fr) clamp(140px, 40%, 240px); align-items: center; gap: var(--sp-3); }
 .bh-gc { min-width: 0; }
@@ -1859,8 +1859,13 @@ body[data-screen^='atom'].build-home .science-fab, body[data-screen='atom-view']
 .trk-at .trk-stop { top: 0; }
 /* Where a part starts on a single track: its icon in a circle on the line, green once the run
    reaches it. */
-.trk-mark { position: absolute; z-index: 1; left: -14px; width: 28px; height: 28px; margin-top: -14px; display: grid; place-items: center; border-radius: 50%; background: var(--c-surface-3); color: var(--c-text); box-shadow: 0 0 0 3px var(--trk-bg, var(--c-bg)); }
+.trk-mark { position: absolute; z-index: 1; left: -22px; width: 44px; height: 44px; margin-top: -22px; display: grid; place-items: center; border-radius: 50%; background: var(--c-surface-3); color: var(--c-text); box-shadow: 0 0 0 3px var(--trk-bg, var(--c-bg)); }
 .trk-mark.is-run { background: var(--c-good); color: #04130b; }
+/* A part complete: a green check on the line by its heading. */
+.trk-check { position: absolute; z-index: 1; left: -15px; width: 30px; height: 30px; margin-top: -15px; display: grid; place-items: center; border-radius: 50%; background: var(--c-good); color: #04130b; box-shadow: 0 0 0 3px var(--trk-bg, var(--c-bg)); }
+.trk-check svg g, .trk-stop--icon svg g { stroke-width: 2.6; }
+/* A stop that shows what it earned (Built's check, Flawless's star) in place of its dot. */
+.trk-stop--icon { display: grid; place-items: center; width: 20px; height: 20px; margin: -10px 0 0 -10px; color: #04130b; }
 
 /* Nu's guide cards in a game (src/puzzles/guide.ts): nothing to tap, so taps reach the board;
    a thin line along the bottom runs out before the card flies into its button. */
