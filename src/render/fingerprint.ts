@@ -62,15 +62,33 @@ function baseHue(e: Element): number {
   return (0.82 + ((e.z - first) / 15) * 0.16) % 1;
 }
 
-export function atomFingerprint(e: Element, set: OrbitalSet): Fingerprint {
-  const seed = (e.z * 2654435761) >>> 0;
-  const r = mulberry32(seed);
+const seedOf = (e: Element) => (e.z * 2654435761) >>> 0;
+
+/** The atom's palette: the first draws from its seed, so the fingerprint and subshellColors()
+ *  agree. */
+function paletteOf(e: Element, r: () => number): { scheme: Scheme; hues: number[]; sat: number; light: number } {
   const scheme = pick<Scheme>(r, ['Analogous', 'Complementary', 'Triadic', 'Split', 'Tetradic']);
   const hue = baseHue(e) + (r() - 0.5) * 0.08;
   const hues = schemeHues(hue, scheme).map((h) => ((h % 1) + 1) % 1);
   const en = e.electronegativity ?? 1.6;
   const sat = Math.max(0.45, Math.min(0.92, 0.5 + ((en - 0.7) / 3.3) * 0.4 + (r() - 0.5) * 0.1));
   const light = 0.55 + r() * 0.08;
+  return { scheme, hues, sat, light };
+}
+
+/** Each subshell's color in the atom's palette, as its first orbital takes it in the
+ *  fingerprint, keyed by subshell ('3d'): for pictures drawn without sampling the orbitals. */
+export function subshellColors(e: Element): Record<string, RGB> {
+  const { hues, sat, light } = paletteOf(e, mulberry32(seedOf(e)));
+  const subs = [...e.subshells].sort((a, b) => a.meanRadius - b.meanRadius);
+  const outer = Math.max(...subs.map((s) => s.meanRadius));
+  return Object.fromEntries(subs.map((s, si) => [s.key, hsl(hues[si % hues.length], sat, Math.min(0.72, light + (1 - s.meanRadius / outer) * 0.08))]));
+}
+
+export function atomFingerprint(e: Element, set: OrbitalSet): Fingerprint {
+  const seed = seedOf(e);
+  const r = mulberry32(seed);
+  const { scheme, hues, sat, light } = paletteOf(e, r);
   const swatches = hues.map((h) => hsl(h, sat, light));
 
   // Each orbital takes a pair of palette hues for its two signs, shifted along the palette by

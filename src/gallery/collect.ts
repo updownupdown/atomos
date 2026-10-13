@@ -16,7 +16,8 @@
 // atom's picture says how far it is collected (thumbs.ts Tone).
 
 import { elementAt } from './data';
-import { atomPicture, LiveAtom, toneOf } from './thumbs';
+import { atomPicture, toneOf } from './thumbs';
+import { GemAtom } from './gem';
 import { atomBuilt, atomProgress, fleetingCount, rowOf, rowOpen, rowSpan, segmentsOf } from '../core/progress';
 import { loadSave, type SaveData } from '../core/save';
 import { nextStep, openStep, type NextStep } from '../core/next';
@@ -118,7 +119,7 @@ export class Collect {
   private save: SaveData = loadSave();
   private period = 1;
   private current = 0;
-  private live = new LiveAtom();
+  private live = new GemAtom();
   private periodsEl: HTMLElement;
   private statsEl: HTMLElement;
   private lockEl: HTMLElement;
@@ -411,7 +412,7 @@ export class Collect {
   }
 
   /** For checks: the period and the atom in focus. */
-  get state(): { period: number; z: number; live: { z: number; tone: string } } {
+  get state(): { period: number; z: number; live: { z: number; tone: string; ready: boolean } } {
     return { period: this.period, z: this.current, live: this.live.state };
   }
 }

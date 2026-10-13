@@ -273,12 +273,12 @@ export class AtomView {
   }
 
   private makeLayer(sub: Subshell): Layer {
-    const material = this.makeMaterial(this.glow(sub.l));
+    const material = this.makeMaterial(this.glow(sub));
     material.uniforms.uOrbitals.value = sub.capacity / 2;
     material.uniforms.uTime.value = this.time;
     let haze: THREE.Points | null = null, hazeMaterial: THREE.ShaderMaterial | null = null;
     if (this.opts.haze) {
-      hazeMaterial = this.makeMaterial(this.glow(sub.l), true);
+      hazeMaterial = this.makeMaterial(this.glow(sub), true);
       hazeMaterial.uniforms.uOrbitals.value = sub.capacity / 2;
       hazeMaterial.uniforms.uSize.value = this.opts.pointSize * HAZE_SIZE;
       hazeMaterial.uniforms.uTone.value = HAZE_TONE;
@@ -292,7 +292,7 @@ export class AtomView {
     const shapes: THREE.Mesh[] = [];
     const shapeMaterials: THREE.MeshStandardMaterial[] = [];
     if (this.opts.shapes) {
-      const colour = new THREE.Color(...this.glow(sub.l));
+      const colour = new THREE.Color(...this.glow(sub));
       for (let oi = 0; oi < sub.capacity / 2; oi++) {
         const geo = surfaceGeometry(sub.l, oi);
         // Two-tone shading of the lobes by the sign of the wavefunction.
@@ -385,9 +385,17 @@ export class AtomView {
   }
 
   /** The glow of a layer: its block color, or the tint when one is set. */
-  private glow(l: Block): [number, number, number] {
-    return this.tint ?? BLOCK_GLOW[l];
+  private glow(sub: Subshell): [number, number, number] {
+    return this.tint ?? this.palette?.[sub.key] ?? BLOCK_GLOW[sub.l];
   }
+
+  /** Paint each subshell its own color (keyed '3d'), or null for the block colors. Collect uses
+   *  the atom's own palette (render/fingerprint.ts subshellColors). */
+  setPalette(colors: Record<string, [number, number, number]> | null): void {
+    this.palette = colors;
+    this.apply();
+  }
+  private palette: Record<string, [number, number, number]> | null = null;
 
   /** Paint every layer one color (any CSS color the browser parses into rgb), or null for the
    *  block colors. Build uses it for the player's chosen paint. */
@@ -399,6 +407,13 @@ export class AtomView {
     } else this.tint = null;
     this.apply();
   }
+
+  /** How far built parts take their colors, 0 (pale gray) to 1 (full): below 1 they are muted. */
+  setColorCap(cap: number): void {
+    this.colorCap = cap;
+    this.apply();
+  }
+  private colorCap = 1;
 
   /** The share of a subshell's electrons that are lit (0 to 1), filling in Aufbau order. */
   private litShare(key: string): number {
@@ -524,8 +539,8 @@ export class AtomView {
       const hidden = this.hidden.has(layer.sub.l);
       const u = layer.material.uniforms;
       // Pale gray until built, the orbital color after, with a white glint as it lights up.
-      const v = ease(layer.vivid);
-      const glow = mixRGB(mixRGB(PALE, this.glow(layer.sub.l), v), [1, 1, 1], layer.glint * 0.7);
+      const v = ease(layer.vivid) * this.colorCap;
+      const glow = mixRGB(mixRGB(PALE, this.glow(layer.sub), v), [1, 1, 1], layer.glint * 0.7);
       const pale = PALE_ALPHA + (1 - PALE_ALPHA) * v + layer.glint * 0.6;
       (u.uColor.value as THREE.Vector3).set(...glow);
       if (layer.hazeMaterial) (layer.hazeMaterial.uniforms.uColor.value as THREE.Vector3).set(...glow);
