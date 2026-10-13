@@ -34,7 +34,7 @@ export type { AtomMode };
 
 const PLACE_KEY = 'atomos.place';
 
-/** Each screen's name, big at the top. */
+/** Each screen's name, at the top in the wordmark's style. */
 const TITLES: Record<Screen, string> = {
   gallery: 'Tables', collect: 'Collect', atom: '', puzzles: 'Puzzles', settings: 'Settings', icons: 'Icons', components: 'Components',
 };
