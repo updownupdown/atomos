@@ -11,6 +11,7 @@
 
 import { GalleryApp } from './gallery';
 import { Collect } from './gallery/collect';
+import { closeAtomList, createListToggle, type ListToggle } from './gallery/atomlist';
 import type { Game } from './game';
 import type { Playground } from './playground';
 import { onSettingsChange, renderSettings } from './ui/settings';
@@ -27,8 +28,6 @@ const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as 
 import { readPlace, type Screen } from './core/place';
 import { setNavigator } from './core/next';
 import { loadSave } from './core/save';
-import { atomBuilt } from './core/progress';
-import { MAX_Z } from './core/elements';
 export type { Screen };
 export type { AtomMode };
 
@@ -143,7 +142,7 @@ export class AppShell {
   /** Something sits over the screen that Escape closes: a sheet, a dialog, a drawer, the win
    *  sheet or a gate puzzle. */
   private overlayOpen(): boolean {
-    return !$('modal').hidden || Boolean(document.querySelector('.win, .ui-confirm, .ui-drawer, .unlock-screen'));
+    return !$('modal').hidden || Boolean(document.querySelector('.win, .ui-confirm, .ui-drawer, .unlock-screen, .alist-scrim'));
   }
 
   private atHome(): boolean {
@@ -285,18 +284,22 @@ export class AppShell {
   }
 
 
-  /** The line at the right of the title: how much of the table is built, on Collect. */
+  /** At the right of the title on Collect: the collection button, how much of the table is
+   *  built, which opens the list of every atom (atomlist.ts). */
+  private listToggle: ListToggle | null = null;
   private paintAside(screen: Screen): void {
     const aside = $('nav-aside');
     aside.hidden = screen !== 'collect';
     if (aside.hidden) return;
-    const save = loadSave();
-    let built = 0;
-    for (let z = 1; z <= MAX_Z; z++) if (atomBuilt(z, save)) built++;
-    aside.textContent = `${built} of ${MAX_Z} built`;
+    if (!this.listToggle) {
+      this.listToggle = createListToggle({ current: () => this.collect.state.z, onPick: (z) => this.collect.focus(z) });
+      aside.replaceChildren(this.listToggle.el);
+    }
+    this.listToggle.refresh();
   }
 
   private setNav(screen: Screen, mode: AtomMode): void {
+    closeAtomList();
     const on = (id: string, yes: boolean) => $(id).setAttribute('aria-current', yes ? 'page' : 'false');
     on('nav-gallery', screen === 'gallery');
     on('nav-collect', screen === 'collect' || screen === 'atom');

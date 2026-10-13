@@ -58,3 +58,18 @@ describe('pctLabel', () => {
     expect(pctLabel(1)).toBe('100%');
   });
 });
+
+describe('atom list', () => {
+  it('sums the whole collection and gives each atom its two shares', async () => {
+    const { collectionProgress, atomShares } = await import('../src/gallery/atomlist');
+    const save = collect(built(defaultSave(), 1, 2), 1, 'all');
+    const all = collectionProgress(save);
+    expect(all).toMatchObject({ built: 2, atoms: 118 });
+    expect(all.stable).toBeGreaterThan(0);
+    expect(all.stable).toBeLessThan(1);
+    expect(atomShares(1, save)).toEqual({ stable: 1, fleeting: 1 });
+    expect(atomShares(3, save).stable).toBe(0);
+    // Before any atom is built, fleeting isotopes are not open: no fleeting share.
+    expect(atomShares(1, defaultSave()).fleeting).toBeNull();
+  });
+});
