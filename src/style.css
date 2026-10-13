@@ -1051,7 +1051,7 @@ body:not([data-screen='gallery']) .gal-modes { display: none; }
 .rule-pic--bad figcaption { color: var(--c-bad); }
 /* Specs: a bullet list three gaps below the cards, Flawless first, each with a bold lead. */
 .how .how-specs { margin-top: calc(var(--sp-6) * 3); }
-.how .how-specs h3 { margin: 0 0 var(--sp-2); }
+.how .how-specs h3 { margin: 0 0 var(--sp-3); font-size: var(--fs-caps-min); font-weight: var(--fw-semibold); letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--c-text-2); }
 .how .how-specs ul { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column; gap: var(--sp-2); }
 .how .how-specs li { margin: 0; font-size: var(--fs-md); line-height: var(--lh); color: var(--c-text-2); }
 .how .how-specs li::marker { color: var(--c-text-min); }
