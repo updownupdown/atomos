@@ -13,7 +13,7 @@
 //   const toggle = createListToggle({ current: () => z, onPick: (z) => show(z) });
 //   bar.append(toggle.el);
 
-import { MAX_Z, elementAt } from './data';
+import { MAX_Z, elementAt, placeColour } from './data';
 import { atomBuilt, fleetingCount, rowOpen, rowSpan, segmentsOf } from '../core/progress';
 import { loadSave, type SaveData } from '../core/save';
 import { nextStep } from '../core/next';
@@ -182,7 +182,7 @@ function openAtomList(anchor: HTMLElement, o: ListToggleOptions): void {
       const done = atomBuilt(z, save);
       const lane = step?.z === z ? nextLane(step.stage) : null;
       html += `<li><button type="button" class="al-row${z === current ? ' is-current' : ''}${done ? ' is-built' : ''}" data-z="${z}" aria-label="${esc(`${e.name}, ${z}: ${pctText(s.stable)} stable${s.fleeting === null ? '' : `, ${pctText(s.fleeting)} fleeting`}${lane ? ', next to build' : ''}`)}"${z === current ? ' aria-current="true"' : ''}>`
-        + `<span class="al-z">${z}</span><b class="al-sym">${e.symbol}</b><span class="al-name">${esc(e.name)}</span>`
+        + `<span class="al-z">${z}</span><b class="al-sym" style="--c:${placeColour(e)}">${e.symbol}</b><span class="al-name">${esc(e.name)}</span>`
         + `<span class="al-bars">${shareBar(s.stable, '', lane === 'stable')}${shareBar(s.fleeting, '', lane === 'fleeting')}</span></button></li>`;
     }
     html += '</ul>';

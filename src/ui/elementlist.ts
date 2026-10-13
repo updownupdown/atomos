@@ -11,7 +11,7 @@
 // it, calls onPick. With `thumbs`, a row that stays on screen a moment swaps its tile for a
 // picture of the atom (the gallery's Collection).
 
-import { ELEMENTS, BLOCK_COLOUR, type Element } from '../gallery/data';
+import { ELEMENTS, placeColour, type Element } from '../gallery/data';
 import { icon } from './icons';
 import { searchElements } from './search';
 import { fleetingCount, fleetingTotal, segmentsOf } from '../core/progress';
@@ -192,7 +192,7 @@ export function createElementList(opts: ElementListOptions = {}): ElementList {
     return stage === 'all' ? list : list.filter((e) => stageOf(pctOf(e.z)) === stage);
   };
 
-  const tile = (e: Element) => `<span class="el-tile" style="--c:${BLOCK_COLOUR[e.block]}"><b>${e.symbol}</b></span>`;
+  const tile = (e: Element) => `<span class="el-tile" style="--c:${placeColour(e)}"><b>${e.symbol}</b></span>`;
 
   // How far each atom's Build has got: "Stable" (nucleus, electrons and the isotopes in the
   // vault) with its bar, then "Fleeting" with its own (grayed when the atom has none, or they

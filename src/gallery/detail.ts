@@ -77,9 +77,9 @@ const PLAY_RESUME_MS = 5000;
 const TAP_TWINKLE_S = 1.8;
 const TAP_TWINKLE_RATE = 3.5;
 /** Build: each size circle turns once in 4 s (the smallest) to 8 s (the largest), about its
- *  own axis, and is drawn a quarter fainter than in View. */
+ *  own axis, a touch fainter than in View. */
 const GYRO_S = [4, 8];
-const BUILD_RING_FADE = 0.75;
+const BUILD_RING_FADE = 0.94;
 
 /** The Build page's fixed look: the owner's pick from the lab, scanning through the orbitals
  *  along the ladder (resting on each) with the whole atom in view, no light pulses, and the rest

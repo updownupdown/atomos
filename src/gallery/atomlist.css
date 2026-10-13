@@ -32,7 +32,7 @@
 
 /* A ring of progress round an icon (also on Collect). */
 .al-ring { position: relative; flex: none; display: grid; place-items: center; }
-.al-ring svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.al-ring > svg { position: absolute; inset: 0; width: 100%; height: 100%; }
 .al-ring-track, .al-ring-on { fill: none; stroke-width: 4; stroke-linecap: round; }
 .al-ring-track { stroke: var(--c-surface-3); }
 .al-ring-on { stroke: var(--c-text); }
@@ -55,7 +55,8 @@
 .al-row:focus-visible { outline: 2px solid var(--c-accent); outline-offset: -2px; }
 .al-row.is-current { background: var(--c-pick); }
 .al-z { font-size: var(--fs-sm); font-variant-numeric: tabular-nums; }
-.al-sym { font-size: var(--fs-md); font-weight: var(--fw-semibold); }
+/* The symbol on a plate in its place color (data.ts placeColour). */
+.al-sym { display: grid; place-items: center; height: 26px; border-radius: 6px; background: color-mix(in srgb, var(--c) 24%, var(--c-surface-2)); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--c) 45%, transparent); font-size: var(--fs-sm); font-weight: var(--fw-bold); }
 .al-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-md); }
 .al-row.is-built .al-sym, .al-row.is-built .al-name, .al-row.is-current .al-sym, .al-row.is-current .al-name { color: var(--c-text); }
 

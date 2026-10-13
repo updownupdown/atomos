@@ -162,6 +162,33 @@ export const BLOCK_GLOW: Record<Block, [number, number, number]> = {
 };
 export const BLOCK_NAME: Record<Block, string> = { s: 's orbitals', p: 'p orbitals', d: 'd orbitals', f: 'f orbitals' };
 
+/** Each element's color by its place in the table, after J. F. Hyde's curled-ribbon chart
+ *  (1975): the hue follows the group round the ribbon (blues, teal, sand, lime, gold, red, rose,
+ *  indigo, sky, teal, sand, lime, gold, red, violet; the lanthanides and actinides teal) and the
+ *  shade deepens period by period, pale at the center and deep at the edge. Used wherever an atom
+ *  is colored by its place (Collect's table, Tables, the atom list); orbitals keep BLOCK_COLOUR. */
+const RIBBON_HUE: Record<number, string> = {
+  1: '#3653a5', 2: '#3d7cc4', 3: '#4fb9a2', 4: '#c9b26f', 5: '#c8d05c', 6: '#f2a23e', 7: '#e5533c',
+  8: '#e04d84', 9: '#e04d84', 10: '#e04d84', 11: '#4558a8', 12: '#4d8ed6', 13: '#4fb9a8',
+  14: '#c9b26f', 15: '#c8d05c', 16: '#f2a23e', 17: '#e2423a', 18: '#7a66b5',
+};
+const RIBBON_F = '#4dbaa9';
+/** How far each period's shade is lifted toward white (or, for periods 6 and 7, deepened toward black). */
+const RIBBON_LIFT = [0, 0.32, 0.24, 0.14, 0.06, 0, -0.1, -0.2];
+const placeCache = new Map<number, string>();
+export function placeColour(e: Element): string {
+  const hit = placeCache.get(e.z);
+  if (hit) return hit;
+  const base = e.group === null ? RIBBON_F : RIBBON_HUE[e.group] ?? RIBBON_F;
+  const lift = RIBBON_LIFT[e.period] ?? 0;
+  const to = lift >= 0 ? 255 : 0;
+  const k = Math.abs(lift);
+  const ch = (i: number) => Math.round(parseInt(base.slice(1 + 2 * i, 3 + 2 * i), 16) * (1 - k) + to * k).toString(16).padStart(2, '0');
+  const out = `#${ch(0)}${ch(1)}${ch(2)}`;
+  placeCache.set(e.z, out);
+  return out;
+}
+
 /** Scale rings drawn round every atom: fixed sizes, shown when the atom reaches them. */
 export const CLOUD_RINGS: { pm: number; style: 'solid' | 'dashed' }[] = [
   { pm: 150, style: 'solid' }, { pm: 200, style: 'dashed' }, { pm: 250, style: 'solid' }, { pm: 300, style: 'dashed' },

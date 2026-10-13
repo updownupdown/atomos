@@ -65,6 +65,8 @@ export class AppShell {
           this.closeAtom();
         }
       },
+      // Leaving View's full screen goes back to Build.
+      onLeaveView: () => { if (this.screen === 'atom' && this.mode === 'view') void this.go('atom', 'build'); },
     });
     this.collect = new Collect($('collect-screen'), { onOpen: (z) => { this.z = z; void this.go('atom', 'build'); } });
     // The atom bar's Back button: where the atom was opened, Collect or Tables.
@@ -197,7 +199,8 @@ export class AppShell {
   /** Go to a screen. Between an atom's modes the page slides sideways (a view transition,
    *  where the browser has one and motion is on); anything else switches at once. */
   async go(screen: Screen, mode: AtomMode = this.mode): Promise<void> {
-    const stepping = this.screen === 'atom' && screen === 'atom' && mode !== this.mode;
+    // View opens over Build full screen, so only Build and Info slide.
+    const stepping = this.screen === 'atom' && screen === 'atom' && mode !== this.mode && MODES.includes(mode) && MODES.includes(this.mode);
     const doc = document as Document & { startViewTransition?: (update: () => Promise<void>) => { finished: Promise<void> } };
     if (!stepping || !doc.startViewTransition || reducedMotion()) return this.show(screen, mode);
     // View, Build and Info sit side by side: the page slides toward the mode picked. Build loads

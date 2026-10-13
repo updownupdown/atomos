@@ -100,7 +100,12 @@ export class Game {
   private gbar!: GameBar;
 
   constructor(private hooks: { onElement?: (z: number) => void; onView?: (z: number) => void; onInfo?: (z: number) => void } = {}) {
-    this.detail = new Detail($<HTMLCanvasElement>('bh-atom'), { variant: 'build', empty: $('bh-empty'), legend: $('bh-scale') });
+    this.detail = new Detail($<HTMLCanvasElement>('bh-atom'), { variant: 'build', empty: $('bh-empty') });
+    // Top right of the atom: View, the 3D atom full screen (closing it comes back here).
+    const view = $('bh-view');
+    view.innerHTML = `<span>View</span>${icon('fullscreen', { size: 20 })}`;
+    view.hidden = !this.hooks.onView;
+    view.onclick = () => this.hooks.onView?.(this.z);
     this.bar = createAtomBar({ onChange: (z) => this.start(z), locked: (z) => !rowOpen(rowOf(z), this.save) });
     $('build-bar').append(this.bar.el);
     this.applySettings();
@@ -1047,6 +1052,7 @@ export class Game {
     // Escape steps back: from a puzzle to the Build page, from the Build page to where the atom
     // was opened (Collect or Tables), as the atom's View does.
     if (e.key === 'Escape') {
+      if (e.defaultPrevented) return;
       if (this.stage !== 'home') this.toHome();
       else $('app').dispatchEvent(new CustomEvent('atomos:close-atom', { bubbles: true, detail: { z: this.z } }));
       e.preventDefault();
