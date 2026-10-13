@@ -125,7 +125,7 @@ export function renderComponentPage(page: HTMLElement, onBack: () => void): void
   chipWrap.append(chip);
   const lens = h('div', 'seg layout-switch lens-switch', ['Spiral', 'Table', 'Ribbon', 'Circle'].map((l, k) => `<button aria-pressed="${k === 0}">${l}</button>`).join(''));
   lens.querySelectorAll<HTMLButtonElement>('button').forEach((b) => (b.onclick = () => lens.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)))));
-  const tabs = createTabs([{ id: 'model', label: '3D' }, { id: 'overview', label: 'Overview' }, { id: 'structure', label: 'Structure' }, { id: 'isotopes', label: 'Isotopes' }, { id: 'story', label: 'Story' }], { label: 'Sections' });
+  const tabs = createTabs([{ id: 'model', label: '3D' }, { id: 'overview', label: 'Overview' }, { id: 'structure', label: 'Structure' }, { id: 'isotopes', label: 'Isotopes' }], { label: 'Sections' });
   tabs.el.classList.add('cl-wide');
   const sortBox = h('div', 'el-menu cl-static', ['Number', 'Name', 'Progress', 'Group'].map((l, k) => `<button type="button" role="menuitemradio" class="el-opt" aria-checked="${k === 0}"><span>${l}</span>${icon('check', { size: 20 })}</button>`).join(''));
   sortBox.querySelectorAll<HTMLButtonElement>('.el-opt').forEach((b) => (b.onclick = () => sortBox.querySelectorAll('.el-opt').forEach((x) => x.setAttribute('aria-checked', String(x === b)))));

@@ -11,10 +11,9 @@ import { disclosureHTML } from '../ui/components';
 import { loadSave, type SaveData } from '../core/save';
 import { discoveryTimeline, isotopeTable, orbitalAssembly, propertyAxes, shellPlot } from './visuals';
 
-export type Tab = 'overview' | 'structure' | 'isotopes' | 'properties' | 'story';
+export type Tab = 'overview' | 'structure' | 'isotopes' | 'properties';
 export const TABS: { id: Tab; label: string }[] = [
   { id: 'overview', label: 'Overview' },
-  { id: 'story', label: 'Story' },
   { id: 'structure', label: 'Structure' },
   { id: 'isotopes', label: 'Isotopes' },
   { id: 'properties', label: 'Properties' },
@@ -74,7 +73,6 @@ export function tabHTML(e: Element, tab: Tab, collected: boolean, save: SaveData
     case 'structure': return structure(e);
     case 'isotopes': return isotopes(e, save);
     case 'properties': return properties(e);
-    case 'story': return story(e);
   }
 }
 
@@ -110,13 +108,62 @@ function overview(e: Element, collected: boolean): string {
       </div>
     </header>`;
   void collected; // the Build button carries collection progress now
+  // Overview and the old Story tab are one page. Each line appears once: Origins and Uses
+  // (and the name's origin) skip anything the headline or facts above already say.
+  const headline = facts ? facts.h : e.description || `${e.name} is element ${e.z}.`;
+  const highlights = [headline, ...(facts?.f ?? [])];
+  const { origins, uses } = storyLists(e);
+  const [keptOrigins, keptUses] = unrepeated(highlights, [origins, uses]);
+  // The name's origin is a short line, so it only counts as said when a fact is about the name or symbol.
+  const naming = highlights.filter((h) => /\b(nam(e|ed|es)|symbol)\b/i.test(h));
+  const name = e.nameOrigin && !naming.some((h) => overlap(e.nameOrigin!, h) >= REPEAT) ? [e.nameOrigin] : [];
+  const ancient = !e.discoveryYear;
   return `
     ${hero}
-    <p class="ov-headline">${facts ? esc(facts.h) : esc(e.description) || `${esc(e.name)} is element ${e.z}.`}</p>
+    <p class="ov-headline">${esc(headline)}</p>
     ${photo}
     ${facts ? `<ul class="ov-facts">${facts.f.map((f) => `<li>${esc(f)}</li>`).join('')}</ul>` : ''}
-    <h3 class="story-h">Uses</h3>${storyList(storyLists(e).uses)}
+    ${name.length ? `<blockquote class="story-name"><span>The name</span>${esc(name[0])}</blockquote>` : ''}
+    <section class="story-disc">
+      <div class="story-when"><span class="story-cap">Discovered</span><b class="story-year">${ancient ? 'In antiquity' : e.discoveryYear}</b></div>
+      <div class="story-by">
+        ${e.discoverers ? `<p class="story-who">${esc(e.discoverers)}</p>` : ancient ? '<p class="story-who">No one discoverer is recorded</p>' : ''}
+        ${e.discoveryPlace ? `<p class="story-where">${esc(e.discoveryPlace)}</p>` : ''}
+      </div>
+    </section>
+    ${discoveryTimeline(e)}
+    ${keptOrigins.length ? `<h3 class="story-h">Origins</h3>${storyList(keptOrigins)}` : ''}
+    ${keptUses.length ? `<h3 class="story-h">Uses</h3>${storyList(keptUses)}` : ''}
     ${e.z >= 104 ? '<p class="note">Elements from rutherfordium on have only been made a few atoms at a time; their electron arrangements are predictions, not measurements.</p>' : ''}`;
+}
+
+/** Words that say little on their own, left out when comparing lines. */
+const FILLER = new Set('the a an of and in to is it its as for by with from on at or that this are was be their than into which used use uses most more made make also'.split(' '));
+const words = (s: string) => new Set((s.toLowerCase().match(/[a-z0-9]+/g) ?? []).filter((w) => w.length > 2 && !FILLER.has(w)).map((w) => w.slice(0, 6)));
+
+/** How much two lines say the same thing: shared words over the shorter line's words (0 to 1). */
+export function overlap(a: string, b: string): number {
+  const A = words(a);
+  const B = words(b);
+  if (!A.size || !B.size) return 0;
+  let n = 0;
+  for (const w of A) if (B.has(w)) n++;
+  return n / Math.min(A.size, B.size);
+}
+
+/** Lines at or above this overlap repeat an earlier one. Tuned on all 118 elements:
+ *  at half the words shared, nearly every pair is the same fact said twice. */
+const REPEAT = 0.5;
+
+/** Each group's lines, minus any that repeat something shown before them (the
+ *  highlights, an earlier group, or an earlier line of the same group). */
+export function unrepeated(highlights: string[], groups: string[][]): string[][] {
+  const seen = [...highlights];
+  return groups.map((g) => g.filter((line) => {
+    if (seen.some((s) => overlap(line, s) >= REPEAT)) return false;
+    seen.push(line);
+    return true;
+  }));
 }
 
 function structure(e: Element): string {
@@ -184,19 +231,3 @@ const storyList = (items: string[]) => items.length
   ? `<ul class="story-list">${items.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>`
   : '<p class="na">Not recorded.</p>';
 
-function story(e: Element): string {
-  const { origins } = storyLists(e);
-  const list = storyList;
-  const ancient = !e.discoveryYear;
-  return `
-    ${e.nameOrigin ? `<blockquote class="story-name"><span>The name</span>${esc(e.nameOrigin)}</blockquote>` : ''}
-    <section class="story-disc">
-      <div class="story-when"><span class="story-cap">Discovered</span><b class="story-year">${ancient ? 'In antiquity' : e.discoveryYear}</b></div>
-      <div class="story-by">
-        ${e.discoverers ? `<p class="story-who">${esc(e.discoverers)}</p>` : ancient ? '<p class="story-who">No one discoverer is recorded</p>' : ''}
-        ${e.discoveryPlace ? `<p class="story-where">${esc(e.discoveryPlace)}</p>` : ''}
-      </div>
-    </section>
-    ${discoveryTimeline(e)}
-    <h3 class="story-h">Origins</h3>${list(origins)}`;
-}

@@ -133,13 +133,6 @@ function guide(e: Element, tab: Tab): { title: string; html: string } {
         + section('What is left out', p('Elements with no measurement are left off rather than guessed. From rutherfordium on, only a few atoms have ever been made, so their values are predictions: they are shown on their own page but kept out of everyone else\'s ranks.'))
         + disclosureHTML({ title: 'What each property means', body: `<dl class="gd-defs">${PROPERTY_WORDS.map(([t, d]) => `<dt>${t}</dt><dd>${d}</dd>`).join('')}</dl>` }),
     };
-    case 'story': return {
-      title: 'Reading the story',
-      html:
-        section('The timeline', p(`Each dot is one element, stacked by the decade it was identified, from 1650 on; elements known before then sit together at the left. ${esc(e.name)} is the bright dot.`))
-        + section('Where the text comes from', p('The name\'s origin, the discoverers and the place come from the open-source mendeleev dataset Atomos is built on. Origins (how the element is made in the cosmos, where it is found and how it is obtained) and Uses were written for Atomos and checked against standard references.'))
-        + disclosureHTML({ title: 'Five eras of discovery', body: `<dl class="gd-defs">${ERAS.map(([t, d]) => `<dt>${t}</dt><dd>${d}</dd>`).join('')}</dl>` }),
-    };
   }
 }
 
