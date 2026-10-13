@@ -512,12 +512,26 @@ export function sup(s: string): string {
 }
 
 export const INSTRUCTIONS = `
-<h3>In the game</h3>
-<p class="meta">Builds the nucleus of every element from helium to oganesson (hydrogen has nothing to gather). The sockets are the mass number of the element's most common isotope written in powers of two, and every cluster shows its true nucleon count. Periods 1 to 3 deal single nucleons and stay gentle. From period 4 the biggest socket can be 64 times the smallest cluster dealt (heavier nuclei deal bigger clusters to stay there); period 5 adds a tungsten block from the reactor's armor in the middle of the board, period 6 climbs to 128, and period 7 has two blocks on the edges. Every deal is first played through by a look-ahead player: blocks go only where it still wins, Show me follows its line, and from period 4 par is its swipe count plus 30% and four. Going over par or cracking a cluster costs the star; a board with no swipe left is lost, though undo still steps back.</p>`;
+<section class="how-specs"><h3>Specs</h3><ul>
+<li><b>Flawless:</b> Fill every socket without cracking a cluster, in par swipes or fewer (each swipe is a move), and without Show me.</li>
+<li><b>Nucleus:</b> Builds the nucleus of every element from helium to oganesson (hydrogen has nothing to gather). The sockets are the mass number of the element's most common isotope written in powers of two, and every cluster shows its true nucleon count.</li>
+<li><b>Difficulty:</b> Periods 1 to 3 deal single nucleons and stay gentle. From period 4 the biggest socket can be 64 times the smallest cluster dealt (heavier nuclei deal bigger clusters to stay there), period 5 adds a tungsten block in the middle of the board, period 6 climbs to 128, and period 7 has two blocks on the edges.</li>
+<li><b>Built:</b> Every deal is first played through by a look-ahead player. Blocks go only where it still wins, and Show me follows its line.</li>
+<li><b>Par:</b> From period 4, the look-ahead player's swipe count plus 30% and four. In periods 1 to 3, 0.7 swipes per nucleon, rounded up, plus one.</li>
+<li><b>Lost:</b> A board with no swipe left is lost, though undo still steps back.</li>
+</ul></section>
+`;
 
 export const CAPTURE_INSTRUCTIONS = `
-<h3>In the game</h3>
-<p class="meta">Kiln, played from Puzzles only, for the elements past iron (cobalt to oganesson). The nucleus wants one cluster of exactly its mass number. The board deals seed clusters (the mass number halved two to four times and rounded down: four from tin's 120 on when few neutrons are left over), double seeds and lone neutrons, so a few doublings and at most six captures finish it. Every deal is first played through by a look-ahead player; Show me follows its line, and par is its swipe count plus 30% and four. Overshooting (a crack) or going over par costs the star; a board with no swipe left is lost, though undo still steps back.</p>`;
+<section class="how-specs"><h3>Specs</h3><ul>
+<li><b>Flawless:</b> Build the nucleus without overshooting (a crack), in par swipes or fewer (each swipe is a move), and without Show me.</li>
+<li><b>Where it's played:</b> Kiln is played from Puzzles only, for the elements past iron (cobalt to oganesson). The nucleus wants one cluster of exactly its mass number.</li>
+<li><b>Deals:</b> The board deals seed clusters (the mass number halved two to four times and rounded down: four from tin's 120 on when few neutrons are left over), double seeds and lone neutrons, so a few doublings and at most six captures finish it.</li>
+<li><b>Built:</b> Every deal is first played through by a look-ahead player, and Show me follows its line.</li>
+<li><b>Par:</b> The look-ahead player's swipe count plus 30% and four.</li>
+<li><b>Lost:</b> A board with no swipe left is lost, though undo still steps back.</li>
+</ul></section>
+`;
 
 // ---- rules ------------------------------------------------------------------------
 //
@@ -633,7 +647,7 @@ function waitRing(ctx: CanvasRenderingContext2D, x: number, y: number, r: number
 export const RULES: RuleCard[] = [
   {
     title: 'Swipe',
-    text: 'Swipe, or press an arrow key, to slide every cluster as far as it goes. A new nucleon drops in after each swipe.',
+    text: 'Swipe, or press an arrow key, to **slide every cluster as far as it goes**. A new nucleon drops in after each swipe.',
     good: {
       duration: 2,
       caption: 'All slide left; a new 1 drops in',
@@ -648,7 +662,7 @@ export const RULES: RuleCard[] = [
   },
   {
     title: 'Merge',
-    text: 'Two clusters of the same size that meet merge into one twice as big: 1 + 1 makes 2, 2 + 2 makes 4, and so on.',
+    text: '**Two clusters of the same size that meet merge** into one twice as big: 1 + 1 makes 2, 2 + 2 makes 4, and so on.',
     good: {
       duration: 1.8,
       caption: 'Two 2s make a 4',
@@ -680,7 +694,7 @@ export const RULES: RuleCard[] = [
   },
   {
     title: 'Clusters',
-    text: 'A lone nucleon is a gray tile. Bigger clusters show their size, and their color climbs the spectrum as they grow: orange, yellow, green, cyan, blue, violet.',
+    text: 'A lone nucleon is a gray tile. **Bigger clusters show their size**, and their color climbs the spectrum as they grow: orange, yellow, green, cyan, blue, violet.',
     good: {
       duration: 1.6,
       caption: '1, 2, 4 and 8 nucleons',
@@ -696,7 +710,7 @@ export const RULES: RuleCard[] = [
   },
   {
     title: 'The nucleus',
-    text: 'The sockets at the top are the clusters the nucleus wants, largest first. The white one is wanted next; fill every socket to finish.',
+    text: 'The sockets at the top are the clusters the nucleus wants, largest first. The white one is wanted next; **fill every socket to finish**.',
     good: {
       duration: 2.2,
       caption: 'Largest first, until all are full',
@@ -715,7 +729,7 @@ export const RULES: RuleCard[] = [
   },
   {
     title: 'Into the nucleus',
-    text: 'Merge two clusters of half the size wanted next, and the new cluster flies up into its socket.',
+    text: '**Merge two clusters of half the size wanted next**, and the new cluster flies up into its socket.',
     good: {
       duration: 2.4,
       caption: 'Two 4s fill the 8',
@@ -750,7 +764,7 @@ export const RULES: RuleCard[] = [
   },
   {
     title: 'Cracks',
-    text: 'A cluster bigger than anything still wanted cracks, and crumbles away on your next swipe. No cracks, within par, means a flawless build.',
+    text: '**A cluster bigger than anything still wanted cracks**, and crumbles away on your next swipe. No cracks, within par, means a flawless build.',
     good: {
       duration: 2.4,
       caption: 'Two 1s make the 2 still wanted',
@@ -786,7 +800,7 @@ export const RULES: RuleCard[] = [
   },
   {
     title: 'Tungsten blocks',
-    text: 'From period 5 on, tungsten blocks from the reactor\'s armor sit on the board. Clusters stop against them and never pass through.',
+    text: 'From period 5 on, tungsten blocks from the reactor\'s armor sit on the board. Clusters **stop against them** and never pass through.',
     good: {
       duration: 2,
       caption: 'Stops at the block',
@@ -819,7 +833,7 @@ export const RULES: RuleCard[] = [
   },
   {
     title: 'Jammed',
-    text: 'A full board with no swipe left is lost. Undo steps back from it, and Restart deals the same board again.',
+    text: '**A full board with no swipe left is lost**. Undo steps back from it, and Restart deals the same board again.',
     good: {
       duration: 1.8,
       caption: 'A merge frees a cell',
@@ -863,7 +877,7 @@ function targetRow(ctx: CanvasRenderingContext2D, w: number, h: number): Row & {
 export const CAPTURE_RULES: RuleCard[] = [
   {
     title: 'Swipe',
-    text: 'Swipe, or press an arrow key, to slide every cluster as far as it goes. A seed cluster or a lone neutron drops in after each swipe.',
+    text: 'Swipe, or press an arrow key, to **slide every cluster as far as it goes**. A seed cluster or a lone neutron drops in after each swipe.',
     good: {
       duration: 2,
       caption: 'All slide left',
@@ -878,7 +892,7 @@ export const CAPTURE_RULES: RuleCard[] = [
   },
   {
     title: 'Doubling',
-    text: 'Two clusters of the same size that meet merge into one twice as big. Any size doubles: 27 and 27 make 54.',
+    text: '**Two clusters of the same size that meet merge** into one twice as big. Any size doubles: 27 and 27 make 54.',
     good: {
       duration: 1.8,
       caption: 'Two 27s make 54',
@@ -910,7 +924,7 @@ export const CAPTURE_RULES: RuleCard[] = [
   },
   {
     title: 'Neutron capture',
-    text: 'A lone neutron that meets a cluster of 8 or more is captured, and the cluster grows by one. Two lone neutrons never pair up.',
+    text: '**A lone neutron that meets a cluster of 8 or more is captured**, and the cluster grows by one. Two lone neutrons never pair up.',
     good: {
       duration: 1.8,
       caption: 'A 27 captures one',
@@ -942,7 +956,7 @@ export const CAPTURE_RULES: RuleCard[] = [
   },
   {
     title: 'Exactly',
-    text: 'The nucleus wants one cluster of exactly its mass number. A cluster that overshoots it cracks and crumbles away.',
+    text: 'The nucleus wants **one cluster of exactly its mass number**. A cluster that overshoots it cracks and crumbles away.',
     good: {
       duration: 2.4,
       caption: 'Two 28s make the 56',

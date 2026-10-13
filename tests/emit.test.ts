@@ -196,6 +196,6 @@ describe('view', () => {
   it('has rule cards with pictures', () => {
     checkRules(RULES, ['Light every cell', 'No lamp lit', 'Numbers']);
     expect(RULES.map((r) => r.title)).toEqual(['Lamps', 'Light every cell', 'No lamp lit', 'Numbers', 'Crosses']);
-    expect(INSTRUCTIONS).toMatch(/^\s*<h3>In the game<\/h3>\s*<p class="meta">/);
+    expect(INSTRUCTIONS).toMatch(/^\s*<section class="how-specs"><h3>Specs<\/h3><ul>\s*<li><b>Flawless:<\/b>/);
   });
 });

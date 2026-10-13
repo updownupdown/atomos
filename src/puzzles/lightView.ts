@@ -17,9 +17,14 @@ const TRAY_H = 52;
 const COUNT_H = 20;
 
 export const INSTRUCTIONS = `
-<h3>In the game</h3>
-<p class="meta">Builds fleeting isotopes: pick Lumen when you build one. Every board has exactly one answer, and it uses every piece in the tray, so par is the tray's size. Only placing a piece from the tray counts as a move; turning a piece, dragging it to another square or taking it back is free.</p>
-<p class="meta">The tray grows with the atom: one mirror (H to B), two (C to Mn, sometimes with fixed mirrors on the board), three with dark sensors (Fe to Zr), a splitter and two mirrors (Nb to Nd), color filters fixed on the board with colored rings (Pm to Hg), four pieces (Tl to Fm), and 7×7 boards from Md. Keyboard: arrows move a cursor, Space or Enter taps under it, Tab switches between mirrors and splitters.</p>
+<section class="how-specs"><h3>Specs</h3><ul>
+<li><b>Flawless:</b> Light every ring in par moves or fewer, where a move is setting a piece down from the tray and par is the tray's size, and without Show me.</li>
+<li><b>Built:</b> Every board has exactly one answer, and it uses every piece in the tray.</li>
+<li><b>Moves:</b> Only placing a piece from the tray counts. Turning a piece, dragging it to another square or taking it back is free.</li>
+<li><b>Tray:</b> It grows with the atom: one mirror (H to B), two (C to Mn, sometimes with fixed mirrors on the board), three with dark sensors (Fe to Zr), a splitter and two mirrors (Nb to Nd), color filters fixed on the board with colored rings (Pm to Hg), four pieces (Tl to Fm), and 7 by 7 boards from Md.</li>
+<li><b>Where it's played:</b> Builds fleeting isotopes: pick Lumen when you build one.</li>
+<li><b>Keyboard:</b> Arrows move a cursor, Space or Enter taps under it, Tab switches between mirrors and splitters.</li>
+</ul></section>
 `;
 
 const hueColor = (h: Hue): string => (h === 'w' ? C.silver : C[h]);
@@ -782,52 +787,52 @@ const DARKS = board([['.', '.', '.'], ['.', '.', '.']], [1, 0, 'down'], [[0, 1, 
 export const RULES: RuleCard[] = [
   {
     title: 'Mirrors',
-    text: 'Tap an empty square, or drag a mirror there from the tray; it turns the beam through a right angle. Tap it to turn it, tap again to put it back, or drag it to another square.',
+    text: '**Tap an empty square, or drag a mirror there** from the tray; it turns the beam through a right angle. Tap it to turn it, tap again to put it back, or drag it to another square.',
     good: picture(board([['.', '.', '.'], ['.', '.', '.']], [0, 1, 'right'], [[1, 0, 'w']]), 'Set a mirror', { tap: [1, 1], to: '/' }),
   },
   {
     title: 'Rings',
-    text: 'Light every red ring to win. A red ring takes light of any color.',
+    text: '**Light every red ring** to win. A red ring takes light of any color.',
     good: picture(RINGS, 'Every ring lit', { tap: [2, 0], to: '\\' }),
     bad: picture(RINGS, 'A ring left dark', { tap: [2, 0], to: '/', flag: [2, 1] }),
   },
   {
     title: 'The tray',
-    text: 'The tray under the board holds exactly the pieces the answer needs. Only setting a piece down from the tray counts as a move; turning, moving or putting it back is free.',
+    text: 'The tray under the board holds **exactly the pieces the answer needs**. Only setting a piece down from the tray counts as a move; turning, moving or putting it back is free.',
     good: picture(board([['.', '.', '.'], ['.', '.', '.']], [0, 0, 'right'], [[2, 1, 'w']]), 'Every piece used', { tap: [2, 0], to: '\\' }),
   },
   {
     title: 'Fixed mirrors',
-    text: 'Darker and hatched on the back, they are part of the board: they turn the beam too, but never move.',
+    text: 'Darker and hatched on the back, they are part of the board: they turn the beam too, but **never move**.',
     good: picture(board([['.', '.', 'F\\'], ['.', '.', '.']], [0, 0, 'right'], [[2, 1, 'w']]), 'Turns the beam'),
     bad: picture(board([['.', '.', 'F/'], ['.', '.', '.']], [0, 0, 'right'], [[2, 1, 'w']]), 'A tap does nothing', { tap: [2, 0], flag: [2, 0] }),
   },
   {
     title: 'Splitters',
-    text: 'Half-silvered glass, dashed: the beam goes straight through and also turns, so one beam becomes two. Pick it in the tray, then tap a square.',
+    text: 'Half-silvered glass, dashed: the beam goes straight through and also turns, so **one beam becomes two**. Pick it in the tray, then tap a square.',
     good: picture(board([['.', '.', '.'], ['.', '.', '.']], [0, 1, 'right'], [[1, 0, 'w'], [2, 1, 'w']]), 'One beam becomes two', { tap: [1, 1], to: 'H/' }),
   },
   {
     title: 'Filters',
-    text: 'White light leaves a filter tinted its color. Light of that color passes; any other color is absorbed.',
+    text: 'White light leaves a filter tinted its color. **Light of that color passes**; any other color is absorbed.',
     good: picture(board([['Cs', 'Cs', 'F\\'], ['.', '.', '.']], [0, 0, 'right'], [[2, 1, 's']]), 'Same color passes'),
     bad: picture(board([['Cs', 'Cp', 'F\\'], ['.', '.', '.']], [0, 0, 'right'], [[2, 1, 's']]), 'Other color stops', { flag: [1, 0] }),
   },
   {
     title: 'Colored rings',
-    text: 'A colored ring, with a small red heart, needs light of its own color.',
+    text: 'A colored ring, with a small red heart, needs **light of its own color**.',
     good: picture(board([['.', 'Cp', 'F\\'], ['.', '.', '.']], [0, 0, 'right'], [[2, 1, 'p']]), 'Its own color'),
     bad: picture(board([['.', 'Cs', 'F\\'], ['.', '.', '.']], [0, 0, 'right'], [[2, 1, 'p']]), 'Wrong color: unlit', { flag: [2, 1] }),
   },
   {
     title: 'Dark sensors',
-    text: 'Dark discs with a bar must stay unlit. A lit one flares amber and the puzzle is not solved.',
+    text: 'Dark discs with a bar **must stay unlit**. A lit one flares amber and the puzzle is not solved.',
     good: picture(DARKS, 'Sensor stays dark', { tap: [1, 1], to: '/' }),
     bad: picture(DARKS, 'A sensor is lit', { tap: [1, 1], to: '\\', flag: [2, 1] }),
   },
   {
     title: 'Blockers',
-    text: 'Gray blocks stop the beam.',
+    text: 'Gray blocks **stop the beam**.',
     good: picture(board([['.', '.', '.'], ['.', '#', '.']], [0, 1, 'right']), 'Stops the beam'),
   },
 ];

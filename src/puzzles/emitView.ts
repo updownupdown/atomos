@@ -12,8 +12,14 @@ import { drawFrame, frameBox, framePad, frameWidth } from './frame';
 import { drawHelpMark, ease, type Area, type Help, type Illustration, type Point, type PuzzleView, type RuleCard, type Stat } from './view';
 
 export const INSTRUCTIONS = `
-<h3>In the game</h3>
-<p class="meta">Emit is a reserve game, played from the Puzzles screen. The grid grows from 6 by 6 to 10 by 10. Walls take about a quarter of it, laid mostly in a half-turn pattern, and fewer keep their numbers as it gets harder: all of them on the easiest boards, about half on the hardest. Each board is kept only when the solver can finish it by deduction, which proves it has exactly one answer. Very easy boards need only the basic rules; from Easy on a board may need ruling out a spot whose lamp would leave a cell or a number stranded, and from Medium on a step of looking ahead; Hard and Expert boards are picked to need it. Par is the number of lamps in the answer; crosses are free.</p>
+<section class="how-specs"><h3>Specs</h3><ul>
+<li><b>Flawless:</b> Light every cell placing no more lamps than par, the number of lamps in the answer (crosses are free), and without Show me.</li>
+<li><b>Board:</b> The grid grows from 6 by 6 to 10 by 10. Walls take about a quarter of it, laid mostly in a half-turn pattern.</li>
+<li><b>Numbers:</b> Fewer walls keep their numbers as it gets harder: all of them on the easiest boards, about half on the hardest.</li>
+<li><b>Built:</b> Each board is kept only when the solver can finish it by deduction, which proves it has exactly one answer.</li>
+<li><b>Difficulty:</b> Very easy boards need only the basic rules. From Easy on a board may need ruling out a spot whose lamp would leave a cell or a number stranded, and from Medium on a step of looking ahead; Hard and Expert boards are picked to need it.</li>
+<li><b>Where it's played:</b> Emit is a reserve game, played from the Puzzles screen.</li>
+</ul></section>
 `;
 
 /** Milliseconds for the light to cross one cell, to fade in, and to fade when a lamp goes. */
@@ -493,30 +499,30 @@ function picture(rows: string[], caption: string): Illustration {
 export const RULES: RuleCard[] = [
   {
     title: 'Lamps',
-    text: 'Tap an open cell to place a lamp. Its light runs along its row and its column until a wall stops it.',
+    text: '**Tap an open cell to place a lamp**. Its light runs along its row and its column until a wall stops it.',
     good: picture(['...', '.*#', '...'], 'Light to the wall'),
   },
   {
     title: 'Light every cell',
-    text: 'The board is done when every open cell is lit.',
+    text: 'The board is done when **every open cell is lit**.',
     good: picture(['*..', '.#*', '.##'], 'All lit'),
     bad: picture(['*..', '.#?', '.##'], 'A cell left dark'),
   },
   {
     title: 'No lamp lit',
-    text: 'A lamp may not stand in another lamp’s light. Walls block light, so lamps on either side of one are fine.',
+    text: '**A lamp may not stand in another lamp’s light**. Walls block light, so lamps on either side of one are fine.',
     good: picture(['*#*', '...', '...'], 'A wall between'),
     bad: picture(['*.*', '...', '...'], 'They light each other'),
   },
   {
     title: 'Numbers',
-    text: 'A numbered wall has exactly that many lamps on the cells beside it, not counting corners.',
+    text: 'A numbered wall has **exactly that many lamps** on the cells beside it, not counting corners.',
     good: picture(['.*.', '*2#', '.#.'], 'Two beside the 2'),
     bad: picture(['.*.', '*1#', '.#.'], 'Too many for the 1'),
   },
   {
     title: 'Crosses',
-    text: 'Tap a lamp again for a cross, your note that no lamp goes there, and once more to clear it. Drag across cells to cross several.',
+    text: 'Tap a lamp again for a cross, **your note that no lamp goes there**, and once more to clear it. Drag across cells to cross several.',
     good: picture(['.x.', 'x0x', '.x.'], 'No lamp beside a 0'),
   },
 ];

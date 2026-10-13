@@ -338,7 +338,7 @@ describe('rule cards', () => {
   });
 
   it('keeps only the game meta in INSTRUCTIONS', () => {
-    expect(INSTRUCTIONS).toMatch(/<h3>In the game<\/h3>/);
+    expect(INSTRUCTIONS).toMatch(/^\s*<section class="how-specs"><h3>Specs<\/h3><ul>\s*<li><b>Flawless:<\/b>/);
     expect(INSTRUCTIONS).not.toMatch(/How to play/);
   });
 });
@@ -562,7 +562,7 @@ describe('capture mode', () => {
 
   it('has rule cards that follow the house rules', () => {
     checkRules(CAPTURE_RULES, ['Doubling', 'Neutron capture', 'Exactly']);
-    expect(CAPTURE_INSTRUCTIONS).toMatch(/^\s*<h3>In the game<\/h3>\s*<p class="meta">/);
+    expect(CAPTURE_INSTRUCTIONS).toMatch(/^\s*<section class="how-specs"><h3>Specs<\/h3><ul>\s*<li><b>Flawless:<\/b>/);
   });
 
   it('is in the catalog as Kiln, dealt in capture mode', () => {
