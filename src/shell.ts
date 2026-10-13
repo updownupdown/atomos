@@ -309,16 +309,17 @@ export class AppShell {
 
 
   /** At the right of the title on Collect: the collection button, how much of the table is
-   *  built, which opens the list of every atom (atomlist.ts). */
+   *  built, which opens the list of every atom (atomlist.ts). On the Atlas: how much of it is
+   *  earned. */
   private listToggle: ListToggle | null = null;
   private paintAside(screen: Screen): void {
     const aside = $('nav-aside');
-    aside.hidden = screen !== 'collect';
+    aside.hidden = screen !== 'collect' && screen !== 'gallery';
     if (aside.hidden) return;
-    if (!this.listToggle) {
-      this.listToggle = createListToggle({ current: () => this.collect.state.z, onPick: (z) => this.collect.focus(z) });
-      aside.replaceChildren(this.listToggle.el);
-    }
+    // On the Atlas: how much of it is earned (atlas.ts).
+    if (screen === 'gallery') { aside.replaceChildren(this.gallery.atlasCount); return; }
+    if (!this.listToggle) this.listToggle = createListToggle({ current: () => this.collect.state.z, onPick: (z) => this.collect.focus(z) });
+    if (aside.firstChild !== this.listToggle.el) aside.replaceChildren(this.listToggle.el);
     this.listToggle.refresh();
   }
 

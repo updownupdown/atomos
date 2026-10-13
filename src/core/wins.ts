@@ -49,6 +49,8 @@ export function recordWin(game: string, dial: number, flawless: boolean): void {
   g[level] = [solved + 1, clean + (flawless ? 1 : 0)];
   all[game] = g;
   try { localStorage.setItem(KEY, JSON.stringify(all)); } catch { /* storage off: the win goes uncounted */ }
+  // A first win can open something in the Atlas (src/gallery/earn.ts listens).
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('atomos:win', { detail: { game } }));
 }
 
 const DIAL_KEY = 'atomos.dials.v1';

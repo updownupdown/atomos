@@ -38,3 +38,15 @@ describe('gallery looks', () => {
     expect(lookOf('density').value!(elementAt(108))).toBeNull();
   });
 });
+
+describe('model colors', () => {
+  it('follow the CPK colors to meitnerium, and none past it', async () => {
+    const { modelColor } = await import('../src/gallery/modelColors');
+    expect(modelColor(1)).toBe('#ffffff');
+    expect(modelColor(6)).toBe('#909090');
+    expect(modelColor(8)).toBe('#ff0d0d');
+    expect(modelColor(26)).toBe('#e06633');
+    expect(modelColor(109)).toBe('#eb0026');
+    expect(modelColor(110)).toBeNull();
+  });
+});

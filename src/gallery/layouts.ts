@@ -10,12 +10,15 @@
 
 import { ELEMENTS, elementAt, type Element } from './data';
 
-export type LayoutId = 'table' | 'ribbon' | 'spiral' | 'circle';
+export type LayoutId = 'table' | 'ribbon' | 'spiral' | 'circle' | 'sizes' | 'steps' | 'pyramid';
 export const LAYOUTS: { id: LayoutId; label: string; note: string }[] = [
   { id: 'table', label: 'Table', note: 'Periods and groups, with the f block beside them' },
   { id: 'ribbon', label: 'Ribbon', note: "Hyde's curled ribbon: groups run round the loop, periods from the inside out" },
   { id: 'spiral', label: 'Spiral', note: 'One turn per period; each turn ends with a noble gas' },
   { id: 'circle', label: 'Circle', note: 'One ring per period, groups along the spokes' },
+  { id: 'sizes', label: 'Sizes', note: 'The table with every atom at its true size' },
+  { id: 'steps', label: 'Steps', note: "Janet's left-step table: rows in the order electrons fill" },
+  { id: 'pyramid', label: 'Pyramid', note: "Bohr's pyramid: a column per period, families joined" },
 ];
 /** The longer story of each arrangement, behind the microscope on the Atlas. */
 export const LAYOUT_STORY: Record<LayoutId, string[]> = {
@@ -39,6 +42,21 @@ export const LAYOUT_STORY: Record<LayoutId, string[]> = {
     'The s and p groups take wider spokes than the d groups. Periods 2 and 3 have no d block, so their rings stay open on that side.',
     'The f block hangs below as two arcs: cerium to lutetium on the inner one, thorium to lawrencium on the outer.',
   ],
+  sizes: [
+    'The periodic table with each atom drawn to scale: the circle is its van der Waals radius, how close another atom can come before they push apart.',
+    'Atoms grow down each group, as every period adds a shell of electrons further out. Across a period they mostly shrink, because the growing charge of the nucleus pulls the same shell in tighter.',
+    'Cesium and francium are the giants, about three times as wide as hydrogen. The radii of the heaviest atoms are estimates.',
+  ],
+  steps: [
+    "Charles Janet's left-step table of 1928. Each row gathers the orbitals with the same n + l, which is the order electrons fill them in: 1s, then 2s, then 2p and 3s, and so on.",
+    'So the blocks sit side by side as steps, f, d, p and s from left to right, and every row ends with an s block. Helium sits over beryllium, with the other atoms that fill an s orbital.',
+    'Two dashed seats wait at the foot of the s block for elements 119 and 120, which nobody has made yet. Here, as in the Table, the f block runs from cerium to lutetium.',
+  ],
+  pyramid: [
+    "After Julius Thomsen's pyramid of 1895, which Niels Bohr redrew in 1922 for his theory of the atom. Each column is one period, read from top to bottom.",
+    'The columns grow from 2 to 8, 8, 18, 18, 32 and 32 atoms, because each new kind of orbital (p, then d, then f) makes room for more electrons. That is why the table widens.',
+    'Each link joins an atom to the member of its family in the next period, the atom with the same outer electrons, so you can follow a group from column to column.',
+  ],
 };
 export const isLayoutId = (id: string | null): id is LayoutId => LAYOUTS.some((l) => l.id === id);
 
@@ -61,10 +79,17 @@ export interface MapLabel {
   kind: 'axis' | 'title';
 }
 
+/** Lines drawn under the cells: a link joining two cells, or a dashed seat for an atom not yet made. */
+export interface Decor {
+  d: string;
+  kind: 'link' | 'seat';
+}
+
 export interface Layout {
   id: LayoutId;
   cells: Cell[];
   labels: MapLabel[];
+  decor?: Decor[];
 }
 
 export type Orientation = 'portrait' | 'landscape';
@@ -278,13 +303,122 @@ function circle(): Layout {
   return { id: 'circle', cells, labels };
 }
 
+// ---------------------------------------------------------------------------
+// Sizes: the Table, each atom a circle at its true size (van der Waals radius), the largest
+// (francium) just filling its cell.
+
+const VDW_MAX = 348;
+function circlePath(cx: number, cy: number, r: number): string {
+  return `M${f1(cx - r)} ${f1(cy)}A${f1(r)} ${f1(r)} 0 1 0 ${f1(cx + r)} ${f1(cy)}A${f1(r)} ${f1(r)} 0 1 0 ${f1(cx - r)} ${f1(cy)}Z`;
+}
+
+function sizes(o: Orientation): Layout {
+  const t = table(o);
+  const cells = t.cells.map((c) => {
+    const r = (Math.min(c.w, c.h) / 2) * (elementAt(c.z).vdw / VDW_MAX);
+    return { z: c.z, d: circlePath(c.x, c.y, r), x: c.x, y: c.y, w: r * 1.5, h: r * 1.5 };
+  });
+  return { id: 'sizes', cells, labels: t.labels };
+}
+
+// ---------------------------------------------------------------------------
+// Steps: Charles Janet's left-step table. Rows by n + l (the order electrons fill); the blocks
+// side by side, f, d, p and s from the left. Standing on a portrait screen, like the Table.
+
+const BLOCK_COL = { f: 0, d: 14, p: 24, s: 30 } as const;
+function steps(o: Orientation): Layout {
+  const stand = o === 'portrait';
+  const cw = stand ? 1.45 : 1, ch = stand ? 1 : 1.15;
+  const cells: Cell[] = [];
+  const labels: MapLabel[] = [];
+  const decor: Decor[] = [];
+  // Standing, the rows run across and the columns down.
+  const box = (col: number, row: number) => (stand ? { x: (row - 1) * cw, y: col * ch } : { x: col * cw, y: (row - 1) * ch });
+  for (const e of ELEMENTS) {
+    let col: number, row: number;
+    if (e.z === 2) { col = BLOCK_COL.s + 1; row = 1; }
+    else if (e.block === 's') { col = BLOCK_COL.s + e.group! - 1; row = e.period; }
+    else if (isF(e)) { col = BLOCK_COL.f + fIndex(e); row = e.period + 1; }
+    else if (e.block === 'p') { col = BLOCK_COL.p + e.group! - 13; row = e.period + 1; }
+    else { col = BLOCK_COL.d + e.group! - 3; row = e.period + 1; }
+    const { x, y } = box(col, row);
+    cells.push({ z: e.z, d: rect(x + SEAM / 2, y + SEAM / 2, cw - SEAM, ch - SEAM, 0.14), x: x + cw / 2, y: y + ch / 2, w: cw - SEAM, h: ch - SEAM });
+  }
+  // The two seats for elements 119 and 120.
+  for (let i = 0; i < 2; i++) {
+    const { x, y } = box(BLOCK_COL.s + i, 8);
+    decor.push({ d: rect(x + 0.12, y + 0.12, cw - 0.24, ch - 0.24, 0.14), kind: 'seat' });
+  }
+  for (let r = 1; r <= 8; r++) {
+    const { x, y } = box(-1, r);
+    labels.push({ x: x + (stand ? cw / 2 : cw * 0.55), y: y + (stand ? ch * 0.55 : ch / 2), text: String(r), kind: 'axis' });
+  }
+  for (const [b, c, n] of [['f', 0, 14], ['d', 14, 10], ['p', 24, 6], ['s', 30, 2]] as const) {
+    const mid = c + n / 2;
+    labels.push(stand ? { x: 8 * cw + 0.5, y: mid * ch, text: b, kind: 'title' } : { x: mid * cw, y: 8 * ch + 0.5, text: b, kind: 'title' });
+  }
+  return { id: 'steps', cells, labels, decor };
+}
+
+// ---------------------------------------------------------------------------
+// Pyramid: after Thomsen and Bohr. A column per period, centered, top to bottom by atomic
+// number; links join each atom to its family member in the next period.
+
+const PY_GAP = 1.6;
+/** Standing (portrait), each period is a column read top to bottom; flat (landscape), a row read
+ *  left to right, so the pyramid lies on its side. */
+function pyramid(o: Orientation): Layout {
+  const stand = o === 'portrait';
+  // Along a period, and across it.
+  const along = stand ? 0.9 : 1.15, across = stand ? 1.8 : 1.3;
+  const cells: Cell[] = [];
+  const labels: MapLabel[] = [];
+  const decor: Decor[] = [];
+  const counts = [2, 8, 8, 18, 18, 32, 32];
+  const at = new Map<number, Cell>();
+  const long = 32 * along;
+  const put = (a: number, c: number): { x: number; y: number } => (stand ? { x: c, y: a } : { x: a, y: c });
+  for (const e of ELEMENTS) {
+    const [first] = PERIOD_RANGE[e.period - 1];
+    const c0 = (e.period - 1) * (across + PY_GAP);
+    const a0 = (long - counts[e.period - 1] * along) / 2 + (e.z - first) * along;
+    const { x, y } = put(a0, c0);
+    const w = stand ? across : along, h = stand ? along : across;
+    const c = { z: e.z, d: rect(x + SEAM / 2, y + SEAM / 2, w - SEAM, h - SEAM, 0.12), x: x + w / 2, y: y + h / 2, w: w - SEAM, h: h - SEAM };
+    cells.push(c);
+    at.set(e.z, c);
+  }
+  // A family is a group, or one column of the f block; helium links to neon.
+  const family = (e: Element) => (e.z === 2 ? 'g18' : isF(e) ? `f${fIndex(e)}` : `g${e.group}`);
+  for (const e of ELEMENTS) {
+    if (e.period >= 7) continue;
+    const n = ELEMENTS.find((q) => q.period === e.period + 1 && family(q) === family(e));
+    if (!n) continue;
+    const a = at.get(e.z)!, b = at.get(n.z)!;
+    if (stand) {
+      const x0 = a.x + across / 2, x1 = b.x - across / 2, k = (x1 - x0) * 0.5;
+      decor.push({ d: `M${f1(x0)} ${f1(a.y)}C${f1(x0 + k)} ${f1(a.y)} ${f1(x1 - k)} ${f1(b.y)} ${f1(x1)} ${f1(b.y)}`, kind: 'link' });
+    } else {
+      const y0 = a.y + across / 2, y1 = b.y - across / 2, k = (y1 - y0) * 0.5;
+      decor.push({ d: `M${f1(a.x)} ${f1(y0)}C${f1(a.x)} ${f1(y0 + k)} ${f1(b.x)} ${f1(y1 - k)} ${f1(b.x)} ${f1(y1)}`, kind: 'link' });
+    }
+  }
+  for (let p = 1; p <= 7; p++) {
+    const c = (p - 1) * (across + PY_GAP) + across / 2, a = (long - counts[p - 1] * along) / 2 - 0.55;
+    const { x, y } = put(a, c);
+    labels.push({ x, y, text: String(p), kind: 'axis' });
+  }
+  return { id: 'pyramid', cells, labels, decor };
+}
+
 const cache = new Map<string, Layout>();
 /** A map's cells and labels, standing or flat for the screen's shape. */
 export function layout(id: LayoutId, o: Orientation = 'landscape'): Layout {
-  const key = `${id}:${id === 'table' || id === 'ribbon' ? o : ''}`;
+  const key = `${id}:${id === 'table' || id === 'ribbon' || id === 'sizes' || id === 'steps' || id === 'pyramid' ? o : ''}`;
   let l = cache.get(key);
   if (!l) {
-    l = id === 'table' ? table(o) : id === 'ribbon' ? ribbon(o) : id === 'spiral' ? spiral() : circle();
+    l = id === 'table' ? table(o) : id === 'ribbon' ? ribbon(o) : id === 'spiral' ? spiral() : id === 'circle' ? circle()
+      : id === 'sizes' ? sizes(o) : id === 'steps' ? steps(o) : pyramid(o);
     cache.set(key, l);
   }
   return l;
