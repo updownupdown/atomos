@@ -31,7 +31,7 @@ import { winTrack } from './puzzles/winTrack';
 import { closeModal, modalOpen, openModal } from './ui/modal';
 import { createTabs, iconButton, nextButton, playButton } from './ui/components';
 import { gameCard } from './puzzles/gameCard';
-import { trackLegend, trackOverlay, type TrackItem, type TrackOverlay } from './ui/tracks';
+import { trackOverlay, type TrackItem, type TrackOverlay } from './ui/tracks';
 import { askRestart, confirming, restartButton } from './puzzles/restart';
 import { HintControl } from './puzzles/hints';
 import { clearOffers, createGameBar, offerRules, type GameBar } from './puzzles/gamebar';
@@ -432,7 +432,6 @@ export class Game {
     const steps = stepsOf(z);
     this.nextHere = nextStep(this.save, z);
     $('bh-in').innerHTML = [
-      '<div class="bh-trk-head"></div>',
       open ? '' : this.section('lock', `Row ${row} is locked`, `${need.built} of ${need.need}`, '',
         `Row ${row} opens once you've built ${need.need} of the ${this.rowSize(row - 1)} atoms in row ${row - 1}. ${shut} to open it.`),
       this.section('nucleus', STEP_LABEL.nucleus, '', z === 1 ? this.hydrogenNucleus() : step('nucleus'), '', '', z === 1 || this.stepState(z, 'nucleus').done),
@@ -611,14 +610,22 @@ export class Game {
       </li>`;
   }
 
-  /** The Stable and Fleeting tracks down the right of the page: a stop for the nucleus, the
-   *  electrons and each lasting isotope on the Stable lane, one for each fleeting isotope on the
-   *  Fleeting lane, green from the top while progress runs unbroken, Nu on the next stop. */
+  /** The progress track down the right of the page: one line, Stable's part then Fleeting's, a
+   *  Stable icon in a circle where it starts (the first section's heading) and a Fleeting one at
+   *  the Fleeting isotopes heading. Stops: the nucleus, the electrons and each lasting isotope,
+   *  then each fleeting isotope; green from the top while progress runs unbroken, the next stop
+   *  pink with Nu swimming beside it. */
   private drawTracks(root: HTMLElement): void {
     this.tracks?.remove();
     const items: TrackItem[] = [];
-    root.querySelectorAll<HTMLElement>('[data-row], tr[data-a]').forEach((el) => {
+    const fleetHead = root.querySelector<HTMLElement>('.bh-sec[aria-label="Fleeting isotopes"] .bh-sec-head');
+    root.querySelectorAll<HTMLElement>('[data-row], tr[data-a], .bh-sec-head').forEach((el) => {
       const stage = el.dataset.row;
+      if (el.classList.contains('bh-sec-head')) {
+        if (el === fleetHead) items.push({ el, mark: 'fleeting' });
+        else if (!items.some((i) => i.mark === 'stable') && el.closest('.bh-sec')?.querySelector('[data-row]')) items.push({ el, mark: 'stable' });
+        return;
+      }
       if (el.dataset.a) {
         items.push({ el, row: { fleeting: { done: isotopeCollected(this.save, this.z, Number(el.dataset.a)), locked: !this.save.built[this.z] } } });
       } else if (stage === 'nucleus' || stage === 'shells') {
@@ -627,9 +634,7 @@ export class Game {
         items.push({ el, row: { stable: { done: isotopeCollected(this.save, this.z, Number(stage.slice(4))), locked: !this.save.built[this.z] } } });
       }
     });
-    const head = root.querySelector<HTMLElement>('.bh-trk-head');
-    if (head) head.append(trackLegend());
-    this.tracks = trackOverlay(root, items, { top: () => (head ? head.offsetTop + head.offsetHeight : 0) });
+    this.tracks = trackOverlay(root, items, { single: true });
   }
 
   /** Puts the game cards into the rows renderHome() drew: the Next button on the next step,

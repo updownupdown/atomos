@@ -275,7 +275,6 @@ body:not(.build-home) .build-bar { display: none; }
 /* Each step: the game card on the left two thirds; on the right third, Built or Flawless and a
    note, then the two progress tracks (src/ui/tracks.ts), which keep to the page's right edge. */
 .bh-in { position: relative; --trk-right: calc(var(--sp-4) + 10px); --trk-bg: var(--c-bg); --trk-room: 60px; }
-.bh-trk-head { display: flex; justify-content: flex-end; padding-right: calc(var(--trk-right) - 10px); margin-bottom: calc(-1 * var(--sp-3)); }
 .bh-sec > :not(.bh-steps) { max-width: calc(100% - var(--trk-room)); }
 .bh-sec > .bh-fleet { width: calc(100% - var(--trk-room)); }
 .bh-row { display: grid; grid-template-columns: minmax(0, 1fr) clamp(140px, 40%, 240px); align-items: center; gap: var(--sp-3); }
@@ -851,7 +850,6 @@ body:not([data-screen='gallery']) .gal-modes { display: none; }
 .bar-collect { color: var(--c-text); }
 /* The tracks' legend, its keys over the lanes of the page's tracks. */
 .atom-bar { padding-right: var(--sp-4); }
-.atom-bar .trk-legend { flex: none; align-self: center; width: 48px; justify-content: flex-end; }
 @media (max-width: 400px) { .atom-bar { gap: 6px; padding: 0 var(--sp-4) 0 var(--sp-2); } .bar-btn { width: 38px; } }
 .dec-z { font-size: var(--fs-sm); color: var(--c-text-2); font-variant-numeric: tabular-nums; }
 .dec-sym { font-weight: var(--fw-semibold); font-size: var(--fs-2xl); line-height: 1; }
@@ -946,13 +944,18 @@ body:not([data-screen='gallery']) .gal-modes { display: none; }
 .pg-lvl.is-off { background: transparent; box-shadow: inset 0 0 0 2px var(--c-surface-3); cursor: default; }
 .pg-lvl-none { height: 20px; }
 .pg-list { display: flex; flex-direction: column; gap: var(--sp-4); padding-top: 14px; }
-.pg-sec { min-width: 0; scroll-snap-align: start; cursor: pointer; }
+/* A long press pins a game, so a held card selects no text and raises no menu. */
+.pg-sec { min-width: 0; scroll-snap-align: start; cursor: pointer; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
 .pg-sec .gcard-go { cursor: pointer; }
-/* The game in focus wears its level's color (--lvl, set with the level picked): its ring, and
-   its Play filled in it. The Play's ring sits off the button by a band of the card's gray. */
-.gcard .gcard-go.ui-ring { --ring-gap: 3px; --ring-gap-c: var(--c-surface-2); }
-.pg-sec.is-focus .gcard, .pg-sec.is-focus .gcard-go { --ring: var(--lvl, var(--c-accent)); }
+.pg-sec .gcard-name { font-size: var(--fs-xl); }
+/* The game in focus wears its level's color (--lvl, set with the level picked): its border, its
+   pips and its Play filled in it. The rest show the levels they reach in white pips, and a
+   white-ringed Play. */
+.pg-sec.is-focus .gcard { --ring: var(--lvl, var(--c-accent)); }
 .pg-sec.is-focus .gcard .gcard-go.primary { background: var(--lvl, var(--c-accent)); color: #050607; }
+.pg-list .pg-sec:not(.is-focus) .gcard-pips i.on { background: var(--c-text); }
+.pg-sec:not(.is-focus) .gcard .gcard-go.primary { background: transparent; color: var(--c-text); box-shadow: inset 0 0 0 2px var(--c-text); }
+.pg-pin-hint { margin: 0; padding: var(--sp-2) var(--sp-4) 0; text-align: center; font-size: var(--fs-sm); color: var(--c-text-2); }
 @media (min-width: 700px) {
   .pg-focus-in { grid-template-columns: auto minmax(0, 1fr); grid-template-areas: 'demo text' 'demo levels'; padding: var(--sp-4); }
   .pg-levels { align-self: end; }
@@ -1749,6 +1752,12 @@ body[data-screen^='atom'].build-home .science-fab, body[data-screen='atom-view']
 .gcard-body { display: flex; flex-direction: column; gap: 4px; min-width: 0; padding: 4px 10px 4px 12px; }
 .gcard-name { font-size: var(--fs-lg); font-weight: var(--fw-semibold); line-height: var(--lh-tight); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .gcard-diff { display: flex; align-items: center; flex-wrap: wrap; gap: 2px 8px; min-width: 0; }
+/* The pips beside Play (the Puzzles home), after the name on its own line. */
+.gcard-in:has(.gcard-diff--beside) { grid-template-columns: auto minmax(0, 1fr) auto auto; }
+.gcard-diff--beside { padding-right: 12px; }
+.gcard-title { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.gcard-title .gcard-name { min-width: 0; }
+.gcard-pin { flex: none; display: inline-grid; color: var(--c-text); }
 .gcard-pips { display: inline-flex; align-items: center; gap: 3px; flex: none; }
 .gcard-pips i { width: 7px; height: 7px; border-radius: 50%; background: color-mix(in srgb, var(--c-text) 26%, var(--c-surface-2)); }
 .gcard-pips i.on { background: var(--c-text); }
@@ -1774,53 +1783,64 @@ body[data-screen^='atom'].build-home .science-fab, body[data-screen='atom-view']
 }
 
 /* ---- Progress tracks (src/ui/tracks.ts) ---------------------------------------------------------
-   Two lanes down the right edge of a list of rows, Stable then Fleeting, never shifting sideways.
-   A lane is green from the top while progress runs unbroken, gray after the first gap; done parts
-   below a gap show white. A row's cell fills its height; --trk-gap on the list bridges the space
-   between rows; --trk-bg is the color behind, cut around each stop. */
+   Two lanes down the right edge of a list of rows, Stable then Fleeting, never shifting sideways
+   (or, on the atom's Build page, one track with both parts on it). A lane is green from the top
+   while progress runs unbroken, gray after the first gap. Stops are plain fills with no outlines:
+   gray not done, white done, green in the green run, pink for the next one, with Nu swimming
+   beside it. A row's cell fills its height; --trk-gap on the list bridges the space between
+   rows; --trk-bg is the color behind, cut around each stop. */
 .trk { --w: 48px; --lane-gap: 28px; position: relative; flex: none; align-self: stretch; width: var(--w); min-height: 24px; pointer-events: none; }
 .trk-lane { position: absolute; top: calc(var(--trk-gap, 0px) / -2); bottom: calc(var(--trk-gap, 0px) / -2); width: 0; }
 .trk-lane--stable { right: calc(10px + var(--lane-gap)); }
 .trk-lane--fleeting { right: 10px; }
-.trk-lane::before, .trk-lane::after { content: ''; position: absolute; left: -1.5px; width: 3px; background: var(--c-line-3); }
+.trk-lane::before, .trk-lane::after { content: ''; position: absolute; left: -1px; width: 2px; background: var(--c-line-3); }
 .trk-lane::before { top: 0; bottom: 50%; }
 .trk-lane::after { top: 50%; bottom: 0; }
 .trk-lane.is-above::before, .trk-lane.is-below::after { background: var(--c-good); }
 .trk--cap-top .trk-lane::before, .trk--cap-bottom .trk-lane::after { display: none; }
 .trk--cap-top .trk-lane { top: 0; }
 .trk--cap-bottom .trk-lane { bottom: 0; }
-.trk-stop { position: absolute; z-index: 1; left: 0; top: 50%; width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 50%; background: var(--c-surface-3); box-shadow: 0 0 0 3px var(--trk-bg, var(--c-bg)); }
+.trk-stop { position: absolute; z-index: 1; left: 0; top: 50%; width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 50%; background: #5d636a; box-shadow: 0 0 0 3px var(--trk-bg, var(--c-bg)); }
 .trk-stop.is-done { background: var(--c-text); }
 .trk-stop.is-run { background: var(--c-good); }
-.trk-stop.is-next { background: var(--trk-bg, var(--c-bg)); box-shadow: 0 0 0 3px var(--trk-bg, var(--c-bg)), inset 0 0 0 2px var(--c-text-2); }
-.trk-stop.is-nu { box-shadow: 0 0 0 3px var(--trk-bg, var(--c-bg)), inset 0 0 0 2.5px var(--c-go), 0 0 0 5px var(--c-go-ring); animation: trk-nu 2.4s ease-in-out infinite; }
+.trk-stop.is-nu { background: var(--c-go); }
 .trk-stop.is-just { box-shadow: 0 0 0 3px var(--trk-bg, var(--c-bg)), 0 0 0 5px var(--c-text); animation: trk-just 1.4s var(--ease) 2; }
 .trk-stop.is-locked { opacity: 0.4; }
 .trk-stop--bar { width: 8px; height: min(70%, 44px); margin: 0 0 0 -4px; transform: translateY(-50%); border-radius: 4px; overflow: hidden; }
 .trk-stop--bar.is-done:not(.is-run) b, .trk-stop--bar:not(.is-done) b { background: var(--c-text); }
 .trk-stop--bar b { position: absolute; left: 0; right: 0; top: 0; background: var(--c-good); }
-.trk-stop--bar.is-done, .trk-stop--bar.is-run { background: var(--c-surface-3); }
-.trk-stop--bar.is-nu { animation: trk-nu-bar 2.4s ease-in-out infinite; box-shadow: 0 0 0 3px var(--trk-bg, var(--c-bg)), 0 0 0 5px var(--c-go); }
+.trk-stop--bar.is-done, .trk-stop--bar.is-run { background: #5d636a; }
+.trk-stop--bar.is-nu { background: var(--c-go); }
 .trk-stop--bar.is-just { animation: none; }
+/* Nu swimming beside the pink stop: two slow swings at different speeds trace loops near it. */
+.trk-swim { position: absolute; z-index: 2; left: -22px; top: 0; width: 0; height: 0; animation: trk-swim-y 1.9s ease-in-out infinite alternate; }
+.trk-lane > .trk-swim { top: 50%; }
+.trk-swim b { position: absolute; left: -3.5px; top: -3.5px; width: 7px; height: 7px; border-radius: 50%; background: var(--c-go); box-shadow: 0 0 8px 2px var(--c-go-ring); animation: trk-swim-x 3.1s ease-in-out infinite alternate; }
+@keyframes trk-swim-y { from { transform: translateY(-11px); } to { transform: translateY(11px); } }
+@keyframes trk-swim-x { from { transform: translateX(-7px); } to { transform: translateX(9px); } }
 .trk-legend { --lane-gap: 28px; display: flex; align-items: flex-end; gap: calc(var(--lane-gap) - 20px); }
 /* Each key stands over its lane: the icon on top, the word running up beneath it. */
 .trk-key { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 20px; font-size: var(--fs-caps-min); font-weight: var(--fw-semibold); letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--c-text-min); white-space: nowrap; }
 .trk-key span { writing-mode: vertical-rl; transform: rotate(180deg); line-height: 20px; }
 .trk-key svg { flex: none; width: 20px; height: 20px; color: var(--c-text-2); }
 .trk-legend--icons .trk-key span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
-@media (prefers-reduced-motion: reduce) { .trk-stop { animation: none !important; } }
-@keyframes trk-nu { 50% { box-shadow: 0 0 0 3px var(--trk-bg, var(--c-bg)), inset 0 0 0 2.5px var(--c-go), 0 0 0 5px var(--c-go-ring), 0 0 12px 4px var(--c-go-ring); } }
-@keyframes trk-nu-bar { 50% { box-shadow: 0 0 0 3px var(--trk-bg, var(--c-bg)), 0 0 0 5px var(--c-go), 0 0 12px 6px var(--c-go-ring); } }
+@media (prefers-reduced-motion: reduce) { .trk-stop, .trk-swim, .trk-swim b { animation: none !important; } }
 @keyframes trk-just { 0% { transform: scale(0.6); } 40% { transform: scale(1.5); } 100% { transform: scale(1); } }
 /* The overlay form: one layer over a whole block, lanes at its right edge (--trk-right, the
-   Fleeting lane's distance from the edge). */
+   Fleeting lane's distance from the edge; a single track's line). */
 .trk-ov { --lane-gap: 28px; position: absolute; top: 0; right: var(--trk-right, 10px); bottom: 0; width: 0; pointer-events: none; z-index: 1; }
 .trk-ov .trk-lane--stable { right: auto; left: calc(-1 * var(--lane-gap)); }
 .trk-ov .trk-lane--fleeting { right: auto; left: 0; }
-.trk-seg { position: absolute; width: 3px; margin-left: -1.5px; background: var(--c-line-3); }
+.trk-ov--single .trk-lane--stable { left: 0; }
+.trk-seg { position: absolute; width: 2px; margin-left: -1px; background: var(--c-line-3); }
+.trk-ov--single .trk-seg { left: 0; }
 .trk-seg.is-run { background: var(--c-good); }
 .trk-at { position: absolute; width: 0; height: 0; }
 .trk-at .trk-stop { top: 0; }
+/* Where a part starts on a single track: its icon in a circle on the line, green once the run
+   reaches it. */
+.trk-mark { position: absolute; z-index: 1; left: -14px; width: 28px; height: 28px; margin-top: -14px; display: grid; place-items: center; border-radius: 50%; background: var(--c-surface-3); color: var(--c-text); box-shadow: 0 0 0 3px var(--trk-bg, var(--c-bg)); }
+.trk-mark.is-run { background: var(--c-good); color: #04130b; }
 
 /* Nu's guide cards in a game (src/puzzles/guide.ts): nothing to tap, so taps reach the board;
    a thin line along the bottom runs out before the card flies into its button. */

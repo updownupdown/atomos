@@ -1,8 +1,8 @@
 // The atom navigator: the bar across the top of the atom screens. The host places it (the
 // element is a plain flex row 60px tall). Left to right: the element (its number over its
 // symbol, then its name; a tap opens the element picker), a button back to Collect, the up and
-// down chevrons for the element before and after, and the Stable and Fleeting tracks' legend,
-// over the tracks on the page below and the ones on Collect above.
+// down chevrons for the element before and after. (The Build page's single track marks its own
+// Stable and Fleeting parts, so the bar carries no legend.)
 // View's loupe and Build both mount one, so stepping through elements looks and works the
 // same in each.
 // Long names (Rutherfordium on a 360px phone) never truncate: fit() steps the name down in size
@@ -17,7 +17,6 @@
 import { MAX_Z, elementAt } from './data';
 import { icon } from '../ui/icons';
 import { openElementPicker } from '../ui/picker';
-import { trackLegend } from '../ui/tracks';
 
 export interface AtomBarOptions {
   /** The player stepped or picked another element; the bar has already moved to it. */
@@ -42,7 +41,6 @@ export function createAtomBar(o: AtomBarOptions): AtomBar {
     + `<button class="bar-btn bar-collect" aria-label="Back to Collect" title="Collect">${icon('collect', { size: 22 })}</button>`
     + `<button class="bar-btn" data-dir="-1" aria-label="Previous element">${icon('chevron-up', { size: 24 })}</button>`
     + `<button class="bar-btn" data-dir="1" aria-label="Next element">${icon('chevron-down', { size: 24 })}</button>`;
-  el.append(trackLegend({ labels: false }));
   const [more, back, prev, next] = [...el.querySelectorAll<HTMLButtonElement>('button')];
   const name = el.querySelector<HTMLElement>('.bar-name')!;
   const num = el.querySelector<HTMLElement>('.bar-z small')!;

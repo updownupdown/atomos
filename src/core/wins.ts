@@ -1,7 +1,8 @@
 // How many times each game has been won on this device, at each of the five difficulty levels
 // (Very easy to Expert, two ratings each), and how many of those wins were flawless. The Puzzles
-// home shows them under each game. Kept apart from the save, like the play counts: losing it
-// only clears those tallies.
+// home shows them for the game in focus. Also the dial each game was last played at and the
+// games pinned to the top of that screen. Kept apart from the save, like the play counts:
+// losing it only clears those tallies and choices.
 
 import { difficultyLevel, LEVELS } from '../puzzles/difficulty';
 
@@ -72,4 +73,23 @@ export function rememberDial(game: string, dial: number): void {
     all[game] = Math.round(dial);
     localStorage.setItem(DIAL_KEY, JSON.stringify(all));
   } catch { /* storage off: the next visit opens at the default */ }
+}
+
+const PIN_KEY = 'atomos.pins.v1';
+
+/** The games pinned to the top of the Puzzles screen (a long press pins or unpins one). */
+export function pinnedGames(): string[] {
+  try {
+    const v: unknown = JSON.parse(localStorage.getItem(PIN_KEY) ?? '[]');
+    return Array.isArray(v) ? v.filter((g): g is string => typeof g === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Pins a game to the top of the Puzzles screen, or unpins it. */
+export function setPinned(game: string, on: boolean): void {
+  const now = pinnedGames().filter((g) => g !== game);
+  if (on) now.push(game);
+  try { localStorage.setItem(PIN_KEY, JSON.stringify(now)); } catch { /* storage off: the pin is not kept */ }
 }

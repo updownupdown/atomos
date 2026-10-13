@@ -41,6 +41,10 @@ export interface GameCardOptions {
   button?: HTMLElement;
   /** A line under the difficulty: text, or an element the caller keeps updating. */
   extra?: string | HTMLElement;
+  /** The pips sit just left of the button instead of under the name (the Puzzles home). */
+  pipsBeside?: boolean;
+  /** A pin after the name: pinned to the top of the Puzzles home. */
+  pinned?: boolean;
   className?: string;
 }
 
@@ -60,8 +64,9 @@ function paintDifficulty(diff: HTMLElement, difficulty: number | { lo: number; h
   diff.title = `Difficulty: ${word}`;
 }
 
-/** Shows a new dial on a card already built (the level picked on the Puzzles home). */
-export function setCardDifficulty(card: HTMLElement, dial: number): void {
+/** Shows a new dial, or a span, on a card already built (the Puzzles home: the picked level on
+ *  the card in focus, the game's whole span on the rest). */
+export function setCardDifficulty(card: HTMLElement, dial: number | { lo: number; hi: number }): void {
   const diff = card.querySelector<HTMLElement>('.gcard-diff');
   if (diff) paintDifficulty(diff, dial);
 }
@@ -86,12 +91,21 @@ export function gameCard(o: GameCardOptions): HTMLElement {
   const name = document.createElement('b');
   name.className = 'gcard-name';
   name.textContent = o.name;
-  body.append(name);
+  if (o.pinned) {
+    const row = document.createElement('span');
+    row.className = 'gcard-title';
+    const pin = document.createElement('span');
+    pin.className = 'gcard-pin';
+    pin.innerHTML = `${icon('pin', { size: 18 })}<span class="sr-only">Pinned</span>`;
+    row.append(name, pin);
+    body.append(row);
+  } else body.append(name);
 
+  let diff: HTMLElement | null = null;
   if (o.difficulty !== undefined) {
-    const diff = document.createElement('span');
-    diff.className = 'gcard-diff';
-    body.append(diff);
+    diff = document.createElement('span');
+    diff.className = `gcard-diff${o.pipsBeside ? ' gcard-diff--beside' : ''}`;
+    if (!o.pipsBeside) body.append(diff);
     paintDifficulty(diff, o.difficulty);
   }
 
@@ -103,6 +117,7 @@ export function gameCard(o: GameCardOptions): HTMLElement {
   }
 
   inner.append(art, body);
+  if (diff && o.pipsBeside) inner.append(diff);
 
   if (o.button) {
     o.button.classList.add('gcard-go');
