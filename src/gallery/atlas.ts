@@ -80,6 +80,7 @@ export class Atlas {
         <button type="button" class="at-color" aria-haspopup="dialog">${icon('paint', { size: 18 })}<small>Color</small><span></span></button>
       </div>
       <div class="at-legend" hidden></div>
+      <p class="at-note" hidden></p>
       <div class="at-body">
         <div class="at-map"></div>
         <div class="at-lock" hidden></div>
@@ -199,6 +200,9 @@ export class Atlas {
     this.stopLapse();
     const lock = this.lockedView();
     this.lockEl.hidden = !lock;
+    const note = this.root.querySelector<HTMLElement>('.at-note')!;
+    note.hidden = v !== 'sizes';
+    note.textContent = v === 'sizes' ? "Drawn to scale: each circle is as wide as its atom (van der Waals radius), from hydrogen's 110 pm to francium's 348 pm." : '';
     this.root.classList.toggle('is-locked', Boolean(lock));
     const details = v === 'details';
     this.mapHost.hidden = details;

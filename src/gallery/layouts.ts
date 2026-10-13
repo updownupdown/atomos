@@ -3,8 +3,8 @@
 // an SVG path in map units, with the box its label may use; the map (atlasmap.ts) scales the
 // whole shape to the screen and shows symbols, numbers and names as the cells grow.
 //
-// The Table stands up on a portrait screen (periods across, groups down) so every symbol is
-// readable without pinching, and lies flat in landscape. The Ribbon follows J. F. Hyde's curled
+// Every shape is drawn the way it is usually printed, on any screen, since readers know the
+// table by its familiar orientation; a phone zooms in rather than turning it. The Ribbon follows J. F. Hyde's curled
 // ribbon of 1975: the groups run round one loop, the periods go from the inside out, and the f
 // block curls out as a loop of its own.
 
@@ -24,7 +24,6 @@ export const LAYOUTS: { id: LayoutId; label: string; note: string }[] = [
 export const LAYOUT_STORY: Record<LayoutId, string[]> = {
   table: [
     'The standard periodic table. Each period is one row of the usual table; each group gathers elements with the same arrangement of outer electrons, which is why they behave alike.',
-    'On a phone held upright the table stands on its side: periods run across and groups run down, so every symbol is large enough to read. Turn the phone sideways and it lies flat again.',
     'The f block (cerium to lutetium, thorium to lawrencium) belongs between groups 3 and 4 of periods 6 and 7; it sits beside the table only to keep it compact.',
   ],
   ribbon: [
@@ -92,14 +91,13 @@ export interface Layout {
   decor?: Decor[];
 }
 
-export type Orientation = 'portrait' | 'landscape';
 
 /** The 28 elements of the f block drawn apart from the groups: cerium to lutetium, thorium to
  *  lawrencium. Lanthanum and actinium stay in group 3, as the dataset has them. */
 export const isF = (e: Element): boolean => e.group === null;
 const fIndex = (e: Element) => (e.period === 6 ? e.z - 58 : e.z - 90);
 
-const f1 = (v: number) => (Math.round(v * 100) / 100).toString();
+const f1 = (v: number) => (Math.round(v * 1000) / 1000).toString();
 function poly(pts: [number, number][]): string {
   return 'M' + pts.map(([x, y]) => `${f1(x)} ${f1(y)}`).join('L') + 'Z';
 }
@@ -121,10 +119,8 @@ function band(at: (t: number, r: number) => [number, number], t0: number, t1: nu
 
 const SEAM = 0.06;
 
-function table(o: Orientation): Layout {
-  const stand = o === 'portrait';
-  // Standing, a cell is wider than tall so names fit when zoomed; flat, a little taller than wide.
-  const cw = stand ? 1.45 : 1, ch = stand ? 1 : 1.15;
+function table(): Layout {
+  const cw = 1, ch = 1.15;
   const cells: Cell[] = [];
   const labels: MapLabel[] = [];
   const place = (e: Element, col: number, row: number) => {
@@ -132,26 +128,16 @@ function table(o: Orientation): Layout {
     cells.push({ z: e.z, d: rect(x + SEAM / 2, y + SEAM / 2, cw - SEAM, ch - SEAM, 0.14), x: x + cw / 2, y: y + ch / 2, w: cw - SEAM, h: ch - SEAM });
   };
   for (const e of ELEMENTS) {
-    if (isF(e)) {
-      const i = fIndex(e), k = e.period === 6 ? 0 : 1;
-      // Beside the table: two more columns standing, two more rows flat, starting level with group 4.
-      if (stand) place(e, 7.3 + k, 3 + i); else place(e, 3 + i, 7.3 + k);
-    } else if (stand) place(e, e.period - 1, e.group! - 1);
+    // The f block in two rows under the table, starting level with group 4.
+    if (isF(e)) place(e, 3 + fIndex(e), e.period === 6 ? 7.3 : 8.3);
     else place(e, e.group! - 1, e.period - 1);
   }
-  const axis = (x: number, y: number, text: string, kind: MapLabel['kind'] = 'axis') => labels.push({ x, y, text, kind });
-  if (stand) {
-    for (let p = 1; p <= 7; p++) axis((p - 0.5) * cw, -0.45, String(p));
-    axis(7.8 * cw, 2.55 * ch, '4f');
-    axis(8.8 * cw, 2.55 * ch, '5f');
-    for (let g = 1; g <= 18; g++) axis(-0.45, (g - 0.5) * ch, String(g));
-  } else {
-    const topRow = (g: number) => (g === 1 || g === 18 ? 0 : g === 2 || g >= 13 ? 1 : 3);
-    for (let g = 1; g <= 18; g++) axis((g - 0.5) * cw, topRow(g) * ch - 0.4, String(g));
-    for (let p = 1; p <= 7; p++) axis(-0.45, (p - 0.5) * ch, String(p));
-    axis(2.55 * cw, 7.8 * ch, '4f');
-    axis(2.55 * cw, 8.8 * ch, '5f');
-  }
+  const axis = (x: number, y: number, text: string) => labels.push({ x, y, text, kind: 'axis' });
+  const topRow = (g: number) => (g === 1 || g === 18 ? 0 : g === 2 || g >= 13 ? 1 : 3);
+  for (let g = 1; g <= 18; g++) axis((g - 0.5) * cw, topRow(g) * ch - 0.4, String(g));
+  for (let p = 1; p <= 7; p++) axis(-0.45, (p - 0.5) * ch, String(p));
+  axis(2.55 * cw, 7.8 * ch, '4f');
+  axis(2.55 * cw, 8.8 * ch, '5f');
   return { id: 'table', cells, labels };
 }
 
@@ -180,12 +166,8 @@ const ribAngles: Record<number, [number, number]> = (() => {
 })();
 const rad = (d: number) => (d * Math.PI) / 180;
 
-function ribbon(o: Orientation): Layout {
-  // Upright on a portrait screen: the lobes stack top and bottom and the f loop leans left.
-  const P = (th: number, r: number): [number, number] => {
-    const x = Math.cos(th) * r, y = Math.sin(th) * r;
-    return o === 'portrait' ? [-y, -x] : [x, -y];
-  };
+function ribbon(): Layout {
+  const P = (th: number, r: number): [number, number] => [Math.cos(th) * r, -Math.sin(th) * r];
   const at = (deg: number, slot: number) => P(rad(deg), ribR(rad(deg)) + slot);
   const cells: Cell[] = [];
   const labels: MapLabel[] = [];
@@ -206,7 +188,7 @@ function ribbon(o: Orientation): Layout {
   // Hydrogen and helium in the near lobe.
   const [hx, hy] = P(0, RIB_A * 0.75);
   for (const [z, s] of [[1, -1], [2, 1]] as const) {
-    const x = o === 'portrait' ? hx + s * 0.75 : hx, y = o === 'portrait' ? hy : hy + s * 0.75;
+    const x = hx, y = hy + s * 0.75;
     cells.push({ z, d: rect(x - 0.6, y - 0.6, 1.2, 1.2, 0.2), x, y, w: 1.2, h: 1.2 });
   }
   // The f loop: an annulus standing off the ribbon between groups 3 and 4, open where it joins.
@@ -309,11 +291,13 @@ function circle(): Layout {
 
 const VDW_MAX = 348;
 function circlePath(cx: number, cy: number, r: number): string {
-  return `M${f1(cx - r)} ${f1(cy)}A${f1(r)} ${f1(r)} 0 1 0 ${f1(cx + r)} ${f1(cy)}A${f1(r)} ${f1(r)} 0 1 0 ${f1(cx - r)} ${f1(cy)}Z`;
+  // Four quarter arcs: a half-circle arc between rounded end points can draw as an oval.
+  const q = (x: number, y: number) => `A${f1(r)} ${f1(r)} 0 0 1 ${f1(x)} ${f1(y)}`;
+  return `M${f1(cx - r)} ${f1(cy)}${q(cx, cy - r)}${q(cx + r, cy)}${q(cx, cy + r)}${q(cx - r, cy)}Z`;
 }
 
-function sizes(o: Orientation): Layout {
-  const t = table(o);
+function sizes(): Layout {
+  const t = table();
   const cells = t.cells.map((c) => {
     const r = (Math.min(c.w, c.h) / 2) * (elementAt(c.z).vdw / VDW_MAX);
     return { z: c.z, d: circlePath(c.x, c.y, r), x: c.x, y: c.y, w: r * 1.5, h: r * 1.5 };
@@ -323,17 +307,15 @@ function sizes(o: Orientation): Layout {
 
 // ---------------------------------------------------------------------------
 // Steps: Charles Janet's left-step table. Rows by n + l (the order electrons fill); the blocks
-// side by side, f, d, p and s from the left. Standing on a portrait screen, like the Table.
+// side by side, f, d, p and s from the left.
 
 const BLOCK_COL = { f: 0, d: 14, p: 24, s: 30 } as const;
-function steps(o: Orientation): Layout {
-  const stand = o === 'portrait';
-  const cw = stand ? 1.45 : 1, ch = stand ? 1 : 1.15;
+function steps(): Layout {
+  const cw = 1, ch = 1.15;
   const cells: Cell[] = [];
   const labels: MapLabel[] = [];
   const decor: Decor[] = [];
-  // Standing, the rows run across and the columns down.
-  const box = (col: number, row: number) => (stand ? { x: (row - 1) * cw, y: col * ch } : { x: col * cw, y: (row - 1) * ch });
+  const box = (col: number, row: number) => ({ x: col * cw, y: (row - 1) * ch });
   for (const e of ELEMENTS) {
     let col: number, row: number;
     if (e.z === 2) { col = BLOCK_COL.s + 1; row = 1; }
@@ -351,11 +333,11 @@ function steps(o: Orientation): Layout {
   }
   for (let r = 1; r <= 8; r++) {
     const { x, y } = box(-1, r);
-    labels.push({ x: x + (stand ? cw / 2 : cw * 0.55), y: y + (stand ? ch * 0.55 : ch / 2), text: String(r), kind: 'axis' });
+    labels.push({ x: x + cw * 0.55, y: y + ch / 2, text: String(r), kind: 'axis' });
   }
   for (const [b, c, n] of [['f', 0, 14], ['d', 14, 10], ['p', 24, 6], ['s', 30, 2]] as const) {
     const mid = c + n / 2;
-    labels.push(stand ? { x: 8 * cw + 0.5, y: mid * ch, text: b, kind: 'title' } : { x: mid * cw, y: 8 * ch + 0.5, text: b, kind: 'title' });
+    labels.push({ x: mid * cw, y: 8 * ch + 0.5, text: b, kind: 'title' });
   }
   return { id: 'steps', cells, labels, decor };
 }
@@ -365,26 +347,20 @@ function steps(o: Orientation): Layout {
 // number; links join each atom to its family member in the next period.
 
 const PY_GAP = 1.6;
-/** Standing (portrait), each period is a column read top to bottom; flat (landscape), a row read
- *  left to right, so the pyramid lies on its side. */
-function pyramid(o: Orientation): Layout {
-  const stand = o === 'portrait';
-  // Along a period, and across it.
-  const along = stand ? 0.9 : 1.15, across = stand ? 1.8 : 1.3;
+/** Each period is a column, read top to bottom, as Thomsen and Bohr drew it. */
+function pyramid(): Layout {
+  const along = 0.9, across = 1.8;
   const cells: Cell[] = [];
   const labels: MapLabel[] = [];
   const decor: Decor[] = [];
   const counts = [2, 8, 8, 18, 18, 32, 32];
   const at = new Map<number, Cell>();
   const long = 32 * along;
-  const put = (a: number, c: number): { x: number; y: number } => (stand ? { x: c, y: a } : { x: a, y: c });
   for (const e of ELEMENTS) {
     const [first] = PERIOD_RANGE[e.period - 1];
-    const c0 = (e.period - 1) * (across + PY_GAP);
-    const a0 = (long - counts[e.period - 1] * along) / 2 + (e.z - first) * along;
-    const { x, y } = put(a0, c0);
-    const w = stand ? across : along, h = stand ? along : across;
-    const c = { z: e.z, d: rect(x + SEAM / 2, y + SEAM / 2, w - SEAM, h - SEAM, 0.12), x: x + w / 2, y: y + h / 2, w: w - SEAM, h: h - SEAM };
+    const x = (e.period - 1) * (across + PY_GAP);
+    const y = (long - counts[e.period - 1] * along) / 2 + (e.z - first) * along;
+    const c = { z: e.z, d: rect(x + SEAM / 2, y + SEAM / 2, across - SEAM, along - SEAM, 0.12), x: x + across / 2, y: y + along / 2, w: across - SEAM, h: along - SEAM };
     cells.push(c);
     at.set(e.z, c);
   }
@@ -395,31 +371,21 @@ function pyramid(o: Orientation): Layout {
     const n = ELEMENTS.find((q) => q.period === e.period + 1 && family(q) === family(e));
     if (!n) continue;
     const a = at.get(e.z)!, b = at.get(n.z)!;
-    if (stand) {
-      const x0 = a.x + across / 2, x1 = b.x - across / 2, k = (x1 - x0) * 0.5;
-      decor.push({ d: `M${f1(x0)} ${f1(a.y)}C${f1(x0 + k)} ${f1(a.y)} ${f1(x1 - k)} ${f1(b.y)} ${f1(x1)} ${f1(b.y)}`, kind: 'link' });
-    } else {
-      const y0 = a.y + across / 2, y1 = b.y - across / 2, k = (y1 - y0) * 0.5;
-      decor.push({ d: `M${f1(a.x)} ${f1(y0)}C${f1(a.x)} ${f1(y0 + k)} ${f1(b.x)} ${f1(y1 - k)} ${f1(b.x)} ${f1(y1)}`, kind: 'link' });
-    }
+    const x0 = a.x + across / 2, x1 = b.x - across / 2, k = (x1 - x0) * 0.5;
+    decor.push({ d: `M${f1(x0)} ${f1(a.y)}C${f1(x0 + k)} ${f1(a.y)} ${f1(x1 - k)} ${f1(b.y)} ${f1(x1)} ${f1(b.y)}`, kind: 'link' });
   }
-  for (let p = 1; p <= 7; p++) {
-    const c = (p - 1) * (across + PY_GAP) + across / 2, a = (long - counts[p - 1] * along) / 2 - 0.55;
-    const { x, y } = put(a, c);
-    labels.push({ x, y, text: String(p), kind: 'axis' });
-  }
+  for (let p = 1; p <= 7; p++) labels.push({ x: (p - 1) * (across + PY_GAP) + across / 2, y: (long - counts[p - 1] * along) / 2 - 0.55, text: String(p), kind: 'axis' });
   return { id: 'pyramid', cells, labels, decor };
 }
 
 const cache = new Map<string, Layout>();
-/** A map's cells and labels, standing or flat for the screen's shape. */
-export function layout(id: LayoutId, o: Orientation = 'landscape'): Layout {
-  const key = `${id}:${id === 'table' || id === 'ribbon' || id === 'sizes' || id === 'steps' || id === 'pyramid' ? o : ''}`;
-  let l = cache.get(key);
+/** A map's cells and labels. */
+export function layout(id: LayoutId): Layout {
+  let l = cache.get(id);
   if (!l) {
-    l = id === 'table' ? table(o) : id === 'ribbon' ? ribbon(o) : id === 'spiral' ? spiral() : id === 'circle' ? circle()
-      : id === 'sizes' ? sizes(o) : id === 'steps' ? steps(o) : pyramid(o);
-    cache.set(key, l);
+    l = id === 'table' ? table() : id === 'ribbon' ? ribbon() : id === 'spiral' ? spiral() : id === 'circle' ? circle()
+      : id === 'sizes' ? sizes() : id === 'steps' ? steps() : pyramid();
+    cache.set(id, l);
   }
   return l;
 }

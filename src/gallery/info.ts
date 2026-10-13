@@ -96,7 +96,7 @@ export function elementFacts(z: number): { h: string; f: string[] } | null {
 
 /** A small periodic table with this atom lit, the way back to it in the Atlas. */
 function locator(e: Element): string {
-  const { cells } = layout('table', 'landscape');
+  const { cells } = layout('table');
   const x0 = Math.min(...cells.map((c) => c.x)), y0 = Math.min(...cells.map((c) => c.y));
   const x1 = Math.max(...cells.map((c) => c.x + c.w)), y1 = Math.max(...cells.map((c) => c.y + c.h));
   const me = cells.find((c) => c.z === e.z)!;
@@ -106,12 +106,6 @@ function locator(e: Element): string {
   return `<button type="button" class="ov-locate" data-z="${e.z}" aria-label="Show ${esc(e.name.toLowerCase())} in the Atlas">
     <svg viewBox="0 0 ${(x1 - x0).toFixed(2)} ${(y1 - y0).toFixed(2)}" aria-hidden="true">${rows}<g style="--p:${lookColor('place', e)}">${rect(me, 'lc-me')}</g></svg>
   </button>`;
-}
-
-/** A quiet line on a built atom's plate band: "Built", or "Built · flawless". */
-function builtLine(z: number): string {
-  const b = loadSave().built[z];
-  return b ? `<span class="ov-built">${icon('check', { size: 16 })}Built${b.flawless ? ' · flawless' : ''}</span>` : '';
 }
 
 function overview(e: Element, collected: boolean): string {
@@ -125,11 +119,13 @@ function overview(e: Element, collected: boolean): string {
   // Its plate in its place color, the little table with it lit, and where it sits in words.
   const fill = lookColor('place', e);
   const weight = e.weight == null ? `[${e.commonA}]` : `${Number(e.weight.toPrecision(5))}`;
-  const where = [e.group == null ? (e.z < 90 ? 'Lanthanide' : 'Actinide') : `Group ${e.group}`, `Period ${e.period}`, `${e.block} block`].join(' · ');
+  const where = [e.group == null ? (e.z < 90 ? 'Lanthanide' : 'Actinide') : `Group ${e.group}`, `Period ${e.period}`].join(' · ');
+  const stat = (label: string, value: string) => `<span class="ov-stat"><small>${label}</small><b>${value}</b></span>`;
   const band = `<header class="ov-band">
       <div class="ov-plate" style="background:${fill};color:${inkOn(fill)}"><span>${e.z}</span><b>${e.symbol}</b></div>
+      <p class="ov-where"><b>${esc(e.series)}</b><span>${where}</span></p>
       ${locator(e)}
-      <p class="ov-where"><b>${esc(e.series)}</b><span>${where}</span><span>Weight ${weight} · ${shortConfiguration(e)}</span>${builtLine(e.z)}</p>
+      <div class="ov-stats">${stat('Weight', weight)}${stat('Electrons', shortConfiguration(e))}${stat('Block', e.block)}</div>
     </header>`;
   void collected; // the Build button carries collection progress now
   // Each line appears once: Made in and Used for (and the name's origin) skip anything the
@@ -146,8 +142,8 @@ function overview(e: Element, collected: boolean): string {
   const who = e.discoverers && !(ancient && /ancient|prehistor|antiquity/i.test(e.discoverers)) ? e.discoverers : '';
   const by = [who, e.discoveryPlace ?? ''].filter(Boolean).map(esc).join(' · ');
   return `
-    ${photo}
     ${band}
+    ${photo}
     <p class="ov-headline">${esc(headline)}</p>
     ${facts ? `<ul class="ov-facts">${facts.f.map((f) => `<li>${esc(f)}</li>`).join('')}</ul>` : ''}
     ${name.length ? `<blockquote class="story-name"><span>The name</span>${esc(name[0])}</blockquote>` : ''}

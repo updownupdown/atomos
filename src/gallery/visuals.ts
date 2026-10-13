@@ -237,9 +237,6 @@ export function layerReach(e: Element): { edge: number; mean: number }[] {
   return raw.map((r) => ({ edge: r.edge * k, mean: r.mean * k }));
 }
 
-/** How far out a layer is drawn, 0 to 1 of the atom's edge: true to scale, or on a square-root
- *  scale (as Shells uses) so the tight inner layers can be seen. */
-export const togetherRadius = (edge: number, vdw: number, toScale: boolean) => (toScale ? edge / vdw : Math.sqrt(edge / vdw));
 
 /** The turn each orbital of a layer is drawn at, so they don't sit on one another. The three p
  *  orbitals are seen from a corner of their axes, which spreads them 120° apart; d and f
@@ -253,8 +250,8 @@ export function orbitalTurn(l: number, oi: number): number {
 /**
  * Every orbital of the atom drawn on top of the others, centered on the nucleus and sized by how
  * far each layer reaches, so the inner layers sit inside the outer ones the way they do in the
- * atom. infopage.ts makes it live: a slider adds the electrons one at a time in the order they
- * fill, a layer chip picks one layer out, and a switch shows the true scale.
+ * atom, always to true scale. infopage.ts makes it live and 3D (together3d.ts): a slider adds the
+ * electrons one at a time in the order they fill, and a layer chip picks one layer out.
  */
 export function orbitalTogether(e: Element): string {
   const reach = layerReach(e);
@@ -268,8 +265,8 @@ export function orbitalTogether(e: Element): string {
       const paths = orbitalOutline(l, M_ORDER[oi], 180).map((b) => `<path class="${b.plus ? 'is-plus' : 'is-minus'}" d="${b.d}"/>`).join('');
       return `<g class="tg-orb" data-k="${oi}" transform="rotate(${orbitalTurn(l, oi)})">${paths}</g>`;
     }).join('');
-    const sc = (toScale: boolean) => ((D * togetherRadius(r.edge, e.vdw, toScale)) / 0.94).toFixed(4);
-    return `<g class="tg-sub" data-i="${i}" data-l="${s.l}" data-root="${sc(false)}" data-true="${sc(true)}" style="--b:${BLOCK_COLOUR[s.l]};transform:scale(${sc(false)})">
+    const sc = ((D * (r.edge / e.vdw)) / 0.94).toFixed(4);
+    return `<g class="tg-sub" data-i="${i}" data-l="${s.l}" data-r="${(r.edge / e.vdw).toFixed(5)}" style="--b:${BLOCK_COLOUR[s.l]};transform:scale(${sc})">
       <circle class="tg-ghost" r="0.9"/>${orbs}</g>`;
   }).join('');
   const chips = buildOrder(e).map((s) => {
@@ -283,7 +280,7 @@ export function orbitalTogether(e: Element): string {
         ${subs}
         <circle class="tg-nuc" r="0.022"/>
       </svg>
-      <span class="tg-edge-lab">edge ${e.vdw} pm</span>
+      <span class="tg-edge-lab">edge ${e.vdw} pm · true scale</span>
     </div>
     <p class="tg-read" aria-live="polite"></p>
     <div class="tg-fill">
@@ -291,8 +288,7 @@ export function orbitalTogether(e: Element): string {
       <div class="tg-slider"></div>
     </div>
     <div class="tg-chips" role="group" aria-label="Pick out a layer">${chips}</div>
-    ${e.subshells.length < 2 ? '' : `<label class="ui-switch-row tg-scale"><span class="ui-switch-text">True scale<small>The inner layers shrink toward the nucleus</small></span><input type="checkbox" role="switch" class="ui-switch"></label>`}
-    <p class="note">Every orbital at once, each layer as far out as its electrons usually reach. Drag to add the electrons in the order they fill, or tap a layer to pick it out.</p>
+    <p class="note">Every orbital at once and to true scale, each layer as far out as its electrons usually reach. Turn it with a sideways drag, add the electrons in the order they fill, or tap a layer to zoom in on it.</p>
   </div>`;
 }
 
