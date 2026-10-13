@@ -1,29 +1,26 @@
 // Collect: the whole table at once, and one atom large.
 //
 //   header                         COLLECT                 [⚛ Atoms v]  (atomlist.ts)
-//   ┌ the periodic table ┐   Stable 13% ◎                    the progress, on the right;
-//   │ ▪ . . . . . . . ▪  │   Fleeting 3% ◎                   Next selects the next atom to
-//   └────────────────────┘   [▸ Next]                        build, which Nu circles in the table
-//              v                                            the chevron widens the table a while
+//   ┌ the periodic table, full width ┐                      cells lit by how far each atom is
+//   │ ▪ . . . . . . . . . . . . . ▪  │                      collected; Nu circles the next atom
+//   └────────────────────────────────┘
+//   Period 4 · 9 of 18 built ▬▬▬                            or, locked, what opens the period
 //         ‹       26 Fe        ›                            the lens: tap to open the atom;
 //                 Iron                                      swipe sideways (or the chevrons)
 //            (the atom, as its gem)                         to step, up or down to move a row
-//   Stable 7/7 ◎  Fleeting 20/26 ◎   [Build]
-//
-// Each cell's tone (thumbs.ts Tone): not started (gray), started or built (its block's color,
-// pale), stable collected (in full) and all collected (in full, glowing). The atom in the lens
-// wears a still white ring.
+//       Stable 7/7 ◎   Fleeting 20/26 ◎                     (a win's "+ Electrons" for 3 s)
+//           [Build]  [▸ Next: Nickel]
 
 import { MAX_Z, elementAt, placeColour } from './data';
 import { atomPicture, toneOf, type Tone } from './thumbs';
 import { GemAtom } from './gem';
 import { atomBuilt, fleetingCount, rowOf, rowOpen, rowSpan, segmentsOf } from '../core/progress';
 import { loadSave, type SaveData } from '../core/save';
-import { nextStep } from '../core/next';
+import { nextStep, openStep } from '../core/next';
 import { fleetingOpen, periodSentence } from './locks';
 import type { TrackRow } from '../ui/tracks';
 import { tableCell } from '../ui/picker';
-import { atomShares, collectionProgress, shareRing } from './atomlist';
+import { atomShares, shareBar, shareRing } from './atomlist';
 import { nextButton } from '../ui/components';
 import { icon } from '../ui/icons';
 import { reducedMotion } from '../ui/nu';
@@ -92,8 +89,8 @@ function statusOf(z: number, save: SaveData): Status {
   return tone;
 }
 
-/** One line of progress, the same on the table's side and under the atom: the word, the figure
- *  (a percent or a count, which narrow screens drop) and a ring round the part's icon. */
+/** One line of progress: the word, the count (which narrow screens drop) and a ring round the
+ *  part's icon. */
 function progLine(word: string, figure: string, share: number, ico: string, off = false): string {
   const done = !off && share >= 1;
   return `<div class="co-prog${off ? ' is-off' : ''}${done ? ' is-done' : ''}"><span class="co-prog-txt"><span class="co-prog-word">${word}</span><b class="co-prog-n">${figure}</b></span>${shareRing(off ? 0 : share, ico, 40)}</div>`;
@@ -119,57 +116,74 @@ export function tableNeighbour(z: number, dir: 1 | -1): number | null {
   return cells.sort((a, b) => Math.abs(a.col - at.col) - Math.abs(b.col - at.col))[0]?.z ?? null;
 }
 
+/** What an atom has, to tell what a win just added: the stable parts done and the fleeting
+ *  isotopes built. */
+interface Held { parts: string[]; fleeting: number; status: Status }
+
+/** The line shown for a moment when Collect opens on an atom that just gained something:
+ *  "+ Electrons" and "Iron is now stable collected", or how far it has come. */
+export function newsLine(name: string, before: Held, after: Held, stableTotal: number): { added: string; note: string } | null {
+  const parts = after.parts.filter((p) => !before.parts.includes(p));
+  const fl = after.fleeting - before.fleeting;
+  if (!parts.length && fl <= 0) return null;
+  const added = [...parts, ...(fl > 0 ? [fl === 1 ? '1 fleeting isotope' : `${fl} fleeting isotopes`] : [])].join(', ');
+  const note = after.status !== before.status && (after.status === 'stable' || after.status === 'complete')
+    ? `${name} is now ${after.status === 'complete' ? 'all collected' : 'stable collected'}`
+    : parts.length ? `${name}: ${after.parts.length} of ${stableTotal} stable parts` : `${name}: ${after.fleeting} fleeting built`;
+  return { added: `+ ${added}`, note };
+}
+
 export class Collect {
   readonly el: HTMLElement;
   private save: SaveData = loadSave();
   private current = 1;
   private live = new GemAtom();
-  private map: HTMLElement;
   private table: HTMLElement;
-  private side: HTMLElement;
+  private period: HTMLElement;
   private nu: HTMLElement;
-  private expand: HTMLButtonElement;
   private lens: HTMLElement;
   private gem: HTMLElement;
   private title: HTMLButtonElement;
   private progs: HTMLElement;
+  private news: HTMLElement;
   private build: HTMLButtonElement;
-  private lockEl: HTMLElement;
+  private nextSlot: HTMLElement;
   private prev: HTMLButtonElement;
   private next: HTMLButtonElement;
   private nextZ: number | null = null;
   private shown = false;
   private swiped = false;
+  /** What each atom had when Collect last painted, to spot what a win added. */
+  private held = new Map<number, Held>();
+  private newsTimer = 0;
 
   constructor(host: HTMLElement, private handlers: CollectHandlers) {
     this.el = host;
     host.innerHTML = `
-      <div class="co-map">
-        <div class="co-table" aria-label="Periodic table"><span class="co-nu" aria-hidden="true" hidden><i></i></span></div>
-        <div class="co-side"></div>
-      </div>
-      <button type="button" class="co-expand" aria-expanded="false" aria-label="Show the table wider">${icon('chevron-down', { size: 24 })}</button>
+      <div class="co-table" aria-label="Periodic table"><span class="co-nu" aria-hidden="true" hidden><i></i></span></div>
+      <div class="co-period"></div>
       <div class="co-lens">
         <div class="co-lens-row">
           <button type="button" class="co-step" data-dir="-1" aria-label="Previous atom">${icon('chevron-left', { size: 28 })}</button>
           <button type="button" class="co-title"><small></small><b></b></button>
           <button type="button" class="co-step" data-dir="1" aria-label="Next atom">${icon('chevron-right', { size: 28 })}</button>
         </div>
-        <div class="co-lock" hidden></div>
         <button type="button" class="co-gem-btn"><span class="co-gem"></span></button>
       </div>
-      <div class="co-act"><div class="co-progs"></div><button type="button" class="co-build">${icon('mode-build', { size: 20 })}<span>Build</span></button></div>`;
-    this.map = host.querySelector('.co-map')!;
+      <div class="co-foot">
+        <div class="co-slot"><div class="co-progs"></div><div class="co-news" role="status" hidden></div></div>
+        <div class="co-btns"><button type="button" class="co-build">${icon('mode-build', { size: 20 })}<span>Build</span></button><span class="co-next"></span></div>
+      </div>`;
     this.table = host.querySelector('.co-table')!;
-    this.side = host.querySelector('.co-side')!;
+    this.period = host.querySelector('.co-period')!;
     this.nu = host.querySelector('.co-nu')!;
-    this.expand = host.querySelector('.co-expand')!;
     this.lens = host.querySelector('.co-lens')!;
     this.gem = host.querySelector('.co-gem')!;
     this.title = host.querySelector('.co-title')!;
     this.progs = host.querySelector('.co-progs')!;
+    this.news = host.querySelector('.co-news')!;
     this.build = host.querySelector('.co-build')!;
-    this.lockEl = host.querySelector('.co-lock')!;
+    this.nextSlot = host.querySelector('.co-next')!;
     [this.prev, this.next] = [...host.querySelectorAll<HTMLButtonElement>('.co-step')];
     if (this.live.ok) this.gem.append(this.live.canvas);
     for (let z = 1; z <= MAX_Z; z++) {
@@ -193,23 +207,24 @@ export class Collect {
     this.el.hidden = false;
     this.shown = true;
     this.save = loadSave();
-    this.setWide(false);
-    this.paintTable();
-    this.paintSide();
-    this.focus(z ?? nextStep(this.save)?.z ?? 1);
+    const target = z ?? nextStep(this.save)?.z ?? 1;
+    this.paintTable(target);
+    this.paintNext();
+    this.focus(target);
   }
 
   hide(): void {
     this.el.hidden = true;
     this.shown = false;
     this.live.stop();
+    this.hideNews();
   }
 
   /** Progress changed: repaint in place, keeping the atom in the lens. */
   refresh(): void {
     this.save = loadSave();
-    this.paintTable();
-    this.paintSide();
+    this.paintTable(this.current);
+    this.paintNext();
     this.focus(this.current);
   }
 
@@ -239,11 +254,11 @@ export class Collect {
     this.progs.innerHTML = progLine('Stable', `${segs.filter((x) => x.done).length}/${segs.length}`, s.stable, 'isotope-stable')
       + (f.total ? progLine('Fleeting', fleetOn ? `${f.built}/${f.total}` : '–', s.fleeting ?? 0, 'isotope-fleeting', !fleetOn) : '');
     const open = rowOpen(rowOf(z), this.save);
-    this.lockEl.hidden = open;
-    if (!open) this.lockEl.innerHTML = `<span class="co-lock-ico">${icon('lock', { size: 20 })}</span><span>${esc(periodSentence(z, this.save) ?? '')}</span>`;
+    this.paintPeriod(z, open);
     // A period not open yet can't be built: Build waits, greyed.
     this.build.disabled = !open;
     this.build.setAttribute('aria-label', open ? `Build ${e.name}` : `${e.name} is locked`);
+    if (moved) this.hideNews();
     if (!this.shown) return;
     if (this.live.ok) {
       this.live.show(z, tone, reducedMotion());
@@ -259,18 +274,82 @@ export class Collect {
     }
   }
 
-  /** Each cell's tone, whether its period is open, and Nu circling the next atom to build. */
-  private paintTable(): void {
-    for (const cell of this.table.querySelectorAll<HTMLElement>('.co-cell')) {
-      const z = Number(cell.dataset.z);
-      const e = elementAt(z);
-      const status = statusOf(z, this.save);
-      cell.dataset.tone = status;
-      cell.classList.toggle('is-locked', !rowOpen(rowOf(z), this.save));
-      cell.setAttribute('aria-label', `${e.name}, ${z}: ${STATUS_WORD[status].toLowerCase()}`);
+  /** The line under the table, for the lens atom's period: how many of its atoms are built, or,
+   *  for a period not open yet, what opens it. */
+  private paintPeriod(z: number, open: boolean): void {
+    const period = rowOf(z);
+    if (!open) {
+      this.period.className = 'co-period is-locked';
+      this.period.innerHTML = `<span class="co-period-ico">${icon('lock', { size: 18 })}</span><span class="co-period-text">${esc(periodSentence(z, this.save) ?? `Period ${period} is locked.`)}</span>`;
+      return;
     }
+    const p = periodProgress(period, this.save);
+    const done = p.built >= p.atoms;
+    this.period.className = `co-period${done ? ' is-done' : ''}`;
+    this.period.innerHTML = `${done ? `<span class="co-period-ico">${icon('check', { size: 18 })}</span>` : ''}<span class="co-period-text"><b>Period ${period}</b><span>${p.built} of ${p.atoms} built</span></span>${shareBar(p.built / p.atoms, 'co-period-bar')}`;
+  }
+
+  /** Each cell lit by how far its atom is collected: gray until a part is built, a square of
+   *  its color growing in the middle while under way, the whole cell in color once its stable
+   *  parts are collected and glowing once everything is. A white dot marks an atom with fleeting
+   *  isotopes still to build. Nu circles the next atom. Notes what each atom has, and, for the
+   *  atom `z` about to show, what was just added. */
+  private paintTable(z: number): void {
+    const fleetOn = fleetingOpen(this.save);
+    const fresh = new Map<number, Held>();
+    for (const cell of this.table.querySelectorAll<HTMLElement>('.co-cell')) {
+      const n = Number(cell.dataset.z);
+      const e = elementAt(n);
+      const status = statusOf(n, this.save);
+      const segs = segmentsOf(n, this.save);
+      const doneParts = segs.filter((s) => s.done);
+      const share = segs.length ? doneParts.length / segs.length : 0;
+      const f = fleetingCount(n, this.save);
+      cell.dataset.tone = status;
+      cell.style.setProperty('--k', String(0.3 + share * 0.45));
+      cell.classList.toggle('is-locked', !rowOpen(rowOf(n), this.save));
+      cell.classList.toggle('has-fleeting', fleetOn && status !== 'unbuilt' && f.total > 0 && f.built < f.total);
+      cell.setAttribute('aria-label', `${e.name}, ${n}: ${STATUS_WORD[status].toLowerCase()}`);
+      fresh.set(n, { parts: doneParts.map((s) => s.label), fleeting: f.built, status });
+    }
+    const before = this.held.get(z), after = fresh.get(z);
+    if (this.shown && before && after) {
+      const news = newsLine(elementAt(z).name, before, after, segmentsOf(z, this.save).length);
+      if (news) this.showNews(news);
+    }
+    this.held = fresh;
     this.nextZ = nextStep(this.save)?.z ?? null;
-    this.placeNu();
+    requestAnimationFrame(() => this.placeNu());
+  }
+
+  /** For a moment, in place of the atom's progress: a green line of what it just gained. */
+  private showNews(n: { added: string; note: string }): void {
+    window.clearTimeout(this.newsTimer);
+    this.news.innerHTML = `<b>${esc(n.added)}</b><span>${esc(n.note)}</span>`;
+    this.news.hidden = false;
+    this.progs.classList.add('is-hidden');
+    this.newsTimer = window.setTimeout(() => this.hideNews(), 3000);
+  }
+
+  private hideNews(): void {
+    window.clearTimeout(this.newsTimer);
+    this.news.hidden = true;
+    this.progs.classList.remove('is-hidden');
+  }
+
+  /** Next, beside Build: names the next atom to build. Away from it, it brings that atom into the
+   *  lens; on it, it plays the step. */
+  private paintNext(): void {
+    const step = nextStep(this.save);
+    this.nextSlot.replaceChildren();
+    if (!step) return;
+    const name = elementAt(step.z).name;
+    this.nextSlot.append(nextButton({
+      label: `Next: ${name}`,
+      compact: true,
+      landKey: 'collect-next',
+      onClick: () => { if (this.current !== step.z) this.focus(step.z); else openStep(step); },
+    }));
   }
 
   /** Nu goes round the next atom's cell (placed in the table's own coordinates). */
@@ -281,25 +360,6 @@ export class Collect {
     this.nu.style.left = `${cell.offsetLeft + cell.offsetWidth / 2}px`;
     this.nu.style.top = `${cell.offsetTop + cell.offsetHeight / 2}px`;
     this.nu.style.setProperty('--r', `${Math.max(9, cell.offsetWidth * 0.85)}px`);
-  }
-
-  /** The side: the whole collection's stable and fleeting shares, as the atom's own lines show
-   *  them but in percents, then Next. */
-  private paintSide(): void {
-    const all = collectionProgress(this.save);
-    const fleetOn = fleetingOpen(this.save);
-    this.side.innerHTML = `<div class="co-side-progs">${progLine('Stable', pctLabel(all.stable), all.stable, 'isotope-stable')}${progLine('Fleeting', fleetOn ? pctLabel(all.fleeting) : '–', all.fleeting, 'isotope-fleeting', !fleetOn)}</div>`;
-    this.side.setAttribute('aria-label', `Your collection: ${pctLabel(all.stable)} stable${fleetOn ? `, ${pctLabel(all.fleeting)} fleeting` : ''}`);
-    const step = nextStep(this.save);
-    if (step) this.side.append(nextButton({ label: 'Next', compact: true, landKey: 'collect-next', onClick: () => this.focus(step.z) }));
-  }
-
-  /** The table at full width for a while (easier to tap a cell), or back beside the progress. */
-  private setWide(wide: boolean): void {
-    this.map.classList.toggle('is-wide', wide);
-    this.expand.setAttribute('aria-expanded', String(wide));
-    this.expand.setAttribute('aria-label', wide ? 'Show the table smaller' : 'Show the table wider');
-    requestAnimationFrame(() => this.placeNu());
   }
 
   private step(dir: 1 | -1): void {
@@ -317,12 +377,8 @@ export class Collect {
   private bind(): void {
     this.table.addEventListener('click', (e) => {
       const cell = (e.target as HTMLElement).closest<HTMLElement>('.co-cell');
-      if (!cell) return;
-      this.focus(Number(cell.dataset.z));
-      // A wide table was for picking: once picked, it goes back beside the progress.
-      if (this.map.classList.contains('is-wide')) this.setWide(false);
+      if (cell) this.focus(Number(cell.dataset.z));
     });
-    this.expand.onclick = () => this.setWide(!this.map.classList.contains('is-wide'));
     const open = () => { if (!this.swiped) this.handlers.onOpen(this.current); };
     this.lens.querySelector<HTMLElement>('.co-gem-btn')!.onclick = open;
     this.build.onclick = () => this.handlers.onOpen(this.current);
