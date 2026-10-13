@@ -1,14 +1,14 @@
 // Collect: the whole table at once, and one atom large.
 //
 //   header                         COLLECT                 [⚛ Atoms v]  (atomlist.ts)
-//   ┌ the periodic table ┐   ◎ Stable   13%                 the progress, on the right;
-//   │ ▪ . . . . . . . ▪  │   ◎ Fleeting  3%                 Next selects the next atom to
+//   ┌ the periodic table ┐   Stable 13% ◎                    the progress, on the right;
+//   │ ▪ . . . . . . . ▪  │   Fleeting 3% ◎                   Next selects the next atom to
 //   └────────────────────┘   [▸ Next]                        build, which Nu circles in the table
 //              v                                            the chevron widens the table a while
-//            (the atom, as its gem)                         the lens: tap to open the atom,
-//         ‹    26 Fe · Stable collected    ›                swipe or the chevrons to step
-//                   Iron
-//          Stable ▬▬  Fleeting ▬   [Build]
+//         ‹       26 Fe        ›                            the lens: tap to open the atom;
+//                 Iron                                      swipe sideways (or the chevrons)
+//            (the atom, as its gem)                         to step, up or down to move a row
+//   Stable 7/7 ◎  Fleeting 20/26 ◎   [Build]
 //
 // Each cell's tone (thumbs.ts Tone): not started (gray), started or built (its block's color,
 // pale), stable collected (in full) and all collected (in full, glowing). The atom in the lens
@@ -23,7 +23,7 @@ import { nextStep } from '../core/next';
 import { fleetingOpen, periodSentence } from './locks';
 import type { TrackRow } from '../ui/tracks';
 import { tableCell } from '../ui/picker';
-import { atomShares, collectionProgress, shareBar, shareRing } from './atomlist';
+import { atomShares, collectionProgress, shareRing } from './atomlist';
 import { nextButton } from '../ui/components';
 import { icon } from '../ui/icons';
 import { reducedMotion } from '../ui/nu';
@@ -92,6 +92,33 @@ function statusOf(z: number, save: SaveData): Status {
   return tone;
 }
 
+/** One line of progress, the same on the table's side and under the atom: the word, the figure
+ *  (a percent or a count, which narrow screens drop) and a ring round the part's icon. */
+function progLine(word: string, figure: string, share: number, ico: string, off = false): string {
+  const done = !off && share >= 1;
+  return `<div class="co-prog${off ? ' is-off' : ''}${done ? ' is-done' : ''}"><span class="co-prog-txt"><span class="co-prog-word">${word}</span><b class="co-prog-n">${figure}</b></span>${shareRing(off ? 0 : share, ico, 40)}</div>`;
+}
+
+/** The atom a step up (-1) or down (1) the table from `z`: the cell straight above or below,
+ *  else the nearest one to its left in that row, else the nearest in that row. The rows run
+ *  1 to 7, then the two f-block rows. */
+export function tableNeighbour(z: number, dir: 1 | -1): number | null {
+  const ROWS = [1, 2, 3, 4, 5, 6, 7, 9, 10];
+  const at = tableCell(elementAt(z));
+  const row = ROWS[ROWS.indexOf(at.row) + dir];
+  if (row === undefined) return null;
+  const cells: { z: number; col: number }[] = [];
+  for (let n = 1; n <= MAX_Z; n++) {
+    const c = tableCell(elementAt(n));
+    if (c.row === row) cells.push({ z: n, col: c.col });
+  }
+  const same = cells.find((c) => c.col === at.col);
+  if (same) return same.z;
+  const left = cells.filter((c) => c.col < at.col).sort((a, b) => b.col - a.col)[0];
+  if (left) return left.z;
+  return cells.sort((a, b) => Math.abs(a.col - at.col) - Math.abs(b.col - at.col))[0]?.z ?? null;
+}
+
 export class Collect {
   readonly el: HTMLElement;
   private save: SaveData = loadSave();
@@ -105,12 +132,14 @@ export class Collect {
   private lens: HTMLElement;
   private gem: HTMLElement;
   private title: HTMLButtonElement;
-  private bars: HTMLElement;
+  private progs: HTMLElement;
+  private build: HTMLButtonElement;
   private lockEl: HTMLElement;
   private prev: HTMLButtonElement;
   private next: HTMLButtonElement;
   private nextZ: number | null = null;
   private shown = false;
+  private swiped = false;
 
   constructor(host: HTMLElement, private handlers: CollectHandlers) {
     this.el = host;
@@ -121,15 +150,15 @@ export class Collect {
       </div>
       <button type="button" class="co-expand" aria-expanded="false" aria-label="Show the table wider">${icon('chevron-down', { size: 24 })}</button>
       <div class="co-lens">
-        <button type="button" class="co-gem-btn"><span class="co-gem"></span></button>
         <div class="co-lens-row">
           <button type="button" class="co-step" data-dir="-1" aria-label="Previous atom">${icon('chevron-left', { size: 28 })}</button>
-          <button type="button" class="co-title"><span class="co-id"><small></small><span class="co-status"></span></span><b></b></button>
+          <button type="button" class="co-title"><small></small><b></b></button>
           <button type="button" class="co-step" data-dir="1" aria-label="Next atom">${icon('chevron-right', { size: 28 })}</button>
         </div>
-        <div class="co-act"><div class="co-bars"></div><button type="button" class="co-build">${icon('mode-build', { size: 20 })}<span>Build</span></button></div>
         <div class="co-lock" hidden></div>
-      </div>`;
+        <button type="button" class="co-gem-btn"><span class="co-gem"></span></button>
+      </div>
+      <div class="co-act"><div class="co-progs"></div><button type="button" class="co-build">${icon('mode-build', { size: 20 })}<span>Build</span></button></div>`;
     this.map = host.querySelector('.co-map')!;
     this.table = host.querySelector('.co-table')!;
     this.side = host.querySelector('.co-side')!;
@@ -138,7 +167,8 @@ export class Collect {
     this.lens = host.querySelector('.co-lens')!;
     this.gem = host.querySelector('.co-gem')!;
     this.title = host.querySelector('.co-title')!;
-    this.bars = host.querySelector('.co-bars')!;
+    this.progs = host.querySelector('.co-progs')!;
+    this.build = host.querySelector('.co-build')!;
     this.lockEl = host.querySelector('.co-lock')!;
     [this.prev, this.next] = [...host.querySelectorAll<HTMLButtonElement>('.co-step')];
     if (this.live.ok) this.gem.append(this.live.canvas);
@@ -195,11 +225,9 @@ export class Collect {
     this.table.querySelector<HTMLElement>(`.co-cell[data-z="${z}"]`)?.classList.add('is-current');
     this.lens.dataset.status = status;
     this.title.querySelector('small')!.textContent = `${z} ${e.symbol}`;
-    this.title.querySelector('.co-status')!.textContent = STATUS_WORD[status];
     this.title.querySelector('b')!.textContent = e.name;
     this.title.setAttribute('aria-label', `${e.name}, ${z}: ${STATUS_WORD[status].toLowerCase()}. Open it`);
     this.lens.querySelector('.co-gem-btn')!.setAttribute('aria-label', `Open ${e.name}`);
-    this.lens.querySelector('.co-build')!.setAttribute('aria-label', `Build ${e.name}`);
     this.prev.disabled = z === 1;
     this.next.disabled = z === MAX_Z;
     this.prev.title = z > 1 ? elementAt(z - 1).name : '';
@@ -208,12 +236,14 @@ export class Collect {
     const s = atomShares(z, this.save, fleetOn);
     const segs = segmentsOf(z, this.save);
     const f = fleetingCount(z, this.save);
-    const bar = (word: string, share: number | null, count: string) => `<div class="co-bar"><span class="co-bar-word">${word}</span>${shareBar(share)}<span class="co-bar-n">${count}</span></div>`;
-    this.bars.innerHTML = bar('Stable', s.stable, `${segs.filter((x) => x.done).length}/${segs.length}`)
-      + (f.total ? bar('Fleeting', s.fleeting, fleetOn ? `${f.built}/${f.total}` : '–') : '');
+    this.progs.innerHTML = progLine('Stable', `${segs.filter((x) => x.done).length}/${segs.length}`, s.stable, 'isotope-stable')
+      + (f.total ? progLine('Fleeting', fleetOn ? `${f.built}/${f.total}` : '–', s.fleeting ?? 0, 'isotope-fleeting', !fleetOn) : '');
     const open = rowOpen(rowOf(z), this.save);
     this.lockEl.hidden = open;
     if (!open) this.lockEl.innerHTML = `<span class="co-lock-ico">${icon('lock', { size: 20 })}</span><span>${esc(periodSentence(z, this.save) ?? '')}</span>`;
+    // A period not open yet can't be built: Build waits, greyed.
+    this.build.disabled = !open;
+    this.build.setAttribute('aria-label', open ? `Build ${e.name}` : `${e.name} is locked`);
     if (!this.shown) return;
     if (this.live.ok) {
       this.live.show(z, tone, reducedMotion());
@@ -253,13 +283,12 @@ export class Collect {
     this.nu.style.setProperty('--r', `${Math.max(9, cell.offsetWidth * 0.85)}px`);
   }
 
-  /** The side: the whole collection's stable and fleeting shares as rings, then Next. */
+  /** The side: the whole collection's stable and fleeting shares, as the atom's own lines show
+   *  them but in percents, then Next. */
   private paintSide(): void {
     const all = collectionProgress(this.save);
     const fleetOn = fleetingOpen(this.save);
-    const stat = (share: number, ico: string, word: string, off: boolean) =>
-      `<div class="co-stat${off ? ' is-off' : ''}${!off && share >= 1 ? ' is-done' : ''}">${shareRing(off ? 0 : share, ico, 40)}<span><b>${off ? '–' : pctLabel(share)}</b><small>${word}</small></span></div>`;
-    this.side.innerHTML = stat(all.stable, 'isotope-stable', 'Stable', false) + stat(all.fleeting, 'isotope-fleeting', 'Fleeting', !fleetOn);
+    this.side.innerHTML = `<div class="co-side-progs">${progLine('Stable', pctLabel(all.stable), all.stable, 'isotope-stable')}${progLine('Fleeting', fleetOn ? pctLabel(all.fleeting) : '–', all.fleeting, 'isotope-fleeting', !fleetOn)}</div>`;
     this.side.setAttribute('aria-label', `Your collection: ${pctLabel(all.stable)} stable${fleetOn ? `, ${pctLabel(all.fleeting)} fleeting` : ''}`);
     const step = nextStep(this.save);
     if (step) this.side.append(nextButton({ label: 'Next', compact: true, landKey: 'collect-next', onClick: () => this.focus(step.z) }));
@@ -279,6 +308,12 @@ export class Collect {
     this.focus(z);
   }
 
+  /** Up or down the table, from the atom in the lens. */
+  private stepRow(dir: 1 | -1): void {
+    const z = tableNeighbour(this.current, dir);
+    if (z) this.focus(z);
+  }
+
   private bind(): void {
     this.table.addEventListener('click', (e) => {
       const cell = (e.target as HTMLElement).closest<HTMLElement>('.co-cell');
@@ -290,17 +325,20 @@ export class Collect {
     this.expand.onclick = () => this.setWide(!this.map.classList.contains('is-wide'));
     const open = () => { if (!this.swiped) this.handlers.onOpen(this.current); };
     this.lens.querySelector<HTMLElement>('.co-gem-btn')!.onclick = open;
-    this.lens.querySelector<HTMLElement>('.co-build')!.onclick = () => this.handlers.onOpen(this.current);
+    this.build.onclick = () => this.handlers.onOpen(this.current);
     this.title.onclick = open;
     this.prev.onclick = () => this.step(-1);
     this.next.onclick = () => this.step(1);
     this.el.addEventListener('keydown', (e) => {
-      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      const dirs: Record<string, () => void> = { ArrowLeft: () => this.step(-1), ArrowRight: () => this.step(1), ArrowUp: () => this.stepRow(-1), ArrowDown: () => this.stepRow(1) };
+      const go = dirs[e.key];
+      if (!go) return;
       e.preventDefault();
-      this.step(e.key === 'ArrowRight' ? 1 : -1);
+      go();
       if ((e.target as HTMLElement).closest('.co-table')) this.table.querySelector<HTMLElement>('.co-cell.is-current')?.focus();
     });
-    // A swipe sideways on the lens steps to the atom after or before.
+    // On the lens, a swipe sideways steps to the atom after or before; up or down, to the atom
+    // above or below in the table.
     let start: { x: number; y: number; id: number } | null = null;
     this.lens.addEventListener('pointerdown', (e) => { start = { x: e.clientX, y: e.clientY, id: e.pointerId }; this.swiped = false; });
     this.lens.addEventListener('pointerup', (e) => {
@@ -308,11 +346,11 @@ export class Collect {
       const dx = e.clientX - start.x, dy = e.clientY - start.y;
       start = null;
       if (Math.abs(dx) > 48 && Math.abs(dx) > Math.abs(dy) * 1.4) { this.swiped = true; this.step(dx < 0 ? 1 : -1); }
+      else if (Math.abs(dy) > 48 && Math.abs(dy) > Math.abs(dx) * 1.4) { this.swiped = true; this.stepRow(dy < 0 ? -1 : 1); }
     });
     this.lens.addEventListener('pointercancel', () => { start = null; });
     if (typeof ResizeObserver !== 'undefined') new ResizeObserver(() => this.placeNu()).observe(this.table);
   }
-  private swiped = false;
 
   /** For checks: the period and the atom in the lens. */
   get state(): { period: number; z: number; live: { z: number; tone: string; ready: boolean } } {
