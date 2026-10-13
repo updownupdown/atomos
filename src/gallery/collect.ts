@@ -14,7 +14,7 @@
 // pale), stable collected (in full) and all collected (in full, glowing). The atom in the lens
 // wears a still white ring.
 
-import { BLOCK_COLOUR, MAX_Z, elementAt } from './data';
+import { MAX_Z, elementAt, placeColour } from './data';
 import { atomPicture, toneOf, type Tone } from './thumbs';
 import { GemAtom } from './gem';
 import { atomBuilt, fleetingCount, rowOf, rowOpen, rowSpan, segmentsOf } from '../core/progress';
@@ -151,7 +151,7 @@ export class Collect {
       const at = tableCell(e);
       cell.style.gridRow = String(at.row);
       cell.style.gridColumn = String(at.col);
-      cell.style.setProperty('--blk', BLOCK_COLOUR[e.block]);
+      cell.style.setProperty('--blk', placeColour(e));
       this.table.append(cell);
     }
     this.bind();

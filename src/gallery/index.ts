@@ -40,6 +40,8 @@ export interface GalleryHandlers {
   onBuild: (z: number) => void;
   /** The loupe opened on an element, or closed (null): the app shell tracks which. */
   onLoupe?: (z: number | null) => void;
+  /** View (the 3D atom, full screen) was closed: the shell goes back to Build. */
+  onLeaveView?: () => void;
 }
 
 export class GalleryApp {
@@ -209,6 +211,8 @@ export class GalleryApp {
       full.innerHTML = icon(on ? 'fullscreen-exit' : 'fullscreen');
       full.setAttribute('aria-label', on ? 'Leave full screen' : 'Full screen');
       full.title = on ? 'Leave full screen' : 'Full screen';
+      // View is the atom full screen: leaving full screen there is leaving View, back to Build.
+      if (!on && document.body.dataset.screen === 'atom-view') this.handlers.onLeaveView?.();
     });
     const fps = $('loupe-fps');
     this.detail.onFps = (v) => {
@@ -497,6 +501,7 @@ export class GalleryApp {
     this.paintNucleus();
     this.bar.set(e.z);
     this.renderPanel();
+    if (this.tab === 'model') this.full.pin();
     const screen = $('loupe-screen');
     if (screen.hidden) {
       screen.hidden = false;
@@ -543,6 +548,8 @@ export class GalleryApp {
   openAtom(z: number, mode: 'view' | 'info' = 'view'): void {
     const tab: ViewTab = mode === 'info' ? this.page : 'model';
     if (tab !== this.tab) this.setTab(tab);
+    // View is the 3D atom full screen (pinned in the page, not the browser's full screen).
+    if (mode === 'view') this.full.pin(); else if (this.full.on) this.full.exit();
     if (this.current?.z === z && !$('loupe-screen').hidden) return;
     this.open(elementAt(z));
   }
@@ -672,7 +679,11 @@ export class GalleryApp {
     if (this.tab === 'model' && this.detail.key(ev)) return;
     if (ev.key === 'ArrowRight') this.step(1);
     else if (ev.key === 'ArrowLeft') this.step(-1);
-    else if (ev.key === 'Escape') { if (this.full.on) this.full.exit(); else this.close(); }
+    else if (ev.key === 'Escape') {
+      // Handled here: the Build page, back on screen at once after View, must not take it too.
+      ev.preventDefault();
+      if (this.full.on) this.full.exit(); else this.close();
+    }
   }
 
   /** Show the gallery screen (after the game hands back). */
@@ -685,6 +696,7 @@ export class GalleryApp {
   }
 
   hide(): void {
+    if (this.full.on) this.full.exit();
     $('gallery-screen').hidden = true;
     this.gallery.stop();
     this.detail.stop();

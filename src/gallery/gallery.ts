@@ -4,7 +4,7 @@
 // Tapping a tile hands its element to the owner, which opens the atom view.
 
 import * as THREE from 'three';
-import { BLOCK_COLOUR, ELEMENTS, elementAt, type Element } from './data';
+import { BLOCK_COLOUR, ELEMENTS, elementAt, placeColour, type Element } from './data';
 import { layout, type LayoutId, type Placed, type Tone } from './layouts';
 import { token } from './tokens';
 import { icon } from '../ui/icons';
@@ -73,7 +73,7 @@ export class Gallery {
     for (const e of ELEMENTS) {
       const tile = document.createElement('div');
       tile.className = 'gtile';
-      tile.style.setProperty('--b', BLOCK_COLOUR[e.block]);
+      tile.style.setProperty('--b', placeColour(e));
       tile.innerHTML = `<span class="gt-z">${e.z}</span><b class="gt-sym">${e.symbol}</b><i class="gt-bar"></i><i class="gt-lock" aria-hidden="true">${icon('lock', { size: 24 })}</i>`;
       labels.appendChild(tile);
       this.nodes.push({ e, pos: new THREE.Vector3(), from: new THREE.Vector3(), to: new THREE.Vector3(), tile, bar: tile.querySelector<HTMLElement>('.gt-bar')! });

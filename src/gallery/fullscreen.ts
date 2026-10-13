@@ -9,6 +9,7 @@ export interface FullScreen {
   readonly on: boolean;
   toggle(): void;
   exit(): void;
+  pin(): void;
 }
 
 export function fullScreen(el: HTMLElement, onChange: (on: boolean) => void): FullScreen {
@@ -37,6 +38,8 @@ export function fullScreen(el: HTMLElement, onChange: (on: boolean) => void): Fu
   return {
     get on() { return pinned || api() === el; },
     toggle: () => { if (pinned || api() === el) exit(); else void enter(); },
+    /** Full within the page, without asking the browser (no gesture needed). */
+    pin: () => { if (pinned) return; pinned = true; paint(); },
     exit,
   };
 }

@@ -6,7 +6,7 @@
 //   const table = createTable({ onPick: (z) => openAtom(z) });
 //   panel.append(table.el);
 
-import { ELEMENTS, BLOCK_COLOUR, type Element } from './data';
+import { ELEMENTS, placeColour, type Element } from './data';
 import { COL, ROOM_STATES, roomState, sortElements, type SortKey } from '../ui/elementlist';
 import { searchElements } from '../ui/search';
 import { icon } from '../ui/icons';
@@ -159,7 +159,7 @@ export function createTable(opts: { onPick: (z: number) => void }): Table {
     }).join('');
     const save = loadSave();
     const cell = (e: Element, k: SortKey) => {
-      if (k === 'symbol') return `<td><span class="tb-sym" style="--c:${BLOCK_COLOUR[e.block]}">${e.symbol}</span></td>`;
+      if (k === 'symbol') return `<td><span class="tb-sym" style="--c:${placeColour(e)}">${e.symbol}</span></td>`;
       if (k === 'name') return `<th scope="row">${esc(e.name)}</th>`;
       const c = COL[k];
       return `<td class="${c.numeric ? 'n' : ''}${k === st.sort && !query ? ' is-sort' : ''}">${esc(c.text(e, save))}</td>`;

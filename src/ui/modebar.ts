@@ -1,6 +1,7 @@
-// The mode bar on Atom screens: a bar floating at the foot of the screen with View (the 3D
-// atom), Build (its puzzles) and Info (the element's pages), in that order. A swipe sideways
-// along the bar, or across the Build and Info pages, steps to the mode beside. progressHtml, the
+// The mode bar on Atom screens: a bar floating at the foot of the screen with Build (its
+// puzzles) and Info (the element's pages). View, the 3D atom alone, is not on the bar: it opens
+// full screen from the View button over Build's atom, and closing it returns to Build. A swipe
+// sideways along the bar, or across the Build and Info pages, steps to the mode beside. progressHtml, the
 // ring and percentages, is shared with the gallery's views row.
 //
 // The microscope is not here: each screen places its own with scienceButton().
@@ -10,8 +11,8 @@ import { atomProgress, fleetingCount } from '../core/progress';
 
 export type AtomMode = 'view' | 'build' | 'info';
 
-/** The modes, left to right. */
-export const MODES: AtomMode[] = ['view', 'build', 'info'];
+/** The modes on the bar, left to right. */
+export const MODES: AtomMode[] = ['build', 'info'];
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -34,7 +35,6 @@ export function initModeBar(onPick: (mode: AtomMode) => void, z: () => number): 
   if (seg) return;
   currentZ = z;
   seg = createSegments([
-    { id: 'view', label: 'View' },
     { id: 'build', label: 'Build' },
     { id: 'info', label: 'Info' },
   ], {
@@ -50,7 +50,7 @@ export function initModeBar(onPick: (mode: AtomMode) => void, z: () => number): 
   });
 }
 
-let current: AtomMode = 'view';
+let current: AtomMode = 'build';
 
 /** A quick sideways swipe on an Atom screen steps between modes: anywhere on the bar, and on
  *  pages that only scroll up and down. Never on the 3D atom (dragging it turns and focuses it),
@@ -87,11 +87,12 @@ function swipeModes(step: (dir: 1 | -1) => void): void {
   document.addEventListener('pointercancel', () => { start = null; }, true);
 }
 
-/** Show or hide the row, and mark the current mode. */
+/** Show or hide the row, and mark the current mode. View is full screen, without the row. */
 export function showModeBar(visible: boolean, mode: AtomMode): void {
+  visible = visible && MODES.includes(mode);
   $('mode-row').hidden = !visible;
   current = mode;
-  seg?.select(mode);
+  if (visible) seg?.select(mode);
   if (visible) refreshModeProgress();
 }
 

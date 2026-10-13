@@ -15,7 +15,7 @@
    parts are collected; glowing once everything is. */
 .co-cell[data-tone='started'], .co-cell[data-tone='built'] { background: color-mix(in srgb, var(--blk) 42%, #aeb6bc); }
 .co-cell[data-tone='stable'] { background: var(--blk); }
-.co-cell[data-tone='complete'] { background: color-mix(in srgb, var(--blk) 80%, #fff); box-shadow: 0 0 6px color-mix(in srgb, var(--blk) 85%, transparent); }
+.co-cell[data-tone='complete'] { background: color-mix(in srgb, var(--blk) 88%, #fff); box-shadow: 0 0 6px color-mix(in srgb, var(--blk) 85%, transparent); }
 .co-cell.is-locked:not([data-tone='started']) { background: var(--c-surface); }
 /* The atom in the lens: a still white ring. */
 .co-cell.is-current { z-index: 1; box-shadow: 0 0 0 1px var(--c-bg), 0 0 0 3px var(--c-text); }
