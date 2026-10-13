@@ -76,9 +76,9 @@ export class AppShell {
     $('nav-logo').innerHTML = markSvg();
     $('nav-logo').onclick = () => void this.go('collect');
     const sections: [string, IconName, () => void][] = [
-      ['nav-gallery', 'gallery', () => void this.go('gallery')],
       ['nav-collect', 'collect', () => void this.go('collect')],
       ['nav-puzzles', 'puzzles', () => void this.go('puzzles')],
+      ['nav-gallery', 'gallery', () => void this.go('gallery')],
       ['nav-settings', 'settings', () => void this.go('settings')],
     ];
     for (const [id, ico, go] of sections) {
