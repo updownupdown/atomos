@@ -1,63 +1,114 @@
-/* Collect (collect.ts): the periodic table across the screen with the lens atom's period in the
-   gap at its top, the atom's progress box (progressbox.ts), then the lens: the name and the
-   atom as its gem. */
-.collect-screen { position: fixed; inset: 0; z-index: 2; display: flex; flex-direction: column; padding: var(--top) 0 calc(var(--safe-bottom) + var(--sp-2)); box-sizing: border-box; background: var(--c-bg); font-family: var(--font); }
+/* Collect (collect.ts): the atom large, its block on black (plate, name, Build and two bars), then
+   the drawer with the atom's period. Open (.is-open), the block rises to the top and the drawer
+   holds the whole table, the collection's three bars and a chip per period. */
+.collect-screen { position: fixed; inset: 0; z-index: 2; display: flex; flex-direction: column; padding: var(--top) 0 0; box-sizing: border-box; overflow: hidden; background: var(--c-bg); font-family: var(--font); user-select: none; -webkit-user-select: none; }
 .collect-screen[hidden] { display: none; }
 
-/* The table, full width. */
-.co-table { position: relative; flex: none; display: grid; grid-template-columns: repeat(18, minmax(0, 1fr)); grid-template-rows: repeat(7, auto) 4px repeat(2, auto); gap: 3px; width: 100%; max-width: 720px; margin: 0 auto; padding: var(--sp-2) var(--sp-4) 0; box-sizing: border-box; }
-.co-cell { position: relative; aspect-ratio: 1; min-width: 0; padding: 0; border: 0; border-radius: 3px; background: #383c42; cursor: pointer; -webkit-tap-highlight-color: transparent; }
-/* Lit by collection: under way, a square of the atom's place color in the middle that grows with
-   the stable parts built (--k); stable collected, the whole cell; all collected, a soft glow. */
-.co-cell[data-tone='started'], .co-cell[data-tone='built'] { background: #383c42; }
-.co-cell[data-tone='started']::before, .co-cell[data-tone='built']::before { content: ''; position: absolute; inset: calc((1 - var(--k, 0.4)) * 50%); border-radius: 1px; background: var(--blk); }
-.co-cell[data-tone='stable'] { background: var(--blk); }
-.co-cell[data-tone='complete'] { background: var(--blk); box-shadow: 0 0 6px color-mix(in srgb, var(--blk) 85%, transparent); }
-/* Locked, a quieter gray: still plain enough to show the table's shape. */
-.co-cell.is-locked { background: var(--c-surface-3); }
-/* Fleeting isotopes still to build: a white dot in the corner. */
-.co-cell.has-fleeting::after { content: ''; position: absolute; right: 1px; top: 1px; width: 4px; height: 4px; border-radius: 50%; background: #fff; }
-/* The atom in the lens: a still white ring. */
-.co-cell.is-current { z-index: 1; box-shadow: 0 0 0 1px var(--c-bg), 0 0 0 3px var(--c-text); }
-.co-cell:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
-
-/* Nu circling the next atom's cell, and straying now and then (collect.ts moves it). */
-.co-nu { position: absolute; z-index: 2; width: 0; height: 0; pointer-events: none; will-change: transform; }
-.co-nu[hidden] { display: none; }
-.co-nu i { position: absolute; left: -3.5px; top: -3.5px; width: 7px; height: 7px; border-radius: 50%; background: var(--c-go); box-shadow: 0 0 8px 2px var(--c-go-ring); }
-
-/* The lens atom's period, in the gap at the top of the table (over columns 3 to 12 of the first
-   three rows): built of all with a bar, or what opens it. Its card sits over the gap without
-   sizing the rows. */
-.co-period { grid-row: 1 / 4; grid-column: 3 / 13; position: relative; min-height: 0; }
-.co-period-in { position: absolute; inset: 0 6px 4px; display: flex; flex-direction: column; justify-content: center; gap: 6px; padding: 4px var(--sp-3); box-sizing: border-box; border-radius: var(--r-md); background: var(--c-surface); font-size: var(--fs-sm); line-height: 1.2; color: var(--c-text); overflow: hidden; }
-.co-period-head { display: flex; align-items: center; gap: 6px; min-width: 0; white-space: nowrap; }
-.co-period-head b { font-weight: var(--fw-semibold); }
-.co-period-sub { min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--c-text-2); }
-.co-period-head .co-period-sub { margin-left: 2px; }
-.co-period-ico { flex: none; display: grid; }
-.co-period.is-done .co-period-ico { color: var(--c-done); }
-.co-period.is-locked .co-period-ico { color: var(--c-warn); }
-.co-period-bar { width: 100%; }
-
-/* The atom's progress box, under the table. */
-.pbox.co-box { flex: none; margin: var(--sp-3) auto 0; }
-
-/* The lens: the name between the chevrons, then the gem as large as the room allows. A tap on
-   the gem or the name opens the atom. */
-.co-lens { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; gap: var(--sp-2); padding: var(--sp-4) var(--sp-4) var(--sp-3); touch-action: none; }
-.co-lens-row { flex: none; width: 100%; max-width: 440px; display: flex; align-items: center; gap: var(--sp-2); }
-.co-step { flex: none; width: 44px; height: 44px; display: grid; place-items: center; padding: 0; border: 0; border-radius: var(--r-pill); background: var(--c-nav); color: var(--c-text); cursor: pointer; }
-.co-step:disabled { opacity: 0.3; cursor: default; }
-.co-step:focus-visible, .co-title:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
-.co-title { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 0; border: 0; background: transparent; color: var(--c-text); font-family: var(--font); cursor: pointer; }
-.co-title small { font-size: var(--fs-md); font-weight: var(--fw-semibold); color: var(--c-text-2); font-variant-numeric: tabular-nums; }
-.co-title b { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 28px; font-weight: var(--fw-semibold); line-height: 1.1; }
-.co-gem-btn { flex: 1; min-height: 100px; width: 100%; container-type: size; display: grid; place-items: center; padding: 0; border: 0; background: transparent; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+/* The atom, as its gem, as large as the room allows. A tap opens it; swipes move along its period
+   and between periods. */
+.co-stage { flex: 1; min-height: 0; display: flex; padding: var(--sp-2) var(--sp-4) 0; touch-action: none; }
+.collect-screen.is-open .co-stage { display: none; }
+.co-gem-btn { flex: 1; min-height: 80px; width: 100%; container-type: size; display: grid; place-items: center; padding: 0; border: 0; background: transparent; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .co-gem-btn:focus-visible { outline: 2px solid var(--c-accent); outline-offset: -2px; border-radius: var(--r-md); }
 .co-gem { position: relative; display: block; width: min(100cqw, 100cqh); height: min(100cqw, 100cqh); }
 .co-gem > .gem-atom, .co-gem > img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .co-gem > .gem-atom { opacity: 0; transition: opacity 0.6s var(--ease); }
 .co-gem > .gem-atom.is-shown { opacity: 1; }
 
-@media (prefers-reduced-motion: reduce) { .co-gem > .gem-atom { transition: none; } }
+/* The atom's block: everything about the one atom together. */
+.co-atom { flex: none; width: 100%; max-width: 560px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; padding: var(--sp-3) var(--sp-4) var(--sp-4); box-sizing: border-box; }
+.co-atom-row { display: flex; align-items: center; gap: 12px; }
+.co-who { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; padding: 0; border: 0; background: transparent; color: var(--c-text); font-family: var(--font); text-align: left; cursor: pointer; }
+.co-who:focus-visible, .co-build:focus-visible, .co-more:focus-visible, .co-chip:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
+.co-plate { flex: none; width: 52px; height: 52px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; border-radius: 10px; line-height: 1; }
+.co-plate small { font-size: var(--fs-sm); font-weight: var(--fw-semibold); font-variant-numeric: tabular-nums; }
+.co-plate b { font-size: 22px; font-weight: 700; }
+.co-name { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.co-name b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 24px; font-weight: var(--fw-semibold); line-height: 1.1; }
+.co-name small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-sm); color: var(--c-text-2); }
+.co-build { flex: none; height: 44px; display: inline-flex; align-items: center; gap: 6px; padding: 0 18px 0 14px; border: 0; border-radius: var(--r-pill); background: var(--c-accent); color: var(--c-accent-ink); font-family: var(--font); font-size: var(--fs-md); font-weight: var(--fw-semibold); cursor: pointer; }
+.co-build:hover:not(:disabled) { filter: brightness(1.06); }
+.co-build:disabled { background: var(--c-surface-3); color: var(--c-text-2); cursor: default; }
+
+/* The atom's two bars, or for a moment a win's news in their place (.pb-news, progressbox.css). */
+.co-slot { display: grid; min-height: 46px; }
+.co-slot > * { grid-area: 1 / 1; }
+.co-bars { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-4); align-content: center; transition: opacity 0.3s var(--ease); }
+.co-bars.is-hidden { opacity: 0; visibility: hidden; }
+.co-lbar { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.co-lbar-top { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-2); font-size: var(--fs-sm); color: var(--c-text-2); white-space: nowrap; }
+.co-lbar-top b { font-size: 14px; font-weight: var(--fw-semibold); color: var(--c-text); font-variant-numeric: tabular-nums; }
+.co-lbar.is-done .co-lbar-top b { color: var(--c-done); }
+.co-lbar.is-off .co-lbar-top b { color: var(--c-text-2); font-weight: 500; }
+.co-trk { display: block; height: 6px; border-radius: 3px; background: var(--c-surface-3); overflow: hidden; }
+.co-trk i { display: block; height: 100%; border-radius: 3px; background: var(--c-text); }
+.is-done > .co-trk i { background: var(--c-done); }
+.co-news { justify-self: stretch; }
+
+/* The drawer: the atom's period, and, open, the whole collection. Its foot clears the dock. */
+.co-drawer { flex: none; display: flex; flex-direction: column; gap: 12px; padding: 10px 0 calc(var(--safe-bottom) + var(--sp-3)); border-radius: 28px 28px 0 0; background: var(--c-surface); touch-action: none; }
+.collect-screen.is-open .co-drawer { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; }
+.co-drawer > * { flex: none; width: 100%; max-width: 720px; margin: 0 auto; box-sizing: border-box; }
+.co-head { display: flex; flex-direction: column; gap: 10px; cursor: pointer; touch-action: none; }
+.co-handle { width: 40px; height: 5px; margin: 0 auto; border-radius: 3px; background: var(--c-surface-3); }
+.co-line { display: flex; align-items: center; gap: var(--sp-2); min-height: 32px; padding: 0 var(--sp-2) 0 var(--sp-4); }
+.co-line-txt { flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-sm); color: var(--c-text-2); white-space: nowrap; }
+.co-line-txt b { font-size: var(--fs-md); font-weight: var(--fw-semibold); color: var(--c-text); }
+.co-line-txt span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.co-line-txt > .icon { flex: none; }
+.co-line-txt.is-done > .icon { color: var(--c-done); }
+.co-line-txt.is-locked > .icon { color: var(--c-warn); }
+.co-more { flex: none; height: 36px; display: inline-flex; align-items: center; gap: 2px; padding: 0 var(--sp-2); border: 0; border-radius: var(--r-pill); background: transparent; color: var(--c-text-2); font-family: var(--font); font-size: var(--fs-sm); font-weight: 500; cursor: pointer; }
+.co-more:hover { color: var(--c-text); }
+
+/* The table: closed (.is-strip), only the period's cells, in their row (and the f-block row under
+   it); open, the whole table, 100% wide, zoomed by a pinch inside its box. */
+.co-zoom { position: relative; overflow: hidden; }
+.collect-screen.is-open .co-zoom { touch-action: none; }
+.co-table { position: relative; display: grid; grid-template-columns: repeat(18, minmax(0, 1fr)); grid-template-rows: repeat(7, auto) 4px repeat(2, auto); gap: 3px; width: 100%; max-width: 720px; margin: 0 auto; padding: 4px var(--sp-4); box-sizing: border-box; }
+.co-table.is-strip .co-cell:not(.in-period) { display: none; }
+.co-band { position: absolute; z-index: 0; left: calc(var(--sp-4) - 6px); right: calc(var(--sp-4) - 6px); border-radius: 6px; background: var(--c-pick); pointer-events: none; }
+.co-cell { position: relative; z-index: 1; aspect-ratio: 1; min-width: 0; padding: 0; border: 0; border-radius: 3px; background: #383c42; color: var(--c-text); font-family: var(--font); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+/* Lit by collection: under way, a square of the atom's place color in the middle that grows with
+   the stable parts built (--k); stable collected, the whole cell; all collected, a soft glow. */
+.co-cell[data-tone='started']::before, .co-cell[data-tone='built']::before { content: ''; position: absolute; inset: calc((1 - var(--k, 0.4)) * 50%); border-radius: 1px; background: var(--blk); }
+.co-cell[data-tone='stable'] { background: var(--blk); color: var(--ink); }
+.co-cell[data-tone='complete'] { background: var(--blk); color: var(--ink); box-shadow: 0 0 6px color-mix(in srgb, var(--blk) 85%, transparent); }
+/* Locked, a quieter gray: still plain enough to show the table's shape. */
+.co-cell.is-locked { background: var(--c-surface-3); color: var(--c-text-2); }
+/* Fleeting isotopes still to build: a white dot in the corner. */
+.co-cell.has-fleeting::after { content: ''; position: absolute; right: 1px; top: 1px; width: 4px; height: 4px; border-radius: 50%; background: #fff; }
+/* The atom in the lens: a still white ring. */
+.co-cell.is-current { z-index: 2; box-shadow: 0 0 0 1px var(--c-bg), 0 0 0 3px var(--c-text); }
+.co-cell:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
+/* Cells large enough to read (zoomed in, or a wide screen) carry their symbols; a square under way
+   steps back to a bar under the symbol. */
+.co-sym { position: relative; display: none; font-size: max(10px, calc(var(--cw, 20px) * 0.38)); font-weight: var(--fw-semibold); line-height: 1; }
+.co-table.is-labeled .co-sym { display: block; }
+.co-table.is-labeled .co-cell[data-tone='started']::before, .co-table.is-labeled .co-cell[data-tone='built']::before { inset: auto 18% 12% 18%; height: max(3px, calc(var(--cw, 20px) * 0.1)); border-radius: 2px; }
+
+/* Nu circling the next atom's cell, and straying now and then (collect.ts moves it). */
+.co-nu { position: absolute; z-index: 3; width: 0; height: 0; pointer-events: none; will-change: transform; }
+.co-nu[hidden] { display: none; }
+.co-nu i { position: absolute; left: -3.5px; top: -3.5px; width: 7px; height: 7px; border-radius: 50%; background: var(--c-go); box-shadow: 0 0 8px 2px var(--c-go-ring); }
+
+/* Open only: the pinch hint, the collection's three bars, then a chip per period. */
+.co-extra { display: none; }
+.collect-screen.is-open .co-extra { display: flex; }
+.co-pinch { justify-content: center; margin: -4px auto 0; font-size: var(--fs-sm); color: var(--c-text-2); }
+.collect-screen.is-zoomed .co-pinch { visibility: hidden; }
+.collect-screen.is-open .co-coll { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-3); padding: 0 var(--sp-4); }
+.co-stat { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.co-stat-k { font-size: var(--fs-sm); color: var(--c-text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.co-stat-v { font-size: 16px; font-weight: var(--fw-semibold); color: var(--c-text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.co-stat-v small { font-size: var(--fs-sm); font-weight: 500; color: var(--c-text-2); }
+.co-stat.is-done .co-stat-v { color: var(--c-done); }
+.co-stat .co-trk { margin-top: 2px; }
+.co-chips { gap: 6px; padding: 0 var(--sp-4); }
+.co-chip { flex: 1; min-width: 0; min-height: 48px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 4px 0; border: 0; border-radius: 10px; background: var(--c-surface-2); color: var(--c-text-2); font-family: var(--font); font-size: var(--fs-sm); font-variant-numeric: tabular-nums; cursor: pointer; }
+.co-chip b { font-size: 14px; font-weight: var(--fw-semibold); color: var(--c-text); }
+.co-chip.is-done, .co-chip.is-done b { color: var(--c-done); }
+.co-chip.is-on { background: var(--c-pick); color: var(--c-text); }
+
+@media (prefers-reduced-motion: reduce) { .co-gem > .gem-atom, .co-bars { transition: none; } }
+@media (max-height: 700px) { .collect-screen.is-open .co-pinch { display: none; } }

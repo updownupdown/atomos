@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { defaultSave, type SaveData } from '../src/core/save';
-import { NU_CYCLE, NU_ORBIT, newsLine, nuOffset, pctLabel, periodProgress, periodTracks, tableNeighbour } from '../src/gallery/collect';
+import { NU_CYCLE, NU_ORBIT, newsLine, nuOffset, pctLabel, periodProgress, periodNeighbour, periodPick, periodTracks, stepInPeriod } from '../src/gallery/collect';
 import { toneOf } from '../src/gallery/thumbs';
 import { lastingIsotopes, fleetingIsotopes } from '../src/core/progress';
 
@@ -74,23 +74,38 @@ describe('atom list', () => {
   });
 });
 
-describe('moving up and down the table', () => {
-  it('goes straight up or down where there is a cell', () => {
-    expect(tableNeighbour(11, -1)).toBe(3); // Na → Li
-    expect(tableNeighbour(10, 1)).toBe(18); // Ne → Ar
-    expect(tableNeighbour(26, 1)).toBe(44); // Fe → Ru
+describe('moving along a period and between periods', () => {
+  it('steps along the period, looping at its ends', () => {
+    expect(stepInPeriod(26, 1)).toBe(27); // Fe → Co
+    expect(stepInPeriod(36, 1)).toBe(19); // Kr → K
+    expect(stepInPeriod(19, -1)).toBe(36); // K → Kr
+    expect(stepInPeriod(1, -1)).toBe(2); // H → He
+    expect(stepInPeriod(71, 1)).toBe(72); // Lu → Hf, through the f-block in order
   });
-  it('takes the nearest cell to the left when there is none above', () => {
-    expect(tableNeighbour(5, -1)).toBe(1); // B → H
-    expect(tableNeighbour(21, -1)).toBe(12); // Sc → Mg
+  it('goes to the same column in the period above or below', () => {
+    expect(periodNeighbour(11, -1)).toBe(3); // Na → Li
+    expect(periodNeighbour(26, 1)).toBe(44); // Fe → Ru
+    expect(periodNeighbour(10, 1)).toBe(18); // Ne → Ar
   });
-  it('steps between the main table and the f-block rows', () => {
-    expect(tableNeighbour(58, -1)).toBe(104); // Ce (under Rf) → Rf
-    expect(tableNeighbour(87, 1)).toBe(57); // Fr, nothing below or left of it → La, the nearest
+  it('takes the nearest column, the left one on a tie, where the period has none', () => {
+    expect(periodNeighbour(5, -1)).toBe(2); // B (column 13) → He, nearer than H
+    expect(periodNeighbour(4, -1)).toBe(1); // Be (column 2) → H
+    expect(periodNeighbour(21, -1)).toBe(12); // Sc → Mg
+    expect(periodNeighbour(26, -1)).toBe(13); // Fe (column 8) → Al (13), nearer than Mg (2)
   });
-  it('stops at the edges', () => {
-    expect(tableNeighbour(1, -1)).toBeNull();
-    expect(tableNeighbour(100, 1)).toBeNull();
+  it('keeps to the f-block rows between Periods 6 and 7', () => {
+    expect(periodNeighbour(58, 1)).toBe(90); // Ce → Th
+    expect(periodNeighbour(90, -1)).toBe(58); // Th → Ce
+    expect(periodNeighbour(58, -1)).toBe(40); // Ce (under column 4) → Zr
+  });
+  it('loops from Period 7 round to Period 1, and back', () => {
+    expect(periodNeighbour(87, 1)).toBe(1); // Fr → H
+    expect(periodNeighbour(118, 1)).toBe(2); // Og → He
+    expect(periodNeighbour(1, -1)).toBe(87); // H → Fr
+  });
+  it('picks a period by chip from the same column', () => {
+    expect(periodPick(26, 4)).toBe(26);
+    expect(periodPick(26, 6)).toBe(76); // Fe → Os
   });
 });
 
