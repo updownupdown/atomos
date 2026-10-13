@@ -110,7 +110,7 @@ export interface Table {
   setQuery(q: string): void;
   /** Each plate's fill. */
   setColors(fn: (e: Element) => string): void;
-  /** The elements in the order shown. */
+  /** The elements in the order shown, search aside: an atom's page walks the whole sorted list. */
   order(): number[];
 }
 
@@ -133,7 +133,6 @@ export function createTable(opts: { onPick: (z: number) => void }): Table {
   try { st = readTableState(localStorage.getItem(STORE)); } catch { st = readTableState(null); }
   let query = '';
   let colors: (e: Element) => string = placeColour;
-  let shown: number[] = [];
   const remember = () => { try { localStorage.setItem(STORE, JSON.stringify(st)); } catch { /* storage off: the choices just reset */ } };
   const filtered = () => FILTER_KEYS.some((k) => st.filters[k].length);
 
@@ -193,9 +192,7 @@ export function createTable(opts: { onPick: (z: number) => void }): Table {
       const pred = isPredicted(e, k) ? '<small class="tb-pred">predicted</small>' : '';
       return `<span class="tb-val"><b>${esc(known ? text : 'not known')}</b>${unit}${pred}${bar}</span>`;
     };
-    shown = [];
     const row = (e: Element, i: number) => {
-      shown.push(e.z);
       const fill = colors(e);
       return `<div class="tb-row${i % 2 ? ' alt' : ''}" role="listitem button" data-z="${e.z}" tabindex="0">
         <span class="tb-sym" style="background:${fill};color:${inkOn(fill)}">${e.symbol}</span>
@@ -286,6 +283,6 @@ export function createTable(opts: { onPick: (z: number) => void }): Table {
     el: root,
     setQuery: (q: string) => { if (q === query) return; query = q; draw(); scroll.scrollTo({ top: 0 }); },
     setColors: (fn) => { colors = fn; draw(); },
-    order: () => [...shown],
+    order: () => tableRows(st).flatMap((sec) => sec.rows.map((e) => e.z)),
   };
 }
