@@ -10,7 +10,8 @@
 // pink, and Nu swims beside it. A part just won rings white for a moment.
 // The overlay form can also run as one single track (the atom's Build page): Stable's stops and
 // then Fleeting's on the one line, with a Stable and a Fleeting icon in circles on the line where
-// each part starts.
+// each part starts, and a check on the line by each part that is complete. There a stop that is
+// done can show what it earned (a check for Built, a star for Flawless) in place of its dot.
 //
 // Use: describe each row's stops, let trackStates() work out the green run and Nu, then put
 // trackCell(state) at the right edge of each row (the row must be position: relative or a
@@ -20,8 +21,9 @@
 //   const states = trackStates(rows.map((r) => ({ stable: { done: r.built }, fleeting: null })));
 //   rowEls.forEach((el, i) => el.append(trackCell(states[i])));
 //   header.append(trackLegend());            // "Stable" and "Fleeting" over their lanes
-//   trackOverlay(page, [{ el: head, mark: 'stable' }, { el: step, row: { stable: { done } } }, ...],
-//     { single: true })                     // one track, marks where each part starts
+//   trackOverlay(page, [{ el: part, mark: 'stable' }, { el: head, check: true },
+//     { el: step, row: { stable: { done, icon: 'check' } } }, ...], { single: true })
+//                                           // one track: marks, checks, stops
 
 import { icon } from './icons';
 
@@ -38,6 +40,8 @@ export interface Stop {
   just?: boolean;
   /** Not open yet (a locked period): drawn dim. */
   locked?: boolean;
+  /** Once done, this icon in place of the dot: 'check' for Built, 'star' for Flawless. */
+  icon?: 'check' | 'star';
 }
 
 export interface TrackRow {
@@ -130,6 +134,7 @@ function stopHtml(s: LaneState): string {
     const share = Math.max(0, Math.min(1, st.share ?? (st.done ? 1 : 0)));
     return `<i class="${cls}"><b style="height:${Math.round(share * 100)}%"></b></i>${s.nu ? SWIM : ''}`;
   }
+  if (st.done && st.icon) return `<i class="${cls} trk-stop--icon">${icon(st.icon, { size: 13 })}</i>`;
   return `<i class="${cls}"></i>${s.nu ? SWIM : ''}`;
 }
 
@@ -156,6 +161,9 @@ export interface TrackItem {
   /** A single track only: a Stable or Fleeting icon in a circle on the line at the element's
    *  middle, where that part starts. */
   mark?: Lane;
+  /** A single track only: a check on the line at the element's middle (a part that is complete,
+   *  by its heading). */
+  check?: boolean;
 }
 
 export interface TrackOverlay {
@@ -193,12 +201,16 @@ export function trackOverlay(container: HTMLElement, items: TrackItem[], opts: {
       let y0 = top;
       let green = false;
       list.forEach((it, i) => {
+        if (it.check && opts.single) {
+          html += `<span class="trk-check" style="top:${ys[i]}px">${icon('check', { size: 20 })}</span>`;
+          return;
+        }
         if (it.mark && opts.single) {
           // The line up to a mark is green when the run reaches the next stop.
           const ahead = states.findIndex((st, k) => k > i && st[lane].stop);
           const lit = ahead >= 0 ? states[ahead][lane].above : green;
           if (i !== firstMark) html += seg(lane, y0, ys[i], lit);
-          html += `<span class="trk-mark${lit ? ' is-run' : ''}" style="top:${ys[i]}px">${icon(it.mark === 'stable' ? 'isotope-stable' : 'isotope-fleeting', { size: 16 })}</span>`;
+          html += `<span class="trk-mark${lit ? ' is-run' : ''}" style="top:${ys[i]}px">${icon(it.mark === 'stable' ? 'isotope-stable' : 'isotope-fleeting', { size: 28 })}</span>`;
           y0 = ys[i];
           green = lit;
           return;

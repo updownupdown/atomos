@@ -1,5 +1,7 @@
 // Progress marks shared by the Build page and the component library: the rings at the foot of
-// an atom (nucleus, electrons, isotopes) and five difficulty pips.
+// an atom (nucleus, electrons, isotopes), a ring around an icon and five difficulty pips.
+
+import { icon, type IconName } from './icons';
 
 /** Nucleus disc, electron ring and, when the atom has isotopes, an outer ring of two arcs (lasting
  *  then fleeting, clockwise from the top) sized by their counts, with a gap between them. A small
@@ -51,4 +53,16 @@ export function fleetingRing(built: number, total: number, size = 40): string {
     <circle class="rg-track" cx="20" cy="20" r="17" stroke-width="5" />
     ${p > 0 ? `<circle class="rg-on${done ? ' is-done' : ''}" cx="20" cy="20" r="17" stroke-width="5" pathLength="100" stroke-dasharray="${(p * 100).toFixed(2)} 100" transform="rotate(-90 20 20)" />` : ''}
   </svg>`;
+}
+
+/** A ring around an icon for one share of progress (the Build page's Stable and Fleeting): a
+ *  gray track, an arc for the share from the top, white while under way and green once whole. */
+export function iconRing(share: number, glyph: IconName, size = 44): string {
+  const p = Math.max(0, Math.min(1, share));
+  const done = p >= 1;
+  return `<span class="icon-ring${done ? ' is-done' : ''}" style="width:${size}px;height:${size}px" aria-hidden="true">
+    <svg viewBox="0 0 44 44" width="${size}" height="${size}">
+      <circle class="ir-track" cx="22" cy="22" r="20" stroke-width="3" />
+      ${p > 0 ? `<circle class="ir-on" cx="22" cy="22" r="20" stroke-width="3" pathLength="100" stroke-dasharray="${(p * 100).toFixed(2)} 100" transform="rotate(-90 22 22)" />` : ''}
+    </svg>${icon(glyph, { size: Math.round(size * 0.64) })}</span>`;
 }

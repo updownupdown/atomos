@@ -32,6 +32,7 @@ import { closeModal, modalOpen, openModal } from './ui/modal';
 import { createTabs, iconButton, nextButton, playButton } from './ui/components';
 import { gameCard } from './puzzles/gameCard';
 import { trackOverlay, type TrackItem, type TrackOverlay } from './ui/tracks';
+import { iconRing } from './ui/progress';
 import { askRestart, confirming, restartButton } from './puzzles/restart';
 import { HintControl } from './puzzles/hints';
 import { clearOffers, createGameBar, offerRules, type GameBar } from './puzzles/gamebar';
@@ -432,6 +433,8 @@ export class Game {
     const steps = stepsOf(z);
     this.nextHere = nextStep(this.save, z);
     $('bh-in').innerHTML = [
+      // Where Stable's part of the track starts, and (below) Fleeting's: their icons sit on it.
+      '<div class="bh-part" data-part="stable"></div>',
       open ? '' : this.section('lock', `Row ${row} is locked`, `${need.built} of ${need.need}`, '',
         `Row ${row} opens once you've built ${need.need} of the ${this.rowSize(row - 1)} atoms in row ${row - 1}. ${shut} to open it.`),
       this.section('nucleus', STEP_LABEL.nucleus, '', z === 1 ? this.hydrogenNucleus() : step('nucleus'), '', '', z === 1 || this.stepState(z, 'nucleus').done),
@@ -441,6 +444,7 @@ export class Game {
       longLived.length ? this.section('isotope-unstable', 'Long-lived isotopes', `${got(longLived)} of ${longLived.length}`, longLived.map(isoCard).join(''),
         `Ones that decay, but slowly: a year or more.${later}`,
         live ? `<button class="text-btn bh-bench" id="bh-bench">Watch your unstable isotopes</button>` : '', got(longLived) === longLived.length) : '',
+      fleeting.length ? '<div class="bh-part" data-part="fleeting"></div>' : '',
       fleeting.length ? this.section('isotope-fleeting', 'Fleeting isotopes', `${fc.built} of ${fc.total}`, '',
         `Gone in under a year. Pick any isotope puzzle for each: the shorter it lives, the harder the board. They don't count toward ${name}'s 100%.${later}`,
         this.fleetingGrid(fleeting, Boolean(built)), fc.total > 0 && fc.built === fc.total) : '',
@@ -546,14 +550,15 @@ export class Game {
   }
 
   /** One part of the Build page under a full-width heading: its name, how far it has got on the
-   *  right with a check once it is complete, a line on what it is, then its puzzles. */
+   *  right (the track draws a check by it once it is complete), a line on what it is, then its
+   *  puzzles. */
   private section(_glyph: IconName, title: string, count: string, cards: string, blurb = '', after = '', done = false): string {
     return `
       <section class="bh-sec${done ? ' is-done' : ''}" aria-label="${title}">
         <div class="bh-sec-head">
           <h3>${title}</h3>
           ${count ? `<span class="bh-sec-count">${count}</span>` : ''}
-          ${done ? `<span class="bh-sec-done" role="img" aria-label="Complete">${icon('done', { size: 22 })}</span>` : ''}
+          ${done ? '<span class="sr-only">Complete</span>' : ''}
         </div>
         ${blurb ? `<p class="bh-sec-blurb">${blurb}</p>` : ''}
         ${cards ? `<ol class="bh-steps">${cards}</ol>` : ''}
@@ -586,7 +591,7 @@ export class Game {
     const cls = o.locked ? 'is-locked' : gated ? 'is-gate is-next' : o.done ? (o.flawless ? 'is-flawless' : 'is-done') : 'is-next';
     const flawless = o.done && o.flawless && !isIso(o.stage);
     const state = paused ? `<span class="bh-state is-paused">In progress</span><span class="bh-note">${paused.moves} move${paused.moves === 1 ? '' : 's'} so far</span>`
-      : o.done ? `<span class="bh-state ${flawless ? 'is-flawless' : 'is-built'}">${icon(flawless ? 'star' : 'check', { size: 16 })}${o.gate ? 'Discovered' : flawless ? 'Flawless' : 'Built'}</span>${o.best !== undefined ? `<span class="bh-note">Best ${o.best}</span>` : ''}`
+      : o.done ? `<span class="bh-state ${flawless ? 'is-flawless' : 'is-built'}">${o.gate ? 'Discovered' : flawless ? 'Flawless' : 'Built'}</span>${o.best !== undefined ? `<span class="bh-note">Best ${o.best}</span>` : ''}`
       : o.locked ? `<span class="bh-note">${o.locked}</span>`
       : gated ? `<span class="bh-note">${o.gate}</span>`
       : '';
@@ -610,28 +615,29 @@ export class Game {
       </li>`;
   }
 
-  /** The progress track down the right of the page: one line, Stable's part then Fleeting's, a
-   *  Stable icon in a circle where it starts (the first section's heading) and a Fleeting one at
-   *  the Fleeting isotopes heading. Stops: the nucleus, the electrons and each lasting isotope,
-   *  then each fleeting isotope; green from the top while progress runs unbroken, the next stop
-   *  pink with Nu swimming beside it. */
+  /** The progress track down the right of the page: one line, Stable's part then Fleeting's,
+   *  each starting at its icon in a circle (above the first section, and above Fleeting
+   *  isotopes), with a check by the heading of each part that is complete. Stops: the nucleus,
+   *  the electrons and each lasting isotope, then each fleeting isotope, each showing a check
+   *  once built (a star once flawless); green from the top while progress runs unbroken, the
+   *  next stop pink with Nu swimming beside it. */
   private drawTracks(root: HTMLElement): void {
     this.tracks?.remove();
     const items: TrackItem[] = [];
-    const fleetHead = root.querySelector<HTMLElement>('.bh-sec[aria-label="Fleeting isotopes"] .bh-sec-head');
-    root.querySelectorAll<HTMLElement>('[data-row], tr[data-a], .bh-sec-head').forEach((el) => {
+    const locked = !this.save.built[this.z];
+    root.querySelectorAll<HTMLElement>('[data-row], tr[data-a], .bh-sec-head, .bh-part').forEach((el) => {
       const stage = el.dataset.row;
-      if (el.classList.contains('bh-sec-head')) {
-        if (el === fleetHead) items.push({ el, mark: 'fleeting' });
-        else if (!items.some((i) => i.mark === 'stable') && el.closest('.bh-sec')?.querySelector('[data-row]')) items.push({ el, mark: 'stable' });
-        return;
-      }
-      if (el.dataset.a) {
-        items.push({ el, row: { fleeting: { done: isotopeCollected(this.save, this.z, Number(el.dataset.a)), locked: !this.save.built[this.z] } } });
+      if (el.dataset.part) {
+        items.push({ el, mark: el.dataset.part as 'stable' | 'fleeting' });
+      } else if (el.classList.contains('bh-sec-head')) {
+        if (el.closest('.bh-sec')?.classList.contains('is-done')) items.push({ el, check: true });
+      } else if (el.dataset.a) {
+        items.push({ el, row: { fleeting: { done: isotopeCollected(this.save, this.z, Number(el.dataset.a)), locked, icon: 'check' } } });
       } else if (stage === 'nucleus' || stage === 'shells') {
-        items.push({ el, row: { stable: { done: this.stepState(this.z, stage).done } } });
+        const st = this.z === 1 && stage === 'nucleus' ? { done: true, flawless: false } : this.stepState(this.z, stage);
+        items.push({ el, row: { stable: { done: st.done, icon: st.flawless ? 'star' : 'check' } } });
       } else if (stage?.startsWith('iso-')) {
-        items.push({ el, row: { stable: { done: isotopeCollected(this.save, this.z, Number(stage.slice(4))), locked: !this.save.built[this.z] } } });
+        items.push({ el, row: { stable: { done: isotopeCollected(this.save, this.z, Number(stage.slice(4))), locked, icon: 'check' } } });
       }
     });
     this.tracks = trackOverlay(root, items, { single: true });
@@ -659,36 +665,24 @@ export class Game {
     return `
       <li class="bh-row is-done" data-row="nucleus">
         <div class="bh-gc"><div class="gcard bh-proton"><div class="gcard-in"><span class="gcard-icon" aria-hidden="true">${icon('atom', { size: 36 })}</span><div class="gcard-body"><b class="gcard-name">A lone proton</b></div></div></div></div>
-        <div class="bh-side"><span class="bh-what">Ready from the start</span><span class="bh-state is-built">${icon('check', { size: 16 })}Built</span></div>
+        <div class="bh-side"><span class="bh-what">Ready from the start</span><span class="bh-state is-built">Built</span></div>
       </li>`;
   }
 
-  /** Progress over the atom, drawn as the tracks draw it: on the left the Stable share (the
-   *  nucleus, electrons and lasting isotopes) beside a bar like a Stable stop, on the right the
-   *  fleeting isotopes built beside a bar like a Fleeting stop. A bar fills white from the top,
-   *  green once whole. */
+  /** Progress over the atom, at the foot of the atom on the right: Stable's share (the nucleus,
+   *  electrons and lasting isotopes) over the fleeting isotopes', each a line of its name and
+   *  percent beside a ring around its icon, white while under way, green once whole. */
   private renderProgress(): void {
     const z = this.z;
     const share = atomProgress(z, this.save);
     const pct = Math.round(share * 100);
     const fleet = fleetingCount(z, this.save);
-    const fleetPct = fleet.total ? Math.round((fleet.built / fleet.total) * 100) : 0;
-    const bar = (v: number, done: boolean) => `<i class="bh-pill${done ? ' is-done' : ''}" aria-hidden="true"><b style="height:${Math.round(Math.max(0, Math.min(1, v)) * 100)}%"></b></i>`;
-    $('bh-progress').innerHTML = `
-      <div class="bh-prog-main">
-        ${bar(share, pct >= 100)}
-        <div class="bh-rings-text">
-          <span>${icon('isotope-stable', { size: 14 })}Stable</span>
-          <b${pct >= 100 ? ' class="is-done"' : ''}>${pct}%</b>
-        </div>
-      </div>
-      ${fleet.total ? `<div class="bh-prog-fleet">
-        <div class="bh-rings-text">
-          <span>Fleeting${icon('isotope-fleeting', { size: 14 })}</span>
-          <b${fleet.built >= fleet.total ? ' class="is-done"' : ''}>${fleet.built} of ${fleet.total}</b>
-        </div>
-        ${bar(fleet.total ? fleet.built / fleet.total : 0, fleet.built >= fleet.total)}
-      </div>` : ''}`;
+    const fleetShare = fleet.total ? fleet.built / fleet.total : 0;
+    const fleetPct = Math.round(fleetShare * 100);
+    const line = (name: string, v: number, p: number, glyph: IconName) =>
+      `<div class="bh-prog-line${v >= 1 ? ' is-done' : ''}"><span>${name}</span><b>${p}%</b>${iconRing(v, glyph)}</div>`;
+    $('bh-progress').innerHTML = line('Stable', share, pct, 'isotope-stable')
+      + (fleet.total ? line('Fleeting', fleetShare, fleetPct, 'isotope-fleeting') : '');
     $('bh-progress').setAttribute('aria-label', `${pct}% built${fleet.total ? `, ${fleet.built} of ${fleet.total} fleeting isotopes (${fleetPct}%)` : ''}`);
   }
 
