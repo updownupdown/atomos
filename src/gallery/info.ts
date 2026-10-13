@@ -9,7 +9,7 @@ import STORY from '../data/element-story.json';
 import IMAGES from '../data/element-images.json';
 import { disclosureHTML } from '../ui/components';
 import { loadSave, type SaveData } from '../core/save';
-import { discoveryTimeline, discoveryWords, isotopeTable, orbitalAssembly, orbitalTogether, propertyAxes, shellPlot } from './visuals';
+import { discoveryTimeline, discoveryWords, isotopeTable, orbitalTogether, propertyAxes, shellPlot } from './visuals';
 import { layout } from './layouts';
 import { lookColor, inkOn } from './looks';
 import { icon } from '../ui/icons';
@@ -200,7 +200,6 @@ function structure(e: Element): string {
   return `
     <div class="st-top"><div class="st-switch" id="struct-switch"></div><button type="button" class="st-3d" data-z="${e.z}" aria-label="See ${esc(e.name.toLowerCase())} in 3D, full screen">3D${icon('fullscreen', { size: 18 })}</button></div>
     <div class="st-view" data-view="together">${orbitalTogether(e)}</div>
-    <div class="st-view" data-view="orbitals" hidden>${orbitalAssembly(e)}</div>
     <div class="st-view" data-view="shells" hidden>${shellPlot(e)}</div>
     ${disclosureHTML({ title: 'All the numbers', hint: `${e.subshells.length} layers`, body: `
     ${row('Configuration', `${e.configuration.split(' ').map((s) => s.slice(0, 2) + sup(s.slice(2))).join(' ')}`)}

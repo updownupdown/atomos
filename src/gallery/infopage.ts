@@ -7,7 +7,7 @@ import { SHAPE_AT } from '../core/progress';
 import type { OrbitalShape } from '../core/save';
 import { createSegments, createSlider } from '../ui/components';
 import { icon } from '../ui/icons';
-import { buildOrder, ISO_FILTERS, orbitalFill, STRUCTURE_VIEWS } from './visuals';
+import { buildOrder, ISO_FILTERS, orbitalFill, orbitalGlyphs, STRUCTURE_VIEWS } from './visuals';
 import { Together3D } from './together3d';
 
 /** What the pages remember while stepping from one atom to the next. */
@@ -37,10 +37,11 @@ function mountLinks(root: HTMLElement): void {
   }));
 }
 
-/** Structure's Together view: every orbital at once. The slider adds the electrons one at a time
- *  in the order they fill (each orbital lights pale with one electron and full with two); Play
- *  runs it from nothing; a layer chip picks one layer out; True scale shrinks the inner layers
- *  to their real size. Kinds of shape Glyph hasn't found yet show as a plain ring. */
+/** Structure's Together view: every orbital at once, to true scale. The slider adds the electrons
+ *  one at a time in the order they fill (each orbital lights pale with one electron and full with
+ *  two, and its box in the diagram gets an arrow); Play runs it from nothing; tapping a subshell
+ *  in the diagram picks that layer out, zooms to it and shows its orbitals' shapes. Kinds of
+ *  shape Glyph hasn't found yet show as a plain ring and a "?". */
 function mountTogether(root: HTMLElement, st: InfoState): void {
   const box = root.querySelector<HTMLElement>('.tg');
   if (!box) return;
@@ -49,6 +50,7 @@ function mountTogether(root: HTMLElement, st: InfoState): void {
   const subs = new Map([...box.querySelectorAll<SVGGElement>('.tg-sub')].map((g) => [Number(g.dataset.i), g]));
   const chips = [...box.querySelectorAll<HTMLButtonElement>('.tg-chip')];
   const read = box.querySelector<HTMLElement>('.tg-read')!;
+  const detail = box.querySelector<HTMLElement>('.tg-detail')!;
   const hidden = new Set<string>(st.hiddenShapes);
   for (const g of subs.values()) g.classList.toggle('is-unknown', hidden.has(g.dataset.l!));
   let n = e.z;
@@ -76,9 +78,24 @@ function mountTogether(root: HTMLElement, st: InfoState): void {
     view3d?.set(e.subshells.map((_, i) => reach.get(i) ?? 0), picked);
     chips.forEach((b) => {
       const i = Number(b.dataset.i);
+      const c = reach.get(i) ?? 0;
       b.setAttribute('aria-pressed', String(picked === i));
-      b.disabled = (reach.get(i) ?? 0) === 0;
+      b.classList.toggle('is-empty', c === 0);
+      const fill = orbitalFill(c, e.subshells[i].capacity);
+      b.querySelectorAll<HTMLElement>('.tg-box').forEach((x) => {
+        const k = fill[Number(x.dataset.k)];
+        x.className = `tg-box f${k}`;
+        x.innerHTML = k === 2 ? '<b>↑</b><b>↓</b>' : k === 1 ? '<b class="is-lone">↑</b>' : '';
+      });
     });
+    // The picked layer's orbitals as the textbook draws them, named, with their electrons.
+    detail.hidden = picked == null;
+    if (picked != null) {
+      const s = e.subshells[picked];
+      detail.style.setProperty('--b', getComputedStyle(subs.get(picked)!).getPropertyValue('--b'));
+      detail.innerHTML = `<div class="om-glyphs">${orbitalGlyphs(s, reach.get(picked) ?? 0)}</div>`;
+      detail.querySelectorAll<HTMLElement>('.os-glyph').forEach((g) => g.classList.toggle('is-hidden', hidden.has(s.l)));
+    }
     if (picked != null) {
       const s = e.subshells[picked];
       const c = reach.get(picked) ?? 0;
@@ -114,14 +131,24 @@ function mountTogether(root: HTMLElement, st: InfoState): void {
   };
   chips.forEach((b) => (b.onclick = () => {
     const i = Number(b.dataset.i);
+    // A layer with no electrons yet has nothing to pick out.
+    if ((reach.get(i) ?? 0) === 0 && picked !== i) return;
     picked = picked === i ? null : i;
     paint();
   }));
+  // Shapes Glyph has not found yet keep their secret, and say where to find them.
+  const kinds = [...new Set(e.subshells.map((s) => s.l).filter((l) => hidden.has(l)))] as OrbitalShape[];
+  const note = box.querySelector<HTMLElement>('.os-hidden-note');
+  if (note && kinds.length) {
+    const and = (xs: string[]) => xs.length > 1 ? `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}` : xs[0];
+    note.hidden = false;
+    note.textContent = `The ${and(kinds)} shapes are still undiscovered. Find them with Glyph on ${and(kinds.map((l) => elementAt(SHAPE_AT[l]).name.toLowerCase()))}.`;
+  }
   paintPlay();
   paint();
 }
 
-/** The structure page's ways to see the atom: the orbitals assembled layer by layer, and the shells. */
+/** The structure page's ways to see the atom: every orbital together, and the shells. */
 function mountStructureSwitch(root: HTMLElement, st: InfoState): void {
   const slot = root.querySelector<HTMLElement>('#struct-switch');
   if (!slot) return;
@@ -133,30 +160,6 @@ function mountStructureSwitch(root: HTMLElement, st: InfoState): void {
   if (!STRUCTURE_VIEWS.some((v) => v.id === st.structView)) st.structView = 'together';
   const seg = createSegments(STRUCTURE_VIEWS, { active: st.structView, label: 'How to see the structure', onChange: apply });
   slot.append(seg.el);
-  // Orbitals' Details: each orbital's name, each subshell's count and the notes; remembered.
-  const details = root.querySelector<HTMLInputElement>('#om-details');
-  if (details) {
-    const map = root.querySelector<HTMLElement>('.om')!;
-    const paint = () => { map.classList.toggle('is-detailed', details.checked); root.querySelector('.om-notes')?.toggleAttribute('hidden', !details.checked); };
-    try { details.checked = localStorage.getItem('atomos.orbitals.details') === '1'; } catch { /* storage off */ }
-    details.onchange = () => { try { localStorage.setItem('atomos.orbitals.details', details.checked ? '1' : '0'); } catch { /* storage off */ } paint(); };
-    paint();
-  }
-  // The 2D shapes keep the same secret as 3D Shapes: a kind Glyph has not found yet shows a "?".
-  const hidden = new Set<string>(st.hiddenShapes);
-  const kinds = new Set<string>();
-  root.querySelectorAll<HTMLElement>('.os-glyph[data-l]').forEach((g) => {
-    const off = hidden.has(g.dataset.l!);
-    g.classList.toggle('is-hidden', off);
-    if (off) kinds.add(g.dataset.l!);
-  });
-  const note = root.querySelector<HTMLElement>('.os-hidden-note');
-  if (note && kinds.size) {
-    const ls = [...kinds] as OrbitalShape[];
-    const and = (xs: string[]) => xs.length > 1 ? `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}` : xs[0];
-    note.hidden = false;
-    note.textContent = `The ${and(ls)} shapes are still undiscovered. Find them with Glyph on ${and(ls.map((l) => elementAt(SHAPE_AT[l]).name.toLowerCase()))}.`;
-  }
   seg.select(st.structView);
   apply(st.structView);
 }

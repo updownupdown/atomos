@@ -30,9 +30,7 @@ export function orbitalFill(count: number, capacity: number): number[] {
   return Array.from({ length: k }, (_, i) => (count >= k + i + 1 ? 2 : count > i ? 1 : 0));
 }
 
-const CORE_NAME: Record<string, string> = { He: 'Helium', Ne: 'Neon', Ar: 'Argon', Kr: 'Krypton', Xe: 'Xenon', Rn: 'Radon' };
-
-// ---------- Structure: the shells as they are, and the orbitals assembled ----------
+// ---------- Structure: the shells as they are, and each orbital's shape ----------
 
 const SHELL_NAMES = ['K', 'L', 'M', 'N', 'O', 'P', 'Q'];
 
@@ -159,9 +157,9 @@ export function orbitalOutline(l: number, m: number, steps = 360): { d: string; 
 
 /** One subshell's orbitals as small 2D shapes (solid when full, paler when half full, outlined
  *  when empty) with their electrons' spins under them as arrows, a lone electron in cyan. */
-function orbitalGlyphs(s: Subshell): string {
+export function orbitalGlyphs(s: Subshell, count = s.count): string {
   const l = L_OF[s.l];
-  return orbitalFill(s.count, s.capacity).map((k, oi) => {
+  return orbitalFill(count, s.capacity).map((k, oi) => {
     const paths = orbitalOutline(l, M_ORDER[oi]).map((b) => `<path class="os-lobe ${b.plus ? 'is-plus' : 'is-minus'}" d="${b.d}"/>`).join('');
     const spins = `${k >= 1 ? `<b class="${k === 1 ? 'is-lone' : ''}">↑</b>` : ''}${k === 2 ? '<b>↓</b>' : ''}`;
     return `<figure class="os-glyph om-glyph os-fill-${k}" data-l="${s.l}">
@@ -171,56 +169,6 @@ function orbitalGlyphs(s: Subshell): string {
       <figcaption class="om-name">${ORBITAL_NAMES[s.l][oi]}</figcaption>
     </figure>`;
   }).join('');
-}
-
-/**
- * The atom assembled from the bottom up, as an orbital diagram: the nucleus, the noble-gas core,
- * then a numbered step per outer layer in the order layers usually fill (lowest energy first),
- * each layer's orbitals drawn as the textbook cuts through their middles with the electrons'
- * spins under them. Counts are what the element really has, exceptions included. Details opens
- * the core layer by layer and adds each orbital's name.
- */
-export function orbitalAssembly(e: Element): string {
-  const key = keyIsotope(e);
-  const neutrons = key ? key.a - e.z : null;
-  const core = buildOrder(e).filter((s) => s.core);
-  const coreCount = core.reduce((n, s) => n + s.count, 0);
-  const outer = buildOrder(e).filter((s) => !s.core);
-  const coreName = e.core ? `${CORE_NAME[e.core] ?? e.core} core` : '';
-  const layer = (s: Subshell, step: number | null, extra = '') => {
-    const single = orbitalFill(s.count, s.capacity).filter((k) => k === 1).length;
-    const sub = `${s.count} of ${s.capacity}${single ? `, ${single} alone` : ''}`;
-    return `<div class="oa-row${s.core ? ' is-core' : ''}${extra}" style="--b:${BLOCK_COLOUR[s.l]}">
-      <span class="oa-step">${step ?? ''}</span>
-      <div class="oa-body"><span class="oa-label"><b>${s.key}${sup(s.count)}</b><small>${sub}</small></span><div class="om-glyphs">${orbitalGlyphs(s)}</div></div>
-    </div>`;
-  };
-  // Steps count up from the nucleus (1) and the core (2); rows are listed top down.
-  const rows: string[] = [];
-  const first = core.length ? 3 : 2;
-  outer.forEach((s, i) => rows.unshift(layer(s, first + i)));
-  if (core.length) {
-    const coreRows = core.map((s) => layer(s, null, ' oa-core-layer')).reverse().join('');
-    rows.push(`<div class="oa-row oa-core">
-      <span class="oa-step">2</span>
-      <div class="oa-body"><span class="oa-label"><b>${esc(coreName)}</b><small>${coreCount} electrons, as in ${esc((CORE_NAME[e.core!] ?? e.core!).toLowerCase())}</small></span>
-      <div class="oa-core-keys">${core.map((s) => `<span style="--b:${BLOCK_COLOUR[s.l]}">${s.key}${sup(s.count)}</span>`).join('')}</div></div>
-    </div>${coreRows}`);
-  }
-  const balls = [[0, 0], [-5.2, -3], [5.2, -3], [0, -6], [-5.2, 3], [5.2, 3], [0, 6]]
-    .map(([x, y], i) => `<circle class="${i % 2 ? 'oa-neutron' : 'oa-proton'}" cx="${x}" cy="${y * 0.85}" r="3.4"/>`).join('');
-  rows.push(`<div class="oa-row oa-nucleus">
-    <span class="oa-step">1</span>
-    <div class="oa-body"><span class="oa-label"><svg class="oa-nuc" viewBox="-10 -10 20 20" aria-hidden="true">${balls}</svg><b>Nucleus</b><small>${neutrons == null ? `${e.z} proton${e.z === 1 ? '' : 's'}` : `${e.z} protons, ${neutrons} neutrons`}</small></span></div>
-  </div>`);
-  const lone = e.unpaired;
-  return `<label class="ui-switch-row om-toggle"><span class="ui-switch-text">Details</span><input type="checkbox" role="switch" class="ui-switch" id="om-details"></label>
-    <div class="om oa" role="img" aria-label="${esc(e.name)} built up layer by layer: ${esc(e.configuration)}">${rows.join('')}</div>
-    <p class="note os-hidden-note" hidden></p>
-    <p class="note">Built from the bottom up, lowest energy first. Each arrow is an electron and its spin${lone ? ', a lone one in cyan' : ''}.</p>
-    <div class="om-notes">
-      <p class="note">Full orbitals are solid, half-full ones paler, empty ones only outlined. The two tones are the wave's two phases. ${lone ? `${esc(e.name)} has ${lone} lone electron${lone === 1 ? '' : 's'}.` : `Every electron in ${esc(e.name.toLowerCase())} is paired.`} The layers overlap in space rather than stack; Shells shows how far out each one reaches.</p>
-    </div>`;
 }
 
 // ---------- Structure: every orbital at once ----------
@@ -269,9 +217,16 @@ export function orbitalTogether(e: Element): string {
     return `<g class="tg-sub" data-i="${i}" data-l="${s.l}" data-r="${(r.edge / e.vdw).toFixed(5)}" style="--b:${BLOCK_COLOUR[s.l]};transform:scale(${sc})">
       <circle class="tg-ghost" r="0.9"/>${orbs}</g>`;
   }).join('');
-  const chips = buildOrder(e).map((s) => {
-    const i = e.subshells.indexOf(s);
-    return `<button type="button" class="tg-chip" data-i="${i}" aria-pressed="false" style="--b:${BLOCK_COLOUR[s.l]}">${s.key}<sup>${s.count}</sup></button>`;
+  // The orbital diagram, one line per shell, is the control: each subshell's boxes fill as the
+  // electrons arrive, and tapping a subshell picks that layer out.
+  const shells = [...new Set(e.subshells.map((s) => s.n))].sort((a, b) => a - b);
+  const diagram = shells.map((n) => {
+    const subs = e.subshells.map((s, i) => ({ s, i })).filter(({ s }) => s.n === n).sort((a, b) => L_OF[a.s.l] - L_OF[b.s.l]);
+    const keys = subs.map(({ s, i }) => {
+      const boxes = Array.from({ length: s.capacity / 2 }, (_, k) => `<i class="tg-box" data-k="${k}"></i>`).join('');
+      return `<button type="button" class="tg-chip" data-i="${i}" aria-pressed="false" aria-label="${s.key}, ${s.count} of ${s.capacity} electrons" style="--b:${BLOCK_COLOUR[s.l]}"><span class="tg-key">${s.key}</span><span class="tg-boxes">${boxes}</span></button>`;
+    }).join('');
+    return `<div class="tg-shell"><span class="tg-n">${n}</span><div class="tg-subs">${keys}</div></div>`;
   }).join('');
   return `<div class="tg" data-z="${e.z}">
     <div class="tg-stage">
@@ -287,14 +242,15 @@ export function orbitalTogether(e: Element): string {
       <button type="button" class="tg-play" aria-label="Build it up: add the electrons one by one"></button>
       <div class="tg-slider"></div>
     </div>
-    <div class="tg-chips" role="group" aria-label="Pick out a layer">${chips}</div>
-    <p class="note">Every orbital at once and to true scale, each layer as far out as its electrons usually reach. Turn it with a sideways drag, add the electrons in the order they fill, or tap a layer to zoom in on it.</p>
+    <div class="tg-chips" role="group" aria-label="The orbitals, one line per shell. Pick out a layer">${diagram}</div>
+    <div class="tg-detail" hidden></div>
+    <p class="note os-hidden-note" hidden></p>
+    <p class="note">Every orbital at once and to true scale, each layer as far out as its electrons usually reach. Below, a box per orbital, one line per shell; each arrow is an electron and its spin${e.unpaired ? ', a lone one in cyan' : ''}. Turn the atom with a sideways drag, add the electrons in the order they fill, or tap a layer to zoom in on it and see its orbitals' shapes.</p>
   </div>`;
 }
 
 export const STRUCTURE_VIEWS: { id: string; label: string }[] = [
   { id: 'together', label: 'Together' },
-  { id: 'orbitals', label: 'Orbitals' },
   { id: 'shells', label: 'Shells' },
 ];
 
