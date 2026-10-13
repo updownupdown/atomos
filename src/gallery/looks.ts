@@ -1,15 +1,14 @@
-// Looks: ways to color the gallery's tiles by what the elements are like. "Block" (the orbital
-// strip) is always there; the other six are opened one by one with Glyph (src/core/unlocks.ts).
-// Each look turns an element into a shade from 0 to 1, or a category, or nothing when the value
-// is unknown. Lenses (the arrangements) are gated the same way, with Glyph.
+// Color by: the ways to color the Atlas maps and the Details plates. "Place" (the period colors
+// after Hyde's ribbon chart) is the default; the others color each atom by what it is like. Every
+// one is open to everyone (they used to be opened one by one with Glyph). Each look turns an
+// element into a shade from 0 to 1, or a category, or nothing when the value is unknown, and
+// lookColor turns that into the fill the maps draw.
 
-import type { Element } from './data';
-import type { LayoutId } from './layouts';
-import type { UnlockId } from '../core/unlocks';
+import { BLOCK_COLOUR, placeColour, type Element } from './data';
 
-export type LookId = 'block' | 'state' | 'discovery' | 'electronegativity' | 'size' | 'crust' | 'density';
+export type LookId = 'place' | 'block' | 'state' | 'discovery' | 'melt' | 'density' | 'electronegativity' | 'size' | 'crust';
 
-/** What a tile shows under a look: a shade (0 to 1), a category, or nothing known. */
+/** What a cell shows under a look: a shade (0 to 1), a category, or nothing known. */
 export type LookValue = { v: number } | { cat: 'solid' | 'liquid' | 'gas' } | null;
 
 export interface Look {
@@ -28,6 +27,7 @@ const clamp = (v: number) => Math.max(0, Math.min(1, v));
 const log = (v: number, lo: number, hi: number) => clamp((Math.log10(v) - lo) / (hi - lo));
 
 export const LOOKS: Look[] = [
+  { id: 'place', label: 'Place', blurb: "Where each atom sits: the hue follows its group, deeper in later periods, after Hyde's ribbon chart." },
   { id: 'block', label: 'Block', blurb: 'The orbital each element is filling: s, p, d or f.' },
   {
     id: 'state', label: 'State', blurb: 'Solid, liquid or gas at room temperature.',
@@ -43,11 +43,16 @@ export const LOOKS: Look[] = [
     },
   },
   {
-    id: 'discovery', label: 'Discovery', blurb: 'When each element was found, from antiquity to this century.', low: 'Antiquity', high: 'Today',
+    id: 'discovery', label: 'Discovered', blurb: 'When each element was found, from antiquity to this century.', low: 'Antiquity', high: 'Today',
     value: (e) => ({ v: e.discoveryYear == null ? 0 : clamp((e.discoveryYear - 1600) / (2010 - 1600)) }),
   },
   {
-    id: 'electronegativity', label: 'Electron pull', blurb: 'How strongly an atom pulls on shared electrons (Pauling scale).', low: 'Weak', high: 'Strong',
+    id: 'melt', label: 'Melting point', blurb: 'How hot each element must get to melt.', low: '−273 °C', high: '3600 °C',
+    // Helium never freezes at normal pressure, and nothing past fermium has a measured melting point.
+    value: (e) => (e.melt == null || e.z > 100 ? null : { v: clamp(e.melt / 3900) }),
+  },
+  {
+    id: 'electronegativity', label: 'Electronegativity', blurb: 'How strongly an atom pulls on shared electrons (Pauling scale).', low: 'Weak', high: 'Strong',
     value: (e) => (e.electronegativity == null ? null : { v: clamp((e.electronegativity - 0.7) / (3.98 - 0.7)) }),
   },
   {
@@ -68,9 +73,44 @@ export const LOOKS: Look[] = [
 export const isLookId = (id: string | null): id is LookId => LOOKS.some((l) => l.id === id);
 export const lookOf = (id: LookId): Look => LOOKS.find((l) => l.id === id)!;
 
-/** The unlock that opens a look, or null when it is open from the start. */
-export const lookUnlock = (id: LookId): UnlockId | null => (id === 'block' ? null : `look:${id}`);
+/** The shade ramp for value looks: deep blue through cyan and pale to warm gold. */
+export const RAMP = ['#24407a', '#3d7cc4', '#6fd0e6', '#d9e6d4', '#f2b552'];
+const STATE_FILL = { solid: '#8a9296', liquid: '#6fd0e6', gas: '#3d5fa8' } as const;
+/** The fill for a value nobody has measured. */
+export const UNKNOWN_FILL = '#2a2e32';
 
-/** The arrangements open from the start; the others are opened with Glyph. */
-const OPEN_LENSES: LayoutId[] = ['spiral', 'table'];
-export const lensUnlock = (id: LayoutId): UnlockId | null => (OPEN_LENSES.includes(id) ? null : `lens:${id}`);
+const hex = (h: string, i: number) => parseInt(h.slice(1 + 2 * i, 3 + 2 * i), 16);
+function mix(a: string, b: string, t: number): string {
+  return '#' + [0, 1, 2].map((i) => Math.round(hex(a, i) * (1 - t) + hex(b, i) * t).toString(16).padStart(2, '0')).join('');
+}
+/** A shade from 0 to 1 along the ramp. */
+export function rampColor(v: number): string {
+  const t = clamp(v) * (RAMP.length - 1);
+  const i = Math.min(RAMP.length - 2, Math.floor(t));
+  return mix(RAMP[i], RAMP[i + 1], t - i);
+}
+
+/** The fill an element gets under a look. */
+export function lookColor(id: LookId, e: Element): string {
+  if (id === 'place') return placeColour(e);
+  if (id === 'block') return BLOCK_COLOUR[e.block];
+  const v = lookOf(id).value!(e);
+  if (!v) return UNKNOWN_FILL;
+  return 'cat' in v ? STATE_FILL[v.cat] : rampColor(v.v);
+}
+
+/** The legend under a look: categories as swatches, shades as a ramp between its two ends. */
+export function lookLegend(id: LookId): { swatches?: { label: string; color: string }[]; low?: string; high?: string } | null {
+  if (id === 'place') return null;
+  if (id === 'block') return { swatches: (['s', 'p', 'd', 'f'] as const).map((b) => ({ label: `${b} block`, color: BLOCK_COLOUR[b] })) };
+  if (id === 'state') return { swatches: [{ label: 'Solid', color: STATE_FILL.solid }, { label: 'Liquid', color: STATE_FILL.liquid }, { label: 'Gas', color: STATE_FILL.gas }, { label: 'Not known', color: UNKNOWN_FILL }] };
+  const l = lookOf(id);
+  return { low: l.low, high: l.high };
+}
+
+/** Black or white text, whichever reads better on a fill. */
+export function inkOn(fill: string): string {
+  const lin = [0, 1, 2].map((i) => hex(fill, i) / 255).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+  const L = 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2];
+  return L > 0.18 ? '#0b0c0d' : '#ffffff';
+}

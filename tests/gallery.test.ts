@@ -38,38 +38,39 @@ describe('element dataset', () => {
   });
 });
 
-describe('layouts', () => {
-  it('places every element without two sharing a spot', () => {
-    for (const { id } of LAYOUTS) {
-      const l = layout(id);
-      expect(l.atoms).toHaveLength(118);
-      const seen = new Set<string>();
-      for (const a of l.atoms) {
-        const key = `${a.x.toFixed(2)},${a.y.toFixed(2)},${a.zz.toFixed(2)}`;
-        expect(seen.has(key), `${id} ${a.z}`).toBe(false);
-        seen.add(key);
-      }
+describe('Atlas maps', () => {
+  const all = LAYOUTS.flatMap(({ id }) => (['portrait', 'landscape'] as const).map((o) => ({ id, o, l: layout(id, o) })));
+  it('draw every element once', () => {
+    for (const { id, o, l } of all) {
+      expect(l.cells, `${id} ${o}`).toHaveLength(118);
+      expect(new Set(l.cells.map((c) => c.z)).size, `${id} ${o}`).toBe(118);
+      for (const c of l.cells) expect(c.d.startsWith('M') && c.d.endsWith('Z'), `${id} ${c.z}`).toBe(true);
     }
   });
-  it('puts helium above neon in the table', () => {
-    const t = layout('table');
-    expect(t.atoms[1].x).toBeCloseTo(t.atoms[9].x);
-  });
-  it('keeps atoms apart in every layout', () => {
-    for (const { id } of LAYOUTS) {
-      const a = layout(id).atoms;
+  it('keep cells apart', () => {
+    for (const { id, o, l } of all) {
+      const a = l.cells;
       let min = Infinity;
       for (let i = 0; i < a.length; i++) for (let j = i + 1; j < a.length; j++) min = Math.min(min, Math.hypot(a[i].x - a[j].x, a[i].y - a[j].y));
-      expect(min, id).toBeGreaterThan(0.75);
+      expect(min, `${id} ${o}`).toBeGreaterThan(0.8);
     }
   });
-  it('lines groups up along spokes in the circle and across the ribbon', () => {
+  it('stand the table up on a portrait screen and lay it flat in landscape', () => {
+    const at = (l: ReturnType<typeof layout>, z: number) => l.cells.find((c) => c.z === z)!;
+    const up = layout('table', 'portrait'), flat = layout('table', 'landscape');
+    // Helium over neon: one row standing (periods across), one column flat.
+    expect(at(up, 2).y).toBeCloseTo(at(up, 10).y);
+    expect(at(up, 2).x).toBeLessThan(at(up, 10).x);
+    expect(at(flat, 2).x).toBeCloseTo(at(flat, 10).x);
+    expect(at(flat, 2).y).toBeLessThan(at(flat, 10).y);
+  });
+  it('line groups up along spokes in the circle and across the ribbon', () => {
     for (const id of ['circle', 'ribbon'] as const) {
-      const a = layout(id).atoms;
-      // Lithium, sodium and potassium share a direction from the centre of their lobe or ring.
-      const ang = (z: number, cx: number) => Math.atan2(a[z - 1].y, a[z - 1].x - cx);
-      const cx = id === 'ribbon' ? 5 : 0;
-      expect(Math.abs(ang(3, cx) - ang(19, cx))).toBeLessThan(0.35);
+      const l = layout(id, 'landscape');
+      const ang = (z: number) => { const c = l.cells.find((x) => x.z === z)!; return Math.atan2(c.y, c.x); };
+      // Lithium, sodium and potassium share a direction from the center.
+      expect(Math.abs(ang(3) - ang(11)), id).toBeLessThan(0.05);
+      expect(Math.abs(ang(3) - ang(19)), id).toBeLessThan(0.05);
     }
   });
 });

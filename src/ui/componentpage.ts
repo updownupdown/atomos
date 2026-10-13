@@ -123,8 +123,6 @@ export function renderComponentPage(page: HTMLElement, onBack: () => void): void
   chip.onclick = () => chip.setAttribute('aria-pressed', String(chip.getAttribute('aria-pressed') !== 'true'));
   const chipWrap = h('div', 'style-switch cl-static');
   chipWrap.append(chip);
-  const lens = h('div', 'seg layout-switch lens-switch', ['Spiral', 'Table', 'Ribbon', 'Circle'].map((l, k) => `<button aria-pressed="${k === 0}">${l}</button>`).join(''));
-  lens.querySelectorAll<HTMLButtonElement>('button').forEach((b) => (b.onclick = () => lens.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)))));
   const tabs = createTabs([{ id: 'model', label: '3D' }, { id: 'overview', label: 'Overview' }, { id: 'structure', label: 'Structure' }, { id: 'isotopes', label: 'Isotopes' }], { label: 'Sections' });
   tabs.el.classList.add('cl-wide');
   const sortBox = h('div', 'el-menu cl-static', ['Number', 'Name', 'Progress', 'Group'].map((l, k) => `<button type="button" role="menuitemradio" class="el-opt" aria-checked="${k === 0}"><span>${l}</span>${icon('check', { size: 20 })}</button>`).join(''));
@@ -135,7 +133,6 @@ export function renderComponentPage(page: HTMLElement, onBack: () => void): void
     spec('Pills', 'The Collection\'s stage filter, behind Filter.', pills.el, pillOut),
     spec('Compact radio', 'Corner tools over the 3D atom: Draw as.', tool),
     spec('Tool chip', 'A corner toggle: Nucleus, the scale circles, Color.', chipWrap),
-    spec('Lens switch', 'Under the Map: the arrangements.', lens),
     spec('Tabs', 'The atom\'s View pages; sheets with sections.', tabs.el),
     spec('Menu of choices', 'The Collection\'s sort dropdown.', sortBox),
   );

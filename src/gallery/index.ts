@@ -8,30 +8,25 @@ import { CLOUD_RINGS, ELEMENTS, MAX_Z, elementAt, type Element } from './data';
 import { NUCLEUS_RINGS } from './nucleus';
 import type { OrbitalShape } from '../core/save';
 import { Detail } from './detail';
-import { Gallery } from './gallery';
+import { Atlas } from './atlas';
 import { tabHTML, TABS, type ViewTab } from './info';
 import { guideHTML } from './guide';
 import { icon } from '../ui/icons';
 import { fullScreen, type FullScreen } from './fullscreen';
-import { createPills, createSegments, createTabs, iconButton, nextButton, type Segments, type Tabs } from '../ui/components';
-import { ISO_FILTERS, STRUCTURE_VIEWS } from './visuals';
+import { createPills, createTabs, iconButton, nextButton, type Tabs } from '../ui/components';
+import { mountInfoPage, type InfoState } from './infopage';
 import { createAtomBar, type AtomBar } from './atombar';
-import { isLayoutId, LAYOUT_STORY, LAYOUTS, type LayoutId } from './layouts';
-import { setScienceHandler, setScienceOpen } from '../ui/science';
+import { setScienceHandler } from '../ui/science';
 import { closeModal, openModal } from '../ui/modal';
 import { loadSave, writeSave, type SaveData } from '../core/save';
-import { atomBuilt, atomProgress, rowSpan, orbitalShapeUnlocked, rowOf, rowOpen, SHAPE_AT, stepState } from '../core/progress';
-import { createTable, type Table } from './table';
-import { nextLabel, nextStep, openAtom, openStep } from '../core/next';
+import { atomBuilt, orbitalShapeUnlocked, rowOf, rowOpen, SHAPE_AT, stepState } from '../core/progress';
+import { nextStep, openStep } from '../core/next';
 import { firstTimeLine } from '../ui/nu';
 import { isUnlocked, unlockPuzzle, type UnlockId } from '../core/unlocks';
 import { PUZZLES } from '../puzzles/catalog';
 import { playUnlock } from '../puzzles/unlock';
-import { isLookId, lensUnlock, lookOf, lookUnlock, LOOKS, type LookId } from './looks';
-import { fleetingOpen, periodNeed, periodSentence, rowLockNote } from './locks';
+import { fleetingOpen } from './locks';
 import { isViewLook, VIEW_LOOKS, type ViewLook } from '../render/rayLooks';
-
-type GalleryMode = 'map' | 'details';
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -46,72 +41,45 @@ export interface GalleryHandlers {
 
 export class GalleryApp {
   private save: SaveData = loadSave();
-  private gallery: Gallery;
   private detail: Detail;
+  /** The Atlas: the maps, Details and the atom pages (atlas.ts). */
+  private atlas: Atlas;
   private current: Element | null = null;
   private tab: ViewTab = 'model';
   /** The Info page last open, kept while View shows the 3D atom. */
   private page: Exclude<ViewTab, 'model'> = 'overview';
-  private isoFilter = 'all';
-  private structView = 'orbitals';
-  private layoutId: LayoutId = (() => {
-    const saved = localStorage.getItem('atomos.gallery.layout');
-    return isLayoutId(saved) ? saved : 'spiral';
-  })();
-  /** How the tiles are colored: the block strip, or one of the looks Glyph opens. */
-  private look: LookId = (() => {
-    const saved = localStorage.getItem('atomos.gallery.look');
-    return isLookId(saved) ? saved : 'block';
-  })();
+  /** The Info pages' remembered choices (infopage.ts). */
+  private info: InfoState = { isoFilter: 'all', structView: 'orbitals', hiddenShapes: [] };
   /** The 3D tab shows the nucleus up close instead of the whole atom (once Glyph opens it). */
   private nucleusOn = false;
-  /** Orbital kinds whose shapes Glyph has not discovered yet. */
-  private hiddenShapes: OrbitalShape[] = [];
-  /** Tables shows every element in one table (Details, the default) or the atoms on a map. */
-  private mode: GalleryMode = (() => {
-    const saved = localStorage.getItem('atomos.gallery.mode');
-    return saved === 'map' ? saved : 'details';
-  })();
-  /** True when a panel covers the map, so its render loop can rest. */
-  private get covered(): boolean { return this.mode !== 'map'; }
-  private list: Table | null = null;
-  private modes: Segments | null = null;
   private rings = localStorage.getItem('atomos.gallery.rings') !== 'off';
   private tabs!: Tabs;
   private bar!: AtomBar;
   private full!: FullScreen;
 
   constructor(private handlers: GalleryHandlers) {
-    this.gallery = new Gallery($('gal'), $('gal-labels'));
+    this.atlas = new Atlas($('atlas'), { onBuild: (z) => this.handlers.onBuild(z) });
     this.detail = new Detail($('loupe'), { variant: 'view', hud: $('loupe-explorer') });
-    this.gallery.setReducedMotion(this.save.settings.reducedMotion);
     this.detail.setReducedMotion(this.save.settings.reducedMotion);
     this.buildControls();
     this.refreshCollected();
-    this.gallery.setLayout(this.layoutId, false);
     this.detail.setRings(this.rings);
-    this.gallery.onPick = (e) => this.pick(e.z);
-    this.gallery.onHover = (e) => this.hover(e);
     window.addEventListener('keydown', (ev) => this.key(ev));
-    // Build announces each change to an atom's progress so the tiles' bars stay current.
+    // Build announces each change to an atom's progress.
     window.addEventListener('atomos:progress', () => this.refreshCollected());
-    this.paintDetails();
-    this.startMap();
     this.registerScience();
   }
 
   /** Re-read the save: called when the game screen hands back. */
   refreshCollected(): void {
     this.save = loadSave();
-    const got = this.save.settings.unlockAll ? ELEMENTS.map((e) => e.z) : Object.keys(this.save.built).map(Number);
     const save = this.save;
-    this.gallery.setCollected(got, (z) => atomProgress(z, save));
-    this.gallery.setLocked((z) => rowLockNote(z, this.save));
-    this.paintGates();
+    if (this.nucleusOn && !this.opened('nucleus-view')) this.setNucleus(false);
+    else this.paintNucleus();
     // A part solved while away lights up when the atom is next on screen.
     if (this.current) this.detail.setLit(this.litOf(this.current.z), true);
     // Glyph discovers the p, d and f shapes (on the Build pages of B, Sc and Ce); the Structure page's 2D shapes keep the secret.
-    this.hiddenShapes = (Object.keys(SHAPE_AT) as OrbitalShape[]).filter((l) => !orbitalShapeUnlocked(l, save));
+    this.info.hiddenShapes = (Object.keys(SHAPE_AT) as OrbitalShape[]).filter((l) => !orbitalShapeUnlocked(l, save));
     if (this.current && !$('loupe-screen').hidden) this.paintViewNext();
     // The Isotopes page shows what is built and what has decayed.
     if (this.tab === 'isotopes') this.renderPanel();
@@ -133,25 +101,6 @@ export class GalleryApp {
   }
 
   private buildControls(): void {
-    $('look-chip').innerHTML = `${icon('paint', { size: 18 })}<span>Color</span>`;
-    $('look-chip').onclick = () => this.openLooks();
-    // Two views in the row under the header, styled like View/Build; under Map, a row at the
-    // bottom picks the arrangement (the lenses).
-    this.modes = createSegments([
-      { id: 'details', label: 'Details' },
-      { id: 'map', label: 'Map' },
-    ], {
-      label: 'Tables view',
-      active: this.mode,
-      onChange: (id) => {
-        if (id === 'map') this.setLayout(this.layoutId);
-        else this.setMode(id as GalleryMode);
-      },
-    });
-    $('gal-mode-seg').append(this.modes.el);
-    const lenses = $('lens-switch');
-    lenses.innerHTML = LAYOUTS.map((l) => `<button data-id="${l.id}">${l.label}</button>`).join('');
-    lenses.querySelectorAll<HTMLButtonElement>('button').forEach((b) => (b.onclick = () => this.setLayout(b.dataset.id as LayoutId)));
     // Bottom right: the nucleus up close (opened with Glyph) and back.
     $('style-switch').innerHTML = `<div class="tool-group"><button class="tool-chip" id="nucleus-chip"></button></div>`;
     this.detail.onDive = (dive) => {
@@ -321,20 +270,6 @@ export class GalleryApp {
     $('scale-legend').classList.toggle('off', !this.rings);
   }
 
-  private setLayout(id: LayoutId): void {
-    const gate = lensUnlock(id);
-    if (gate && !this.opened(gate)) {
-      const l = LAYOUTS.find((x) => x.id === id)!;
-      this.offerUnlock(gate, `The ${l.label} lens`, l.note, () => this.setLayout(id));
-      return;
-    }
-    const animate = !this.covered && !this.save.settings.reducedMotion;
-    this.layoutId = id;
-    localStorage.setItem('atomos.gallery.layout', id);
-    this.gallery.setLayout(id, animate);
-    this.setMode('map');
-  }
-
   private opened(id: UnlockId | null): boolean {
     return !id || isUnlocked(id, this.save);
   }
@@ -350,152 +285,14 @@ export class GalleryApp {
       </div>`);
     sheet.querySelector<HTMLButtonElement>('.gate-go')!.onclick = async () => {
       closeModal();
-      const won = await playUnlock(id, { title, note: `${title} is open: find it on the Map in Tables, ${id.startsWith('lens:') ? 'along the bottom' : 'under Color, top left'}.` });
+      const won = await playUnlock(id, { title, note: `${title} is open.` });
       if (won) { this.save = loadSave(); then(); }
     };
-  }
-
-  /** Locks on the lens buttons and the look chip, re-read after any puzzle is solved. */
-  private paintGates(): void {
-    $('lens-switch').querySelectorAll<HTMLButtonElement>('button').forEach((b) => {
-      const locked = !this.opened(lensUnlock(b.dataset.id as LayoutId));
-      b.classList.toggle('is-locked', locked);
-      b.querySelector('.seg-lock')?.remove();
-      if (locked) b.insertAdjacentHTML('beforeend', `<span class="seg-lock" aria-label=", locked">${icon('lock', { size: 14 })}</span>`);
-    });
-    // A look or lens chosen before a reset can be locked again: fall back to an open one.
-    if (!this.opened(lookUnlock(this.look))) this.look = 'block';
-    if (!this.opened(lensUnlock(this.layoutId))) { this.layoutId = 'spiral'; this.gallery.setLayout('spiral', false); }
-    if (this.nucleusOn && !this.opened('nucleus-view')) this.setNucleus(false);
-    else this.paintNucleus();
-    this.applyLook();
-  }
-
-  private setLook(id: LookId): void {
-    this.look = id;
-    try { localStorage.setItem('atomos.gallery.look', id); } catch { /* storage off: the look just resets */ }
-    this.applyLook();
-  }
-
-  /** Color the tiles, and show the chip and its legend. */
-  private applyLook(): void {
-    const look = lookOf(this.look);
-    this.gallery.setLook(look.value ?? null);
-    $('look-chip').querySelector('span')!.textContent = look.id === 'block' ? 'Color' : look.label;
-    const legend = $('look-legend');
-    legend.hidden = look.id === 'block';
-    legend.innerHTML = look.id === 'state'
-      ? ['solid', 'liquid', 'gas'].map((c) => `<span class="lk-key"><i class="lk-sw lk-${c}"></i>${c[0].toUpperCase()}${c.slice(1)}</span>`).join('')
-      : `<span>${look.low ?? ''}</span><i class="lk-ramp"></i><span>${look.high ?? ''}</span>`;
-  }
-
-  /** The look picker: every way to color the tiles, the locked ones with an Unlock button. */
-  private openLooks(): void {
-    const rows = LOOKS.map((l) => {
-      const locked = !this.opened(lookUnlock(l.id));
-      return `<button class="look-row${locked ? ' is-locked' : ''}" data-id="${l.id}" aria-pressed="${l.id === this.look}">
-        <span class="look-main"><b>${l.label}</b><span>${l.blurb}</span></span>
-        ${locked ? `<span class="look-lock">${icon('lock', { size: 18 })}Unlock</span>` : l.id === this.look ? `<span class="look-on">${icon('check', { size: 20 })}</span>` : ''}
-      </button>`;
-    }).join('');
-    const sheet = openModal(`<h2>Color the tiles by</h2><p class="look-intro">Each new way is opened by solving a Glyph puzzle.</p><div class="look-list">${rows}</div>`);
-    sheet.querySelectorAll<HTMLButtonElement>('.look-row').forEach((b) => (b.onclick = () => {
-      const l = lookOf(b.dataset.id as LookId);
-      const gate = lookUnlock(l.id);
-      if (gate && !this.opened(gate)) { this.offerUnlock(gate, `The ${l.label} look`, l.blurb, () => this.setLook(l.id)); return; }
-      closeModal();
-      this.setLook(l.id);
-    }));
-  }
-
-  /** Switch between the map and the Details table. */
-  private setMode(mode: GalleryMode): void {
-    const was = this.covered;
-    this.mode = mode;
-    try { localStorage.setItem('atomos.gallery.mode', mode); } catch { /* storage off: the choice just resets */ }
-    this.paintDetails();
-    this.sayLookLine();
-    if (!$('gallery-screen').hidden && $('loupe-screen').hidden) {
-      if (this.covered) this.gallery.stop();
-      else if (was) this.gallery.start();
-    }
-    this.registerScience();
-  }
-
-  /** The arrangement buttons, the note under them, and the panel that covers the map. */
-  private paintDetails(): void {
-    this.modes?.select(this.mode);
-    $('lens-switch').querySelectorAll<HTMLButtonElement>('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.id === this.layoutId)));
-    $('lens-switch').hidden = this.mode !== 'map';
-    $('layout-note').textContent = this.mode === 'details' ? 'Every element in one table: search, filter, sort and group it, and tap a row to open it'
-      : LAYOUTS.find((l) => l.id === this.layoutId)!.note;
-    $('gallery-screen').classList.toggle('is-details', this.mode === 'details');
-    $('gallery-screen').classList.toggle('is-map', this.mode === 'map');
-    $('gal-details').hidden = this.mode !== 'details';
-    if (this.mode === 'details' && !this.list) {
-      this.list = createTable({ onPick: (z) => this.pick(z) });
-      $('gal-details').append(this.list.el);
-    }
-  }
-
-  /** Nu's line the first time a Glyph look is open: said under Tables' views row, the first time
-   *  Tables is on screen afterwards. */
-  private sayLookLine(): void {
-    if ($('gallery-screen').hidden || !$('loupe-screen').hidden) return;
-    if (!Object.keys(this.save.unlocks).some((id) => id.startsWith('look:'))) return;
-    const anchor = this.mode === 'details' ? this.list?.el : $('layout-note');
-    if (anchor) firstTimeLine('first-glyph', 'A new way to color the table is ready. Find it under Color on the Map.', anchor);
-  }
-
-  /** Run the map's render loop, unless a panel covers it. */
-  private startMap(): void {
-    if (!this.covered) this.gallery.start();
-  }
-
-  private hover(e: Element | null): void {
-    const tag = $('gal-hover');
-    tag.hidden = !e;
-    if (e) tag.textContent = `${e.z} ${e.name}${this.collected(e.z) ? '' : ' · not yet collected'}`;
-  }
-
-  /** An atom tapped on the Map or in Details: one still to build opens Build, a built
-   *  one opens View, and one whose period is shut says what opens it. */
-  private pick(z: number): void {
-    if (this.buildLocked(z)) { this.offerPeriod(z); return; }
-    openAtom(z);
-  }
-
-  /** A locked atom: which period opens it, a way to the atom that helps, and a look at this one. */
-  private offerPeriod(z: number): void {
-    const e = elementAt(z);
-    const [first, last] = rowSpan(rowOf(z) - 1);
-    let target = first;
-    for (let a = first; a <= last; a++) if (!atomBuilt(a, this.save)) { target = a; break; }
-    const step = nextStep(this.save, target);
-    const sheet = openModal(`<h2>${e.name}</h2>
-      <div class="gate-sheet">
-        <p class="gate-why">${icon('lock', { size: 20 })}<span>${periodSentence(z, this.save) ?? ''}</span></p>
-        <div class="gate-next"></div>
-        <button class="secondary gate-look">${icon('mode-view', { size: 20 })}<span>Look at ${e.name.toLowerCase()}</span></button>
-      </div>`);
-    // The first time a locked period is tapped, Nu says what opens it instead of the plain line.
-    const why = sheet.querySelector<HTMLElement>('.gate-why')!;
-    const p = periodNeed(z, this.save);
-    const said = p && firstTimeLine('first-locked-period', `Build ${p.more} more atom${p.more === 1 ? '' : 's'} in Period ${p.period - 1} to open Period ${p.period}.`, why);
-    if (said) {
-      why.style.display = 'none';
-      new MutationObserver((_, o) => { if (!said.isConnected) { why.style.display = ''; o.disconnect(); } }).observe(why.parentElement!, { childList: true });
-    }
-    if (step) {
-      sheet.querySelector('.gate-next')!.append(nextButton({ label: nextLabel(step), landKey: 'period-sheet', onClick: () => { closeModal(); openStep(step); } }));
-    }
-    sheet.querySelector<HTMLButtonElement>('.gate-look')!.onclick = () => { closeModal(); this.open(e); };
   }
 
   private open(e: Element): void {
     const first = !this.current;
     this.current = e;
-    this.gallery.select(e.z);
     this.detail.show(e, !first);
     this.detail.setLit(this.litOf(e.z));
     this.paintNucleus();
@@ -505,7 +302,6 @@ export class GalleryApp {
     const screen = $('loupe-screen');
     if (screen.hidden) {
       screen.hidden = false;
-      this.gallery.stop();
       if (this.tab === 'model') this.detail.start();
       requestAnimationFrame(() => { screen.classList.add('in'); this.tabs.select(this.page); });
     }
@@ -525,23 +321,17 @@ export class GalleryApp {
     if (step) slot.append(nextButton({ label: step.kind === 'resume' ? step.label : `Build ${elementAt(step.z).name.toLowerCase()}`, compact: true, landKey: 'atom-view', onClick: () => openStep(step) }));
   }
 
-  /** The microscope: the arrangement's story on the map. In the atom view each page has its own
-   *  guide button at its foot instead, so the row's microscope stands down there. */
+  /** The microscope: the Atlas view's story. In the atom view each page has its own guide
+   *  button at its foot instead, so the row's microscope stands down there. */
   private registerScience(): void {
     if ($('gallery-screen').hidden) return;
-    if ((!$('loupe-screen').hidden && this.current) || this.covered) setScienceHandler(null);
-    else setScienceHandler(() => this.openLayoutStory(), 'Why the atoms are arranged this way');
+    if (!$('loupe-screen').hidden && this.current) setScienceHandler(null);
+    else this.atlas.registerScience();
   }
 
   private openGuide(): void {
     if (!this.current || this.tab === 'model') return;
     openModal(guideHTML(this.current, this.tab));
-  }
-
-  private openLayoutStory(): void {
-    const l = LAYOUTS.find((x) => x.id === this.layoutId)!;
-    setScienceOpen(true);
-    openModal(`<h2>${l.label}</h2>${LAYOUT_STORY[l.id].map((p) => `<p>${p}</p>`).join('')}`, () => setScienceOpen(false));
   }
 
   /** Open the loupe on an element, from the app shell: View (the 3D atom) or Info (its pages). */
@@ -564,8 +354,6 @@ export class GalleryApp {
     screen.classList.remove('in');
     this.full.exit();
     this.detail.stop();
-    if (this.current) this.gallery.focus(this.current.z);
-    this.startMap();
     window.setTimeout(() => { screen.hidden = true; this.registerScience(); }, 220);
     this.handlers.onLoupe?.(null);
   }
@@ -599,75 +387,12 @@ export class GalleryApp {
     panel.innerHTML = `<div class="atom-page">${tabHTML(this.current, this.tab, this.collected(this.current.z), this.save)}`
       + `<div class="page-guide"><button type="button" class="guide-btn" id="guide-btn">${icon('microscope')}<span><b>How to read this</b><small>A guide to the ${label} page, and more context</small></span></button></div></div>`;
     $('guide-btn').onclick = () => this.openGuide();
-    this.mountIsotopeFilter();
+    mountInfoPage(panel, this.info);
     // The first time fleeting isotopes are open and on screen, Nu says what they are.
     const fleeting = panel.querySelector('.icl-fleeting');
     if (fleeting && fleetingOpen(this.save) && !$('loupe-screen').hidden && !$('gallery-screen').hidden) firstTimeLine('first-fleeting', 'Fleeting isotopes vanish in under a year. Pick any game to build one; shorter lives make harder boards.', fleeting);
-    this.mountStructureSwitch();
     panel.scrollTop = 0;
     panel.setAttribute('aria-label', TABS.find((t) => t.id === this.tab)!.label);
-  }
-
-  /** The structure page's ways to see the atom: the orbitals assembled layer by layer, and the shells. */
-  private mountStructureSwitch(): void {
-    const slot = document.getElementById('struct-switch');
-    if (!slot) return;
-    const views = [...document.querySelectorAll<HTMLElement>('.st-view')];
-    const apply = (id: string) => {
-      this.structView = id;
-      for (const v of views) v.hidden = v.dataset.view !== id;
-    };
-    if (!STRUCTURE_VIEWS.some((v) => v.id === this.structView)) this.structView = 'orbitals';
-    const seg = createSegments(STRUCTURE_VIEWS, { active: this.structView, label: 'How to see the structure', onChange: apply });
-    slot.append(seg.el);
-    // Orbitals' Details: each orbital's name, each subshell's count and the notes; remembered.
-    const details = document.getElementById('om-details') as HTMLInputElement | null;
-    if (details) {
-      const map = document.querySelector<HTMLElement>('.om')!;
-      const paint = () => { map.classList.toggle('is-detailed', details.checked); document.querySelector('.om-notes')?.toggleAttribute('hidden', !details.checked); };
-      try { details.checked = localStorage.getItem('atomos.orbitals.details') === '1'; } catch { /* storage off */ }
-      details.onchange = () => { try { localStorage.setItem('atomos.orbitals.details', details.checked ? '1' : '0'); } catch { /* storage off */ } paint(); };
-      paint();
-    }
-    // The 2D shapes keep the same secret as 3D Shapes: a kind Glyph has not found yet shows a "?".
-    const hidden = new Set<string>(this.hiddenShapes);
-    const kinds = new Set<string>();
-    document.querySelectorAll<HTMLElement>('.os-glyph[data-l]').forEach((g) => {
-      const off = hidden.has(g.dataset.l!);
-      g.classList.toggle('is-hidden', off);
-      if (off) kinds.add(g.dataset.l!);
-    });
-    const note = document.querySelector<HTMLElement>('.os-hidden-note');
-    if (note && kinds.size) {
-      const ls = [...kinds] as OrbitalShape[];
-      const and = (xs: string[]) => xs.length > 1 ? `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}` : xs[0];
-      note.hidden = false;
-      note.textContent = `The ${and(ls)} shapes are still undiscovered. Find them with Glyph on ${and(ls.map((l) => elementAt(SHAPE_AT[l]).name.toLowerCase()))}.`;
-    }
-    seg.select(this.structView);
-    apply(this.structView);
-  }
-
-  /** The isotope page's filter: All, Stable, In nature, Radioactive; kept while stepping through elements. */
-  private mountIsotopeFilter(): void {
-    const slot = document.getElementById('iso-filter');
-    const table = document.getElementById('iso-table');
-    if (!slot || !table) return;
-    const counts = JSON.parse(slot.dataset.counts ?? '{}') as Record<string, number>;
-    const apply = (id: string) => {
-      this.isoFilter = id;
-      let shown = 0;
-      table.querySelectorAll<HTMLElement>('.it-row[data-kinds]').forEach((row) => {
-        const on = row.dataset.kinds!.split(' ').includes(id);
-        row.hidden = !on;
-        if (on) shown++;
-      });
-      table.classList.toggle('is-empty', shown === 0);
-    };
-    const seg = createSegments(ISO_FILTERS.map((f) => ({ id: f.id, label: `${f.label} ${counts[f.id] ?? 0}` })), { active: this.isoFilter, label: 'Show isotopes', onChange: apply });
-    slot.append(seg.el);
-    seg.select(this.isoFilter);
-    apply(this.isoFilter);
   }
 
   private key(ev: KeyboardEvent): void {
@@ -690,15 +415,15 @@ export class GalleryApp {
   show(): void {
     $('gallery-screen').hidden = false;
     this.refreshCollected();
+    this.atlas.show();
     this.registerScience();
-    this.sayLookLine();
-    if ($('loupe-screen').hidden) this.startMap(); else if (this.tab === 'model') this.detail.start();
+    if (!$('loupe-screen').hidden && this.tab === 'model') this.detail.start();
   }
 
   hide(): void {
     if (this.full.on) this.full.exit();
     $('gallery-screen').hidden = true;
-    this.gallery.stop();
+    this.atlas.hide();
     this.detail.stop();
   }
 
@@ -706,7 +431,6 @@ export class GalleryApp {
   syncSettings(): void {
     this.save = loadSave();
     writeSave(this.save);
-    this.gallery.setReducedMotion(this.save.settings.reducedMotion);
     this.detail.setReducedMotion(this.save.settings.reducedMotion);
   }
 }

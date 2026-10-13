@@ -1,369 +1,294 @@
-// Where each of the 118 atoms sits in the gallery, for each arrangement, and
-// the guide lines and captions that explain why it is arranged that way.
-// Positions are in scene units with roughly one unit between neighbours; the
-// camera fits whatever the layout spans.
+// The Atlas maps: where each of the 118 atoms sits in each arrangement, drawn as one continuous
+// shape (cells that touch, like a mosaic or a ribbon) instead of a scatter of tiles. Each cell is
+// an SVG path in map units, with the box its label may use; the map (atlasmap.ts) scales the
+// whole shape to the screen and shows symbols, numbers and names as the cells grow.
+//
+// The Table stands up on a portrait screen (periods across, groups down) so every symbol is
+// readable without pinching, and lies flat in landscape. The Ribbon follows J. F. Hyde's curled
+// ribbon of 1975: the groups run round one loop, the periods go from the inside out, and the f
+// block curls out as a loop of its own.
 
-import * as THREE from 'three';
-import { ELEMENTS, type Block, type Element } from './data';
+import { ELEMENTS, elementAt, type Element } from './data';
 
-export type LayoutId = 'spiral' | 'table' | 'ribbon' | 'circle';
+export type LayoutId = 'table' | 'ribbon' | 'spiral' | 'circle';
 export const LAYOUTS: { id: LayoutId; label: string; note: string }[] = [
-  { id: 'spiral', label: 'Spiral', note: 'One turn per period, starting at the top; each turn ends with a noble gas' },
-  { id: 'table', label: 'Table', note: 'Rows are periods, columns are groups; lanthanides and actinides sit below' },
+  { id: 'table', label: 'Table', note: 'Periods and groups, with the f block beside them' },
   { id: 'ribbon', label: 'Ribbon', note: "Hyde's curled ribbon: groups run round the loop, periods from the inside out" },
-  { id: 'circle', label: 'Circle', note: 'One ring per period, groups lined up along the spokes' },
+  { id: 'spiral', label: 'Spiral', note: 'One turn per period; each turn ends with a noble gas' },
+  { id: 'circle', label: 'Circle', note: 'One ring per period, groups along the spokes' },
 ];
-/** The longer story of each arrangement, behind the microscope on the gallery. */
+/** The longer story of each arrangement, behind the microscope on the Atlas. */
 export const LAYOUT_STORY: Record<LayoutId, string[]> = {
-  spiral: [
-    'Each turn of the spiral is one period: a row of the periodic table. A new turn starts when electrons begin filling a new shell, just right of the top, with an alkali metal.',
-    'Every turn ends just left of the top with a noble gas, whose outer shell is full. That is why the noble gases line up along the seam.',
-    'The colored rails show which kind of orbital each element is filling: s (blue), then f (violet) from period 6, then d (amber), then p (green). Longer turns hold more elements because the d and f orbitals open up.',
-  ],
   table: [
-    'The standard periodic table. Each row is a period; each column is a group of elements with the same arrangement of outer electrons, which is why they behave alike.',
-    'The blocks are named after the orbital being filled: s on the left, d in the middle, p on the right. The f block (lanthanides and actinides) belongs between groups 2 and 3 of periods 6 and 7; it sits below only to keep the table narrow.',
+    'The standard periodic table. Each period is one row of the usual table; each group gathers elements with the same arrangement of outer electrons, which is why they behave alike.',
+    'On a phone held upright the table stands on its side: periods run across and groups run down, so every symbol is large enough to read. Turn the phone sideways and it lies flat again.',
+    'The f block (cerium to lutetium, thorium to lawrencium) belongs between groups 3 and 4 of periods 6 and 7; it sits beside the table only to keep it compact.',
   ],
   ribbon: [
     "After J. F. Hyde's chart of 1975. The groups run round one continuous ribbon instead of breaking into rows, so the end of each period flows straight into the next.",
-    'Across the ribbon, periods go from the inside out. The band is narrower round the left loop because the d block only starts in period 4.',
-    'The f block rises from the top as a loop of its own, lanthanides inside and actinides outside, between groups 3 and 4 where it belongs.',
+    'Across the ribbon, periods go from the inside out. The band is narrower where the d block runs, because the d block only starts in period 4. Hydrogen and helium curl up in the middle.',
+    'The f block rises from the ribbon as a loop of its own, cerium to lutetium inside and thorium to lawrencium outside, between groups 3 and 4 where it belongs.',
+  ],
+  spiral: [
+    'Each turn of the spiral is one period: a row of the periodic table. A new turn starts when electrons begin filling a new shell, with an alkali metal.',
+    'Every turn ends with a noble gas, whose outer shell is full, so the noble gases line up along the seam at the top.',
+    'Later turns hold more elements because the d and f orbitals open up, which is why the spiral widens as it grows.',
   ],
   circle: [
     'One ring per period, from hydrogen and helium in the middle outward. Each spoke is a group, so elements that behave alike line up from the center out.',
     'The s and p groups take wider spokes than the d groups. Periods 2 and 3 have no d block, so their rings stay open on that side.',
-    'The f block hangs below as two arcs: lanthanides on the inner one, actinides on the outer.',
+    'The f block hangs below as two arcs: cerium to lutetium on the inner one, thorium to lawrencium on the outer.',
   ],
 };
 export const isLayoutId = (id: string | null): id is LayoutId => LAYOUTS.some((l) => l.id === id);
 
-export interface Placed {
+export interface Cell {
   z: number;
+  /** The cell's outline, in map units. */
+  d: string;
+  /** Where its label sits, and the box the label may fill. */
   x: number;
   y: number;
-  zz: number;
+  w: number;
+  h: number;
 }
 
-/** Colour of a guide: a plain rule, a fainter rule, or an orbital block's colour. */
-export type Tone = 'rule' | 'faint' | Block;
-
-export interface Guide {
-  pts: [number, number][];
-  tone: Tone;
-  dashed?: boolean;
-}
-
-export interface Marker {
+export interface MapLabel {
   x: number;
   y: number;
-  zz: number;
   text: string;
-  /** axis: small numbers; title: spaced capitals; block: a block's name in its colour. */
-  /** 'row' sits with its right edge at x, like a row heading. */
-  kind: 'axis' | 'title' | 'block' | 'row';
-  tone?: Tone;
+  /** 'axis': a period or group number; 'title': a caption such as "f block". */
+  kind: 'axis' | 'title';
 }
 
 export interface Layout {
   id: LayoutId;
-  atoms: Placed[];
-  markers: Marker[];
-  guides: Guide[];
-  /** Whether sideways drags turn the layout instead of panning it. */
-  rotates: boolean;
+  cells: Cell[];
+  labels: MapLabel[];
 }
 
-const PERIOD_RANGE: [number, number][] = [[1, 2], [3, 10], [11, 18], [19, 36], [37, 54], [55, 86], [87, 118]];
-const BLOCK_LABEL: Record<Block, string> = { s: 's block', p: 'p block', d: 'd block', f: 'f block' };
-const isF = (z: number) => (z >= 58 && z <= 71) || (z >= 90 && z <= 103);
+export type Orientation = 'portrait' | 'landscape';
 
-function arc(cx: number, cy: number, r: number, a0: number, a1: number, steps = 24): [number, number][] {
-  const out: [number, number][] = [];
-  for (let i = 0; i <= steps; i++) {
-    const a = a0 + ((a1 - a0) * i) / steps;
-    out.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r]);
-  }
-  return out;
+/** The 28 elements of the f block drawn apart from the groups: cerium to lutetium, thorium to
+ *  lawrencium. Lanthanum and actinium stay in group 3, as the dataset has them. */
+export const isF = (e: Element): boolean => e.group === null;
+const fIndex = (e: Element) => (e.period === 6 ? e.z - 58 : e.z - 90);
+
+const f1 = (v: number) => (Math.round(v * 100) / 100).toString();
+function poly(pts: [number, number][]): string {
+  return 'M' + pts.map(([x, y]) => `${f1(x)} ${f1(y)}`).join('L') + 'Z';
+}
+function rect(x: number, y: number, w: number, h: number, r: number): string {
+  return `M${f1(x + r)} ${f1(y)}H${f1(x + w - r)}Q${f1(x + w)} ${f1(y)} ${f1(x + w)} ${f1(y + r)}V${f1(y + h - r)}Q${f1(x + w)} ${f1(y + h)} ${f1(x + w - r)} ${f1(y + h)}H${f1(x + r)}Q${f1(x)} ${f1(y + h)} ${f1(x)} ${f1(y + h - r)}V${f1(y + r)}Q${f1(x)} ${f1(y)} ${f1(x + r)} ${f1(y)}Z`;
+}
+
+/** A band cell between two radii and two angles round a center (or along any curve given by
+ *  `at(t, r)`), as a polygon fine enough to look smooth. */
+function band(at: (t: number, r: number) => [number, number], t0: number, t1: number, r0: number, r1: number, steps = 8): string {
+  const pts: [number, number][] = [];
+  for (let i = 0; i <= steps; i++) pts.push(at(t0 + ((t1 - t0) * i) / steps, r0));
+  for (let i = steps; i >= 0; i--) pts.push(at(t0 + ((t1 - t0) * i) / steps, r1));
+  return poly(pts);
 }
 
 // ---------------------------------------------------------------------------
-// Spiral: one turn per period, clockwise from the top. Every turn starts with
-// an alkali metal just right of twelve o'clock and ends with a noble gas just
-// left of it, so the seam at the top is where each shell closes.
+// Table. Cells touch with a small seam, like a mosaic.
 
-const SPIRAL_RADII = [0.6, 1.7, 2.8, 3.9, 5.15, 6.35, 7.65, 8.9];
-function spiralPoint(period: number, t: number, inset = 0): [number, number] {
-  const pi = period - 1;
-  const r = SPIRAL_RADII[pi] + (SPIRAL_RADII[pi + 1] - SPIRAL_RADII[pi]) * t - inset;
-  const th = Math.PI / 2 - t * Math.PI * 2;
-  return [Math.cos(th) * r, Math.sin(th) * r];
-}
+const SEAM = 0.06;
 
-function spiral(): Layout {
-  const atoms: Placed[] = [];
-  const guides: Guide[] = [];
-  const markers: Marker[] = [];
+function table(o: Orientation): Layout {
+  const stand = o === 'portrait';
+  // Standing, a cell is wider than tall so names fit when zoomed; flat, a little taller than wide.
+  const cw = stand ? 1.45 : 1, ch = stand ? 1 : 1.15;
+  const cells: Cell[] = [];
+  const labels: MapLabel[] = [];
+  const place = (e: Element, col: number, row: number) => {
+    const x = col * cw, y = row * ch;
+    cells.push({ z: e.z, d: rect(x + SEAM / 2, y + SEAM / 2, cw - SEAM, ch - SEAM, 0.14), x: x + cw / 2, y: y + ch / 2, w: cw - SEAM, h: ch - SEAM });
+  };
   for (const e of ELEMENTS) {
-    const [a, b] = PERIOD_RANGE[e.period - 1];
-    const n = b - a + 1;
-    const t = (e.z - a + 0.5) / n;
-    const [x, y] = spiralPoint(e.period, t);
-    atoms.push({ z: e.z, x, y, zz: 0 });
-    // A coloured rail inside each atom: which orbital block it is filling.
-    const pts: [number, number][] = [];
-    for (let i = 0; i <= 6; i++) pts.push(spiralPoint(e.period, t + ((i / 6 - 0.5) * 0.92) / n, 0.5));
-    guides.push({ pts, tone: e.block });
+    if (isF(e)) {
+      const i = fIndex(e), k = e.period === 6 ? 0 : 1;
+      // Beside the table: two more columns standing, two more rows flat, starting level with group 4.
+      if (stand) place(e, 7.3 + k, 3 + i); else place(e, 3 + i, 7.3 + k);
+    } else if (stand) place(e, e.period - 1, e.group! - 1);
+    else place(e, e.group! - 1, e.period - 1);
   }
-  // The seam: every turn closes here.
-  guides.push({ pts: [[0, 0.25], [0, SPIRAL_RADII[7] + 0.5]], tone: 'faint', dashed: true });
-  markers.push({ x: 0, y: SPIRAL_RADII[7] + 1.0, zz: 0, text: 'noble gases close each turn', kind: 'title' });
-  for (let p = 1; p <= 7; p++) markers.push({ x: 0, y: SPIRAL_RADII[p - 1] - 0.12, zz: 0, text: String(p), kind: 'axis' });
-  const legendY = -SPIRAL_RADII[7] - 1.3;
-  (['s', 'f', 'd', 'p'] as Block[]).forEach((b, i) => markers.push({ x: (i - 1.5) * 2.2, y: legendY, zz: 0, text: BLOCK_LABEL[b], kind: 'block', tone: b }));
-  return { id: 'spiral', atoms, markers, guides, rotates: false };
+  const axis = (x: number, y: number, text: string, kind: MapLabel['kind'] = 'axis') => labels.push({ x, y, text, kind });
+  if (stand) {
+    for (let p = 1; p <= 7; p++) axis((p - 0.5) * cw, -0.45, String(p));
+    axis(7.8 * cw, 2.55 * ch, '4f');
+    axis(8.8 * cw, 2.55 * ch, '5f');
+    for (let g = 1; g <= 18; g++) axis(-0.45, (g - 0.5) * ch, String(g));
+  } else {
+    const topRow = (g: number) => (g === 1 || g === 18 ? 0 : g === 2 || g >= 13 ? 1 : 3);
+    for (let g = 1; g <= 18; g++) axis((g - 0.5) * cw, topRow(g) * ch - 0.4, String(g));
+    for (let p = 1; p <= 7; p++) axis(-0.45, (p - 0.5) * ch, String(p));
+    axis(2.55 * cw, 7.8 * ch, '4f');
+    axis(2.55 * cw, 8.8 * ch, '5f');
+  }
+  return { id: 'table', cells, labels };
 }
 
 // ---------------------------------------------------------------------------
-// Table.
+// Ribbon. A peanut-shaped loop: R(θ) = a(1 + k cos 2θ) is the inner edge, and each period from
+// 2 to 7 is one band further out. Groups run anticlockwise from the right: 1 and 2, then 3, the
+// f loop, 4 to 12 round the far lobe (the d block, four bands deep), 13 to 17, and 18 closing
+// back where 1 began. Hydrogen and helium curl in the near lobe's heart.
 
-const TABLE_DX = 1.05;
-const TABLE_DY = 1.3;
-function tableXY(col: number, row: number): [number, number] {
-  return [(col - 8.5) * TABLE_DX, -(row - 4.75) * TABLE_DY];
-}
-function tableCell(e: Element): { col: number; row: number } {
-  if (e.z >= 57 && e.z <= 71) return { col: 2 + (e.z - 57), row: 8.5 };
-  if (e.z >= 89 && e.z <= 103) return { col: 2 + (e.z - 89), row: 9.5 };
-  return { col: (e.group ?? 3) - 1, row: e.period - 1 };
-}
-
-function table(): Layout {
-  const atoms = ELEMENTS.map((e) => {
-    const { col, row } = tableCell(e);
-    const [x, y] = tableXY(col, row);
-    return { z: e.z, x, y, zz: 0 };
-  });
-  const markers: Marker[] = [];
-  const guides: Guide[] = [];
-  // Group numbers above the top cell of each column.
-  const topRow = (g: number) => (g === 1 || g === 18 ? 0 : g === 2 || g >= 13 ? 1 : 3);
+const RIB_A = 4.4;
+const RIB_K = 0.5;
+const ribR = (th: number) => RIB_A * (1 + RIB_K * Math.cos(2 * th));
+/** Degrees each group spans: s and p groups wider than d groups. */
+const ribSpan = (g: number) => (g <= 2 || g >= 13 ? 21 : 17);
+const RIB_START = 7;
+const RIB_F_GAP = 8;
+const ribAngles: Record<number, [number, number]> = (() => {
+  const out: Record<number, [number, number]> = {};
+  let t = RIB_START;
   for (let g = 1; g <= 18; g++) {
-    const [x, y] = tableXY(g - 1, topRow(g) - 0.62);
-    markers.push({ x, y, zz: 0, text: String(g), kind: 'axis' });
-  }
-  for (let p = 1; p <= 7; p++) {
-    const [x, y] = tableXY(-0.85, p - 1);
-    markers.push({ x, y: y + 0.1, zz: 0, text: String(p), kind: 'axis' });
-  }
-  // Block rails over the columns they cover, with the block named once.
-  const rail = (b: Block, c0: number, c1: number, row: number) => {
-    const [x0, y] = tableXY(c0 - 0.42, row - 0.9);
-    const [x1] = tableXY(c1 + 0.42, row - 0.9);
-    guides.push({ pts: [[x0, y], [x1, y]], tone: b });
-    markers.push({ x: (x0 + x1) / 2, y: y + 0.32, zz: 0, text: BLOCK_LABEL[b], kind: 'block', tone: b });
-  };
-  rail('s', 0, 1, 0);
-  rail('d', 2, 11, 3);
-  rail('p', 12, 17, 1);
-  const [fx0, fy] = tableXY(2 - 0.42, 8.5 - 0.9);
-  const [fx1] = tableXY(16 + 0.42, 8.5 - 0.9);
-  guides.push({ pts: [[fx0, fy], [fx1, fy]], tone: 'f' });
-  // Where the f rows belong: they open between groups 2 and 3 of periods 6 and 7.
-  for (const [row, label] of [[8.5, 'lanthanides'], [9.5, 'actinides']] as [number, string][]) {
-    const [x, y] = tableXY(-0.1, row);
-    markers.push({ x: x + 1.45, y: y + 0.1, zz: 0, text: label, kind: 'row' });
-  }
-  const [gx, gy6] = tableXY(2, 5);
-  const [, gy7] = tableXY(2, 6);
-  const [, fyTop] = tableXY(2, 8.5 - 0.9);
-  guides.push({ pts: [[gx - 0.55, gy6 + 0.5], [gx - 0.55, fyTop - 0.1]], tone: 'faint', dashed: true });
-  guides.push({ pts: [[gx - 0.55, gy7 - 0.4], [fx0 + 0.2, fy]], tone: 'faint', dashed: true });
-  markers.push({ x: (fx0 + fx1) / 2, y: fy + 0.32, zz: 0, text: BLOCK_LABEL.f, kind: 'block', tone: 'f' });
-  return { id: 'table', atoms, markers, guides, rotates: false };
-}
-
-// ---------------------------------------------------------------------------
-// Curled ribbon, after J. F. Hyde's chart (1975). The groups run round a
-// closed band, anticlockwise from the top: 4 to 12 round the left lobe, 13 to
-// 17 along the bottom, 18, 1 and 2 round the right lobe, 3 back at the top.
-// Across the band, periods run from the inside out. The f block rises from
-// the top of the band as a loop of its own, lanthanides inside, actinides out.
-
-const RIBBON_ROW = 0.9;
-const RIBBON_ORDER = [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 1, 2, 3];
-const RIBBON_SLOTS = 19.5;
-let ribbonCurve: THREE.CatmullRomCurve3 | null = null;
-function ribbonSpine(): THREE.CatmullRomCurve3 {
-  if (!ribbonCurve) {
-    const c: [number, number][] = [
-      [0, 2.0], [-3, 3.5], [-6.5, 5.0], [-10.4, 3.4], [-11.6, 0], [-10.4, -3.4], [-6.5, -5.0], [-3, -4.5],
-      [0, -3.4], [3, -4.5], [6.5, -5.0], [10.4, -3.4], [11.6, 0], [10.4, 3.4], [6.5, 5.0], [3, 3.5],
-    ];
-    ribbonCurve = new THREE.CatmullRomCurve3(c.map(([x, y]) => new THREE.Vector3(x, y, 0)), true, 'centripetal');
-  }
-  return ribbonCurve;
-}
-/** A point on the band: u runs anticlockwise round the spine from the top; row 0 is the spine, positive rows outward. */
-function ribbonPoint(u: number, row: number): [number, number] {
-  const c = ribbonSpine();
-  const uu = ((u % 1) + 1) % 1;
-  const p = c.getPointAt(uu);
-  const t = c.getTangentAt(uu);
-  // Anticlockwise, the inside of the loop is on the left of the tangent.
-  return [p.x + t.y * row, p.y - t.x * row];
-}
-const ribbonU = (group: number) => (0.75 + RIBBON_ORDER.indexOf(group)) / RIBBON_SLOTS;
-const ribbonRow = (period: number) => (period - 4) * RIBBON_ROW;
-
-const LOOP_CY = 10.0;
-const LOOP_R = [2.35, 3.4];
-const loopAngle = (i: number) => ((-50 + (i * 280) / 13) * Math.PI) / 180;
-
-function ribbon(): Layout {
-  const atoms: Placed[] = [];
-  const guides: Guide[] = [];
-  const markers: Marker[] = [];
-  for (const e of ELEMENTS) {
-    if (isF(e.z)) {
-      const i = e.z >= 90 ? e.z - 90 : e.z - 58;
-      const a = loopAngle(i);
-      const r = LOOP_R[e.z >= 90 ? 1 : 0];
-      atoms.push({ z: e.z, x: Math.cos(a) * r, y: LOOP_CY + Math.sin(a) * r, zz: 0 });
-      continue;
-    }
-    const [x, y] = ribbonPoint(ribbonU(e.group!), ribbonRow(e.period));
-    atoms.push({ z: e.z, x, y, zz: 0 });
-  }
-  // The band's outer edge, broken where the f loop rises.
-  const edge = (row: number) => {
-    const pts: [number, number][] = [];
-    const u0 = 0.3 / RIBBON_SLOTS, u1 = 1 - 0.3 / RIBBON_SLOTS;
-    for (let i = 0; i <= 160; i++) pts.push(ribbonPoint(u0 + ((u1 - u0) * i) / 160, row));
-    return pts;
-  };
-  const outerRow = ribbonRow(7) + 0.62;
-  guides.push({ pts: edge(outerRow), tone: 'faint' });
-  // Each group is a column across the band: a divider on each side, and an inner
-  // edge at its first period, so the band narrows where the d block starts at period 4.
-  const firstPeriod = (g: number) => (g === 1 || g === 18 ? 1 : g === 2 || g >= 13 ? 2 : 4);
-  const half = 0.5 / RIBBON_SLOTS;
-  for (const g of RIBBON_ORDER) {
-    const u = ribbonU(g);
-    const inner = ribbonRow(firstPeriod(g)) - 0.55;
-    const seg: [number, number][] = [];
-    for (let i = 0; i <= 8; i++) seg.push(ribbonPoint(u - half + (2 * half * i) / 8, inner));
-    guides.push({ pts: seg, tone: 'faint' });
-    for (const side of [-half, half]) guides.push({ pts: [ribbonPoint(u + side, inner), ribbonPoint(u + side, outerRow)], tone: 'faint' });
-    // Block rail along the outer edge, and the group number beyond it.
-    const b: Block = g <= 2 ? 's' : g <= 12 ? 'd' : 'p';
-    const rail: [number, number][] = [];
-    for (let i = 0; i <= 8; i++) rail.push(ribbonPoint(u - half * 0.92 + (1.84 * half * i) / 8, outerRow + 0.14));
-    guides.push({ pts: rail, tone: b });
-    const [x, y] = ribbonPoint(u, outerRow + 0.6);
-    markers.push({ x, y, zz: 0, text: String(g), kind: 'axis' });
-  }
-  // The f loop rises between groups 3 and 4: its rails, its stem and its names.
-  guides.push({ pts: arc(0, LOOP_CY, LOOP_R[0] - 0.55, loopAngle(0) - 0.12, loopAngle(13) + 0.12, 48), tone: 'f' });
-  guides.push({ pts: arc(0, LOOP_CY, LOOP_R[1] + 0.55, loopAngle(0) - 0.1, loopAngle(13) + 0.1, 48), tone: 'faint' });
-  for (const a of [loopAngle(0) - 0.1, loopAngle(13) + 0.1]) {
-    const top: [number, number] = [Math.cos(a) * (LOOP_R[1] + 0.55), LOOP_CY + Math.sin(a) * (LOOP_R[1] + 0.55)];
-    const foot = ribbonPoint(a < 0 ? ribbonU(3) + half : ribbonU(4) - half, outerRow);
-    guides.push({ pts: [top, foot], tone: 'faint', dashed: true });
-  }
-  markers.push({ x: 0, y: LOOP_CY, zz: 0, text: 'f block', kind: 'title' });
-  const blockAt = (b: Block, g: number) => {
-    const [x, y] = ribbonPoint(ribbonU(g), outerRow + 1.35);
-    markers.push({ x, y, zz: 0, text: BLOCK_LABEL[b], kind: 'block', tone: b });
-  };
-  blockAt('d', 8);
-  blockAt('p', 15);
-  blockAt('s', 1);
-  return { id: 'ribbon', atoms, markers, guides, rotates: false };
-}
-
-// ---------------------------------------------------------------------------
-// Circle: one ring per period, the groups lined up along spokes. The s and p
-// groups take wider spokes than the d groups, so periods 2 and 3, which have
-// no d block, fill only part of their rings. Groups run anticlockwise from
-// group 1 at the bottom; the seam between group 18 and group 1 is where each
-// ring closes and the next one starts.
-
-const CIRCLE_R = (period: number) => 1.0 + period * 1.1;
-const SP_W = 24;
-const D_W = (360 - 8 * SP_W) / 10;
-const CIRCLE_ANGLE: number[] = (() => {
-  const out: number[] = [];
-  let a = 270;
-  out[1] = a;
-  for (let g = 2; g <= 18; g++) {
-    const prev = g - 1 >= 3 && g - 1 <= 12 ? D_W : SP_W;
-    const cur = g >= 3 && g <= 12 ? D_W : SP_W;
-    a += (prev + cur) / 2;
-    out[g] = a;
+    out[g] = [t, t + ribSpan(g)];
+    t += ribSpan(g);
+    if (g === 3) t += RIB_F_GAP;
   }
   return out;
 })();
-const rad = (deg: number) => (deg * Math.PI) / 180;
-const F_R = [11.5, 12.6];
+const rad = (d: number) => (d * Math.PI) / 180;
 
-function circle(): Layout {
-  const atoms: Placed[] = [];
-  const guides: Guide[] = [];
-  const markers: Marker[] = [];
-  const fStep = 1.15 / F_R[0];
+function ribbon(o: Orientation): Layout {
+  // Upright on a portrait screen: the lobes stack top and bottom and the f loop leans left.
+  const P = (th: number, r: number): [number, number] => {
+    const x = Math.cos(th) * r, y = Math.sin(th) * r;
+    return o === 'portrait' ? [-y, -x] : [x, -y];
+  };
+  const at = (deg: number, slot: number) => P(rad(deg), ribR(rad(deg)) + slot);
+  const cells: Cell[] = [];
+  const labels: MapLabel[] = [];
   for (const e of ELEMENTS) {
-    if (isF(e.z)) {
-      const i = e.z >= 90 ? e.z - 90 : e.z - 58;
-      const a = rad(270) + (6.5 - i) * fStep;
-      const r = F_R[e.z >= 90 ? 1 : 0];
-      atoms.push({ z: e.z, x: Math.cos(a) * r, y: Math.sin(a) * r, zz: 0 });
-      continue;
-    }
-    const a = rad(CIRCLE_ANGLE[e.group!]);
-    const r = CIRCLE_R(e.period);
-    atoms.push({ z: e.z, x: Math.cos(a) * r, y: Math.sin(a) * r, zz: 0 });
+    if (isF(e) || e.period === 1) continue;
+    const [d0, d1] = ribAngles[e.group!];
+    const s0 = e.period - 2;
+    const mid = (d0 + d1) / 2;
+    const [x, y] = at(mid, s0 + 0.5);
+    const len = rad(d1 - d0) * (ribR(rad(mid)) + s0 + 0.5);
+    cells.push({ z: e.z, d: band(at, d0 + 0.35, d1 - 0.35, s0 + 0.03, s0 + 0.97), x, y, w: len * 0.86, h: 0.9 });
   }
-  // Faint rings for the periods, broken where a short period has no atoms.
-  for (let p = 1; p <= 7; p++) {
-    const r = CIRCLE_R(p) - 0.5;
-    if (p <= 3) {
-      // Periods 1 to 3: only the s and p spokes.
-      guides.push({ pts: arc(0, 0, r, rad(CIRCLE_ANGLE[13] - SP_W / 2), rad(CIRCLE_ANGLE[2] + SP_W / 2 + 360), 40), tone: 'faint' });
-    } else guides.push({ pts: arc(0, 0, r, 0, Math.PI * 2, 96), tone: 'faint' });
-    const sa = rad(CIRCLE_ANGLE[18] + SP_W / 2);
-    markers.push({ x: Math.cos(sa) * CIRCLE_R(p), y: Math.sin(sa) * CIRCLE_R(p) - 0.1, zz: 0, text: String(p), kind: 'axis' });
-  }
-  // The seam between group 18 and group 1.
-  const sa = rad(CIRCLE_ANGLE[18] + SP_W / 2);
-  guides.push({ pts: [[Math.cos(sa) * 1.0, Math.sin(sa) * 1.0], [Math.cos(sa) * (CIRCLE_R(7) + 0.5), Math.sin(sa) * (CIRCLE_R(7) + 0.5)]], tone: 'faint', dashed: true });
-  // Block rails and group numbers round the outside.
-  const outer = CIRCLE_R(7) + 0.62;
   for (let g = 1; g <= 18; g++) {
-    const w = g >= 3 && g <= 12 ? D_W : SP_W;
-    const b: Block = g <= 2 ? 's' : g <= 12 ? 'd' : 'p';
-    guides.push({ pts: arc(0, 0, outer, rad(CIRCLE_ANGLE[g] - w * 0.44), rad(CIRCLE_ANGLE[g] + w * 0.44), 8), tone: b });
-    const a = rad(CIRCLE_ANGLE[g]);
-    const lr = outer + 0.42;
-    markers.push({ x: Math.cos(a) * lr, y: Math.sin(a) * lr - 0.12, zz: 0, text: String(g), kind: 'axis' });
+    const [d0, d1] = ribAngles[g];
+    const [x, y] = at((d0 + d1) / 2, 6.55);
+    labels.push({ x, y, text: String(g), kind: 'axis' });
   }
-  const label = (b: Block, deg: number, r: number) => markers.push({ x: Math.cos(rad(deg)) * r, y: Math.sin(rad(deg)) * r, zz: 0, text: BLOCK_LABEL[b], kind: 'block', tone: b });
-  label('d', 30, outer + 1.3);
-  label('p', 192, outer + 1.4);
-  // The f block hangs below as two arcs.
-  const f0 = rad(270) + 6.5 * fStep + 0.06, f1 = rad(270) - 6.5 * fStep - 0.06;
-  guides.push({ pts: arc(0, 0, F_R[0] - 0.55, f0, f1, 40), tone: 'f' });
-  markers.push({ x: 0, y: -(F_R[1] + 1.0), zz: 0, text: 'lanthanides inside, actinides outside', kind: 'title' });
-  return { id: 'circle', atoms, markers, guides, rotates: false };
+  // Hydrogen and helium in the near lobe.
+  const [hx, hy] = P(0, RIB_A * 0.75);
+  for (const [z, s] of [[1, -1], [2, 1]] as const) {
+    const x = o === 'portrait' ? hx + s * 0.75 : hx, y = o === 'portrait' ? hy : hy + s * 0.75;
+    cells.push({ z, d: rect(x - 0.6, y - 0.6, 1.2, 1.2, 0.2), x, y, w: 1.2, h: 1.2 });
+  }
+  // The f loop: an annulus standing off the ribbon between groups 3 and 4, open where it joins.
+  const midDeg = (ribAngles[3][1] + ribAngles[4][0]) / 2;
+  const base = at(midDeg, 6.2);
+  const out = at(midDeg, 7.2);
+  const dir = [out[0] - base[0], out[1] - base[1]];
+  const rIn = 1.7, gap = 0.9;
+  const cx = base[0] + dir[0] * (rIn + 2.4), cy = base[1] + dir[1] * (rIn + 2.4);
+  const open = Math.atan2(-dir[1], -dir[0]);
+  const loopAt = (q: number, r: number): [number, number] => [cx + Math.cos(q) * r, cy + Math.sin(q) * r];
+  for (const e of ELEMENTS.filter(isF)) {
+    const i = fIndex(e), k = e.period === 6 ? 0 : 1;
+    const q0 = open + gap / 2 + ((2 * Math.PI - gap) * i) / 14, q1 = open + gap / 2 + ((2 * Math.PI - gap) * (i + 1)) / 14;
+    const r0 = rIn + k, qm = (q0 + q1) / 2;
+    const [x, y] = loopAt(qm, r0 + 0.5);
+    cells.push({ z: e.z, d: band(loopAt, q0 + 0.015, q1 - 0.015, r0 + 0.03, r0 + 0.97, 5), x, y, w: (q1 - q0) * (r0 + 0.5) * 0.86, h: 0.9 });
+  }
+  labels.push({ x: cx, y: cy, text: 'f', kind: 'title' });
+  return { id: 'ribbon', cells, labels };
 }
 
-const builders: Record<LayoutId, () => Layout> = { spiral, table, ribbon, circle };
-const cache = new Map<LayoutId, Layout>();
+// ---------------------------------------------------------------------------
+// Spiral: one turn per period, clockwise from the top. Each turn starts with an alkali metal
+// just right of twelve o'clock and ends with a noble gas just left of it.
 
-export function layout(id: LayoutId): Layout {
-  let l = cache.get(id);
+const SPIRAL_RADII = [0.9, 2.0, 3.1, 4.2, 5.4, 6.6, 7.9, 9.2];
+const PERIOD_RANGE: [number, number][] = [[1, 2], [3, 10], [11, 18], [19, 36], [37, 54], [55, 86], [87, 118]];
+
+function spiral(): Layout {
+  const cells: Cell[] = [];
+  const labels: MapLabel[] = [];
+  for (const e of ELEMENTS) {
+    const [a, b] = PERIOD_RANGE[e.period - 1];
+    const n = b - a + 1, i = e.z - a;
+    const pi = e.period - 1;
+    const at = (t: number, off: number): [number, number] => {
+      const r = SPIRAL_RADII[pi] + (SPIRAL_RADII[pi + 1] - SPIRAL_RADII[pi]) * t + off;
+      const th = Math.PI / 2 - t * Math.PI * 2;
+      return [Math.cos(th) * r, -Math.sin(th) * r];
+    };
+    const t0 = i / n, t1 = (i + 1) / n;
+    const pad = 0.025 / Math.max(1, SPIRAL_RADII[pi]) * 2;
+    const [x, y] = at((t0 + t1) / 2, 0);
+    const r = SPIRAL_RADII[pi] + (SPIRAL_RADII[pi + 1] - SPIRAL_RADII[pi]) * ((t0 + t1) / 2);
+    cells.push({ z: e.z, d: band(at, t0 + pad, t1 - pad, -0.5, 0.5, Math.max(3, Math.round(24 / n * 4))), x, y, w: Math.min(1.6, (t1 - t0) * 2 * Math.PI * r * 0.86), h: 0.94 });
+  }
+  for (let p = 1; p <= 7; p++) labels.push({ x: -0.28, y: -SPIRAL_RADII[p - 1], text: String(p), kind: 'axis' });
+  return { id: 'spiral', cells, labels };
+}
+
+// ---------------------------------------------------------------------------
+// Circle: one ring per period, groups along the spokes, s and p spokes wider than d ones.
+
+const ringR = (period: number) => 1.0 + period * 1.1;
+const SP_W = 24;
+const D_W = (360 - 8 * SP_W) / 10;
+const spokeW = (g: number) => (g >= 3 && g <= 12 ? D_W : SP_W);
+const SPOKE: number[] = (() => {
+  const out: number[] = [];
+  let a = 270;
+  out[1] = a;
+  for (let g = 2; g <= 18; g++) { a += (spokeW(g - 1) + spokeW(g)) / 2; out[g] = a; }
+  return out;
+})();
+const F_R = [11.0, 12.1];
+
+function circle(): Layout {
+  const cells: Cell[] = [];
+  const labels: MapLabel[] = [];
+  const at = (deg: number, r: number): [number, number] => [Math.cos(rad(deg)) * r, -Math.sin(rad(deg)) * r];
+  for (const e of ELEMENTS) {
+    if (isF(e)) continue;
+    const r = ringR(e.period), w = spokeW(e.group!), m = SPOKE[e.group!];
+    const [x, y] = at(m, r);
+    cells.push({ z: e.z, d: band(at, m - w / 2 + 0.3, m + w / 2 - 0.3, r - 0.53, r + 0.53), x, y, w: Math.min(1.5, rad(w) * r * 0.86), h: 0.98 });
+  }
+  // The f block: two arcs under the rings, centered at the bottom.
+  for (const e of ELEMENTS.filter(isF)) {
+    const i = fIndex(e), r = F_R[e.period === 6 ? 0 : 1];
+    const step = (1.2 / r) * (180 / Math.PI);
+    const m = 270 + (i - 6.5) * step;
+    const [x, y] = at(m, r);
+    cells.push({ z: e.z, d: band(at, m - step / 2 + 0.2, m + step / 2 - 0.2, r - 0.53, r + 0.53, 4), x, y, w: 1.05, h: 0.98 });
+  }
+  for (let p = 1; p <= 7; p++) {
+    const [x, y] = at(SPOKE[18] + SP_W / 2 + 4, ringR(p));
+    labels.push({ x, y, text: String(p), kind: 'axis' });
+  }
+  for (let g = 1; g <= 18; g++) {
+    const [x, y] = at(SPOKE[g], ringR(7) + 1.05);
+    labels.push({ x, y, text: String(g), kind: 'axis' });
+  }
+  return { id: 'circle', cells, labels };
+}
+
+const cache = new Map<string, Layout>();
+/** A map's cells and labels, standing or flat for the screen's shape. */
+export function layout(id: LayoutId, o: Orientation = 'landscape'): Layout {
+  const key = `${id}:${id === 'table' || id === 'ribbon' ? o : ''}`;
+  let l = cache.get(key);
   if (!l) {
-    l = builders[id]();
-    cache.set(id, l);
+    l = id === 'table' ? table(o) : id === 'ribbon' ? ribbon(o) : id === 'spiral' ? spiral() : circle();
+    cache.set(key, l);
   }
   return l;
 }
+
+/** The element at the center of a cell, for tests. */
+export const cellElement = (c: Cell): Element => elementAt(c.z);

@@ -1,6 +1,6 @@
 // The atom navigator: the bar across the top of the atom screens. The host places it (the
 // element is a plain flex row 60px tall). It is the top of the atom screens, which have no
-// title row. Left to right: Back (to Collect, or Tables if the atom was opened there), the
+// title row. Left to right: Back (to Collect, or the Atlas if the atom was opened there), the
 // element (its number and symbol on one line, its name under them in the screen titles' style),
 // and the Atoms button (atomlist.ts), which opens the list of every atom; a tap on the name opens
 // it too. (The Build page's single track marks its own Stable and Fleeting parts, so the bar

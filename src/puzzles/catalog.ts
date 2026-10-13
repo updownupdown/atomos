@@ -147,7 +147,7 @@ export type Tier = 'every' | 'facet' | 'gate' | 'reserve';
 export const TIER_NOTE: Record<Tier, string> = {
   every: 'The first two puzzles you meet, building nuclei and electrons; other puzzles share those steps atom by atom.',
   facet: 'Build isotopes, and share the atom steps. Each lasting isotope has its own puzzle; for a fleeting one you pick.',
-  gate: 'Open new ways to see the collection: map lenses, looks, the nucleus view and orbital shapes.',
+  gate: 'Open new ways to see the atoms: the nucleus view and the orbital shapes.',
   reserve: 'Built to try out; no place in the game yet.',
 };
 
@@ -366,12 +366,12 @@ export const PUZZLES: PuzzleType[] = [
   },
   {
     id: 'codebreaker', name: 'Glyph', tier: 'gate',
-    use: 'Display unlocks · 12 in all',
+    use: 'Display unlocks · 4 in all',
     get rules() { return rulesOf(CodeV); },
     goal: 'Crack the sealed code of four.',
     blurb: 'Guess the sealed sequence of four; each guess earns clues about what was right.',
     role: 'Played twelve times in all, never more: each solve opens a way to see the collection (two map lenses, six looks, the nucleus view, and the p, d and f orbital shapes).',
-    live: 'Tables: the Ribbon and Circle lenses on the map. Atoms: six looks and the nucleus view. Build mode: the p, d and f orbital shapes on boron, scandium and cerium.',
+    live: 'Atoms: the nucleus view. Build mode: the p, d and f orbital shapes on boron, scandium and cerium.',
     instructions: CODE_HOW,
     zRange: [104, 118],
     ladder: (z, seed, reduced) => new CodebreakerView(newCodebreaker(z, seed), reduced),

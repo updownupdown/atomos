@@ -1,13 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import { elementAt, ELEMENTS } from '../src/gallery/data';
-import { lensUnlock, lookOf, lookUnlock, LOOKS } from '../src/gallery/looks';
+import { inkOn, lookColor, lookOf, LOOKS } from '../src/gallery/looks';
+import { placeColour } from '../src/gallery/data';
 
 const state = (z: number) => lookOf('state').value!(elementAt(z));
 
 describe('gallery looks', () => {
-  it('are Block plus the six that Glyph opens', () => {
-    expect(LOOKS.filter((l) => lookUnlock(l.id))).toHaveLength(6);
-    expect(lookUnlock('block')).toBeNull();
+  it('start with Place and give every element a fill under every look', () => {
+    expect(LOOKS[0].id).toBe('place');
+    expect(lookColor('place', elementAt(26))).toBe(placeColour(elementAt(26)));
+    for (const l of LOOKS) for (const e of ELEMENTS) expect(lookColor(l.id, e), `${l.id} ${e.z}`).toMatch(/^#[0-9a-f]{6}$/);
+  });
+
+  it('write dark text on pale fills and white on deep ones', () => {
+    expect(inkOn('#e4e8ea')).toBe('#0b0c0d');
+    expect(inkOn('#24407a')).toBe('#ffffff');
   });
 
   it('name the state at room temperature correctly', () => {
@@ -29,12 +36,5 @@ describe('gallery looks', () => {
       }
     }
     expect(lookOf('density').value!(elementAt(108))).toBeNull();
-  });
-
-  it('open Spiral and Table from the start; Lumen opens the rest', () => {
-    expect(lensUnlock('spiral')).toBeNull();
-    expect(lensUnlock('table')).toBeNull();
-    expect(lensUnlock('ribbon')).toBe('lens:ribbon');
-    expect(lensUnlock('circle')).toBe('lens:circle');
   });
 });

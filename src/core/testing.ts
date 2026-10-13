@@ -1,7 +1,6 @@
 // Testing aid: fill the save to a share of the whole game, to see how screens look at 0%, 25%,
 // 50% and 100%. Settings offers it in place of the old "Unlock every element" switch.
 
-import { LOOKS, lensUnlock } from '../gallery/looks';
 import { MAX_Z } from './elements';
 import { isotopeKey } from './isotopes';
 import { fleetingIsotopes, lastingIsotopes, SHAPE_AT, stepsOf } from './progress';
@@ -12,12 +11,10 @@ import type { UnlockId } from './unlocks';
 export const PROGRESS_PRESETS = [0, 25, 50, 100] as const;
 export type ProgressPreset = (typeof PROGRESS_PRESETS)[number];
 
-/** Every gallery unlock, in the order a player would roughly come to them. */
+/** Every display unlock a gate puzzle opens, in the order a player would roughly come to them.
+ *  The Atlas's views and colors are open to everyone; the orbital shapes are counted apart. */
 export function allUnlocks(): UnlockId[] {
-  const lenses = (['spiral', 'table', 'ribbon', 'circle'] as const).map(lensUnlock).filter((id): id is UnlockId => id !== null);
-  const looks = LOOKS.map((l) => (l.id === 'block' ? null : (`look:${l.id}` as UnlockId))).filter((id): id is UnlockId => id !== null);
-  const order: (UnlockId | undefined)[] = [lenses[0], 'nucleus-view', looks[0], lenses[1], ...looks.slice(1)];
-  return order.filter((id): id is UnlockId => Boolean(id));
+  return ['nucleus-view'];
 }
 
 /**

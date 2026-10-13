@@ -1,12 +1,14 @@
-// Tables: every element in one reference table, with a search, filters, a sort and a grouping.
-// It shows only what it is asked about: the symbol, number and name, then the column it is
-// sorted by and each column it is filtered by. Grouping splits it into headed sections
-// (periods, groups, blocks, categories or states). No progress here: that is Collect's.
+// Details, the Atlas's list view: every element as a row, with filters, a sort and a grouping;
+// the search lives in the Atlas's tools row and is handed in. Each row shows the atom's plate in
+// the chosen Color, its name, number and category, and the value it is sorted by, drawn as a bar
+// so a sort reads at a glance. Grouping splits it into headed sections (periods, groups, blocks,
+// categories or states). No progress here: that is Collect's.
 //
-//   const table = createTable({ onPick: (z) => openAtom(z) });
-//   panel.append(table.el);
+//   const table = createTable({ onPick: (z) => openPage(z) });
+//   table.setQuery('iron');
 
 import { ELEMENTS, placeColour, type Element } from './data';
+import { inkOn } from './looks';
 import { COL, ROOM_STATES, roomState, sortElements, type SortKey } from '../ui/elementlist';
 import { searchElements } from '../ui/search';
 import { icon } from '../ui/icons';
@@ -75,13 +77,23 @@ export function tableColumns(st: TableState): SortKey[] {
   return cols;
 }
 
+/** Columns whose values past rutherfordium are predictions, not measurements. */
+const PREDICTED: SortKey[] = ['density', 'melt', 'boil'];
+/** Whether an element's value in a column is a prediction. */
+export const isPredicted = (e: Element, k: SortKey): boolean => PREDICTED.includes(k) && e.z >= 104 && COL[k].value(e, null as never) !== null;
+/** Predicted values go after every measured one, keeping their own order. */
+function afterMeasured(list: Element[], k: SortKey): Element[] {
+  if (!PREDICTED.includes(k)) return list;
+  return [...list.filter((e) => !isPredicted(e, k)), ...list.filter((e) => isPredicted(e, k))];
+}
+
 /** The rows in order, cut into sections when grouped (one untitled section otherwise). A search
  *  puts best matches first in a single section, and ignores the filters' order but not their cut. */
 export function tableRows(st: TableState, query = ''): { title: string; rows: Element[] }[] {
   const save = loadSave();
   const keep = (e: Element) => FILTER_KEYS.every((k) => !st.filters[k].length || st.filters[k].includes(filterValue(e, k)));
   if (query.trim()) return [{ title: '', rows: searchElements(query).filter(keep) }];
-  const list = sortElements(ELEMENTS, st.sort, st.desc, save).filter(keep);
+  const list = afterMeasured(sortElements(ELEMENTS, st.sort, st.desc, save), st.sort).filter(keep);
   if (st.group === 'none') return [{ title: '', rows: list }];
   // Sections follow the grouping column's own order; inside each, the rows keep the sort.
   const col = COL[st.group];
@@ -94,16 +106,33 @@ export function tableRows(st: TableState, query = ''): { title: string; rows: El
 
 export interface Table {
   el: HTMLElement;
-  focusSearch(): void;
+  /** Show only the elements a search finds, best matches first ('' for all). */
+  setQuery(q: string): void;
+  /** Each plate's fill. */
+  setColors(fn: (e: Element) => string): void;
+  /** The elements in the order shown, search aside: an atom's page walks the whole sorted list. */
+  order(): number[];
 }
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 const STORE = 'atomos.tables';
+const SERIES_ONE: Record<string, string> = {
+  'Alkali metals': 'Alkali metal', 'Alkaline earth metals': 'Alkaline earth metal', 'Transition metals': 'Transition metal',
+  'Poor metals': 'Post-transition metal', Metalloids: 'Metalloid', Nonmetals: 'Nonmetal', Halogens: 'Halogen',
+  'Noble gases': 'Noble gas', Lanthanides: 'Lanthanide', Actinides: 'Actinide',
+};
+/** "Transition metal", one of a category. */
+export const seriesOne = (e: Element): string => SERIES_ONE[e.series] ?? e.series;
+/** The unit after a sorted value. */
+const UNIT: Partial<Record<SortKey, string>> = { density: 'g/cm³', melt: '°C', boil: '°C', radius: 'pm' };
+/** Sorts whose value is already on the row (the number and the name). */
+const ON_ROW: SortKey[] = ['z', 'name', 'symbol'];
 
 export function createTable(opts: { onPick: (z: number) => void }): Table {
   let st: TableState;
   try { st = readTableState(localStorage.getItem(STORE)); } catch { st = readTableState(null); }
   let query = '';
+  let colors: (e: Element) => string = placeColour;
   const remember = () => { try { localStorage.setItem(STORE, JSON.stringify(st)); } catch { /* storage off: the choices just reset */ } };
   const filtered = () => FILTER_KEYS.some((k) => st.filters[k].length);
 
@@ -114,18 +143,6 @@ export function createTable(opts: { onPick: (z: number) => void }): Table {
   root.className = 'tb';
   root.innerHTML = `
     <div class="tb-tools">
-      <div class="el-searchrow">
-        <label class="el-search">
-          <span class="el-search-icon">${icon('search', { size: 22 })}</span>
-          <input type="search" placeholder="Name, symbol or number" aria-label="Search elements" autocomplete="off" spellcheck="false" enterkeyhint="go">
-          <button type="button" class="el-clear" aria-label="Clear search" hidden>${icon('clear', { size: 26 })}</button>
-        </label>
-        <button type="button" class="ui-icon-btn el-filter" aria-label="Filter" aria-expanded="false" aria-controls="tb-filters">${icon('filter', { size: 22 })}</button>
-      </div>
-      <div class="tb-filters" id="tb-filters" hidden>
-        ${FILTER_KEYS.map((k) => `<div class="tb-fgroup"><small>${esc(FILTERS[k].label)}</small><div class="ui-pills" role="group" aria-label="${esc(FILTERS[k].label)}">${FILTERS[k].values.map((v) => `<button type="button" role="checkbox" class="ui-pill tb-pill" data-f="${k}" data-v="${esc(v.id)}">${esc(v.label)}</button>`).join('')}</div></div>`).join('')}
-        <button type="button" class="tb-clearf">Clear filters</button>
-      </div>
       <div class="tb-bar">
         <div class="el-sortbox tb-box" data-menu="sort">
           <button type="button" class="el-sortbtn tb-btn" aria-haspopup="menu" aria-expanded="false"></button>
@@ -136,40 +153,53 @@ export function createTable(opts: { onPick: (z: number) => void }): Table {
           <button type="button" class="el-sortbtn tb-btn" aria-haspopup="menu" aria-expanded="false"></button>
           ${menu('', GROUPS)}
         </div>
+        <button type="button" class="ui-icon-btn el-filter" aria-label="Filter" aria-expanded="false" aria-controls="tb-filters">${icon('filter', { size: 22 })}</button>
         <span class="el-count tb-count" aria-live="polite"></span>
       </div>
+      <div class="tb-filters" id="tb-filters" hidden>
+        ${FILTER_KEYS.map((k) => `<div class="tb-fgroup"><small>${esc(FILTERS[k].label)}</small><div class="ui-pills" role="group" aria-label="${esc(FILTERS[k].label)}">${FILTERS[k].values.map((v) => `<button type="button" role="checkbox" class="ui-pill tb-pill" data-f="${k}" data-v="${esc(v.id)}">${esc(v.label)}</button>`).join('')}</div></div>`).join('')}
+        <button type="button" class="tb-clearf">Clear filters</button>
+      </div>
     </div>
-    <div class="tb-scroll"></div>
+    <div class="tb-scroll" role="list"></div>
     <div class="el-none" hidden><p>No element matches that.</p><div class="el-none-act"></div></div>`;
-  const input = root.querySelector<HTMLInputElement>('input')!;
-  const clear = root.querySelector<HTMLButtonElement>('.el-clear')!;
   const scroll = root.querySelector<HTMLElement>('.tb-scroll')!;
   const none = root.querySelector<HTMLElement>('.el-none')!;
   const filterBtn = root.querySelector<HTMLButtonElement>('.el-filter')!;
   const panel = root.querySelector<HTMLElement>('.tb-filters')!;
 
   const draw = () => {
-    const cols = tableColumns(st);
     const sections = tableRows(st, query);
     const count = sections.reduce((n, s) => n + s.rows.length, 0);
-    const head = cols.map((k) => {
-      const c = COL[k];
-      const aria = !query && st.sort === k ? (st.desc ? 'descending' : 'ascending') : 'none';
-      return `<th scope="col" class="${c.numeric ? 'n' : ''}" aria-sort="${aria}"><button type="button" data-key="${k}">${esc(c.short ?? c.label)}<i class="tb-arrow" aria-hidden="true"></i></button></th>`;
-    }).join('');
     const save = loadSave();
-    const cell = (e: Element, k: SortKey) => {
-      if (k === 'symbol') return `<td><span class="tb-sym" style="--c:${placeColour(e)}">${e.symbol}</span></td>`;
-      if (k === 'name') return `<th scope="row">${esc(e.name)}</th>`;
-      const c = COL[k];
-      return `<td class="${c.numeric ? 'n' : ''}${k === st.sort && !query ? ' is-sort' : ''}">${esc(c.text(e, save))}</td>`;
+    const k = st.sort;
+    const c = COL[k];
+    const showValue = !query && !ON_ROW.includes(k);
+    // The bar runs from the smallest measured value on show to the largest.
+    let lo = Infinity, hi = -Infinity;
+    if (showValue && c.numeric) for (const s of sections) for (const e of s.rows) {
+      const v = c.value(e, save);
+      if (typeof v === 'number' && !(k === 'discovered' && v < 0)) { lo = Math.min(lo, v); hi = Math.max(hi, v); }
+    }
+    const value = (e: Element) => {
+      if (!showValue) return '';
+      const v = c.value(e, save);
+      const text = c.text(e, save);
+      const known = v !== null && text !== '–';
+      const bar = c.numeric && known && hi > lo && typeof v === 'number' && !(k === 'discovered' && v < 0)
+        ? `<i class="tb-bar-track"><u style="width:${Math.max(3, ((v - lo) / (hi - lo)) * 100).toFixed(1)}%"></u></i>` : '';
+      const unit = known && UNIT[k] ? ` <small>${UNIT[k]}</small>` : '';
+      const pred = isPredicted(e, k) ? '<small class="tb-pred">predicted</small>' : '';
+      return `<span class="tb-val"><b>${esc(known ? text : 'not known')}</b>${unit}${pred}${bar}</span>`;
     };
-    const body = sections.map((s) => {
-      const title = s.title ? `<tr class="tb-sec"><th colspan="${cols.length}" scope="colgroup"><span>${esc(s.title)}</span><small>${s.rows.length}</small></th></tr>` : '';
-      // Alternate plates restart in each section, so its first row is always the plain one.
-      return title + s.rows.map((e, i) => `<tr class="${i % 2 ? 'alt' : ''}" data-z="${e.z}" tabindex="0">${cols.map((k) => cell(e, k)).join('')}</tr>`).join('');
-    }).join('');
-    scroll.innerHTML = count ? `<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>` : '';
+    const row = (e: Element, i: number) => {
+      const fill = colors(e);
+      return `<div class="tb-row${i % 2 ? ' alt' : ''}" role="listitem button" data-z="${e.z}" tabindex="0">
+        <span class="tb-sym" style="background:${fill};color:${inkOn(fill)}">${e.symbol}</span>
+        <span class="tb-name"><b>${esc(e.name)}</b><small>${e.z} · ${esc(seriesOne(e))}</small></span>${value(e)}</div>`;
+    };
+    // Alternate plates restart in each section, so its first row is always the plain one.
+    scroll.innerHTML = sections.map((s) => (s.title ? `<div class="tb-sec"><span>${esc(s.title)}</span><small>${s.rows.length}</small></div>` : '') + s.rows.map(row).join('')).join('');
     scroll.hidden = !count;
     none.hidden = !!count;
     const act = none.querySelector<HTMLElement>('.el-none-act')!;
@@ -197,7 +227,7 @@ export function createTable(opts: { onPick: (z: number) => void }): Table {
   };
 
   const change = (fn: () => void) => { fn(); remember(); draw(); scroll.scrollTo({ top: 0 }); };
-  const setSort = (k: SortKey, flip: boolean) => change(() => { st.desc = k === st.sort ? (flip ? !st.desc : st.desc) : false; st.sort = k; });
+  const setSort = (k: SortKey) => change(() => { st.desc = k === st.sort ? st.desc : ['density', 'melt', 'boil', 'electronegativity', 'radius', 'weight'].includes(k); st.sort = k; });
 
   // The two dropdowns: one open at a time, closed by a tap elsewhere or Escape.
   const openMenu = (box: HTMLElement | null) => {
@@ -209,13 +239,13 @@ export function createTable(opts: { onPick: (z: number) => void }): Table {
     box?.querySelector<HTMLElement>('[aria-checked="true"]')?.focus();
   };
   const away = (e: Event) => {
-    if (!root.isConnected) { document.removeEventListener('pointerdown', away, true); return; }
+    if (!root.isConnected) return;
     if (!(e.target as HTMLElement).closest('.tb-box')) openMenu(null);
   };
   document.addEventListener('pointerdown', away, true);
   root.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && root.querySelector('.tb-menu:not([hidden])')) { e.stopPropagation(); openMenu(null); }
-    const tr = (e.target as HTMLElement).closest<HTMLElement>('tr[data-z]');
+    const tr = (e.target as HTMLElement).closest<HTMLElement>('[data-z]');
     if (tr && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); opts.onPick(Number(tr.dataset.z)); }
   });
 
@@ -227,7 +257,7 @@ export function createTable(opts: { onPick: (z: number) => void }): Table {
     if (opt?.dataset.id) {
       const which = opt.closest<HTMLElement>('.tb-box')!.dataset.menu;
       openMenu(null);
-      if (which === 'sort') setSort(opt.dataset.id as SortKey, false);
+      if (which === 'sort') setSort(opt.dataset.id as SortKey);
       else change(() => { st.group = opt.dataset.id as GroupKey; });
       return;
     }
@@ -244,27 +274,15 @@ export function createTable(opts: { onPick: (z: number) => void }): Table {
       return;
     }
     if (t.closest('.tb-clearf')) { change(() => { st.filters = { block: [], period: [], series: [], state: [] }; }); return; }
-    const th = t.closest<HTMLElement>('thead button');
-    if (th?.dataset.key) { setSort(th.dataset.key as SortKey, true); return; }
-    const row = t.closest<HTMLElement>('tr[data-z]');
+    const row = t.closest<HTMLElement>('[data-z]');
     if (row) opts.onPick(Number(row.dataset.z));
-  });
-  input.addEventListener('input', () => {
-    query = input.value.trim();
-    clear.hidden = !query;
-    draw();
-  });
-  input.addEventListener('keydown', (e) => {
-    if (e.key !== 'Enter') return;
-    const first = tableRows(st, query)[0]?.rows[0];
-    if (first) { e.preventDefault(); opts.onPick(first.z); }
-  });
-  clear.addEventListener('click', () => {
-    input.value = '';
-    input.dispatchEvent(new Event('input'));
-    input.focus();
   });
 
   draw();
-  return { el: root, focusSearch: () => input.focus() };
+  return {
+    el: root,
+    setQuery: (q: string) => { if (q === query) return; query = q; draw(); scroll.scrollTo({ top: 0 }); },
+    setColors: (fn) => { colors = fn; draw(); },
+    order: () => tableRows(st).flatMap((sec) => sec.rows.map((e) => e.z)),
+  };
 }
