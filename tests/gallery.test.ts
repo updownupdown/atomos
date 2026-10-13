@@ -39,7 +39,7 @@ describe('element dataset', () => {
 });
 
 describe('Atlas maps', () => {
-  const all = LAYOUTS.flatMap(({ id }) => (['portrait', 'landscape'] as const).map((o) => ({ id, o, l: layout(id, o) })));
+  const all = LAYOUTS.map(({ id }) => ({ id, o: '', l: layout(id) }));
   it('draw every element once', () => {
     for (const { id, o, l } of all) {
       expect(l.cells, `${id} ${o}`).toHaveLength(118);
@@ -55,18 +55,25 @@ describe('Atlas maps', () => {
       expect(min, `${id} ${o}`).toBeGreaterThan(0.8);
     }
   });
-  it('stand the table up on a portrait screen and lay it flat in landscape', () => {
-    const at = (l: ReturnType<typeof layout>, z: number) => l.cells.find((c) => c.z === z)!;
-    const up = layout('table', 'portrait'), flat = layout('table', 'landscape');
-    // Helium over neon: one row standing (periods across), one column flat.
-    expect(at(up, 2).y).toBeCloseTo(at(up, 10).y);
-    expect(at(up, 2).x).toBeLessThan(at(up, 10).x);
-    expect(at(flat, 2).x).toBeCloseTo(at(flat, 10).x);
-    expect(at(flat, 2).y).toBeLessThan(at(flat, 10).y);
+  it('draw every shape the way it is usually printed, on any screen', () => {
+    const at = (id: Parameters<typeof layout>[0], z: number) => layout(id).cells.find((c) => c.z === z)!;
+    // Helium over neon in one column; periods run down.
+    for (const id of ['table', 'sizes'] as const) {
+      expect(at(id, 2).x, id).toBeCloseTo(at(id, 10).x);
+      expect(at(id, 2).y, id).toBeLessThan(at(id, 10).y);
+      expect(at(id, 3).x, id).toBeLessThan(at(id, 4).x);
+    }
+    // Steps: rows run across, f block on the left, s block on the right.
+    expect(at('steps', 58).x).toBeLessThan(at('steps', 26).x);
+    expect(at('steps', 26).x).toBeLessThan(at('steps', 8).x);
+    expect(at('steps', 8).x).toBeLessThan(at('steps', 11).x);
+    // Pyramid: a column per period, left to right.
+    expect(at('pyramid', 3).x).toBeLessThan(at('pyramid', 11).x);
+    expect(at('pyramid', 3).y).toBeLessThan(at('pyramid', 4).y);
   });
   it('line groups up along spokes in the circle and across the ribbon', () => {
     for (const id of ['circle', 'ribbon'] as const) {
-      const l = layout(id, 'landscape');
+      const l = layout(id);
       const ang = (z: number) => { const c = l.cells.find((x) => x.z === z)!; return Math.atan2(c.y, c.x); };
       // Lithium, sodium and potassium share a direction from the center.
       expect(Math.abs(ang(3) - ang(11)), id).toBeLessThan(0.05);

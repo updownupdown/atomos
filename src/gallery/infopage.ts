@@ -8,6 +8,7 @@ import type { OrbitalShape } from '../core/save';
 import { createSegments, createSlider } from '../ui/components';
 import { icon } from '../ui/icons';
 import { buildOrder, ISO_FILTERS, orbitalFill, STRUCTURE_VIEWS } from './visuals';
+import { Together3D } from './together3d';
 
 /** What the pages remember while stepping from one atom to the next. */
 export interface InfoState {
@@ -54,6 +55,8 @@ function mountTogether(root: HTMLElement, st: InfoState): void {
   let picked: number | null = null;
   let timer = 0;
   const reach = new Map<number, number>();
+  // The same picture in 3D, turning, when WebGL is there; the SVG underneath otherwise.
+  const view3d = Together3D.create(box.querySelector('.tg-stage')!, e, e.subshells.map((_, i) => Number(subs.get(i)!.dataset.r)), hidden);
   const paint = () => {
     // Hand out n electrons in filling order, up to each layer's real count.
     let left = n;
@@ -70,6 +73,7 @@ function mountTogether(root: HTMLElement, st: InfoState): void {
       if (c > 0) filling = { key: s.key, c, cap: s.capacity };
       reach.set(i, c);
     }
+    view3d?.set(e.subshells.map((_, i) => reach.get(i) ?? 0), picked);
     chips.forEach((b) => {
       const i = Number(b.dataset.i);
       b.setAttribute('aria-pressed', String(picked === i));
@@ -113,15 +117,7 @@ function mountTogether(root: HTMLElement, st: InfoState): void {
     picked = picked === i ? null : i;
     paint();
   }));
-  const scale = box.querySelector<HTMLInputElement>('.tg-scale input');
-  const paintScale = () => {
-    const on = Boolean(scale?.checked);
-    box.classList.toggle('is-true', on);
-    for (const g of subs.values()) g.style.transform = `scale(${on ? g.dataset.true : g.dataset.root})`;
-  };
-  if (scale) scale.onchange = paintScale;
   paintPlay();
-  paintScale();
   paint();
 }
 

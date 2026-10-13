@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ELEMENTS, elementAt } from '../src/gallery/data';
-import { heatStrip, isotopeKinds, layerReach, orbitalTogether, orbitalTurn, togetherRadius } from '../src/gallery/visuals';
+import { heatStrip, isotopeKinds, layerReach, orbitalTogether, orbitalTurn } from '../src/gallery/visuals';
 import { tabHTML } from '../src/gallery/info';
 import { defaultSave } from '../src/core/save';
 
@@ -14,13 +14,17 @@ describe('Structure › Together', () => {
     }
   });
 
-  it('keeps inner layers inside outer ones, on either scale', () => {
+  it('keeps inner layers inside outer ones, always to true scale', () => {
     const fe = elementAt(26);
     const reach = layerReach(fe);
     const at = (key: string) => reach[fe.subshells.findIndex((s) => s.key === key)].edge;
     expect(at('1s')).toBeLessThan(at('2p'));
     expect(at('3d')).toBeLessThan(at('4s'));
-    expect(togetherRadius(at('1s'), fe.vdw, true)).toBeLessThan(togetherRadius(at('1s'), fe.vdw, false));
+    // No switch to bend the scale: each layer is drawn at its share of the edge.
+    const html = orbitalTogether(fe);
+    expect(html).not.toContain('tg-scale');
+    const r1s = Number(html.match(/data-i="0"[^>]*data-r="([\d.]+)"/)![1]);
+    expect(r1s).toBeCloseTo(at('1s') / fe.vdw, 4);
   });
 
   it('spreads the p orbitals 120° apart, as seen from a corner of their axes', () => {

@@ -9,7 +9,7 @@
 //   map.setColors((e) => placeColour(e));
 
 import { ELEMENTS, elementAt, type Element } from './data';
-import { layout, type Cell, type Layout, type LayoutId, type Orientation } from './layouts';
+import { layout, type Cell, type Layout, type LayoutId } from './layouts';
 import { inkOn } from './looks';
 
 const NS = 'http://www.w3.org/2000/svg';
@@ -24,6 +24,8 @@ const SYM_PX = 13;
 const NUM_PX = 13;
 const NAME_PX = 13;
 const MAX_ZOOM = 9;
+/** Kept clear at the bottom when the whole shape is shown, for the peek strip that floats there. */
+const PEEK_ROOM = 84;
 
 interface Pointer { x: number; y: number }
 
@@ -36,7 +38,6 @@ export class AtlasMap {
   private axisG = svg('g', { class: 'am-axis' });
   private ringG = svg('g', { class: 'am-ring' });
   private id: LayoutId = 'table';
-  private orient: Orientation = 'portrait';
   private lay: Layout | null = null;
   private paths = new Map<number, SVGPathElement>();
   private texts = new Map<number, { sym: SVGTextElement; num: SVGTextElement; name: SVGTextElement; cell: Cell }>();
@@ -123,7 +124,7 @@ export class AtlasMap {
   }
 
   private build(): void {
-    this.lay = layout(this.id, this.orient);
+    this.lay = layout(this.id);
     this.paths.clear();
     this.texts.clear();
     this.cellsG.replaceChildren();
@@ -169,18 +170,13 @@ export class AtlasMap {
     const r = this.el.getBoundingClientRect();
     this.w = Math.max(1, r.width);
     this.h = Math.max(1, r.height);
-    this.fit = Math.min(this.w / this.bounds.w, this.h / this.bounds.h) * 0.96;
+    this.fit = Math.min(this.w / this.bounds.w, (this.h - PEEK_ROOM) / this.bounds.h) * 0.96;
   }
 
   private resize(): void {
     const r = this.el.getBoundingClientRect();
     if (!r.width || !r.height) return;
-    const orient: Orientation = r.width >= r.height * 1.1 ? 'landscape' : 'portrait';
-    if (orient !== this.orient || !this.lay) {
-      this.orient = orient;
-      this.build();
-      return;
-    }
+    if (!this.lay) { this.build(); return; }
     const zoomed = this.scale > this.fit * 1.02;
     this.measure();
     if (zoomed) { this.clampView(); this.apply(); } else this.reset();
@@ -188,13 +184,14 @@ export class AtlasMap {
 
   private center(): void {
     this.tx = this.bounds.x + this.bounds.w / 2 - this.w / 2 / this.scale;
-    this.ty = this.bounds.y + this.bounds.h / 2 - this.h / 2 / this.scale;
+    this.ty = this.bounds.y + this.bounds.h / 2 - (this.h - PEEK_ROOM) / 2 / this.scale;
   }
 
   /** Keep some of the shape on screen however far it is dragged. */
   private clampView(): void {
     this.scale = Math.max(this.fit, Math.min(this.fit * MAX_ZOOM, this.scale));
-    const vw = this.w / this.scale, vh = this.h / this.scale;
+    // The bottom of the shape can scroll up clear of the peek strip.
+    const vw = this.w / this.scale, vh = (this.h - PEEK_ROOM) / this.scale;
     const b = this.bounds;
     const fx = (lo: number, hi: number, v: number, span: number) => (span >= hi - lo ? (lo + hi) / 2 - span / 2 : Math.max(lo, Math.min(hi - span, v)));
     this.tx = fx(b.x, b.x + b.w, this.tx, vw);
