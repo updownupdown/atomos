@@ -1,32 +1,30 @@
 // Collect: the whole table at once, and one atom large.
 //
-//   header                                   COLLECT            [27/118 v]  (atomlist.ts)
-//   Stable  ┌ the periodic table, 80% wide ┐  Fleeting   each cell colored by how far that
-//     ▮     │ ▪ . . . . . . . . . . . . ▪  │     ▮       atom is collected; the atom in the
-//     ▮     │ ...                          │     ▮       lens below wears the ring
-//    9%     └──────────────────────────────┘    2%
-//            (the atom, as its gem)             the lens: tap to open the atom, swipe
-//         ‹       26 · Fe   Iron  ›       ›     or the chevrons to step along the table
-//            Stable ▬▬▬    Fleeting ▬▬
-//   [ Up next card ]                          floats over the foot
+//   header                         COLLECT                 [⚛ Atoms v]  (atomlist.ts)
+//   ┌ the periodic table ┐   ◎ Stable   13%                 the progress, on the right;
+//   │ ▪ . . . . . . . ▪  │   ◎ Fleeting  3%                 Next selects the next atom to
+//   └────────────────────┘   [▸ Next]                        build, which Nu circles in the table
+//              v                                            the chevron widens the table a while
+//            (the atom, as its gem)                         the lens: tap to open the atom,
+//         ‹    26 Fe · Stable collected    ›                swipe or the chevrons to step
+//                   Iron
+//          Stable ▬▬  Fleeting ▬   [Build]
 //
-// The sides are the whole collection's progress: its stable parts (nucleus, electrons and
-// lasting isotopes of every atom) on the left and its fleeting isotopes on the right. Each cell's
-// tone (thumbs.ts Tone): not built, built (its block's color, muted), stable collected (in full)
-// and all collected (brighter).
+// Each cell's tone (thumbs.ts Tone): not started (gray), started or built (its block's color,
+// pale), stable collected (in full) and all collected (in full, glowing). The atom in the lens
+// wears a still white ring.
 
 import { BLOCK_COLOUR, MAX_Z, elementAt } from './data';
 import { atomPicture, toneOf, type Tone } from './thumbs';
 import { GemAtom } from './gem';
 import { atomBuilt, fleetingCount, rowOf, rowOpen, rowSpan, segmentsOf } from '../core/progress';
 import { loadSave, type SaveData } from '../core/save';
-import { nextStep, openStep, type NextStep } from '../core/next';
+import { nextStep } from '../core/next';
 import { fleetingOpen, periodSentence } from './locks';
 import type { TrackRow } from '../ui/tracks';
 import { tableCell } from '../ui/picker';
-import { atomShares, collectionProgress, shareBar } from './atomlist';
-import { createCallout, nextButton, swipeToDismiss } from '../ui/components';
-import { puzzleIcon } from '../puzzles/catalog';
+import { atomShares, collectionProgress, shareBar, shareRing } from './atomlist';
+import { nextButton } from '../ui/components';
 import { icon } from '../ui/icons';
 import { reducedMotion } from '../ui/nu';
 import './collect.css';
@@ -84,16 +82,26 @@ export function pctLabel(v: number): string {
 }
 
 
-/** The cells' tones, for the sides' wording too. */
-const TONE_WORD: Record<Tone, string> = { unbuilt: 'Not built yet', built: 'Built', stable: 'Stable collected', complete: 'All collected' };
+/** How far an atom is collected, in words; `started` is an atom with a part built but not all. */
+type Status = Tone | 'started';
+const STATUS_WORD: Record<Status, string> = { unbuilt: 'Not started', started: 'Started', built: 'Built', stable: 'Stable collected', complete: 'All collected' };
+
+function statusOf(z: number, save: SaveData): Status {
+  const tone = toneOf(z, save);
+  if (tone === 'unbuilt' && segmentsOf(z, save).some((s) => s.done)) return 'started';
+  return tone;
+}
 
 export class Collect {
   readonly el: HTMLElement;
   private save: SaveData = loadSave();
   private current = 1;
   private live = new GemAtom();
+  private map: HTMLElement;
   private table: HTMLElement;
-  private sides: HTMLElement[];
+  private side: HTMLElement;
+  private nu: HTMLElement;
+  private expand: HTMLButtonElement;
   private lens: HTMLElement;
   private gem: HTMLElement;
   private title: HTMLButtonElement;
@@ -101,38 +109,38 @@ export class Collect {
   private lockEl: HTMLElement;
   private prev: HTMLButtonElement;
   private next: HTMLButtonElement;
+  private nextZ: number | null = null;
   private shown = false;
-  private upNext = Object.assign(createCallout({ kicker: '', title: '', pic: '', className: 'ui-callout--float up-next co-upnext' }), { hidden: true });
-  private upNextGone: string | null = null;
 
   constructor(host: HTMLElement, private handlers: CollectHandlers) {
     this.el = host;
-    const side = (cls: string, ico: string, word: string) => `<div class="co-side ${cls}"><span class="co-side-ico">${icon(ico as never, { size: 20 })}</span><span class="co-side-track"><i></i></span><b class="co-side-pct"></b><span class="co-side-word">${word}</span></div>`;
     host.innerHTML = `
       <div class="co-map">
-        ${side('co-side--stable', 'isotope-stable', 'Stable')}
-        <div class="co-table" aria-label="Periodic table"></div>
-        ${side('co-side--fleeting', 'isotope-fleeting', 'Fleeting')}
+        <div class="co-table" aria-label="Periodic table"><span class="co-nu" aria-hidden="true" hidden><i></i></span></div>
+        <div class="co-side"></div>
       </div>
+      <button type="button" class="co-expand" aria-expanded="false" aria-label="Show the table wider">${icon('chevron-down', { size: 24 })}</button>
       <div class="co-lens">
         <button type="button" class="co-gem-btn"><span class="co-gem"></span></button>
         <div class="co-lens-row">
           <button type="button" class="co-step" data-dir="-1" aria-label="Previous atom">${icon('chevron-left', { size: 28 })}</button>
-          <button type="button" class="co-title"><small></small><b></b></button>
+          <button type="button" class="co-title"><span class="co-id"><small></small><span class="co-status"></span></span><b></b></button>
           <button type="button" class="co-step" data-dir="1" aria-label="Next atom">${icon('chevron-right', { size: 28 })}</button>
         </div>
-        <div class="co-bars"></div>
+        <div class="co-act"><div class="co-bars"></div><button type="button" class="co-build">${icon('mode-build', { size: 20 })}<span>Build</span></button></div>
         <div class="co-lock" hidden></div>
       </div>`;
+    this.map = host.querySelector('.co-map')!;
     this.table = host.querySelector('.co-table')!;
-    this.sides = [...host.querySelectorAll<HTMLElement>('.co-side')];
+    this.side = host.querySelector('.co-side')!;
+    this.nu = host.querySelector('.co-nu')!;
+    this.expand = host.querySelector('.co-expand')!;
     this.lens = host.querySelector('.co-lens')!;
     this.gem = host.querySelector('.co-gem')!;
     this.title = host.querySelector('.co-title')!;
     this.bars = host.querySelector('.co-bars')!;
     this.lockEl = host.querySelector('.co-lock')!;
     [this.prev, this.next] = [...host.querySelectorAll<HTMLButtonElement>('.co-step')];
-    host.append(this.upNext);
     if (this.live.ok) this.gem.append(this.live.canvas);
     for (let z = 1; z <= MAX_Z; z++) {
       const e = elementAt(z);
@@ -146,19 +154,18 @@ export class Collect {
       cell.style.setProperty('--blk', BLOCK_COLOUR[e.block]);
       this.table.append(cell);
     }
-    swipeToDismiss(this.upNext, () => { this.upNextGone = this.upNext.dataset.key ?? null; this.upNext.hidden = true; this.fitFoot(); });
     this.bind();
     window.addEventListener('atomos:progress', () => { if (this.shown) this.refresh(); });
   }
 
-  /** Show Collect with atom `z` in the lens, or the Up next atom. */
+  /** Show Collect with atom `z` in the lens, or the next atom to build. */
   show(z?: number | null): void {
     this.el.hidden = false;
     this.shown = true;
     this.save = loadSave();
-    this.paintUpNext();
+    this.setWide(false);
     this.paintTable();
-    this.paintSides();
+    this.paintSide();
     this.focus(z ?? nextStep(this.save)?.z ?? 1);
   }
 
@@ -172,8 +179,7 @@ export class Collect {
   refresh(): void {
     this.save = loadSave();
     this.paintTable();
-    this.paintSides();
-    this.paintUpNext();
+    this.paintSide();
     this.focus(this.current);
   }
 
@@ -184,14 +190,16 @@ export class Collect {
     this.current = z;
     const e = elementAt(z);
     const tone = toneOf(z, this.save);
-    for (const c of this.table.querySelectorAll<HTMLElement>('.co-cell.is-current')) c.classList.remove('is-current', 'ui-ring');
-    const cell = this.table.querySelector<HTMLElement>(`.co-cell[data-z="${z}"]`);
-    cell?.classList.add('is-current', 'ui-ring');
-    this.lens.dataset.tone = tone;
-    this.title.querySelector('small')!.textContent = `${z} · ${e.symbol} · ${TONE_WORD[tone]}`;
+    const status = statusOf(z, this.save);
+    for (const c of this.table.querySelectorAll<HTMLElement>('.co-cell.is-current')) c.classList.remove('is-current');
+    this.table.querySelector<HTMLElement>(`.co-cell[data-z="${z}"]`)?.classList.add('is-current');
+    this.lens.dataset.status = status;
+    this.title.querySelector('small')!.textContent = `${z} ${e.symbol}`;
+    this.title.querySelector('.co-status')!.textContent = STATUS_WORD[status];
     this.title.querySelector('b')!.textContent = e.name;
-    this.title.setAttribute('aria-label', `Open ${e.name}`);
+    this.title.setAttribute('aria-label', `${e.name}, ${z}: ${STATUS_WORD[status].toLowerCase()}. Open it`);
     this.lens.querySelector('.co-gem-btn')!.setAttribute('aria-label', `Open ${e.name}`);
+    this.lens.querySelector('.co-build')!.setAttribute('aria-label', `Build ${e.name}`);
     this.prev.disabled = z === 1;
     this.next.disabled = z === MAX_Z;
     this.prev.title = z > 1 ? elementAt(z - 1).name : '';
@@ -221,37 +229,48 @@ export class Collect {
     }
   }
 
-  /** Each cell's tone, and whether its period is open. */
+  /** Each cell's tone, whether its period is open, and Nu circling the next atom to build. */
   private paintTable(): void {
     for (const cell of this.table.querySelectorAll<HTMLElement>('.co-cell')) {
       const z = Number(cell.dataset.z);
       const e = elementAt(z);
-      const tone = toneOf(z, this.save);
-      cell.dataset.tone = tone;
+      const status = statusOf(z, this.save);
+      cell.dataset.tone = status;
       cell.classList.toggle('is-locked', !rowOpen(rowOf(z), this.save));
-      cell.setAttribute('aria-label', `${e.name}, ${z}: ${TONE_WORD[tone].toLowerCase()}`);
+      cell.setAttribute('aria-label', `${e.name}, ${z}: ${STATUS_WORD[status].toLowerCase()}`);
     }
+    this.nextZ = nextStep(this.save)?.z ?? null;
+    this.placeNu();
   }
 
-  /** The sides: the whole collection's stable and fleeting shares, as bars filling upward. */
-  private paintSides(): void {
+  /** Nu goes round the next atom's cell (placed in the table's own coordinates). */
+  private placeNu(): void {
+    const cell = this.nextZ ? this.table.querySelector<HTMLElement>(`.co-cell[data-z="${this.nextZ}"]`) : null;
+    this.nu.hidden = !cell;
+    if (!cell) return;
+    this.nu.style.left = `${cell.offsetLeft + cell.offsetWidth / 2}px`;
+    this.nu.style.top = `${cell.offsetTop + cell.offsetHeight / 2}px`;
+    this.nu.style.setProperty('--r', `${Math.max(9, cell.offsetWidth * 0.85)}px`);
+  }
+
+  /** The side: the whole collection's stable and fleeting shares as rings, then Next. */
+  private paintSide(): void {
     const all = collectionProgress(this.save);
     const fleetOn = fleetingOpen(this.save);
-    const paint = (side: HTMLElement, share: number, off: boolean, aria: string) => {
-      side.querySelector<HTMLElement>('.co-side-track i')!.style.height = `${Math.round((off ? 0 : share) * 100)}%`;
-      side.querySelector('.co-side-pct')!.textContent = off ? '–' : pctLabel(share);
-      side.classList.toggle('is-done', !off && share >= 1);
-      side.classList.toggle('is-off', off);
-      side.setAttribute('aria-label', aria);
-    };
-    paint(this.sides[0], all.stable, false, `Stable: ${pctLabel(all.stable)} of the whole collection`);
-    paint(this.sides[1], all.fleeting, !fleetOn, fleetOn ? `Fleeting: ${pctLabel(all.fleeting)} of the whole collection` : 'Fleeting isotopes open once an atom is built');
+    const stat = (share: number, ico: string, word: string, off: boolean) =>
+      `<div class="co-stat${off ? ' is-off' : ''}${!off && share >= 1 ? ' is-done' : ''}">${shareRing(off ? 0 : share, ico, 40)}<span><b>${off ? '–' : pctLabel(share)}</b><small>${word}</small></span></div>`;
+    this.side.innerHTML = stat(all.stable, 'isotope-stable', 'Stable', false) + stat(all.fleeting, 'isotope-fleeting', 'Fleeting', !fleetOn);
+    this.side.setAttribute('aria-label', `Your collection: ${pctLabel(all.stable)} stable${fleetOn ? `, ${pctLabel(all.fleeting)} fleeting` : ''}`);
+    const step = nextStep(this.save);
+    if (step) this.side.append(nextButton({ label: 'Next', compact: true, landKey: 'collect-next', onClick: () => this.focus(step.z) }));
   }
 
-  /** Room at the foot for the Up next card, so the lens never sits under it. */
-  private fitFoot(): void {
-    const card = this.el.classList.contains('has-upnext') && !this.upNext.hidden ? this.upNext.offsetHeight + 12 : 0;
-    this.el.style.setProperty('--co-foot', `${card}px`);
+  /** The table at full width for a while (easier to tap a cell), or back beside the progress. */
+  private setWide(wide: boolean): void {
+    this.map.classList.toggle('is-wide', wide);
+    this.expand.setAttribute('aria-expanded', String(wide));
+    this.expand.setAttribute('aria-label', wide ? 'Show the table smaller' : 'Show the table wider');
+    requestAnimationFrame(() => this.placeNu());
   }
 
   private step(dir: 1 | -1): void {
@@ -263,10 +282,15 @@ export class Collect {
   private bind(): void {
     this.table.addEventListener('click', (e) => {
       const cell = (e.target as HTMLElement).closest<HTMLElement>('.co-cell');
-      if (cell) this.focus(Number(cell.dataset.z));
+      if (!cell) return;
+      this.focus(Number(cell.dataset.z));
+      // A wide table was for picking: once picked, it goes back beside the progress.
+      if (this.map.classList.contains('is-wide')) this.setWide(false);
     });
+    this.expand.onclick = () => this.setWide(!this.map.classList.contains('is-wide'));
     const open = () => { if (!this.swiped) this.handlers.onOpen(this.current); };
     this.lens.querySelector<HTMLElement>('.co-gem-btn')!.onclick = open;
+    this.lens.querySelector<HTMLElement>('.co-build')!.onclick = () => this.handlers.onOpen(this.current);
     this.title.onclick = open;
     this.prev.onclick = () => this.step(-1);
     this.next.onclick = () => this.step(1);
@@ -286,32 +310,11 @@ export class Collect {
       if (Math.abs(dx) > 48 && Math.abs(dx) > Math.abs(dy) * 1.4) { this.swiped = true; this.step(dx < 0 ? 1 : -1); }
     });
     this.lens.addEventListener('pointercancel', () => { start = null; });
-    if (typeof ResizeObserver !== 'undefined') new ResizeObserver(() => this.fitFoot()).observe(this.upNext);
+    if (typeof ResizeObserver !== 'undefined') new ResizeObserver(() => this.placeNu()).observe(this.table);
   }
   private swiped = false;
 
-  /** The Up next card at the foot: the one next thing to do (nextStep), with its Next button. It
-   *  doubles as Continue for a returning player: a half-done puzzle comes first. */
-  private paintUpNext(): void {
-    const step: NextStep | null = nextStep(this.save);
-    const card = this.upNext;
-    card.hidden = !step;
-    this.el.classList.toggle('has-upnext', Boolean(step));
-    requestAnimationFrame(() => this.fitFoot());
-    if (!step) { card.replaceChildren(); return; }
-    const key = `${step.kind}/${step.z}/${step.stage}`;
-    // Swiped away: it stays away until there is a different next step.
-    if (this.upNextGone === key) { card.hidden = true; this.el.classList.remove('has-upnext'); return; }
-    if (card.dataset.key === key) return;
-    card.dataset.key = key;
-    const resume = step.kind === 'resume';
-    card.querySelector('small')!.textContent = `${resume ? 'Continue' : 'Up next'}: ${step.gameName}`;
-    card.querySelector('b')!.textContent = resume ? step.label.replace(/^Resume [^·]*·\s*/, '') : step.label;
-    card.querySelector<HTMLElement>('.ui-callout-pic')!.innerHTML = puzzleIcon(step.game, 32);
-    card.querySelector('.ui-callout-acts')!.replaceChildren(nextButton({ label: resume ? 'Resume' : 'Play', compact: true, landKey: 'collect-upnext', onClick: () => openStep(step) }));
-  }
-
-  /** For checks: the period and the atom in focus. */
+  /** For checks: the period and the atom in the lens. */
   get state(): { period: number; z: number; live: { z: number; tone: string; ready: boolean } } {
     return { period: rowOf(this.current), z: this.current, live: this.live.state };
   }
