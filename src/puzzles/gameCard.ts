@@ -48,27 +48,30 @@ export interface GameCardOptions {
   className?: string;
 }
 
-/** Five pips, lit from level `from` to level `to` (1 to 5). */
-function pips(from: number, to: number): string {
-  return Array.from({ length: LEVELS }, (_, i) => `<i class="${i + 1 >= from && i + 1 <= to ? 'on' : ''}"></i>`).join('');
+/** Five pips, lit from level `from` to level `to` (1 to 5); `pick`, one level marked picked. */
+function pips(from: number, to: number, pick = 0): string {
+  return Array.from({ length: LEVELS }, (_, i) => {
+    const cls = [i + 1 >= from && i + 1 <= to ? 'on' : '', i + 1 === pick ? `sel lvl-${pick}` : ''].filter(Boolean).join(' ');
+    return `<i class="${cls}"></i>`;
+  }).join('');
 }
 
 /** The pips and the spoken word for a dial or a span of it. */
-function paintDifficulty(diff: HTMLElement, difficulty: number | { lo: number; hi: number }): void {
+function paintDifficulty(diff: HTMLElement, difficulty: number | { lo: number; hi: number }, pick?: number): void {
   const d = typeof difficulty === 'number' ? { lo: difficulty, hi: difficulty } : difficulty;
   const from = difficultyLevel(d.lo);
   const to = difficultyLevel(d.hi);
-  const word = from === to ? difficultyWord(d.lo) : `${difficultyWord(d.lo)} to ${difficultyWord(d.hi)}`;
-  diff.innerHTML = `<span class="gcard-pips" aria-hidden="true">${pips(typeof difficulty === 'number' ? 1 : from, to)}</span><span class="sr-only"></span>`;
+  const word = pick !== undefined ? difficultyWord(pick) : from === to ? difficultyWord(d.lo) : `${difficultyWord(d.lo)} to ${difficultyWord(d.hi)}`;
+  diff.innerHTML = `<span class="gcard-pips" aria-hidden="true">${pips(typeof difficulty === 'number' ? 1 : from, to, pick !== undefined ? difficultyLevel(pick) : 0)}</span><span class="sr-only"></span>`;
   diff.querySelector('.sr-only')!.textContent = `Difficulty: ${word}`;
   diff.title = `Difficulty: ${word}`;
 }
 
-/** Shows a new dial, or a span, on a card already built (the Puzzles home: the picked level on
- *  the card in focus, the game's whole span on the rest). */
-export function setCardDifficulty(card: HTMLElement, dial: number | { lo: number; hi: number }): void {
+/** Shows a new dial, or a span, on a card already built (the Puzzles home: the game's span,
+ *  with the picked level marked on the card in focus). */
+export function setCardDifficulty(card: HTMLElement, dial: number | { lo: number; hi: number }, pick?: number): void {
   const diff = card.querySelector<HTMLElement>('.gcard-diff');
-  if (diff) paintDifficulty(diff, dial);
+  if (diff) paintDifficulty(diff, dial, pick);
 }
 
 /** A game's card: icon square, name, difficulty and its Play button. */

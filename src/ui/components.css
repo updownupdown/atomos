@@ -581,7 +581,7 @@
 @media (max-width: 380px) { .ui-pill { padding: 0 10px; } }
 
 /* ---- Animated border: the one way the app says "this one". A thick solid ring on the edge that
-   comes and goes: fully clear, then fully there, then clear again; never blurred, never spread.
+   breathes slowly between faint (a fifth) and half there; never blurred, never spread.
    Its color is --ring, which a caller may set (the Puzzles home rings the game in focus in its
    level's color). Blue (.ui-ring) for the thing in focus (the top game card on Puzzles, the
    rules card being shown), magenta (.ui-ring--go) for the way forward (Up next, Nu's cards).
@@ -595,10 +595,10 @@
   border-radius: inherit;
   pointer-events: none;
   box-shadow: 0 0 0 var(--ring-gap) var(--ring-gap-c), 0 0 0 calc(var(--ring-gap) + var(--ring-w)) var(--ring);
-  animation: ui-ring 2.4s ease-in-out infinite;
+  animation: ui-ring 3s ease-in-out infinite;
 }
-@keyframes ui-ring { 0%, 100% { opacity: 0; } 50% { opacity: 1; } }
+@keyframes ui-ring { 0%, 100% { opacity: 0.2; } 50% { opacity: 0.5; } }
 .ui-ring.is-still::after { animation: none; opacity: 1; }
-@media (prefers-reduced-motion: reduce) { .ui-ring::after { animation: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .ui-ring::after { animation: none; opacity: 0.5; } }
 /* The component library's sample of the animated border. */
 .cl-ring-demo { display: inline-flex; align-items: center; min-height: 44px; padding: 0 var(--sp-4); margin: var(--sp-3); border-radius: var(--r-pill); background: var(--c-surface-2); color: var(--c-text); font-size: var(--fs-sm); font-weight: var(--fw-semibold); }
