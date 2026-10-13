@@ -15,8 +15,15 @@ import { drawFrame, frameBox, framePad, frameWidth } from './frame';
 import { drawHelpMark, ease, undoHelp, type Area, type Help, type Illustration, type Point, type PuzzleView, type RuleCard, type Stat } from './view';
 
 export const INSTRUCTIONS = `
-<h3>In the game</h3>
-<p class="meta">Hadron is a reserve game, played from the Puzzles screen. The board is 7 by 7 at the easiest, then 7 wide by 8 tall, and 8 by 8 from the middle of Easy on, with five kinds of tile up to Easy and six from Medium. Very easy boards ask for one kind of tile, Easy and Medium for two and Hard and Expert for three, more of each as the dial rises. Par is the move budget. It was set by playing over two thousand deals with a simple player that looks one swap ahead and sees only the lines it makes, not the cascades after: at the bottom of the dial that player wins nearly every deal within the budget, at the top about half to two thirds. Every deal is checked before it is dealt: Show me alone wins it from the start. New tiles come down each column in an order fixed by the deal, so a restart or an undo replays the same tiles.</p>
+<section class="how-specs"><h3>Specs</h3><ul>
+<li><b>Flawless:</b> Collect every target tile within par, the move budget, where a move is a swap that makes a line (a swap that slides back is free), and without Show me.</li>
+<li><b>Board:</b> 7 by 7 at the easiest, then 7 wide by 8 tall, and 8 by 8 from the middle of Easy on, with five kinds of tile up to Easy and six from Medium.</li>
+<li><b>Targets:</b> Very easy boards ask for one kind of tile, Easy and Medium for two, and Hard and Expert for three, more of each as the dial rises.</li>
+<li><b>Par:</b> The move budget, set by playing over two thousand deals with a simple player that looks one swap ahead and sees only the lines it makes, not the cascades after. At the bottom of the dial that player wins nearly every deal within the budget, at the top about half to two thirds.</li>
+<li><b>Deal:</b> Every deal is checked before it is dealt: Show me alone wins it from the start. New tiles come down each column in an order fixed by the deal, so a restart or an undo replays the same tiles.</li>
+<li><b>Lost:</b> With the budget spent and targets left, no swap works: undo, which is always free, or restart.</li>
+<li><b>Where it's played:</b> Hadron is a reserve game, played from the Puzzles screen.</li>
+</ul></section>
 `;
 
 /** The kinds: three quarks (rounded squares) and three leptons (discs). */
@@ -656,28 +663,28 @@ const SWAP_FEED = ['.', '.', '.', '.'];
 export const RULES: RuleCard[] = [
   {
     title: 'Swap',
-    text: 'Drag a tile onto a neighbor, or tap one then the other, to swap them. Three or more of a kind in a line collide and vanish.',
+    text: 'Drag a tile onto a neighbor, or tap one then the other, to swap them. **Three or more of a kind in a line** collide and vanish.',
     good: picture(mini(SWAP_ROWS, SWAP_FEED), [[[1, 0], [1, 1]]], 'Three in a line'),
     bad: picture(mini(SWAP_ROWS, SWAP_FEED), [[[2, 1], [3, 1]]], 'No line: slides back', { bad: true }),
   },
   {
     title: 'Falls',
-    text: 'Tiles above fall into the gaps and new ones drop in from the top. A line they make clears too.',
+    text: 'Tiles above fall into the gaps and new ones drop in from the top. **A line they make clears too**.',
     good: picture(mini(['1313', '3201', '0022'], ['.', '..', '..', '.']), [[[2, 1], [2, 2]]], 'A cascade'),
   },
   {
     title: 'Jets',
-    text: 'Four in a line leave a jet. When a jet goes, it clears its whole row or column.',
+    text: '**Four in a line leave a jet**. When a jet goes, it clears its whole row or column.',
     good: picture(mini(['0100', '0032', '3213'], ['2.', '.', '0.', '3.']), [[[1, 0], [1, 1]], [[0, 0], [0, 1]]], 'Four, then the jet'),
   },
   {
     title: 'Showers',
-    text: 'Five in a line leave a shower. Swap it with any tile to clear every tile of that kind.',
+    text: '**Five in a line leave a shower**. Swap it with any tile to clear every tile of that kind.',
     good: picture(mini(['*121', '1312', '2131'], ['..', '.', '..', '..']), [[[0, 0], [1, 0]]], 'Every d goes'),
   },
   {
     title: 'Targets',
-    text: 'Collect the tiles shown above the board before the moves run out. Undo is always free.',
+    text: '**Collect the tiles shown above the board** before the moves run out. Undo is always free.',
     good: picture(mini(SWAP_ROWS, SWAP_FEED, [{ kind: 0, need: 3 }], 3), [[[1, 0], [1, 1]]], 'Collected in time', { hud: true }),
     bad: picture(mini(SWAP_ROWS, SWAP_FEED, [{ kind: 1, need: 6 }], 1), [[[1, 0], [1, 1]]], 'Out of moves', { hud: true, bad: true }),
   },

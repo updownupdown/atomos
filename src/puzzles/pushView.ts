@@ -13,9 +13,15 @@ import { drawFrame, frameBox, framePad, frameWidth } from './frame';
 import { drawHelpMark, ease, undoHelp, type Area, type Help, type Illustration, type Point, type PuzzleView, type RuleCard, type Stat } from './view';
 
 export const INSTRUCTIONS = `
-<h3>In the game</h3>
-<p class="meta">Shepherd is a reserve game, played from the Puzzles screen. The chamber grows from 4 by 4 to 7 by 7 inside its walls, with more wall set into it as the difficulty rises. It holds one nucleon on the easiest boards, two from the top of Very easy through Easy, three through Medium and most of Hard, and four from the top of Hard on.</p>
-<p class="meta">Par is the fewest pushes that solve the chamber; walking never counts. Every deal is made backwards, by pulling the nucleons off their sockets, so every one can be solved, and par is proven by a search over every position the nucleons and the probe can reach. It rises from 2 to 5 pushes on the easiest boards to around 24 to 36 on the hardest. From the middle of Easy on, a deal is kept only when pushing each nucleon straight at its socket does not solve it, and the shortest solution takes some nucleon away from its socket or the long way round, more of them the harder the board. Undo is free, and a nucleon that can never reach a socket again is outlined so you know to take it back.</p>
+<section class="how-specs"><h3>Specs</h3><ul>
+<li><b>Flawless:</b> Fill every socket in par pushes or fewer, where par is the fewest pushes the chamber needs (walking never counts), and without Show me.</li>
+<li><b>Where it's played:</b> A reserve game, played from the Puzzles screen.</li>
+<li><b>Board:</b> The chamber grows from 4 by 4 to 7 by 7 inside its walls, with more wall set into it as the difficulty rises. It holds one nucleon on the easiest boards, two from the top of Very easy through Easy, three through Medium and most of Hard, and four from the top of Hard on.</li>
+<li><b>Built:</b> Every deal is made backwards, by pulling the nucleons off their sockets, so every one can be solved.</li>
+<li><b>Par:</b> Par is proven by a search over every position the nucleons and the probe can reach. It rises from 2 to 5 pushes on the easiest boards to around 24 to 36 on the hardest.</li>
+<li><b>Difficulty:</b> From the middle of Easy on, a deal is kept only when pushing each nucleon straight at its socket does not solve it. The shortest solution takes some nucleon away from its socket or the long way round, more of them the harder the board.</li>
+<li><b>Undo:</b> Undo is free, and a nucleon that can never reach a socket again is outlined so you know to take it back.</li>
+</ul></section>
 `;
 
 /** Protons and neutrons, warm red and cool blue like a pair of opposite poles. */
@@ -685,24 +691,24 @@ function picture(rows: string[], moves: string, caption: string, opts: { bad?: b
 export const RULES: RuleCard[] = [
   {
     title: 'Walk',
-    text: 'Swipe to step the probe, or tap an open cell to walk there the shortest way. Walking is free: only pushes count.',
+    text: '**Swipe to step the probe**, or tap an open cell to walk there the shortest way. Walking is free: only pushes count.',
     good: picture(['@....', '.##..', '.....'], '*4,2', 'Tap to walk there'),
   },
   {
     title: 'Push',
-    text: 'Step into a nucleon, or tap one beside the probe, to push it a cell. You push one at a time and can never pull.',
+    text: '**Step into a nucleon**, or tap one beside the probe, to push it a cell. You push one at a time and can never pull.',
     good: picture(['.....', '@n...', '.....'], 'RRR', 'One cell a push'),
     bad: picture(['.....', '@pn..', '.....'], 'R', 'Two will not budge', { bad: true, flag: [[1, 1], [2, 1]] }),
   },
   {
     title: 'Sockets',
-    text: 'Push each nucleon onto a ring of its own color: protons on red, neutrons on blue. Fill every ring to win.',
+    text: 'Push each nucleon onto **a ring of its own color**: protons on red, neutrons on blue. Fill every ring to win.',
     good: picture(['@p.+.', '.....', '.n..o'], 'RRLLDDRRR', 'Each to its own ring'),
     bad: picture(['@p.o.', '.....', '.n..+'], 'RR', 'Wrong ring', { bad: true, flag: [[3, 0]] }),
   },
   {
     title: 'Corners',
-    text: 'A nucleon pushed into a corner, or flat against a wall with no ring along it, is stuck for good. Undo is free, so take the push back.',
+    text: 'A nucleon pushed into a corner, or flat against a wall with no ring along it, is **stuck for good**. Undo is free, so take the push back.',
     good: picture(['+...', 'p...', '@...'], 'UR', 'A corner with a ring'),
     bad: picture(['.p@.', '....', '...+'], 'LD', 'Stuck in a corner', { bad: true, dead: 0 }),
   },

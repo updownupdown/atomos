@@ -317,7 +317,7 @@ describe('orbital grid view', () => {
     const bad = (title: string) => RULES.find((r) => r.title === title)?.bad;
     expect(bad('Once each')).toBeDefined();
     expect(bad('Test')).toBeDefined();
-    expect(INSTRUCTIONS).toMatch(/<h3>In the game<\/h3>/);
+    expect(INSTRUCTIONS).toMatch(/^\s*<section class="how-specs"><h3>Specs<\/h3><ul>\s*<li><b>Flawless:<\/b>/);
     expect(INSTRUCTIONS).not.toMatch(/How to play/);
   });
 });

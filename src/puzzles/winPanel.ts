@@ -34,12 +34,14 @@ export interface WinLevels {
 }
 
 export interface WinInfo {
-  /** won, won flawless, or lost (out of moves for good). */
+  /** won, won flawless, or lost (out of guesses, or stuck with no way on). */
   outcome: 'won' | 'flawless' | 'lost';
   /** The result in a word or two: "Built", "Flawless", "Solved", "Out of guesses". */
   headline: string;
   /** What it was for: "Lithium's nucleus", "Tessera · Carbon". */
   title: string;
+  /** A line under the title (the Lost sheet: what happened and what to do). */
+  note?: string;
   /** The game played, for its icon. */
   game?: string;
   stats: WinStat[];
@@ -70,6 +72,7 @@ export function showWin(info: WinInfo, reducedMotion = false, host?: HTMLElement
         <div class="win-result">
           <div class="win-head"><span class="win-mark" aria-hidden="true">${mark}</span><b class="win-headline">${esc(info.headline)}</b></div>
           <p class="win-title">${gameIcon}<span>${esc(info.title)}</span></p>
+          ${info.note ? `<p class="win-note">${esc(info.note)}</p>` : ''}
           ${info.stats.length ? `<dl class="win-stats">${info.stats.map((s) => `<div><dt>${esc(s.label)}</dt><dd>${esc(s.value)}</dd></div>`).join('')}</dl>` : ''}
         </div>
         <div class="win-track-slot"></div>

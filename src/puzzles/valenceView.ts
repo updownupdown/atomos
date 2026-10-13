@@ -12,8 +12,13 @@ import { drawFrame, frameBox, framePad, frameWidth } from './frame';
 import { drawHelpMark, ease, type Area, type Help, type Illustration, type Point, type PuzzleView, type RuleCard, type Stat } from './view';
 
 export const INSTRUCTIONS = `
-<h3>In the game</h3>
-<p class="meta">Valence is a reserve game, played from the Puzzles screen. The grid grows from 7 by 7 with 8 atoms on the easiest boards to 10 across and 13 down with about 29 on the hardest, with fewer double bonds and more rings as it goes. Each board is grown as a random molecule and kept only when the solver can finish it by deduction, which proves it has exactly one answer. Very easy boards need only counting; from Easy on a board may need the one-molecule rule (a lone link must hold a bond, and no bond may close off a finished group), and from Medium on a step of looking ahead; Hard and Expert boards are picked to need it where they can. Par is one drag per bond in the answer, so a double bond counts two.</p>
+<section class="how-specs"><h3>Specs</h3><ul>
+<li><b>Flawless:</b> Solve in par drags or fewer, where a drag (or a tap on a gap) steps a bond from none to single to double and back to none, and par is one drag per bond in the answer (a double bond counts two), and without Show me.</li>
+<li><b>Where it's played:</b> A reserve game, played from the Puzzles screen.</li>
+<li><b>Board:</b> The grid grows from 7 by 7 with 8 atoms on the easiest boards to 10 across and 13 down with about 29 on the hardest, with fewer double bonds and more rings as it goes.</li>
+<li><b>Built:</b> Each board is grown as a random molecule and kept only when the solver can finish it by deduction, which proves it has exactly one answer.</li>
+<li><b>Difficulty:</b> Very easy boards need only counting; from Easy on a board may need the one-molecule rule (a lone link must hold a bond, and no bond may close off a finished group), and from Medium on a step of looking ahead. Hard and Expert boards are picked to need it where they can.</li>
+</ul></section>
 `;
 
 /** Milliseconds a bond takes to grow from its atom. */
@@ -539,24 +544,24 @@ function picture(cols: number, rows: number, atoms: [number, number, number][], 
 export const RULES: RuleCard[] = [
   {
     title: 'Bonds',
-    text: 'Drag from an atom toward a neighbor to bond them, or tap the gap between them. Do it again for a double bond, and once more to take it away.',
+    text: '**Drag from an atom toward a neighbor to bond them**, or tap the gap between them. Do it again for a double bond, and once more to take it away.',
     good: picture(3, 3, [[0, 0, 1], [2, 0, 3], [2, 2, 2]], [[0, 1], [1, 2], [1, 2]], 'Single, then double'),
   },
   {
     title: 'Bond count',
-    text: 'Every atom ends with exactly as many bonds as its number. A double bond counts as two.',
+    text: 'Every atom ends with **exactly as many bonds as its number**. A double bond counts as two.',
     good: picture(3, 3, [[0, 0, 2], [2, 0, 3], [0, 2, 1], [2, 2, 2]], [[0, 1], [0, 2], [1, 3], [1, 3]], 'Every count met'),
     bad: picture(3, 3, [[0, 0, 1], [2, 0, 2], [2, 2, 1]], [[0, 1], [0, 1]], 'One bond too many'),
   },
   {
     title: 'No crossing',
-    text: 'Bonds run straight along a row or a column to the next atom. They never cross another bond.',
+    text: 'Bonds run straight along a row or a column to the next atom. **They never cross another bond**.',
     good: picture(3, 3, [[0, 0, 2], [2, 0, 2], [0, 2, 1], [2, 2, 1]], [[0, 1], [0, 2], [1, 3]], 'Around, not across'),
     bad: picture(3, 3, [[1, 0, 1], [0, 1, 1], [2, 1, 1], [1, 2, 1]], [[0, 3]], 'Bonds can’t cross', { refuse: [1, 2] }),
   },
   {
     title: 'One molecule',
-    text: 'Every atom must join one connected molecule. Groups left apart do not count.',
+    text: 'Every atom must **join one connected molecule**. Groups left apart do not count.',
     good: picture(3, 3, [[0, 0, 1], [2, 0, 2], [2, 2, 2], [0, 2, 1]], [[0, 1], [1, 2], [2, 3]], 'All joined'),
     bad: picture(3, 3, [[0, 0, 1], [2, 0, 1], [0, 2, 1], [2, 2, 1]], [[0, 1], [2, 3]], 'Two pieces'),
   },

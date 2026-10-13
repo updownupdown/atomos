@@ -389,7 +389,7 @@ describe('view and rule cards', () => {
   it('has a card with pictures for every piece, drawn inside its box', () => {
     checkRules(RULES, ['Rings', 'Fixed mirrors', 'Filters', 'Colored rings', 'Dark sensors']);
     expect(INSTRUCTIONS).toMatch(/fleeting/);
-    expect(INSTRUCTIONS).toMatch(/^\s*<h3>In the game<\/h3>\s*<p class="meta">/);
+    expect(INSTRUCTIONS).toMatch(/^\s*<section class="how-specs"><h3>Specs<\/h3><ul>\s*<li><b>Flawless:<\/b>/);
     expect(INSTRUCTIONS).not.toMatch(/How to play/);
     expect(RULES.map((r) => r.title)).toEqual(['Mirrors', 'Rings', 'The tray', 'Fixed mirrors', 'Splitters', 'Filters', 'Colored rings', 'Dark sensors', 'Blockers']);
   });

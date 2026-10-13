@@ -25,9 +25,14 @@ interface Failure {
 }
 
 export const INSTRUCTIONS = `
-<h3>In the game</h3>
-<p class="meta">A facet puzzle. Grids grow from 4×4 tiles (H to K, z 1–19) to 5×5 (Ca to Cs, 20–55) and 6×6 (from Ba, 56). Marks arrive in bands so each one is introduced on its own terms: beads and orbitals from H; bars from Mg (12); gaps from Cr (24); pairs from Kr (36); shapes from Sn (50). From Gd (64) every level draws one of the heavier marks (bars, pairs, shapes) plus one or two partners, with three-mark levels growing more common toward the end of the table; from Hg (80) about half the boards get a second + charge or a second − charge. Mark counts rise gently with the element.</p>
-<p class="meta">Every level is read off a hidden line, so it always has an answer; any line that meets every mark wins, not only the hidden one. Par is one check: a line that wins the first time it is checked counts as clean. Each release on a − charge is one check (one move).</p>
+<section class="how-specs"><h3>Specs</h3><ul>
+<li><b>Flawless:</b> Win on your first check, where a check (one move) is each release on a − charge and par is one check, and without Show me.</li>
+<li><b>Built:</b> Every level is read off a hidden line, so it always has an answer. Any line that meets every mark wins, not only the hidden one.</li>
+<li><b>Board:</b> Grids grow from 4×4 tiles (H to K, z 1–19) to 5×5 (Ca to Cs, 20–55) and 6×6 (from Ba, 56). From Hg (80) about half the boards get a second + charge or a second − charge.</li>
+<li><b>Marks:</b> They arrive in bands so each one is introduced on its own terms: beads and orbitals from H, bars from Mg (12), gaps from Cr (24), pairs from Kr (36) and shapes from Sn (50). Mark counts rise gently with the element.</li>
+<li><b>Heavy levels:</b> From Gd (64) every level draws one of the heavier marks (bars, pairs, shapes) plus one or two partners, with three-mark levels growing more common toward the end of the table.</li>
+<li><b>Where it's played:</b> A facet puzzle.</li>
+</ul></section>
 `;
 
 // ---- the shared painter ----------------------------------------------------------------
@@ -991,58 +996,58 @@ const SHAPES = mini({ ...SPLIT_ENDS, at: { 3: { type: 'shape', cells: P(0, 0, 0,
 export const RULES: RuleCard[] = [
   {
     title: 'Start',
-    text: 'Press a + charge and drag one line along the channels between the tiles. A line never crosses itself.',
+    text: '**Press a + charge and drag one line** along the channels between the tiles. A line never crosses itself.',
     good: picture(mini({}), { path: P(0, 2, 1, 2, 1, 1, 2, 1, 2, 0, 3, 0) }, 'One line, + to −'),
   },
   {
     title: 'End',
-    text: 'Let go on a − charge at the rim and the line is checked against every mark on the board.',
+    text: '**Let go on a − charge** at the rim and the line is checked against every mark on the board.',
     good: picture(mini({ starts: P(0, 0), ends: P(3, 2) }), { path: P(0, 0, 1, 0, 1, 1, 2, 1, 3, 1, 3, 2) }, 'Let go on the −', { emph: 'end' }),
   },
   {
     title: 'Pockets',
-    text: 'The line walls the tiles into pockets, and the rim is a wall too. Most marks are about the pocket they sit in.',
+    text: '**The line walls the tiles into pockets**, and the rim is a wall too. Most marks are about the pocket they sit in.',
     good: picture(mini(SPLIT_ENDS), { path: SPLIT }, 'Two pockets of three', { pockets: true }),
   },
   {
     title: 'Beads',
-    text: 'The line must run over every bead on a channel.',
+    text: 'The line must **run over every bead** on a channel.',
     good: picture(BEADS, { path: P(0, 2, 1, 2, 2, 2, 2, 1, 3, 1, 3, 0) }, 'Passes every bead'),
     bad: picture(BEADS, { path: P(0, 2, 0, 1, 1, 1, 2, 1, 3, 1, 3, 0) }, 'Misses a bead'),
   },
   {
     title: 'Gaps',
-    text: 'The line cannot cross a broken channel.',
+    text: 'The line **cannot cross a broken channel**.',
     good: picture(GAPS, { path: P(0, 2, 0, 1, 1, 1, 1, 0, 2, 0, 3, 0) }, 'Goes round the gap'),
     bad: picture(GAPS, { path: P(0, 2, 0, 1, 1, 1), blocked: { x: 2, y: 1 } }, 'Cannot cross a gap'),
   },
   {
     title: 'Orbitals',
-    text: 'No pocket may hold two kinds of orbital. Wall the different shapes apart.',
+    text: '**No pocket may hold two kinds of orbital**. Wall the different shapes apart.',
     good: picture(ORBITALS, { path: SPLIT }, 'Kinds walled apart'),
     bad: picture(ORBITALS, { path: SPLIT_WIDE }, 'Two kinds together'),
   },
   {
     title: 'Bars',
-    text: 'The line runs along exactly as many of the tile\'s four sides as it has bars: one, two or three.',
+    text: 'The line runs along **exactly as many of the tile\'s four sides as it has bars**: one, two or three.',
     good: picture(BARS, { path: P(0, 2, 0, 1, 1, 1, 1, 0, 2, 0, 3, 0) }, 'Two bars, two sides'),
     bad: picture(BARS, { path: P(0, 2, 0, 1, 1, 1, 2, 1, 3, 1, 3, 0) }, 'Two bars, one side'),
   },
   {
     title: 'Pairs',
-    text: 'A hollow orbital\'s pocket holds exactly two orbitals of its kind, hollow or filled, itself included.',
+    text: 'A hollow orbital\'s pocket holds **exactly two orbitals of its kind**, hollow or filled, itself included.',
     good: picture(PAIRS, { path: SPLIT }, 'Two in each pocket'),
     bad: picture(PAIRS, { path: SPLIT_WIDE }, 'One here, three there'),
   },
   {
     title: 'Shapes',
-    text: 'The pocket holding a shape must be exactly that shape, the same way up. Two shapes in one pocket fit together to fill it.',
+    text: 'The pocket holding a shape must be **exactly that shape, the same way up**. Two shapes in one pocket fit together to fill it.',
     good: picture(SHAPES, { path: SPLIT }, 'Pocket is the shape'),
     bad: picture(SHAPES, { path: SPLIT_WIDE }, 'Pocket is too small'),
   },
   {
     title: 'Two starts or ends',
-    text: 'Some boards have two + charges or two − charges. Use whichever you like.',
+    text: 'Some boards have two + charges or two − charges. **Use whichever you like**.',
     good: picture(mini({ starts: P(0, 2, 3, 2), ends: P(1, 0, 3, 0) }), { path: P(3, 2, 2, 2, 2, 1, 3, 1, 3, 0) }, 'Either one will do'),
   },
 ];

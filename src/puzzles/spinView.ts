@@ -12,8 +12,13 @@ import { drawFrame, frameBox, framePad, frameWidth } from './frame';
 import { drawHelpMark, type Area, type Help, type Illustration, type Point, type PuzzleView, type RuleCard, type Stat } from './view';
 
 export const INSTRUCTIONS = `
-<h3>In the game</h3>
-<p class="meta">Parity is a reserve game, played from the Puzzles screen. The grid is 4 by 4 for hydrogen and helium, 6 by 6 up to barium and 8 by 8 from lanthanum on. Fewer cells are dealt filled as the element gets heavier, from half the board down to a fifth, and more links are dealt. Every board has exactly one answer, checked by the generator. Par is the fewest taps that fill it: one for an up, two for a down.</p>
+<section class="how-specs"><h3>Specs</h3><ul>
+<li><b>Flawless:</b> Fill the grid in par taps or fewer, where par is the fewest taps that fill it (one for an up, two for a down), and without Show me.</li>
+<li><b>Where it's played:</b> A reserve game, played from the Puzzles screen.</li>
+<li><b>Board:</b> The grid is 4 by 4 for hydrogen and helium, 6 by 6 up to barium and 8 by 8 from lanthanum on.</li>
+<li><b>Difficulty:</b> Fewer cells are dealt filled as the element gets heavier, from half the board down to a fifth, and more links are dealt.</li>
+<li><b>Built:</b> Every board has exactly one answer, checked by the generator.</li>
+</ul></section>
 `;
 
 interface Geo { x: number; y: number; c: number }
@@ -329,24 +334,24 @@ function picture(rows: string[], caption: string, links: { a: [number, number]; 
 export const RULES: RuleCard[] = [
   {
     title: 'Spins',
-    text: 'Tap an empty cell for spin up (red), again for spin down (blue), and again to clear it. Dealt spins sit on dimmer plates and cannot change.',
+    text: '**Tap an empty cell for spin up (red), again for spin down (blue)**, and again to clear it. Dealt spins sit on dimmer plates and cannot change.',
     good: picture(['U.', '.d'], 'Up, then down'),
   },
   {
     title: 'Balance',
-    text: 'Every row and every column holds as many ups as downs.',
+    text: 'Every row and every column holds **as many ups as downs**.',
     good: picture(['Ud', 'dU'], 'Two and two'),
     bad: picture(['Uu', 'dU'], 'Too many ups'),
   },
   {
     title: 'No three',
-    text: 'Three alike never sit next to each other in a row or a column.',
+    text: '**Three alike never sit next to each other** in a row or a column.',
     good: picture(['UUdd', 'dDuU', 'uDUd', 'Dudu'], 'Twos at most'),
     bad: picture(['UUud', 'dDdU', 'uDUd', 'Dudu'], 'Three ups in a row'),
   },
   {
     title: 'Links',
-    text: 'Two cells joined by = take the same spin; joined by x, they differ.',
+    text: 'Two cells **joined by = take the same spin; joined by x, they differ**.',
     good: picture(['UUdd', 'dDuU', 'uDUd', 'Dudu'], 'Same and different', [{ a: [0, 0], b: [1, 0], same: true }, { a: [0, 0], b: [0, 1], same: false }]),
     bad: picture(['UUdd', 'dDuU', 'uDUd', 'Dudu'], 'Linked, not the same', [{ a: [0, 0], b: [0, 1], same: true }]),
   },

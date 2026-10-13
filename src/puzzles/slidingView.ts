@@ -16,8 +16,15 @@ const LANE = 0.3;
 const LEFT = 0.3;
 
 export const INSTRUCTIONS = `
-<h3>In the game</h3>
-<p class="meta">Nova builds the nucleus of every element past iron (z 27 to 118). The board is 6 by 6, with one extra row from z 106. Par is the solver's fewest moves for the deal: about 4 at cobalt rising steadily to about 21 at the end of the table, and finishing within par counts as clean. Walls appear from z 45 (two from z 92), loose round pieces from z 75. Below z 60 each board is dealt fresh: the generator deals boards around a solved position, explores every position each one can reach and starts you from the one farthest from any solution. From z 60 it starts from a bank of deep boards found offline the same way, flips it at random and remixes it with a few changes that keep it deep enough, so every deal is different.</p>`;
+<section class="how-specs"><h3>Specs</h3><ul>
+<li><b>Flawless:</b> Free the key bar in par moves or fewer, where a move is one slide of one piece however far it goes and par is the solver's fewest moves for the deal, and without Show me.</li>
+<li><b>Where it's played:</b> Nova builds the nucleus of every element past iron (z 27 to 118).</li>
+<li><b>Board:</b> The board is 6 by 6, with one extra row from z 106. Walls appear from z 45 (two from z 92), loose round pieces from z 75.</li>
+<li><b>Par:</b> About 4 moves at cobalt, rising steadily to about 21 at the end of the table.</li>
+<li><b>Built:</b> Below z 60 each board is dealt fresh: the generator deals boards around a solved position, explores every position each one can reach and starts you from the one farthest from any solution.</li>
+<li><b>Deep boards:</b> From z 60 it starts from a bank of deep boards found offline the same way, flips it at random and remixes it with a few changes that keep it deep enough, so every deal is different.</li>
+</ul></section>
+`;
 
 interface Drag {
   id: number;
@@ -482,7 +489,7 @@ function keyOut(ctx: CanvasRenderingContext2D, T: Tray, cols: number, rows: numb
 export const RULES: RuleCard[] = [
   {
     title: 'The key bar',
-    text: 'Get the red key bar out through the gap in the frame, marked by a red dot.',
+    text: '**Get the red key bar out** through the gap in the frame, marked by a red dot.',
     good: {
       duration: 2.4,
       caption: 'Out through the gap',
@@ -501,7 +508,7 @@ export const RULES: RuleCard[] = [
   },
   {
     title: 'Bars slide lengthwise',
-    text: 'Drag a bar along its length: bars lying across slide left and right, standing bars slide up and down. One slide is one move, however far it goes.',
+    text: '**Drag a bar along its length**: bars lying across slide left and right, standing bars slide up and down. One slide is one move, however far it goes.',
     good: {
       duration: 2.4,
       caption: 'Along its length, any distance',
@@ -537,7 +544,7 @@ export const RULES: RuleCard[] = [
   },
   {
     title: 'Walls',
-    text: 'Solid gray squares are walls. They never move, and nothing slides through them.',
+    text: 'Solid gray squares are walls. **They never move**, and nothing slides through them.',
     good: {
       duration: 2,
       caption: 'It stops beside the wall',
@@ -572,7 +579,7 @@ export const RULES: RuleCard[] = [
   },
   {
     title: 'Loose pieces',
-    text: 'Round pieces are loose: they slide any of the four ways, one way per move.',
+    text: 'Round pieces are loose: they **slide any of the four ways**, one way per move.',
     good: {
       duration: 2.4,
       caption: 'Any of four ways, one per move',
@@ -608,7 +615,7 @@ export const RULES: RuleCard[] = [
   },
   {
     title: 'Clear the way',
-    text: 'Slide whatever stands in the key bar\'s row out of its way, then drag the key bar to the gap and it slides out.',
+    text: '**Slide whatever stands in the key bar\'s row out of its way**, then drag the key bar to the gap and it slides out.',
     good: {
       duration: 3,
       caption: 'Out of its row, then the key leaves',
@@ -644,6 +651,6 @@ export const RULES: RuleCard[] = [
   },
   {
     title: 'Keyboard',
-    text: 'Tab picks a piece, ringed in cyan; the arrow keys slide it one cell.',
+    text: '**Tab picks a piece**, ringed in cyan; the arrow keys slide it one cell.',
   },
 ];

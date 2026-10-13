@@ -1,16 +1,17 @@
-// The Instructions modal for any puzzle: its goal, large, under a Goal heading, then one card
-// per rule. Each card has its title and text, then its pictures side by side, the rule kept and
-// the rule broken, drawn as stills as wide as the sheet allows. The card crossing the middle of
-// the sheet is the one in focus: it wears the blue animated border and its pictures play, one
-// after the other, over and over; the rest hold their finished stills. Scrolled to the very end,
-// the last card is in focus; tapping a card brings it to the middle. There are no Play buttons.
-// Under Reduce motion the focused card is ringed but its pictures stay still.
+// The Instructions modal for any puzzle: the game's icon and name pinned at the top, its goal,
+// large and given room, then one card per rule, then its Specs (what a flawless solve needs and
+// how its boards are made). Each card has its title and text (the key phrase in bold, written
+// **so** in the rule), then its pictures side by side, the rule kept and the rule broken, drawn
+// as stills as wide as the sheet allows. The card crossing the middle of the sheet is the
+// current one: it turns gray with a paler gray edge and its pictures play, one after the other,
+// over and over; the rest sit black, holding their finished stills. Scrolled to the very end, the
+// last card is current; tapping a card brings it to the middle. There are no Play buttons. Under
+// Reduce motion the current card still turns gray but its pictures stay still.
 // Shared by Build and the Puzzles screen.
 
 import { openModal } from '../ui/modal';
-import { ringOn } from '../ui/components';
 import { icon } from '../ui/icons';
-import type { PuzzleType } from './catalog';
+import { puzzleIcon, type PuzzleType } from './catalog';
 import { syncPalette } from './palette';
 import type { Illustration, RuleCard } from './view';
 
@@ -41,13 +42,13 @@ export function openRules(t: PuzzleType, opts: { reducedMotion?: boolean; footer
     return `
     <li class="rule" data-i="${i}">
       <div class="rule-head"><b>${escape(r.title)}</b></div>
-      <p>${escape(r.text)}</p>
+      <p>${bolded(r.text)}</p>
       ${pics.length ? `<div class="rule-pics${pair ? ' rule-pics--pair' : ''}">${figures}</div>` : ''}
     </li>`;
   }).join('');
   // The name comes first so the modal pins it beside the X while the rules scroll.
   let stop = () => {};
-  const sheet = openModal(`<h2>${escape(t.name)}</h2><div class="how">
+  const sheet = openModal(`<h2 class="how-title"><span class="how-icon" aria-hidden="true">${puzzleIcon(t.id, 18)}</span><span>${escape(t.name)}</span></h2><div class="how">
       <section class="how-goal"><h3>Goal</h3><p>${escape(t.goal)}</p></section>
       <p class="how-blurb">${t.blurb}</p>
       ${rules.length ? `<ul class="rules">${cards}</ul>` : ''}
@@ -95,12 +96,12 @@ function wire(root: HTMLElement, rules: RuleCard[], reduced: boolean): () => voi
   let stopLoop = () => {};
   const focus = (card: HTMLElement | null) => {
     if (card === active) return;
-    if (active) ringOn(active, null);
+    active?.classList.remove('is-current');
     stopLoop();
     stopLoop = () => {};
     active = card;
     if (!card) return;
-    ringOn(card, 'focus');
+    card.classList.add('is-current');
     const list = pics.get(card.dataset.i!);
     if (list?.length && !reduced) stopLoop = loop(list, root);
   };
@@ -182,6 +183,11 @@ function paint(canvas: HTMLCanvasElement, ill: Illustration, t: number): void {
   } catch {
     // A picture that fails leaves its card with text only.
   }
+}
+
+/** A rule's text, escaped, with its **key phrase** in bold. */
+function bolded(s: string): string {
+  return escape(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
 }
 
 function escape(s: string): string {

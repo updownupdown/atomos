@@ -13,8 +13,14 @@ import { glyph, HUES, inkOn } from './hues';
 import { drawHelpMark, undoHelp, type Area, type Help, type Illustration, type Point, type PuzzleView, type RuleCard, type Stat, type ViewAction } from './view';
 
 export const INSTRUCTIONS = `
-<h3>In the game</h3>
-<p class="meta">Flood is a reserve game, played from the Puzzles screen. The board grows from 5 by 5 in 3 colors to 12 by 12 in 6, and the spare picks beyond par fall from 4 on the easiest boards to none at the top of Expert. Par is the fewest picks a solver finds: an A* search proves it the fewest on most boards up to about 9 by 9; on bigger ones a beam search finds a short route, which the player may sometimes beat. Running out of picks ends the run; undo is free.</p>
+<section class="how-specs"><h3>Specs</h3><ul>
+<li><b>Flawless:</b> Fill the board in par picks or fewer, where a pick is one tap of a color and par is the fewest picks the solver finds, and without Show me.</li>
+<li><b>Board:</b> The board grows from 5 by 5 in 3 colors to 12 by 12 in 6.</li>
+<li><b>Picks allowed:</b> The spare picks beyond par fall from 4 on the easiest boards to none at the top of Expert.</li>
+<li><b>Par:</b> An A* search proves it the fewest on most boards up to about 9 by 9. On bigger ones a beam search finds a short route, which you may sometimes beat.</li>
+<li><b>Lost:</b> Running out of picks ends the run. Undo is free.</li>
+<li><b>Where it's played:</b> Flood is a reserve game, played from the Puzzles screen.</li>
+</ul></section>
 `;
 
 /** Milliseconds per step of the ripple, out from the corner. */
@@ -468,23 +474,23 @@ function picture(rows: string[], picks: number[], caption: string, opts: { budge
 export const RULES: RuleCard[] = [
   {
     title: 'Grow',
-    text: 'The crystal is the patch joined to the top-left corner. Tap a color and the crystal takes it, and every touching cell of that color joins.',
+    text: 'The crystal is the patch joined to the top-left corner. **Tap a color and the crystal takes it**, and every touching cell of that color joins.',
     good: picture(['abca', 'bbac', 'cabb', 'bcaa'], [1], 'Orange joins'),
   },
   {
     title: 'Touching only',
-    text: 'Only cells touching the crystal join. A patch of the same color farther off waits for the crystal to reach it.',
+    text: '**Only cells touching the crystal join**. A patch of the same color farther off waits for the crystal to reach it.',
     good: picture(['aabb', 'acbb', 'ccab', 'bcaa'], [1, 2], 'Reach, then join'),
   },
   {
     title: 'Picks',
-    text: 'Fill the whole board within the picks allowed, the dots under it. Par is the fewest picks the solver found.',
+    text: '**Fill the whole board within the picks allowed**, the dots under it. Par is the fewest picks the solver found.',
     good: picture(['abb', 'bcc', 'cca'], [1, 2, 0], 'Filled in three', { budget: 3 }),
     bad: picture(['abb', 'bcc', 'cca'], [2, 1, 2], 'Out of picks', { budget: 3, bad: true }),
   },
   {
     title: 'Plan the growth',
-    text: 'The color that joins the most cells now is not always best. Hold a color to see what it would join, and look a pick ahead.',
+    text: 'The color that joins the most cells now is not always best. Hold a color to see what it would join, and **look a pick ahead**.',
     good: picture(['baaa', 'caaa', 'bbbb', 'bbaa'], [2, 1, 0], 'Green first', { budget: 3 }),
     bad: picture(['baaa', 'caaa', 'bbbb', 'bbaa'], [0, 2, 1], 'Blue first: one short', { budget: 3, bad: true }),
   },

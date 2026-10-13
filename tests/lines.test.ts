@@ -297,7 +297,7 @@ describe('view and rule cards', () => {
 
   it('has a card with pictures for every mark, drawn inside its box', () => {
     checkRules(RULES, ['Beads', 'Gaps', 'Orbitals', 'Bars', 'Pairs', 'Shapes']);
-    expect(INSTRUCTIONS).toMatch(/^\s*<h3>In the game<\/h3>\s*<p class="meta">/);
+    expect(INSTRUCTIONS).toMatch(/^\s*<section class="how-specs"><h3>Specs<\/h3><ul>\s*<li><b>Flawless:<\/b>/);
     expect(INSTRUCTIONS).not.toMatch(/How to play/);
     expect(RULES.map((r) => r.title)).toEqual(['Start', 'End', 'Pockets', 'Beads', 'Gaps', 'Orbitals', 'Bars', 'Pairs', 'Shapes', 'Two starts or ends']);
   });

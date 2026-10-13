@@ -13,8 +13,15 @@ import { drawFrame, frameBox, framePad, frameWidth } from './frame';
 import { drawHelpMark, ease, type Area, type Help, type Illustration, type Point, type PuzzleView, type RuleCard, type Stat } from './view';
 
 export const INSTRUCTIONS = `
-<h3>In the game</h3>
-<p class="meta">Dipole is a reserve game, played from the Puzzles screen. The board grows from 5 by 6 cells on the easiest setting through 6 by 6, 7 by 8 and 8 by 8 to 10 by 10 at Expert. The first few boards deal a magnet or two in place; from Easy on, some of the edge numbers are left out, up to about two in five at Expert. Every board has exactly one answer, and the generator checks that it can be reached by deduction alone, with no guessing: directly on the easiest boards, with a few steps of "what if" on the hardest. Par is one tap per magnet, on its + end; marking blanks is free.</p>
+<section class="how-specs"><h3>Specs</h3><ul>
+<li><b>Flawless:</b> Meet every number in par moves or fewer, where a move is a tap that leaves a domino a magnet, either way round, and par is one per magnet you place (marking blanks is free), and without Show me.</li>
+<li><b>Board:</b> The board grows from 5 by 6 cells on the easiest setting through 6 by 6, 7 by 8 and 8 by 8 to 10 by 10 at Expert. About a quarter to a third of the dominoes are blank, a touch more on bigger boards.</li>
+<li><b>Numbers:</b> The first few boards deal a few magnets in place. From Easy on, some of the edge numbers are left out, up to about two in five at Expert.</li>
+<li><b>Built:</b> Every board has exactly one answer, and the generator checks that it can be reached by deduction alone, with no guessing.</li>
+<li><b>Difficulty:</b> The easiest boards are settled directly by the numbers and neighbors; the hardest need a few steps of "what if".</li>
+<li><b>Par:</b> One tap per magnet, on its + end. Marking blanks is free, and magnets dealt in place do not count.</li>
+<li><b>Where it's played:</b> Dipole is a reserve game, played from the Puzzles screen.</li>
+</ul></section>
 `;
 
 /** The poles' colors: red +, blue −, like a bar magnet's painted ends. */
@@ -455,24 +462,24 @@ const ROW2: [number, number, 'h' | 'v'][] = [[0, 0, 'h'], [2, 0, 'h'], [0, 1, 'h
 export const RULES: RuleCard[] = [
   {
     title: 'Magnets',
-    text: 'Tap a domino to make it a magnet with + at the end you tap. Tap again to turn it round, again to mark it blank, and once more to clear it.',
+    text: 'Tap a domino to make it a magnet with **+ at the end you tap**. Tap again to turn it round, again to mark it blank, and once more to clear it.',
     good: picture(board(2, 1, [[0, 0, 'h']], [1]), [[0, 1], [0, 2], [0, 3]], '+ end, turn, blank', true),
   },
   {
     title: 'Numbers',
-    text: 'Red numbers count the + poles in each row and column, blue ones the − poles. A number met turns gray.',
+    text: '**Red numbers count the + poles** in each row and column, blue ones the − poles. A number met turns gray.',
     good: picture(board(4, 2, ROW2, [1, 3, 2, 2]), [[0, 1], [2, 2], [3, 2]], 'Every number met'),
     bad: picture(board(4, 2, ROW2, [1, 3, 2, 2]), [[0, 1], [1, 1], [2, 2], [3, 2]], 'Too many in a row'),
   },
   {
     title: 'Like poles',
-    text: 'Two + poles, or two − poles, never touch across an edge. Opposites can.',
+    text: 'Two + poles, or two − poles, **never touch across an edge**. Opposites can.',
     good: picture(board(2, 2, [[0, 0, 'v'], [1, 0, 'v']], [1, 2]), [[0, 1], [1, 2]], 'Opposites touch'),
     bad: picture(board(2, 2, [[0, 0, 'v'], [1, 0, 'v']], [1, 2]), [[0, 1], [1, 1]], 'Like poles touch'),
   },
   {
     title: 'Blanks',
-    text: 'Some dominoes hold no magnet at all. Marking them gray is only a note: the board is done once every number is met.',
+    text: 'Some dominoes **hold no magnet at all**. Marking them gray is only a note: the board is done once every number is met.',
     good: picture(board(4, 2, ROW2, [3, 1, 2, 3]), [[1, 1], [2, 2], [0, 3]], 'Blanks are gray'),
   },
 ];

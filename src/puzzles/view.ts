@@ -46,6 +46,30 @@ export interface PuzzleView {
   action?(): ViewAction | ViewAction[] | null;
 }
 
+/** How a board is lost right now, for the Lost sheet: lost for good (failed: Glyph out of guesses,
+ *  a jammed Tokamak board), or stuck with no way on from here (no jump, pour or move left, or no
+ *  win left to reach). Null while it can still be won. `undo`: Undo can step back from it. */
+export function lossOf(v: PuzzleView): { headline: string; undo: boolean; note: string } | null {
+  if (v.won) return null;
+  if (v.failed) {
+    const undo = Boolean(v.loss?.undo && v.canUndo());
+    return {
+      headline: v.loss?.headline ?? 'Out of guesses',
+      undo,
+      note: undo ? 'Undo to step back and try another way, or restart the board.' : 'This board can no longer be solved. Restart it to try again.',
+    };
+  }
+  if (v.stuck) {
+    const undo = v.canUndo();
+    return {
+      headline: v.loss?.headline ?? 'Stuck',
+      undo,
+      note: undo ? 'There is no way on from here. Undo to step back, or restart the board.' : 'There is no way on from here. Restart the board to try again.',
+    };
+  }
+  return null;
+}
+
 /** A game's own action beside its message line: plain bold text, or with an icon, a pill. */
 export interface ViewAction {
   label: string;

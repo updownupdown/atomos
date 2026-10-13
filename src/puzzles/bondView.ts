@@ -11,8 +11,14 @@ import { drawFrame, frameBox, framePad, frameWidth } from './frame';
 import { drawHelpMark, type Area, type Help, type Illustration, type Point, type PuzzleView, type RuleCard, type Stat } from './view';
 
 export const INSTRUCTIONS = `
-<h3>In the game</h3>
-<p class="meta">Tether is a reserve game, played from the Puzzles screen. The grid is 5 by 5 up to neon with 3 or 4 pairs, 6 by 6 to krypton with 4 or 5, 7 by 7 to radon with 5 to 7 and 8 by 8 beyond with 6 to 8. Each board is dealt from one path through every cell, cut at each tight turn into the pairs, and kept only when the solver finds exactly one answer. Par is one stroke per pair; a redrawn or cut path costs a stroke.</p>
+<section class="how-specs"><h3>Specs</h3><ul>
+<li><b>Flawless:</b> Join every pair and fill every cell in par strokes or fewer, one per pair, where a stroke is any drag that changes a path, and without Show me.</li>
+<li><b>Board:</b> The grid is 5 by 5 up to neon with 3 or 4 pairs, 6 by 6 to krypton with 4 or 5, 7 by 7 to radon with 5 to 7, and 8 by 8 beyond with 6 to 8.</li>
+<li><b>Built:</b> Each board is dealt from one path through every cell, cut at each tight turn into the pairs, each at least three cells long.</li>
+<li><b>One answer:</b> A board is kept only when the solver finds exactly one answer.</li>
+<li><b>Par:</b> One stroke per pair. A redrawn path, or one cut and drawn again, costs another stroke.</li>
+<li><b>Where it's played:</b> Tether is a reserve game, played from the Puzzles screen.</li>
+</ul></section>
 `;
 
 /** The pairs' colors and their names, for the hint line. Kept away from red, amber and rose. */
@@ -372,24 +378,24 @@ function picture(n: number, paths: [number, number][][], caption: string, o: { e
 export const RULES: RuleCard[] = [
   {
     title: 'Pairs',
-    text: 'Drag from a dot, cell by cell, to the other dot of its color. Lift your finger and the path stays; drag back along it to pull it in.',
+    text: 'Drag from a dot, cell by cell, **to the other dot of its color**. Lift your finger and the path stays; drag back along it to pull it in.',
     good: picture(3, [[[0, 0], [1, 0], [2, 0], [2, 1]], [[0, 1], [0, 2], [1, 2], [2, 2]]], 'Dot to dot'),
   },
   {
     title: 'No crossing',
-    text: 'Paths never cross or share a cell. Dragging into another path cuts it off where you enter, and it must be drawn again.',
+    text: 'Paths **never cross or share a cell**. Dragging into another path cuts it off where you enter, and it must be drawn again.',
     good: picture(3, [[[0, 0], [1, 0], [2, 0], [2, 1], [2, 2]], [[0, 1], [0, 2], [1, 2]]], 'Round each other'),
     bad: picture(3, [[[0, 1]], [[0, 0], [1, 0], [1, 1]]], 'Cut off', { ends: { 0: [2, 1], 1: [1, 2] }, flag: [[1, 1]] }),
   },
   {
     title: 'Every cell',
-    text: 'The board is done when every pair is joined and every cell is on a path.',
+    text: 'The board is done when every pair is joined and **every cell is on a path**.',
     good: picture(3, [[[0, 0], [1, 0], [2, 0], [2, 1], [1, 1], [0, 1], [0, 2]], [[1, 2], [2, 2]]], 'All filled'),
     bad: picture(3, [[[0, 0], [1, 0], [2, 0], [2, 1], [2, 2]], [[0, 1], [0, 2], [1, 2]]], 'A cell left out', { flag: [[1, 1]] }),
   },
   {
     title: 'Strokes',
-    text: 'Par is one stroke per pair. A path drawn twice, or cut and redrawn, costs another stroke.',
+    text: '**Par is one stroke per pair**. A path drawn twice, or cut and redrawn, costs another stroke.',
     good: picture(4, [[[0, 0], [0, 1], [0, 2], [0, 3], [1, 3], [1, 2], [1, 1], [1, 0]], [[2, 0], [3, 0], [3, 1], [2, 1], [2, 2], [3, 2], [3, 3], [2, 3]]], 'One stroke each'),
   },
 ];

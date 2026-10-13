@@ -10,8 +10,15 @@ import { drawCellFrame, framePad, frameWidth } from './frame';
 import { drawHelpMark, ease, undoHelp, type Area, type Help, type Illustration, type Point, type PuzzleView, type RuleCard, type Stat } from './view';
 
 export const INSTRUCTIONS = `
-<h3>In the game</h3>
-<p class="meta">Nullis is a reserve game, played from the Puzzles screen. The board grows from a 4 by 4 square with 4 pieces to a 7 by 7 board with notched corners and 15 pieces. Every board is built backward from a single piece by undoing jumps, then solved forward to be sure it clears. Eight boards are built for each deal and ranked by how often random jumping would clear them: the bottom of the dial deals the most forgiving, the top the one with the most dead ends. Par is the jumps it takes, one fewer than the pieces, so finishing is the whole challenge. With no jump left and more than one piece, undo or restart.</p>
+<section class="how-specs"><h3>Specs</h3><ul>
+<li><b>Flawless:</b> Clear the board down to one piece in par jumps or fewer, where par is one fewer than the pieces and each jump is a move, and without Show me.</li>
+<li><b>Board:</b> The board grows from a 4 by 4 square with 4 pieces to a 7 by 7 board with notched corners and 15 pieces.</li>
+<li><b>Built:</b> Every board is built backward from a single piece by undoing jumps, then solved forward to be sure it clears.</li>
+<li><b>Difficulty:</b> Eight boards are built for each deal and ranked by how often random jumping would clear them. The bottom of the dial deals the most forgiving, the top the one with the most dead ends.</li>
+<li><b>Par:</b> Par is the jumps it takes, one fewer than the pieces, so finishing is the whole challenge.</li>
+<li><b>Lost:</b> With no jump left and more than one piece, undo or restart.</li>
+<li><b>Where it's played:</b> Nullis is a reserve game, played from the Puzzles screen.</li>
+</ul></section>
 `;
 
 /** Matter red and antimatter blue: the approved pair for two opposite states on a board. */
@@ -414,24 +421,24 @@ function picture(rows: string[], tries: [[number, number], [number, number]][], 
 export const RULES: RuleCard[] = [
   {
     title: 'Jump',
-    text: 'Tap a piece, then a lit hole, or drag it there. It jumps its neighbor, which is annihilated.',
+    text: 'Tap a piece, then a lit hole, or drag it there. It **jumps its neighbor**, which is annihilated.',
     good: picture(['#..#', '.ma.', '#..#'], [[[1, 1], [3, 1]]], 'Jumped and gone'),
   },
   {
     title: 'Opposites',
-    text: 'Particles, the red discs, jump only antiparticles, the blue rings, and the other way round. Like never jumps like.',
+    text: 'Particles, the red discs, jump only antiparticles, the blue rings, and the other way round. **Like never jumps like**.',
     good: picture(['#..#', '.am.', '#..#'], [[[1, 1], [3, 1]]], 'Ring over disc'),
     bad: picture(['#..#', '.mm.', '#..#'], [[[1, 1], [3, 1]]], 'Like over like', true),
   },
   {
     title: 'Straight lines',
-    text: 'A jump goes along a row or a column, over the very next piece, into the empty hole just beyond.',
+    text: 'A jump goes **along a row or a column**, over the very next piece, into the empty hole just beyond.',
     good: picture(['.m.', '.a.', '...'], [[[1, 0], [1, 2]]], 'Down a column'),
     bad: picture(['m..', '.a.', '...'], [[[0, 0], [2, 2]]], 'No diagonals', true),
   },
   {
     title: 'One left',
-    text: 'Clear the board down to a single piece. Plan ahead: a piece left with nothing to jump is stranded.',
+    text: '**Clear the board down to a single piece**. Plan ahead: a piece left with nothing to jump is stranded.',
     good: picture(['ma.a.'], [[[0, 0], [2, 0]], [[2, 0], [4, 0]]], 'Two jumps, one left'),
     bad: picture(['mama.'], [[[2, 0], [4, 0]], [[0, 0], [2, 0]]], 'Two left, stranded', true),
   },

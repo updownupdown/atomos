@@ -12,8 +12,15 @@ import { drawFrame, framePad, frameWidth } from './frame';
 import { drawHelpMark, ease, undoHelp, type Area, type Help, type Illustration, type Point, type PuzzleView, type RuleCard, type Stat, type ViewAction } from './view';
 
 export const INSTRUCTIONS = `
-<h3>In the game</h3>
-<p class="meta">Well is a reserve game, played from the Puzzles screen. The well grows from 4 wide and 3 deep on Very easy to 6 by 6 on Hard and 7 wide by 5 deep on Expert, and the clusters from mostly ones, twos and threes to mostly fours. On Very easy boards the whole queue is in view and every cluster comes the right way up; from Easy on, clusters come turned at random and the queue shows four ahead, then three, then two. Every deal is built by filling the well with clusters that each land flush, so it can always be filled; harder deals are kept only when they hold enough drops that look fine but leave the well impossible to finish. Par is one move per drop plus the fewest turns any answer needs, found by searching every way the surface of the well can grow.</p>
+<section class="how-specs"><h3>Specs</h3><ul>
+<li><b>Flawless:</b> Fill the well in par moves or fewer, where every drop and every quarter turn is a move and par is one drop per cluster plus the fewest turns any answer needs, and without Show me.</li>
+<li><b>Board:</b> The well grows from 4 wide and 3 deep on Very easy to 6 by 6 on Hard and 7 wide by 5 deep on Expert, and the clusters from mostly ones, twos and threes to mostly fours.</li>
+<li><b>Queue:</b> On Very easy boards the whole queue is in view and every cluster comes the right way up. From Easy on, clusters come turned at random and the queue shows four ahead, then three, then two.</li>
+<li><b>Built:</b> Every deal is built by filling the well with clusters that each land flush, so it can always be filled.</li>
+<li><b>Difficulty:</b> Harder deals are kept only when they hold enough drops that look fine but leave the well impossible to finish.</li>
+<li><b>Par:</b> One move per drop plus the fewest turns any answer needs, found by searching every way the surface of the well can grow.</li>
+<li><b>Where it's played:</b> Well is a reserve game, played from the Puzzles screen.</li>
+</ul></section>
 `;
 
 const PROTON = '#e0583f';
@@ -574,23 +581,23 @@ const OH: Cell[] = [[0, 0], [1, 0], [0, 1], [1, 1]];
 export const RULES: RuleCard[] = [
   {
     title: 'Drop',
-    text: 'Drag the hanging cluster over the well, or tap a column, and let go: it falls straight down until it lands on something. Clusters come in the order dealt.',
+    text: 'Drag the hanging cluster over the well, or tap a column, and let go: it **falls straight down** until it lands on something. Clusters come in the order dealt.',
     good: picture(board(3, 2, [P(DOMINO, 'pn'), P(GAMMA, 'pnn'), P(MONO, 'p')]), [{ col: 1 }, { drop: true }, { col: 0 }, { drop: true }, { col: 2 }, { drop: true }], 'Straight down'),
   },
   {
     title: 'Turn',
-    text: 'Tap the hanging cluster, or Turn, to turn it a quarter. Every turn and every drop is a move, and par is one drop per cluster plus the fewest turns.',
+    text: 'Tap the hanging cluster, or Turn, to **turn it a quarter**. Every turn and every drop is a move, and par is one drop per cluster plus the fewest turns.',
     good: picture(board(3, 2, [P([[0, 0], [1, 0], [0, 1], [0, 2]], 'pnpn')], [[[0, 1], [1, 1]]]), [{ turn: true }, { col: 0 }, { drop: true }], 'Turned to fit'),
   },
   {
     title: 'No gaps',
-    text: 'A gap sealed under a cluster can never be filled, and the clusters add up to exactly the well. Fill it to the brim.',
+    text: 'A gap sealed under a cluster **can never be filled**, and the clusters add up to exactly the well. Fill it to the brim.',
     good: picture(board(3, 2, [P(DOMINO, 'np'), P(DOMINO, 'pn')], [[[0, 1]], [[0, 0]]]), [{ col: 1 }, { drop: true }, { drop: true }], 'Flush every time'),
     bad: picture(board(3, 2, [P(DOMINO, 'np')], [[[0, 1]]]), [{ col: 0 }, { drop: true }], 'A gap sealed in'),
   },
   {
     title: 'Look ahead',
-    text: 'The row above shows the clusters still to come. Leave room for them: a drop that fits now can leave no place for the next.',
+    text: 'The row above shows the clusters still to come. **Leave room for them**: a drop that fits now can leave no place for the next.',
     good: picture(board(4, 3, [P(DOMINO, 'pn'), P(OH, 'pnnp'), P(OH, 'npnp'), P(DOMINO, 'np')]), [{ col: 0 }, { drop: true }, { col: 2 }, { drop: true }, { col: 0 }, { drop: true }, { col: 2 }, { drop: true }], 'Room for the next one', true),
     bad: picture(board(4, 3, [P(DOMINO, 'pn'), P(OH, 'pnnp'), P(OH, 'npnp'), P(DOMINO, 'np')]), [{ col: 1 }, { drop: true }, { col: 2 }, { drop: true }], 'No room for the next', true),
   },

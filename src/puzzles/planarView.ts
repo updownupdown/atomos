@@ -13,8 +13,13 @@ import { drawFrame, frameBox, framePad, frameWidth } from './frame';
 import { drawHelpMark, ease, type Area, type Help, type Illustration, type Point, type PuzzleView, type RuleCard, type Stat } from './view';
 
 export const INSTRUCTIONS = `
-<h3>In the game</h3>
-<p class="meta">Unfurl is a reserve game, played from the Puzzles screen. The easiest board holds 6 atoms and 7 bonds; the hardest, 22 atoms and about 43 bonds, with the bonds per atom rising steadily in between. Every molecule is first laid out with no crossings, then dealt round a ring in a scrambled order, so it can always be untangled. Par is how many atoms that hidden layout moves, once it is turned to keep as many dealt atoms in place as it can. It is a soft target: any drawing with nothing crossing wins, and a good eye can sometimes beat it.</p>
+<section class="how-specs"><h3>Specs</h3><ul>
+<li><b>Flawless:</b> Untangle the molecule in par drags or fewer, where each drag of an atom is a move, and without Show me.</li>
+<li><b>Board:</b> The easiest board holds 6 atoms and 7 bonds; the hardest, 22 atoms and about 43 bonds, with the bonds per atom rising steadily in between.</li>
+<li><b>Built:</b> Every molecule is first laid out with no crossings, then dealt round a ring in a scrambled order, so it can always be untangled.</li>
+<li><b>Par:</b> How many atoms that hidden layout moves, once it is turned to keep as many dealt atoms in place as it can. It is a soft target: any drawing with nothing crossing wins, and a good eye can sometimes beat it.</li>
+<li><b>Where it's played:</b> Unfurl is a reserve game, played from the Puzzles screen.</li>
+</ul></section>
 `;
 
 /** Above this many crossings, only the atom in hand's crossings are dotted. */
@@ -418,24 +423,24 @@ const RING_BONDS: [number, number][] = [[0, 1], [1, 2], [2, 3], [3, 0], [4, 0], 
 export const RULES: RuleCard[] = [
   {
     title: 'Atoms',
-    text: 'Drag an atom anywhere on the board, and its bonds stretch to follow it.',
+    text: '**Drag an atom anywhere on the board**, and its bonds stretch to follow it.',
     good: picture([[0.2, 0.25], [0.55, 0.15], [0.82, 0.45], [0.45, 0.8]], [[0, 1], [1, 2], [2, 3], [3, 0]], [{ atom: 3, to: [0.25, 0.75] }, { atom: 2, to: [0.8, 0.8] }], 'Drag, bonds follow'),
   },
   {
     title: 'No crossing',
-    text: 'Bonds may meet only at the atoms they join. A bond that crosses another loses its color and turns gray.',
+    text: '**Bonds may meet only at the atoms they join**. A bond that crosses another loses its color and turns gray.',
     good: picture(RING, RING_BONDS, [{ atom: 4, to: [0.62, 0.62] }], 'All clear'),
     bad: picture(RING, RING_BONDS, [{ atom: 4, to: [0.5, 0.91] }], 'Bonds cross', { bad: true }),
   },
   {
     title: 'Not through atoms',
-    text: 'A bond may not run through an atom it does not join, and two atoms may not sit on each other.',
+    text: '**A bond may not run through an atom it does not join**, and two atoms may not sit on each other.',
     good: picture(RING, RING_BONDS, [{ atom: 4, to: [0.5, 0.62] }], 'Clear of the atoms'),
     bad: picture(RING, RING_BONDS, [{ atom: 4, to: [0.5, 0.8] }], 'Through an atom', { bad: true }),
   },
   {
     title: 'Untangle',
-    text: 'Each drag is a move, and par is how many atoms a known clear layout moves. When nothing crosses, the molecule glows green.',
+    text: 'Each drag is a move, and par is how many atoms a known clear layout moves. **When nothing crosses**, the molecule glows green.',
     good: picture([[0.2, 0.2], [0.8, 0.2], [0.8, 0.8], [0.2, 0.8], [0.5, 0.5]], [[0, 1], [1, 2], [2, 3], [3, 0], [4, 0], [4, 2]], [{ atom: 4, to: [0.45, 0.4] }, { atom: 1, to: [0.75, 0.3] }], 'Two drags, all clear', { win: true }),
   },
 ];

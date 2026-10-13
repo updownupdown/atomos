@@ -41,8 +41,16 @@ export const UNDO_MS = 2000;
 const FADE_MS = 220;
 
 export const INSTRUCTIONS = `
-<h3>In the game</h3>
-<p class="meta">Reserve puzzle, proposed for the quark chapter of the particles. The grid grows from 3×3 (z 1–10) to 4×3 (11–30), 4×4 with two mesons (31–54), 4×5 with four mesons and an antibaryon (55–86) and 5×5 with five mesons and two antibaryons (87–118). Gluons: one at z 21–30, 45–54, 71–86 and 87–103, two on the synthetic elements (104–118). Every grid has exactly one clearance: a gluon level cannot be cleared without its swaps, and only one set of swaps and groups clears it. Par is the groups plus the swaps; every bind and every swap is a move, Undo is free and takes it back, and clean means clearing the grid within par. Nothing marks a mistake until Test is tapped: then, for two seconds, stranded tiles glow amber and each bound group is ringed green or amber. Under the board, a tally counts each kind of particle bound out of those the grid makes. Keyboard: G arms a gluon, Escape drops the pick.</p>`;
+<section class="how-specs"><h3>Specs</h3><ul>
+<li><b>Flawless:</b> Clear the grid in par moves or fewer, where every bind and every gluon swap is a move and par is the groups plus the swaps, and without Show me.</li>
+<li><b>Grid:</b> The grid grows from 3×3 (z 1 to 10) to 4×3 (11 to 30), 4×4 with two mesons (31 to 54), 4×5 with four mesons and an antibaryon (55 to 86) and 5×5 with five mesons and two antibaryons (87 to 118).</li>
+<li><b>Gluons:</b> One at z 21 to 30, 45 to 54, 71 to 86 and 87 to 103, and two on the synthetic elements (104 to 118). On a keyboard, G arms a gluon and Escape drops the pick.</li>
+<li><b>One answer:</b> Every grid has exactly one clearance: a gluon level cannot be cleared without its swaps, and only one set of swaps and groups clears it.</li>
+<li><b>Par:</b> The groups plus the swaps. Undo is free and takes a move back.</li>
+<li><b>Test:</b> Nothing marks a mistake until Test is tapped: then, for two seconds, stranded tiles glow amber and each bound group is ringed green or amber. A tally under the board counts each kind of particle bound out of those the grid makes.</li>
+<li><b>Where it's played:</b> Chroma is a reserve puzzle, proposed for the quark chapter of the particles.</li>
+</ul></section>
+`;
 
 // ---- the scene ------------------------------------------------------------------------
 
@@ -1234,7 +1242,7 @@ function finger(ctx: CanvasRenderingContext2D, x: number, y: number, r: number):
 export const RULES: RuleCard[] = [
   {
     title: 'Baryon',
-    text: 'Every tile is a quark with a color charge: red, green or blue. Drag across three in a line or an L, one of each color, and they bind into a white baryon; clear the whole grid.',
+    text: 'Every tile is a quark with a color charge: red, green or blue. Drag across three in a line or an L, **one of each color**, and they bind into a white baryon; clear the whole grid.',
     good: picture({
       cols: 2, rows: 2, tiles: 'rg.b', duration: 2.6, names: true, caption: 'One of each: baryon',
       events: [{ at: 0.3, pick: 0 }, { at: 0.65, pick: 1 }, { at: 1.0, pick: 3 }, { at: 1.3, bind: [0, 1, 3] }],
@@ -1246,7 +1254,7 @@ export const RULES: RuleCard[] = [
   },
   {
     title: 'Stranded tiles',
-    text: 'Every tile must end up in a group, but nothing warns you when a move strands some. Tap Test: for two seconds, tiles that can no longer all be bound glow inside an amber rim, and each group you made is ringed green if it belongs, amber if not.',
+    text: '**Every tile must end up in a group**, but nothing warns you when a move strands some. Tap Test: for two seconds, tiles that can no longer all be bound glow inside an amber rim, and each group you made is ringed green if it belongs, amber if not.',
     good: picture({
       cols: 3, rows: 2, tiles: 'rgb gbr', duration: 2.4, caption: 'Two rows: all bound',
       events: [{ at: 0.3, pick: 0 }, { at: 0.55, pick: 1 }, { at: 0.8, pick: 2 }, { at: 1.0, bind: [0, 1, 2] }, { at: 1.7, bind: [3, 4, 5] }],
@@ -1258,7 +1266,7 @@ export const RULES: RuleCard[] = [
   },
   {
     title: 'Gluon',
-    text: 'Gluons carry color. Tap Gluon beside the message line, then two neighboring quarks (or two antiquarks): they trade colors, for one move. The swap looks dashed until it settles.',
+    text: 'Gluons carry color. Tap Gluon beside the message line, then two neighboring quarks (or two antiquarks): **they trade colors**, for one move. The swap looks dashed until it settles.',
     good: picture({
       cols: 3, rows: 3, tiles: 'bgg bbr grr', gluons: 1, duration: 4, strands: true, caption: 'Swap, then three baryons',
       events: [
@@ -1273,7 +1281,7 @@ export const RULES: RuleCard[] = [
   },
   {
     title: 'Antiquark',
-    text: 'A hollow tile with a bar over its letter is an antiquark, carrying an anticolor such as antigreen. It never joins quarks in a baryon.',
+    text: 'A hollow tile with a bar over its letter is an antiquark, carrying an anticolor such as antigreen. It **never joins quarks in a baryon**.',
     good: picture({
       cols: 3, rows: 2, tiles: 'rgb RGB', duration: 1.6, caption: 'Hollow, barred: antiquarks',
       events: [{ at: 0.3, pick: 3 }, { at: 0.6, pick: 4 }, { at: 0.9, pick: 5 }, { at: 1.4, clear: true }],
@@ -1285,7 +1293,7 @@ export const RULES: RuleCard[] = [
   },
   {
     title: 'Meson',
-    text: 'A quark binds with the antiquark of its own color beside it, such as green with antigreen, into a meson.',
+    text: 'A quark binds with **the antiquark of its own color** beside it, such as green with antigreen, into a meson.',
     good: picture({
       cols: 2, rows: 1, tiles: 'gG', duration: 2.2, names: true, caption: 'Green, antigreen: meson',
       events: [{ at: 0.3, pick: 0 }, { at: 0.7, pick: 1 }, { at: 1.0, bind: [0, 1] }],
@@ -1297,7 +1305,7 @@ export const RULES: RuleCard[] = [
   },
   {
     title: 'Antibaryon',
-    text: 'Three antiquarks in a line or an L, one of each anticolor, bind into an antibaryon, the antimatter partner of a baryon.',
+    text: 'Three antiquarks in a line or an L, **one of each anticolor**, bind into an antibaryon, the antimatter partner of a baryon.',
     good: picture({
       cols: 3, rows: 1, tiles: 'BRG', duration: 2.6, names: true, caption: 'Each anticolor: antibaryon',
       events: [{ at: 0.3, pick: 0 }, { at: 0.65, pick: 1 }, { at: 1.0, pick: 2 }, { at: 1.3, bind: [0, 1, 2] }],

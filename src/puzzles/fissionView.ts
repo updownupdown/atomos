@@ -13,8 +13,14 @@ import { drawFrame, frameBox, framePad, frameWidth } from './frame';
 import { drawHelpMark, ease, type Area, type Help, type Illustration, type Point, type PuzzleView, type RuleCard, type Stat } from './view';
 
 export const INSTRUCTIONS = `
-<h3>In the game</h3>
-<p class="meta">Cascade is a reserve game, played from the Puzzles screen. The plate grows from 4 by 4 to 7 by 7 and the nuclei from 5 to 16; moderator blocks appear from sodium on. Par is the fewest taps that split everything, found by trying every tap, pair and triple: 1 up to calcium, 2 to barium, 3 to rutherfordium and 4 beyond. On a par-1 board at most one or two nuclei finish it in one, so the puzzle is finding them. Every chain is fixed by the board, so nothing is luck.</p>
+<section class="how-specs"><h3>Specs</h3><ul>
+<li><b>Flawless:</b> Split every nucleus in par taps or fewer, where par is the fewest taps the board allows, and without Show me.</li>
+<li><b>Board:</b> The plate grows from 4 by 4 to 7 by 7 and the nuclei from 5 to 16. Moderator blocks appear from sodium on.</li>
+<li><b>Par:</b> Found by trying every tap, pair and triple. It is 1 up to calcium, 2 to barium, 3 to rutherfordium and 4 beyond.</li>
+<li><b>Built:</b> Boards are redealt until par comes out right. On a par-1 board at most one or two nuclei finish it in one, so the puzzle is finding them.</li>
+<li><b>No luck:</b> Every chain is fixed by the board, so nothing is left to chance.</li>
+<li><b>Where it's played:</b> Cascade is a reserve game, played from the Puzzles screen.</li>
+</ul></section>
 `;
 
 /** Milliseconds per wave of the chain: a neutron's flight, then the nucleus it hit splits. */
@@ -478,23 +484,23 @@ function picture(rows: string[], taps: [number, number][], caption: string, bad 
 export const RULES: RuleCard[] = [
   {
     title: 'Tap',
-    text: 'Tap a nucleus and it splits, sending a neutron the way each of its chevrons points: a teal one sends one, blue two, violet three. A neutron flies straight until it hits something, or leaves the plate.',
+    text: '**Tap a nucleus and it splits**, sending a neutron the way each of its chevrons points: a teal one sends one, blue two, violet three. A neutron flies straight until it hits something, or leaves the plate.',
     good: picture(['2.3.', '....', '....'], [[0, 0]], 'Two split in one'),
   },
   {
     title: 'Chain',
-    text: 'A nucleus hit by a neutron splits too, and sends out its own. Follow the chevrons to see how far a tap reaches.',
+    text: '**A nucleus hit by a neutron splits too**, and sends out its own. Follow the chevrons to see how far a tap reaches.',
     good: picture(['2..d', '....', '3..8'], [[0, 0]], 'One tap, a chain'),
   },
   {
     title: 'Moderators',
-    text: 'A block soaks up any neutron that hits it. Nothing behind it is reached that way.',
+    text: 'A block **soaks up any neutron** that hits it. Nothing behind it is reached that way.',
     good: picture(['6#.5', '....', '2..1'], [[0, 0]], 'Round the block'),
     bad: picture(['2#2.', '....', '....'], [[0, 0]], 'Soaked up', true),
   },
   {
     title: 'Fewest taps',
-    text: 'Split every nucleus in the fewest taps: par is the least the board allows. Extra taps still finish it, but cost the star.',
+    text: '**Split every nucleus in the fewest taps**: par is the least the board allows. Extra taps still finish it, but cost the star.',
     good: picture(['4...', '2..8', '....'], [[0, 0]], 'All in one'),
     bad: picture(['4...', '2..8', '....'], [[3, 1]], 'One left over', true),
   },

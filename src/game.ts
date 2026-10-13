@@ -22,7 +22,7 @@ import { atomGame } from './core/atomGames';
 import { MergeView } from './puzzles/mergeView';
 import { OrbitalGridView } from './puzzles/orbitalGridView';
 import { solvedState, type PackingState } from './puzzles/packing';
-import { type Area, type PuzzleView } from './puzzles/view';
+import { lossOf, type Area, type PuzzleView } from './puzzles/view';
 import { dealSeed, puzzleIcon, puzzleType, type PuzzleType } from './puzzles/catalog';
 import { difficulty, fleetingDialFor } from './puzzles/difficulty';
 import { openRules } from './puzzles/rulesModal';
@@ -79,6 +79,8 @@ export class Game {
   private closeWin: () => void = () => {};
   /** The Lost sheet has shown for this board; a restart clears it. */
   private lostShown = false;
+  /** When the board was first seen lost (null while it can go on). */
+  private lostAt: number | null = null;
   /** The next step, as of the last time the Build page was drawn. */
   private nextHere: NextStep | null = null;
   /** The game cards renderHome() is about to mount, by stage. */
@@ -754,7 +756,10 @@ export class Game {
       void this.stageSolved();
       return;
     }
-    if (p.failed && !this.busy && !this.lostShown) this.showLost(p);
+    // Lost (out of guesses, or stuck with no way on): the Lost sheet a beat later, once until the
+    // board can go on again.
+    if (!lossOf(p) || this.busy) { this.lostAt = null; if (!lossOf(p)) this.lostShown = false; }
+    else if (!this.lostShown && now - (this.lostAt ??= now) >= (this.save.settings.reducedMotion ? 200 : 900)) this.showLost(p);
     this.loopRaf = requestAnimationFrame((t) => this.frame(t));
   }
 
@@ -975,22 +980,25 @@ export class Game {
     });
   }
 
-  /** A game that can no longer be won (Glyph out of guesses): the Lost sheet, once. Try again
-   *  restarts it; tapping outside leaves the board as it is, to look over or restart. */
+  /** A board that is lost (lossOf: Glyph out of guesses, a jammed Tokamak, no way on): the Lost
+   *  sheet, once until the board can go on again. Undo when it can step back, Restart, or back
+   *  to the atom; tapping outside leaves the board as it is, to look over. */
   private showLost(p: PuzzleView): void {
+    const loss = lossOf(p);
+    if (!loss) return;
     const stage = this.stage as Exclude<Stage, 'home'>;
     const t = this.stagePuzzle(stage);
     this.lostShown = true;
-    const undo = Boolean(p.loss?.undo && p.canUndo());
     this.closeWin = showWin({
       outcome: 'lost',
-      headline: p.loss?.headline ?? 'Out of guesses',
+      headline: loss.headline,
       title: `${t.name} · ${element(this.z).name}`,
+      note: loss.note,
       game: t.id,
       stats: this.winStats(p),
       actions: [
-        ...(undo ? [{ label: 'Undo', primary: true, onClick: () => this.undo() }] : []),
-        { label: 'Try again', primary: !undo, onClick: () => this.restartPuzzle() },
+        ...(loss.undo ? [{ label: 'Undo', primary: true, onClick: () => this.undo() }] : []),
+        { label: 'Restart', primary: !loss.undo, onClick: () => this.restartPuzzle() },
         { label: `Back to ${element(this.z).name}`, onClick: () => this.toHome() },
       ],
     }, this.save.settings.reducedMotion);
@@ -1071,7 +1079,6 @@ export class Game {
   private undo(): void {
     if (this.busy || !this.puzzle?.undo()) return;
     this.closeWin();
-    this.lostShown = false;
     this.hints.undone();
     this.refresh();
     this.ensureLoop();

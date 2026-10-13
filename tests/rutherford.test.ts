@@ -455,7 +455,7 @@ describe('view', () => {
       expect(r.text).not.toMatch(/<|>/);
       expect(r.text.split(/[.!](\s|$)/).filter((x) => x && x.trim()).length).toBeLessThanOrEqual(2);
     }
-    expect(INSTRUCTIONS).toMatch(/^\s*<h3>In the game<\/h3>\s*<p class="meta">[^<]+<\/p>\s*$/);
+    expect(INSTRUCTIONS).toMatch(/^\s*<section class="how-specs"><h3>Specs<\/h3><ul>\s*<li><b>Flawless:<\/b>[^]*<\/ul><\/section>\s*$/);
   });
 
   it('shows the mistake beside the right move, flagged in amber or by the board\'s own direct hit', () => {

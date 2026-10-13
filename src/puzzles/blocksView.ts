@@ -14,8 +14,14 @@ import { drawFrame, frameBox, framePad, frameWidth } from './frame';
 import { drawHelpMark, ease, SUBSHELL_COLORS, type Area, type Help, type Illustration, type Point, type PuzzleView, type RuleCard, type Stat } from './view';
 
 export const INSTRUCTIONS = `
-<h3>In the game</h3>
-<p class="meta">Cubit is a reserve game, played from the Puzzles screen. The grid grows with the dial from 5 by 5 (Very easy) to 10 by 10 at the top of Expert, and the largest rectangle from 5 cells to 14. Every board has exactly one answer, checked by a solver, and a step-by-step solver that works the way a person does reaches it without guessing. Each deal is picked from several by how many harder steps it takes: easy dials keep boards where each number fits one way as you go; hard dials keep ones where you must see which number alone can reach a cell, or which way would box another in. Par is one rectangle per number; tapping one away is free, but every rectangle drawn counts.</p>
+<section class="how-specs"><h3>Specs</h3><ul>
+<li><b>Flawless:</b> Cover the grid in par rectangles or fewer, one per number, where every rectangle drawn is a move and tapping one away is free, and without Show me.</li>
+<li><b>Board:</b> The grid grows with the dial from 5 by 5 (Very easy) to 10 by 10 at the top of Expert, and the largest rectangle from 5 cells to 14.</li>
+<li><b>Built:</b> The grid is cut at random into rectangles of 2 cells or more. Every board has exactly one answer, checked by a solver, and a step-by-step solver that works the way a person does reaches it without guessing.</li>
+<li><b>Difficulty:</b> Each deal is picked from several by how many harder steps it takes. Easy dials keep boards where each number fits one way as you go; hard dials keep ones where you must see which number alone can reach a cell, or which way would box another in.</li>
+<li><b>Par:</b> One rectangle per number. Tapping one away is free, but every rectangle drawn counts, even one that replaces another.</li>
+<li><b>Where it's played:</b> Cubit is a reserve game, played from the Puzzles screen.</li>
+</ul></section>
 `;
 
 /** The subshell a rectangle's size would fill, and its color. */
@@ -433,29 +439,29 @@ const ALL: Stroke[] = PIC_ANSWER.map((r, k) => ({ t: 0.3 + 0.45 * k, a: [r.x, r.
 export const RULES: RuleCard[] = [
   {
     title: 'Rectangles',
-    text: 'Drag from one corner to the opposite one to draw a rectangle. Tap a rectangle to remove it.',
+    text: 'Drag **from one corner to the opposite one** to draw a rectangle. Tap a rectangle to remove it.',
     good: picture([{ t: 0.4, a: [2, 0], b: [3, 1] }], 'Corner to corner', { duration: 2 }),
   },
   {
     title: 'One number',
-    text: 'Each rectangle holds exactly one number.',
+    text: 'Each rectangle holds **exactly one number**.',
     good: picture([{ t: 0.4, a: [0, 1], b: [0, 3] }], 'One number', { duration: 2 }),
     bad: picture([{ t: 0.4, a: [0, 1], b: [1, 2] }], 'Two numbers', { duration: 2 }),
   },
   {
     title: 'Area',
-    text: 'The number is the area of its rectangle: how many cells it covers.',
+    text: 'The number is **the area of its rectangle**: how many cells it covers.',
     good: picture([{ t: 0.4, a: [2, 0], b: [3, 1] }], 'Four cells for a 4', { duration: 2 }),
     bad: picture([{ t: 0.4, a: [2, 1], b: [3, 1] }], 'Two cells for a 4', { duration: 2 }),
   },
   {
     title: 'Fill the grid',
-    text: 'Cover every cell with no gaps. A new rectangle replaces any it overlaps.',
+    text: '**Cover every cell with no gaps**. A new rectangle replaces any it overlaps.',
     good: picture(ALL, 'Every cell covered', { duration: 3.9 }),
   },
   {
     title: 'Colors',
-    text: 'Rectangles take the color of the subshell their size would fill: s holds 2, p 6, d 10 and f 14.',
+    text: 'Rectangles take **the color of the subshell their size would fill**: s holds 2, p 6, d 10 and f 14.',
     good: picture([{ t: 0.3, a: [0, 0], b: [1, 0] }, { t: 0.9, a: [2, 0], b: [3, 1] }], 'Sized like subshells', { duration: 2.2 }),
   },
 ];

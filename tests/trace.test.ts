@@ -172,6 +172,6 @@ describe('view', () => {
   it('has rule cards with pictures', () => {
     checkRules(RULES, ['In order', 'Every cell', 'Walls']);
     expect(RULES.map((r) => r.title)).toEqual(['Trail', 'In order', 'Every cell', 'Walls']);
-    expect(INSTRUCTIONS).toMatch(/^\s*<h3>In the game<\/h3>\s*<p class="meta">/);
+    expect(INSTRUCTIONS).toMatch(/^\s*<section class="how-specs"><h3>Specs<\/h3><ul>\s*<li><b>Flawless:<\/b>/);
   }, 60_000);
 });

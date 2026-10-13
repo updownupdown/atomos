@@ -23,8 +23,15 @@ import { drawFrame, frameWidth } from './frame';
 import { drawHelpMark, type Area, type Help, type Point, type PuzzleView, type RuleCard } from './view';
 
 export const INSTRUCTIONS = `
-<h3>In the game</h3>
-<p class="meta">The electron stage of building every element, z 1 to 118. Periods 1-3 play a 4x4 with s p d f (6 to 10 empty cells); periods 4-5 a 6x6 with 2x3 blocks and s p d in spin up and spin down (14 to 22 empty); periods 6-7, where the f block arrives, an 8x8 with 2x4 blocks and s p d f in both spins (24 to 36 empty). Par is one placement per empty cell: editing or moving the tile you just placed is free, going back to an older cell costs another, and undo takes a placement back. Clean means finishing within par. Each grid is carved from a full random grid so that it always finishes by deduction alone, with one answer. The symbols are only orbital labels: a cell is not a place in the atom.</p>`;
+<section class="how-specs"><h3>Specs</h3><ul>
+<li><b>Flawless:</b> Fill the grid in par placements or fewer, where par is one placement per empty cell, and without Show me.</li>
+<li><b>Moves:</b> Editing or moving the tile you just placed is free, going back to an older cell costs another placement, and undo takes a placement back.</li>
+<li><b>Board:</b> Periods 1-3 play a 4x4 with s p d f (6 to 10 empty cells), and periods 4-5 a 6x6 with 2x3 blocks and s p d in spin up and spin down (14 to 22 empty). Periods 6-7, where the f block arrives, play an 8x8 with 2x4 blocks and s p d f in both spins (24 to 36 empty).</li>
+<li><b>Built:</b> Each grid is carved from a full random grid so that it always finishes by deduction alone, with one answer.</li>
+<li><b>Symbols:</b> They are only orbital labels: a cell is not a place in the atom.</li>
+<li><b>Where it's played:</b> The electron stage of building every element, z 1 to 118.</li>
+</ul></section>
+`;
 
 /** The kind of pointer last pressed anywhere, so a drag can tell a mouse from a finger. */
 let lastPointer = 'mouse';
@@ -742,7 +749,7 @@ function demoRow(w: number, h: number, rows = 1): { c: number; x: number; y: num
 export const RULES: RuleCard[] = [
   {
     title: 'Once each',
-    text: 'Fill the grid so every row, every column and every outlined block holds each symbol exactly once.',
+    text: 'Fill the grid so every row, every column and every outlined block holds **each symbol exactly once**.',
     good: {
       duration: 3,
       caption: 'One of each per row',
@@ -776,7 +783,7 @@ export const RULES: RuleCard[] = [
   },
   {
     title: 'The orbitals',
-    text: 'Each symbol is an orbital, in the same color as in the atom, with one dot for each lobe of the real orbital: s one, p two, d four, f six. Its letter sits under its stack.',
+    text: '**Each symbol is an orbital**, in the same color as in the atom, with one dot for each lobe of the real orbital: s one, p two, d four, f six. Its letter sits under its stack.',
     good: {
       duration: 2,
       caption: 's p d f: 1, 2, 4, 6 dots',
@@ -789,7 +796,7 @@ export const RULES: RuleCard[] = [
   },
   {
     title: 'Spin up, spin down',
-    text: 'On the bigger grids each orbital comes twice: spin up is a solid tile, spin down its hollow twin, dark inside a ring of the same color. They count as different symbols.',
+    text: 'On the bigger grids each orbital comes twice: spin up is a solid tile, spin down its hollow twin, dark inside a ring of the same color. **They count as different symbols**.',
     good: {
       duration: 2.4,
       caption: 'Solid up, hollow down',
@@ -805,7 +812,7 @@ export const RULES: RuleCard[] = [
   },
   {
     title: 'Drag from a stack',
-    text: 'Drag a symbol from its stack onto a cell. Stacks never run out, and the cell lights up where it will land.',
+    text: '**Drag a symbol from its stack onto a cell**. Stacks never run out, and the cell lights up where it will land.',
     good: {
       duration: 2.4,
       caption: 'Stack to empty cell',
@@ -838,7 +845,7 @@ export const RULES: RuleCard[] = [
   },
   {
     title: 'Or tap',
-    text: 'Tap a stack to pick it up, then tap an empty cell to place it, or one of your tiles to replace it. A tap anywhere else puts the stack back.',
+    text: '**Tap a stack to pick it up, then tap an empty cell** to place it, or one of your tiles to replace it. A tap anywhere else puts the stack back.',
     good: {
       duration: 2.4,
       caption: 'Stack, then cell',
@@ -861,7 +868,7 @@ export const RULES: RuleCard[] = [
   },
   {
     title: 'Counts',
-    text: 'The number beside each stack\'s letter is how many more of that symbol the grid needs. At 0 the stack turns gray: that symbol is done.',
+    text: 'The number beside each stack\'s letter is **how many more of that symbol the grid needs**. At 0 the stack turns gray: that symbol is done.',
     good: {
       duration: 2.4,
       caption: 'At 0, p is done',
@@ -882,7 +889,7 @@ export const RULES: RuleCard[] = [
   },
   {
     title: 'Dealt tiles',
-    text: 'Dealt tiles are a little dimmer and never change. Yours are bright: drag one to move it, or off the board to clear it.',
+    text: 'Dealt tiles are a little dimmer and **never change**. Yours are bright: drag one to move it, or off the board to clear it.',
     good: {
       duration: 2.6,
       caption: 'Bright tiles are yours',
@@ -904,7 +911,7 @@ export const RULES: RuleCard[] = [
   },
   {
     title: 'Keyboard',
-    text: 'Arrow keys move the cyan cursor; 1-8 or s p d f place a symbol (press a letter twice for spin down), and Backspace clears.',
+    text: 'Arrow keys move the cyan cursor; **1-8 or s p d f place a symbol** (press a letter twice for spin down), and Backspace clears.',
     good: {
       duration: 2.4,
       caption: 'Right, then p, p again',
@@ -921,7 +928,7 @@ export const RULES: RuleCard[] = [
   },
   {
     title: 'Test',
-    text: 'Nothing is marked while you play. Tap Test beside the message line: for two seconds your tiles pulse, amber where one is wrong and green where it is right.',
+    text: 'Nothing is marked while you play. **Tap Test** beside the message line: for two seconds your tiles pulse, amber where one is wrong and green where it is right.',
     good: {
       duration: 2,
       caption: 'Right: green',

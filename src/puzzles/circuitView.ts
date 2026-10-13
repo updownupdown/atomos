@@ -13,8 +13,14 @@ import { drawFrame, frameBox, framePad, frameWidth } from './frame';
 import { drawHelpMark, ease, type Area, type Help, type Illustration, type Point, type PuzzleView, type RuleCard, type Stat } from './view';
 
 export const INSTRUCTIONS = `
-<h3>In the game</h3>
-<p class="meta">Volta is a reserve game, played from the Puzzles screen. The grid grows from 4 by 4 to 8 by 8 in nine steps. Easy boards have long straight runs and can be worked out tile by tile from the edges; harder ones have more branches and bends, fewer straight pieces, and are picked to need a look one tile ahead here and there. The wiring is a tree grown over the whole grid, and it is kept only when a solver can work it out without guessing, so every board has exactly one answer. A tap turns a tile a quarter turn clockwise and a left swipe turns it back, each quarter turn one move; par is the fewest quarter turns that bring every tile into place. Hold a tile to lock it; locking is free.</p>
+<section class="how-specs"><h3>Specs</h3><ul>
+<li><b>Flawless:</b> Light every tile, with no loose ends or loops, in par moves or fewer, where a move is one quarter turn (a tap or a left swipe) and par is the fewest that bring every tile into place, and without Show me.</li>
+<li><b>Board:</b> The grid grows from 4 by 4 to 8 by 8 in nine steps.</li>
+<li><b>Built:</b> The wiring is a tree grown over the whole grid, kept only when a solver can work it out without guessing, so every board has exactly one answer.</li>
+<li><b>Difficulty:</b> Easy boards have long straight runs and can be worked out tile by tile from the edges. Harder ones have more branches and bends, fewer straight pieces, and are picked to need a look one tile ahead here and there.</li>
+<li><b>Par:</b> The fewest quarter turns that bring every tile into place. Holding a tile to lock it is free.</li>
+<li><b>Where it's played:</b> Volta is a reserve game, played from the Puzzles screen.</li>
+</ul></section>
 `;
 
 /** Milliseconds a quarter turn takes to show. */
@@ -517,23 +523,23 @@ function picture(rows: string[], steps: [number, number | 'lock'][], caption: st
 export const RULES: RuleCard[] = [
   {
     title: 'Turn',
-    text: 'Tap a tile to turn it a quarter turn clockwise, or swipe left on it to turn it back. Hold a tile to lock it, so taps leave it alone.',
+    text: 'Tap a tile to **turn it a quarter turn clockwise**, or swipe left on it to turn it back. Hold a tile to lock it, so taps leave it alone.',
     good: picture(['r* ud l'], [[1, 1], [1, 'lock']], 'Tap, then hold'),
   },
   {
     title: 'Current',
-    text: 'Current flows from the cell along wires that meet end to end. Live wires glow and light their lamps; dead ones stay gray.',
+    text: 'Current flows from the cell along **wires that meet end to end**. Live wires glow and light their lamps; dead ones stay gray.',
     good: picture(['d* lrd l', 'r uld l'], [[4, 1], [0, -1]], 'Lamps light up'),
   },
   {
     title: 'No loose ends',
-    text: 'Every wire end must meet another wire end. None may point off the board or at a side with no wire.',
+    text: '**Every wire end must meet another wire end**. None may point off the board or at a side with no wire.',
     good: picture(['rd* l', 'ur u'], [[3, -1]], 'Every end meets', { win: true }),
     bad: picture(['rd* l', 'ur l'], [[0, -1]], 'Off the board', { bad: true }),
   },
   {
     title: 'One tree',
-    text: 'Every tile must be live, and the wires may never close a loop.',
+    text: 'Every tile must be live, and the wires may **never close a loop**.',
     good: picture(['rd* rd', 'u u'], [[1, 1]], 'One tree, all live', { win: true }),
     bad: picture(['rd* ld', 'ur ld'], [[3, 1]], 'A loop', { bad: true }),
   },

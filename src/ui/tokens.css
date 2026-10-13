@@ -49,10 +49,7 @@
   --c-tile-ink: #101112;
   --c-scrim: rgba(5, 6, 7, 0.62);
   /* The mask under a modal: paler than the scrim, so the black card stands off the page. */
-  --c-scrim-pale: rgba(58, 63, 69, 0.55);
-  /* A modal's edge and its pinned header. */
-  --c-modal-head: #33383d;
-  --modal-edge: 4px;
+  --c-scrim-pale: rgba(104, 110, 116, 0.6);
   /* Masks behind modals and drawers blur the page. Where backdrop-filter is missing the mask
      is simply the dark scrim above, which already reads on its own. */
   --blur-mask: blur(8px);

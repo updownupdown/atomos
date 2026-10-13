@@ -17,7 +17,7 @@ import { gameCard, setCardDifficulty } from './puzzles/gameCard';
 import { PuzzleHost } from './puzzles/host';
 import { openRules } from './puzzles/rulesModal';
 import { showWin, type WinLevels } from './puzzles/winPanel';
-import type { Area, PuzzleView } from './puzzles/view';
+import { lossOf, type Area, type PuzzleView } from './puzzles/view';
 import { createSlider, iconButton, ringOn, showToast, type Slider } from './ui/components';
 import { countPlay, GOAL_PLAYS } from './core/plays';
 import { clearOffers, createGameBar, offerRules, type GameBar } from './puzzles/gamebar';
@@ -55,7 +55,8 @@ export class Playground {
   constructor() {
     this.host = new PuzzleHost($('pg-canvas'), () => this.area());
     this.host.onFrame = () => this.tick(this.host.status());
-    this.host.onWon = (v) => this.won(v.moves, v.par, v.clean);
+    // As on the Build page, a run that used Show me is never flawless.
+    this.host.onWon = (v) => this.won(v.moves, v.par, v.clean && !this.host.hints.used(v));
     this.host.onLost = (v) => this.lost(v);
     this.demo = new GameDemo($('pg-demo') as HTMLCanvasElement, () => reducedMotion());
     this.renderHome();
@@ -510,20 +511,22 @@ export class Playground {
     }, loadSave().settings.reducedMotion);
   }
 
-  /** Out of guesses: the same board again, a new deal, or back to the list. Tapping outside
-   *  leaves the board to look over. */
+  /** Lost (out of guesses, or stuck with no way on): Undo when it can step back, the same board
+   *  again, a new deal, or back to the list. Tapping outside leaves the board to look over. */
   private lost(v: PuzzleView): void {
     const t = this.type;
-    const undo = Boolean(v.loss?.undo && v.canUndo());
+    const loss = lossOf(v);
+    if (!loss) return;
     this.closeWin = showWin({
       outcome: 'lost',
-      headline: v.loss?.headline ?? 'Out of guesses',
+      headline: loss.headline,
       title: `${t.name} · ${dialText(this.dial)}`,
+      note: loss.note,
       game: t.id,
       stats: [{ label: 'Moves', value: String(v.moves) }, { label: 'Deal', value: `#${this.deal + 1}` }],
       actions: [
-        ...(undo ? [{ label: 'Undo', primary: true, onClick: () => this.host.undo() }] : []),
-        { label: 'Try again', primary: !undo, onClick: () => this.host.restart() },
+        ...(loss.undo ? [{ label: 'Undo', primary: true, onClick: () => this.host.undo() }] : []),
+        { label: 'Restart', primary: !loss.undo, onClick: () => this.host.restart() },
         { label: 'New deal', onClick: () => this.load(this.deal + 1) },
         { label: 'All puzzles', onClick: () => this.back() },
       ],

@@ -17,8 +17,14 @@ const MAX_CELL = 72;
 const FLIP_SIZE = 44;
 
 export const INSTRUCTIONS = `
-<h3>In the game</h3>
-<p class="meta">Tessera builds the isotopes in each atom's vault on its Build page: one board per isotope, opening once the atom is built. It runs for every element, z 1 to 118. The board is a square, 4 by 4 up to z 10, 5 by 5 up to z 36, 6 by 6 up to z 76 and 7 by 7 to the end of the table, with one to three single cells cut out of it, shown as studs. The tray holds exactly the pieces that fill the rest, every one is used, and every level has exactly one answer. A full square never could: any answer turned a quarter would be another. So each gap is cut where a second answer would otherwise go, never beside another gap and never splitting the board. The pieces are all different shapes of three to six cells, never dominoes, with at most one straight bar or 2 by 2 square on the larger boards. Six-cell pieces join the 6 by 6 from z 60 and make up most of the 7 by 7. Flipping arrives at z 90, and the single answer then holds with flips too. Within each board size, the heavier elements get the deals a solver takes longest to prove unique. Par is one placement per piece: every drop on the board counts as a move, so moving a piece twice costs one over par. Turning, flipping and lifting are free.</p>
+<section class="how-specs"><h3>Specs</h3><ul>
+<li><b>Flawless:</b> Fill the square in par moves or fewer, where par is one placement per piece and every drop on the board is a move (so moving a piece twice costs one over par, while turning, flipping and lifting are free), and without Show me.</li>
+<li><b>Board:</b> A square, 4 by 4 up to z 10, 5 by 5 up to z 36, 6 by 6 up to z 76 and 7 by 7 to the end of the table, with one to three single cells cut out of it, shown as studs.</li>
+<li><b>Built:</b> The tray holds exactly the pieces that fill the rest, every one is used, and every level has exactly one answer. A full square never could, since any answer turned a quarter would be another, so each gap is cut where a second answer would otherwise go, never beside another gap and never splitting the board.</li>
+<li><b>Pieces:</b> All different shapes of three to six cells, never dominoes, with at most one straight bar or 2 by 2 square on the larger boards. Six-cell pieces join the 6 by 6 from z 60 and make up most of the 7 by 7.</li>
+<li><b>Difficulty:</b> Flipping arrives at z 90, and the single answer then holds with flips too. Within each board size, the heavier elements get the deals a solver takes longest to prove unique.</li>
+<li><b>Where it's played:</b> Tessera builds the isotopes in each atom's vault on its Build page: one board per isotope, opening once the atom is built. It runs for every element, z 1 to 118.</li>
+</ul></section>
 `;
 
 interface Slot { id: number; x: number; y: number; side: number }
@@ -819,7 +825,7 @@ const HELD = 0.66;
 export const RULES: RuleCard[] = [
   {
     title: 'Fill the square',
-    text: 'Drag pieces from the tray into the square until every cell is filled. The tray holds exactly the pieces that fill it, so every piece is used, and they fit in only one way.',
+    text: '**Drag pieces from the tray into the square** until every cell is filled. The tray holds exactly the pieces that fill it, so every piece is used, and they fit in only one way.',
     good: {
       duration: 2.6,
       caption: 'Every piece in, every cell filled',
@@ -855,7 +861,7 @@ export const RULES: RuleCard[] = [
   },
   {
     title: 'Landing shadow',
-    text: 'While you drag, a bright shadow shows exactly where the piece will land. An amber dashed shadow means it will not fit there.',
+    text: 'While you drag, a bright shadow shows **exactly where the piece will land**. An amber dashed shadow means it will not fit there.',
     good: {
       duration: 2,
       caption: 'Bright: it lands here',
@@ -887,7 +893,7 @@ export const RULES: RuleCard[] = [
   },
   {
     title: 'Turn',
-    text: 'Tap a piece to turn it a quarter turn, in the tray or on the board. Turning is free.',
+    text: '**Tap a piece to turn it** a quarter turn, in the tray or on the board. Turning is free.',
     good: {
       duration: 1.8,
       caption: 'A tap turns it a quarter',
@@ -924,7 +930,7 @@ export const RULES: RuleCard[] = [
   },
   {
     title: 'Move or lift',
-    text: 'Drag a placed piece to move it, or drag it off the board to put it back in the tray.',
+    text: '**Drag a placed piece to move it**, or drag it off the board to put it back in the tray.',
     good: {
       duration: 2,
       caption: 'Dragged off, it goes back',
@@ -947,7 +953,7 @@ export const RULES: RuleCard[] = [
   },
   {
     title: 'Gaps stay empty',
-    text: 'Each square has one to three cells cut out of it, shown as studs. Nothing goes there: fill every other cell. They are why the pieces fit in only one way.',
+    text: 'Each square has one to three cells cut out of it, shown as studs. **Nothing goes there**: fill every other cell. They are why the pieces fit in only one way.',
     good: {
       duration: 2.6,
       caption: 'Filled round the gap',
@@ -980,7 +986,7 @@ export const RULES: RuleCard[] = [
   },
   {
     title: 'Flip',
-    text: 'Near the end of the table some pieces arrive mirrored. Tap a piece to choose it, then the flip button to mirror it left to right.',
+    text: 'Near the end of the table some pieces arrive mirrored. Tap a piece to choose it, then **the flip button to mirror it** left to right.',
     good: {
       duration: 3,
       caption: 'Flipped, it fits',
@@ -994,7 +1000,7 @@ export const RULES: RuleCard[] = [
   },
   {
     title: 'Keyboard',
-    text: 'Tab or 1 to 9 picks a piece, R or Space turns it, F flips it, Enter drops it where it first fits, the arrows nudge it and Backspace lifts it.',
+    text: '**Tab or 1 to 9 picks a piece**, R or Space turns it, F flips it, Enter drops it where it first fits, the arrows nudge it and Backspace lifts it.',
   },
 ];
 
