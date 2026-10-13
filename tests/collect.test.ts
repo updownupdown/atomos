@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { defaultSave, type SaveData } from '../src/core/save';
-import { pctLabel, periodProgress, periodTracks, tableNeighbour } from '../src/gallery/collect';
+import { newsLine, pctLabel, periodProgress, periodTracks, tableNeighbour } from '../src/gallery/collect';
 import { toneOf } from '../src/gallery/thumbs';
 import { lastingIsotopes, fleetingIsotopes } from '../src/core/progress';
 
@@ -91,5 +91,22 @@ describe('moving up and down the table', () => {
   it('stops at the edges', () => {
     expect(tableNeighbour(1, -1)).toBeNull();
     expect(tableNeighbour(100, 1)).toBeNull();
+  });
+});
+
+describe('what a win just added', () => {
+  it('names the new parts and a change of status', () => {
+    const before = { parts: ['Nucleus'], fleeting: 0, status: 'started' as const };
+    const after = { parts: ['Nucleus', 'Electrons'], fleeting: 0, status: 'stable' as const };
+    expect(newsLine('Nickel', before, after, 2)).toEqual({ added: '+ Electrons', note: 'Nickel is now stable collected' });
+  });
+  it('counts fleeting isotopes and says how far the atom has come', () => {
+    const before = { parts: ['Nucleus'], fleeting: 2, status: 'built' as const };
+    const after = { parts: ['Nucleus'], fleeting: 3, status: 'built' as const };
+    expect(newsLine('Iron', before, after, 7)).toEqual({ added: '+ 1 fleeting isotope', note: 'Iron: 3 fleeting built' });
+  });
+  it('says nothing when nothing was added', () => {
+    const h = { parts: ['Nucleus'], fleeting: 1, status: 'built' as const };
+    expect(newsLine('Iron', h, h, 7)).toBeNull();
   });
 });
