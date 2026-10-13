@@ -307,7 +307,9 @@ export class Playground {
     const secs = $('pg-list').querySelectorAll<HTMLElement>('.pg-sec');
     const last = secs[secs.length - 1];
     const hint = $('pg-list').querySelector<HTMLElement>('.pg-pin-hint');
-    const room = home.clientHeight - box.offsetHeight - (last?.offsetHeight ?? 0) - (hint?.offsetHeight ?? 0) - 46;
+    // The home's own padding at the foot keeps clear of the dock; the room goes above it.
+    const foot = parseFloat(getComputedStyle(home).paddingBottom) || 0;
+    const room = home.clientHeight - foot - box.offsetHeight - (last?.offsetHeight ?? 0) - (hint?.offsetHeight ?? 0) - 46;
     $('pg-list').style.paddingBottom = `${Math.max(0, room)}px`;
     this.findFocus();
   }
@@ -342,9 +344,9 @@ export class Playground {
       const on = sec.dataset.id === p.id;
       sec.classList.toggle('is-focus', on);
       if (on) sec.style.setProperty('--lvl', `var(--c-lvl-${difficultyLevel(this.dialOf(p.id))})`);
-      // In focus, the pips show the level Play deals at, in its color; elsewhere, the levels the
-      // game reaches, in white.
-      setCardDifficulty(sec, on ? this.dialOf(sec.dataset.id!) : difficultyRange(sec.dataset.id!));
+      // The pips show the levels the game reaches in white; in focus, the one Play deals at is in
+      // its level's color.
+      setCardDifficulty(sec, difficultyRange(sec.dataset.id!), on ? this.dialOf(sec.dataset.id!) : undefined);
       const card = sec.querySelector<HTMLElement>('.gcard');
       if (card) ringOn(card, on ? 'focus' : null);
     });
@@ -395,7 +397,7 @@ export class Playground {
     const sec = $('pg-list').querySelector<HTMLElement>(`.pg-sec[data-id="${id}"]`);
     if (!sec) return;
     const on = sec.classList.contains('is-focus');
-    setCardDifficulty(sec, on ? this.dialOf(id) : difficultyRange(id));
+    setCardDifficulty(sec, difficultyRange(id), on ? this.dialOf(id) : undefined);
     sec.style.setProperty('--lvl', `var(--c-lvl-${difficultyLevel(this.dialOf(id))})`);
   }
 
