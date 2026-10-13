@@ -1,5 +1,5 @@
 // The element list: every element as a roomy row, with search and sorting, for the picker and
-// the gallery's Collection. Its columns and sorting are shared with Tables (gallery/table.ts),
+// the gallery's Collection. Its columns and sorting are shared with the Atlas's Details (gallery/table.ts),
 // so an element is found the same way everywhere.
 //
 //   const list = createElementList({ onPick: (z) => go(z), current: 26 });

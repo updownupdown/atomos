@@ -1,0 +1,126 @@
+/* The Atlas (atlas.ts): the views row and the tools under the title, then the map or the
+   Details list filling the rest, and the peek strip floating above the dock. Its atom pages
+   (atlaspage.ts) cover the whole screen, dock included. */
+.at { position: absolute; inset: 0; display: flex; flex-direction: column; padding-top: var(--top); font-family: var(--font); background: var(--c-bg); }
+
+/* Views: one pill row, the open one on the lighter plate in the accent, like the dock. */
+.at-views { flex: none; display: flex; gap: 2px; margin: var(--sp-2) var(--sp-3) 0; padding: 4px; height: 48px; border-radius: var(--r-pill); background: var(--c-well); }
+.at-views button { flex: 1 1 0; min-width: 0; padding: 0 4px; border: 0; border-radius: var(--r-pill); background: transparent; color: var(--c-text-2); font: inherit; font-size: 13px; font-weight: var(--fw-semibold); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.at-views button:hover { color: var(--c-text); }
+.at-views button[aria-checked='true'] { background: var(--c-pick); color: var(--c-accent); }
+.at-views button:focus-visible { outline: 2px solid var(--c-accent); outline-offset: -2px; }
+
+/* Search and Color, for every view. */
+.at-tools { flex: none; display: flex; gap: var(--sp-2); margin: var(--sp-2) var(--sp-3) 0; }
+.at-search { position: relative; flex: 1; min-width: 0; display: block; }
+.at-search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); display: grid; color: var(--c-text-2); pointer-events: none; }
+.at-search input { width: 100%; height: 40px; padding: 0 40px 0 40px; border: 0; border-radius: var(--r-pill); background: var(--c-surface-2); color: var(--c-text); font: inherit; font-size: var(--fs-md); -webkit-appearance: none; appearance: none; outline: none; }
+.at-search input::placeholder { color: var(--c-text-2); }
+.at-search input::-webkit-search-cancel-button { display: none; }
+.at-search input:focus-visible { box-shadow: inset 0 0 0 2px var(--c-accent); }
+.at-clear[hidden] { display: none; }
+.at-clear { position: absolute; right: 0; top: 0; width: 40px; height: 40px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--c-text-2); cursor: pointer; }
+.at-color { flex: none; display: inline-flex; align-items: center; gap: 6px; height: 40px; padding: 0 14px 0 12px; border: 0; border-radius: var(--r-pill); background: var(--c-surface-2); color: var(--c-text); font: inherit; font-size: 13px; font-weight: var(--fw-semibold); cursor: pointer; max-width: 50%; }
+.at-sci { flex: none; width: 40px; height: 40px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 50%; background: var(--c-surface-2); color: var(--c-text); cursor: pointer; }
+.at-sci svg { width: 22px; height: 22px; }
+.at-sci:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
+.at.is-details .at-sci { display: none; }
+.at-color small { font-size: 13px; font-weight: var(--fw-medium); color: var(--c-text-2); }
+.at-color span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.at-color:focus-visible, .at-peek:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
+
+/* The legend for any color but Place. */
+.at-legend { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin: var(--sp-2) var(--sp-4) 0; font-size: 13px; color: var(--c-text-2); }
+.at-legend[hidden] { display: none; }
+.at-ramp { flex: 1; min-width: 60px; max-width: 200px; height: 10px; border-radius: 5px; background: linear-gradient(to right, #24407a, #3d7cc4, #6fd0e6, #d9e6d4, #f2b552); }
+.at-key { display: inline-flex; align-items: center; gap: 6px; }
+.at-key i { width: 14px; height: 14px; border-radius: 4px; }
+.at-key i.at-unknown { background: #2a2e32; }
+
+.at-body { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.at-map { position: relative; flex: 1; min-height: 0; margin-bottom: var(--safe-bottom); }
+.at-map[hidden], .at-list[hidden] { display: none; }
+.at-list { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+
+/* The map: flat cells, a seam of black between them, labels sized in screen pixels. */
+.am { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; user-select: none; -webkit-user-select: none; cursor: grab; }
+.am:active { cursor: grabbing; }
+.am-cell { transition: opacity 0.2s ease, fill 0.3s ease; cursor: pointer; }
+.am-cell.is-dim, .am-label.is-dim { opacity: 0.16; }
+.am text { font-family: var(--font); text-anchor: middle; pointer-events: none; }
+.am-sym { font-weight: 700; }
+.am-num { font-weight: 500; }
+.am-name { font-weight: 500; }
+.am-axis text { fill: var(--c-text-2); font-weight: 500; dominant-baseline: central; }
+.am-axis .am-title { fill: var(--c-text-2); font-weight: 600; letter-spacing: 0.1em; }
+/* The picked atom: the app's animated border, in the accent, a solid ring and a breathing one. */
+.am-pick, .am-pick-glow { fill: none; stroke: var(--c-accent); stroke-linejoin: round; pointer-events: none; vector-effect: non-scaling-stroke; }
+.am-pick { stroke-width: 3px; }
+.am-pick-glow { stroke-width: 9px; opacity: 0.35; animation: am-breathe 3s ease-in-out infinite; }
+@keyframes am-breathe { 0%, 100% { opacity: 0.2; } 50% { opacity: 0.5; } }
+@media (prefers-reduced-motion: reduce) { .am-pick-glow { animation: none; opacity: 0.4; } .am-cell { transition: none; } }
+
+/* The peek strip: the picked atom over the map; a tap opens its page. */
+.at-peek { position: fixed; left: 50%; bottom: calc(var(--safe-bottom) + var(--sp-2)); transform: translateX(-50%); z-index: 3; width: min(440px, calc(100% - 2 * var(--sp-3))); display: flex; align-items: center; gap: var(--sp-3); padding: 10px 10px 10px 12px; border: 0; border-radius: 22px; background: var(--c-surface-2); color: var(--c-text); font: inherit; text-align: left; cursor: pointer; box-shadow: 0 6px 24px rgba(0, 0, 0, 0.55); }
+.at-peek[hidden], .at.is-details .at-peek { display: none; }
+.at-plate { flex: none; width: 52px; height: 52px; border-radius: 14px; display: grid; place-items: center; font-size: 22px; font-weight: 700; }
+.at-peek-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.at-peek-text b { font-size: var(--fs-md); font-weight: var(--fw-semibold); }
+.at-peek-text span { font-size: 13px; color: var(--c-text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.at-peek-go { flex: none; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: var(--c-pick); color: var(--c-text); }
+
+/* Details: the tools on black, then the rows. */
+.at.is-details .tb-tools { background: transparent; padding: var(--sp-2) var(--sp-3) var(--sp-1); }
+.tb-scroll { padding: 0 var(--sp-3) calc(var(--safe-bottom) + var(--sp-4)); }
+.tb-row { display: flex; align-items: center; gap: var(--sp-3); min-height: 56px; padding: 6px 10px; border-radius: 14px; cursor: pointer; }
+.tb-row.alt { background: var(--c-plate); }
+.tb-row:hover { background: var(--c-surface-2); }
+.tb-row:focus-visible { outline: 2px solid var(--c-accent); outline-offset: -2px; }
+.tb-sym { flex: none; width: 40px; height: 40px; border-radius: 11px; display: grid; place-items: center; font-weight: 700; font-size: 16px; }
+.tb-name { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
+.tb-name b { font-size: var(--fs-md); font-weight: var(--fw-semibold); color: var(--c-text); }
+.tb-name small { font-size: 13px; color: var(--c-text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tb-val { flex: none; width: 34%; max-width: 180px; display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: baseline; gap: 0 4px; text-align: right; font-variant-numeric: tabular-nums; }
+.tb-val b { font-size: var(--fs-md); font-weight: var(--fw-semibold); color: var(--c-text); }
+.tb-val small { font-size: 13px; color: var(--c-text-2); }
+.tb-val .tb-pred { flex-basis: 100%; }
+.tb-bar-track { flex-basis: 100%; height: 4px; margin-top: 5px; border-radius: 2px; background: var(--c-surface-3); overflow: hidden; }
+.tb-bar-track u { display: block; height: 100%; border-radius: 2px; background: var(--c-accent); }
+.tb-sec { position: sticky; top: 0; z-index: 1; display: flex; align-items: baseline; gap: var(--sp-2); padding: 12px 10px 6px; background: var(--c-bg); }
+.tb-sec span { font-size: 13px; font-weight: var(--fw-semibold); letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--c-text); }
+.tb-sec small { font-size: 13px; color: var(--c-text-2); }
+
+/* An atom's page: over everything, dock included. */
+.at-page { position: fixed; inset: 0; z-index: 15; display: flex; flex-direction: column; padding-top: var(--safe-top); background: var(--c-bg); font-family: var(--font); }
+.at-page[hidden] { display: none; }
+body:not([data-screen='gallery']) .at-page { display: none; }
+.ap-bar { flex: none; display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-2) var(--sp-3) 0; }
+.ap-round { flex: none; height: 44px; min-width: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 2px; padding: 0; border: 0; border-radius: 22px; background: var(--c-surface-2); color: var(--c-text); font: inherit; font-size: 13px; font-weight: var(--fw-semibold); cursor: pointer; }
+.ap-round:disabled { opacity: 0.35; cursor: default; }
+.ap-step { padding: 0 10px; }
+.ap-step span { color: var(--c-text-2); }
+.ap-name { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
+.ap-name small { font-size: 13px; font-weight: var(--fw-semibold); letter-spacing: 0.1em; color: var(--c-text-2); }
+.ap-name b { font-size: 15px; font-weight: 700; letter-spacing: 0.3em; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ap-walk { display: flex; gap: 6px; }
+.ap-tabs { flex: none; display: flex; justify-content: center; padding: var(--sp-2) var(--sp-3) 0; box-shadow: inset 0 -1px 0 var(--c-line); }
+.ap-panel { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 96px); }
+/* The one way into play, contained at the foot. */
+.ap-foot { position: absolute; left: 0; right: 0; bottom: calc(env(safe-area-inset-bottom, 0px) + var(--sp-3)); display: flex; justify-content: center; padding: 0 var(--sp-3); pointer-events: none; }
+.ap-build { pointer-events: auto; width: min(440px, 100%); min-height: 56px; display: flex; align-items: center; gap: var(--sp-3); padding: 6px 8px 6px 16px; border: 0; border-radius: 28px; background: var(--c-surface-2); color: var(--c-text); font: inherit; text-align: left; cursor: pointer; box-shadow: 0 6px 24px rgba(0, 0, 0, 0.55); }
+.ap-build:disabled { cursor: default; }
+.ap-build-ico { flex: none; display: grid; color: var(--c-accent); }
+.ap-build:disabled .ap-build-ico { color: var(--c-text-2); }
+.ap-build-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.ap-build-text b { font-size: var(--fs-md); font-weight: var(--fw-semibold); }
+.ap-build-text small { font-size: 13px; color: var(--c-text-2); }
+.ap-build-go { flex: none; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: var(--c-pick); }
+.ap-build:focus-visible, .ap-round:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
+
+/* A phone on its side: slimmer rows so the flat table has room. */
+@media (max-height: 500px) {
+  .at-views { height: 40px; margin-top: var(--sp-1); }
+  .at-tools { margin-top: var(--sp-1); }
+  .at-search input, .at-color, .at-sci, .at-clear { height: 36px; }
+  .at-sci { width: 36px; }
+}

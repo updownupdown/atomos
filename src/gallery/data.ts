@@ -166,7 +166,7 @@ export const BLOCK_NAME: Record<Block, string> = { s: 's orbitals', p: 'p orbita
  *  (1975): the hue follows the group round the ribbon (blues, teal, sand, lime, gold, red, rose,
  *  indigo, sky, teal, sand, lime, gold, red, violet; the lanthanides and actinides teal) and the
  *  shade deepens period by period, pale at the center and deep at the edge. Used wherever an atom
- *  is colored by its place (Collect's table, Tables, the atom list); orbitals keep BLOCK_COLOUR. */
+ *  is colored by its place (Collect's table, the Atlas, the atom list); orbitals keep BLOCK_COLOUR. */
 const RIBBON_HUE: Record<number, string> = {
   1: '#3653a5', 2: '#3d7cc4', 3: '#4fb9a2', 4: '#c9b26f', 5: '#c8d05c', 6: '#f2a23e', 7: '#e5533c',
   8: '#e04d84', 9: '#e04d84', 10: '#e04d84', 11: '#4558a8', 12: '#4d8ed6', 13: '#4fb9a8',

@@ -1,11 +1,12 @@
-// The parts of the gallery that a puzzle opens. The gallery decides which of its lenses and
-// looks start locked and shows them with an Unlock button that calls playUnlock (src/puzzles/
-// unlock.ts); this file says which puzzle opens what, and whether it is open yet. Glyph opens
-// every display unlock (the three orbital shapes on the Build pages of B, Sc and Ce too):
+// The views that a puzzle opens. The atom view shows a locked one with an Unlock button that
+// calls playUnlock (src/puzzles/unlock.ts); this file says which puzzle opens what, and whether
+// it is open yet. Glyph opens every display unlock (the three orbital shapes on the Build pages
+// of B, Sc and Ce too):
 //
-//   lens:<layout id>   a gallery arrangement
 //   nucleus-view       the nucleus up close
-//   look:<name>        a way to draw the atoms (six in all)
+//
+// lens:<layout id> and look:<name> opened the Atlas's maps and colors until they were opened to
+// everyone; saves that hold them keep them, and they still count as rungs on Glyph's ladder.
 
 import { loadSave, type SaveData } from './save';
 

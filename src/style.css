@@ -510,59 +510,10 @@ body.puzzling #overlay { pointer-events: auto; touch-action: none; }
   animation: ui-toast-in var(--dur) var(--ease);
 }
 
-/* ---- Gallery: the vitrine of all 118 atoms, and the loupe over one ---------------------- */
+/* ---- The Atlas screen (atlas.css has the rest), and the loupe over one atom ---------------- */
 #gallery-screen { position: fixed; inset: 0; background: var(--c-bg); }
 #gallery-screen[hidden] { display: none; }
-#gal { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
-.gal-labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 1; }
-.gal-labels .marker { position: absolute; left: 0; top: 0; white-space: nowrap; will-change: transform; }
-/* Element tiles: solid when collected, an outline with a progress bar when not. --t is the tile size for the current zoom. */
-.gtile { position: absolute; left: 0; top: 0; width: var(--t, 30px); height: var(--t, 30px); box-sizing: border-box; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: calc(var(--t, 30px) * 0.18); border: 1px solid var(--c-line-2); background: var(--c-bg); color: var(--c-text-2); font-family: var(--font); will-change: transform; overflow: hidden; }
-.gtile::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: max(2px, calc(var(--t, 30px) * 0.07)); background: var(--b); opacity: 0.45; }
-.gtile .gt-sym { font-size: calc(var(--t, 30px) * 0.42); font-weight: var(--fw-semibold); line-height: 1; }
-.gtile .gt-z { display: none; font-size: calc(var(--t, 30px) * 0.2); line-height: 1; margin-bottom: calc(var(--t, 30px) * 0.04); font-variant-numeric: tabular-nums; opacity: 0.8; }
-.gtile .gt-bar { position: absolute; left: 12%; right: 12%; bottom: 10%; height: max(2px, calc(var(--t, 30px) * 0.06)); border-radius: 2px; background: var(--c-line); display: none; }
-.gtile .gt-bar::after { content: ''; position: absolute; inset: 0; width: calc(var(--p, 0) * 100%); border-radius: inherit; background: var(--c-accent); }
-.gtile.is-started { border-color: var(--c-line-3); color: var(--c-text); }
-.gtile.is-started .gt-bar { display: block; }
-.gtile.is-got { background: var(--c-tile); border-color: var(--c-tile); color: var(--c-tile-ink); }
-.gtile.is-got::before { opacity: 1; }
-.gtile .gt-lock { display: none; position: absolute; right: 5%; top: 9%; width: calc(var(--t, 30px) * 0.3); height: calc(var(--t, 30px) * 0.3); color: var(--c-text-2); }
-.gtile .gt-lock svg { width: 100%; height: 100%; }
-/* A row still shut by its gate: dashed outline at any size, and a lock once the tile is big enough. */
-.gtile.is-locked:not(.is-got) { border-style: dashed; }
-.t-big .gtile.is-locked .gt-lock { display: block; }
-.gtile.is-locked.is-got .gt-lock { color: var(--c-tile-ink); opacity: 0.6; }
-/* Looks: tiles shaded by a property (src/gallery/looks.ts). Collected tiles keep a light ring. */
-.has-look .gtile::before { opacity: 0.2; }
-.has-look .gtile.lk-v { background: color-mix(in srgb, var(--c-accent) calc(6% + var(--v) * 84%), var(--c-bg)); border-color: transparent; color: var(--c-text); }
-.has-look .gtile.lk-hi { color: var(--c-accent-ink); }
-.has-look .gtile.lk-solid { background: color-mix(in srgb, var(--c-text-2) 32%, var(--c-bg)); border-color: transparent; color: var(--c-text); }
-.has-look .gtile.lk-liquid { background: var(--c-accent); border-color: transparent; color: var(--c-accent-ink); }
-.has-look .gtile.lk-gas { background: color-mix(in srgb, var(--c-charge-b) 60%, var(--c-bg)); border-color: transparent; color: var(--c-text); }
-.has-look .gtile.lk-na { background: var(--c-bg); border-style: dotted; border-color: var(--c-line-2); color: var(--c-text-3); }
-.has-look .gtile.is-got { box-shadow: inset 0 0 0 2px var(--c-tile); }
-.has-look .gtile .gt-bar { display: none; }
-.gtile.sel { box-shadow: 0 0 0 2px var(--c-target); }
-.t-big .gtile .gt-z { display: block; }
-.t-tiny .gtile .gt-sym, .t-tiny .gtile .gt-bar { display: none; }
-.gal-labels .marker { font-family: var(--sans); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
-.gal-labels .marker.axis { font-family: var(--mono); font-size: 10px; letter-spacing: 0; color: var(--c-text-2); }
-.gal-labels .marker.block { font-size: 10px; letter-spacing: 0.08em; text-transform: none; }
-.gal-labels .marker.row { font-size: 10px; letter-spacing: 0; text-transform: none; padding-right: 3px; }
-.gal-top { position: absolute; left: 0; right: 0; top: 0; z-index: 2; display: flex; justify-content: space-between; align-items: flex-start; padding: calc(10px + var(--top)) 14px 0; pointer-events: none; }
-.gal-top > * { pointer-events: auto; }
-.gal-title { display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-2); }
-.look-legend { display: flex; align-items: center; gap: 8px; font-size: var(--fs-xs); color: var(--c-text-2); }
-.look-legend[hidden] { display: none; }
-.lk-ramp { width: 72px; height: 8px; border-radius: 4px; background: linear-gradient(to right, color-mix(in srgb, var(--c-accent) 6%, var(--c-bg)), var(--c-accent)); box-shadow: inset 0 0 0 1px var(--c-line); }
-.lk-key { display: inline-flex; align-items: center; gap: 5px; }
-.lk-sw { width: 12px; height: 12px; border-radius: 3px; }
-.lk-sw.lk-solid { background: color-mix(in srgb, var(--c-text-2) 32%, var(--c-bg)); }
-.lk-sw.lk-liquid { background: var(--c-accent); }
-.lk-sw.lk-gas { background: color-mix(in srgb, var(--c-charge-b) 60%, var(--c-bg)); }
-/* The look picker and a locked lens or look. */
-.look-intro { margin: 0 0 var(--sp-3); color: var(--c-text-2); }
+/* The Color sheet's rows, and a locked view (the nucleus). */
 .look-list { display: flex; flex-direction: column; gap: var(--sp-2); }
 .look-row { display: flex; align-items: center; gap: var(--sp-3); width: 100%; padding: var(--sp-3); border: 1px solid transparent; border-radius: var(--r-md); background: var(--c-plate); color: var(--c-text); font: inherit; text-align: left; cursor: pointer; }
 .look-row[aria-pressed='true'] { background: var(--c-pick); border-color: color-mix(in srgb, var(--c-accent) 45%, transparent); }
@@ -570,8 +521,6 @@ body.puzzling #overlay { pointer-events: auto; touch-action: none; }
 .look-main b { font-size: var(--fs-md); font-weight: var(--fw-semibold); }
 .look-row[aria-pressed='true'] .look-main b { color: var(--c-accent); }
 .look-main span { font-size: var(--fs-sm); color: var(--c-text-2); line-height: 1.4; }
-.look-row.is-locked .look-main b { color: var(--c-text-2); }
-.look-lock { display: inline-flex; align-items: center; gap: 4px; padding: 6px 10px; border-radius: 999px; background: var(--c-surface-3); color: var(--c-accent); font-size: var(--fs-xs); font-weight: var(--fw-semibold); white-space: nowrap; }
 .look-on { color: var(--c-accent); display: inline-flex; }
 .gate-sheet { display: flex; flex-direction: column; gap: var(--sp-3); }
 .gate-what { margin: 0; font-size: var(--fs-md); line-height: 1.55; }
@@ -579,8 +528,6 @@ body.puzzling #overlay { pointer-events: auto; touch-action: none; }
 .gate-go { display: inline-flex; align-items: center; justify-content: center; gap: 8px; align-self: stretch; }
 .gate-next { display: flex; flex-direction: column; }
 .gate-look { display: inline-flex; align-items: center; justify-content: center; gap: 8px; align-self: stretch; }
-.layout-switch button.is-locked { color: var(--c-text-min); }
-.seg-lock { display: inline-flex; margin-left: 4px; vertical-align: -2px; }
 
 /* Splash: the mark assembles on the plate while the app boots. See src/ui/splash.ts. */
 .splash {
@@ -622,25 +569,6 @@ body.puzzling #overlay { pointer-events: auto; touch-action: none; }
 @keyframes splash-swing { to { transform: rotate(0deg); } }
 @keyframes splash-fade { to { opacity: 1; } }
 @keyframes splash-accent { 0% { fill: var(--c-text); transform: scale(1); } 45% { fill: var(--c-accent); transform: scale(1.3); } 100% { fill: var(--c-accent); transform: scale(1); } }
-.gal-hover { position: absolute; left: 50%; top: calc(56px + var(--top)); transform: translateX(-50%); z-index: 2; background: var(--label); color: var(--label-ink); font-family: var(--mono); font-size: 12px; padding: 3px 8px; border-radius: 2px; pointer-events: none; }
-.gal-hover[hidden] { display: none; }
-.gal-bottom { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 8px 12px calc(10px + var(--safe-bottom)); pointer-events: none; }
-.gal-bottom > * { pointer-events: auto; }
-.layout-switch { flex-wrap: nowrap; justify-content: center; max-width: 100%; }
-.layout-switch button { flex: none; font-size: 12px; padding: 0 12px; min-height: 36px; }
-.lens-switch[hidden] { display: none; }
-/* Details: every element in the shared sortable table, filling the space between the count and the switch. */
-/* Tables (gallery/table.ts): its tools on the header gray, the table on black. */
-.gal-details { position: absolute; inset: 0; z-index: 1; display: flex; flex-direction: column; padding: var(--top) 0 0; background: var(--c-bg); }
-.gal-details[hidden] { display: none; }
-#gallery-screen.is-details .gal-labels, #gallery-screen.is-details .gal-hover { display: none; }
-/* The color chip and the lens switch belong to the Map; Details has neither. */
-#gallery-screen:not(.is-map) .look-chip, #gallery-screen:not(.is-map) .look-legend, #gallery-screen:not(.is-map) .gal-bottom { display: none; }
-/* Tables' views row: Details and Map under the header, styled as the View/Build row. */
-body[data-screen='gallery'] { --top: calc(var(--nav-bottom) + var(--mode-h)); }
-.mode-row.gal-modes { top: var(--nav-bottom); }
-body:not([data-screen='gallery']) .gal-modes { display: none; }
-.layout-note { margin: 0; font-family: var(--mono); font-size: 11px; color: var(--muted); text-align: center; }
 
 .loupe-screen { position: absolute; inset: 0; z-index: 3; background: var(--c-bg); opacity: 0; transition: opacity 0.24s ease; display: flex; flex-direction: column; }
 .loupe-screen.in { opacity: 1; }

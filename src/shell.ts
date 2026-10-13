@@ -1,9 +1,9 @@
 // The app shell: the screen's name at the top, the sections in a dock at the foot, and the
 // hierarchy beneath them.
-//   Tables   — every element in one table, or on a map ('gallery').
+//   Atlas    — every atom to admire and look up: the maps, Details and atom pages ('gallery').
 //   Collect  — one period's atoms and how far each is collected; home.
 //     Atom   — one atom, in View mode (the loupe), Build mode (its puzzles) or Info, opened
-//              from Collect (or Tables); the header marks Collect while it is open.
+//              from Collect (or the Atlas); the header marks Collect while it is open.
 //   Puzzles  — every puzzle type on its own, on any atom; it never builds atoms.
 //   Settings — its own screen, the fourth section.
 // Atom screens have no title or dock: the atom bar is their top (back, the element, before and
@@ -35,7 +35,7 @@ const PLACE_KEY = 'atomos.place';
 
 /** Each screen's name, at the top in the wordmark's style. */
 const TITLES: Record<Screen, string> = {
-  gallery: 'Tables', collect: 'Collect', atom: '', puzzles: 'Puzzles', settings: 'Settings', icons: 'Icons', components: 'Components',
+  gallery: 'Atlas', collect: 'Collect', atom: '', puzzles: 'Puzzles', settings: 'Settings', icons: 'Icons', components: 'Components',
 };
 
 export class AppShell {
@@ -57,11 +57,11 @@ export class AppShell {
       onLoupe: (z) => {
         if (z !== null) {
           this.setZ(z);
-          // An atom opened over Tables (Look at, on a locked atom's sheet) is the Atom screen now.
+          // An atom opened over the Atlas is the Atom screen now.
           if (this.screen === 'gallery') this.atomFrom = 'gallery';
           if (this.screen === 'gallery' || this.screen === 'atom') { this.screen = 'atom'; this.setNav('atom', this.mode === 'info' ? 'info' : 'view'); }
         } else if (this.screen === 'atom') {
-          // Closed from inside (Escape): back where it was opened, Collect on this atom or Tables.
+          // Closed from inside (Escape): back where it was opened, Collect on this atom or the Atlas.
           this.closeAtom();
         }
       },
@@ -69,7 +69,7 @@ export class AppShell {
       onLeaveView: () => { if (this.screen === 'atom' && this.mode === 'view') void this.go('atom', 'build'); },
     });
     this.collect = new Collect($('collect-screen'), { onOpen: (z) => { this.z = z; void this.go('atom', 'build'); } });
-    // The atom bar's Back button: where the atom was opened, Collect or Tables.
+    // The atom bar's Back button: where the atom was opened, Collect or the Atlas.
     document.addEventListener('atomos:collect', () => this.closeAtom());
     // Escape on the Build page: back where the atom was opened.
     document.addEventListener('atomos:close-atom', () => this.closeAtom());
@@ -80,7 +80,7 @@ export class AppShell {
     const sections: [string, IconName, () => void][] = [
       ['nav-collect', 'collect', () => void this.go('collect')],
       ['nav-puzzles', 'puzzles', () => void this.go('puzzles')],
-      ['nav-gallery', 'gallery', () => void this.go('gallery')],
+      ['nav-gallery', 'atlas', () => void this.go('gallery')],
       ['nav-settings', 'settings', () => void this.go('settings')],
     ];
     for (const [id, ico, go] of sections) {
@@ -164,7 +164,7 @@ export class AppShell {
     if (this.screen !== 'collect') void this.go('collect');
   }
 
-  /** Where an atom was opened from: Tables, or Collect (anything else). Back, Escape and the
+  /** Where an atom was opened from: the Atlas, or Collect (anything else). Back, Escape and the
    *  atom bar's Back button return there. */
   private atomFrom: 'gallery' | 'collect' = 'collect';
 

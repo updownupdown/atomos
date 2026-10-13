@@ -28,7 +28,7 @@
     <nav class="dock" id="dock" aria-label="Sections">
       <button id="nav-collect" aria-current="page"><span class="nav-ico"></span><span class="nav-lab">Collect</span></button>
       <button id="nav-puzzles" aria-current="false"><span class="nav-ico"></span><span class="nav-lab">Puzzles</span></button>
-      <button id="nav-gallery" aria-current="false"><span class="nav-ico"></span><span class="nav-lab">Tables</span></button>
+      <button id="nav-gallery" aria-current="false"><span class="nav-ico"></span><span class="nav-lab">Atlas</span></button>
       <button id="nav-settings" aria-current="false"><span class="nav-ico"></span><span class="nav-lab">Settings</span></button>
     </nav>
 
@@ -39,24 +39,8 @@
     </div>
 
     <div id="gallery-screen">
-      <div class="mode-row gal-modes" id="gal-modes">
-        <div class="mode-seg" id="gal-mode-seg"></div>
-      </div>
-      <canvas id="gal" aria-label="Every element as an atom. Drag to move, pinch to zoom, tap one to look closer."></canvas>
-      <div id="gal-labels" class="gal-labels" aria-hidden="true"></div>
-      <div class="grain" aria-hidden="true"></div>
-      <header class="gal-top">
-        <div class="gal-title">
-                    <button class="tool-chip look-chip" id="look-chip" aria-label="Color the tiles by"></button>
-          <div class="look-legend" id="look-legend" hidden></div>
-        </div>
-      </header>
-      <div class="gal-hover" id="gal-hover" hidden></div>
-      <div class="gal-details" id="gal-details" hidden></div>
-      <footer class="gal-bottom">
-        <div class="seg layout-switch lens-switch" id="lens-switch" role="group" aria-label="Arrangement" hidden></div>
-        <p class="layout-note" id="layout-note"></p>
-      </footer>
+      <!-- The Atlas (src/gallery/atlas.ts): views, search and Color, the map or Details. -->
+      <div id="atlas"></div>
 
       <section id="loupe-screen" class="loupe-screen" hidden aria-label="One atom, up close">
         <div class="atom-tabs" id="atom-tabs"></div>

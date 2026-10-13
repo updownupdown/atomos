@@ -1058,7 +1058,7 @@ export class Game {
   private onKey(e: KeyboardEvent): void {
     if (this.paused || $('app').hidden || modalOpen() || confirming() || document.querySelector('.win')) return;
     // Escape steps back: from a puzzle to the Build page, from the Build page to where the atom
-    // was opened (Collect or Tables), as the atom's View does.
+    // was opened (Collect or the Atlas), as the atom's View does.
     if (e.key === 'Escape') {
       if (e.defaultPrevented) return;
       if (this.stage !== 'home') this.toHome();

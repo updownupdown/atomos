@@ -1,5 +1,5 @@
 // A gate puzzle played over everything, to open a way of seeing the collection: a lens (Lumen),
-// the nucleus view (Aurum) or a look (Glyph). Tables and the atom view call playUnlock from a
+// the nucleus view (Aurum) or a look (Glyph). The atom view calls playUnlock from a
 // locked item's Unlock button;
 // a win records the unlock and fires 'atomos:progress' so every screen can refresh.
 
@@ -153,7 +153,7 @@ window.atomosUnlock = playUnlock;
 /** Back on a gate puzzle names the screen under it. */
 function backLabel(): string {
   const screen = document.body.dataset.screen ?? '';
-  if (screen === 'gallery') return 'Tables';
+  if (screen === 'gallery') return 'Atlas';
   if (screen === 'collect') return 'Collect';
   if (screen.startsWith('atom')) {
     const name = [...document.querySelectorAll<HTMLElement>('.atom-bar .bar-name')].find((e) => e.offsetParent);
