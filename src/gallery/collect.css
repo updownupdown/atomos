@@ -39,29 +39,37 @@
 .co-lock-ico { flex: none; display: grid; color: var(--c-warn); }
 
 /* The rows, all one height: once scrolling stops the one on the focus line (collect.ts) comes
-   alive, its atom zoomed to fill the picture (thumbs.ts LiveAtom); the rest fade a little with
-   their distance from it (--k). The
-   strip above the first row carries the tracks up to the progress row; the one below clears
+   alive as the collected gem (gem.ts), twice the row's picture and reaching over the rows'
+   empty margins without moving them; the rest fade a little with their distance from it (--k).
+   The strip above the first row carries the track up to the progress row; the one below clears
    the Up next card. */
-.co-list { --co-row: 100px; position: relative; flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; overflow-anchor: none; touch-action: pan-y; --trk-gap: 0px; }
+.co-list { --co-row: 140px; --co-pic: 80px; --co-gem: 200px; position: relative; flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; overflow-anchor: none; touch-action: pan-y; --trk-gap: 0px; }
 .co-pad { display: flex; justify-content: flex-end; padding-right: var(--sp-4); }
 .co-pad--top { height: var(--sp-3); }
-.co-row { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: stretch; height: var(--co-row); padding: 0 var(--sp-4); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.co-row { display: grid; grid-template-columns: minmax(0, 1fr) var(--co-pic) minmax(0, 1fr); align-items: stretch; height: var(--co-row); padding: 0 var(--sp-4); cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .co-row:focus-visible { outline: 2px solid var(--c-accent); outline-offset: -2px; }
-.co-id { align-self: center; display: flex; flex-direction: column; min-width: 0; line-height: 1.15; }
+.co-id { position: relative; z-index: 3; align-self: center; display: flex; flex-direction: column; min-width: 0; line-height: 1.15; }
 .co-id small { font-size: var(--fs-sm); color: var(--c-text-2); font-variant-numeric: tabular-nums; }
 .co-id b { font-size: var(--fs-xl); font-weight: var(--fw-semibold); color: var(--c-text-2); transition: color 0.3s; }
 .co-name { font-size: var(--fs-md); font-weight: var(--fw-medium); color: var(--c-text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: color 0.3s; }
 .co-row.is-current .co-id b, .co-row.is-current .co-name { color: var(--c-text); }
-/* The picture fills the row's height, a little fainter away from the focus line; it comes in
-   with a brief flare, and in focus gives way to the live atom. */
-.co-pic { position: relative; align-self: center; width: var(--co-row); height: var(--co-row); }
-.co-pic img, .co-pic .live-atom { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-.co-pic img { opacity: calc(1 - 0.25 * var(--k, 1)); animation: co-flare 1.4s var(--ease) both; }
-.co-row.is-current .co-pic:has(.live-atom) img { opacity: 0; transition: opacity 0.6s; }
+/* The picture, a little fainter away from the focus line; it comes in with a brief flare, and
+   in focus gives way to the gem, which fades in once its points are in. */
+.co-pic { position: relative; align-self: center; width: var(--co-pic); height: var(--co-pic); }
+.co-pic img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; opacity: calc(1 - 0.25 * var(--k, 1)); animation: co-flare 1.4s var(--ease) both; }
+.co-pic .gem-atom { position: absolute; z-index: 2; left: 50%; top: 50%; width: var(--co-gem); height: var(--co-gem); margin: calc(var(--co-gem) / -2) 0 0 calc(var(--co-gem) / -2); display: block; pointer-events: none; opacity: 0; transition: opacity 0.6s var(--ease); }
+.co-pic .gem-atom.is-shown { opacity: 1; }
+.co-row.is-current .co-pic:has(.gem-atom.is-shown) img { opacity: 0; transition: opacity 0.6s; }
 @keyframes co-flare { 0% { filter: brightness(2.6); } 100% { filter: none; } }
-.co-row .trk { justify-self: end; }
-@media (prefers-reduced-motion: reduce) { .co-pic img { animation: none; } }
+/* One track per row, as on the atom's Build page: the atom's stable bar, then its fleeting bar
+   under it, on the one line; the line is green while stable progress runs unbroken. */
+.co-row .trk, .co-pad .trk { --w: 28px; justify-self: end; }
+.co-list .trk-lane--stable, .co-list .trk-lane--fleeting { right: 13px; }
+.co-list .trk-lane--fleeting::before, .co-list .trk-lane--fleeting::after { display: none; }
+.co-list .trk-stop--bar { height: min(30%, 40px); }
+.co-list .trk-lane--stable > .trk-stop--bar { transform: translateY(calc(-100% - 3px)); }
+.co-list .trk-lane--fleeting > .trk-stop--bar { transform: translateY(3px); }
+@media (prefers-reduced-motion: reduce) { .co-pic img { animation: none; } .co-pic .gem-atom { transition: none; } }
 
 /* A swipe sideways brings the next period in from that side. */
 .co-list.slide-l { animation: co-in-l 0.32s var(--ease, ease-out); }

@@ -22,10 +22,10 @@ describe('Collect', () => {
     const save = built(defaultSave(), 1, 2, 3);
     collect(save, 2, 'lasting');
     collect(save, 3, 'all');
-    expect(toneOf(4, save)).toBe('gray');
-    expect(toneOf(1, save)).toBe('white');
-    expect(toneOf(2, save)).toBe('green');
-    expect(toneOf(3, save)).toBe('color');
+    expect(toneOf(4, save)).toBe('unbuilt');
+    expect(toneOf(1, save)).toBe('built');
+    expect(toneOf(2, save)).toBe('stable');
+    expect(toneOf(3, save)).toBe('complete');
   });
   it("sums a period's progress", () => {
     const save = built(defaultSave(), 3, 4);

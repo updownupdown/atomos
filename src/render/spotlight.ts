@@ -34,6 +34,8 @@ export interface SpotlightOptions {
   scanDir?: 'bounce' | 'in';
   /** 0 to 1: lifts every orbital's twinkle to full, not only the lit one's (a tap's twinkle). */
   twinkleAll?: number;
+  /** 0 (gray) to 1 (default): scales every orbital's color saturation. */
+  saturation?: number;
 }
 
 export const SPOTLIGHT_DEFAULTS: SpotlightOptions = {
@@ -221,7 +223,7 @@ export class Spotlight {
         gain: on * balancedGain(x, set, this.view) * (o.rest === 'dark' && e < 0.01 ? 0 : 0.55 + 0.45 * e) * (x.electrons === 1 ? 0.85 : 1)
           // All lit: everything in, at a third, so the sum doesn't flare.
           * (o.spot === 'all' ? 0.35 : 1 - e + e * share),
-        sat: satFloor + (1 - satFloor) * e,
+        sat: (satFloor + (1 - satFloor) * e) * (o.saturation ?? 1),
         twinkle: ((0.35 + 0.75 * e) * (1 - (o.twinkleAll ?? 0)) + 1.4 * (o.twinkleAll ?? 0)) * (1 + scatter * 2.5) * (x.electrons === 1 ? 1.25 : 1),
         breath: fp.breath * e * (0.5 - 0.5 * Math.cos((this.beat / fp.dwell) * Math.PI * 2)),
         flash: (accent + flashSkip * 0.6 + landing) * e,
