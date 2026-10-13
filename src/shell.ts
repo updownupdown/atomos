@@ -21,7 +21,7 @@ import { renderComponentPage } from './ui/componentpage';
 import { icon, type IconName } from './ui/icons';
 import { setScienceHandler } from './ui/science';
 import { markSvg } from './ui/mark';
-import { initModeBar, MODES, refreshModeProgress, showModeBar, type AtomMode } from './ui/modebar';
+import { MODES, type AtomMode } from './ui/modebar';
 import { reducedMotion } from './ui/nu';
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -106,9 +106,7 @@ export class AppShell {
       $(id).querySelector('.nav-ico')!.innerHTML = icon(ico);
       $(id).onclick = go;
     }
-    initModeBar((mode) => void this.go('atom', mode), () => this.z);
     onSettingsChange(() => {
-      refreshModeProgress();
       this.gallery.syncSettings();
       this.game?.reloadSettings();
     });
@@ -303,7 +301,6 @@ export class AppShell {
 
   private setZ(z: number): void {
     this.z = z;
-    if (this.screen === 'atom') refreshModeProgress();
     if (document.body.dataset.screen?.startsWith('atom')) this.remember('atom', this.mode);
   }
 
@@ -330,7 +327,6 @@ export class AppShell {
     on('nav-collect', screen === 'collect' || screen === 'atom');
     on('nav-puzzles', screen === 'puzzles');
     on('nav-settings', screen === 'settings');
-    showModeBar(screen === 'atom', mode);
     $('nav-title').textContent = TITLES[screen];
     this.paintAside(screen);
     document.body.dataset.screen = screen === 'atom' ? `atom-${mode}` : screen;

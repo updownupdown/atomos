@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { defaultSave, type SaveData } from '../src/core/save';
-import { newsLine, pctLabel, periodProgress, periodTracks, tableNeighbour } from '../src/gallery/collect';
+import { NU_CYCLE, NU_ORBIT, newsLine, nuOffset, pctLabel, periodProgress, periodTracks, tableNeighbour } from '../src/gallery/collect';
 import { toneOf } from '../src/gallery/thumbs';
 import { lastingIsotopes, fleetingIsotopes } from '../src/core/progress';
 
@@ -108,5 +108,25 @@ describe('what a win just added', () => {
   it('says nothing when nothing was added', () => {
     const h = { parts: ['Nucleus'], fleeting: 1, status: 'built' as const };
     expect(newsLine('Iron', h, h, 7)).toBeNull();
+  });
+});
+
+describe('nuOffset', () => {
+  const at = (t: number) => nuOffset(t, 10, 80, 0);
+  const dist = (o: { x: number; y: number }) => Math.hypot(o.x, o.y);
+  it('circles the cell for the first part of each cycle', () => {
+    for (const t of [0, 1, 2.5, NU_ORBIT - 0.01, NU_CYCLE + 3]) expect(dist(at(t))).toBeCloseTo(10, 5);
+  });
+  it('strays out toward its heading and comes back', () => {
+    const mid = at(NU_ORBIT + (NU_CYCLE - NU_ORBIT) / 2);
+    expect(dist(mid)).toBeGreaterThan(60);
+    expect(mid.x).toBeGreaterThan(50);
+    expect(dist(at(NU_CYCLE - 0.001))).toBeCloseTo(10, 1);
+  });
+  it('leaves and rejoins its circle without a jump', () => {
+    for (const t of [NU_ORBIT, NU_CYCLE]) {
+      const a = at(t - 0.01), b = at(t + 0.01);
+      expect(Math.hypot(a.x - b.x, a.y - b.y)).toBeLessThan(1);
+    }
   });
 });
