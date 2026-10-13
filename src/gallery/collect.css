@@ -1,49 +1,55 @@
-/* Collect (collect.ts): the periodic table across the screen, the line for the lens atom's
-   period, then the lens: the name, the atom as its gem, its stable and fleeting progress, and
-   Build beside Next. */
+/* Collect (collect.ts): the periodic table across the screen with the lens atom's period in the
+   gap at its top, the atom's progress box (progressbox.ts), then the lens: the name and the
+   atom as its gem. */
 .collect-screen { position: fixed; inset: 0; z-index: 2; display: flex; flex-direction: column; padding: var(--top) 0 calc(var(--safe-bottom) + var(--sp-2)); box-sizing: border-box; background: var(--c-bg); font-family: var(--font); }
 .collect-screen[hidden] { display: none; }
 
 /* The table, full width. */
 .co-table { position: relative; flex: none; display: grid; grid-template-columns: repeat(18, minmax(0, 1fr)); grid-template-rows: repeat(7, auto) 4px repeat(2, auto); gap: 3px; width: 100%; max-width: 720px; margin: 0 auto; padding: var(--sp-2) var(--sp-4) 0; box-sizing: border-box; }
-.co-cell { position: relative; aspect-ratio: 1; min-width: 0; padding: 0; border: 0; border-radius: 3px; background: var(--c-surface-2); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.co-cell { position: relative; aspect-ratio: 1; min-width: 0; padding: 0; border: 0; border-radius: 3px; background: #383c42; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 /* Lit by collection: under way, a square of the atom's place color in the middle that grows with
    the stable parts built (--k); stable collected, the whole cell; all collected, a soft glow. */
-.co-cell[data-tone='started'], .co-cell[data-tone='built'] { background: var(--c-surface-3); }
+.co-cell[data-tone='started'], .co-cell[data-tone='built'] { background: #383c42; }
 .co-cell[data-tone='started']::before, .co-cell[data-tone='built']::before { content: ''; position: absolute; inset: calc((1 - var(--k, 0.4)) * 50%); border-radius: 1px; background: var(--blk); }
 .co-cell[data-tone='stable'] { background: var(--blk); }
 .co-cell[data-tone='complete'] { background: var(--blk); box-shadow: 0 0 6px color-mix(in srgb, var(--blk) 85%, transparent); }
-.co-cell.is-locked { background: color-mix(in srgb, var(--c-surface) 55%, var(--c-bg)); }
+/* Locked, a quieter gray: still plain enough to show the table's shape. */
+.co-cell.is-locked { background: var(--c-surface-3); }
 /* Fleeting isotopes still to build: a white dot in the corner. */
 .co-cell.has-fleeting::after { content: ''; position: absolute; right: 1px; top: 1px; width: 4px; height: 4px; border-radius: 50%; background: #fff; }
 /* The atom in the lens: a still white ring. */
 .co-cell.is-current { z-index: 1; box-shadow: 0 0 0 1px var(--c-bg), 0 0 0 3px var(--c-text); }
 .co-cell:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
 
-/* Nu going round the next atom's cell. */
-.co-nu { position: absolute; z-index: 2; width: 0; height: 0; pointer-events: none; animation: co-nu-orbit 2.8s linear infinite; }
+/* Nu circling the next atom's cell, and straying now and then (collect.ts moves it). */
+.co-nu { position: absolute; z-index: 2; width: 0; height: 0; pointer-events: none; will-change: transform; }
 .co-nu[hidden] { display: none; }
-.co-nu i { position: absolute; left: -3.5px; top: -3.5px; width: 7px; height: 7px; border-radius: 50%; background: var(--c-go); box-shadow: 0 0 8px 2px var(--c-go-ring); transform: translateX(var(--r, 12px)); }
-@keyframes co-nu-orbit { to { transform: rotate(360deg); } }
+.co-nu i { position: absolute; left: -3.5px; top: -3.5px; width: 7px; height: 7px; border-radius: 50%; background: var(--c-go); box-shadow: 0 0 8px 2px var(--c-go-ring); }
 
-/* The lens atom's period, on one line: built of all with a bar, or what opens it. */
-.co-period { flex: none; width: min(440px, calc(100% - 2 * var(--sp-4))); min-height: 44px; margin: var(--sp-3) auto 0; display: flex; align-items: center; gap: var(--sp-2); padding: 6px var(--sp-3); box-sizing: border-box; border-radius: var(--r-md); background: var(--c-surface); font-size: var(--fs-sm); color: var(--c-text); }
+/* The lens atom's period, in the gap at the top of the table (over columns 3 to 12 of the first
+   three rows): built of all with a bar, or what opens it. Its card sits over the gap without
+   sizing the rows. */
+.co-period { grid-row: 1 / 4; grid-column: 3 / 13; position: relative; min-height: 0; }
+.co-period-in { position: absolute; inset: 0 6px 4px; display: flex; flex-direction: column; justify-content: center; gap: 6px; padding: 4px var(--sp-3); box-sizing: border-box; border-radius: var(--r-md); background: var(--c-surface); font-size: var(--fs-sm); line-height: 1.2; color: var(--c-text); overflow: hidden; }
+.co-period-head { display: flex; align-items: center; gap: 6px; min-width: 0; white-space: nowrap; }
+.co-period-head b { font-weight: var(--fw-semibold); }
+.co-period-sub { min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--c-text-2); }
+.co-period-head .co-period-sub { margin-left: 2px; }
 .co-period-ico { flex: none; display: grid; }
 .co-period.is-done .co-period-ico { color: var(--c-done); }
 .co-period.is-locked .co-period-ico { color: var(--c-warn); }
-.co-period-text { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: var(--sp-2); }
-.co-period-text b { font-weight: var(--fw-semibold); white-space: nowrap; }
-.co-period-text span { color: var(--c-text-2); }
-.co-period.is-locked .co-period-text { color: var(--c-text); }
-.co-period-bar { flex: none; width: 88px; }
+.co-period-bar { width: 100%; }
+
+/* The atom's progress box, under the table. */
+.pbox.co-box { flex: none; margin: var(--sp-3) auto 0; }
 
 /* The lens: the name between the chevrons, then the gem as large as the room allows. A tap on
    the gem or the name opens the atom. */
-.co-lens { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; gap: var(--sp-2); padding: var(--sp-3) var(--sp-4) 0; touch-action: none; }
+.co-lens { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; gap: var(--sp-2); padding: var(--sp-4) var(--sp-4) var(--sp-3); touch-action: none; }
 .co-lens-row { flex: none; width: 100%; max-width: 440px; display: flex; align-items: center; gap: var(--sp-2); }
 .co-step { flex: none; width: 44px; height: 44px; display: grid; place-items: center; padding: 0; border: 0; border-radius: var(--r-pill); background: var(--c-nav); color: var(--c-text); cursor: pointer; }
 .co-step:disabled { opacity: 0.3; cursor: default; }
-.co-step:focus-visible, .co-title:focus-visible, .co-build:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
+.co-step:focus-visible, .co-title:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
 .co-title { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 0; border: 0; background: transparent; color: var(--c-text); font-family: var(--font); cursor: pointer; }
 .co-title small { font-size: var(--fs-md); font-weight: var(--fw-semibold); color: var(--c-text-2); font-variant-numeric: tabular-nums; }
 .co-title b { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 28px; font-weight: var(--fw-semibold); line-height: 1.1; }
@@ -54,29 +60,4 @@
 .co-gem > .gem-atom { opacity: 0; transition: opacity 0.6s var(--ease); }
 .co-gem > .gem-atom.is-shown { opacity: 1; }
 
-/* Under the gem, as wide as the dock and well clear of it: the atom's progress (or, for 3 s
-   after a win, what it just gained), then Build and Next. Narrow, the counts go. */
-.co-foot { flex: none; width: min(440px, calc(100% - 2 * var(--sp-3))); margin: var(--sp-2) auto var(--sp-4); display: flex; flex-direction: column; align-items: center; gap: var(--sp-3); }
-.co-slot { position: relative; width: 100%; min-height: 44px; display: grid; container-type: inline-size; }
-.co-slot > * { grid-area: 1 / 1; }
-.co-progs { display: flex; align-items: center; justify-content: center; gap: var(--sp-5, 24px); transition: opacity 0.3s var(--ease); }
-.co-progs.is-hidden { opacity: 0; visibility: hidden; }
-@container (max-width: 300px) { .co-progs .co-prog-n { display: none; } }
-.co-prog { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
-.co-prog-txt { display: flex; align-items: baseline; gap: 6px; min-width: 0; white-space: nowrap; }
-.co-prog-word { font-size: var(--fs-sm); color: var(--c-text-2); }
-.co-prog-n { font-size: var(--fs-md); font-weight: var(--fw-semibold); color: var(--c-text); font-variant-numeric: tabular-nums; }
-.co-prog.is-done .co-prog-n { color: var(--c-done); }
-.co-prog.is-off .co-prog-n { color: var(--c-text-2); }
-/* What a win just added: a green box that breathes, then goes. */
-.co-news { align-self: center; justify-self: center; max-width: 100%; display: flex; align-items: baseline; gap: var(--sp-2); padding: 10px 16px; box-sizing: border-box; border-radius: var(--r-md); background: color-mix(in srgb, var(--c-done) 12%, var(--c-bg)); box-shadow: inset 0 0 0 2px var(--c-done); font-size: var(--fs-sm); color: var(--c-text); animation: co-news-in 0.3s var(--ease), co-news-pulse 1.5s ease-in-out infinite; }
-.co-news[hidden] { display: none; }
-.co-news b { flex: none; font-weight: var(--fw-semibold); color: var(--c-done); }
-.co-news span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-@keyframes co-news-in { from { opacity: 0; transform: translateY(4px); } }
-@keyframes co-news-pulse { 50% { box-shadow: inset 0 0 0 2px var(--c-done), 0 0 14px color-mix(in srgb, var(--c-done) 45%, transparent); } }
-.co-btns { display: flex; align-items: center; justify-content: center; gap: var(--sp-3); }
-.co-build { flex: none; height: 44px; display: inline-flex; align-items: center; gap: 6px; padding: 0 18px 0 14px; border: 0; border-radius: var(--r-pill); background: var(--c-accent); color: var(--c-accent-ink); font-family: var(--font); font-size: var(--fs-md); font-weight: var(--fw-semibold); cursor: pointer; }
-.co-build:hover:not(:disabled) { filter: brightness(1.06); }
-.co-build:disabled { background: var(--c-surface-2); color: var(--c-text-2); cursor: default; }
-@media (prefers-reduced-motion: reduce) { .co-gem > .gem-atom, .co-progs { transition: none; } .co-nu, .co-news { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .co-gem > .gem-atom { transition: none; } }

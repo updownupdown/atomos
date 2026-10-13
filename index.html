@@ -23,8 +23,7 @@
       <h1 class="nav-title" id="nav-title">Collect</h1>
       <span class="nav-aside" id="nav-aside" hidden></span>
     </header>
-    <!-- The dock: the four sections in a pill floating at the foot. Atom screens float their
-         View / Build / Info bar there instead, and a puzzle being played hides it. -->
+    <!-- The dock: the four sections in a pill floating at the foot. Atom screens have none. -->
     <nav class="dock" id="dock" aria-label="Sections">
       <button id="nav-collect" aria-current="page"><span class="nav-ico"></span><span class="nav-lab">Collect</span></button>
       <button id="nav-puzzles" aria-current="false"><span class="nav-ico"></span><span class="nav-lab">Puzzles</span></button>
@@ -32,17 +31,12 @@
       <button id="nav-settings" aria-current="false"><span class="nav-ico"></span><span class="nav-lab">Settings</span></button>
     </nav>
 
-    <!-- Atom screens: pick View or Build for this atom; Build shows its progress.
-         See src/ui/modebar.ts. -->
-    <div class="mode-row" id="mode-row" hidden>
-      <div class="mode-seg" id="mode-seg"></div>
-    </div>
-
     <div id="gallery-screen">
       <!-- The Atlas (src/gallery/atlas.ts): views, search and Color, the map or Details. -->
       <div id="atlas"></div>
 
       <section id="loupe-screen" class="loupe-screen" hidden aria-label="One atom, up close">
+        <div class="atom-box" id="atom-box"></div>
         <div class="atom-tabs" id="atom-tabs"></div>
         <div class="atom-panel" id="atom-panel" role="tabpanel" hidden></div>
         <canvas id="loupe" aria-label="The selected atom. Swipe up and down to glide through its orbitals, sideways for more or less focus; pinch to zoom, two fingers to turn it."></canvas>
@@ -62,7 +56,6 @@
             <div class="style-switch" id="style-switch" role="group" aria-label="The nucleus up close"></div>
           </div>
         </div>
-        <div class="view-next" id="view-next" hidden></div>
       </section>
     </div>
 
@@ -81,6 +74,7 @@
           <canvas id="bh-atom" aria-label="The atom you are building."></canvas>
           <div class="bh-empty" id="bh-empty" hidden>Nucleus not built</div>
           <div class="bh-rings" id="bh-progress" role="img"></div>
+          <button type="button" class="bh-view bh-info" id="bh-info" aria-label="Info: this element's pages"></button>
           <button type="button" class="bh-view" id="bh-view" aria-label="View the atom full screen"></button>
         </div>
         <div class="bh-in" id="bh-in"></div>

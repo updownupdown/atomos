@@ -29,7 +29,6 @@
   /* The app-wide header; every screen's own top row sits below it. */
   --nav-h: 56px;
   /* The mode row under the header on Atom screens. */
-  --mode-h: 56px;
   --top: calc(var(--safe-top) + var(--nav-h));
   color-scheme: dark;
 }
@@ -194,7 +193,6 @@ body.build-home #app .bottom { display: none; }
 
 /* While a Build puzzle is open the View / Build row steps away: the game header sits right under
    the app header. */
-body.puzzling #mode-row { display: none; }
 body[data-screen^='atom'].puzzling { --top: var(--safe-top); }
 
 /* The Build page of one atom: its puzzles, how far each has got, and what is still to come. */
@@ -223,6 +221,8 @@ body:not(.build-home) .build-bar { display: none; }
 .bh-view:hover { background: var(--c-surface-3); }
 .bh-view:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
 .bh-view[hidden] { display: none; }
+/* Its twin top left: Info, the element's pages. */
+.bh-view.bh-info { right: auto; left: var(--sp-4); padding: 0 16px 0 12px; }
 /* The name of the orbital the light rests on, at the foot of the atom. */
 .atom-orbital { position: absolute; left: 0; right: 0; bottom: var(--sp-2); z-index: 1; margin: 0; text-align: center; pointer-events: none; font-family: var(--font); font-size: var(--fs-md); font-weight: var(--fw-semibold); color: var(--c-text); }
 .atom-orbital[hidden] { display: none; }
@@ -614,13 +614,6 @@ body.puzzling #overlay { pointer-events: auto; touch-action: none; }
 .dec-more { margin-top: 2px; }
 
 /* Above the bar: the scale legend on the left, the drawing style on the right. */
-/* An atom still to build: its Next button floats at the foot of the View page, above the
-   corner tools (which move up to make room) and over the text pages. */
-.view-next { position: absolute; left: 0; right: 0; bottom: calc(var(--sp-3) + var(--safe-bottom)); z-index: 5; display: flex; justify-content: center; pointer-events: none; }
-.view-next[hidden] { display: none; }
-.view-next > * { pointer-events: auto; }
-.loupe-screen.has-next .loupe-tools { bottom: calc(var(--sp-3) + var(--safe-bottom) + 60px); }
-.loupe-screen.has-next .atom-panel { padding-bottom: calc(var(--safe-bottom) + 76px); }
 /* Up next floats at the foot of Collect (a callout), over the list's end. */
 .up-next.is-away .ui-next { display: none; }
 .up-tile { width: 44px; height: 44px; display: grid; place-items: center; border-radius: var(--r-sm); background: var(--c-surface-2); color: var(--c-text); font-size: 18px; font-weight: var(--fw-bold); transition: opacity 0.4s; }
@@ -662,7 +655,6 @@ body.puzzling #overlay { pointer-events: auto; touch-action: none; }
 .loupe-screen { --loupe-top: var(--chrome); --loupe-bottom: 0px; }
 #loupe { top: var(--loupe-top); height: calc(100% - var(--loupe-top) - var(--loupe-bottom)); }
 .loupe-hud { position: absolute; left: 0; right: 0; top: var(--loupe-top); bottom: var(--loupe-bottom); z-index: 2; pointer-events: none; font-family: var(--font); --foot: calc(var(--sp-3) + var(--safe-bottom)); }
-.loupe-screen.has-next .loupe-hud { --foot: calc(var(--sp-3) + var(--safe-bottom) + 60px); }
 .loupe-screen.on-page .loupe-hud { visibility: hidden; }
 .loupe-hud .loupe-tools { bottom: var(--foot); }
 .loupe-hud .dive-readout { top: 70%; }
@@ -727,7 +719,7 @@ body.puzzling #overlay { pointer-events: auto; touch-action: none; }
    missing (iPhone Safari) the screen is pinned over the whole window instead. */
 .loupe-screen.is-full { --loupe-top: 0px; --loupe-bottom: 0px; background: var(--c-bg); }
 .loupe-screen.is-full:not(:fullscreen) { position: fixed; inset: 0; z-index: 20; }
-.loupe-screen.is-full > .atom-bar, .loupe-screen.is-full .atom-tabs, .loupe-screen.is-full .atom-panel, .loupe-screen.is-full .view-next { display: none; }
+.loupe-screen.is-full > .atom-bar, .loupe-screen.is-full .atom-tabs, .loupe-screen.is-full .atom-panel { display: none; }
 .loupe-screen.is-full .loupe-hud { --foot: calc(var(--sp-3) + var(--safe-bottom)); }
 .loupe-screen.is-full .loupe-hud .loupe-tools { bottom: var(--foot); }
 .loupe-screen.is-full .lh-tl { top: calc(var(--sp-2) + var(--safe-top)); }
@@ -788,8 +780,12 @@ body.puzzling #overlay { pointer-events: auto; touch-action: none; }
 .pill.core { background: transparent; color: var(--label-muted); border: 1px dashed var(--c-text-3); font-weight: 400; }
 
 /* View's tabs: a strip under the header; the model tab shows the canvas, the others a scrolling page. */
-.loupe-screen { --tabs-h: 48px; --bar-h: 60px; --chrome: calc(var(--top) + var(--bar-h) + var(--tabs-h)); }
-.atom-tabs { position: absolute; left: 0; right: 0; top: calc(var(--top) + var(--bar-h)); z-index: 3; height: var(--tabs-h); display: flex; align-items: flex-end; justify-content: center; padding: 0 var(--sp-3); background: var(--c-bg); box-shadow: inset 0 -1px 0 var(--c-line); }
+.loupe-screen { --tabs-h: 48px; --bar-h: 60px; --box-h: 0px; --chrome: calc(var(--top) + var(--bar-h) + var(--box-h) + var(--tabs-h)); }
+/* Info, over its tabs: the atom's progress box with Build (progressbox.ts). */
+.loupe-screen.on-page { --box-h: 68px; }
+.atom-box { position: absolute; left: 0; right: 0; top: calc(var(--top) + var(--bar-h)); z-index: 3; height: var(--box-h); display: flex; align-items: center; justify-content: center; background: var(--c-bg); }
+.loupe-screen:not(.on-page) .atom-box, .loupe-screen.is-full .atom-box { display: none; }
+.atom-tabs { position: absolute; left: 0; right: 0; top: calc(var(--top) + var(--bar-h) + var(--box-h)); z-index: 3; height: var(--tabs-h); display: flex; align-items: flex-end; justify-content: center; padding: 0 var(--sp-3); background: var(--c-bg); box-shadow: inset 0 -1px 0 var(--c-line); }
 /* Info's header is black, and the line under the tabs runs to the screen's edges. */
 .atom-tabs .ui-tabs { max-width: 100%; box-shadow: none; }
 /* View is the 3D atom alone: no tab strip, the canvas takes its place. Info shows the tabs. */
@@ -1236,38 +1232,15 @@ body[data-screen^='atom'] .dock, body.pg-playing .dock { display: none; }
 body:not([data-screen^='atom']):not(.pg-playing) { --safe-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--dock-h) + var(--dock-gap, 12px)); }
 
 /* Atom screens, top down: the header, then the atom bar (View and Build each mount their own in
-   the same place, so it reads as one); the View / Build / Info bar floats at the foot. --top is
-   the bottom of the header; screens add the bar's height (60 px) themselves, as they always
-   have. --safe-bottom grows by the floating bar, so whatever sits at the foot of a mode (the
-   View tools, the end of a page) stays clear of it. */
+   the same place, so it reads as one). Nothing floats at the foot. --top is the bottom of the
+   header; screens add the bar's height (60 px) themselves, as they always have. */
 :root { --nav-bottom: calc(var(--safe-top) + var(--nav-h)); --atom-bar-h: 60px; --dock-gap: var(--sp-3); }
 body[data-screen^='atom'] { --nav-bottom: var(--safe-top); --top: var(--nav-bottom); }
-body[data-screen^='atom']:not(.puzzling) { --safe-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--mode-h) + var(--dock-gap)); }
+body[data-screen^='atom']:not(.puzzling) { --safe-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--dock-gap)); }
 body[data-screen^='atom'] .loupe-screen > .atom-bar,
 body[data-screen^='atom'] .build-bar { top: var(--nav-bottom); }
-.mode-row {
-  position: fixed;
-  left: 50%;
-  bottom: calc(env(safe-area-inset-bottom, 0px) + var(--dock-gap));
-  width: min(440px, calc(100% - 2 * var(--sp-4)));
-  transform: translateX(-50%);
-  height: var(--mode-h);
-  z-index: 14;
-  display: flex;
-  align-items: center;
-  padding: 4px;
-  border-radius: var(--r-pill);
-  background: var(--c-nav);
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.55);
-  touch-action: none;
-  view-transition-name: mode-dock;
-}
-.mode-row[hidden] { display: none; }
-.mode-row .mode-seg .ui-seg { height: 100%; padding: 0; background: transparent; }
-.mode-row .mode-seg .ui-seg-opt { min-height: 0; height: 100%; }
-.mode-row .mode-seg { height: 100%; }
-/* Stepping between modes slides the page under the header, atom bar and floating bar, which
-   stay put. */
+/* Stepping between Build and Info slides the page under the header and atom bar, which stay
+   put. */
 .nav { view-transition-name: app-nav; }
 body[data-screen^='atom'] .loupe-screen > .atom-bar, body[data-screen^='atom'] .build-bar { view-transition-name: atom-bar; }
 html[data-vt='next']::view-transition-old(root) { animation: vt-out-left 0.3s var(--ease) both; }

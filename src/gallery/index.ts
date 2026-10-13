@@ -13,17 +13,17 @@ import { tabHTML, TABS, type ViewTab } from './info';
 import { guideHTML } from './guide';
 import { icon } from '../ui/icons';
 import { fullScreen, type FullScreen } from './fullscreen';
-import { createPills, createTabs, iconButton, nextButton, type Tabs } from '../ui/components';
+import { createPills, createTabs, iconButton, type Tabs } from '../ui/components';
 import { mountInfoPage, type InfoState } from './infopage';
 import { createAtomBar, type AtomBar } from './atombar';
 import { scienceButton, setScienceHandler } from '../ui/science';
 import { closeModal, openModal } from '../ui/modal';
 import { loadSave, writeSave, type SaveData } from '../core/save';
 import { atomBuilt, orbitalShapeUnlocked, rowOf, rowOpen, SHAPE_AT, stepState } from '../core/progress';
-import { nextStep, openStep } from '../core/next';
 import { firstTimeLine } from '../ui/nu';
 import { isUnlocked, unlockPuzzle, type UnlockId } from '../core/unlocks';
 import { aPuzzle } from './earn';
+import { ProgressBox } from './progressbox';
 import { playUnlock } from '../puzzles/unlock';
 import { fleetingOpen } from './locks';
 import { isViewLook, VIEW_LOOKS, type ViewLook } from '../render/rayLooks';
@@ -55,6 +55,8 @@ export class GalleryApp {
   private nucleusOn = false;
   private rings = localStorage.getItem('atomos.gallery.rings') !== 'off';
   private tabs!: Tabs;
+  /** Over Info's tabs: the atom's stable and fleeting progress, and Build. */
+  private box = new ProgressBox((z) => this.handlers.onBuild(z), 'atom-pbox');
   private bar!: AtomBar;
   private full!: FullScreen;
 
@@ -81,7 +83,7 @@ export class GalleryApp {
     if (this.current) this.detail.setLit(this.litOf(this.current.z), true);
     // Glyph discovers the p, d and f shapes (on the Build pages of B, Sc and Ce); the Structure page's 2D shapes keep the secret.
     this.info.hiddenShapes = (Object.keys(SHAPE_AT) as OrbitalShape[]).filter((l) => !orbitalShapeUnlocked(l, save));
-    if (this.current && !$('loupe-screen').hidden) this.paintViewNext();
+    if (this.current) this.box.show(this.current.z, save);
     // The Isotopes page shows what is built and what has decayed.
     if (this.tab === 'isotopes') this.renderPanel();
   }
@@ -139,6 +141,8 @@ export class GalleryApp {
     this.tabs = createTabs(TABS, { active: this.page, label: 'About this element', onChange: (id) => this.setTab(id as ViewTab) });
     this.tabs.el.setAttribute('aria-controls', 'atom-panel');
     $('atom-tabs').append(this.tabs.el);
+    // Over the tabs: the atom's progress box, with Build (progressbox.ts, shared with Collect).
+    $('atom-box').append(this.box.el);
     // The microscope in the bar, before the Atoms pill, opens the open page's guide.
     this.bar.el.insertBefore(scienceButton('ui-icon-btn ui-icon-btn--ghost science-btn ap-sci'), this.bar.el.lastElementChild);
     $('atom-tabs').hidden = this.tab === 'model';
@@ -309,20 +313,10 @@ export class GalleryApp {
       requestAnimationFrame(() => { screen.classList.add('in'); this.tabs.select(this.page); });
     }
     this.registerScience();
-    this.paintViewNext();
+    this.box.show(e.z, this.save);
     this.handlers.onLoupe?.(e.z);
   }
 
-  /** On an atom still to build (in an open period), a Next button to build it. */
-  private paintViewNext(): void {
-    const slot = $('view-next');
-    const z = this.current?.z;
-    const step = z && !atomBuilt(z, this.save) && !this.buildLocked(z) ? nextStep(this.save, z) : null;
-    slot.replaceChildren();
-    slot.hidden = !step;
-    $('loupe-screen').classList.toggle('has-next', Boolean(step));
-    if (step) slot.append(nextButton({ label: step.kind === 'resume' ? step.label : `Build ${elementAt(step.z).name.toLowerCase()}`, compact: true, landKey: 'atom-view', onClick: () => openStep(step) }));
-  }
 
   /** The microscope: on an atom's Info, the open page's guide; on the 3D atom, nothing; on the
    *  Atlas, whatever the Atlas shows. */

@@ -15,7 +15,6 @@ import { tableColour } from './core/paint';
 import { Detail } from './gallery/detail';
 import type { AtomLit } from './gallery/atom';
 import { createAtomBar, type AtomBar } from './gallery/atombar';
-import { refreshModeProgress } from './ui/modebar';
 import { buildTracks, drawWitness, slowFactor } from './ui/witness';
 import { mergeLevel, orbitalGridLevel } from './puzzles/levels';
 import { atomGame } from './core/atomGames';
@@ -103,11 +102,16 @@ export class Game {
 
   constructor(private hooks: { onElement?: (z: number) => void; onView?: (z: number) => void; onInfo?: (z: number) => void } = {}) {
     this.detail = new Detail($<HTMLCanvasElement>('bh-atom'), { variant: 'build', empty: $('bh-empty') });
-    // Top right of the atom: View, the 3D atom full screen (closing it comes back here).
+    // Top right of the atom: View, the 3D atom full screen (closing it comes back here). Top
+    // left: Info, the element's pages.
     const view = $('bh-view');
     view.innerHTML = `<span>View</span>${icon('fullscreen', { size: 20 })}`;
     view.hidden = !this.hooks.onView;
     view.onclick = () => this.hooks.onView?.(this.z);
+    const info = $('bh-info');
+    info.innerHTML = `${icon('info', { size: 20 })}<span>Info</span>`;
+    info.hidden = !this.hooks.onInfo;
+    info.onclick = () => this.hooks.onInfo?.(this.z);
     this.bar = createAtomBar({ onChange: (z) => this.start(z), locked: (z) => !rowOpen(rowOf(z), this.save) });
     $('build-bar').append(this.bar.el);
     this.applySettings();
@@ -332,10 +336,9 @@ export class Game {
     return this.hints.used(p) ? ' Built with a hint.' : '';
   }
 
-  /** Saves, and tells the rest of the app (the mode row, the gallery) that progress changed. */
+  /** Saves, and tells the rest of the app (Collect, the gallery) that progress changed. */
   private saveProgress(): void {
     writeSave(this.save);
-    refreshModeProgress();
     window.dispatchEvent(new CustomEvent('atomos:progress', { detail: { z: this.z } }));
   }
 
