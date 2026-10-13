@@ -699,6 +699,10 @@ body:not([data-screen='gallery']) .gal-modes { display: none; }
 /* Up next: the game's icon on its plate, and both lines in white. */
 .up-next .ui-callout-pic { width: 48px; height: 48px; margin-left: 0; border-radius: 8px; background: var(--c-surface-2); color: var(--c-text); }
 .up-next .ui-callout-text small, .up-next .ui-callout-text b { color: var(--c-text); }
+/* Its magenta ring comes and goes at half strength (James 10/13: full was too bright). */
+.up-next.ui-ring::after { animation-name: up-next-ring; }
+.up-next.ui-ring.is-still::after { opacity: 0.5; }
+@keyframes up-next-ring { 0%, 100% { opacity: 0; } 50% { opacity: 0.5; } }
 
 .loupe-tools { position: absolute; left: 0; right: 0; bottom: calc(var(--sp-3) + var(--safe-bottom)); z-index: 2; display: flex; align-items: flex-end; justify-content: space-between; gap: var(--sp-2); padding: 0 var(--sp-3); pointer-events: none; }
 .loupe-tools > * { pointer-events: auto; }
