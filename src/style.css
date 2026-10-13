@@ -27,7 +27,7 @@
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   /* The app-wide header; every screen's own top row sits below it. */
-  --nav-h: 64px;
+  --nav-h: 56px;
   /* The mode row under the header on Atom screens. */
   --mode-h: 56px;
   --top: calc(var(--safe-top) + var(--nav-h));
@@ -1195,8 +1195,8 @@ body:not([data-screen='gallery']) .gal-modes { display: none; }
 .toggle input[type='checkbox']:checked::after { transform: translateX(18px); background: var(--c-accent-ink); }
 
 
-/* The top of every screen but an atom's: the mark (home), then the screen's name, big, on
-   black; a short line about the screen on the right. The sections are in the dock below. */
+/* The top of every screen but an atom's: the mark (home), then the screen's name in the
+   wordmark's style, on black; a short line about the screen on the right. The sections are in the dock below. */
 .nav {
   display: flex;
   align-items: center;
@@ -1221,8 +1221,9 @@ body:not([data-screen='gallery']) .gal-modes { display: none; }
 }
 .nav-logo svg { width: 30px; height: 30px; }
 .nav-logo:hover { background: var(--c-surface-2); }
-.nav-title { flex: 1; min-width: 0; margin: 0; font-family: var(--font); font-size: 32px; font-weight: var(--fw-bold); letter-spacing: -0.01em; line-height: 1.1; color: var(--c-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.nav-aside { flex: none; padding: 9px 14px; border-radius: var(--r-pill); background: var(--c-nav); font-size: var(--fs-md); font-weight: var(--fw-semibold); color: var(--c-text); font-variant-numeric: tabular-nums; }
+/* The screen's name in the wordmark's style (Outfit bold, all caps, widely tracked), a size up. */
+.nav-title { flex: 1; min-width: 0; margin: 0; font-family: var(--font); font-size: 17px; font-weight: var(--fw-bold); letter-spacing: 0.3em; text-transform: uppercase; line-height: 1; color: var(--c-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nav-aside { flex: none; padding: 7px 12px; border-radius: var(--r-pill); background: var(--c-nav); font-size: var(--fs-md); font-weight: var(--fw-semibold); color: var(--c-text); font-variant-numeric: tabular-nums; }
 .nav-aside[hidden] { display: none; }
 /* The wordmark from the splash: Outfit bold, all caps, widely tracked. */
 .wordmark { font-family: var(--font); font-weight: var(--fw-bold); font-size: 12px; letter-spacing: 0.32em; text-transform: uppercase; line-height: 1; }
