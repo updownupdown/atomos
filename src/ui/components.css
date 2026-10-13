@@ -34,9 +34,9 @@
 .ui-close { position: absolute; top: var(--sp-3); right: var(--sp-3); z-index: 1; background: none; border-radius: 50%; color: var(--c-text); }
 .ui-close:hover { background: var(--c-surface-2); }
 
-/* ---- Modal frame: the card floats with the page visible all round it, under a pale mask. The
-   card is pure black inside a thick pale-gray edge, and its pinned header is that same gray, so
-   edge and header read as one frame (the logo's thick line), with no thin rules. ---- */
+/* ---- Modal frame: the card floats with the page visible all round it, under a pale gray mask.
+   The card is pure black with no edge; its pinned header is black too, its title in the screen
+   titles' style (spaced capitals, like COLLECT at the top of the app). ---- */
 .ui-modal {
   position: fixed;
   inset: 0;
@@ -58,7 +58,7 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   background: var(--c-bg);
-  border: var(--modal-edge) solid var(--c-modal-head);
+  border: 0;
   border-radius: var(--r-lg);
   box-shadow: var(--shadow-modal);
   padding: var(--sp-5) var(--sp-5) var(--sp-5);
@@ -74,9 +74,9 @@
   align-items: center;
   margin: calc(-1 * var(--sp-5)) calc(-1 * var(--sp-5)) var(--sp-3);
   padding: var(--sp-3) calc(var(--hit) + var(--sp-4)) var(--sp-3) var(--sp-5);
-  background: var(--c-modal-head);
+  background: var(--c-bg);
 }
-.ui-modal-head > h1, .ui-modal-head > h2, .ui-modal-head > h3 { margin: 0 !important; }
+.ui-modal-head > h1, .ui-modal-head > h2, .ui-modal-head > h3 { margin: 0 !important; min-width: 0; font-family: var(--font); font-size: 15px !important; font-weight: var(--fw-bold) !important; letter-spacing: 0.3em; text-transform: uppercase; line-height: 1.2; color: var(--c-text); }
 .ui-modal-head > .ui-close { top: 50%; transform: translateY(-50%); right: var(--sp-3); }
 .ui-modal-head > .ui-close:active { transform: translateY(-50%) scale(0.94); }
 .ui-modal-card > h2:first-of-type { padding-right: 52px; }

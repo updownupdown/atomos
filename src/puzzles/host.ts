@@ -5,7 +5,7 @@ import { syncPalette } from './palette';
 import { confirming } from './restart';
 import { HintControl } from './hints';
 import { drawSolved, winHold } from './winFx';
-import type { Area, Point, PuzzleView } from './view';
+import { lossOf, type Area, type Point, type PuzzleView } from './view';
 
 export class PuzzleHost {
   private view: PuzzleView | null = null;
@@ -18,7 +18,9 @@ export class PuzzleHost {
    *  with the win effect (winFx.ts). */
   onWon: ((view: PuzzleView) => void) | null = null;
   private wonReported = false;
-  /** Called once when the view is lost for good (PuzzleView.failed), a beat after it happens. */
+  /** Called when the view is lost (lossOf: failed for good, or stuck with no way on), a beat
+   *  after it happens; once until the board can go on again, so undoing along a dead end does not
+   *  raise it again. */
   onLost: ((view: PuzzleView) => void) | null = null;
   private failedAt: number | null = null;
   private lostReported = false;
@@ -69,7 +71,7 @@ export class PuzzleHost {
   }
 
   undo(): void {
-    if (this.view?.undo()) { this.wonReported = false; this.wonAt = null; this.failedAt = null; this.lostReported = false; this.hints.undone(); }
+    if (this.view?.undo()) { this.wonReported = false; this.wonAt = null; this.failedAt = null; this.hints.undone(); }
     this.wake();
   }
 
@@ -120,7 +122,7 @@ export class PuzzleHost {
       this.wonReported = true;
       this.onWon?.(v);
     }
-    if (!v.failed) this.failedAt = null;
+    if (!lossOf(v)) { this.failedAt = null; this.lostReported = false; }
     else if (!this.lostReported && now - (this.failedAt ??= now) >= (this.reducedMotion ? 200 : 900)) {
       this.lostReported = true;
       this.onLost?.(v);
