@@ -1,5 +1,7 @@
 // Player progress, kept in localStorage for the prototype (cloud save comes later).
 
+import { keepStorage } from './backup';
+
 export interface Specimen {
   id: string;
   z: number;
@@ -148,6 +150,8 @@ function seenLinesOf(raw: unknown): Record<string, number> {
 export function writeSave(data: SaveData): void {
   try {
     localStorage.setItem(KEY, JSON.stringify(data));
+    // Once there is progress to lose, ask the browser not to clear it.
+    if (Object.keys(data.steps).length || Object.keys(data.built).length) keepStorage();
   } catch {
     // Private mode or storage blocked: progress lasts for this visit only.
   }

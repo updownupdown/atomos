@@ -5,7 +5,8 @@
 import { MAX_Z } from '../core/elements';
 import { atomBuilt, fleetingTotal, lastingTotal } from '../core/progress';
 import { clearSave, loadSave, writeSave, type Settings } from '../core/save';
-import { confirmDialog, createSegments, switchHtml } from './components';
+import { backupFileName, makeBackup, readBackup, restoreBackup, storageKept } from '../core/backup';
+import { confirmDialog, createSegments, showToast, switchHtml } from './components';
 import { applyProgressPreset, currentPreset, PROGRESS_PRESETS, type ProgressPreset } from '../core/testing';
 
 const listeners = new Set<() => void>();
@@ -33,6 +34,9 @@ export function renderSettings(sheet: HTMLElement): void {
     ${toggle('nu', 'Nu', 'The point of light that flies to what to do next and says a line the first time something happens.')}
     <h3>Progress</h3>
     <p class="muted">${atoms} of ${MAX_Z} atoms built · ${n(lasting.built)} of ${n(lasting.total)} lasting isotopes · ${n(fleeting.built)} of ${n(fleeting.total)} fleeting isotopes</p>
+    <p class="muted" id="set-kept">Your progress is kept in this browser.</p>
+    <div class="actions"><button class="primary" id="set-backup">Back up progress</button><button class="secondary" id="set-restore">Restore a backup</button></div>
+    <input type="file" id="set-restore-file" accept="application/json,.json" hidden>
     <p class="muted">For testing, set the whole game to a share of done to see how screens look. This replaces your progress.</p>
     <div id="set-preset"></div>
     <div class="actions reset-row"><button class="secondary" id="set-reset">Reset all progress</button></div>
@@ -52,6 +56,7 @@ export function renderSettings(sheet: HTMLElement): void {
     },
   });
   sheet.querySelector('#set-preset')!.append(preset.el);
+  wireBackup(sheet);
   // Asks first; on yes Nu sweeps the screen, then everything goes back to locked.
   sheet.querySelector<HTMLButtonElement>('#set-reset')!.onclick = async () => {
     const ok = await confirmDialog({
@@ -65,6 +70,57 @@ export function renderSettings(sheet: HTMLElement): void {
     clearSave();
     // Forget the screen too, so the app starts over the way a new player's does.
     try { localStorage.removeItem('atomos.place'); } catch { /* storage off */ }
+    location.reload();
+  };
+}
+
+/** Back up and restore: a dated file the player keeps, and the way back from one. */
+function wireBackup(sheet: HTMLElement): void {
+  const kept = sheet.querySelector<HTMLElement>('#set-kept')!;
+  void storageKept().then((yes) => {
+    if (yes === true) kept.textContent = 'Your progress is kept in this browser, and the browser has promised not to clear it. A backup file keeps it safe if you change phones.';
+    else kept.textContent = 'Your progress is kept in this browser, which may clear it if the app goes unused or site data is cleared. Keep a backup file to be safe.';
+  });
+  sheet.querySelector<HTMLButtonElement>('#set-backup')!.onclick = async () => {
+    const b = makeBackup();
+    const name = backupFileName(b.at);
+    const text = JSON.stringify(b);
+    // Phones: the share sheet saves to Files or Drive. Elsewhere: a download.
+    try {
+      const file = new File([text], name, { type: 'application/json' });
+      if (navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], title: 'Atomos progress' });
+        showToast('Backup saved', { tone: 'good' });
+        return;
+      }
+    } catch (e) {
+      if ((e as Error)?.name === 'AbortError') return;
+    }
+    const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+    const a = Object.assign(document.createElement('a'), { href: url, download: name });
+    document.body.append(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    showToast('Backup saved', { tone: 'good' });
+  };
+  const input = sheet.querySelector<HTMLInputElement>('#set-restore-file')!;
+  sheet.querySelector<HTMLButtonElement>('#set-restore')!.onclick = () => input.click();
+  input.onchange = async () => {
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file) return;
+    const b = readBackup(await file.text());
+    if (!b) { showToast("That file isn't an Atomos backup", { tone: 'bad' }); return; }
+    const when = b.at ? new Date(b.at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'an earlier day';
+    const ok = await confirmDialog({
+      title: 'Restore this backup?',
+      body: `Your progress goes back to the backup from ${when}. Anything you've done since is replaced.`,
+      confirmLabel: 'Restore',
+      tone: 'problem',
+    });
+    if (!ok) return;
+    restoreBackup(b);
     location.reload();
   };
 }
