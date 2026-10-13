@@ -1,7 +1,7 @@
 // The atom's progress box: one row with its stable parts and fleeting isotopes, each a count
-// and a ring round its icon, then Build. Collect shows it under the table, the atom's Info pages
-// over their tabs. For 3 s after a win, a green line of what was just gained takes the rings'
-// place (Collect).
+// and a ring round its icon, then Build. The atom's Info pages show it over their tabs. `news`
+// can put a green line of what was just gained in the rings' place for 3 s; Collect borrows its
+// look (.pb-news) for its own.
 //
 //   ┌ Stable 7/8 ◎   Fleeting 20/26 ◎   [Build] ┐      narrow, the counts go
 

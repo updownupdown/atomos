@@ -1,14 +1,21 @@
-// Collect: the whole table at once, and one atom large.
+// Collect: one atom large, everything about it in one block, and its period in a drawer that
+// opens to the whole table.
 //
 //   header                         COLLECT                 [⚛ Atoms v]  (atomlist.ts)
-//   ┌ ▪ ┌ Period 4 · 9 of 18 ┐   ▪ ┐                       cells lit by how far each atom is
-//   │ ▪ ▪ └ ▬▬▬▬▬▬▬▬▬▬▬▬▬▬ ┘ ▪ ▪ ▪ │                       collected; Nu circles the next atom
-//   │ ▪ ▪ . . . . . . . . . . ▪ ▪ ▪ │                       and strays now and then; the lens
-//   └────────────────────────────────┘                       atom's period sits in the top gap
-//   ( Stable 7/8 ◎  Fleeting 20/26 ◎  [Build] )              progressbox.ts (a win's news, 3 s)
-//         ‹       26 Fe        ›                             the lens: tap to open the atom;
-//                 Iron                                       swipe sideways (or the chevrons)
-//            (the atom, as its gem)                          to step, up or down to move a row
+//                 (the atom, as its gem)                   swipe sideways for the atom before or
+//                                                          after in its period, up or down for the
+//                                                          period above or below, looping
+//   [46 Pd] Palladium                       [Build]        the atom's block, on black; a win's
+//           Period 5 · transition metal                    news takes the bars' place for 3 s
+//   Stable          8/8    Fleeting       18/35
+//   ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬    ▬▬▬▬▬▬▬▬▬▬▬
+//   ╭──────────────────── ─── ─────────────────────╮      the drawer: the period's row of the
+//   │ Period 5  10 of 18 built              Table ⌃ │      table. Swiped up (or Table), the block
+//   │ ▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪                           │      rises to the top, the row slides into
+//   │                  (dock)                       │      its place in the whole table and the
+//                                                          rest fades in; under the table, the
+//                                                          collection's three bars, then a chip
+//                                                          per period. A pinch zooms the table.
 
 import { MAX_Z, elementAt, placeColour } from './data';
 import { atomPicture, toneOf, type Tone } from './thumbs';
@@ -19,10 +26,11 @@ import { nextStep } from '../core/next';
 import { fleetingOpen, periodNeed } from './locks';
 import type { TrackRow } from '../ui/tracks';
 import { tableCell } from '../ui/picker';
-import { shareBar } from './atomlist';
-import { ProgressBox } from './progressbox';
+import { inkOn } from './looks';
+import { seriesOne } from './table';
 import { icon } from '../ui/icons';
 import { reducedMotion } from '../ui/nu';
+import './progressbox.css';
 import './collect.css';
 
 export interface CollectHandlers {
@@ -88,26 +96,6 @@ function statusOf(z: number, save: SaveData): Status {
   return tone;
 }
 
-/** The atom a step up (-1) or down (1) the table from `z`: the cell straight above or below,
- *  else the nearest one to its left in that row, else the nearest in that row. The rows run
- *  1 to 7, then the two f-block rows. */
-export function tableNeighbour(z: number, dir: 1 | -1): number | null {
-  const ROWS = [1, 2, 3, 4, 5, 6, 7, 9, 10];
-  const at = tableCell(elementAt(z));
-  const row = ROWS[ROWS.indexOf(at.row) + dir];
-  if (row === undefined) return null;
-  const cells: { z: number; col: number }[] = [];
-  for (let n = 1; n <= MAX_Z; n++) {
-    const c = tableCell(elementAt(n));
-    if (c.row === row) cells.push({ z: n, col: c.col });
-  }
-  const same = cells.find((c) => c.col === at.col);
-  if (same) return same.z;
-  const left = cells.filter((c) => c.col < at.col).sort((a, b) => b.col - a.col)[0];
-  if (left) return left.z;
-  return cells.sort((a, b) => Math.abs(a.col - at.col) - Math.abs(b.col - at.col))[0]?.z ?? null;
-}
-
 /** What an atom has, to tell what a win just added: the stable parts done and the fleeting
  *  isotopes built. */
 interface Held { parts: string[]; fleeting: number; status: Status }
@@ -145,23 +133,84 @@ export function nuOffset(t: number, r: number, reach: number, away: number): { x
   return { x: (1 - s) * ox + s * fx, y: (1 - s) * oy + s * fy };
 }
 
+/** The periods, top to bottom. */
+const PERIODS = [1, 2, 3, 4, 5, 6, 7];
+
+/** The atom `dir` steps along `z`'s period, looping from its last atom round to its first. */
+export function stepInPeriod(z: number, dir: 1 | -1): number {
+  const [first, last] = rowSpan(rowOf(z));
+  const n = z + dir;
+  return n > last ? first : n < first ? last : n;
+}
+
+/** The atom of `period` nearest `z`'s place in the table: the one in the same column, else the
+ *  nearest (the left one on a tie). From an f-block row, the period's own f-block row if it has
+ *  one. */
+export function periodPick(z: number, period: number): number {
+  const at = tableCell(elementAt(z));
+  const [first, last] = rowSpan(period);
+  const cells: { z: number; row: number; col: number }[] = [];
+  for (let n = first; n <= last; n++) cells.push({ z: n, ...tableCell(elementAt(n)) });
+  const fRow = cells.filter((c) => c.row >= 9);
+  const pool = at.row >= 9 && fRow.length ? fRow : cells.filter((c) => c.row < 9);
+  return pool.sort((a, b) => Math.abs(a.col - at.col) - Math.abs(b.col - at.col) || a.col - b.col)[0].z;
+}
+
+/** The atom a period up (-1) or down (1) from `z`'s, looping from Period 7 round to Period 1. */
+export function periodNeighbour(z: number, dir: 1 | -1): number {
+  return periodPick(z, ((rowOf(z) - 1 + dir + 7) % 7) + 1);
+}
+
+const fmt = (n: number) => n.toLocaleString('en-US');
+const width = (share: number) => `${(Math.max(0, Math.min(1, share)) * 100).toFixed(1)}%`;
+
+/** A bar with its word and count over it: one atom's stable parts or fleeting isotopes. */
+function lbar(word: string, figure: string, share: number, done: boolean, off = false): string {
+  return `<div class="co-lbar${done ? ' is-done' : ''}${off ? ' is-off' : ''}"><span class="co-lbar-top"><span>${word}</span><b>${figure}</b></span><span class="co-trk"><i style="width:${width(off ? 0 : share)}"></i></span></div>`;
+}
+
+/** One of the collection's totals: the word, built of all, and a bar. */
+function stat(word: string, n: number, total: number): string {
+  const done = total > 0 && n >= total;
+  return `<div class="co-stat${done ? ' is-done' : ''}"><span class="co-stat-k">${word}</span><span class="co-stat-v">${fmt(n)}<small> / ${fmt(total)}</small></span><span class="co-trk"><i style="width:${width(total ? n / total : 0)}"></i></span></div>`;
+}
+
+type PeriodCounts = ReturnType<typeof periodProgress>;
+
 export class Collect {
   readonly el: HTMLElement;
   private save: SaveData = loadSave();
   private current = 1;
   private live = new GemAtom();
-  private table: HTMLElement;
-  private period: HTMLElement;
-  private nu: HTMLElement;
-  private lens: HTMLElement;
+  private stage: HTMLElement;
   private gem: HTMLElement;
-  private title: HTMLButtonElement;
-  private box: ProgressBox;
-  private prev: HTMLButtonElement;
-  private next: HTMLButtonElement;
+  private atom: HTMLElement;
+  private who: HTMLButtonElement;
+  private build: HTMLButtonElement;
+  private bars: HTMLElement;
+  private newsEl: HTMLElement;
+  private drawer: HTMLElement;
+  private line: HTMLElement;
+  private more: HTMLButtonElement;
+  private zoom: HTMLElement;
+  private table: HTMLElement;
+  private nu: HTMLElement;
+  private extras: HTMLElement[];
+  private coll: HTMLElement;
+  private chips: HTMLElement;
   private nextZ: number | null = null;
   private shown = false;
+  /** The drawer is open on the whole table. */
+  private open = false;
+  /** The period the table is laid out for. */
+  private laid = 0;
+  /** How far the table is zoomed in, from 1. */
+  private scale = 1;
+  /** A swipe or a pan just ended: the click that follows it is not a tap. */
   private swiped = false;
+  private newsTimer = 0;
+  /** Each period's counts, as of the last paint. */
+  private per: PeriodCounts[] = [];
   /** What each atom had when Collect last painted, to spot what a win added. */
   private held = new Map<number, Held>();
   /** Nu's flight: where it circles (the next atom's cell, in the table's own pixels) and the
@@ -172,24 +221,38 @@ export class Collect {
   constructor(host: HTMLElement, private handlers: CollectHandlers) {
     this.el = host;
     host.innerHTML = `
-      <div class="co-table" aria-label="Periodic table"><div class="co-period" role="status"><div class="co-period-in"></div></div><span class="co-nu" aria-hidden="true" hidden><i></i></span></div>
-      <div class="co-lens">
-        <div class="co-lens-row">
-          <button type="button" class="co-step" data-dir="-1" aria-label="Previous atom">${icon('chevron-left', { size: 28 })}</button>
-          <button type="button" class="co-title"><small></small><b></b></button>
-          <button type="button" class="co-step" data-dir="1" aria-label="Next atom">${icon('chevron-right', { size: 28 })}</button>
+      <div class="co-stage"><button type="button" class="co-gem-btn"><span class="co-gem"></span></button></div>
+      <div class="co-atom">
+        <div class="co-atom-row">
+          <button type="button" class="co-who"><span class="co-plate"><small></small><b></b></span><span class="co-name"><b></b><small></small></span></button>
+          <button type="button" class="co-build">${icon('mode-build', { size: 20 })}<span>Build</span></button>
         </div>
-        <button type="button" class="co-gem-btn"><span class="co-gem"></span></button>
+        <div class="co-slot"><div class="co-bars"></div><div class="pb-news co-news" role="status" hidden></div></div>
+      </div>
+      <div class="co-drawer">
+        <div class="co-head"><span class="co-handle" aria-hidden="true"></span><div class="co-line"><span class="co-line-txt" role="status"></span><button type="button" class="co-more" aria-expanded="false"></button></div></div>
+        <div class="co-zoom"><div class="co-table" aria-label="Periodic table"><span class="co-nu" aria-hidden="true" hidden><i></i></span></div></div>
+        <p class="co-pinch co-extra">Pinch the table to zoom in</p>
+        <div class="co-coll co-extra"></div>
+        <div class="co-chips co-extra" role="group" aria-label="Periods"></div>
       </div>`;
-    this.table = host.querySelector('.co-table')!;
-    this.period = host.querySelector('.co-period-in')!;
-    this.nu = host.querySelector('.co-nu')!;
-    this.lens = host.querySelector('.co-lens')!;
-    this.gem = host.querySelector('.co-gem')!;
-    this.title = host.querySelector('.co-title')!;
-    this.box = new ProgressBox((z) => this.handlers.onOpen(z), 'co-box');
-    this.table.after(this.box.el);
-    [this.prev, this.next] = [...host.querySelectorAll<HTMLButtonElement>('.co-step')];
+    const $ = <T extends HTMLElement>(s: string) => host.querySelector<T>(s)!;
+    this.stage = $('.co-stage');
+    this.gem = $('.co-gem');
+    this.atom = $('.co-atom');
+    this.who = $('.co-who');
+    this.build = $('.co-build');
+    this.bars = $('.co-bars');
+    this.newsEl = $('.co-news');
+    this.drawer = $('.co-drawer');
+    this.line = $('.co-line-txt');
+    this.more = $('.co-more');
+    this.zoom = $('.co-zoom');
+    this.table = $('.co-table');
+    this.nu = $('.co-nu');
+    this.coll = $('.co-coll');
+    this.chips = $('.co-chips');
+    this.extras = [...host.querySelectorAll<HTMLElement>('.co-extra')];
     if (this.live.ok) this.gem.append(this.live.canvas);
     for (let z = 1; z <= MAX_Z; z++) {
       const e = elementAt(z);
@@ -197,10 +260,11 @@ export class Collect {
       cell.type = 'button';
       cell.className = 'co-cell';
       cell.dataset.z = String(z);
-      const at = tableCell(e);
-      cell.style.gridRow = String(at.row);
-      cell.style.gridColumn = String(at.col);
-      cell.style.setProperty('--blk', placeColour(e));
+      cell.style.gridColumn = String(tableCell(e).col);
+      const blk = placeColour(e);
+      cell.style.setProperty('--blk', blk);
+      cell.style.setProperty('--ink', inkOn(blk));
+      cell.innerHTML = `<span class="co-sym" aria-hidden="true">${e.symbol}</span>`;
       this.table.append(cell);
     }
     this.bind();
@@ -212,16 +276,18 @@ export class Collect {
     this.el.hidden = false;
     this.shown = true;
     this.save = loadSave();
+    this.count();
     const target = z ?? nextStep(this.save)?.z ?? 1;
     this.focus(target);
     this.paintTable(target);
+    this.fitCells();
   }
 
   hide(): void {
     this.el.hidden = true;
     this.shown = false;
     this.live.stop();
-    this.box.hideNews();
+    this.hideNews();
     cancelAnimationFrame(this.nuFrame);
     this.nuFrame = 0;
   }
@@ -229,31 +295,62 @@ export class Collect {
   /** Progress changed: repaint in place, keeping the atom in the lens. */
   refresh(): void {
     this.save = loadSave();
+    this.count();
     this.focus(this.current);
     this.paintTable(this.current);
+  }
+
+  /** Each period's counts, and the collection's under the table. */
+  private count(): void {
+    this.per = PERIODS.map((p) => periodProgress(p, this.save));
+    const sum = (k: 'built' | 'atoms' | 'stableBuilt' | 'stableTotal' | 'fleetingBuilt' | 'fleetingTotal') => this.per.reduce((n, p) => n + p[k], 0);
+    this.coll.innerHTML = stat('Atoms', sum('built'), sum('atoms')) + stat('Stable parts', sum('stableBuilt'), sum('stableTotal')) + stat('Fleeting', sum('fleetingBuilt'), sum('fleetingTotal'));
   }
 
   /** Put atom `z` in the lens. */
   focus(z: number): void {
     z = Math.max(1, Math.min(MAX_Z, z));
+    if (z !== this.current) this.hideNews();
     this.current = z;
     const e = elementAt(z);
-    const tone = toneOf(z, this.save);
-    const status = statusOf(z, this.save);
+    const period = rowOf(z);
+    const open = rowOpen(period, this.save);
     for (const c of this.table.querySelectorAll<HTMLElement>('.co-cell.is-current')) c.classList.remove('is-current');
     this.table.querySelector<HTMLElement>(`.co-cell[data-z="${z}"]`)?.classList.add('is-current');
-    this.lens.dataset.status = status;
-    this.title.querySelector('small')!.textContent = `${z} ${e.symbol}`;
-    this.title.querySelector('b')!.textContent = e.name;
-    this.title.setAttribute('aria-label', `${e.name}, ${z}: ${STATUS_WORD[status].toLowerCase()}. Open it`);
-    this.lens.querySelector('.co-gem-btn')!.setAttribute('aria-label', `Open ${e.name}`);
-    this.prev.disabled = z === 1;
-    this.next.disabled = z === MAX_Z;
-    this.prev.title = z > 1 ? elementAt(z - 1).name : '';
-    this.next.title = z < MAX_Z ? elementAt(z + 1).name : '';
-    this.box.show(z, this.save);
-    this.paintPeriod(z, rowOpen(rowOf(z), this.save));
-    if (!this.shown) return;
+    const plate = this.who.querySelector<HTMLElement>('.co-plate')!;
+    const blk = placeColour(e);
+    plate.style.background = blk;
+    plate.style.color = inkOn(blk);
+    plate.querySelector('small')!.textContent = String(z);
+    plate.querySelector('b')!.textContent = e.symbol;
+    this.who.querySelector('.co-name b')!.textContent = e.name;
+    this.who.querySelector('.co-name small')!.textContent = `Period ${period} · ${seriesOne(e).toLowerCase()}`;
+    this.who.setAttribute('aria-label', `${e.name}, ${z}: ${STATUS_WORD[statusOf(z, this.save)].toLowerCase()}. Open it`);
+    this.stage.querySelector('.co-gem-btn')!.setAttribute('aria-label', `Open ${e.name}`);
+    this.build.disabled = !open;
+    this.build.setAttribute('aria-label', open ? `Build ${e.name}` : `${e.name} is locked`);
+    this.paintBars(z);
+    if (period !== this.laid) this.layoutTable();
+    this.paintLine();
+    this.paintChips();
+    if (this.shown && !this.open) this.showGem(z);
+  }
+
+  /** The atom's two bars: its stable parts, and its fleeting isotopes once they are open. */
+  private paintBars(z: number): void {
+    const segs = segmentsOf(z, this.save);
+    const done = segs.filter((s) => s.done).length;
+    const f = fleetingCount(z, this.save);
+    const fleetOn = fleetingOpen(this.save);
+    this.bars.innerHTML = lbar('Stable', `${done}/${segs.length}`, segs.length ? done / segs.length : 0, segs.length > 0 && done >= segs.length)
+      + (!f.total ? lbar('Fleeting', 'None', 0, false, true)
+        : fleetOn ? lbar('Fleeting', `${f.built}/${f.total}`, f.built / f.total, f.built >= f.total)
+          : lbar('Fleeting', `0/${f.total}`, 0, false, true));
+  }
+
+  /** The atom, large, as its gem: live where WebGL runs, else its picture. */
+  private showGem(z: number): void {
+    const tone = toneOf(z, this.save);
     if (this.live.ok) {
       this.live.show(z, tone, reducedMotion());
       this.live.start();
@@ -269,21 +366,173 @@ export class Collect {
     }
   }
 
-  /** In the gap at the top of the table, the lens atom's period: how many of its atoms are
-   *  built, or, for a period not open yet, what opens it. */
-  private paintPeriod(z: number, open: boolean): void {
-    const period = rowOf(z);
-    const box = this.period.parentElement!;
-    if (!open) {
-      const need = periodNeed(z, this.save);
-      box.className = 'co-period is-locked';
-      this.period.innerHTML = `<span class="co-period-head"><span class="co-period-ico">${icon('lock', { size: 16 })}</span><b>Period ${period}</b></span><span class="co-period-sub">${need ? `Build ${need.more} more in Period ${period - 1}` : 'Locked'}</span>`;
+  /** The drawer's line: closed, the period (how many of its atoms are built, or what opens it)
+   *  and Table; open, Collection and Close. */
+  private paintLine(): void {
+    this.more.innerHTML = this.open ? `${icon('chevron-down', { size: 18 })}<span>Close</span>` : `<span>Table</span>${icon('chevron-up', { size: 18 })}`;
+    this.more.setAttribute('aria-label', this.open ? 'Close the table' : 'Open the whole table');
+    if (this.open) {
+      this.line.className = 'co-line-txt';
+      this.line.innerHTML = '<b>Collection</b>';
       return;
     }
-    const p = periodProgress(period, this.save);
+    const period = rowOf(this.current);
+    if (!rowOpen(period, this.save)) {
+      const need = periodNeed(this.current, this.save);
+      this.line.className = 'co-line-txt is-locked';
+      this.line.innerHTML = `${icon('lock', { size: 16 })}<b>Period ${period}</b><span>${need ? `Build ${need.more} more in Period ${period - 1}` : 'Locked'}</span>`;
+      return;
+    }
+    const p = this.per[period - 1];
     const done = p.built >= p.atoms;
-    box.className = `co-period${done ? ' is-done' : ''}`;
-    this.period.innerHTML = `<span class="co-period-head">${done ? `<span class="co-period-ico">${icon('check', { size: 16 })}</span>` : ''}<b>Period ${period}</b><span class="co-period-sub">${p.built} of ${p.atoms} built</span></span>${shareBar(p.built / p.atoms, 'co-period-bar')}`;
+    this.line.className = `co-line-txt${done ? ' is-done' : ''}`;
+    this.line.innerHTML = `${done ? icon('check', { size: 16 }) : ''}<b>Period ${period}</b><span>${p.built} of ${p.atoms} built</span>`;
+  }
+
+  /** A chip per period: its atoms built, a check once all are, a lock until it opens. */
+  private paintChips(): void {
+    const on = rowOf(this.current);
+    this.chips.innerHTML = PERIODS.map((p) => {
+      const c = this.per[p - 1];
+      const locked = !rowOpen(p, this.save);
+      const done = !locked && c.built >= c.atoms;
+      const what = locked ? 'locked' : `${c.built} of ${c.atoms} built`;
+      const mark = locked ? icon('lock', { size: 14 }) : done ? icon('check', { size: 14 }) : `<span>${c.built}/${c.atoms}</span>`;
+      return `<button type="button" class="co-chip${done ? ' is-done' : ''}${locked ? ' is-locked' : ''}${p === on ? ' is-on' : ''}" data-p="${p}" aria-label="Period ${p}: ${what}"${p === on ? ' aria-current="true"' : ''}><b>${p}</b>${mark}</button>`;
+    }).join('');
+  }
+
+  /** Closed, the table is the lens atom's period alone: its row, and its f-block row under it
+   *  for Periods 6 and 7. Open, the whole table, the period on a band. */
+  private layoutTable(): void {
+    const period = rowOf(this.current);
+    const [first, last] = rowSpan(period);
+    this.laid = period;
+    let fRow = false;
+    for (const cell of this.table.querySelectorAll<HTMLElement>('.co-cell')) {
+      const n = Number(cell.dataset.z);
+      const row = tableCell(elementAt(n)).row;
+      const inP = n >= first && n <= last;
+      cell.classList.toggle('in-period', inP);
+      if (this.open) cell.style.gridRow = String(row);
+      else {
+        cell.style.gridRow = inP ? (row >= 9 ? '2' : '1') : '';
+        if (inP && row >= 9) fRow = true;
+      }
+    }
+    this.table.classList.toggle('is-strip', !this.open);
+    this.table.style.gridTemplateRows = this.open ? '' : fRow ? 'auto auto' : 'auto';
+    this.placeBands();
+    this.placeNu();
+  }
+
+  /** Behind the lens atom's period in the whole table, a band for each of its rows. */
+  private placeBands(): void {
+    for (const b of this.table.querySelectorAll('.co-band')) b.remove();
+    if (!this.open) return;
+    const rows = new Map<number, HTMLElement>();
+    for (const cell of this.table.querySelectorAll<HTMLElement>('.co-cell.in-period')) {
+      const top = cell.offsetTop;
+      if (!rows.has(top)) rows.set(top, cell);
+    }
+    for (const cell of rows.values()) {
+      const band = document.createElement('span');
+      band.className = 'co-band';
+      band.setAttribute('aria-hidden', 'true');
+      band.style.top = `${cell.offsetTop - 3}px`;
+      band.style.height = `${cell.offsetHeight + 6}px`;
+      this.table.prepend(band);
+    }
+  }
+
+  /** The cells' size, for the symbols they carry once large enough to read. */
+  private fitCells(): void {
+    const cell = this.table.querySelector<HTMLElement>('.co-cell.in-period');
+    const w = cell?.offsetWidth ?? 0;
+    if (!w) return;
+    this.table.style.setProperty('--cw', `${w}px`);
+    this.table.classList.toggle('is-labeled', w >= 24);
+  }
+
+  /** Open the drawer on the whole table, or close it on the period. The atom's block rises to
+   *  the top (or back), and the period's own cells slide between their row in the drawer and
+   *  their place in the table while the rest fade in. */
+  setOpen(open: boolean): void {
+    if (open === this.open) return;
+    const motion = this.shown && !reducedMotion() && typeof this.atom.animate === 'function';
+    if (!open) { this.setZoom(1); this.drawer.scrollTop = 0; }
+    const before = motion ? this.snap() : null;
+    this.open = open;
+    this.el.classList.toggle('is-open', open);
+    this.more.setAttribute('aria-expanded', String(open));
+    this.layoutTable();
+    this.fitCells();
+    this.paintLine();
+    if (open) this.live.stop();
+    else if (this.shown) this.showGem(this.current);
+    if (before) this.flip(before, open);
+  }
+
+  private snap(): { atom: number; drawer: number; cells: Map<number, DOMRect> } {
+    const cells = new Map<number, DOMRect>();
+    for (const c of this.table.querySelectorAll<HTMLElement>('.co-cell.in-period')) cells.set(Number(c.dataset.z), c.getBoundingClientRect());
+    return { atom: this.atom.getBoundingClientRect().top, drawer: this.drawer.getBoundingClientRect().top, cells };
+  }
+
+  private flip(was: ReturnType<Collect['snap']>, open: boolean): void {
+    const now = this.snap();
+    const o: KeyframeAnimationOptions = { duration: 440, easing: 'cubic-bezier(0.2, 0.7, 0.2, 1)' };
+    const slide = (el: Element, dx: number, dy: number) => {
+      if (Math.abs(dx) + Math.abs(dy) > 0.5) el.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }], o);
+    };
+    slide(this.atom, 0, was.atom - now.atom);
+    const dd = was.drawer - now.drawer;
+    slide(this.drawer, 0, dd);
+    for (const [z, r] of now.cells) {
+      const b = was.cells.get(z);
+      const cell = this.table.querySelector(`.co-cell[data-z="${z}"]`);
+      if (b && cell) slide(cell, b.left - r.left, b.top - r.top - dd);
+    }
+    const fade: KeyframeAnimationOptions = { duration: 320, delay: 160, easing: 'ease-out', fill: 'backwards' };
+    const fades = open
+      ? [...this.table.querySelectorAll('.co-cell:not(.in-period), .co-band'), ...this.extras]
+      : [this.stage];
+    for (const el of fades) el.animate([{ opacity: 0 }, { opacity: 1 }], fade);
+  }
+
+  /** Zoom the table to `s` (1 to 4), keeping the point `at` (in the zoom box's pixels) still. */
+  private setZoom(s: number, at?: { x: number; y: number }): void {
+    s = Math.max(1, Math.min(4, s));
+    const box = this.zoom, old = this.scale;
+    if (Math.abs(s - old) < 0.001) return;
+    if (old === 1) box.style.height = `${box.clientHeight}px`;
+    const ax = at?.x ?? box.clientWidth / 2, ay = at?.y ?? box.clientHeight / 2;
+    const cx = (box.scrollLeft + ax) / old, cy = (box.scrollTop + ay) / old;
+    this.scale = s;
+    this.table.style.width = s === 1 ? '' : `${s * 100}%`;
+    this.table.style.maxWidth = s === 1 ? '' : `${720 * s}px`;
+    if (s === 1) box.style.height = '';
+    box.scrollLeft = cx * s - ax;
+    box.scrollTop = cy * s - ay;
+    this.el.classList.toggle('is-zoomed', s > 1);
+    this.fitCells();
+    this.placeBands();
+    this.placeNu();
+  }
+
+  /** For a moment, in place of the bars: a green line of what the atom just gained. */
+  private news(n: { added: string; note: string }): void {
+    window.clearTimeout(this.newsTimer);
+    this.newsEl.innerHTML = `<b>${esc(n.added)}</b><span>${esc(n.note)}</span>`;
+    this.newsEl.hidden = false;
+    this.bars.classList.add('is-hidden');
+    this.newsTimer = window.setTimeout(() => this.hideNews(), 3000);
+  }
+
+  private hideNews(): void {
+    window.clearTimeout(this.newsTimer);
+    this.newsEl.hidden = true;
+    this.bars.classList.remove('is-hidden');
   }
 
   /** Each cell lit by how far its atom is collected: gray until a part is built, a square of
@@ -312,18 +561,20 @@ export class Collect {
     const before = this.held.get(z), after = fresh.get(z);
     if (this.shown && before && after) {
       const news = newsLine(elementAt(z).name, before, after, segmentsOf(z, this.save).length);
-      if (news) this.box.news(news);
+      if (news) this.news(news);
     }
     this.held = fresh;
     this.nextZ = nextStep(this.save)?.z ?? null;
     requestAnimationFrame(() => this.placeNu());
   }
 
-  /** Nu circles the next atom's cell (in the table's own pixels) and, now and then, strays. */
+  /** Nu circles the next atom's cell (in the table's own pixels) and, now and then, strays.
+   *  Closed on another period, Nu waits off the table. */
   private placeNu(): void {
     const cell = this.nextZ ? this.table.querySelector<HTMLElement>(`.co-cell[data-z="${this.nextZ}"]`) : null;
-    this.nu.hidden = !cell;
-    if (!cell) { this.nuAt = null; return; }
+    const seen = !!cell && cell.offsetWidth > 0;
+    this.nu.hidden = !seen;
+    if (!cell || !seen) { this.nuAt = null; return; }
     this.nuAt = { x: cell.offsetLeft + cell.offsetWidth / 2, y: cell.offsetTop + cell.offsetHeight / 2, r: Math.max(9, cell.offsetWidth * 0.85), cell: cell.offsetWidth };
     this.nu.style.left = `${this.nuAt.x}px`;
     this.nu.style.top = `${this.nuAt.y}px`;
@@ -348,53 +599,147 @@ export class Collect {
     this.nuFrame = requestAnimationFrame(this.flyNu);
   };
 
+  /** Along the period, looping. */
   private step(dir: 1 | -1): void {
-    const z = this.current + dir;
-    if (z < 1 || z > MAX_Z) return;
-    this.focus(z);
+    this.focus(stepInPeriod(this.current, dir));
   }
 
-  /** Up or down the table, from the atom in the lens. */
-  private stepRow(dir: 1 | -1): void {
-    const z = tableNeighbour(this.current, dir);
-    if (z) this.focus(z);
+  /** To the period above or below, looping. */
+  private stepPeriod(dir: 1 | -1): void {
+    this.focus(periodNeighbour(this.current, dir));
   }
 
   private bind(): void {
+    const openAtom = () => { if (!this.swiped) this.handlers.onOpen(this.current); };
+    this.stage.querySelector<HTMLElement>('.co-gem-btn')!.onclick = openAtom;
+    this.who.onclick = () => this.handlers.onOpen(this.current);
+    this.build.onclick = () => this.handlers.onOpen(this.current);
+    // Its label is redrawn as it opens: the click must not reach the head as well.
+    this.more.onclick = (e) => { e.stopPropagation(); this.setOpen(!this.open); };
     this.table.addEventListener('click', (e) => {
       const cell = (e.target as HTMLElement).closest<HTMLElement>('.co-cell');
-      if (cell) this.focus(Number(cell.dataset.z));
+      if (cell && !this.swiped) this.focus(Number(cell.dataset.z));
     });
-    const open = () => { if (!this.swiped) this.handlers.onOpen(this.current); };
-    this.lens.querySelector<HTMLElement>('.co-gem-btn')!.onclick = open;
-    this.title.onclick = open;
-    this.prev.onclick = () => this.step(-1);
-    this.next.onclick = () => this.step(1);
+    this.chips.addEventListener('click', (e) => {
+      const chip = (e.target as HTMLElement).closest<HTMLElement>('.co-chip');
+      if (chip) this.focus(periodPick(this.current, Number(chip.dataset.p)));
+    });
     this.el.addEventListener('keydown', (e) => {
-      const dirs: Record<string, () => void> = { ArrowLeft: () => this.step(-1), ArrowRight: () => this.step(1), ArrowUp: () => this.stepRow(-1), ArrowDown: () => this.stepRow(1) };
+      if (e.key === 'Escape' && this.open) { e.preventDefault(); this.setOpen(false); this.more.focus(); return; }
+      const dirs: Record<string, () => void> = { ArrowLeft: () => this.step(-1), ArrowRight: () => this.step(1), ArrowUp: () => this.stepPeriod(-1), ArrowDown: () => this.stepPeriod(1) };
       const go = dirs[e.key];
-      if (!go) return;
+      if (!go || (e.target as HTMLElement).closest('.co-chips')) return;
       e.preventDefault();
       go();
       if ((e.target as HTMLElement).closest('.co-table')) this.table.querySelector<HTMLElement>('.co-cell.is-current')?.focus();
     });
-    // On the lens, a swipe sideways steps to the atom after or before; up or down, to the atom
-    // above or below in the table.
-    let start: { x: number; y: number; id: number } | null = null;
-    this.lens.addEventListener('pointerdown', (e) => { start = { x: e.clientX, y: e.clientY, id: e.pointerId }; this.swiped = false; });
-    this.lens.addEventListener('pointerup', (e) => {
-      if (!start || e.pointerId !== start.id) return;
-      const dx = e.clientX - start.x, dy = e.clientY - start.y;
-      start = null;
-      if (Math.abs(dx) > 48 && Math.abs(dx) > Math.abs(dy) * 1.4) { this.swiped = true; this.step(dx < 0 ? 1 : -1); }
-      else if (Math.abs(dy) > 48 && Math.abs(dy) > Math.abs(dx) * 1.4) { this.swiped = true; this.stepRow(dy < 0 ? -1 : 1); }
+
+    // A swipe: sideways or up and down, far enough and mostly one way.
+    const swipe = (el: HTMLElement, ok: (e: PointerEvent) => boolean, act: (dx: number, dy: number) => boolean) => {
+      let start: { x: number; y: number; id: number } | null = null;
+      el.addEventListener('pointerdown', (e) => {
+        if (!ok(e)) return;
+        start = { x: e.clientX, y: e.clientY, id: e.pointerId };
+        this.swiped = false;
+      });
+      // The finger may lift anywhere: a drawer swiped up ends over the atom.
+      window.addEventListener('pointerup', (e) => {
+        if (!start || e.pointerId !== start.id) return;
+        const dx = e.clientX - start.x, dy = e.clientY - start.y;
+        start = null;
+        if (act(dx, dy)) {
+          this.swiped = true;
+          window.setTimeout(() => { this.swiped = false; }, 0);
+        }
+      });
+      window.addEventListener('pointercancel', () => { start = null; });
+    };
+    const sideways = (dx: number, dy: number) => Math.abs(dx) > 48 && Math.abs(dx) > Math.abs(dy) * 1.4;
+    const upDown = (dx: number, dy: number) => Math.abs(dy) > 40 && Math.abs(dy) > Math.abs(dx) * 1.4;
+    // On the atom: sideways along its period, up or down to the period above or below.
+    swipe(this.stage, () => true, (dx, dy) => {
+      if (sideways(dx, dy)) { this.step(dx < 0 ? 1 : -1); return true; }
+      if (upDown(dx, dy)) { this.stepPeriod(dy < 0 ? -1 : 1); return true; }
+      return false;
     });
-    this.lens.addEventListener('pointercancel', () => { start = null; });
-    if (typeof ResizeObserver !== 'undefined') new ResizeObserver(() => this.placeNu()).observe(this.table);
+    // On the drawer (open, on its head): up opens it, down closes it.
+    swipe(this.drawer, (e) => !this.open || !!(e.target as HTMLElement).closest('.co-head'), (dx, dy) => {
+      if (!upDown(dx, dy)) return false;
+      this.setOpen(dy < 0);
+      return true;
+    });
+    this.drawer.querySelector<HTMLElement>('.co-head')!.addEventListener('click', (e) => {
+      if (!this.swiped) this.setOpen(!this.open);
+    });
+    this.bindZoom();
+    if (typeof ResizeObserver !== 'undefined') {
+      new ResizeObserver(() => { this.fitCells(); this.placeBands(); this.placeNu(); }).observe(this.table);
+    }
   }
 
-  /** For checks: the period and the atom in the lens. */
-  get state(): { period: number; z: number; live: { z: number; tone: string; ready: boolean } } {
-    return { period: rowOf(this.current), z: this.current, live: this.live.state };
+  /** Open, the table zooms with a pinch (or a trackpad's, or Ctrl and the wheel) and pans with a
+   *  finger once zoomed; at its own size a finger's drag scrolls the drawer. */
+  private bindZoom(): void {
+    const pts = new Map<number, { x: number; y: number }>();
+    let pinch: { d: number; s: number } | null = null;
+    let last: { x: number; y: number } | null = null;
+    let travel = 0;
+    const local = (p: { x: number; y: number }) => {
+      const r = this.zoom.getBoundingClientRect();
+      return { x: p.x - r.left, y: p.y - r.top };
+    };
+    const spread = () => {
+      const [a, b] = [...pts.values()];
+      return { d: Math.hypot(a.x - b.x, a.y - b.y), mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 } };
+    };
+    this.zoom.addEventListener('pointerdown', (e) => {
+      if (!this.open) return;
+      pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (pts.size === 1) { last = { x: e.clientX, y: e.clientY }; travel = 0; }
+      if (pts.size === 2) { pinch = { d: Math.max(1, spread().d), s: this.scale }; travel = 99; }
+    });
+    this.zoom.addEventListener('pointermove', (e) => {
+      if (!pts.has(e.pointerId)) return;
+      pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (pinch && pts.size >= 2) {
+        const { d, mid } = spread();
+        this.setZoom(pinch.s * (d / pinch.d), local(mid));
+        return;
+      }
+      if (!last || pts.size !== 1) return;
+      const dx = e.clientX - last.x, dy = e.clientY - last.y;
+      last = { x: e.clientX, y: e.clientY };
+      travel += Math.abs(dx) + Math.abs(dy);
+      if (this.scale > 1) { this.zoom.scrollLeft -= dx; this.zoom.scrollTop -= dy; }
+      else this.drawer.scrollTop -= dy;
+    });
+    const end = (e: PointerEvent) => {
+      if (!pts.delete(e.pointerId)) return;
+      if (pts.size < 2) pinch = null;
+      const rest = [...pts.values()][0];
+      last = rest ? { ...rest } : null;
+      if (!pts.size && travel > 8) {
+        this.swiped = true;
+        window.setTimeout(() => { this.swiped = false; }, 0);
+      }
+    };
+    this.zoom.addEventListener('pointerup', end);
+    this.zoom.addEventListener('pointercancel', end);
+    this.zoom.addEventListener('wheel', (e) => {
+      if (!this.open) return;
+      if (e.ctrlKey) {
+        e.preventDefault();
+        this.setZoom(this.scale * Math.exp(-e.deltaY / 200), local({ x: e.clientX, y: e.clientY }));
+      } else if (this.scale > 1) {
+        e.preventDefault();
+        this.zoom.scrollLeft += e.deltaX;
+        this.zoom.scrollTop += e.deltaY;
+      }
+    }, { passive: false });
+  }
+
+  /** For checks: the period, the atom in the lens, and whether the table is open. */
+  get state(): { period: number; z: number; open: boolean; scale: number; live: { z: number; tone: string; ready: boolean } } {
+    return { period: rowOf(this.current), z: this.current, open: this.open, scale: this.scale, live: this.live.state };
   }
 }
