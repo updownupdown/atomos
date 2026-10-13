@@ -1,6 +1,7 @@
 // An atom's page in the Atlas: what it is, before anything about playing. The bar holds Back,
 // the atom's number, symbol and name, and chevrons to the previous and next atom in the view's
-// order; then the Info tabs (Overview, Structure, Isotopes, Properties, from info.ts); and at the
+// order, with the microscope for each page's guide; then the Info tabs (Overview, Structure,
+// Isotopes, Properties, from info.ts); and at the
 // foot one contained row, the only way from here into play: Build.
 //
 //   const page = new AtlasPage({ onBuild, onClose });
@@ -17,6 +18,7 @@ import { orbitalShapeUnlocked, SHAPE_AT } from '../core/progress';
 import { createTabs, type Tabs } from '../ui/components';
 import { icon } from '../ui/icons';
 import { openModal } from '../ui/modal';
+import { scienceButton } from '../ui/science';
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 
@@ -27,7 +29,7 @@ export class AtlasPage {
   private tab: Tab = 'overview';
   private tabs: Tabs;
   private panel: HTMLElement;
-  private state: InfoState = { isoFilter: 'all', structView: 'orbitals', hiddenShapes: [] };
+  private state: InfoState = { isoFilter: 'lasting', structView: 'together', hiddenShapes: [] };
   private open_ = false;
   private shown = true;
 
@@ -52,13 +54,16 @@ export class AtlasPage {
     this.panel = el.querySelector('.ap-panel')!;
     this.tabs = createTabs(TABS, { active: this.tab, label: 'About this atom', onChange: (id) => { this.tab = id as Tab; this.render(); } });
     el.querySelector('.ap-tabs')!.append(this.tabs.el);
+    // The microscope in the bar opens the open page's guide (Atlas registers it).
+    el.querySelector('.ap-walk')!.before(scienceButton('ui-icon-btn ui-icon-btn--ghost science-btn ap-sci'));
     el.querySelector<HTMLButtonElement>('.ap-back')!.onclick = () => this.close();
     el.querySelectorAll<HTMLButtonElement>('.ap-step').forEach((b) => (b.onclick = () => this.step(Number(b.dataset.dir))));
     el.querySelector<HTMLButtonElement>('.ap-build')!.onclick = () => {
       if (this.current != null && !rowLockNote(this.current)) this.opts.onBuild(this.current);
     };
     window.addEventListener('keydown', (ev) => {
-      if (!this.isOpen || !this.shown || !document.getElementById('modal')?.hidden) return;
+      // Only while the page is on screen: not under the 3D atom it opened, nor under a sheet.
+      if (!this.isOpen || !this.shown || document.body.dataset.screen !== 'gallery' || !document.getElementById('modal')?.hidden) return;
       if ((ev.target as HTMLElement).closest?.('.ui-tabs, input')) return;
       if (ev.key === 'Escape') { ev.preventDefault(); this.close(); }
       else if (ev.key === 'ArrowRight') this.step(1);
@@ -99,6 +104,11 @@ export class AtlasPage {
     this.el.hidden = true;
     // Its Info page leaves the document so the atom screen's own pages are the only ones in it.
     this.panel.replaceChildren();
+  }
+
+  /** "How to read this": the open page's guide. */
+  openGuide(): void {
+    if (this.current != null) openModal(guideHTML(elementAt(this.current), this.tab));
   }
 
   private step(dir: number): void {
@@ -143,9 +153,7 @@ export class AtlasPage {
     const save = loadSave();
     this.state.hiddenShapes = (Object.keys(SHAPE_AT) as OrbitalShape[]).filter((l) => !orbitalShapeUnlocked(l, save));
     const label = TABS.find((t) => t.id === this.tab)!.label;
-    this.panel.innerHTML = `<div class="atom-page">${tabHTML(e, this.tab, save.settings.unlockAll || Boolean(save.built[e.z]), save)}`
-      + `<div class="page-guide"><button type="button" class="guide-btn ap-guide">${icon('microscope')}<span><b>How to read this</b><small>A guide to the ${label.toLowerCase()} page, and more context</small></span></button></div></div>`;
-    this.panel.querySelector<HTMLButtonElement>('.ap-guide')!.onclick = () => openModal(guideHTML(e, this.tab));
+    this.panel.innerHTML = `<div class="atom-page">${tabHTML(e, this.tab, save.settings.unlockAll || Boolean(save.built[e.z]), save)}</div>`;
     mountInfoPage(this.panel, this.state);
     this.panel.scrollTop = 0;
     this.panel.setAttribute('aria-label', label);

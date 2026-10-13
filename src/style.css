@@ -1411,49 +1411,19 @@ body[data-screen^='atom'].build-home .science-fab, body[data-screen='atom-view']
 .it-filter .ui-seg { width: max-content; min-width: 100%; }
 .it-filter .ui-seg-dot { display: none; }
 .it-filter .ui-seg-opt { padding: 0 var(--sp-3); font-size: var(--fs-sm); }
-.it { display: flex; flex-direction: column; }
-.it-row { display: grid; grid-template-columns: minmax(78px, 0.8fr) minmax(0, 1.6fr) minmax(64px, 0.7fr); gap: var(--sp-3); align-items: center; margin-top: 3px; padding: var(--sp-3) var(--sp-3); border-radius: var(--r-sm); background: var(--c-plate); }
-.it-row[hidden] { display: none; }
-.it-headrow { background: none; padding-top: var(--sp-2); padding-bottom: var(--sp-2); font-size: var(--fs-caps-min); font-weight: var(--fw-semibold); color: var(--c-text-min); text-transform: uppercase; letter-spacing: var(--tracking-caps); }
-.it-row.is-key { background: var(--c-surface); border-radius: var(--r-sm); }
-.it-name { display: flex; flex-direction: column; gap: 1px; }
-.it-name b { font-size: var(--fs-lg); font-weight: var(--fw-semibold); color: var(--c-text-2); line-height: 1.1; }
-.it-name b sup { font-size: 0.6em; margin-right: 1px; font-weight: var(--fw-medium); }
-.it-row.is-stable .it-name b { color: var(--c-silver); }
-.it-name span { font-size: var(--fs-min); color: var(--c-text-min); }
-.it-life { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-.it-track { position: relative; height: 8px; border-radius: 4px; background: var(--c-surface-2); overflow: hidden; }
-.it-track i { position: absolute; inset: 0 auto 0 0; width: calc(var(--v) * 100%); border-radius: 4px; background: color-mix(in srgb, var(--c-accent) calc(var(--v) * 70%), var(--c-orb-d)); }
-.it-row.is-stable .it-track i { background: var(--c-accent); }
-.it-life-lab { font-size: var(--fs-sm); color: var(--c-text-2); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.it-row.is-stable .it-life-lab { color: var(--c-accent); }
-.it-share { display: flex; align-items: center; gap: 6px; font-size: var(--fs-sm); color: var(--c-text); font-variant-numeric: tabular-nums; }
 .it-ring { width: 24px; height: 24px; flex: none; }
 .it-ring-bg { fill: none; stroke: var(--c-surface-3); stroke-width: 4; }
 .it-ring-fg { fill: none; stroke: var(--c-accent); stroke-width: 4; stroke-linecap: round; }
-.it-empty { display: none; color: var(--c-text-2); padding: var(--sp-4) var(--sp-2); }
-.it.is-empty .it-empty { display: block; }
-.it.is-empty .it-headrow { display: none; }
 
 /* Properties: one axis per property, every element a faint tick. */
 /* Properties: label and value on the left, every element as a colored dot on the right. */
 .pr-legend { color: var(--c-text-2); font-size: var(--fs-sm); margin: var(--sp-2) 0 var(--sp-4); }
 .pr-legend span { display: inline-flex; align-items: center; gap: 4px; margin: 0 2px; color: var(--c-text); font-weight: var(--fw-semibold); }
 .pr-legend i { width: 9px; height: 9px; border-radius: 50%; }
-.prs { display: flex; flex-direction: column; }
-.prs { gap: var(--sp-3); }
-.pr { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.25fr); gap: var(--sp-4); align-items: center; padding: var(--sp-4); border-radius: var(--r-md); background: var(--c-plate); }
-.pr-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-.pr-label { font-size: var(--fs-md); font-weight: var(--fw-semibold); color: var(--c-text); line-height: 1.25; }
-.pr-value { font-size: var(--fs-md); font-weight: var(--fw-regular); color: var(--c-silver); font-variant-numeric: tabular-nums; }
-.pr-value small { display: block; font-size: var(--fs-sm); color: var(--c-text-2); }
-.pr-rank { font-style: normal; font-size: var(--fs-sm); color: var(--c-accent); line-height: 1.3; }
-.pr-vis svg { display: block; width: 100%; height: auto; overflow: visible; }
 .pr-lane { stroke: var(--c-line); stroke-width: 1; }
 .pr-dots circle { opacity: 0.6; }
 .pr-guide { stroke: var(--c-silver); stroke-width: 1; opacity: 0.5; }
 .pr-me { stroke: var(--c-silver); stroke-width: 2; }
-.pr-ends { display: flex; justify-content: space-between; gap: var(--sp-2); margin-top: 4px; font-size: var(--fs-min); color: var(--c-text-min); font-variant-numeric: tabular-nums; }
 .ox-bar { fill: var(--c-surface-3); }
 .ox-bar.ox-neg { fill: color-mix(in srgb, var(--c-orb-s) 40%, var(--c-surface-3)); }
 .ox-bar.ox-pos { fill: color-mix(in srgb, var(--c-orb-d) 40%, var(--c-surface-3)); }
@@ -1463,8 +1433,6 @@ body[data-screen^='atom'].build-home .science-fab, body[data-screen='atom-view']
 .ox-lab { fill: var(--c-text-min); font-size: 11px; text-anchor: middle; font-family: var(--font); }
 .ox-lab.is-mine { fill: var(--c-text); font-weight: 600; }
 /* On a phone the oxidation bars take the full width, so their numbers can be read. */
-@media (max-width: 719px) { .pr-ox { grid-template-columns: minmax(0, 1fr); gap: var(--sp-3); } }
-@media (min-width: 720px) { .pr { grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr); gap: var(--sp-5); } }
 
 /* Story: a timeline of discoveries, then the name. */
 .tl { margin: var(--sp-2) 0 var(--sp-3); }
@@ -1478,14 +1446,8 @@ body[data-screen^='atom'].build-home .science-fab, body[data-screen='atom-view']
 .tl figcaption { color: var(--c-text-2); margin-top: 4px; }
 .story-name { margin: var(--sp-2) 0 var(--sp-4); padding: var(--sp-4) var(--sp-4) var(--sp-5); border-radius: var(--r-md); background: var(--c-plate); font-size: var(--fs-xl); line-height: 1.35; color: var(--c-text); }
 .story-name span { display: block; font-size: var(--fs-2xs); letter-spacing: 0.14em; text-transform: uppercase; color: var(--c-accent); margin-bottom: 4px; }
-/* Story: the name first, then the discovery set large, the timeline, then Origins and Uses as lists. */
-.story-disc { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: var(--sp-4); margin: 0 0 var(--sp-3); padding: var(--sp-4); border-radius: var(--r-md); background: var(--c-plate); }
-.story-when { display: flex; flex-direction: column; gap: 2px; }
-.story-by { display: flex; flex-direction: column; gap: 2px; text-align: right; }
 .story-cap { font-size: var(--fs-2xs); letter-spacing: 0.14em; text-transform: uppercase; color: var(--c-accent); }
 .story-year { font-size: var(--fs-3xl); font-weight: var(--fw-semibold); line-height: 1.1; color: var(--c-text); font-variant-numeric: tabular-nums; }
-.story-who { margin: 0 !important; font-size: var(--fs-lg); line-height: 1.35; color: var(--c-text); }
-.story-where { margin: 0 !important; font-size: var(--fs-md); color: var(--c-text-2); }
 .atom-page .story-h { margin: var(--sp-5) 0 var(--sp-2); font-size: var(--fs-lg); font-weight: var(--fw-semibold); color: var(--c-text); }
 .story-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--sp-2); }
 .story-list li { position: relative; padding-left: 18px; color: var(--c-text); }
@@ -1498,37 +1460,17 @@ body[data-screen^='atom'].build-home .science-fab, body[data-screen='atom-view']
 .ov-photo figcaption a { color: inherit; text-decoration: underline; text-decoration-color: var(--c-line-2); }
 .ov-photo figcaption a:hover { color: var(--c-accent); }
 .ov-photo.is-missing { display: none; }
-/* Overview's hero: the element as a periodic-table card, beside its category, four small
-   stats and its configuration. The block color edges the card all round and names the category. */
-.ov-hero { display: flex; gap: var(--sp-4); align-items: stretch; margin: var(--sp-2) 0 var(--sp-4); }
 .ov-tile { flex: none; width: 112px; display: flex; flex-direction: column; padding: 10px 12px 10px; border-radius: var(--r-md); background: color-mix(in srgb, var(--b) 12%, var(--c-plate)); border: 1.5px solid var(--b); color: var(--c-text); }
 .ov-z { font-size: var(--fs-md); font-weight: var(--fw-semibold); color: var(--b); font-variant-numeric: tabular-nums; }
 .ov-tile b { margin-top: 2px; font-size: 44px; line-height: 1; font-weight: var(--fw-semibold); letter-spacing: -0.01em; }
 .ov-n { margin-top: auto; padding-top: 6px; font-size: var(--fs-sm); font-weight: var(--fw-medium); }
 .ov-tile em { font-style: normal; font-size: var(--fs-xs); color: var(--c-text-2); font-variant-numeric: tabular-nums; }
-.ov-meta { flex: 1; display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; }
-.ov-series { font-size: var(--fs-xs); font-weight: var(--fw-bold); letter-spacing: 0.14em; text-transform: uppercase; color: var(--b); }
-.ov-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; }
-.ov-stats div { display: flex; flex-direction: column; gap: 1px; padding: 6px 10px; border-radius: var(--r-sm); background: var(--c-plate); }
-.ov-stats b { font-size: var(--fs-lg); font-weight: var(--fw-semibold); color: var(--c-text); line-height: 1.15; }
-.ov-stats span { font-size: var(--fs-caps-min); font-weight: var(--fw-semibold); letter-spacing: 0.1em; text-transform: uppercase; color: var(--c-text-min); }
-.ov-conf { font-size: var(--fs-md); color: var(--c-silver); }
 .ov-headline { font-size: var(--fs-xl); line-height: 1.35; color: var(--c-text); margin: var(--sp-3) 0 !important; max-width: 40ch; }
 .ov-facts { margin: 0 0 var(--sp-3); padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--sp-2); }
 .ov-facts li { position: relative; padding-left: 18px; color: var(--c-text); }
 .ov-facts li::before { content: ''; position: absolute; left: 2px; top: 0.6em; width: 6px; height: 6px; border-radius: 50%; background: var(--c-accent); }
 .mode-detail .mode-progress { font-size: var(--fs-sm); color: var(--c-text-2); }
 
-/* View pages: each page ends with its own guide button. */
-.page-guide { margin: var(--sp-6) 0 var(--sp-2); display: flex; justify-content: center; }
-.guide-btn { display: flex; align-items: center; gap: var(--sp-3); width: 100%; min-height: 64px; padding: var(--sp-3) var(--sp-4); border: 1px solid var(--c-line-2); border-radius: var(--r-md); background: var(--c-surface); color: var(--c-text); font-family: var(--font); text-align: left; cursor: pointer; transition: background-color var(--dur-fast), transform var(--dur-fast) var(--ease); }
-.guide-btn:hover { background: var(--c-surface-2); }
-.guide-btn:active { transform: scale(0.985); }
-.guide-btn:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
-.guide-btn svg { flex: none; width: 28px; height: 28px; color: var(--c-accent); }
-.guide-btn span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.guide-btn b { font-size: var(--fs-md); font-weight: var(--fw-semibold); }
-.guide-btn small { font-size: var(--fs-sm); color: var(--c-text-2); }
 
 /* The guides: small drawings beside the words. */
 .gd p { line-height: 1.55; }
@@ -1673,7 +1615,6 @@ body[data-screen^='atom'].build-home .science-fab, body[data-screen='atom-view']
 
 /* Structure › Orbitals: each orbital's 2D shape with its electrons' spins under it, a row per
    shell (outermost on top), the core dimmed; Details adds names, counts and notes. */
-.om-toggle { display: inline-flex; align-items: center; gap: 6px; margin: var(--sp-2) 0; font-size: var(--fs-sm); color: var(--c-text-2); cursor: pointer; }
 .om { display: flex; flex-direction: column; gap: var(--sp-3); margin: var(--sp-1) 0 var(--sp-3); }
 .om-row { display: grid; grid-template-columns: 22px 1fr; gap: var(--sp-2); align-items: center; }
 .om-groups { display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-3); }
@@ -1710,9 +1651,6 @@ body[data-screen^='atom'].build-home .science-fab, body[data-screen='atom-view']
 .isu-dot.is-key { stroke: var(--c-text); stroke-width: 1.5; }
 .isu-words { margin: 0; font-size: var(--fs-md); color: var(--c-text); max-width: 60ch; }
 
-/* Properties › Additional Details: a plain card, always open. */
-.info-card { margin: var(--sp-4) 0; padding: var(--sp-3) var(--sp-4) var(--sp-4); border-radius: var(--r-md); background: var(--c-surface); }
-.info-card h3 { margin: 0 0 var(--sp-2); font-size: var(--fs-lg); font-weight: var(--fw-semibold); }
 
 /* ---- Game card (src/puzzles/gameCard.ts) ------------------------------------------------------
    One game, the same everywhere: its icon black on a white square the full height of the card,
