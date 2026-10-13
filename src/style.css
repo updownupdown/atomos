@@ -1225,8 +1225,8 @@ body:not([data-screen='gallery']) .gal-modes { display: none; }
 }
 .nav-logo svg { width: 30px; height: 30px; }
 .nav-logo:hover { background: var(--c-surface-2); }
-/* The screen's name in the wordmark's style (Outfit bold, all caps, widely tracked), a size up. */
-.nav-title { flex: 1; min-width: 0; margin: 0; font-family: var(--font); font-size: 17px; font-weight: var(--fw-bold); letter-spacing: 0.3em; text-transform: uppercase; line-height: 1; color: var(--c-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* The screen's name in the wordmark's style (Outfit bold, all caps, widely tracked). */
+.nav-title { flex: 1; min-width: 0; margin: 0; font-family: var(--font); font-size: 15px; font-weight: var(--fw-bold); letter-spacing: 0.3em; text-transform: uppercase; line-height: 1; color: var(--c-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .nav-aside { flex: none; padding: 7px 12px; border-radius: var(--r-pill); background: var(--c-nav); font-size: var(--fs-md); font-weight: var(--fw-semibold); color: var(--c-text); font-variant-numeric: tabular-nums; }
 .nav-aside[hidden] { display: none; }
 /* The wordmark from the splash: Outfit bold, all caps, widely tracked. */
