@@ -14,8 +14,14 @@ import { drawFrame, frameBox, framePad, frameWidth } from './frame';
 import { drawHelpMark, ease, type Area, type Help, type Illustration, type Point, type PuzzleView, type RuleCard, type Stat } from './view';
 
 export const INSTRUCTIONS = `
-<h3>In the game</h3>
-<p class="meta">Solus is a reserve game, played from the Puzzles screen. The grid grows with the dial from 5 by 5 (Very easy) through 6, 7, 8 and 9 to 10 by 10 at the top of Expert, with as many orbitals as rows. Every board has exactly one answer, checked by a solver, and a step-by-step solver that works the way a person does reaches it without guessing. Each deal is picked from several by how many harder steps it takes: easy dials keep the boards that fall almost entirely to "one cell left"; hard dials keep the ones that most need an orbital boxed into a row, a squeeze, or two or three orbitals sharing rows. Orbitals are a mix of sizes, with a few small ones as footholds. Par is one electron per row; crosses are free.</p>
+<section class="how-specs"><h3>Specs</h3><ul>
+<li><b>Flawless:</b> Solve placing only par electrons, one per row, and none you later clear (crosses are free, and an electron you undo does not count), and without Show me.</li>
+<li><b>Where it's played:</b> A reserve game, played from the Puzzles screen.</li>
+<li><b>Board:</b> The grid grows with the dial from 5 by 5 (Very easy) through 6, 7, 8 and 9 to 10 by 10 at the top of Expert, with as many orbitals as rows. Orbitals are a mix of sizes, with a few small ones as footholds.</li>
+<li><b>Built:</b> Every board has exactly one answer, checked by a solver, and a step-by-step solver that works the way a person does reaches it without guessing.</li>
+<li><b>Difficulty:</b> Each deal is picked from several by how many harder steps it takes. Easy dials keep the boards that fall almost entirely to "one cell left"; hard dials keep the ones that most need an orbital boxed into a row, a squeeze, or two or three orbitals sharing rows.</li>
+<li><b>Par:</b> Par is one electron per row; crosses are free.</li>
+</ul></section>
 `;
 
 /** The orbitals' fills and their names, for the hint line: soft, dark enough for the silver
@@ -468,7 +474,7 @@ const SOLUTION: [number, number][] = [[1, 0], [3, 1], [0, 2], [2, 3]];
 export const RULES: RuleCard[] = [
   {
     title: 'Electrons',
-    text: 'Tap a cell once for a cross, twice for an electron and again to clear it. Crosses are only your notes.',
+    text: 'Tap a cell once for a cross, **twice for an electron** and again to clear it. Crosses are only your notes.',
     good: picture([
       { t: 0.4, cells: [[1, 0]], v: CROSS },
       { t: 1.0, cells: [[1, 0]], v: ELECTRON },
@@ -477,24 +483,24 @@ export const RULES: RuleCard[] = [
   },
   {
     title: 'One each',
-    text: 'Every row, every column and every orbital holds exactly one electron.',
+    text: 'Every row, every column and every orbital holds **exactly one electron**.',
     good: picture(SOLUTION.map((cell, k) => ({ t: 0.4 + 0.45 * k, cells: [cell], v: ELECTRON })), 'One in each'),
     bad: picture([{ t: 0.4, cells: [[2, 0]], v: ELECTRON }, { t: 0.9, cells: [[3, 2]], v: ELECTRON }], 'Two in one orbital', true, 2),
   },
   {
     title: 'No touching',
-    text: 'No two electrons touch, not even at a corner.',
+    text: '**No two electrons touch**, not even at a corner.',
     good: picture([{ t: 0.4, cells: [[1, 0]], v: ELECTRON }, { t: 0.9, cells: [[3, 1]], v: ELECTRON }], 'A cell apart', false, 2),
     bad: picture([{ t: 0.4, cells: [[1, 0]], v: ELECTRON }, { t: 0.9, cells: [[2, 1]], v: ELECTRON }], 'Corners touching', true, 2),
   },
   {
     title: 'Drag to cross',
-    text: 'Drag across cells to cross off many at once. Drag from a cross to clear them.',
+    text: '**Drag across cells to cross off many at once**. Drag from a cross to clear them.',
     good: picture([0, 1, 2].map((x) => ({ t: 0.4 + 0.25 * x, cells: [[x, 1]] as [number, number][], v: CROSS })), 'Drag across', false, 2),
   },
   {
     title: 'Think ahead',
-    text: 'The green orbital lies in the bottom row, so its electron is there: cross off the rest of that row.',
+    text: 'The green orbital lies in the bottom row, **so its electron is there**: cross off the rest of that row.',
     good: picture([{ t: 0.8, cells: [[0, 3]], v: CROSS }], 'Orbital in one row', false, 1.8),
   },
 ];

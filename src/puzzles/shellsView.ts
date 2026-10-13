@@ -14,8 +14,14 @@ import { drawFrame } from './frame';
 import { drawHelpMark, ease, type Area, type Help, type Illustration, type Point, type PuzzleView, type RuleCard, type Stat } from './view';
 
 export const INSTRUCTIONS = `
-<h3>In the game</h3>
-<p class="meta">Shells is a reserve game, played from the Puzzles screen. Very easy boards have three rings of eight slots and no links, so working from the outside in is enough; the rings grow to four from Medium and five from Hard, the slots to twelve and the beads to six on a ring. Links arrive from Easy on: one at first, then two or three that make chains. Par is the fewest turns that line everything up, one per ring that needs turning, worked out exactly from the links. From Medium on, a board is kept only when lining up pairs one at a time, from the outside in or the inside out, takes more turns than par.</p>
+<section class="how-specs"><h3>Specs</h3><ul>
+<li><b>Flawless:</b> Line up every pair in par turns or fewer, where a turn is one drag of a ring however far it goes and par is the fewest turns the board needs, and without Show me.</li>
+<li><b>Where it's played:</b> A reserve game, played from the Puzzles screen.</li>
+<li><b>Board:</b> Very easy boards have three rings of eight slots and no links, so working from the outside in is enough. The rings grow to four from Medium and five from Hard, the slots to twelve and the beads to six on a ring.</li>
+<li><b>Links:</b> Links arrive from Easy on: one at first, then two or three that make chains.</li>
+<li><b>Par:</b> Par is one turn per ring that needs turning, worked out exactly from the links.</li>
+<li><b>Built:</b> From Medium on, a board is kept only when lining up pairs one at a time, from the outside in or the inside out, takes more turns than par.</li>
+</ul></section>
 `;
 
 /** The rings' colors, innermost first: the orbital colors, then silver for a fifth ring. */
@@ -507,23 +513,23 @@ const THREE = (o: number[], links: boolean[]) => board(['#.#.....', '.#..#..#', 
 export const RULES: RuleCard[] = [
   {
     title: 'Turn a ring',
-    text: 'Drag a ring round the nucleus to turn it, one slot at a time. Its beads, and the marks on its inner edge, turn with it.',
+    text: '**Drag a ring round the nucleus to turn it**, one slot at a time. Its beads, and the marks on its inner edge, turn with it.',
     good: picture(TWO([0, 2]), [[1, -2]], 'Drag to turn'),
   },
   {
     title: 'Line up',
-    text: 'A pair lights up when every bead of a ring faces a mark of its color on the ring outside it. The outermost ring lines up with the fixed dial.',
+    text: 'A pair lights up when every bead of a ring **faces a mark of its color** on the ring outside it. The outermost ring lines up with the fixed dial.',
     good: picture(TWO([1, 0]), [[0, -1]], 'Every bead on a mark'),
     bad: picture(TWO([2, 0]), [[0, -1]], 'One slot short', true),
   },
   {
     title: 'Linked rings',
-    text: 'A silver tooth links a ring to the next one out: turning it carries that ring along, and any linked beyond it. Rings that turn together keep their pair as it was.',
+    text: 'A silver tooth links a ring to the next one out: **turning it carries that ring along**, and any linked beyond it. Rings that turn together keep their pair as it was.',
     good: picture(THREE([0, 2, 2], [false, true]), [[1, -2]], 'Carried along'),
   },
   {
     title: 'Fewest turns',
-    text: 'A turn shifts just two pairs: the one inside the ring and the one past the end of its chain. Line up first the pair only one ring can still fix, and par is one turn per ring.',
+    text: 'A turn shifts just two pairs: the one inside the ring and the one past the end of its chain. **Line up first the pair only one ring can still fix**, and par is one turn per ring.',
     good: picture(THREE([6, 7, 6], [false, true]), [[2, 1], [1, 1], [0, 2]], 'One turn per ring'),
     bad: picture(THREE([6, 7, 6], [false, true]), [[2, 2], [0, 1]], 'Pair left broken', true),
   },

@@ -24,8 +24,16 @@ const RIPPLE = 28;
 const BEAM_STEP = 55;
 
 export const INSTRUCTIONS = `
-<h3>In the game</h3>
-<p class="meta">Builds isotopes, leaning toward the lighter atoms. The plate is 7x7 up to z 20, 8x8 to z 50, 9x9 to z 85 and 10x10 beyond, with nuclei on 15% of cells rising to 20%, and scatter and quiet cells growing from about 6% and 4% of empty cells to 12% and 10%. The opening region is small, so beams are part of every plate: par is 2 beams up to z 50 and 3 beyond, the number a solver needed when it chose each beam only from what it could see. The plate grants its par plus one spare beam up to z 50 and exactly its par beyond; once they are spent the ports close. It takes 3 direct hits up to z 50 and 2 beyond: the last one ruins it, every nucleus shows, and only Undo or Restart goes on. Flawless means no direct hit and no beam past par. There is no move par; moves count probes, clears and beams, and undo refunds them (beams and hits too), though an undone hit or beam still counts against flawless. Every plate is checked so a careful player never has to guess, within the beams it grants.</p>`;
+<section class="how-specs"><h3>Specs</h3><ul>
+<li><b>Flawless:</b> Clear the plate with no direct hit and no more beams than its beam par, where hits and beams you undo still count, and without Show me.</li>
+<li><b>Where it's played:</b> Aurum builds isotopes, leaning toward the lighter atoms.</li>
+<li><b>Board:</b> The plate is 7x7 up to z 20, 8x8 to z 50, 9x9 to z 85 and 10x10 beyond. Nuclei sit on 15% of cells rising to 20%, and scatter and quiet cells grow from about 6% and 4% of empty cells to 12% and 10%.</li>
+<li><b>Built:</b> The opening region is small, so beams are part of every plate. Every plate is checked so a careful player never has to guess, within the beams it grants.</li>
+<li><b>Beam par:</b> Par is the number of beams a solver needed when it chose each beam only from what it could see, usually 2 up to z 50 and 3 beyond. The plate grants its par plus one spare beam up to z 50 and exactly its par beyond; once they are spent the ports close.</li>
+<li><b>Lost:</b> It takes 3 direct hits up to z 50 and 2 beyond. The last one ruins the plate, every nucleus shows, and only Undo or Restart goes on.</li>
+<li><b>Moves:</b> There is no move par: moves count probes, clears and beams, and undo refunds them (beams and hits too).</li>
+</ul></section>
+`;
 
 interface Layout {
   cell: number;
@@ -1083,7 +1091,7 @@ function scatterPicture(ctx: CanvasRenderingContext2D, w: number, h: number, t: 
 export const RULES: RuleCard[] = [
   {
     title: 'Probe',
-    text: 'Tap a cell of foil to probe it. An alpha particle passes through, and the cell opens to show its count.',
+    text: '**Tap a cell of foil to probe it**. An alpha particle passes through, and the cell opens to show its count.',
     good: {
       duration: 1.6,
       caption: 'It opens to show its count',
@@ -1098,7 +1106,7 @@ export const RULES: RuleCard[] = [
   },
   {
     title: 'Counts',
-    text: 'A number is how many nuclei sit in the eight cells around it. A blank cell has none around it, so its neighbors open by themselves.',
+    text: 'A number is **how many nuclei sit in the eight cells around it**. A blank cell has none around it, so its neighbors open by themselves.',
     good: {
       duration: 2,
       caption: 'Two nuclei in the eight around',
@@ -1114,7 +1122,7 @@ export const RULES: RuleCard[] = [
   },
   {
     title: 'Marks',
-    text: 'Long-press a cell, or switch the tool under the plate to Mark, to flag a suspected nucleus. A mark is a note and keeps the cell from being probed.',
+    text: 'Long-press a cell, or switch the tool under the plate to Mark, to **flag a suspected nucleus**. A mark is a note and keeps the cell from being probed.',
     good: {
       duration: 1.8,
       caption: 'A long press marks it',
@@ -1130,7 +1138,7 @@ export const RULES: RuleCard[] = [
   },
   {
     title: 'Clear around',
-    text: 'Tap a number whose nuclei are all marked to probe every other cell it counts in one go.',
+    text: '**Tap a number whose nuclei are all marked** to probe every other cell it counts in one go.',
     good: {
       duration: 2,
       caption: 'Its nucleus marked: the rest opens',
@@ -1144,7 +1152,7 @@ export const RULES: RuleCard[] = [
   },
   {
     title: 'Scatter cells',
-    text: 'A number with four outward ticks counts every nucleus in its whole row and column, not just its neighbors. The ticks point along the lines it counts.',
+    text: 'A number with four outward ticks **counts every nucleus in its whole row and column**, not just its neighbors. The ticks point along the lines it counts.',
     good: {
       duration: 1.8,
       caption: 'Its row and column hold 2',
@@ -1158,7 +1166,7 @@ export const RULES: RuleCard[] = [
   },
   {
     title: 'Quiet cells',
-    text: 'A cell showing ? holds no nucleus but gives no count. Work out the cells around it from other numbers.',
+    text: 'A cell showing ? **holds no nucleus but gives no count**. Work out the cells around it from other numbers.',
     good: {
       duration: 1.6,
       caption: 'Safe, but no count',
@@ -1175,7 +1183,7 @@ export const RULES: RuleCard[] = [
   },
   {
     title: 'Alpha beams',
-    text: 'Ports line the frame at the end of every row and column. Tap one to aim, tap it again to fire: the beam opens every cell it crosses, and passes straight through a line with no nucleus.',
+    text: 'Ports line the frame at the end of every row and column. Tap one to aim, tap it again to fire: **the beam opens every cell it crosses**, and passes straight through a line with no nucleus.',
     good: {
       duration: 2.2,
       caption: 'Fired down a clear line',
@@ -1205,7 +1213,7 @@ export const RULES: RuleCard[] = [
   },
   {
     title: 'Bounce back',
-    text: 'A beam bounces straight back off the first nucleus in its way, which then shows as found. Its track stays on the plate.',
+    text: 'A beam **bounces straight back off the first nucleus** in its way, which then shows as found. Its track stays on the plate.',
     good: {
       duration: 1.8,
       caption: 'Back off the nucleus, now found',
@@ -1224,7 +1232,7 @@ export const RULES: RuleCard[] = [
   },
   {
     title: 'Beams granted',
-    text: 'The alpha particles under the plate are the beams it grants, enough for a careful solve; once they are spent the ports close. A spare in a dashed ring (up to z 50) costs the flawless run.',
+    text: 'The alpha particles under the plate are the beams it grants, enough for a careful solve; **once they are spent the ports close**. A spare in a dashed ring (up to z 50) costs the flawless run.',
     good: {
       duration: 1.6,
       caption: 'Two fired: on par, one spare left',
@@ -1253,7 +1261,7 @@ export const RULES: RuleCard[] = [
   },
   {
     title: 'Direct hit',
-    text: 'Probe a nucleus and it is a direct hit, outlined in red, and one square under the plate empties. The run is no longer flawless, even after undo.',
+    text: '**Probe a nucleus and it is a direct hit**, outlined in red, and one square under the plate empties. The run is no longer flawless, even after undo.',
     good: {
       duration: 1.8,
       caption: 'Marked, and the safe cells probed',
@@ -1286,7 +1294,7 @@ export const RULES: RuleCard[] = [
   },
   {
     title: 'Ruined plate',
-    text: 'The plate takes three direct hits, two from z 51 on, and the last one ruins it. Every nucleus then shows, and only Undo or Restart goes on.',
+    text: 'The plate takes three direct hits, two from z 51 on, and **the last one ruins it**. Every nucleus then shows, and only Undo or Restart goes on.',
     good: {
       duration: 1.8,
       caption: 'A square left: play goes on',
@@ -1300,7 +1308,7 @@ export const RULES: RuleCard[] = [
   },
   {
     title: 'Nuclei left',
-    text: 'The counter under the plate shows how many nuclei are still neither marked nor found. Probe every other cell to finish.',
+    text: 'The counter under the plate shows how many nuclei are still neither marked nor found. **Probe every other cell to finish**.',
     good: {
       duration: 1.8,
       caption: 'Each mark takes one off',

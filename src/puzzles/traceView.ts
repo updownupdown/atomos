@@ -12,8 +12,14 @@ import { drawFrame, frameBox, framePad, frameWidth } from './frame';
 import { drawHelpMark, type Area, type Help, type Illustration, type Point, type PuzzleView, type RuleCard, type Stat } from './view';
 
 export const INSTRUCTIONS = `
-<h3>In the game</h3>
-<p class="meta">Tracer is a reserve game, played from the Puzzles screen. The grid grows from 5 by 5 on the easiest setting through 6 by 6 and 7 by 7 to 8 by 8 at Hard and Expert. Easy boards number about two cells in five; at Expert only about one in seven, so the trail between them has to be worked out. Walls arrive from Easy on, one or two at first and up to about ten. Every board is dealt from one trail through every cell and has exactly one answer, checked by the solver. Par is one stroke from each number to the next.</p>
+<section class="how-specs"><h3>Specs</h3><ul>
+<li><b>Flawless:</b> Lay the trail in par strokes or fewer, where a stroke is one drag and par is one stroke from each number to the next, and without Show me.</li>
+<li><b>Where it's played:</b> A reserve game, played from the Puzzles screen.</li>
+<li><b>Board:</b> The grid grows from 5 by 5 on the easiest setting through 6 by 6 and 7 by 7 to 8 by 8 at Hard and Expert.</li>
+<li><b>Numbers:</b> Easy boards number about two cells in five; at Expert only about one in seven, so the trail between them has to be worked out.</li>
+<li><b>Walls:</b> Walls arrive from Easy on, one or two at first and up to about ten.</li>
+<li><b>Built:</b> Every board is dealt from one trail through every cell and has exactly one answer, checked by the solver.</li>
+</ul></section>
 `;
 
 /** The trail's colors: deep blue where it starts, cyan along its length, near white at the head. */
@@ -424,24 +430,24 @@ const WALLS: [[number, number], [number, number]][] = [[[0, 0], [1, 0]], [[1, 1]
 export const RULES: RuleCard[] = [
   {
     title: 'Trail',
-    text: 'Drag from the 1, cell to cell, to lay the trail. Drag back along it to pull it in.',
+    text: '**Drag from the 1, cell to cell**, to lay the trail. Drag back along it to pull it in.',
     good: picture(board(3, [[0, 0], [2, 2]], [[0, 0], [1, 0], [2, 0], [2, 1], [1, 1], [0, 1], [0, 2], [1, 2], [2, 2]]), 'From the 1 onward'),
   },
   {
     title: 'In order',
-    text: 'The trail meets the numbers in order, 1, 2, 3 and on, and ends on the last one.',
+    text: 'The trail **meets the numbers in order**, 1, 2, 3 and on, and ends on the last one.',
     good: picture(board(3, [[0, 0], [2, 0], [0, 2], [2, 2]], [[0, 0], [1, 0], [2, 0], [2, 1], [1, 1], [0, 1], [0, 2], [1, 2], [2, 2]]), '1, 2, 3, 4'),
     bad: picture(board(3, [[0, 0], [2, 0], [0, 2], [2, 2]], [[0, 0], [0, 1], [0, 2]]), '3 before 2', { cells: [[0, 2]] }),
   },
   {
     title: 'Every cell',
-    text: 'The trail passes through every cell exactly once.',
+    text: 'The trail passes **through every cell exactly once**.',
     good: picture(board(3, [[1, 1], [2, 2]], [[1, 1], [1, 2], [0, 2], [0, 1], [0, 0], [1, 0], [2, 0], [2, 1], [2, 2]]), 'Every cell, once'),
     bad: picture(board(3, [[0, 0], [2, 2]], [[0, 0], [1, 0], [2, 0], [2, 1], [2, 2]]), 'Cells left out', { cells: [[0, 1], [1, 1], [0, 2], [1, 2]] }),
   },
   {
     title: 'Walls',
-    text: 'A wall between two cells blocks the trail: go round it.',
+    text: 'A wall between two cells **blocks the trail**: go round it.',
     good: picture(board(3, [[0, 0], [0, 2]], [[0, 0], [0, 1], [1, 1], [1, 0], [2, 0], [2, 1], [2, 2], [1, 2], [0, 2]], WALLS), 'Round the walls'),
     bad: picture(board(3, [[0, 0], [0, 2]], [[0, 0], [1, 0]], WALLS), 'Through a wall', { walls: [[[0, 0], [1, 0]]] }),
   },

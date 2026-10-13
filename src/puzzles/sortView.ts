@@ -11,8 +11,14 @@ import { glyph, HUES, inkOn } from './hues';
 import { drawHelpMark, ease, undoHelp, type Area, type Help, type Illustration, type Point, type PuzzleView, type RuleCard, type Stat } from './view';
 
 export const INSTRUCTIONS = `
-<h3>In the game</h3>
-<p class="meta">Vials is a reserve game, played from the Puzzles screen. The easiest boards hold 3 lines of 3 bands with two spare vials, lightly mixed; the lines rise to 9 and the vials to 5 bands, fully mixed, through Hard. The top of Expert keeps 6 or 7 lines of 4 but leaves only one spare vial, so every pour has to be planned. Each deal is checked by a solver that tries pours in order of promise (an A* search) and proves the fewest; that count is par, and a deal is kept only when par is not too low for its level. Undo is free.</p>
+<section class="how-specs"><h3>Specs</h3><ul>
+<li><b>Flawless:</b> Solve in par pours or fewer, where a pour is one tap on a vial and then another and par is the fewest pours the board allows, and without Show me.</li>
+<li><b>Where it's played:</b> A reserve game, played from the Puzzles screen.</li>
+<li><b>Board:</b> The easiest boards hold 3 lines of 3 bands with two spare vials, lightly mixed. The lines rise to 9 and the vials to 5 bands, fully mixed, through Hard.</li>
+<li><b>Expert:</b> The top of Expert keeps 6 or 7 lines of 4 but leaves only one spare vial, so every pour has to be planned.</li>
+<li><b>Par:</b> Each deal is checked by a solver that tries pours in order of promise (an A* search) and proves the fewest; that count is par. A deal is kept only when par is not too low for its level.</li>
+<li><b>Undo:</b> Undo is free.</li>
+</ul></section>
 `;
 
 /** Milliseconds a pour takes, by bands moved. */
@@ -486,23 +492,23 @@ function picture(vials: string[], cap: number, steps: [number, number][], captio
 export const RULES: RuleCard[] = [
   {
     title: 'Pour',
-    text: 'Tap a vial, then another: the like bands on top of the first flow across. They land on a band of the same color or in an empty vial.',
+    text: '**Tap a vial, then another**: the like bands on top of the first flow across. They land on a band of the same color or in an empty vial.',
     good: picture(['aab', 'bb', 'a'], 3, [[0, 1], [2, 0]], 'Like onto like'),
   },
   {
     title: 'Same color',
-    text: 'Bands never land on another color. An empty vial takes any color.',
+    text: '**Bands never land on another color**. An empty vial takes any color.',
     good: picture(['ab', 'ba', ''], 3, [[1, 2]], 'Into the empty vial'),
     bad: picture(['ab', 'ba', ''], 3, [[0, 1]], 'Not onto blue'),
   },
   {
     title: 'Room',
-    text: 'A vial holds only so many bands. A pour moves as many as fit, and the rest stay behind.',
+    text: 'A vial holds only so many bands. **A pour moves as many as fit**, and the rest stay behind.',
     good: picture(['abbb', 'ab', 'aa'], 4, [[0, 1]], 'Two of three fit'),
   },
   {
     title: 'Whole lines',
-    text: 'Gather every band of each color into one vial, sealed with a green stopper. Par is the fewest pours the board allows.',
+    text: '**Gather every band of each color into one vial**, sealed with a green stopper. Par is the fewest pours the board allows.',
     good: picture(['aa', 'bbbb', 'aa'], 4, [[2, 0]], 'One whole line'),
     bad: picture(['aa', 'bbbb', 'aa'], 4, [], 'Split in two', [0, 2]),
   },

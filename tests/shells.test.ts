@@ -197,6 +197,6 @@ describe('view', () => {
   it('has rule cards with pictures', () => {
     checkRules(RULES, ['Line up', 'Fewest turns']);
     expect(RULES.map((r) => r.title)).toEqual(['Turn a ring', 'Line up', 'Linked rings', 'Fewest turns']);
-    expect(INSTRUCTIONS).toMatch(/^\s*<h3>In the game<\/h3>\s*<p class="meta">/);
+    expect(INSTRUCTIONS).toMatch(/^\s*<section class="how-specs"><h3>Specs<\/h3><ul>\s*<li><b>Flawless:<\/b>/);
   });
 });

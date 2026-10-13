@@ -416,7 +416,7 @@ describe('hints', () => {
 describe('rule cards', () => {
   it('has a card with pictures for every tile, drawn inside its box', () => {
     checkRules(RULES, ['Red ring', 'Photons', 'Unstable nuclei', 'Drift arrows']);
-    expect(INSTRUCTIONS).toMatch(/^\s*<h3>In the game<\/h3>\s*<p class="meta">/);
+    expect(INSTRUCTIONS).toMatch(/^\s*<section class="how-specs"><h3>Specs<\/h3><ul>\s*<li><b>Flawless:<\/b>/);
     expect(INSTRUCTIONS).not.toMatch(/How to play/);
     expect(RULES.map((r) => r.title)).toEqual(['Slide', 'Red ring', 'Nuclei', 'Photons', 'Potential wells', 'Unstable nuclei', 'Drift arrows']);
   });
