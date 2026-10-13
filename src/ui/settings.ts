@@ -27,7 +27,6 @@ export function renderSettings(sheet: HTMLElement): void {
   const fleeting = fleetingTotal(save);
   const n = (v: number) => v.toLocaleString('en-US');
   sheet.innerHTML = `
-    <h1 class="settings-title">Settings</h1>
     ${toggle('reducedMotion', 'Reduce motion', 'Calmer clouds, shorter animations, no auto-rotation.')}
     ${toggle('sound', 'Sound', 'Tones for fusions, hops and finished atoms.')}
     ${toggle('haptics', 'Vibration', 'Taps on supported phones.')}

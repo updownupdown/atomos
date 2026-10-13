@@ -16,16 +16,21 @@
     <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
+    <!-- The top of every screen but an atom's: the mark (home), the screen's name, big, and a
+         line about it on the right. The sections live in the dock at the foot. src/shell.ts. -->
     <header class="nav" id="nav" aria-label="Main">
       <button class="nav-logo" id="nav-logo" aria-label="Atomos: back to Collect" title="Atomos"></button>
-      <nav class="nav-tabs" aria-label="Sections">
-        <button id="nav-gallery" aria-current="false"><span class="nav-ico"></span><span class="nav-lab">Tables</span></button>
-        <button id="nav-collect" aria-current="page"><span class="nav-ico"></span><span class="nav-lab">Collect</span></button>
-        <button id="nav-puzzles" aria-current="false"><span class="nav-ico"></span><span class="nav-lab">Puzzles</span></button>
-        <button id="nav-settings" aria-current="false"><span class="nav-ico"></span><span class="nav-lab">Settings</span></button>
-      </nav>
-      <div class="nav-end" aria-hidden="true"></div>
+      <h1 class="nav-title" id="nav-title">Collect</h1>
+      <span class="nav-aside" id="nav-aside" hidden></span>
     </header>
+    <!-- The dock: the four sections in a pill floating at the foot. Atom screens float their
+         View / Build / Info bar there instead, and a puzzle being played hides it. -->
+    <nav class="dock" id="dock" aria-label="Sections">
+      <button id="nav-gallery" aria-current="false"><span class="nav-ico"></span><span class="nav-lab">Tables</span></button>
+      <button id="nav-collect" aria-current="page"><span class="nav-ico"></span><span class="nav-lab">Collect</span></button>
+      <button id="nav-puzzles" aria-current="false"><span class="nav-ico"></span><span class="nav-lab">Puzzles</span></button>
+      <button id="nav-settings" aria-current="false"><span class="nav-ico"></span><span class="nav-lab">Settings</span></button>
+    </nav>
 
     <!-- Atom screens: pick View or Build for this atom; Build shows its progress.
          See src/ui/modebar.ts. -->

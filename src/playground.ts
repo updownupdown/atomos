@@ -120,6 +120,7 @@ export class Playground {
 
   show(): void {
     $('puzzles-screen').hidden = false;
+    document.body.classList.toggle('pg-playing', this.inPuzzle);
     if (this.inPuzzle) this.host.wake();
     else this.demo.start();
     window.dispatchEvent(new Event('resize'));
@@ -128,6 +129,7 @@ export class Playground {
 
   hide(): void {
     $('puzzles-screen').hidden = true;
+    document.body.classList.remove('pg-playing');
     this.host.pause();
     this.demo.stop();
   }
@@ -137,6 +139,8 @@ export class Playground {
     this.demo.stop();
     $('pg-home').hidden = true;
     $('pg-game').hidden = false;
+    // A puzzle gets the whole screen: the dock steps away while it is open.
+    document.body.classList.add('pg-playing');
     this.select(id);
     // Nu offers a game's rules the first time it is played, and its goal leads for three.
     const before = countPlay(this.type.id);
@@ -159,6 +163,7 @@ export class Playground {
     this.host.pause();
     $('pg-game').hidden = true;
     $('pg-home').hidden = false;
+    document.body.classList.remove('pg-playing');
     this.paintCard(this.type.id);
     this.paintWins(this.type);
     this.paintFocus(true);

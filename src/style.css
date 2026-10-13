@@ -27,7 +27,7 @@
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   /* The app-wide header; every screen's own top row sits below it. */
-  --nav-h: 56px;
+  --nav-h: 64px;
   /* The mode row under the header on Atom screens. */
   --mode-h: 56px;
   --top: calc(var(--safe-top) + var(--nav-h));
@@ -195,7 +195,7 @@ body.build-home #app .bottom { display: none; }
 /* While a Build puzzle is open the View / Build row steps away: the game header sits right under
    the app header. */
 body.puzzling #mode-row { display: none; }
-body[data-screen^='atom'].puzzling { --top: var(--nav-bottom); }
+body[data-screen^='atom'].puzzling { --top: var(--safe-top); }
 
 /* The Build page of one atom: its puzzles, how far each has got, and what is still to come. */
 .build-home { position: absolute; top: calc(var(--top) + var(--build-bar-h, 0px)); left: 0; right: 0; bottom: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0; --atom: var(--c-accent); }
@@ -830,13 +830,13 @@ body:not([data-screen='gallery']) .gal-modes { display: none; }
 
 /* The bar sits at the top of the atom screens; the host places it. A navigation row: set apart
    by the navigation color, never by a one-sided rule. */
-.atom-bar { display: flex; align-items: stretch; gap: var(--sp-2); height: var(--bar-h, 60px); padding: 0 var(--sp-3); background: var(--c-nav); }
+.atom-bar { display: flex; align-items: stretch; gap: var(--sp-2); height: var(--bar-h, 60px); padding: 0 var(--sp-3); background: var(--c-bg); }
 .loupe-screen > .atom-bar { position: absolute; left: 0; right: 0; top: var(--top); z-index: 4; }
-.bar-btn { flex: none; align-self: center; width: 40px; height: 44px; display: flex; align-items: center; justify-content: center; padding: 0; border: 0; border-radius: var(--r-sm); background: var(--c-surface-3); color: var(--c-accent); cursor: pointer; }
+.bar-btn { flex: none; align-self: center; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; padding: 0; border: 0; border-radius: var(--r-pill); background: var(--c-nav); color: var(--c-text); cursor: pointer; }
 .bar-btn:hover { background: var(--c-pick); }
 .bar-btn:active { background: var(--c-surface-2); }
 .bar-btn:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
-.bar-btn:disabled { opacity: 0.3; cursor: default; background: var(--c-surface-3); }
+.bar-btn:disabled { opacity: 0.3; cursor: default; background: var(--c-nav); }
 /* The element: its number over its symbol, then its name, a small chevron after it (a tap opens
    the picker). */
 .bar-pick { flex: 1; min-width: 0; align-self: center; height: 48px; display: flex; align-items: center; gap: var(--sp-2); padding: 0 var(--sp-1); border: 0; border-radius: var(--r-sm); background: transparent; color: var(--c-text); font-family: var(--font); text-align: left; cursor: pointer; }
@@ -846,11 +846,11 @@ body:not([data-screen='gallery']) .gal-modes { display: none; }
 .bar-z { flex: none; display: flex; flex-direction: column; align-items: flex-start; line-height: 1.05; font-variant-numeric: tabular-nums; }
 .bar-z small { font-size: var(--fs-sm); color: var(--c-text-2); }
 .bar-z b { font-size: var(--fs-xl); font-weight: var(--fw-semibold); color: var(--c-text); }
-.bar-name { min-width: 0; overflow: hidden; white-space: nowrap; font-size: 18px; font-weight: var(--fw-semibold); color: var(--c-text); }
+.bar-name { min-width: 0; overflow: hidden; white-space: nowrap; font-size: 24px; font-weight: var(--fw-bold); color: var(--c-text); }
 .bar-collect { color: var(--c-text); }
 /* The tracks' legend, its keys over the lanes of the page's tracks. */
 .atom-bar { padding-right: var(--sp-4); }
-@media (max-width: 400px) { .atom-bar { gap: 6px; padding: 0 var(--sp-4) 0 var(--sp-2); } .bar-btn { width: 38px; } }
+@media (max-width: 400px) { .atom-bar { gap: 6px; padding: 0 var(--sp-3) 0 var(--sp-2); } }
 .dec-z { font-size: var(--fs-sm); color: var(--c-text-2); font-variant-numeric: tabular-nums; }
 .dec-sym { font-weight: var(--fw-semibold); font-size: var(--fs-2xl); line-height: 1; }
 .pill { font-size: 10px; padding: 1px 5px; border-radius: 4px; color: var(--c-bg); font-weight: 700; }
@@ -1195,69 +1195,84 @@ body:not([data-screen='gallery']) .gal-modes { display: none; }
 .toggle input[type='checkbox']:checked::after { transform: translateX(18px); background: var(--c-accent-ink); }
 
 
-/* Header: the mark on the left (home), then the four sections, each an icon over its name.
-   The sections stay centred while the sides have room, and widen on bigger screens. */
+/* The top of every screen but an atom's: the mark (home), then the screen's name, big, on
+   black; a short line about the screen on the right. The sections are in the dock below. */
 .nav {
-  display: grid;
-  /* The mark and wordmark on the left; the four sections together on the right. */
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: var(--sp-2);
-  height: calc(var(--safe-top) + var(--nav-h));
-  padding: var(--safe-top) var(--sp-3) 0;
-  background: var(--c-nav);
-  border-bottom: 0;
-}
-.nav-logo {
-  justify-self: start;
-  height: 44px;
   display: flex;
   align-items: center;
   gap: var(--sp-2);
-  padding: 0 var(--sp-2) 0 6px;
+  height: calc(var(--safe-top) + var(--nav-h));
+  padding: var(--safe-top) var(--sp-4) 0 var(--sp-2);
+  background: var(--c-bg);
+  backdrop-filter: none;
+  border-bottom: 0;
+}
+.nav-logo {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  padding: 0;
   border: 0;
   border-radius: var(--r-pill);
   background: transparent;
   color: var(--c-text);
 }
-.nav-logo svg { width: 28px; height: 28px; flex: none; }
-/* The wordmark from the splash: Outfit bold, all caps, widely tracked. */
-.nav-word, .wordmark { font-family: var(--font); font-weight: var(--fw-bold); font-size: 12px; letter-spacing: 0.32em; text-transform: uppercase; line-height: 1; }
-.nav-word { margin-right: -0.32em; }
-/* The wordmark gives way when the header is short of room. */
-@media (max-width: 389px) {
-  .nav-tabs button { width: 52px; }
-  .nav-word { font-size: 11px; letter-spacing: 0.22em; margin-right: -0.22em; }
-}
-@media (max-width: 339px) { .nav-word { display: none; } }
+.nav-logo svg { width: 30px; height: 30px; }
 .nav-logo:hover { background: var(--c-surface-2); }
-.nav-tabs { flex: none; display: flex; gap: 2px; }
-.nav-tabs button {
-  /* 56 px on a phone, so the wordmark fits beside them, growing up to 104 px. */
-  width: clamp(56px, 22vw - 30px, 104px);
-  height: 46px;
+.nav-title { flex: 1; min-width: 0; margin: 0; font-family: var(--font); font-size: 32px; font-weight: var(--fw-bold); letter-spacing: -0.01em; line-height: 1.1; color: var(--c-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nav-aside { flex: none; padding: 9px 14px; border-radius: var(--r-pill); background: var(--c-nav); font-size: var(--fs-md); font-weight: var(--fw-semibold); color: var(--c-text); font-variant-numeric: tabular-nums; }
+.nav-aside[hidden] { display: none; }
+/* The wordmark from the splash: Outfit bold, all caps, widely tracked. */
+.wordmark { font-family: var(--font); font-weight: var(--fw-bold); font-size: 12px; letter-spacing: 0.32em; text-transform: uppercase; line-height: 1; }
+.nav-logo:focus-visible, .dock button:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
+/* Atom screens have no title row: their atom bar is the top. */
+body[data-screen^='atom'] .nav { display: none; }
+
+/* The dock: the four sections in a pill floating at the foot, each an icon over its name; the
+   one open sits on a lighter plate in the accent. Atom screens float their View / Build / Info
+   bar here instead, and a puzzle being played on Puzzles has the whole screen. --safe-bottom
+   grows by the dock, so whatever sits at a screen's foot (Up next, the end of a list) stays
+   clear of it. */
+:root { --dock-h: 64px; }
+.dock {
+  position: fixed;
+  left: 50%;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + var(--dock-gap, 12px));
+  width: min(440px, calc(100% - 2 * var(--sp-3)));
+  height: var(--dock-h);
+  transform: translateX(-50%);
+  z-index: 14;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+  padding: 6px;
+  border-radius: var(--r-pill);
+  background: var(--c-nav);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.55);
+}
+.dock button {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 1px;
+  gap: 2px;
   padding: 0;
   border: 0;
-  border-radius: var(--r-md);
+  border-radius: var(--r-pill);
   background: transparent;
   color: var(--c-text-2);
   font-family: var(--font);
+  cursor: pointer;
 }
+.dock button:hover { color: var(--c-text); }
+.dock button[aria-current='page'] { background: var(--c-pick); color: var(--c-accent); }
 .nav-ico { display: grid; place-items: center; }
-.nav-ico svg { width: 22px; height: 22px; display: block; }
-.nav-lab { font-size: 11px; font-weight: var(--fw-semibold); line-height: 1.1; letter-spacing: 0.01em; }
-.nav-tabs button:hover { color: var(--c-text); }
-.nav-tabs button[aria-current='page'] { color: var(--c-accent); }
-.nav-end { display: none; }
-.nav-logo:focus-visible, .nav-tabs button:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
-@media (max-width: 359px) {
-  .nav { padding-inline: var(--sp-2); gap: var(--sp-1); }
-}
+.nav-ico svg { width: 24px; height: 24px; display: block; }
+.nav-lab { font-size: 13px; font-weight: var(--fw-semibold); line-height: 1.1; }
+body[data-screen^='atom'] .dock, body.pg-playing .dock { display: none; }
+body:not([data-screen^='atom']):not(.pg-playing) { --safe-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--dock-h) + var(--dock-gap, 12px)); }
 
 /* Atom screens, top down: the header, then the atom bar (View and Build each mount their own in
    the same place, so it reads as one); the View / Build / Info bar floats at the foot. --top is
@@ -1265,7 +1280,7 @@ body:not([data-screen='gallery']) .gal-modes { display: none; }
    have. --safe-bottom grows by the floating bar, so whatever sits at the foot of a mode (the
    View tools, the end of a page) stays clear of it. */
 :root { --nav-bottom: calc(var(--safe-top) + var(--nav-h)); --atom-bar-h: 60px; --dock-gap: var(--sp-3); }
-body[data-screen^='atom'] { --top: var(--nav-bottom); }
+body[data-screen^='atom'] { --nav-bottom: var(--safe-top); --top: var(--nav-bottom); }
 body[data-screen^='atom']:not(.puzzling) { --safe-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--mode-h) + var(--dock-gap)); }
 body[data-screen^='atom'] .loupe-screen > .atom-bar,
 body[data-screen^='atom'] .build-bar { top: var(--nav-bottom); }
@@ -1862,3 +1877,10 @@ body[data-screen^='atom'].build-home .science-fab, body[data-screen='atom-view']
 :is(.gcard-pips, .gbar-pips, .bh-pips, .win-pips):has(i.on:nth-child(3)) i.on { background: var(--c-lvl-3); opacity: 1; }
 :is(.gcard-pips, .gbar-pips, .bh-pips, .win-pips):has(i.on:nth-child(4)) i.on { background: var(--c-lvl-4); opacity: 1; }
 :is(.gcard-pips, .gbar-pips, .bh-pips, .win-pips):has(i.on:nth-child(5)) i.on { background: var(--c-lvl-5); opacity: 1; }
+
+/* A puzzle being played on Puzzles has the whole screen: no title row, no dock; its game bar
+   is the top. */
+body.pg-playing .nav { display: none; }
+body.pg-playing { --nav-bottom: var(--safe-top); --top: var(--safe-top); }
+/* Collect's Up next card floats above the dock. */
+.ui-callout.ui-callout--float.co-upnext { bottom: calc(var(--safe-bottom) + var(--sp-3)); }
