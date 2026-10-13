@@ -1,7 +1,7 @@
 // The gallery screen: the vitrine of all 118 atoms and the loupe over one of
 // them, wired to the page. The atom screen's View has tabs: the 3D model, with
 // a few white captions round the atom, then the element's science as pages.
-// Each page ends with a "How to read this" button that opens its guide.
+// The microscope in the atom bar opens each page's guide.
 
 import type { AtomLit } from './atom';
 import { CLOUD_RINGS, ELEMENTS, MAX_Z, elementAt, type Element } from './data';
@@ -16,7 +16,7 @@ import { fullScreen, type FullScreen } from './fullscreen';
 import { createPills, createTabs, iconButton, nextButton, type Tabs } from '../ui/components';
 import { mountInfoPage, type InfoState } from './infopage';
 import { createAtomBar, type AtomBar } from './atombar';
-import { setScienceHandler } from '../ui/science';
+import { scienceButton, setScienceHandler } from '../ui/science';
 import { closeModal, openModal } from '../ui/modal';
 import { loadSave, writeSave, type SaveData } from '../core/save';
 import { atomBuilt, orbitalShapeUnlocked, rowOf, rowOpen, SHAPE_AT, stepState } from '../core/progress';
@@ -27,6 +27,7 @@ import { PUZZLES } from '../puzzles/catalog';
 import { playUnlock } from '../puzzles/unlock';
 import { fleetingOpen } from './locks';
 import { isViewLook, VIEW_LOOKS, type ViewLook } from '../render/rayLooks';
+import type { LookId } from './looks';
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -49,7 +50,7 @@ export class GalleryApp {
   /** The Info page last open, kept while View shows the 3D atom. */
   private page: Exclude<ViewTab, 'model'> = 'overview';
   /** The Info pages' remembered choices (infopage.ts). */
-  private info: InfoState = { isoFilter: 'all', structView: 'orbitals', hiddenShapes: [] };
+  private info: InfoState = { isoFilter: 'lasting', structView: 'together', hiddenShapes: [] };
   /** The 3D tab shows the nucleus up close instead of the whole atom (once Glyph opens it). */
   private nucleusOn = false;
   private rings = localStorage.getItem('atomos.gallery.rings') !== 'off';
@@ -138,6 +139,8 @@ export class GalleryApp {
     this.tabs = createTabs(TABS, { active: this.page, label: 'About this element', onChange: (id) => this.setTab(id as ViewTab) });
     this.tabs.el.setAttribute('aria-controls', 'atom-panel');
     $('atom-tabs').append(this.tabs.el);
+    // The microscope in the bar, before the Atoms pill, opens the open page's guide.
+    this.bar.el.insertBefore(scienceButton('ui-icon-btn ui-icon-btn--ghost science-btn ap-sci'), this.bar.el.lastElementChild);
     $('atom-tabs').hidden = this.tab === 'model';
     this.bindTabSwipe();
   }
@@ -321,12 +324,17 @@ export class GalleryApp {
     if (step) slot.append(nextButton({ label: step.kind === 'resume' ? step.label : `Build ${elementAt(step.z).name.toLowerCase()}`, compact: true, landKey: 'atom-view', onClick: () => openStep(step) }));
   }
 
-  /** The microscope: the Atlas view's story. In the atom view each page has its own guide
-   *  button at its foot instead, so the row's microscope stands down there. */
+  /** The microscope: on an atom's Info, the open page's guide; on the 3D atom, nothing; on the
+   *  Atlas, whatever the Atlas shows. */
   private registerScience(): void {
     if ($('gallery-screen').hidden) return;
-    if (!$('loupe-screen').hidden && this.current) setScienceHandler(null);
+    if (!$('loupe-screen').hidden && this.current) setScienceHandler(this.tab === 'model' ? null : () => this.openGuide(), 'How to read this page');
     else this.atlas.registerScience();
+  }
+
+  /** Show an atom in the Atlas, from one of its pages (the shell has switched to the Atlas). */
+  showInAtlas(z: number, look: LookId | null): void {
+    this.atlas.focus(z, look);
   }
 
   private openGuide(): void {
@@ -377,16 +385,14 @@ export class GalleryApp {
     }
     this.renderPanel();
     $('atom-panel').scrollTop = 0;
+    this.registerScience();
   }
 
   /** The open page, for the current element; the model needs no page. */
   private renderPanel(): void {
     if (!this.current || this.tab === 'model') return;
     const panel = $('atom-panel');
-    const label = TABS.find((t) => t.id === this.tab)!.label.toLowerCase();
-    panel.innerHTML = `<div class="atom-page">${tabHTML(this.current, this.tab, this.collected(this.current.z), this.save)}`
-      + `<div class="page-guide"><button type="button" class="guide-btn" id="guide-btn">${icon('microscope')}<span><b>How to read this</b><small>A guide to the ${label} page, and more context</small></span></button></div></div>`;
-    $('guide-btn').onclick = () => this.openGuide();
+    panel.innerHTML = `<div class="atom-page">${tabHTML(this.current, this.tab, this.collected(this.current.z), this.save)}</div>`;
     mountInfoPage(panel, this.info);
     // The first time fleeting isotopes are open and on screen, Nu says what they are.
     const fleeting = panel.querySelector('.icl-fleeting');

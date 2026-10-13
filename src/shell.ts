@@ -11,6 +11,7 @@
 
 import { GalleryApp } from './gallery';
 import { Collect } from './gallery/collect';
+import type { LookId } from './gallery/looks';
 import { closeAtomList, createListToggle, type ListToggle } from './gallery/atomlist';
 import type { Game } from './game';
 import type { Playground } from './playground';
@@ -65,14 +66,32 @@ export class AppShell {
           this.closeAtom();
         }
       },
-      // Leaving View's full screen goes back to Build.
-      onLeaveView: () => { if (this.screen === 'atom' && this.mode === 'view') void this.go('atom', 'build'); },
+      // Leaving View's full screen goes back where it was opened: Build, Info, or an Atlas page.
+      onLeaveView: () => {
+        if (this.screen !== 'atom' || this.mode !== 'view') return;
+        const back = this.viewBack;
+        this.viewBack = 'build';
+        if (back === 'gallery') void this.go('gallery'); else void this.go('atom', back);
+      },
     });
     this.collect = new Collect($('collect-screen'), { onOpen: (z) => { this.z = z; void this.go('atom', 'build'); } });
     // The atom bar's Back button: where the atom was opened, Collect or the Atlas.
     document.addEventListener('atomos:collect', () => this.closeAtom());
     // Escape on the Build page: back where the atom was opened.
     document.addEventListener('atomos:close-atom', () => this.closeAtom());
+    // An atom page's 3D button: the atom full screen, and back to that page when it closes.
+    document.addEventListener('atomos:view3d', (ev) => {
+      const { z } = (ev as CustomEvent<{ z: number }>).detail;
+      this.viewBack = this.screen === 'atom' ? (this.mode === 'view' ? 'build' : this.mode) : 'gallery';
+      this.z = z;
+      void this.go('atom', 'view');
+    });
+    // An atom page's little table or "See in Atlas": the Atlas, with that atom picked.
+    document.addEventListener('atomos:atlas', (ev) => {
+      const { z, look } = (ev as CustomEvent<{ z: number; look: LookId | null }>).detail;
+      this.z = z;
+      void this.go('gallery').then(() => this.gallery.showInAtlas(z, look));
+    });
     // Top: the mark (home), then the screen's name. The dock: the four sections, each an icon
     // over its name.
     $('nav-logo').innerHTML = markSvg();
@@ -167,6 +186,8 @@ export class AppShell {
   /** Where an atom was opened from: the Atlas, or Collect (anything else). Back, Escape and the
    *  atom bar's Back button return there. */
   private atomFrom: 'gallery' | 'collect' = 'collect';
+  /** Where View (the 3D atom, full screen) goes back to when it closes. */
+  private viewBack: AtomMode | 'gallery' = 'build';
 
   private closeAtom(): void {
     void this.go(this.atomFrom);

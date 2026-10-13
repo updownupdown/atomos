@@ -23,11 +23,12 @@ describe('Overview (with the old Story tab folded in)', () => {
     }
   });
 
-  it('keeps discovery, origins and uses on the page', () => {
+  it('keeps discovery, where it is made and its uses on the page', () => {
     const fe = ELEMENTS.find((e) => e.z === 26)!;
     const html = tabHTML(fe, 'overview', false, defaultSave());
     expect(html).toContain('Discovered');
-    expect(html).toContain('Origins');
+    expect(html).toContain('Made in');
+    expect(html).toContain('Used for');
     expect(html).toContain('Cast iron');
     expect(html.match(/Steel, iron alloyed/g)).toHaveLength(1);
   });

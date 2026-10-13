@@ -3,8 +3,11 @@
 // all elements, and a timeline of discoveries. Plain SVG and HTML strings,
 // coloured through the design tokens in style.css.
 
-import { BLOCK_COLOUR, ELEMENTS, L_OF, formatHalfLife, keyIsotope, sup, type Element, type Subshell } from './data';
+import { BLOCK_COLOUR, ELEMENTS, L_OF, formatHalfLife, keyIsotope, sup, type Element, type Isotope, type Subshell } from './data';
 import { harmonic, M_ORDER, ORBITAL_NAMES, radial, radialTable } from './orbital';
+import { isLasting } from '../core/progress';
+import type { LookId } from './looks';
+import { LOOKS } from './looks';
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 const f1 = (v: number) => Math.round(v * 10) / 10;
@@ -210,16 +213,90 @@ export function orbitalAssembly(e: Element): string {
     <div class="oa-body"><span class="oa-label"><svg class="oa-nuc" viewBox="-10 -10 20 20" aria-hidden="true">${balls}</svg><b>Nucleus</b><small>${neutrons == null ? `${e.z} proton${e.z === 1 ? '' : 's'}` : `${e.z} protons, ${neutrons} neutrons`}</small></span></div>
   </div>`);
   const lone = e.unpaired;
-  return `<label class="om-toggle"><input type="checkbox" id="om-details"> Details</label>
+  return `<label class="ui-switch-row om-toggle"><span class="ui-switch-text">Details</span><input type="checkbox" role="switch" class="ui-switch" id="om-details"></label>
     <div class="om oa" role="img" aria-label="${esc(e.name)} built up layer by layer: ${esc(e.configuration)}">${rows.join('')}</div>
     <p class="note os-hidden-note" hidden></p>
-    <p class="note">Built from the bottom up: the nucleus, ${core.length ? `the finished ${esc(coreName.toLowerCase())}, ` : ''}then each layer in the order layers usually fill, lowest energy first. Each shape is one orbital cut through its middle, as textbooks draw it; the arrows under it are its electrons and their spins${lone ? `, a lone one in cyan` : ''}.</p>
+    <p class="note">Built from the bottom up, lowest energy first. Each arrow is an electron and its spin${lone ? ', a lone one in cyan' : ''}.</p>
     <div class="om-notes">
       <p class="note">Full orbitals are solid, half-full ones paler, empty ones only outlined. The two tones are the wave's two phases. ${lone ? `${esc(e.name)} has ${lone} lone electron${lone === 1 ? '' : 's'}.` : `Every electron in ${esc(e.name.toLowerCase())} is paired.`} The layers overlap in space rather than stack; Shells shows how far out each one reaches.</p>
     </div>`;
 }
 
+// ---------- Structure: every orbital at once ----------
+
+/** Each layer's reach in pm (the edge that holds 85% of it) and its usual distance (the mean),
+ *  from the same hydrogen-like orbitals and Slater charges as Shells and the 3D view, scaled by
+ *  one factor so the outer layer's edge sits on the van der Waals radius. */
+export function layerReach(e: Element): { edge: number; mean: number }[] {
+  const raw = e.subshells.map((s) => {
+    const t = radialTable(s.n, L_OF[s.l]);
+    return { edge: (t.edge * 52.9) / s.zeff, mean: (t.mean * 52.9) / s.zeff };
+  });
+  const k = e.vdw / Math.max(...raw.map((r) => r.edge));
+  return raw.map((r) => ({ edge: r.edge * k, mean: r.mean * k }));
+}
+
+/** How far out a layer is drawn, 0 to 1 of the atom's edge: true to scale, or on a square-root
+ *  scale (as Shells uses) so the tight inner layers can be seen. */
+export const togetherRadius = (edge: number, vdw: number, toScale: boolean) => (toScale ? edge / vdw : Math.sqrt(edge / vdw));
+
+/** The turn each orbital of a layer is drawn at, so they don't sit on one another. The three p
+ *  orbitals are seen from a corner of their axes, which spreads them 120° apart; d and f
+ *  orbitals are turned evenly apart. */
+export function orbitalTurn(l: number, oi: number): number {
+  if (l === 0) return 0;
+  if (l === 1) return [90, 210, 330][oi];
+  return (oi * 180) / (2 * l + 1);
+}
+
+/**
+ * Every orbital of the atom drawn on top of the others, centered on the nucleus and sized by how
+ * far each layer reaches, so the inner layers sit inside the outer ones the way they do in the
+ * atom. infopage.ts makes it live: a slider adds the electrons one at a time in the order they
+ * fill, a layer chip picks one layer out, and a switch shows the true scale.
+ */
+export function orbitalTogether(e: Element): string {
+  const reach = layerReach(e);
+  const D = 0.9;
+  // Widest first, so the small inner layers are drawn over the big ones.
+  const order = e.subshells.map((s, i) => ({ s, i, r: reach[i] })).sort((a, b) => b.r.edge - a.r.edge);
+  const subs = order.map(({ s, i, r }) => {
+    const l = L_OF[s.l];
+    const k = s.capacity / 2;
+    const orbs = Array.from({ length: k }, (_, oi) => {
+      const paths = orbitalOutline(l, M_ORDER[oi], 180).map((b) => `<path class="${b.plus ? 'is-plus' : 'is-minus'}" d="${b.d}"/>`).join('');
+      return `<g class="tg-orb" data-k="${oi}" transform="rotate(${orbitalTurn(l, oi)})">${paths}</g>`;
+    }).join('');
+    const sc = (toScale: boolean) => ((D * togetherRadius(r.edge, e.vdw, toScale)) / 0.94).toFixed(4);
+    return `<g class="tg-sub" data-i="${i}" data-l="${s.l}" data-root="${sc(false)}" data-true="${sc(true)}" style="--b:${BLOCK_COLOUR[s.l]};transform:scale(${sc(false)})">
+      <circle class="tg-ghost" r="0.9"/>${orbs}</g>`;
+  }).join('');
+  const chips = buildOrder(e).map((s) => {
+    const i = e.subshells.indexOf(s);
+    return `<button type="button" class="tg-chip" data-i="${i}" aria-pressed="false" style="--b:${BLOCK_COLOUR[s.l]}">${s.key}<sup>${s.count}</sup></button>`;
+  }).join('');
+  return `<div class="tg" data-z="${e.z}">
+    <div class="tg-stage">
+      <svg viewBox="-1 -1 2 2" role="img" aria-label="Every orbital of ${esc(e.name.toLowerCase())} drawn together around the nucleus, inner layers inside outer ones.">
+        <circle class="tg-edge" r="${D}"/>
+        ${subs}
+        <circle class="tg-nuc" r="0.022"/>
+      </svg>
+      <span class="tg-edge-lab">edge ${e.vdw} pm</span>
+    </div>
+    <p class="tg-read" aria-live="polite"></p>
+    <div class="tg-fill">
+      <button type="button" class="tg-play" aria-label="Build it up: add the electrons one by one"></button>
+      <div class="tg-slider"></div>
+    </div>
+    <div class="tg-chips" role="group" aria-label="Pick out a layer">${chips}</div>
+    ${e.subshells.length < 2 ? '' : `<label class="ui-switch-row tg-scale"><span class="ui-switch-text">True scale<small>The inner layers shrink toward the nucleus</small></span><input type="checkbox" role="switch" class="ui-switch"></label>`}
+    <p class="note">Every orbital at once, each layer as far out as its electrons usually reach. Drag to add the electrons in the order they fill, or tap a layer to pick it out.</p>
+  </div>`;
+}
+
 export const STRUCTURE_VIEWS: { id: string; label: string }[] = [
+  { id: 'together', label: 'Together' },
   { id: 'orbitals', label: 'Orbitals' },
   { id: 'shells', label: 'Shells' },
 ];
@@ -232,19 +309,15 @@ export function lifeMeter(halfLife: number | null): number {
   return Math.max(0.03, Math.min(1, (Math.log10(halfLife) + 9) / (17.6 + 9)));
 }
 
-/** Which filter rows an isotope matches: stable, found in nature, radioactive. */
-export function isotopeKinds(i: { stable: boolean; abundance: number | null }): string[] {
-  const k = ['all'];
-  if (i.stable) k.push('stable'); else k.push('radioactive');
-  if (i.abundance != null) k.push('natural');
-  return k;
+/** Which filter rows an isotope matches: lasting (stable, or a half-life over a year) or fleeting. */
+export function isotopeKinds(i: Isotope): string[] {
+  return ['all', isLasting(i) ? 'lasting' : 'fleeting'];
 }
 
 export const ISO_FILTERS: { id: string; label: string }[] = [
+  { id: 'lasting', label: 'Lasting' },
+  { id: 'fleeting', label: 'Fleeting' },
   { id: 'all', label: 'All' },
-  { id: 'stable', label: 'Stable' },
-  { id: 'natural', label: 'In nature' },
-  { id: 'radioactive', label: 'Radioactive' },
 ];
 
 /** The neutron chart: one bar per isotope by neutron count, as tall as it lives (log scale),
@@ -280,8 +353,9 @@ const shareRing = (pc: number) => {
   return `<svg class="it-ring" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="${r}" class="it-ring-bg"/><circle cx="12" cy="12" r="${r}" class="it-ring-fg" stroke-dasharray="${f1(d)} ${f1(c)}" transform="rotate(-90 12 12)"/></svg>`;
 };
 
-/** The isotope table: one row each, with its lifetime on the shared log ruler and its share of
- *  the natural element as a ring. Rows carry their kinds for the filter above. */
+/** The isotope list: a thin row each, with its lifetime on the shared log ruler and its share of
+ *  the natural element; a tap opens its mass, neutrons and spin. Rows carry their kinds for the
+ *  filter above. */
 function isotopeRows(e: Element): string {
   const key = keyIsotope(e);
   return e.isotopes.map((i) => {
@@ -289,10 +363,14 @@ function isotopeRows(e: Element): string {
     const v = i.stable ? 1 : lifeMeter(i.halfLife);
     const life = i.stable ? 'stable' : i.halfLife == null ? 'not known' : formatHalfLife(i.halfLife);
     const share = i.abundance == null ? '' : `${shareRing(i.abundance)}<span>${Number(i.abundance.toPrecision(3))}%</span>`;
-    return `<div class="it-row${i.stable ? ' is-stable' : ''}${key && key.a === i.a ? ' is-key' : ''}" data-kinds="${isotopeKinds(i).join(' ')}">
-      <div class="it-name"><b><sup>${i.a}</sup>${e.symbol}</b><span>${n} neutron${n === 1 ? '' : 's'}</span></div>
-      <div class="it-life"><span class="it-track"><i style="--v:${v.toFixed(3)}"></i></span><span class="it-life-lab">${life}</span></div>
-      <div class="it-share">${share || '<span class="na">—</span>'}</div>
+    const more = [`${n} neutron${n === 1 ? '' : 's'}`, i.mass == null ? '' : `mass ${i.mass.toFixed(3)} u`, i.spin ? `spin ${i.spin}` : '', key && key.a === i.a ? 'the most common' : ''].filter(Boolean).join(' · ');
+    return `<div class="it-item${i.stable ? ' is-stable' : ''}${key && key.a === i.a ? ' is-key' : ''}" data-kinds="${isotopeKinds(i).join(' ')}">
+      <button type="button" class="it-row" aria-expanded="false">
+        <span class="it-name"><b><sup>${i.a}</sup>${e.symbol}</b></span>
+        <span class="it-life"><span class="it-track"><i style="--v:${v.toFixed(3)}"></i></span><span class="it-life-lab">${life}</span></span>
+        <span class="it-share">${share || '<span class="na">none in nature</span>'}</span>
+      </button>
+      <p class="it-more" hidden>${more}</p>
     </div>`;
   }).join('');
 }
@@ -306,6 +384,7 @@ export function isotopeSummary(e: Element): string {
   const isos = e.isotopes;
   if (!isos.length) return '';
   const stable = isos.filter((i) => i.stable);
+  const lasting = isos.filter(isLasting).length;
   const n0 = isos[0].a - e.z, n1 = isos[isos.length - 1].a - e.z;
   const lo = Math.min(n0, e.z), hi = Math.max(n1, e.z);
   const W = 320, H = 46, pad = 10, cy = 20;
@@ -322,7 +401,7 @@ export function isotopeSummary(e: Element): string {
     ? `Of ${isos.length} known isotopes, ${stable.length === 1 ? 'one never decays' : `${stable.length} never decay`}: ${sRange![0] === sRange![1] ? `${sRange![0]} neutrons` : `${sRange![0]} to ${sRange![1]} neutrons`}, in a nucleus of ${e.z} protons. The rest, from ${n0} to ${n1} neutrons, fall apart.`
     : `None of its ${isos.length} known isotopes is stable: every one, from ${n0} to ${n1} neutrons, falls apart in time.`;
   return `<section class="isu">
-    <div class="isu-nums"><div><b>${isos.length}</b><span>known</span></div><div><b class="is-stable">${stable.length}</b><span>stable</span></div><div><b>${n0}–${n1}</b><span>neutrons</span></div></div>
+    <div class="isu-nums"><div><b>${isos.length}</b><span>known</span></div><div><b class="is-stable">${lasting}</b><span>lasting</span></div><div><b>${isos.length - lasting}</b><span>fleeting</span></div><div><b>${n0}–${n1}</b><span>neutrons</span></div></div>
     <svg class="isu-strip" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(words)}"><path class="isu-base" d="M ${pad} ${cy} H ${W - pad}"/>${eq}${dots}</svg>
     <p class="isu-words">${esc(words)}</p>
   </section>`;
@@ -333,8 +412,8 @@ export function isotopeTable(e: Element): string {
   return `${isotopeSummary(e)}
     ${isotopeChart(e)}
     <div class="it-filter" id="iso-filter" data-counts='${JSON.stringify(counts)}'></div>
-    <div class="it" id="iso-table" data-filter="all">
-      <div class="it-row it-headrow" aria-hidden="true"><div>Isotope</div><div>How long it lasts</div><div>In nature</div></div>
+    <div class="it" id="iso-table">
+      <div class="it-headrow" aria-hidden="true"><span>Isotope</span><span>How long it lasts</span><span>In nature</span></div>
       ${isotopeRows(e)}
       <p class="it-empty">None of ${esc(e.name.toLowerCase())}'s isotopes fit this filter.</p>
     </div>`;
@@ -342,17 +421,17 @@ export function isotopeTable(e: Element): string {
 
 // ---------- Properties: where this element sits among all of them ----------
 
-interface Axis { label: string; get: (e: Element) => number | null; unit: string; log?: boolean; more: string; less: string; fmt?: (v: number) => string; temp?: boolean }
+interface Axis { id: string; label: string; get: (e: Element) => number | null; unit: string; log?: boolean; more: string; less: string; fmt?: (v: number) => string; temp?: boolean; look?: LookId }
 
 const AXES: Axis[] = [
-  { label: 'Density', get: (e) => e.density, unit: ' g/cm³', log: true, more: 'densest', less: 'lightest' },
-  { label: 'Melting point', get: (e) => e.melt, unit: ' K', more: 'highest melting point', less: 'lowest melting point', fmt: (v) => `${Math.round(v)}`, temp: true },
-  { label: 'Boiling point', get: (e) => e.boil, unit: ' K', more: 'highest boiling point', less: 'lowest boiling point', fmt: (v) => `${Math.round(v)}`, temp: true },
-  { label: 'Electronegativity', get: (e) => e.electronegativity, unit: '', more: 'most electronegative', less: 'least electronegative' },
-  { label: 'First ionization energy', get: (e) => e.ionisation, unit: ' eV', more: 'hardest to ionize', less: 'easiest to ionize' },
-  { label: 'Size (van der Waals)', get: (e) => e.vdw, unit: ' pm', more: 'largest', less: 'smallest', fmt: (v) => `${Math.round(v)}` },
-  { label: 'In the crust', get: (e) => e.crust, unit: ' mg/kg', log: true, more: 'most common in the crust', less: 'rarest in the crust' },
-  { label: 'In seawater', get: (e) => e.sea, unit: ' mg/L', log: true, more: 'most common in seawater', less: 'rarest in seawater' },
+  { id: 'density', look: 'density', label: 'Density', get: (e) => e.density, unit: ' g/cm³', log: true, more: 'densest', less: 'lightest' },
+  { id: 'melt', look: 'melt', label: 'Melting point', get: (e) => e.melt, unit: ' K', more: 'highest melting point', less: 'lowest melting point', fmt: (v) => `${Math.round(v)}`, temp: true },
+  { id: 'boil', label: 'Boiling point', get: (e) => e.boil, unit: ' K', more: 'highest boiling point', less: 'lowest boiling point', fmt: (v) => `${Math.round(v)}`, temp: true },
+  { id: 'en', look: 'electronegativity', label: 'Electronegativity', get: (e) => e.electronegativity, unit: '', more: 'most electronegative', less: 'least electronegative' },
+  { id: 'ion', label: 'First ionization energy', get: (e) => e.ionisation, unit: ' eV', more: 'hardest to ionize', less: 'easiest to ionize' },
+  { id: 'size', look: 'size', label: 'Size (van der Waals)', get: (e) => e.vdw, unit: ' pm', more: 'largest', less: 'smallest', fmt: (v) => `${Math.round(v)}` },
+  { id: 'crust', look: 'crust', label: 'In the crust', get: (e) => e.crust, unit: ' mg/kg', log: true, more: 'most common in the crust', less: 'rarest in the crust' },
+  { id: 'sea', label: 'In seawater', get: (e) => e.sea, unit: ' mg/L', log: true, more: 'most common in seawater', less: 'rarest in seawater' },
 ];
 
 const fmtNum = (v: number) => (Math.abs(v) >= 1e5 || (Math.abs(v) < 1e-3 && v !== 0) ? v.toExponential(1).replace('e', '×10^').replace(/\^\+?(-?\d+)/, (_, p) => sup(p).replace('-', '⁻')) : `${Number(v.toPrecision(3))}`);
@@ -373,36 +452,72 @@ const LANES = ['s', 'p', 'd', 'f'] as const;
 /** From rutherfordium on, only a few atoms have ever been made; bulk properties are predicted. */
 const PREDICTED_FROM = 104;
 
-/** One property: the label and value on the left; on the right every measured element as a dot
- *  in its block's lane and color, this element ringed, the extremes named at the ends. */
-function axisStrip(e: Element, a: Axis): string {
-  // Values for the superheavy elements are predictions, so they are left out of the crowd.
+/** The Atlas link under a property: the Atlas colored by it, with this atom picked. */
+const seeInAtlas = (e: Element, look?: LookId) => (look ? `<button type="button" class="see-atlas" data-z="${e.z}" data-look="${look}">See in Atlas${'<span aria-hidden="true">›</span>'}</button>` : '');
+
+/** Every measured element's value for a property (superheavy predictions left out of the crowd,
+ *  this element kept), with this element's rank in words. */
+function crowd(e: Element, a: Axis) {
   const all = ELEMENTS.map((x) => ({ x, v: a.get(x) })).filter((p): p is { x: Element; v: number } => p.v != null && (!a.log || p.v > 0) && (p.x.z < PREDICTED_FROM || p.x.z === e.z));
   const v = a.get(e);
-  const W = 240, pad = 10, laneH = 9, top = 4, H = top * 2 + laneH * 4;
+  const has = v != null && (!a.log || v > 0);
+  const rank = !has ? '' : e.z >= PREDICTED_FROM ? 'a prediction' : rankWords(rankOf(v!, all.map((p) => p.v)), all.length, a.more, a.less);
+  return { all, v, has, rank };
+}
+
+/** One property, the full width: its name and the Atlas link, the value and its rank, then every
+ *  measured element as a dot in its block's lane and color, this element ringed, the extremes
+ *  named at the ends. */
+function axisStrip(e: Element, a: Axis): string {
+  const { all, v, has, rank } = crowd(e, a);
+  const W = 320, pad = 8, laneH = 8, top = 5, H = top * 2 + laneH * 4;
   const t = (x: number) => (a.log ? Math.log10(x) : x);
   const lo = Math.min(...all.map((p) => t(p.v))), hi = Math.max(...all.map((p) => t(p.v)));
   const X = (x: number) => pad + ((t(x) - lo) / (hi - lo || 1)) * (W - pad * 2);
   const Y = (b: Element['block']) => top + LANES.indexOf(b) * laneH + laneH / 2;
   const lanes = LANES.map((b) => `<path class="pr-lane" d="M ${pad} ${Y(b)} H ${W - pad}"/>`).join('');
-  const dots = all.filter((p) => p.x.z !== e.z).map((p) => `<circle cx="${f1(X(p.v))}" cy="${Y(p.x.block)}" r="2.3" fill="${BLOCK_COLOUR[p.x.block]}"/>`).join('');
+  const dots = all.filter((p) => p.x.z !== e.z).map((p) => `<circle cx="${f1(X(p.v))}" cy="${Y(p.x.block)}" r="2.4" fill="${BLOCK_COLOUR[p.x.block]}"/>`).join('');
   const minE = all.reduce((m, p) => (p.v < m.v ? p : m)), maxE = all.reduce((m, p) => (p.v > m.v ? p : m));
   const fmt = a.fmt ?? fmtNum;
-  const has = v != null && (!a.log || v > 0);
-  let mark = '', rank = '';
-  if (has) {
-    const x = f1(X(v)), y = Y(e.block);
-    rank = e.z >= PREDICTED_FROM ? 'a prediction' : rankWords(rankOf(v, all.map((p) => p.v)), all.length, a.more, a.less);
-    mark = `<path class="pr-guide" d="M ${x} 1 V ${H - 1}"/><circle class="pr-me" cx="${x}" cy="${y}" r="4.6" fill="${BLOCK_COLOUR[e.block]}"/>`;
-  }
-  const value = v == null ? '<span class="na">not known</span>'
-    : a.temp ? `${fmt(v)} K<small>${Math.round(v - 273.15)} °C</small>` : `${fmt(v)}${a.unit}`;
+  const mark = has ? `<path class="pr-guide" d="M ${f1(X(v!))} 1 V ${H - 1}"/><circle class="pr-me" cx="${f1(X(v!))}" cy="${Y(e.block)}" r="5" fill="${BLOCK_COLOUR[e.block]}"/>` : '';
+  const value = v == null ? '<span class="na">not known</span>' : `${fmt(v)}${a.unit}`;
   return `<div class="pr">
-    <div class="pr-text"><span class="pr-label">${a.label}</span><b class="pr-value">${value}</b>${rank ? `<em class="pr-rank">${rank}</em>` : ''}</div>
+    <div class="pr-head"><span class="pr-label">${a.label}</span>${seeInAtlas(e, a.look)}</div>
+    <div class="pr-text"><b class="pr-value">${value}</b>${rank ? `<em class="pr-rank">${rank}</em>` : ''}</div>
     <div class="pr-vis">
       <svg viewBox="0 0 ${W} ${H}" aria-hidden="true">${lanes}<g class="pr-dots">${dots}</g>${mark}</svg>
       <div class="pr-ends"><span>${minE.x.symbol} ${fmt(minE.v)}</span><span>${maxE.x.symbol} ${fmt(maxE.v)}</span></div>
     </div>
+  </div>`;
+}
+
+const ROOM_K = 298.15;
+const kc = (k: number) => `${Math.round(k)} K <small>${Math.round(k - 273.15)} °C</small>`;
+
+/** Melting and boiling on one thermometer: solid, then liquid, then gas, from absolute zero up,
+ *  with room temperature marked and the state there in words. */
+export function heatStrip(e: Element): string {
+  const melt = e.melt, boil = e.boil;
+  const state = LOOKS.find((l) => l.id === 'state')!.value!(e);
+  const cat = state && 'cat' in state ? state.cat : null;
+  const meltA = AXES.find((a) => a.id === 'melt')!, boilA = AXES.find((a) => a.id === 'boil')!;
+  const mr = crowd(e, meltA).rank, br = crowd(e, boilA).rank;
+  const top = Math.max(500, (boil ?? melt ?? 400) * 1.18);
+  const pc = (k: number) => `${Math.min(100, (k / top) * 100).toFixed(2)}%`;
+  const bands = melt == null && boil == null ? ''
+    : `<div class="th-bar">
+        ${melt != null ? `<i class="th-solid" style="width:${pc(melt)}"></i>` : ''}
+        ${boil != null ? `<i class="th-liquid" style="width:calc(${pc(boil)} - ${melt != null ? pc(melt) : '0%'})"></i>` : '<i class="th-liquid" style="flex:1"></i>'}
+        ${boil != null ? '<i class="th-gas" style="flex:1"></i>' : ''}
+        <span class="th-room" style="left:${pc(ROOM_K)}" title="Room temperature"></span>
+      </div>
+      <div class="th-key"><span><i class="th-solid"></i>Solid</span><span><i class="th-liquid"></i>Liquid</span><span><i class="th-gas"></i>Gas</span><span><i class="th-room-k"></i>Room temperature</span></div>`;
+  const predicted = e.z >= PREDICTED_FROM ? ' <small class="pr-pred">predicted</small>' : '';
+  const line = (label: string, v: number | null, rank: string) => `<div class="th-row"><span>${label}</span><b>${v == null ? '<span class="na">not known</span>' : kc(v)}${v == null ? '' : predicted}</b>${v != null && rank ? `<em class="pr-rank">${rank}</em>` : ''}</div>`;
+  return `<div class="pr th">
+    <div class="pr-head"><span class="pr-label">${cat ? `${cat[0].toUpperCase()}${cat.slice(1)} at room temperature` : 'Heat'}</span>${seeInAtlas(e, 'melt')}</div>
+    ${bands}
+    ${line('Melts', melt, mr)}${line('Boils', boil, br)}
   </div>`;
 }
 
@@ -430,20 +545,37 @@ function oxidationStrip(e: Element): string {
   const most = [...e.oxidation].sort((a, b) => (counts.get(b) ?? 0) - (counts.get(a) ?? 0))[0];
   const words = most != null ? `${most > 0 ? '+' + most : most} is shared by ${counts.get(most)} elements` : '';
   return `<div class="pr pr-ox">
-    <div class="pr-text"><span class="pr-label">Oxidation states</span><b class="pr-value">${e.oxidation.length ? e.oxidation.map((o) => (o > 0 ? '+' + o : String(o))).join(', ') : '<span class="na">none listed</span>'}</b>${words ? `<em class="pr-rank">${words}</em>` : ''}</div>
+    <div class="pr-head"><span class="pr-label">Oxidation states</span></div>
+    <div class="pr-text"><b class="pr-value">${e.oxidation.length ? e.oxidation.map((o) => (o > 0 ? '+' + o : String(o))).join(', ') : '<span class="na">none listed</span>'}</b>${words ? `<em class="pr-rank">${words}</em>` : ''}</div>
     <div class="pr-vis"><svg viewBox="0 0 ${W} ${H}" aria-hidden="true">${bars}</svg><div class="pr-ends"><span>← electrons gained</span><span>electrons given →</span></div></div>
   </div>`;
 }
 
+/** A plain line: a name and a value, for the details that need no chart. */
+const kvRow = (label: string, value: string) => `<div class="kv"><span>${label}</span><b>${value}</b></div>`;
+const na = (t: string) => `<span class="na">${t}</span>`;
+
+/** The properties in five groups: heat, weight, chemistry, size, and where it is found. */
 export function propertyAxes(e: Element): string {
+  const ax = (id: string) => axisStrip(e, AXES.find((a) => a.id === id)!);
   const legend = LANES.map((b) => `<span><i style="background:${BLOCK_COLOUR[b]}"></i>${b}</span>`).join('');
+  const group = (title: string, body: string) => `<section class="pr-group"><h3 class="pr-h">${title}</h3><div class="prs">${body}</div></section>`;
+  const affinity = e.electronAffinity == null ? na('not known') : e.electronAffinity < 0 ? na('no stable negative ion') : `${Number(e.electronAffinity.toPrecision(3))} eV`;
+  const details = (rows: string) => `<div class="pr pr-kv">${rows}</div>`;
   return `<p class="pr-legend">Every dot is an element, in its block's lane and color: ${legend}. The ringed dot is ${esc(e.name.toLowerCase())}.</p>
-    <div class="prs">${AXES.slice(0, 6).map((a) => axisStrip(e, a)).join('')}${oxidationStrip(e)}${AXES.slice(6).map((a) => axisStrip(e, a)).join('')}</div>`;
+    ${group('Heat', heatStrip(e))}
+    ${group('Weight', ax('density'))}
+    ${group('Chemistry', ax('en') + ax('ion') + oxidationStrip(e) + details(
+      kvRow('Electron affinity', affinity)
+      + kvRow('Geochemical class', e.geochemical ? esc(e.geochemical) : na('not classed'))
+      + kvRow('Color in molecule models', e.cpk ? `<span class="swatch" style="background:${e.cpk}"></span>${e.cpk}` : na('none'))))}
+    ${group('Size', ax('size') + details(kvRow('Covalent radius', e.covalent == null ? na('not known') : `${Number(e.covalent.toPrecision(3))} pm`)))}
+    ${group('Where it is found', ax('crust') + ax('sea'))}`;
 }
 
 // ---------- Story: a timeline of discoveries ----------
 
-export function discoveryTimeline(e: Element): string {
+export function discoveryTimeline(e: Element, caption = true): string {
   const W = 320, H = 92, left = 34, right = W - 8, y0 = 1650, y1 = 2030, base = H - 22;
   const X = (y: number) => left + ((y - y0) / (y1 - y0)) * (right - left);
   const known = ELEMENTS.filter((x) => x.discoveryYear == null || x.discoveryYear < y0);
@@ -457,17 +589,24 @@ export function discoveryTimeline(e: Element): string {
   const ancient = known.map((el, i) => dot(14 + (i % 3) * 5.5, Math.floor(i / 3), el)).join('');
   const decades = [...bins.entries()].map(([d, els]) => els.map((el, i) => dot(X(d + 5), i, el)).join('')).join('');
   const labels = [1700, 1800, 1900, 2000].map((y) => `<text class="tl-lab" x="${f1(X(y))}" y="${H - 6}">${y}</text><path class="tl-tick" d="M ${f1(X(y))} ${base + 2} v 5"/>`).join('');
-  const order = [...ELEMENTS].sort((a, b) => (a.discoveryYear ?? 0) - (b.discoveryYear ?? 0) || a.z - b.z);
-  const rank = order.findIndex((x) => x.z === e.z) + 1;
-  const caption = e.discoveryYear == null || e.discoveryYear < y0
-    ? `${esc(e.name)} was known ${e.discoveryYear ? `by ${e.discoveryYear}` : 'in antiquity'}, one of ${known.length} elements known before chemistry became a science.`
-    : `${esc(e.name)} was found in ${e.discoveryYear}, the ${ordinal(rank)} element to be identified.`;
   return `<figure class="tl">
     <svg class="tl-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="When each element was discovered">
       <path class="tl-base" d="M ${left - 4} ${base + 2} H ${right}"/>
       <text class="tl-lab" x="${14 + 5.5}" y="${H - 6}">Old</text>
       ${ancient}${decades}${labels}
     </svg>
-    <figcaption>${caption}</figcaption>
+    ${caption ? `<figcaption>${discoveryWords(e)}</figcaption>` : ''}
   </figure>`;
+}
+
+/** Where an element's discovery falls: one of the elements known before chemistry became a
+ *  science, or the nth to be identified. */
+export function discoveryWords(e: Element, short = false): string {
+  const known = ELEMENTS.filter((x) => x.discoveryYear == null || x.discoveryYear < 1650).length;
+  if (e.discoveryYear == null || e.discoveryYear < 1650) {
+    return short ? `One of ${known} known before chemistry` : `${esc(e.name)} was known ${e.discoveryYear ? `by ${e.discoveryYear}` : 'in antiquity'}, one of ${known} elements known before chemistry became a science.`;
+  }
+  const order = [...ELEMENTS].sort((a, b) => (a.discoveryYear ?? 0) - (b.discoveryYear ?? 0) || a.z - b.z);
+  const rank = order.findIndex((x) => x.z === e.z) + 1;
+  return short ? `The ${ordinal(rank)} element found` : `${esc(e.name)} was found in ${e.discoveryYear}, the ${ordinal(rank)} element to be identified.`;
 }

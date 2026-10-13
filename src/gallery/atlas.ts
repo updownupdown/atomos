@@ -174,7 +174,7 @@ export class Atlas {
   private openPage(z: number): void {
     const order = this.view === 'details' && this.table ? this.table.order() : ELEMENTS.map((e) => e.z);
     this.page.open(z, order.includes(z) ? order : ELEMENTS.map((e) => e.z));
-    setScienceHandler(null);
+    this.registerScience();
   }
 
   /** Back from a page: the map keeps the atom it was on, picked. */
@@ -220,9 +220,26 @@ export class Atlas {
     }));
   }
 
-  /** The microscope: why the atoms are arranged this way (a map) or nothing (Details, a page). */
+  /** Show an atom in the Atlas from one of its pages: on a map (the Table, if Details was showing),
+   *  picked, and colored by a property when one is given. */
+  focus(z: number, look: LookId | null = null): void {
+    if (this.page.isOpen) this.page.close();
+    // A search left from before would dim the rest of the map.
+    if (this.query) {
+      this.input.value = '';
+      this.query = '';
+      this.root.querySelector<HTMLButtonElement>('.at-clear')!.hidden = true;
+      this.map.setMatches(null);
+    }
+    if (look) this.setLook(look);
+    if (this.view === 'details') this.setView('table');
+    this.pick(z, true);
+  }
+
+  /** The microscope: a page's guide, why the atoms are arranged this way (a map), or nothing (Details). */
   registerScience(): void {
-    if (this.page.isOpen || this.view === 'details') { setScienceHandler(null); return; }
+    if (this.page.isOpen) { setScienceHandler(() => this.page.openGuide(), 'How to read this page'); return; }
+    if (this.view === 'details') { setScienceHandler(null); return; }
     const l = LAYOUTS.find((x) => x.id === this.view)!;
     setScienceHandler(() => {
       setScienceOpen(true);

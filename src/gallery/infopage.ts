@@ -5,8 +5,9 @@
 import { elementAt } from './data';
 import { SHAPE_AT } from '../core/progress';
 import type { OrbitalShape } from '../core/save';
-import { createSegments } from '../ui/components';
-import { ISO_FILTERS, STRUCTURE_VIEWS } from './visuals';
+import { createSegments, createSlider } from '../ui/components';
+import { icon } from '../ui/icons';
+import { buildOrder, ISO_FILTERS, orbitalFill, STRUCTURE_VIEWS } from './visuals';
 
 /** What the pages remember while stepping from one atom to the next. */
 export interface InfoState {
@@ -20,6 +21,108 @@ export interface InfoState {
 export function mountInfoPage(root: HTMLElement, st: InfoState): void {
   mountIsotopeFilter(root, st);
   mountStructureSwitch(root, st);
+  mountTogether(root, st);
+  mountLinks(root);
+}
+
+/** The ways out of a page: the little table and "See in Atlas" go to the Atlas (colored by that
+ *  property, with this atom picked); 3D opens the atom full screen. The app shell answers. */
+function mountLinks(root: HTMLElement): void {
+  root.querySelectorAll<HTMLButtonElement>('.ov-locate, .see-atlas').forEach((b) => (b.onclick = () => {
+    b.dispatchEvent(new CustomEvent('atomos:atlas', { bubbles: true, detail: { z: Number(b.dataset.z), look: b.dataset.look ?? null } }));
+  }));
+  root.querySelectorAll<HTMLButtonElement>('.st-3d').forEach((b) => (b.onclick = () => {
+    b.dispatchEvent(new CustomEvent('atomos:view3d', { bubbles: true, detail: { z: Number(b.dataset.z) } }));
+  }));
+}
+
+/** Structure's Together view: every orbital at once. The slider adds the electrons one at a time
+ *  in the order they fill (each orbital lights pale with one electron and full with two); Play
+ *  runs it from nothing; a layer chip picks one layer out; True scale shrinks the inner layers
+ *  to their real size. Kinds of shape Glyph hasn't found yet show as a plain ring. */
+function mountTogether(root: HTMLElement, st: InfoState): void {
+  const box = root.querySelector<HTMLElement>('.tg');
+  if (!box) return;
+  const e = elementAt(Number(box.dataset.z));
+  const order = buildOrder(e).map((s) => ({ s, i: e.subshells.indexOf(s) }));
+  const subs = new Map([...box.querySelectorAll<SVGGElement>('.tg-sub')].map((g) => [Number(g.dataset.i), g]));
+  const chips = [...box.querySelectorAll<HTMLButtonElement>('.tg-chip')];
+  const read = box.querySelector<HTMLElement>('.tg-read')!;
+  const hidden = new Set<string>(st.hiddenShapes);
+  for (const g of subs.values()) g.classList.toggle('is-unknown', hidden.has(g.dataset.l!));
+  let n = e.z;
+  let picked: number | null = null;
+  let timer = 0;
+  const reach = new Map<number, number>();
+  const paint = () => {
+    // Hand out n electrons in filling order, up to each layer's real count.
+    let left = n;
+    let filling: { key: string; c: number; cap: number } | null = null;
+    for (const { s, i } of order) {
+      const c = Math.min(left, s.count);
+      left -= c;
+      const g = subs.get(i)!;
+      g.classList.toggle('is-empty', c === 0);
+      g.classList.toggle('is-dim', picked != null && picked !== i);
+      g.classList.toggle('is-picked', picked === i);
+      const fill = orbitalFill(c, s.capacity);
+      g.querySelectorAll<SVGGElement>('.tg-orb').forEach((o) => o.setAttribute('class', `tg-orb f${fill[Number(o.dataset.k)]}`));
+      if (c > 0) filling = { key: s.key, c, cap: s.capacity };
+      reach.set(i, c);
+    }
+    chips.forEach((b) => {
+      const i = Number(b.dataset.i);
+      b.setAttribute('aria-pressed', String(picked === i));
+      b.disabled = (reach.get(i) ?? 0) === 0;
+    });
+    if (picked != null) {
+      const s = e.subshells[picked];
+      const c = reach.get(picked) ?? 0;
+      read.innerHTML = `<b style="color:var(--b)">${s.key}</b> ${c} of ${s.capacity} electrons, ${s.capacity / 2} orbital${s.capacity === 2 ? '' : 's'}${hidden.has(s.l) ? ' · shape still undiscovered' : ''}`;
+      (read.firstElementChild as HTMLElement).style.setProperty('--b', getComputedStyle(subs.get(picked)!).getPropertyValue('--b'));
+    } else {
+      const f = filling as { key: string; c: number; cap: number } | null;
+      read.innerHTML = n === 0 ? 'The bare nucleus: drag to add electrons'
+        : n === e.z ? `<b>${e.z}</b> electron${e.z === 1 ? '' : 's'} in ${order.length} layer${order.length === 1 ? '' : 's'}.${order.length > 1 ? ' Tap a layer to pick it out.' : ''}`
+        : `<b>${n}</b> of ${e.z} electrons · filling ${f!.key}, ${f!.c} of ${f!.cap}`;
+    }
+  };
+  const slider = createSlider({ min: 0, max: e.z, value: n, label: 'Electrons added', format: (v) => `${v}`, onInput: (v) => { stop(); n = v; paint(); } });
+  box.querySelector('.tg-slider')!.append(slider.el);
+  const play = box.querySelector<HTMLButtonElement>('.tg-play')!;
+  const paintPlay = () => { play.innerHTML = icon(timer ? 'pause' : 'play', { size: 22 }); play.setAttribute('aria-label', timer ? 'Pause' : 'Build it up: add the electrons one by one'); };
+  const stop = () => { if (timer) { clearInterval(timer); timer = 0; paintPlay(); } };
+  play.onclick = () => {
+    if (timer) { stop(); return; }
+    picked = null;
+    if (n >= e.z) n = 0;
+    const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduce) { n = e.z; slider.set(n); paint(); return; }
+    const ms = Math.max(45, Math.min(380, 3600 / e.z));
+    timer = window.setInterval(() => {
+      n++;
+      slider.set(n);
+      paint();
+      if (n >= e.z || !box.isConnected) stop();
+    }, ms);
+    paintPlay();
+    paint();
+  };
+  chips.forEach((b) => (b.onclick = () => {
+    const i = Number(b.dataset.i);
+    picked = picked === i ? null : i;
+    paint();
+  }));
+  const scale = box.querySelector<HTMLInputElement>('.tg-scale input');
+  const paintScale = () => {
+    const on = Boolean(scale?.checked);
+    box.classList.toggle('is-true', on);
+    for (const g of subs.values()) g.style.transform = `scale(${on ? g.dataset.true : g.dataset.root})`;
+  };
+  if (scale) scale.onchange = paintScale;
+  paintPlay();
+  paintScale();
+  paint();
 }
 
 /** The structure page's ways to see the atom: the orbitals assembled layer by layer, and the shells. */
@@ -31,7 +134,7 @@ function mountStructureSwitch(root: HTMLElement, st: InfoState): void {
     st.structView = id;
     for (const v of views) v.hidden = v.dataset.view !== id;
   };
-  if (!STRUCTURE_VIEWS.some((v) => v.id === st.structView)) st.structView = 'orbitals';
+  if (!STRUCTURE_VIEWS.some((v) => v.id === st.structView)) st.structView = 'together';
   const seg = createSegments(STRUCTURE_VIEWS, { active: st.structView, label: 'How to see the structure', onChange: apply });
   slot.append(seg.el);
   // Orbitals' Details: each orbital's name, each subshell's count and the notes; remembered.
@@ -62,22 +165,29 @@ function mountStructureSwitch(root: HTMLElement, st: InfoState): void {
   apply(st.structView);
 }
 
-/** The isotope page's filter: All, Stable, In nature, Radioactive; kept while stepping through elements. */
+/** The isotope page's filter: Lasting, Fleeting, All; kept while stepping through elements. A row
+ *  opens its mass and spin when tapped. */
 function mountIsotopeFilter(root: HTMLElement, st: InfoState): void {
   const slot = root.querySelector<HTMLElement>('#iso-filter');
   const table = root.querySelector<HTMLElement>('#iso-table');
   if (!slot || !table) return;
   const counts = JSON.parse(slot.dataset.counts ?? '{}') as Record<string, number>;
+  table.querySelectorAll<HTMLButtonElement>('.it-row').forEach((b) => (b.onclick = () => {
+    const more = b.nextElementSibling as HTMLElement;
+    more.hidden = !more.hidden;
+    b.setAttribute('aria-expanded', String(!more.hidden));
+  }));
   const apply = (id: string) => {
     st.isoFilter = id;
     let shown = 0;
-    table.querySelectorAll<HTMLElement>('.it-row[data-kinds]').forEach((row) => {
+    table.querySelectorAll<HTMLElement>('.it-item[data-kinds]').forEach((row) => {
       const on = row.dataset.kinds!.split(' ').includes(id);
       row.hidden = !on;
       if (on) shown++;
     });
     table.classList.toggle('is-empty', shown === 0);
   };
+  if (!ISO_FILTERS.some((f) => f.id === st.isoFilter)) st.isoFilter = 'lasting';
   const seg = createSegments(ISO_FILTERS.map((f) => ({ id: f.id, label: `${f.label} ${counts[f.id] ?? 0}` })), { active: st.isoFilter, label: 'Show isotopes', onChange: apply });
   slot.append(seg.el);
   seg.select(st.isoFilter);

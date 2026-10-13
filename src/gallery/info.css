@@ -1,0 +1,150 @@
+/* An atom's Info pages (info.ts, visuals.ts), on the atom screen and in the Atlas. */
+
+/* The microscope in the bar: the open page's guide. */
+.ap-sci { flex: none; align-self: center; margin-left: auto; }
+.atom-bar .ap-sci { margin-left: 0; }
+.atom-bar .ap-sci:disabled { visibility: hidden; }
+
+/* Overview: the photo first, then the plate band (plate, the little table, where it sits). */
+.atom-page .ov-photo img { aspect-ratio: 3 / 2; }
+.ov-band { display: grid; grid-template-columns: 68px minmax(0, 1fr); grid-template-areas: 'plate map' 'where where'; gap: var(--sp-2) var(--sp-3); align-items: center; margin: var(--sp-3) 0 var(--sp-2); }
+.ov-plate { grid-area: plate; width: 68px; height: 68px; border-radius: var(--r-md); display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1; }
+.ov-plate span { font-size: var(--fs-sm); font-weight: var(--fw-semibold); font-variant-numeric: tabular-nums; }
+.ov-plate b { font-size: 30px; font-weight: var(--fw-semibold); margin-top: 2px; }
+.ov-locate { grid-area: map; display: block; width: 100%; padding: 4px; border: 0; border-radius: var(--r-sm); background: none; cursor: pointer; }
+.ov-locate svg { display: block; width: 100%; height: auto; max-height: 92px; }
+.ov-locate:hover .lc-cell, .ov-locate:focus-visible .lc-cell { fill: var(--c-surface-3); }
+.ov-locate:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
+.lc-cell { fill: var(--c-surface-2); transition: fill 0.2s; }
+.lc-row { fill: var(--c-surface-3); }
+.lc-me { fill: var(--p); filter: drop-shadow(0 0 0.25px var(--p)) drop-shadow(0 0 0.7px var(--p)); }
+.ov-where { grid-area: where; display: flex; flex-direction: column; gap: 2px; margin: 0 !important; }
+.ov-where b { font-size: var(--fs-md); font-weight: var(--fw-semibold); color: var(--c-text); }
+.ov-where span { font-size: var(--fs-sm); color: var(--c-text-2); font-variant-numeric: tabular-nums; }
+
+/* Discovered: the year (or antiquity) and where it falls, who and where, then the timeline. */
+.ov-disc { margin: var(--sp-4) 0 var(--sp-2); }
+.ov-disc-row { display: flex; align-items: baseline; flex-wrap: wrap; gap: 2px var(--sp-3); }
+.ov-disc-row span { color: var(--c-text-2); }
+.ov-disc-by { margin: 2px 0 0 !important; color: var(--c-text); }
+.ov-disc .tl { margin-top: var(--sp-2); }
+
+/* Made in and Used for: two lines, the rest under "More". */
+.story-more { margin-top: var(--sp-2); }
+.story-more summary { cursor: pointer; list-style: none; color: var(--c-accent); font-size: var(--fs-sm); font-weight: var(--fw-medium); padding: var(--sp-1) 0; }
+.story-more summary::-webkit-details-marker { display: none; }
+.story-more summary::after { content: ' ›'; }
+.story-more[open] summary { display: none; }
+
+/* Structure: the views and the 3D button on one line. */
+.st-top { display: flex; align-items: center; gap: var(--sp-2); margin: var(--sp-2) 0 var(--sp-4); }
+.st-top .st-switch { flex: 1 1 auto; min-width: 0; margin: 0; }
+.st-3d { flex: none; display: inline-flex; align-items: center; gap: 4px; height: 40px; padding: 0 var(--sp-3); border: 0; border-radius: 20px; background: var(--c-surface-2); color: var(--c-text); font: inherit; font-size: var(--fs-sm); font-weight: var(--fw-semibold); cursor: pointer; }
+.st-3d:hover { background: var(--c-surface-3); }
+.st-3d svg { color: var(--c-accent); }
+.om-toggle { margin: 0 0 var(--sp-3); }
+
+/* Structure › Together: every orbital at once, the inner layers inside the outer. */
+.tg { display: flex; flex-direction: column; gap: var(--sp-3); }
+.tg-stage { position: relative; width: 100%; max-width: 360px; margin: 0 auto; aspect-ratio: 1; }
+.tg-stage svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.tg-edge { fill: none; stroke: var(--c-line-2); stroke-width: 0.01; stroke-dasharray: 0.025 0.03; }
+.tg-edge-lab { position: absolute; top: 0; right: 0; font-size: var(--fs-min); color: var(--c-text-min); }
+.tg-sub { transform-origin: 0 0; transition: transform 0.7s cubic-bezier(0.2, 0.7, 0.2, 1), opacity 0.3s; mix-blend-mode: screen; }
+.tg-sub.is-empty { opacity: 0; }
+.tg-sub.is-dim { opacity: 0.1; }
+.tg-sub.is-picked .tg-orb path, .tg-sub.is-picked .tg-ghost { stroke-width: 2.5px; }
+.tg-sub.is-picked .tg-orb.f2 path { fill-opacity: 0.4; }
+.tg-sub.is-picked .tg-orb.f1 path { fill-opacity: 0.25; }
+.tg-orb path { fill: var(--b); fill-opacity: 0; stroke: var(--b); stroke-opacity: 0; stroke-width: 0.03; vector-effect: non-scaling-stroke; transition: fill-opacity 0.25s, stroke-opacity 0.25s; }
+.tg-orb.f1 path { fill-opacity: 0.1; stroke-opacity: 0.55; stroke-width: 1.5px; }
+.tg-orb.f2 path { fill-opacity: 0.2; stroke-opacity: 0.9; stroke-width: 1.5px; }
+
+.tg-orb.f1 path.is-minus { fill-opacity: 0.05; }
+.tg-orb.f2 path.is-minus { fill-opacity: 0.1; }
+.tg-ghost { fill: none; stroke: none; }
+/* A kind of shape still undiscovered: a plain ring, no lobes. */
+.tg-sub.is-unknown .tg-orb { display: none; }
+.tg-sub.is-unknown .tg-ghost { fill: color-mix(in srgb, var(--b) 10%, transparent); stroke: var(--b); stroke-width: 1.5px; stroke-dasharray: 4 4; vector-effect: non-scaling-stroke; }
+.tg-nuc { fill: var(--c-text); filter: drop-shadow(0 0 0.02px #fff) drop-shadow(0 0 0.04px var(--c-accent)); }
+.tg-read { margin: 0 !important; min-height: 2.6em; text-align: center; color: var(--c-text-2); font-variant-numeric: tabular-nums; }
+.tg-read b { color: var(--c-text); font-weight: var(--fw-semibold); }
+.tg-fill { display: flex; align-items: center; gap: var(--sp-3); }
+.tg-play { flex: none; width: 44px; height: 44px; display: grid; place-items: center; border: 0; border-radius: 50%; background: var(--c-accent); color: #000; cursor: pointer; }
+.tg-slider { flex: 1 1 auto; min-width: 0; }
+.tg-chips { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+.tg-chip { min-width: 44px; height: 34px; padding: 0 10px; border: 0; border-radius: 17px; background: color-mix(in srgb, var(--b) 22%, var(--c-surface)); color: var(--c-text); font: inherit; font-size: var(--fs-sm); font-weight: var(--fw-semibold); cursor: pointer; transition: background 0.2s, opacity 0.2s; }
+.tg-chip sup { font-size: 0.7em; margin-left: 1px; }
+.tg-chip[aria-pressed='true'] { background: var(--b); color: #000; }
+.tg-chip:disabled { opacity: 0.35; cursor: default; }
+.tg-scale { margin: 0; }
+
+/* Isotopes: thin rows; a tap opens the mass, neutrons and spin. */
+.it { display: flex; flex-direction: column; gap: 2px; }
+.it-headrow, .it-row { display: grid; grid-template-columns: 58px minmax(0, 1fr) 96px; gap: var(--sp-3); align-items: center; }
+.it-headrow { padding: var(--sp-2) var(--sp-3) 4px; font-size: var(--fs-caps-min); font-weight: var(--fw-semibold); color: var(--c-text-min); text-transform: uppercase; letter-spacing: var(--tracking-caps); }
+.it-item[hidden] { display: none; }
+.it-row { width: 100%; min-height: 44px; padding: 6px var(--sp-3); border: 0; border-radius: var(--r-sm); background: var(--c-plate); color: var(--c-text); font: inherit; text-align: left; cursor: pointer; }
+.it-item.is-key .it-row { background: var(--c-surface); }
+.it-row:focus-visible { outline: 2px solid var(--c-accent); outline-offset: -2px; }
+.it-name b { font-size: var(--fs-md); font-weight: var(--fw-semibold); color: var(--c-text-2); }
+.it-name b sup { font-size: 0.65em; margin-right: 1px; font-weight: var(--fw-medium); }
+.it-item.is-stable .it-name b { color: var(--c-text); }
+.it-life { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
+.it-life .it-track { flex: 1 1 auto; min-width: 24px; }
+.it-track { position: relative; height: 6px; border-radius: 3px; background: var(--c-surface-2); overflow: hidden; }
+/* How long it lasts, on the cool ramp: deep blue for a blink, brighter the longer, cyan when stable. */
+.it-track i { position: absolute; inset: 0 auto 0 0; width: calc(var(--v) * 100%); border-radius: 3px; background: color-mix(in srgb, var(--c-accent) calc(var(--v) * 100%), #24407a); }
+.it-item.is-stable .it-track i { background: var(--c-accent); }
+.it-life-lab { flex: none; max-width: 60%; font-size: var(--fs-sm); color: var(--c-text-2); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.it-item.is-stable .it-life-lab { color: var(--c-accent); }
+.it-share { display: flex; align-items: center; justify-content: flex-end; gap: 6px; font-size: var(--fs-sm); font-variant-numeric: tabular-nums; }
+.it-share .na { font-size: var(--fs-min); text-align: right; }
+.it-more { margin: 0 !important; padding: 4px var(--sp-3) var(--sp-2) calc(58px + var(--sp-3) * 2); font-size: var(--fs-sm); color: var(--c-text-2); }
+.it-empty { display: none; color: var(--c-text-2); padding: var(--sp-4) var(--sp-2); }
+.it.is-empty .it-empty { display: block; }
+.it.is-empty .it-headrow { display: none; }
+
+/* Properties: five groups; each property the full width, its strip under its value. */
+.pr-group { margin: var(--sp-5) 0 0; }
+.atom-page .pr-h { margin: 0 0 var(--sp-2); font-size: var(--fs-caps-min, 13px); font-weight: var(--fw-semibold); letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--c-text-min); }
+.prs { display: flex; flex-direction: column; gap: var(--sp-2); }
+.pr { display: flex; flex-direction: column; gap: 4px; padding: var(--sp-3) var(--sp-4) var(--sp-4); border-radius: var(--r-md); background: var(--c-plate); }
+.pr-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); min-height: 32px; }
+.pr-label { font-size: var(--fs-md); font-weight: var(--fw-semibold); color: var(--c-text); line-height: 1.25; }
+.pr-text { display: flex; align-items: baseline; flex-wrap: wrap; gap: 2px var(--sp-3); }
+.pr-value { font-size: var(--fs-xl); font-weight: var(--fw-medium); color: var(--c-text); font-variant-numeric: tabular-nums; }
+.pr-value small, .th-row b small { font-size: var(--fs-sm); color: var(--c-text-2); font-weight: var(--fw-regular); margin-left: 4px; }
+.pr-rank { font-style: normal; font-size: var(--fs-sm); color: var(--c-accent); }
+.pr-pred { color: var(--c-text-2); }
+.pr-vis { margin-top: var(--sp-2); }
+.pr-vis svg { display: block; width: 100%; height: auto; overflow: visible; }
+.pr-lane { stroke: var(--c-line); stroke-width: 1; }
+.pr-dots circle { opacity: 0.6; }
+.pr-guide { stroke: var(--c-silver); stroke-width: 1.5; opacity: 0.5; }
+.pr-me { stroke: var(--c-text); stroke-width: 2; }
+.pr-ends { display: flex; justify-content: space-between; gap: var(--sp-2); margin-top: 4px; font-size: var(--fs-min); color: var(--c-text-min); font-variant-numeric: tabular-nums; }
+.see-atlas { flex: none; display: inline-flex; align-items: center; gap: 4px; min-height: 32px; padding: 0 var(--sp-1); border: 0; background: none; color: var(--c-accent); font: inherit; font-size: var(--fs-sm); font-weight: var(--fw-medium); cursor: pointer; }
+.see-atlas span { font-size: 1.2em; line-height: 1; }
+.see-atlas:hover { text-decoration: underline; }
+.pr-kv { gap: 0; padding-top: var(--sp-2); padding-bottom: var(--sp-2); }
+.pr-kv .kv { padding: 6px 0; }
+
+/* Heat: solid, liquid and gas on one thermometer from absolute zero, room temperature marked. */
+.th-bar { position: relative; display: flex; height: 14px; margin: var(--sp-2) 0 4px; border-radius: 7px; overflow: visible; }
+.th-bar i { display: block; height: 100%; }
+.th-bar i:first-child { border-radius: 7px 0 0 7px; }
+.th-bar i:last-of-type { border-radius: 0 7px 7px 0; }
+.th-solid { background: #3d7cc4; }
+.th-liquid { background: #6fd0e6; }
+.th-gas { background: #d9e6d4; }
+.th-room { position: absolute; top: -4px; bottom: -4px; width: 3px; margin-left: -1.5px; border-radius: 2px; background: var(--c-text); box-shadow: 0 0 0 2px var(--c-plate); }
+.th-key { display: flex; flex-wrap: wrap; gap: 2px var(--sp-3); font-size: var(--fs-min); color: var(--c-text-2); }
+.th-key span { display: inline-flex; align-items: center; gap: 5px; }
+.th-key i { width: 10px; height: 10px; border-radius: 3px; }
+.th-key i.th-room-k { width: 3px; height: 12px; border-radius: 2px; background: var(--c-text); }
+.th-row { display: flex; align-items: baseline; flex-wrap: wrap; gap: 2px var(--sp-3); margin-top: var(--sp-2); }
+.th-row > span { width: 52px; color: var(--c-text-2); }
+.th-row b { font-size: var(--fs-lg); font-weight: var(--fw-medium); font-variant-numeric: tabular-nums; }
+.th-row .pr-rank { flex-basis: 100%; padding-left: calc(52px + var(--sp-3)); }
+.ap-sci { border-radius: 50%; }

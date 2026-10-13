@@ -2,14 +2,18 @@
 // element, as HTML for the View tabs. The top layer stays visual; this is the text
 // and tables the player opens on purpose.
 
-import { BLOCK_COLOUR, formatHalfLife, keyIsotope, shortConfiguration, sup, type Element } from './data';
+import { BLOCK_COLOUR, elementAt as elementAtZ, formatHalfLife, keyIsotope, shortConfiguration, sup, type Element } from './data';
 import { ORBITAL_NAMES } from './orbital';
 import FACTS from '../data/element-facts.json';
 import STORY from '../data/element-story.json';
 import IMAGES from '../data/element-images.json';
 import { disclosureHTML } from '../ui/components';
 import { loadSave, type SaveData } from '../core/save';
-import { discoveryTimeline, isotopeTable, orbitalAssembly, propertyAxes, shellPlot } from './visuals';
+import { discoveryTimeline, discoveryWords, isotopeTable, orbitalAssembly, orbitalTogether, propertyAxes, shellPlot } from './visuals';
+import { layout } from './layouts';
+import { lookColor, inkOn } from './looks';
+import { icon } from '../ui/icons';
+import './info.css';
 
 export type Tab = 'overview' | 'structure' | 'isotopes' | 'properties';
 export const TABS: { id: Tab; label: string }[] = [
@@ -41,7 +45,7 @@ export function decoratorsHTML(e: Element): { topLeft: string; topRight: string 
   const rows = shown.map((i) => `<li class="${i.stable ? 'is-stable' : ''}"${!i.stable && i.halfLife != null ? ` style="--fade:${fadeSeconds(i.halfLife).toFixed(2)}s"` : ''}><span>${e.symbol}-${i.a}</span><b>${i.stable
     ? (i.abundance == null ? 'trace' : `${Number(i.abundance.toPrecision(3))}%`)
     : i.halfLife == null ? 'unknown' : formatHalfLife(i.halfLife, true)}</b></li>`).join('');
-  const more = [moreStable ? `+${moreStable} stable` : '', moreUnstable ? `+${moreUnstable} unstable` : ''].filter(Boolean);
+  const more = [moreStable ? `+${moreStable} stable` : '', moreUnstable ? `+${moreUnstable} fleeting` : ''].filter(Boolean);
   return {
     topLeft: `<span class="dec-config">${shortConfiguration(e)}</span>`
       + `<span class="dec-line">${plural(e.shells, 'shell')}</span>`
@@ -90,26 +94,40 @@ export function elementFacts(z: number): { h: string; f: string[] } | null {
   return (FACTS as { h: string; f: string[] }[])[z - 1] ?? null;
 }
 
+/** A small periodic table with this atom lit, the way back to it in the Atlas. */
+function locator(e: Element): string {
+  const { cells } = layout('table', 'landscape');
+  const x0 = Math.min(...cells.map((c) => c.x)), y0 = Math.min(...cells.map((c) => c.y));
+  const x1 = Math.max(...cells.map((c) => c.x + c.w)), y1 = Math.max(...cells.map((c) => c.y + c.h));
+  const me = cells.find((c) => c.z === e.z)!;
+  const rect = (c: (typeof cells)[number], cls: string) => `<rect class="${cls}" x="${(c.x - x0 + 0.06).toFixed(2)}" y="${(c.y - y0 + 0.06).toFixed(2)}" width="${(c.w - 0.12).toFixed(2)}" height="${(c.h - 0.12).toFixed(2)}" rx="0.14"/>`;
+  const same = (c: (typeof cells)[number]) => elementAtZ(c.z).period === e.period && elementAtZ(c.z).group !== null;
+  const rows = cells.filter((c) => c.z !== e.z).map((c) => rect(c, same(c) ? 'lc-row' : 'lc-cell')).join('');
+  return `<button type="button" class="ov-locate" data-z="${e.z}" aria-label="Show ${esc(e.name.toLowerCase())} in the Atlas">
+    <svg viewBox="0 0 ${(x1 - x0).toFixed(2)} ${(y1 - y0).toFixed(2)}" aria-hidden="true">${rows}<g style="--p:${lookColor('place', e)}">${rect(me, 'lc-me')}</g></svg>
+  </button>`;
+}
+
 function overview(e: Element, collected: boolean): string {
   const img = elementImage(e.z);
   const facts = elementFacts(e.z);
+  // The real thing first, when there is a photo of it.
   const photo = img
     ? `<figure class="ov-photo"><img src="${commons(img.file, 640)}" alt="${esc(img.caption)}" loading="lazy" decoding="async" onerror="this.closest('figure').classList.add('is-missing')">
         <figcaption><span>${esc(img.caption)}</span><span class="ov-credit">Photo <a href="${commonsPage(img.file)}" target="_blank" rel="noopener">${esc(img.author)}</a>, ${img.licenceUrl ? `<a href="${img.licenceUrl}" target="_blank" rel="noopener">${esc(img.licence)}</a>` : esc(img.licence)}, via Wikimedia Commons</span></figcaption></figure>`
     : '';
-  // The element's card and where it sits, then its headline fact, then the photo and the rest.
-  const stat = (v: string | number, label: string) => `<div><b>${v}</b><span>${label}</span></div>`;
-  const hero = `<header class="ov-hero" style="--b:${BLOCK_COLOUR[e.block]}">
-      <div class="ov-tile"><span class="ov-z">${e.z}</span><b>${e.symbol}</b><span class="ov-n">${esc(e.name)}</span><em>${e.weight == null ? `[${e.commonA}]` : Number(e.weight.toPrecision(5))}</em></div>
-      <div class="ov-meta">
-        <span class="ov-series">${esc(e.series)}</span>
-        <div class="ov-stats">${stat(e.group ?? '–', 'Group')}${stat(e.period, 'Period')}${stat(e.block, 'Block')}${stat(e.z, 'Electrons')}</div>
-        <span class="ov-conf">${shortConfiguration(e)}</span>
-      </div>
+  // Its plate in its place color, the little table with it lit, and where it sits in words.
+  const fill = lookColor('place', e);
+  const weight = e.weight == null ? `[${e.commonA}]` : `${Number(e.weight.toPrecision(5))}`;
+  const where = [e.group == null ? (e.z < 90 ? 'Lanthanide' : 'Actinide') : `Group ${e.group}`, `Period ${e.period}`, `${e.block} block`].join(' · ');
+  const band = `<header class="ov-band">
+      <div class="ov-plate" style="background:${fill};color:${inkOn(fill)}"><span>${e.z}</span><b>${e.symbol}</b></div>
+      ${locator(e)}
+      <p class="ov-where"><b>${esc(e.series)}</b><span>${where}</span><span>Weight ${weight} · ${shortConfiguration(e)}</span></p>
     </header>`;
   void collected; // the Build button carries collection progress now
-  // Overview and the old Story tab are one page. Each line appears once: Origins and Uses
-  // (and the name's origin) skip anything the headline or facts above already say.
+  // Each line appears once: Made in and Used for (and the name's origin) skip anything the
+  // headline or facts above already say.
   const headline = facts ? facts.h : e.description || `${e.name} is element ${e.z}.`;
   const highlights = [headline, ...(facts?.f ?? [])];
   const { origins, uses } = storyLists(e);
@@ -117,23 +135,24 @@ function overview(e: Element, collected: boolean): string {
   // The name's origin is a short line, so it only counts as said when a fact is about the name or symbol.
   const naming = highlights.filter((h) => /\b(nam(e|ed|es)|symbol)\b/i.test(h));
   const name = e.nameOrigin && !naming.some((h) => overlap(e.nameOrigin!, h) >= REPEAT) ? [e.nameOrigin] : [];
-  const ancient = !e.discoveryYear;
+  const ancient = !e.discoveryYear || e.discoveryYear < 1650;
+  // "Known to the ancients" only repeats the line above it.
+  const who = e.discoverers && !(ancient && /ancient|prehistor|antiquity/i.test(e.discoverers)) ? e.discoverers : '';
+  const by = [who, e.discoveryPlace ?? ''].filter(Boolean).map(esc).join(' · ');
   return `
-    ${hero}
-    <p class="ov-headline">${esc(headline)}</p>
     ${photo}
+    ${band}
+    <p class="ov-headline">${esc(headline)}</p>
     ${facts ? `<ul class="ov-facts">${facts.f.map((f) => `<li>${esc(f)}</li>`).join('')}</ul>` : ''}
     ${name.length ? `<blockquote class="story-name"><span>The name</span>${esc(name[0])}</blockquote>` : ''}
-    <section class="story-disc">
-      <div class="story-when"><span class="story-cap">Discovered</span><b class="story-year">${ancient ? 'In antiquity' : e.discoveryYear}</b></div>
-      <div class="story-by">
-        ${e.discoverers ? `<p class="story-who">${esc(e.discoverers)}</p>` : ancient ? '<p class="story-who">No one discoverer is recorded</p>' : ''}
-        ${e.discoveryPlace ? `<p class="story-where">${esc(e.discoveryPlace)}</p>` : ''}
-      </div>
+    <section class="ov-disc">
+      <span class="story-cap">Discovered</span>
+      <div class="ov-disc-row"><b class="story-year">${!e.discoveryYear ? 'In antiquity' : e.discoveryYear}</b><span>${discoveryWords(e, true)}</span></div>
+      ${by ? `<p class="ov-disc-by">${by}</p>` : ''}
+      ${discoveryTimeline(e, false)}
     </section>
-    ${discoveryTimeline(e)}
-    ${keptOrigins.length ? `<h3 class="story-h">Origins</h3>${storyList(keptOrigins)}` : ''}
-    ${keptUses.length ? `<h3 class="story-h">Uses</h3>${storyList(keptUses)}` : ''}
+    ${keptOrigins.length ? `<h3 class="story-h">Made in</h3>${storyList(keptOrigins)}` : ''}
+    ${keptUses.length ? `<h3 class="story-h">Used for</h3>${storyList(keptUses)}` : ''}
     ${e.z >= 104 ? '<p class="note">Elements from rutherfordium on have only been made a few atoms at a time; their electron arrangements are predictions, not measurements.</p>' : ''}`;
 }
 
@@ -177,8 +196,9 @@ function structure(e: Element): string {
   }).join('');
   const key = keyIsotope(e);
   return `
-    <div class="st-switch" id="struct-switch"></div>
-    <div class="st-view" data-view="orbitals">${orbitalAssembly(e)}</div>
+    <div class="st-top"><div class="st-switch" id="struct-switch"></div><button type="button" class="st-3d" data-z="${e.z}" aria-label="See ${esc(e.name.toLowerCase())} in 3D, full screen">3D${icon('fullscreen', { size: 18 })}</button></div>
+    <div class="st-view" data-view="together">${orbitalTogether(e)}</div>
+    <div class="st-view" data-view="orbitals" hidden>${orbitalAssembly(e)}</div>
     <div class="st-view" data-view="shells" hidden>${shellPlot(e)}</div>
     ${disclosureHTML({ title: 'All the numbers', hint: `${e.subshells.length} layers`, body: `
     ${row('Configuration', `${e.configuration.split(' ').map((s) => s.slice(0, 2) + sup(s.slice(2))).join(' ')}`)}
@@ -196,26 +216,11 @@ function structure(e: Element): string {
 }
 
 function isotopes(e: Element, _save: SaveData): string {
-  const rows = e.isotopes.map((i) => `<tr class="${i.stable ? 'stable' : ''}">
-    <td>${e.symbol}-${i.a}</td><td>${i.a - e.z}</td><td>${i.mass == null ? '' : i.mass.toFixed(3)}</td>
-    <td>${i.abundance == null ? '' : i.abundance + '%'}</td><td>${i.stable ? 'stable' : i.halfLife == null ? '<span class="na">not known</span>' : formatHalfLife(i.halfLife)}</td><td>${i.spin ?? ''}</td></tr>`).join('');
-  return `
-    ${isotopeTable(e)}
-    ${disclosureHTML({ title: 'All the numbers', hint: `${e.isotopes.length} isotopes`, body: `<div class="tablewrap"><table>
-      <thead><tr><th>Isotope</th><th>Neutrons</th><th>Mass</th><th>Abundance</th><th>Half-life</th><th>Spin</th></tr></thead>
-      <tbody>${rows}</tbody></table></div>` })}
-    `;
+  return isotopeTable(e);
 }
 
 function properties(e: Element): string {
-  return `
-    ${propertyAxes(e)}
-    <section class="info-card"><h3>Additional Details</h3>
-    ${row('Electron affinity', e.electronAffinity != null && e.electronAffinity < 0 ? '<span class="na">no stable negative ion</span>' : num(e.electronAffinity, ' eV'))}
-    ${row('Geochemical class', e.geochemical ? esc(e.geochemical) : '<span class="na">not classed</span>')}
-    ${row('CPK color', e.cpk ? `<span class="swatch" style="background:${e.cpk}"></span>${e.cpk}` : '<span class="na">none</span>')}
-    ${row('Covalent radius', num(e.covalent, ' pm'))}
-    ${row('Atomic weight', num(e.weight, '', 6))}</section>`;
+  return propertyAxes(e);
 }
 
 /** Origins and uses as short bullet lists (src/data/element-story.json, American spelling);
@@ -227,7 +232,12 @@ function storyLists(e: Element): { origins: string[]; uses: string[] } {
   return { origins: split(e.sources), uses: split(e.uses) };
 }
 
-const storyList = (items: string[]) => items.length
-  ? `<ul class="story-list">${items.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>`
-  : '<p class="na">Not recorded.</p>';
+/** Two lines, and the rest folded under "More". */
+const storyList = (items: string[]) => {
+  if (!items.length) return '<p class="na">Not recorded.</p>';
+  const li = (xs: string[]) => xs.map((x) => `<li>${esc(x)}</li>`).join('');
+  const rest = items.slice(2);
+  return `<ul class="story-list">${li(items.slice(0, 2))}</ul>`
+    + (rest.length ? `<details class="story-more"><summary>${rest.length} more</summary><ul class="story-list">${li(rest)}</ul></details>` : '');
+};
 
