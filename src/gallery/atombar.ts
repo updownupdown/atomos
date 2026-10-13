@@ -1,7 +1,8 @@
 // The atom navigator: the bar across the top of the atom screens. The host places it (the
-// element is a plain flex row 60px tall). Left to right: the element (its number over its
-// symbol, then its name; a tap opens the element picker), a button back to Collect, the up and
-// down chevrons for the element before and after. (The Build page's single track marks its own
+// element is a plain flex row 60px tall). It is the top of the atom screens, which have no
+// title row. Left to right: Back (to Collect, or Tables if the atom was opened there), the
+// element (its number over its symbol, then its name, big; a tap opens the element picker),
+// the up and down chevrons for the element before and after. (The Build page's single track marks its own
 // Stable and Fleeting parts, so the bar carries no legend.)
 // View's loupe and Build both mount one, so stepping through elements looks and works the
 // same in each.
@@ -12,7 +13,7 @@
 //   host.append(bar.el);
 //   bar.set(26);
 //
-// The Collect button fires 'atomos:collect' (bubbling, detail { z }); the app shell answers it.
+// Back fires 'atomos:collect' (bubbling, detail { z }); the app shell answers it.
 
 import { MAX_Z, elementAt } from './data';
 import { icon } from '../ui/icons';
@@ -37,11 +38,11 @@ const FIT_STEPS = 10;
 export function createAtomBar(o: AtomBarOptions): AtomBar {
   const el = document.createElement('footer');
   el.className = 'loupe-bar atom-bar';
-  el.innerHTML = `<button class="bar-pick" aria-haspopup="dialog"><span class="bar-z"><small></small><b></b></span><span class="bar-name"></span>${icon('chevron-down', { size: 18 })}</button>`
-    + `<button class="bar-btn bar-collect" aria-label="Back to Collect" title="Collect">${icon('collect', { size: 22 })}</button>`
+  el.innerHTML = `<button class="bar-btn bar-collect" aria-label="Back" title="Back">${icon('chevron-left', { size: 24 })}</button>`
+    + `<button class="bar-pick" aria-haspopup="dialog"><span class="bar-z"><small></small><b></b></span><span class="bar-name"></span>${icon('chevron-down', { size: 18 })}</button>`
     + `<button class="bar-btn" data-dir="-1" aria-label="Previous element">${icon('chevron-up', { size: 24 })}</button>`
     + `<button class="bar-btn" data-dir="1" aria-label="Next element">${icon('chevron-down', { size: 24 })}</button>`;
-  const [more, back, prev, next] = [...el.querySelectorAll<HTMLButtonElement>('button')];
+  const [back, more, prev, next] = [...el.querySelectorAll<HTMLButtonElement>('button')];
   const name = el.querySelector<HTMLElement>('.bar-name')!;
   const num = el.querySelector<HTMLElement>('.bar-z small')!;
   const sym = el.querySelector<HTMLElement>('.bar-z b')!;
@@ -59,11 +60,11 @@ export function createAtomBar(o: AtomBarOptions): AtomBar {
     next.title = z < MAX_Z ? elementAt(z + 1).name : '';
     fit();
   };
-  // Largest size first: 18px down to 13px.
+  // Largest size first: 24px down to 15px.
   const fit = () => {
     if (!name.clientWidth) return; // hidden: the observer refits once it shows
     for (let i = 0; i <= FIT_STEPS; i++) {
-      name.style.fontSize = `${18 - (5 * i) / FIT_STEPS}px`;
+      name.style.fontSize = `${24 - (9 * i) / FIT_STEPS}px`;
       if (name.scrollWidth <= name.clientWidth) return;
     }
   };

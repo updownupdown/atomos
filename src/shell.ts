@@ -1,11 +1,13 @@
-// The app shell: one header on every screen, and the hierarchy beneath it.
+// The app shell: the screen's name at the top, the sections in a dock at the foot, and the
+// hierarchy beneath them.
 //   Tables   — every element in one table, or on a map ('gallery').
 //   Collect  — one period's atoms and how far each is collected; home.
 //     Atom   — one atom, in View mode (the loupe), Build mode (its puzzles) or Info, opened
 //              from Collect (or Tables); the header marks Collect while it is open.
 //   Puzzles  — every puzzle type on its own, on any atom; it never builds atoms.
 //   Settings — its own screen, the fourth section.
-// On Atom screens a mode row sits under the header: View or Build, quick details, the microscope.
+// Atom screens have no title or dock: the atom bar is their top (back, the element, before and
+// after) and the View / Build / Info bar floats at the foot.
 
 import { GalleryApp } from './gallery';
 import { Collect } from './gallery/collect';
@@ -25,10 +27,17 @@ const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as 
 import { readPlace, type Screen } from './core/place';
 import { setNavigator } from './core/next';
 import { loadSave } from './core/save';
+import { atomBuilt } from './core/progress';
+import { MAX_Z } from './core/elements';
 export type { Screen };
 export type { AtomMode };
 
 const PLACE_KEY = 'atomos.place';
+
+/** Each screen's name, big at the top. */
+const TITLES: Record<Screen, string> = {
+  gallery: 'Tables', collect: 'Collect', atom: '', puzzles: 'Puzzles', settings: 'Settings', icons: 'Icons', components: 'Components',
+};
 
 export class AppShell {
   private screen: Screen = 'collect';
@@ -59,12 +68,13 @@ export class AppShell {
       },
     });
     this.collect = new Collect($('collect-screen'), { onOpen: (z) => { this.z = z; void this.go('atom', 'build'); } });
-    // The atom bar's Collect button.
-    document.addEventListener('atomos:collect', () => void this.go('collect'));
+    // The atom bar's Back button: where the atom was opened, Collect or Tables.
+    document.addEventListener('atomos:collect', () => this.closeAtom());
     // Escape on the Build page: back where the atom was opened.
     document.addEventListener('atomos:close-atom', () => this.closeAtom());
-    // Header: the mark (home) on the left, then the four sections, each an icon over its name.
-    $('nav-logo').innerHTML = `${markSvg()}<span class="nav-word">Atomos</span>`;
+    // Top: the mark (home), then the screen's name. The dock: the four sections, each an icon
+    // over its name.
+    $('nav-logo').innerHTML = markSvg();
     $('nav-logo').onclick = () => void this.go('collect');
     const sections: [string, IconName, () => void][] = [
       ['nav-gallery', 'gallery', () => void this.go('gallery')],
@@ -153,8 +163,8 @@ export class AppShell {
     if (this.screen !== 'collect') void this.go('collect');
   }
 
-  /** Where an atom was opened from: Tables, or Collect (anything else). Back and Escape return
-   *  there; the atom bar's Collect button always goes to Collect. */
+  /** Where an atom was opened from: Tables, or Collect (anything else). Back, Escape and the
+   *  atom bar's Back button return there. */
   private atomFrom: 'gallery' | 'collect' = 'collect';
 
   private closeAtom(): void {
@@ -275,6 +285,17 @@ export class AppShell {
   }
 
 
+  /** The line at the right of the title: how much of the table is built, on Collect. */
+  private paintAside(screen: Screen): void {
+    const aside = $('nav-aside');
+    aside.hidden = screen !== 'collect';
+    if (aside.hidden) return;
+    const save = loadSave();
+    let built = 0;
+    for (let z = 1; z <= MAX_Z; z++) if (atomBuilt(z, save)) built++;
+    aside.textContent = `${built} of ${MAX_Z} built`;
+  }
+
   private setNav(screen: Screen, mode: AtomMode): void {
     const on = (id: string, yes: boolean) => $(id).setAttribute('aria-current', yes ? 'page' : 'false');
     on('nav-gallery', screen === 'gallery');
@@ -282,6 +303,8 @@ export class AppShell {
     on('nav-puzzles', screen === 'puzzles');
     on('nav-settings', screen === 'settings');
     showModeBar(screen === 'atom', mode);
+    $('nav-title').textContent = TITLES[screen];
+    this.paintAside(screen);
     document.body.dataset.screen = screen === 'atom' ? `atom-${mode}` : screen;
     this.remember(screen, mode);
     this.syncBack();
