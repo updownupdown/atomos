@@ -4,10 +4,14 @@
 .at { position: absolute; inset: 0; display: flex; flex-direction: column; padding-top: var(--top); font-family: var(--font); background: var(--c-bg); }
 
 /* Views: one pill row, the open one on the lighter plate in the accent, like the dock. */
-.at-views { flex: none; display: flex; gap: 2px; margin: var(--sp-2) var(--sp-3) 0; padding: 4px; height: 48px; border-radius: var(--r-pill); background: var(--c-well); }
-.at-views button { flex: 1 1 0; min-width: 0; padding: 0 4px; border: 0; border-radius: var(--r-pill); background: transparent; color: var(--c-text-2); font: inherit; font-size: 13px; font-weight: var(--fw-semibold); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.at-views { flex: none; display: flex; gap: 2px; margin: var(--sp-2) var(--sp-3) 0; padding: 4px; height: 48px; border-radius: var(--r-pill); background: var(--c-well); overflow-x: auto; scrollbar-width: none; overscroll-behavior-x: contain; }
+.at-views::-webkit-scrollbar { display: none; }
+/* Eight views: the row scrolls sideways on a phone, the shapes still to earn at its end. */
+.at-views button { flex: 1 0 auto; display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-width: 0; padding: 0 12px; white-space: nowrap; border: 0; border-radius: var(--r-pill); background: transparent; color: var(--c-text-2); font: inherit; font-size: 13px; font-weight: var(--fw-semibold); cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .at-views button:hover { color: var(--c-text); }
 .at-views button[aria-checked='true'] { background: var(--c-pick); color: var(--c-accent); }
+.at-views button.is-locked { color: var(--c-text-2); }
+.at-views button.is-locked svg { width: 14px; height: 14px; opacity: 0.8; }
 .at-views button:focus-visible { outline: 2px solid var(--c-accent); outline-offset: -2px; }
 
 /* Search and Color, for every view. */
@@ -124,3 +128,57 @@ body:not([data-screen='gallery']) .at-page { display: none; }
   .at-search input, .at-color, .at-sci, .at-clear { height: 36px; }
   .at-sci { width: 36px; }
 }
+
+/* A shape still to earn: a card over its gray preview. */
+.at-lock[hidden] { display: none; }
+.at-lock { position: absolute; top: var(--sp-2); left: 50%; transform: translateX(-50%); z-index: 2; width: min(400px, calc(100% - 2 * var(--sp-3))); pointer-events: none; }
+.at-lock-card { pointer-events: auto; display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; border-radius: 20px; background: var(--c-surface-2); box-shadow: 0 6px 24px rgba(0, 0, 0, 0.55); }
+.at-lock-card b { font-size: var(--fs-md); font-weight: var(--fw-semibold); }
+.at-lock-card small { font-size: 13px; color: var(--c-text-2); }
+.at-lock-bar { display: block; height: 8px; border-radius: 4px; background: var(--c-well); overflow: hidden; }
+.at-lock-bar i { display: block; height: 100%; border-radius: 4px; background: var(--c-accent); }
+.at-lock-card .ui-next { align-self: flex-start; }
+
+/* Lines under the cells: Bohr's family links, and the seats for elements not yet made. */
+.am-link, .am-seat { fill: none; vector-effect: non-scaling-stroke; pointer-events: none; }
+.am-link { stroke: #3a4249; stroke-width: 2.5px; }
+.am-seat { stroke: #4a535b; stroke-width: 2px; stroke-dasharray: 6 5; }
+
+/* A shape just earned: its cells arrive one after another. */
+.at-map.is-reveal .am-cell { transform-box: fill-box; transform-origin: center; animation: am-arrive 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both; animation-delay: calc(var(--i) * 14ms); }
+.at-map.is-reveal .am-label { animation: am-fade 0.6s ease both; animation-delay: 1.8s; }
+@keyframes am-arrive { from { opacity: 0; transform: scale(0.4); } to { opacity: 1; transform: none; } }
+@keyframes am-fade { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .at-map.is-reveal .am-cell, .at-map.is-reveal .am-label { animation: none; } }
+
+/* The legend's extras: a color just opened, and the time-lapse. */
+.at-fresh { display: inline-flex; align-items: center; gap: 6px; color: var(--c-text); }
+.at-fresh svg { color: var(--c-accent); }
+.at-fresh b { font-weight: var(--fw-semibold); }
+.at-keep { margin-left: 4px; height: 30px; padding: 0 12px; border: 0; border-radius: var(--r-pill); background: var(--c-pick); color: var(--c-accent); font: inherit; font-size: 13px; font-weight: var(--fw-semibold); cursor: pointer; }
+.at-lapse { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border: 0; border-radius: var(--r-pill); background: var(--c-surface-2); color: var(--c-text); font: inherit; font-size: 13px; cursor: pointer; }
+.at-lapse b { font-weight: var(--fw-semibold); font-variant-numeric: tabular-nums; }
+.at-lapse span { color: var(--c-text-2); }
+.at-lapse.is-on { background: var(--c-pick); }
+.at-lapse.is-on b { color: var(--c-accent); min-width: 4ch; }
+.at-lapse.is-locked { color: var(--c-text-2); }
+
+/* Beside the title: how much of the Atlas is earned. */
+.at-count { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 12px; border: 0; border-radius: var(--r-pill); background: var(--c-surface-2); color: var(--c-text); font: inherit; font-size: 13px; font-weight: var(--fw-semibold); font-variant-numeric: tabular-nums; cursor: pointer; }
+.at-count svg { color: var(--c-accent); }
+.at-count:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
+
+/* The Color sheet and the earn sheet: rows still to earn, with Play or where to meet the game. */
+.look-row.is-locked { cursor: default; }
+.look-row.is-locked .look-main b { color: var(--c-text-2); }
+.look-go, .earn-mark { flex: none; display: inline-flex; align-items: center; }
+.earn-mark { color: var(--c-done); }
+.earn-row { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-3); border-radius: var(--r-md); background: var(--c-plate); }
+.earn-row:not(.is-open) .look-main b { color: var(--c-text-2); }
+.earn-h { margin: var(--sp-3) 2px 2px; font-size: 13px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--c-text-2); font-weight: var(--fw-semibold); }
+.earn-h small { font-size: 13px; letter-spacing: 0; text-transform: none; margin-left: 6px; }
+.earn-lede { margin: 0 0 var(--sp-2); color: var(--c-text-2); line-height: 1.5; }
+.earn-one { display: flex; flex-direction: column; gap: var(--sp-3); }
+.earn-one p { margin: 0; line-height: 1.55; }
+.earn-how { display: flex; align-items: center; gap: 8px; color: var(--c-text-2); }
+.earn-go { display: flex; }

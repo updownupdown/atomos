@@ -23,7 +23,7 @@ import { atomBuilt, orbitalShapeUnlocked, rowOf, rowOpen, SHAPE_AT, stepState } 
 import { nextStep, openStep } from '../core/next';
 import { firstTimeLine } from '../ui/nu';
 import { isUnlocked, unlockPuzzle, type UnlockId } from '../core/unlocks';
-import { PUZZLES } from '../puzzles/catalog';
+import { aPuzzle } from './earn';
 import { playUnlock } from '../puzzles/unlock';
 import { fleetingOpen } from './locks';
 import { isViewLook, VIEW_LOOKS, type ViewLook } from '../render/rayLooks';
@@ -279,12 +279,12 @@ export class GalleryApp {
 
   /** A locked lens or look: what it is, which puzzle opens it, and an Unlock button. */
   private offerUnlock(id: UnlockId, title: string, what: string, then: () => void): void {
-    const game = PUZZLES.find((p) => p.id === unlockPuzzle(id))?.name ?? 'Glyph';
+    const game = aPuzzle(unlockPuzzle(id));
     const sheet = openModal(`<h2>${title}</h2>
       <div class="gate-sheet">
         <p class="gate-what">${what}</p>
-        <p class="gate-why">${icon('lock', { size: 20 })}<span>Locked. Solve a ${game} puzzle to open it.</span></p>
-        <button class="primary gate-go">${icon('unlock', { size: 22 })}<span>Unlock</span></button>
+        <p class="gate-why">${icon('lock', { size: 20 })}<span>Win ${game} to open it, anywhere in the game, or play one now.</span></p>
+        <button class="primary gate-go">${icon('unlock', { size: 22 })}<span>Play</span></button>
       </div>`);
     sheet.querySelector<HTMLButtonElement>('.gate-go')!.onclick = async () => {
       closeModal();
@@ -333,6 +333,11 @@ export class GalleryApp {
   }
 
   /** Show an atom in the Atlas, from one of its pages (the shell has switched to the Atlas). */
+  /** Beside the Atlas title: how much of the Atlas is earned. */
+  get atlasCount(): HTMLElement {
+    return this.atlas.countButton;
+  }
+
   showInAtlas(z: number, look: LookId | null): void {
     this.atlas.focus(z, look);
   }

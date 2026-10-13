@@ -30,6 +30,7 @@ interface Pointer { x: number; y: number }
 export class AtlasMap {
   readonly el: SVGSVGElement;
   private world = svg('g');
+  private decorG = svg('g', { class: 'am-decor' });
   private cellsG = svg('g', { class: 'am-cells' });
   private labelsG = svg('g', { class: 'am-labels' });
   private axisG = svg('g', { class: 'am-axis' });
@@ -58,7 +59,7 @@ export class AtlasMap {
   constructor(host: HTMLElement, private opts: { onPick: (z: number | null) => void }) {
     this.el = svg('svg', { class: 'am', role: 'img' });
     this.el.append(this.world);
-    this.world.append(this.cellsG, this.ringG, this.labelsG, this.axisG);
+    this.world.append(this.decorG, this.cellsG, this.ringG, this.labelsG, this.axisG);
     host.append(this.el);
     new ResizeObserver(() => this.resize()).observe(host);
     this.bind();
@@ -126,13 +127,14 @@ export class AtlasMap {
     this.paths.clear();
     this.texts.clear();
     this.cellsG.replaceChildren();
+    this.decorG.replaceChildren(...(this.lay.decor ?? []).map((d) => svg('path', { d: d.d, class: `am-${d.kind}` })));
     this.labelsG.replaceChildren();
     this.axisG.replaceChildren();
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
     const grow = (x: number, y: number, r = 0) => { x0 = Math.min(x0, x - r); y0 = Math.min(y0, y - r); x1 = Math.max(x1, x + r); y1 = Math.max(y1, y + r); };
-    for (const c of this.lay.cells) {
+    this.lay.cells.forEach((c, i) => {
       const e = elementAt(c.z);
-      const p = svg('path', { d: c.d, 'data-z': c.z, class: 'am-cell' });
+      const p = svg('path', { d: c.d, 'data-z': c.z, class: 'am-cell', style: `--i:${i}` });
       const fill = this.colors(e);
       p.setAttribute('fill', fill);
       this.cellsG.append(p);
@@ -149,7 +151,7 @@ export class AtlasMap {
       this.labelsG.append(g);
       this.texts.set(c.z, { sym, num, name, cell: c });
       grow(c.x, c.y, Math.max(c.w, c.h) * 0.75);
-    }
+    });
     for (const l of this.lay.labels) {
       const t = svg('text', { class: `am-${l.kind}`, x: l.x, y: l.y });
       t.textContent = l.text;
@@ -197,6 +199,18 @@ export class AtlasMap {
     const fx = (lo: number, hi: number, v: number, span: number) => (span >= hi - lo ? (lo + hi) / 2 - span / 2 : Math.max(lo, Math.min(hi - span, v)));
     this.tx = fx(b.x, b.x + b.w, this.tx, vw);
     this.ty = fx(b.y, b.y + b.h, this.ty, vh);
+  }
+
+  /** The atom whose cell center is within half a cell of a screen point: a tap just off a small
+   *  circle on Sizes, or in a seam, still finds it. */
+  private near(p: Pointer): number | null {
+    const x = this.tx + p.x / this.scale, y = this.ty + p.y / this.scale;
+    let best: number | null = null, d = 0.6;
+    for (const c of this.lay?.cells ?? []) {
+      const k = Math.hypot(c.x - x, c.y - y);
+      if (k < d) { d = k; best = c.z; }
+    }
+    return best;
   }
 
   /** The zoom at which a cell's symbol fits. */
@@ -305,8 +319,7 @@ export class AtlasMap {
       }
       this.lastTap = now;
       const hit = document.elementFromPoint(ev.clientX, ev.clientY)?.closest?.('[data-z]');
-      const z = hit ? Number(hit.getAttribute('data-z')) : null;
-      this.opts.onPick(z);
+      this.opts.onPick(hit ? Number(hit.getAttribute('data-z')) : this.near(p));
     };
     el.addEventListener('pointerup', end);
     el.addEventListener('pointercancel', end);

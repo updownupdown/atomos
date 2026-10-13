@@ -7,6 +7,7 @@ import { BLOCK_COLOUR, ELEMENTS, L_OF, formatHalfLife, keyIsotope, sup, type Ele
 import { harmonic, M_ORDER, ORBITAL_NAMES, radial, radialTable } from './orbital';
 import { isLasting } from '../core/progress';
 import type { LookId } from './looks';
+import { modelColor } from './modelColors';
 import { LOOKS } from './looks';
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
@@ -568,7 +569,7 @@ export function propertyAxes(e: Element): string {
     ${group('Chemistry', ax('en') + ax('ion') + oxidationStrip(e) + details(
       kvRow('Electron affinity', affinity)
       + kvRow('Geochemical class', e.geochemical ? esc(e.geochemical) : na('not classed'))
-      + kvRow('Color in molecule models', e.cpk ? `<span class="swatch" style="background:${e.cpk}"></span>${e.cpk}` : na('none'))))}
+      + kvRow('Color in molecule models', modelColor(e.z) ? `<span class="swatch" style="background:${modelColor(e.z)}"></span>${modelColor(e.z)}` : na('none'))))}
     ${group('Size', ax('size') + details(kvRow('Covalent radius', e.covalent == null ? na('not known') : `${Number(e.covalent.toPrecision(3))} pm`)))}
     ${group('Where it is found', ax('crust') + ax('sea'))}`;
 }

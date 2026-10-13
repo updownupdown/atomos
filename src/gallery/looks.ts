@@ -1,12 +1,13 @@
 // Color by: the ways to color the Atlas maps and the Details plates. "Place" (the period colors
-// after Hyde's ribbon chart) is the default; the others color each atom by what it is like. Every
-// one is open to everyone (they used to be opened one by one with Glyph). Each look turns an
+// after Hyde's ribbon chart) is the default and open from the start; the others color each atom
+// by what it is like, and each opens with the first win of one game (src/core/unlocks.ts). Each look turns an
 // element into a shade from 0 to 1, or a category, or nothing when the value is unknown, and
 // lookColor turns that into the fill the maps draw.
 
-import { BLOCK_COLOUR, placeColour, type Element } from './data';
+import { BLOCK_COLOUR, ELEMENTS, placeColour, type Element } from './data';
+import { modelColor } from './modelColors';
 
-export type LookId = 'place' | 'block' | 'state' | 'discovery' | 'melt' | 'density' | 'electronegativity' | 'size' | 'crust';
+export type LookId = 'place' | 'block' | 'state' | 'discovery' | 'melt' | 'density' | 'electronegativity' | 'size' | 'crust' | 'model';
 
 /** What a cell shows under a look: a shade (0 to 1), a category, or nothing known. */
 export type LookValue = { v: number } | { cat: 'solid' | 'liquid' | 'gas' } | null;
@@ -68,6 +69,7 @@ export const LOOKS: Look[] = [
     // Past rutherfordium the densities are predictions, kept out as the Properties tab does.
     value: (e) => (e.density == null || e.z >= 104 ? null : { v: clamp(Math.sqrt(e.density / 22.59)) }),
   },
+  { id: 'model', label: 'Model colors', blurb: 'The colors atoms are painted in molecule models: hydrogen white, carbon gray, oxygen red (the CPK colors, as Jmol draws them).' },
 ];
 
 export const isLookId = (id: string | null): id is LookId => LOOKS.some((l) => l.id === id);
@@ -94,6 +96,7 @@ export function rampColor(v: number): string {
 export function lookColor(id: LookId, e: Element): string {
   if (id === 'place') return placeColour(e);
   if (id === 'block') return BLOCK_COLOUR[e.block];
+  if (id === 'model') return modelColor(e.z) ?? UNKNOWN_FILL;
   const v = lookOf(id).value!(e);
   if (!v) return UNKNOWN_FILL;
   return 'cat' in v ? STATE_FILL[v.cat] : rampColor(v.v);
@@ -103,6 +106,7 @@ export function lookColor(id: LookId, e: Element): string {
 export function lookLegend(id: LookId): { swatches?: { label: string; color: string }[]; low?: string; high?: string } | null {
   if (id === 'place') return null;
   if (id === 'block') return { swatches: (['s', 'p', 'd', 'f'] as const).map((b) => ({ label: `${b} block`, color: BLOCK_COLOUR[b] })) };
+  if (id === 'model') return { swatches: [...[1, 6, 7, 8].map((z) => ({ label: ELEMENTS[z - 1].name, color: modelColor(z)! })), { label: 'None', color: UNKNOWN_FILL }] };
   if (id === 'state') return { swatches: [{ label: 'Solid', color: STATE_FILL.solid }, { label: 'Liquid', color: STATE_FILL.liquid }, { label: 'Gas', color: STATE_FILL.gas }, { label: 'Not known', color: UNKNOWN_FILL }] };
   const l = lookOf(id);
   return { low: l.low, high: l.high };

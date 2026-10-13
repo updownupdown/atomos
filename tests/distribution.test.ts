@@ -81,8 +81,10 @@ describe('rows open by progress', () => {
 });
 
 describe('every game has one job', () => {
-  it('Glyph opens every display unlock', () => {
-    for (const id of ['lens:ribbon', 'lens:circle', 'nucleus-view', 'look:state'] as const) expect(unlockPuzzle(id)).toBe('codebreaker');
+  it('every one of the ten games opens something in the Atlas or the atom view', () => {
+    const games = new Set(['look:block', 'look:melt', 'look:density', 'look:state', 'look:electronegativity', 'look:size', 'look:crust', 'look:discovery', 'look:model', 'nucleus-view', 'toy:timelapse'].map((id) => unlockPuzzle(id as never)));
+    expect([...games].sort()).toEqual(['codebreaker', 'colorCharge', 'light', 'lines', 'merge', 'orbitalGrid', 'packing', 'rutherford', 'slideStop', 'sliding']);
+    expect(unlockPuzzle('nucleus-view')).toBe('rutherford');
   });
 
   it('the catalog says so', () => {

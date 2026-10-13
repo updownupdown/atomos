@@ -21,6 +21,7 @@
 .ov-where { grid-area: where; display: flex; flex-direction: column; gap: 2px; margin: 0 !important; }
 .ov-where b { font-size: var(--fs-md); font-weight: var(--fw-semibold); color: var(--c-text); }
 .ov-where span { font-size: var(--fs-sm); color: var(--c-text-2); font-variant-numeric: tabular-nums; }
+.ov-where .ov-built { display: inline-flex; align-items: center; gap: 4px; color: var(--c-done); font-weight: var(--fw-medium); }
 
 /* Discovered: the year (or antiquity) and where it falls, who and where, then the timeline. */
 .ov-disc { margin: var(--sp-4) 0 var(--sp-2); }

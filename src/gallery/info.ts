@@ -108,6 +108,12 @@ function locator(e: Element): string {
   </button>`;
 }
 
+/** A quiet line on a built atom's plate band: "Built", or "Built · flawless". */
+function builtLine(z: number): string {
+  const b = loadSave().built[z];
+  return b ? `<span class="ov-built">${icon('check', { size: 16 })}Built${b.flawless ? ' · flawless' : ''}</span>` : '';
+}
+
 function overview(e: Element, collected: boolean): string {
   const img = elementImage(e.z);
   const facts = elementFacts(e.z);
@@ -123,7 +129,7 @@ function overview(e: Element, collected: boolean): string {
   const band = `<header class="ov-band">
       <div class="ov-plate" style="background:${fill};color:${inkOn(fill)}"><span>${e.z}</span><b>${e.symbol}</b></div>
       ${locator(e)}
-      <p class="ov-where"><b>${esc(e.series)}</b><span>${where}</span><span>Weight ${weight} · ${shortConfiguration(e)}</span></p>
+      <p class="ov-where"><b>${esc(e.series)}</b><span>${where}</span><span>Weight ${weight} · ${shortConfiguration(e)}</span>${builtLine(e.z)}</p>
     </header>`;
   void collected; // the Build button carries collection progress now
   // Each line appears once: Made in and Used for (and the name's origin) skip anything the
