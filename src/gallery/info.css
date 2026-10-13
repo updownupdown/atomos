@@ -46,7 +46,6 @@
 .st-3d { flex: none; display: inline-flex; align-items: center; gap: 4px; height: 40px; padding: 0 var(--sp-3); border: 0; border-radius: 20px; background: var(--c-surface-2); color: var(--c-text); font: inherit; font-size: var(--fs-sm); font-weight: var(--fw-semibold); cursor: pointer; }
 .st-3d:hover { background: var(--c-surface-3); }
 .st-3d svg { color: var(--c-accent); }
-.om-toggle { margin: 0 0 var(--sp-3); }
 
 /* Structure › Together: every orbital at once, the inner layers inside the outer. */
 .tg { display: flex; flex-direction: column; gap: var(--sp-3); }
@@ -81,11 +80,24 @@
 .tg-fill { display: flex; align-items: center; gap: var(--sp-3); }
 .tg-play { flex: none; width: 44px; height: 44px; display: grid; place-items: center; border: 0; border-radius: 50%; background: var(--c-accent); color: #000; cursor: pointer; }
 .tg-slider { flex: 1 1 auto; min-width: 0; }
-.tg-chips { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
-.tg-chip { min-width: 44px; height: 34px; padding: 0 10px; border: 0; border-radius: 17px; background: color-mix(in srgb, var(--b) 22%, var(--c-surface)); color: var(--c-text); font: inherit; font-size: var(--fs-sm); font-weight: var(--fw-semibold); cursor: pointer; transition: background 0.2s, opacity 0.2s; }
-.tg-chip sup { font-size: 0.7em; margin-left: 1px; }
-.tg-chip[aria-pressed='true'] { background: var(--b); color: #000; }
-.tg-chip:disabled { opacity: 0.35; cursor: default; }
+.tg-chips { display: flex; flex-direction: column; gap: 6px; padding: var(--sp-3); border-radius: 20px; background: var(--c-surface-2); }
+.tg-shell { display: grid; grid-template-columns: 18px minmax(0, 1fr); align-items: start; gap: 6px; }
+.tg-subs { display: flex; flex-wrap: wrap; gap: 6px; }
+.tg-n { line-height: 40px; font-size: var(--fs-sm); font-weight: var(--fw-semibold); color: var(--c-text-2); font-variant-numeric: tabular-nums; }
+.tg-chip { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 4px 8px; border: 0; border-radius: 12px; background: var(--c-surface-3); color: var(--c-text); font: inherit; cursor: pointer; transition: background 0.2s, opacity 0.2s, box-shadow 0.2s; }
+.tg-chip:hover { background: color-mix(in srgb, var(--b) 18%, var(--c-surface-3)); }
+.tg-chip[aria-pressed='true'] { background: color-mix(in srgb, var(--b) 22%, var(--c-surface-3)); box-shadow: inset 0 0 0 2px var(--b); }
+.tg-chip.is-empty { opacity: 0.5; cursor: default; }
+.tg-key { min-width: 22px; font-size: var(--fs-sm); font-weight: var(--fw-semibold); color: var(--b); }
+.tg-boxes { display: flex; flex-wrap: wrap; gap: 3px; }
+.tg-box { width: 22px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 6px; background: var(--c-bg); font-style: normal; font-size: 13px; line-height: 1; transition: background 0.2s; }
+.tg-box b { font-weight: 700; color: #000; }
+.tg-box.f1 { background: color-mix(in srgb, var(--b) 35%, var(--c-bg)); }
+.tg-box.f1 b.is-lone { color: var(--c-accent); }
+.tg-box.f2 { background: var(--b); }
+.tg-detail { padding: var(--sp-2) var(--sp-3); border-radius: 16px; background: var(--c-surface-2); }
+.tg-detail .om-glyphs { flex-wrap: wrap; gap: 6px; }
+.tg-detail .om-glyph .om-name { display: block; }
 
 /* Isotopes: thin rows; a tap opens the mass, neutrons and spin. */
 .it { display: flex; flex-direction: column; gap: 2px; }

@@ -27,6 +27,17 @@ describe('Structure › Together', () => {
     expect(r1s).toBeCloseTo(at('1s') / fe.vdw, 4);
   });
 
+  it('lays the orbitals out as a box diagram, one line per shell, a box per orbital', () => {
+    const fe = elementAt(26);
+    const html = orbitalTogether(fe);
+    expect(html.match(/class="tg-shell"/g)).toHaveLength(4);
+    expect(html.match(/class="tg-box"/g)).toHaveLength(fe.subshells.reduce((n, s) => n + s.capacity / 2, 0));
+    // Shell 3 reads s, p, d; 4s sits on its own line.
+    const shell3 = html.split('class="tg-shell"')[3];
+    expect([...shell3.matchAll(/tg-key">(\w+)</g)].map((m) => m[1])).toEqual(['3s', '3p', '3d']);
+    expect(html).not.toContain('data-view="orbitals"');
+  });
+
   it('spreads the p orbitals 120° apart, as seen from a corner of their axes', () => {
     expect([0, 1, 2].map((i) => orbitalTurn(1, i))).toEqual([90, 210, 330]);
   });
