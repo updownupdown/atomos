@@ -190,6 +190,6 @@ describe('view', () => {
   it('has rule cards with pictures', () => {
     checkRules(RULES, ['Opposites', 'Straight lines', 'One left']);
     expect(RULES.map((r) => r.title)).toEqual(['Jump', 'Opposites', 'Straight lines', 'One left']);
-    expect(INSTRUCTIONS).toMatch(/^\s*<h3>In the game<\/h3>\s*<p class="meta">/);
+    expect(INSTRUCTIONS).toMatch(/^\s*<section class="how-specs"><h3>Specs<\/h3><ul>\s*<li><b>Flawless:<\/b>/);
   });
 });

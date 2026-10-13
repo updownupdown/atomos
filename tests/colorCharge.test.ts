@@ -466,7 +466,7 @@ describe('view', () => {
         }
       }
     }
-    expect(INSTRUCTIONS).toMatch(/<h3>In the game<\/h3>\s*<p class="meta">/);
+    expect(INSTRUCTIONS).toMatch(/^\s*<section class="how-specs"><h3>Specs<\/h3><ul>\s*<li><b>Flawless:<\/b>/);
     expect(INSTRUCTIONS).not.toMatch(/How to play/);
   });
 });

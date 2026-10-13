@@ -13,8 +13,15 @@ const colorOf = (k: number): string => [C.s, C.p, C.d, C.f, C.silverDim, C.pewte
 const GAP = 6;
 
 export const INSTRUCTIONS = `
-<h3>In the game</h3>
-<p class="meta">A gate for the 15 synthetic elements, z 104-118. Up to z 111 the four symbols of the code are all different; from z 112 a symbol may repeat. Par is 5 guesses and clean means cracking it within par. Ten guesses without cracking it is stuck, and a restart deals the same code. Undo takes back changes to the guess row, but a guess once made stays made.</p>`;
+<section class="how-specs"><h3>Specs</h3><ul>
+<li><b>Flawless:</b> Crack the code in par guesses or fewer, where par is 5 and each guess made is a move, and without Show me.</li>
+<li><b>Code:</b> Four symbols drawn at random from six. Up to z 111 all four are different, one of 360 codes; from z 112 a symbol may repeat, one of 1,296.</li>
+<li><b>Par:</b> Five guesses. Show me plays a code that fits every clue, picked by Knuth's rule: the one whose worst clue leaves the fewest codes standing.</li>
+<li><b>Lost:</b> Ten guesses without cracking it is a loss, and a restart deals the same code.</li>
+<li><b>Undo:</b> Undo takes back changes to the guess row, but a guess once made stays made.</li>
+<li><b>Where it's played:</b> Glyph is the gate for the 15 synthetic elements, z 104 to 118.</li>
+</ul></section>
+`;
 
 interface Rect { x: number; y: number; w: number; h: number }
 
@@ -599,7 +606,7 @@ function history(ctx: CanvasRenderingContext2D, w: number, h: number, t: number,
 export const RULES: RuleCard[] = [
   {
     title: 'The sealed code',
-    text: 'Four symbols, drawn from the six in the palette, are sealed in the top row. Crack the code in ten guesses or fewer and the padlock opens.',
+    text: 'Four symbols, drawn from the six in the palette, are sealed in the top row. **Crack the code in ten guesses or fewer** and the padlock opens.',
     good: {
       duration: 1.8,
       caption: 'Cracked: the padlock opens',
@@ -611,7 +618,7 @@ export const RULES: RuleCard[] = [
   },
   {
     title: 'Make a guess',
-    text: 'Tap a slot, then a symbol in the palette to fill it; the next empty slot is chosen for you, and tapping the chosen slot again empties it. With all four full, tap Guess.',
+    text: 'Tap a slot, then a symbol in the palette to fill it; the next empty slot is chosen for you, and tapping the chosen slot again empties it. **With all four full, tap Guess**.',
     good: {
       duration: 2.8,
       caption: 'All four filled, then Guess',
@@ -625,7 +632,7 @@ export const RULES: RuleCard[] = [
   },
   {
     title: 'Filled dot',
-    text: 'Each filled dot is one symbol that is right and in the right place. Faint dots score nothing, and no dot says which symbol it means.',
+    text: 'Each filled dot is one symbol that is **right and in the right place**. Faint dots score nothing, and no dot says which symbol it means.',
     good: {
       duration: 1.8,
       caption: 'Right symbol, right place',
@@ -634,7 +641,7 @@ export const RULES: RuleCard[] = [
   },
   {
     title: 'Hollow dot',
-    text: 'Each hollow dot is one symbol that is in the code but in another place.',
+    text: 'Each hollow dot is one symbol that is **in the code but in another place**.',
     good: {
       duration: 1.8,
       caption: 'Right symbol, wrong place',
@@ -643,7 +650,7 @@ export const RULES: RuleCard[] = [
   },
   {
     title: 'Six symbols',
-    text: 'Each of the six symbols has its own shape as well as its color, so color alone never carries the code.',
+    text: 'Each of the six symbols has **its own shape as well as its color**, so color alone never carries the code.',
     good: {
       duration: 1.6,
       caption: 'A shape and a color each',
@@ -660,7 +667,7 @@ export const RULES: RuleCard[] = [
   },
   {
     title: 'Repeats',
-    text: 'On the last few elements a symbol may appear more than once in the code, and each copy scores on its own.',
+    text: 'On the last few elements a symbol may **appear more than once in the code**, and each copy scores on its own.',
     good: {
       duration: 2,
       caption: 'Each copy scores on its own',
@@ -669,7 +676,7 @@ export const RULES: RuleCard[] = [
   },
   {
     title: 'Ten guesses',
-    text: 'Guesses fill the numbered rows from 1 to 10. Run out without cracking the code and only a restart helps; it deals the same code.',
+    text: 'Guesses fill the numbered rows from 1 to 10. Run out without cracking the code and **only a restart helps**; it deals the same code.',
     good: {
       duration: 2.2,
       caption: 'Cracked on guess 3',
@@ -697,7 +704,7 @@ export const RULES: RuleCard[] = [
   },
   {
     title: 'Keyboard',
-    text: 'Keys 1 to 6 type a symbol, left and right move between slots, up and down change the symbol in a slot, Backspace clears and Enter guesses.',
+    text: '**Keys 1 to 6 type a symbol**, left and right move between slots, up and down change the symbol in a slot, Backspace clears and Enter guesses.',
   },
 ];
 
