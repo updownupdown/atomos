@@ -27,15 +27,19 @@
 .co-nu i { position: absolute; left: -3.5px; top: -3.5px; width: 7px; height: 7px; border-radius: 50%; background: var(--c-go); box-shadow: 0 0 8px 2px var(--c-go-ring); transform: translateX(var(--r, 12px)); }
 @keyframes co-nu-orbit { to { transform: rotate(360deg); } }
 
-/* The side: stable and fleeting, each a ring round its icon with the percent, then Next. */
+/* The side: stable and fleeting, each a line like the atom's own under the gem but in percents,
+   then Next. */
 .co-side { min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-2); }
-.co-stat { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
-.co-stat > span:last-child { display: flex; flex-direction: column; line-height: 1.15; min-width: 0; }
-.co-stat b { font-size: var(--fs-md); font-weight: var(--fw-semibold); color: var(--c-text); font-variant-numeric: tabular-nums; }
-.co-stat small { font-size: 13px; color: var(--c-text-2); }
-.co-stat.is-done b { color: var(--c-done); }
-.co-stat.is-off b { color: var(--c-text-2); }
+.co-side-progs { display: flex; flex-direction: column; align-items: flex-end; gap: var(--sp-1); }
 .co-side .ui-next { margin-top: 2px; }
+
+/* A line of progress: the word, the figure, then a ring round the part's icon. */
+.co-prog { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
+.co-prog-txt { display: flex; align-items: baseline; gap: 6px; min-width: 0; white-space: nowrap; }
+.co-prog-word { font-size: var(--fs-sm); color: var(--c-text-2); }
+.co-prog-n { font-size: var(--fs-md); font-weight: var(--fw-semibold); color: var(--c-text); font-variant-numeric: tabular-nums; }
+.co-prog.is-done .co-prog-n { color: var(--c-done); }
+.co-prog.is-off .co-prog-n { color: var(--c-text-2); }
 
 /* The chevron under the table: widens it, and back. */
 .co-expand { flex: none; align-self: center; width: 72px; height: 32px; display: grid; place-items: center; margin-top: 2px; padding: 0; border: 0; border-radius: var(--r-pill); background: transparent; color: var(--c-text-2); cursor: pointer; }
@@ -44,33 +48,32 @@
 .co-expand svg { transition: transform 0.2s var(--ease); }
 .co-expand[aria-expanded='true'] svg { transform: rotate(180deg); }
 
-/* The lens: the gem as large as the room allows, then the name between the chevrons, the bars
-   with Build and, for a period not open yet, what opens it. A tap on the gem or the name opens
-   the atom too. */
-.co-lens { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; gap: var(--sp-2); padding: 0 var(--sp-4); touch-action: pan-y; }
+/* The lens: the name between the chevrons, what opens a period not open yet, then the gem as
+   large as the room allows. A tap on the gem or the name opens the atom. */
+.co-lens { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; gap: var(--sp-2); padding: var(--sp-1) var(--sp-4) 0; touch-action: none; }
+.co-lens-row { flex: none; width: 100%; max-width: 440px; display: flex; align-items: center; gap: var(--sp-2); }
+.co-step { flex: none; width: 44px; height: 44px; display: grid; place-items: center; padding: 0; border: 0; border-radius: var(--r-pill); background: var(--c-nav); color: var(--c-text); cursor: pointer; }
+.co-step:disabled { opacity: 0.3; cursor: default; }
+.co-step:focus-visible, .co-title:focus-visible, .co-build:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
+.co-title { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 0; border: 0; background: transparent; color: var(--c-text); font-family: var(--font); cursor: pointer; }
+.co-title small { font-size: var(--fs-md); font-weight: var(--fw-semibold); color: var(--c-text-2); font-variant-numeric: tabular-nums; }
+.co-title b { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 28px; font-weight: var(--fw-semibold); line-height: 1.1; }
+.co-lock { flex: none; display: flex; align-items: center; gap: var(--sp-2); max-width: 360px; font-size: var(--fs-sm); color: var(--c-text); }
+.co-lock[hidden] { display: none; }
+.co-lock-ico { flex: none; display: grid; color: var(--c-warn); }
 .co-gem-btn { flex: 1; min-height: 120px; width: 100%; container-type: size; display: grid; place-items: center; padding: 0; border: 0; background: transparent; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .co-gem-btn:focus-visible { outline: 2px solid var(--c-accent); outline-offset: -2px; border-radius: var(--r-md); }
 .co-gem { position: relative; display: block; width: min(100cqw, 100cqh); height: min(100cqw, 100cqh); }
 .co-gem > .gem-atom, .co-gem > img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .co-gem > .gem-atom { opacity: 0; transition: opacity 0.6s var(--ease); }
 .co-gem > .gem-atom.is-shown { opacity: 1; }
-.co-lens-row { flex: none; width: 100%; max-width: 420px; display: flex; align-items: center; gap: var(--sp-2); }
-.co-step { flex: none; width: 44px; height: 44px; display: grid; place-items: center; padding: 0; border: 0; border-radius: var(--r-pill); background: var(--c-nav); color: var(--c-text); cursor: pointer; }
-.co-step:disabled { opacity: 0.3; cursor: default; }
-.co-step:focus-visible, .co-title:focus-visible, .co-build:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
-.co-title { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 0; border: 0; background: transparent; color: var(--c-text); font-family: var(--font); cursor: pointer; }
-.co-id { display: flex; align-items: center; gap: var(--sp-2); white-space: nowrap; }
-.co-id small { font-size: var(--fs-md); font-weight: var(--fw-semibold); color: var(--c-text-2); font-variant-numeric: tabular-nums; }
-.co-status { padding: 2px 10px; border-radius: var(--r-pill); background: var(--c-surface-2); font-size: 13px; font-weight: var(--fw-semibold); color: var(--c-text); }
-.co-lens[data-status='stable'] .co-status, .co-lens[data-status='complete'] .co-status { background: color-mix(in srgb, var(--c-done) 22%, var(--c-bg)); color: var(--c-done); }
-.co-title b { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 28px; font-weight: var(--fw-semibold); line-height: 1.1; }
-.co-act { flex: none; width: 100%; max-width: 360px; display: flex; align-items: center; gap: var(--sp-3); }
-.co-bars { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
-.co-bar { display: grid; grid-template-columns: 58px minmax(0, 1fr) 42px; align-items: center; gap: var(--sp-2); font-size: 13px; color: var(--c-text-2); }
-.co-bar-n { text-align: right; color: var(--c-text); font-variant-numeric: tabular-nums; }
+
+/* Under the gem, as wide as the dock and well clear of it: the atom's stable and fleeting lines
+   side by side, then Build (greyed while its period is locked). Narrow, the counts go. */
+.co-act { flex: none; width: min(440px, calc(100% - 2 * var(--sp-3))); margin: var(--sp-2) auto var(--sp-4); container-type: inline-size; display: flex; align-items: center; gap: var(--sp-3); }
+.co-progs { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: space-around; gap: var(--sp-3); }
+@container (max-width: 380px) { .co-progs .co-prog-n { display: none; } }
 .co-build { flex: none; height: 44px; display: inline-flex; align-items: center; gap: 6px; padding: 0 18px 0 14px; border: 0; border-radius: var(--r-pill); background: var(--c-accent); color: var(--c-accent-ink); font-family: var(--font); font-size: var(--fs-md); font-weight: var(--fw-semibold); cursor: pointer; }
-.co-build:hover { filter: brightness(1.06); }
-.co-lock { flex: none; display: flex; align-items: center; gap: var(--sp-2); max-width: 360px; font-size: var(--fs-sm); color: var(--c-text); }
-.co-lock[hidden] { display: none; }
-.co-lock-ico { flex: none; display: grid; color: var(--c-warn); }
+.co-build:hover:not(:disabled) { filter: brightness(1.06); }
+.co-build:disabled { background: var(--c-surface-2); color: var(--c-text-2); cursor: default; }
 @media (prefers-reduced-motion: reduce) { .co-gem > .gem-atom, .co-expand svg { transition: none; } .co-nu { animation: none; } }

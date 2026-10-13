@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { defaultSave, type SaveData } from '../src/core/save';
-import { pctLabel, periodProgress, periodTracks } from '../src/gallery/collect';
+import { pctLabel, periodProgress, periodTracks, tableNeighbour } from '../src/gallery/collect';
 import { toneOf } from '../src/gallery/thumbs';
 import { lastingIsotopes, fleetingIsotopes } from '../src/core/progress';
 
@@ -71,5 +71,25 @@ describe('atom list', () => {
     expect(atomShares(3, save).stable).toBe(0);
     // Before any atom is built, fleeting isotopes are not open: no fleeting share.
     expect(atomShares(1, defaultSave()).fleeting).toBeNull();
+  });
+});
+
+describe('moving up and down the table', () => {
+  it('goes straight up or down where there is a cell', () => {
+    expect(tableNeighbour(11, -1)).toBe(3); // Na → Li
+    expect(tableNeighbour(10, 1)).toBe(18); // Ne → Ar
+    expect(tableNeighbour(26, 1)).toBe(44); // Fe → Ru
+  });
+  it('takes the nearest cell to the left when there is none above', () => {
+    expect(tableNeighbour(5, -1)).toBe(1); // B → H
+    expect(tableNeighbour(21, -1)).toBe(12); // Sc → Mg
+  });
+  it('steps between the main table and the f-block rows', () => {
+    expect(tableNeighbour(58, -1)).toBe(104); // Ce (under Rf) → Rf
+    expect(tableNeighbour(87, 1)).toBe(57); // Fr, nothing below or left of it → La, the nearest
+  });
+  it('stops at the edges', () => {
+    expect(tableNeighbour(1, -1)).toBeNull();
+    expect(tableNeighbour(100, 1)).toBeNull();
   });
 });

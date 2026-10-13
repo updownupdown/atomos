@@ -56,7 +56,7 @@
 .al-row.is-current { background: var(--c-pick); }
 .al-z { font-size: var(--fs-sm); font-variant-numeric: tabular-nums; }
 /* The symbol on a plate in its place color (data.ts placeColour). */
-.al-sym { display: grid; place-items: center; height: 26px; border-radius: 6px; background: color-mix(in srgb, var(--c) 24%, var(--c-surface-2)); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--c) 45%, transparent); font-size: var(--fs-sm); font-weight: var(--fw-bold); }
+.al-sym { display: grid; place-items: center; height: 26px; border-radius: 6px; background: color-mix(in srgb, var(--c) 30%, var(--c-surface-2)); font-size: var(--fs-sm); font-weight: var(--fw-bold); }
 .al-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-md); }
 .al-row.is-built .al-sym, .al-row.is-built .al-name, .al-row.is-current .al-sym, .al-row.is-current .al-name { color: var(--c-text); }
 
