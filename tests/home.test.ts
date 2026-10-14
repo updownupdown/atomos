@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { FAMILIAR, QUIZ_TYPES, atomOfDay, atomsOf, candidates, clues, dayBefore, finishQuiz, liveStreak, masked, quizOf, today, type DayState } from '../src/home/daily';
+import { FAMILIAR, PLACE_NAMES, QUIZ_TYPES, atomOfDay, atomsOf, candidates, cluePool, clues, dayBefore, finishQuiz, liveStreak, masked, quizOf, today, type DayState } from '../src/home/daily';
 import { MAX_Z, elementAt } from '../src/gallery/data';
 
 describe('the atom of the day', () => {
@@ -22,10 +22,14 @@ describe('the atom of the day', () => {
   it('never names the atom in its clues', () => {
     for (let z = 1; z <= MAX_Z; z++) {
       const e = elementAt(z);
-      const all = clues(z);
-      expect(all).toHaveLength(3);
-      for (const c of all) expect(c.toLowerCase()).not.toMatch(new RegExp(e.name.length >= 5 ? e.name.toLowerCase() : `\\b${e.name.toLowerCase()}\\b`));
+      expect(clues(z, z)).toHaveLength(3);
+      for (const c of cluePool(z).flat()) expect(c.toLowerCase()).not.toMatch(new RegExp(e.name.length >= 5 ? e.name.toLowerCase() : `\\b${e.name.toLowerCase()}\\b`));
     }
+  });
+
+  it('varies the clues from day to day', () => {
+    const sets = new Set(Array.from({ length: 20 }, (_, d) => clues(26, d).join('|')));
+    expect(sets.size).toBeGreaterThan(5);
   });
 
   it('blanks the symbol where it is written as one', () => {
@@ -35,28 +39,29 @@ describe('the atom of the day', () => {
 });
 
 describe("Nu's question", () => {
-  it('deals three two-choice questions of different kinds every day, on well-known atoms', () => {
+  it('deals three questions about different things every day, on well-known atoms', () => {
     for (let d = 0; d < 400; d++) {
       const qs = quizOf(d);
       expect(qs).toHaveLength(3);
       expect(new Set(qs.map((q) => q.type)).size).toBe(3);
+      expect(qs.filter((q) => q.type.endsWith('4')).length).toBeLessThanOrEqual(1);
       const zs = qs.flatMap(atomsOf);
       expect(new Set(zs).size).toBe(zs.length);
       for (const q of qs) {
-        expect(q.options).toHaveLength(2);
-        expect(JSON.stringify(q.options[0])).not.toBe(JSON.stringify(q.options[1]));
-        expect(atomsOf(q).every((z) => FAMILIAR.includes(z))).toBe(true);
+        expect(q.options).toHaveLength(q.type.endsWith('4') ? 4 : 2);
+        expect(new Set(q.options.map((o) => JSON.stringify(o))).size).toBe(q.options.length);
+        expect(atomsOf(q).every((z) => FAMILIAR.includes(z) || (q.type === 'place' && PLACE_NAMES[z]))).toBe(true);
       }
     }
   });
 
   it('marks the right answer', () => {
     const seen = new Set<string>();
-    for (let d = 0; d < 400; d++) {
+    for (let d = 0; d < 1500; d++) {
       for (const q of quizOf(d)) {
         seen.add(q.type);
-        const [a, b] = q.options.map((o) => ('z' in o ? elementAt(o.z) : null));
-        const pick = q.answer === 0 ? a : b, other = q.answer === 0 ? b : a;
+        const cards = q.options.map((o) => ('z' in o ? elementAt(o.z) : null));
+        const pick = cards[q.answer], other = cards[1 - q.answer], rest = cards.filter((_, i) => i !== q.answer);
         const text = 'text' in q.options[q.answer] ? (q.options[q.answer] as { text: string }).text : '';
         const about = q.about ? elementAt(q.about) : null;
         switch (q.type) {
@@ -68,6 +73,15 @@ describe("Nu's question", () => {
           case 'noble': expect([pick!.series, other!.series === 'Noble gases']).toEqual(['Noble gases', false]); break;
           case 'year': expect(Number(text)).toBe(about!.discoveryYear); break;
           case 'phase': expect(text).toBe(about!.melt! > 293 ? 'Solid' : about!.boil! < 293 ? 'Gas' : 'Liquid'); break;
+          case 'crust': expect(pick!.crust! > other!.crust!).toBe(q.text.includes('more common')); break;
+          case 'sea': expect(pick!.sea! > other!.sea!).toBe(q.text.includes('more common')); break;
+          case 'place': expect([Boolean(PLACE_NAMES[pick!.z]), Boolean(PLACE_NAMES[other!.z])]).toEqual([true, false]); break;
+          case 'stateTrue': expect(text === 'True').toBe(q.text.includes(`a ${(about!.melt! > 293 ? 'solid' : about!.boil! < 293 ? 'gas' : 'liquid')} at`)); break;
+          case 'era': { const line = Number(/(\d{4})\?$/.exec(q.text)![1]); expect(text.startsWith('Before')).toBe(about!.discoveryYear! < line); break; }
+          case 'kind4': expect(rest.every((e) => e!.series !== pick!.series)).toBe(true); break;
+          case 'liquid4': expect([pick!.z === 35 || pick!.z === 80, rest.some((e) => e!.z === 35 || e!.z === 80)]).toEqual([true, false]); break;
+          case 'first4': expect(rest.every((e) => e!.discoveryYear! >= pick!.discoveryYear! + 30)).toBe(true); break;
+          case 'life4': expect([[1, 6, 7, 8, 15, 16].includes(pick!.z), rest.some((e) => [1, 6, 7, 8, 15, 16].includes(e!.z))]).toEqual([true, false]); break;
           case 'metal': expect(text === 'Yes').toBe(['Alkali metals', 'Alkaline earth metals', 'Transition metals', 'Poor metals', 'Lanthanides', 'Actinides'].includes(about!.series)); break;
         }
       }

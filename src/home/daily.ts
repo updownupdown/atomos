@@ -1,7 +1,7 @@
 // Home's two daily games, both drawn from facts the app already holds (elements.json and
 // element-facts.json), the same for every player on a given day:
 //   - the atom of the day, to find among four atom cards with up to three clues;
-//   - Nu's questions, three a day with two choices each, with a streak.
+//   - Nu's questions, three a day with two choices or four atom cards each, with a streak.
 // What the player has answered today sits under its own storage key, apart from the save; the
 // backup carries it with every other atomos.* key.
 
@@ -17,10 +17,17 @@ export function today(now = new Date()): { key: string; index: number } {
   return { key, index: Math.floor(Date.UTC(y, m, d) / 864e5) };
 }
 
-/** A small seeded generator, so a day deals the same quiz on every device. */
+/** A small seeded generator (mulberry32), so a day deals the same quiz on every device, and
+ *  one day's deal has nothing to do with the next one's. */
 function seeded(seed: number): () => number {
-  let s = (seed * 2654435761) % 2147483647 || 1;
-  return () => (s = (s * 16807) % 2147483647) / 2147483647;
+  let a = Math.imul(seed, 2654435761) >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
 }
 
 /** The atom of the day: every atom once in 118 days, in a scattered order (47 is prime to 118). */
@@ -49,12 +56,25 @@ export function candidates(z: number, index: number, n = 4): number[] {
 const headline = (z: number): string => (FACTS as { h?: string }[])[z - 1]?.h ?? '';
 const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-/** A sentence with the atom's name (and its symbol, where it is written as one) blanked out. */
+/** Words that give an atom away without naming it: the person or place it is named after. */
+const GIVEAWAY: Record<number, string[]> = {
+  2: ['Helios'], 105: ['Dubna'], 41: ['Niobe'], 46: ['Pallas'], 90: ['Thor'], 114: ['Flyorov', 'Flerov'], 12: ['Magnesia'], 25: ['Magnesia'], 31: ['Gallia'], 39: ['Ytterby'], 44: ['Russia'], 58: ['Ceres'],
+  65: ['Ytterby'], 67: ['Holmia', 'Stockholm'], 68: ['Ytterby'], 69: ['Thule'], 70: ['Ytterby'], 72: ['Hafnia'],
+  75: ['Rhine', 'Rhenus'], 77: ['Iris'], 84: ['Poland'], 94: ['Pluto'], 96: ['Curie'], 100: ['Fermi'],
+  101: ['Mendeleev', 'Mendeleyev'], 107: ['Bohr'], 108: ['Hesse'], 111: ['Röntgen', 'Roentgen'], 115: ['Moscow'],
+  117: ['Tennessee'], 118: ['Oganessian'], 92: ['Uranus'],
+};
+
+/** A sentence with the atom's name (and its symbol, where it is written as one) blanked out,
+ *  and with it the person or place it is named after ("Albert ______" for einsteinium). */
 export function masked(text: string, e: Element): string {
   // Longer names hide inside other words too ("kupfernickel"); short ones only as words, so
   // "tin" leaves "distinct" alone.
   const b = e.name.length >= 5 ? '' : '\\b';
   let t = text.replace(new RegExp(`${b}${esc(e.name)}${b}`, 'gi'), '______');
+  // "Einstein" in einsteinium, "America" in americium: the stem before -ium, from five letters.
+  const stem = /^(.{5,}?)(ium|um)$/i.exec(e.name)?.[1];
+  for (const w of [...(stem ? [stem] : []), ...(GIVEAWAY[e.z] ?? [])]) t = t.replace(new RegExp(`\\b${esc(w)}\\w*`, 'gi'), '______');
   t = e.symbol.length > 1
     ? t.replace(new RegExp(`\\b${esc(e.symbol)}\\b`, 'g'), '__')
     : t.replace(new RegExp(`([,(] ?)${esc(e.symbol)}(?=[,)])`, 'g'), '$1__');
@@ -64,18 +84,47 @@ export function masked(text: string, e: Element): string {
 const num = (n: number) => Math.round(n).toLocaleString('en-US');
 const celsius = (k: number) => `${num(k - 273.15).replace(/^-/, '−')} °C`;
 
-/** The three clues, hardest first: when it was found, a property, then its headline fact. */
-export function clues(z: number): string[] {
+const article = (place: string) => (/^(United States|USSR)$/.test(place) ? `the ${place}` : place);
+const andList = (xs: string[]) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
+/** Discoverers as a sentence reads them: "A, B and C". */
+const people = (who: string) => (/ and /.test(who) ? who : andList(who.split(/,\s*/)));
+
+/** How much of something there is, from mg/kg: "46%", "56 parts per million". */
+export function share(mgPerKg: number): string {
+  const n = (v: number) => Number(v.toPrecision(2)).toLocaleString('en-US', { maximumFractionDigits: 4 });
+  const parts = (v: number, per: string) => `${n(v)} part${n(v) === '1' ? '' : 's'} per ${per}`;
+  if (mgPerKg >= 1000) return `${n(mgPerKg / 1e4)}%`;
+  if (mgPerKg >= 1) return parts(mgPerKg, 'million');
+  return parts(mgPerKg * 1000, 'billion');
+}
+
+/** Every clue an atom has, by how much it gives away: hard, middle, easy. */
+export function cluePool(z: number): [string[], string[], string[]] {
   const e = elementAt(z);
-  const who = e.discoverers?.trim() ?? '';
-  const found = e.discoveryYear
-    ? `Found in ${e.discoveryYear}${who && !/ancient/i.test(who) ? ` by ${who.replace(/\.$/, '')}` : ''}.`
-    : /ancient/i.test(who) ? 'Known since ancient times.' : 'No one knows who found it first.';
-  const prop = e.melt !== null ? `Melts at ${celsius(e.melt)}`
-    : e.boil !== null ? `Boils at ${celsius(e.boil)}`
-    : e.weight !== null ? `Its atomic mass is ${e.weight.toFixed(1)}` : `It has ${e.z} protons`;
-  const dens = e.density !== null && e.melt !== null ? `, and its density is ${density(e.density)}` : '';
-  return [found, `${prop}${dens}.`, masked(headline(z), e)];
+  const who = e.discoverers ?? '';
+  const ancient = /ancient/i.test(who);
+  const hard: string[] = [];
+  if (e.discoveryYear) hard.push(`Found in ${e.discoveryYear}${who && !ancient ? ` by ${people(who)}` : ''}.`);
+  else if (ancient) hard.push('Known since ancient times.');
+  if (e.discoveryPlace && !ancient) hard.push(`First found in ${andList(e.discoveryPlace.split('/').map(article))}${e.discoveryYear ? `, in ${e.discoveryYear}` : ''}.`);
+  if (e.melt !== null) hard.push(`Melts at ${celsius(e.melt)}${e.density !== null ? `, and its density is ${density(e.density)}` : ''}.`);
+  else if (e.boil !== null) hard.push(`Boils at ${celsius(e.boil)}.`);
+  if (e.boil !== null && e.melt !== null) hard.push(`Boils at ${celsius(e.boil)}.`);
+  hard.push(e.stableIsotopes ? `It has ${e.stableIsotopes} stable isotope${e.stableIsotopes === 1 ? '' : 's'}.` : 'It has no stable isotopes: every atom of it is radioactive.');
+  if (e.crust !== null && e.crust >= 0.001) hard.push(`It makes up ${share(e.crust)} of Earth's crust.`);
+  const mid = ((FACTS as { f?: string[] }[])[z - 1]?.f ?? []).map((f) => masked(f, e));
+  const p = phaseOf(e);
+  // The headline fact twice as often as the kind, which the four cards alone can give away.
+  const h = masked(headline(z), e);
+  const easy = [h, h, `It's ${aKind(e)}${p ? `, a ${p.toLowerCase()} at room temperature` : ''}.`];
+  return [hard, mid.length ? mid : easy.slice(2), easy];
+}
+
+/** The day's three clues, hardest first: one from each part of the pool, a different mix
+ *  every day. */
+export function clues(z: number, index = 0): string[] {
+  const rnd = seeded(index * 5 + 3);
+  return cluePool(z).map((pool) => pool[Math.floor(rnd() * pool.length)]);
 }
 
 function density(d: number): string {
@@ -88,12 +137,24 @@ export function headlineOf(z: number): string {
 }
 
 // ---------- Nu's question ----------
-// Three a day, each with two choices: two atom cards, or two words or years. Atoms in questions
-// come from the ones most people have heard of, and compared values are far apart, so a
-// question is about knowing atoms rather than recalling a number.
+// Three a day, each about something different: two choices (two atom cards, or two words or
+// years) or four atom cards to find one among. Atoms come from the ones most people have heard
+// of, and compared values are far apart, so a question is about knowing atoms rather than
+// recalling a number.
 
-export type QuizType = 'melt' | 'boil' | 'dense' | 'first' | 'radioactive' | 'noble' | 'phase' | 'year' | 'metal';
-export const QUIZ_TYPES: QuizType[] = ['melt', 'boil', 'dense', 'first', 'radioactive', 'noble', 'phase', 'year', 'metal'];
+export type QuizType =
+  | 'melt' | 'boil' | 'dense' | 'first' | 'radioactive' | 'noble' | 'phase' | 'year' | 'metal'
+  | 'crust' | 'sea' | 'place' | 'stateTrue' | 'era'
+  | 'kind4' | 'liquid4' | 'first4' | 'life4';
+
+/** What a question is about: a day asks about three different things. */
+const TOPIC: Record<QuizType, string> = {
+  melt: 'heat', boil: 'heat', phase: 'state', stateTrue: 'state', liquid4: 'state',
+  dense: 'density', first: 'found', year: 'found', era: 'found', first4: 'found',
+  radioactive: 'nucleus', noble: 'kind', metal: 'kind', kind4: 'kind',
+  crust: 'where', sea: 'where', place: 'name', life4: 'life',
+};
+export const QUIZ_TYPES = Object.keys(TOPIC) as QuizType[];
 
 /** A choice: an atom's card, or a word or a year on a button. */
 export type QuizOption = { z: number } | { text: string };
@@ -101,10 +162,11 @@ export type QuizOption = { z: number } | { text: string };
 export interface QuizQuestion {
   type: QuizType;
   text: string;
-  options: [QuizOption, QuizOption];
-  answer: 0 | 1;
+  /** Two choices, or four atom cards. */
+  options: QuizOption[];
+  answer: number;
   /** What each card shows once answered ("1,538 °C"); '' for none. */
-  after: [string, string];
+  after: string[];
   /** For a question about one atom: the atom, and a line shown once answered. */
   about?: number;
   note?: string;
@@ -112,6 +174,21 @@ export interface QuizQuestion {
 
 /** Atoms most people have heard of. */
 export const FAMILIAR = [1, 2, 3, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 22, 24, 26, 27, 28, 29, 30, 35, 36, 47, 50, 53, 54, 74, 78, 79, 80, 82, 86, 88, 92, 94];
+
+/** Atoms named after a place, and the place. */
+export const PLACE_NAMES: Record<number, string> = {
+  12: 'Magnesia, in Greece', 21: 'Scandinavia', 25: 'Magnesia, in Greece', 29: 'Cyprus', 31: 'France (Gallia)',
+  32: 'Germany', 38: 'Strontian, in Scotland', 39: 'Ytterby, in Sweden', 44: 'Russia (Ruthenia)', 63: 'Europe',
+  65: 'Ytterby, in Sweden', 67: 'Stockholm (Holmia)', 68: 'Ytterby, in Sweden', 69: 'Thule, the far north',
+  70: 'Ytterby, in Sweden', 71: 'Paris (Lutetia)', 72: 'Copenhagen (Hafnia)', 75: 'the Rhine', 84: 'Poland',
+  87: 'France', 95: 'the Americas', 97: 'Berkeley, California', 98: 'California', 105: 'Dubna, in Russia',
+  108: 'Hesse, in Germany', 110: 'Darmstadt, in Germany', 113: 'Japan (Nihon)', 115: 'Moscow', 117: 'Tennessee',
+};
+
+/** In every living thing: the six elements all life is built from. */
+const LIFE = [1, 6, 7, 8, 15, 16];
+/** Elements no living thing needs. */
+const NOT_LIFE = [2, 10, 18, 36, 54, 86, 79, 78, 82, 80, 92, 94, 88, 22, 13, 3, 47];
 
 const ROOM = 293.15;
 const METALS = new Set(['Alkali metals', 'Alkaline earth metals', 'Transition metals', 'Poor metals', 'Lanthanides', 'Actinides']);
@@ -122,6 +199,7 @@ const SERIES_ONE: Record<string, string> = {
 };
 const kindOf = (e: Element): string => SERIES_ONE[e.series] ?? e.series.toLowerCase();
 const aKind = (e: Element): string => `${/^[aeiou]/.test(kindOf(e)) ? 'an' : 'a'} ${kindOf(e)}`;
+const Kind = (e: Element): string => kindOf(e).replace(/^./, (c) => c.toUpperCase());
 const ratio = (a: number, b: number) => Math.max(a, b) / Math.min(a, b);
 
 type Phase = 'Solid' | 'Liquid' | 'Gas';
@@ -135,29 +213,36 @@ function phaseOf(e: Element): Phase | null {
 }
 
 type Pick = <T>(xs: readonly T[]) => T;
+type Make = (pick: Pick, rnd: () => number) => QuizQuestion | null;
 
 /** Two atoms compared on a value, the answer the higher or the lower one. */
 function compare(type: QuizType, pick: Pick, rnd: () => number, value: (e: Element) => number | null, minRatio: number,
-  ask: [string, string], show: (v: number) => string): QuizQuestion | null {
-  const a = pick(FAMILIAR), b = pick(FAMILIAR);
+  ask: [string, string], show: (v: number) => string, pool: readonly number[] = FAMILIAR): QuizQuestion | null {
+  const a = pick(pool), b = pick(pool);
   const va = value(elementAt(a)), vb = value(elementAt(b));
   if (a === b || va === null || vb === null || ratio(va, vb) < minRatio) return null;
   const high = rnd() < 0.5;
-  const answer: 0 | 1 = (va > vb) === high ? 0 : 1;
+  const answer = (va > vb) === high ? 0 : 1;
   return { type, text: high ? ask[0] : ask[1], options: [{ z: a }, { z: b }], answer, after: [show(va), show(vb)] };
 }
 
-/** One atom that is something, one that isn't, in a random order. */
-function oneOf(type: QuizType, pick: Pick, rnd: () => number, is: (e: Element) => boolean, text: string, show: (e: Element) => string): QuizQuestion | null {
-  const yes = FAMILIAR.filter((z) => is(elementAt(z))), no = FAMILIAR.filter((z) => !is(elementAt(z)));
-  if (!yes.length || !no.length) return null;
-  const y = pick(yes), n = pick(no);
-  const first = rnd() < 0.5;
-  const [a, b] = first ? [y, n] : [n, y];
-  return { type, text, options: [{ z: a }, { z: b }], answer: first ? 0 : 1, after: [show(elementAt(a)), show(elementAt(b))] };
+/** The one atom that is something among others that aren't: two cards, or four. */
+function oneOf(type: QuizType, pick: Pick, yes: number[], no: number[], n: number, text: string, show: (e: Element) => string, note?: string): QuizQuestion | null {
+  if (!yes.length || no.length < n - 1) return null;
+  const zs = [pick(yes)];
+  for (let tries = 0; zs.length < n && tries < 100; tries++) { const o = pick(no); if (!zs.includes(o)) zs.push(o); }
+  if (zs.length < n) return null;
+  const y = zs[0];
+  zs.sort((a, b) => a - b);
+  // Two cards keep a random order; four sit in order of atomic number like the atom of the day.
+  if (n === 2 && pick([true, false])) zs.reverse();
+  return { type, text, options: zs.map((z) => ({ z })), answer: zs.indexOf(y), after: zs.map((z) => show(elementAt(z))), ...(note ? { note } : {}) };
 }
 
-const MAKE: Record<QuizType, (pick: Pick, rnd: () => number) => QuizQuestion | null> = {
+const familiar = (is: (e: Element) => boolean) => FAMILIAR.filter((z) => is(elementAt(z)));
+const foundIn = (e: Element) => (e.discoveryYear ? `Found in ${e.discoveryYear}` : 'Ancient');
+
+const MAKE: Record<QuizType, Make> = {
   melt: (pick, rnd) => compare('melt', pick, rnd, (e) => e.melt, 1.3, ['Which has the higher melting point?', 'Which has the lower melting point?'], celsius),
   boil: (pick, rnd) => compare('boil', pick, rnd, (e) => e.boil, 1.3, ['Which has the higher boiling point?', 'Which has the lower boiling point?'], celsius),
   // Gases left out: their densities are tiny numbers that make the answer obvious.
@@ -168,19 +253,55 @@ const MAKE: Record<QuizType, (pick: Pick, rnd: () => number) => QuizQuestion | n
     const [a, b] = q.options.map((o) => elementAt((o as { z: number }).z).discoveryYear!);
     return Math.abs(a - b) >= 40 ? q : null;
   },
-  radioactive: (pick, rnd) => oneOf('radioactive', pick, rnd, (e) => e.stableIsotopes === 0, 'Which is radioactive?',
+  crust: (pick, rnd) => compare('crust', pick, rnd, (e) => e.crust, 10, ['Which is more common in Earth\'s crust?', 'Which is rarer in Earth\'s crust?'], share,
+    familiar((e) => e.crust !== null && e.crust > 0)),
+  sea: (pick, rnd) => compare('sea', pick, rnd, (e) => e.sea, 10, ['Which is more common in seawater?', 'Which is rarer in seawater?'], share,
+    familiar((e) => e.sea !== null && e.sea > 0)),
+  radioactive: (pick) => oneOf('radioactive', pick, familiar((e) => e.stableIsotopes === 0), familiar((e) => e.stableIsotopes > 0), 2, 'Which is radioactive?',
     (e) => (e.stableIsotopes === 0 ? 'No stable isotopes' : `${e.stableIsotopes} stable isotope${e.stableIsotopes === 1 ? '' : 's'}`)),
-  noble: (pick, rnd) => oneOf('noble', pick, rnd, (e) => e.series === 'Noble gases', 'Which is a noble gas?', (e) => kindOf(e).replace(/^./, (c) => c.toUpperCase())),
+  noble: (pick) => oneOf('noble', pick, familiar((e) => e.series === 'Noble gases'), familiar((e) => e.series !== 'Noble gases'), 2, 'Which is a noble gas?', Kind),
+  // The place-named atom may be any of them; the other is a well-known atom named otherwise.
+  place: (pick) => oneOf('place', pick, Object.keys(PLACE_NAMES).map(Number), FAMILIAR.filter((z) => !PLACE_NAMES[z]), 2, 'Which is named after a place?',
+    (e) => (PLACE_NAMES[e.z] ? `Named after ${PLACE_NAMES[e.z]}` : '')),
+  kind4: (pick) => {
+    const series = pick(['Halogens', 'Alkali metals', 'Noble gases', 'Alkaline earth metals']);
+    const one = elementAt(familiar((e) => e.series === series)[0]);
+    return oneOf('kind4', pick, familiar((e) => e.series === series), familiar((e) => e.series !== series), 4, `Which of these is ${aKind(one)}?`, Kind);
+  },
+  liquid4: (pick) => oneOf('liquid4', pick, familiar((e) => phaseOf(e) === 'Liquid'), familiar((e) => phaseOf(e) === 'Solid' || phaseOf(e) === 'Gas'), 4,
+    'Which of these is a liquid at room temperature?', (e) => phaseOf(e) ?? ''),
+  first4: (pick) => {
+    const q = oneOf('first4', pick, familiar((e) => e.discoveryYear !== null), familiar((e) => e.discoveryYear !== null), 4, 'Which of these was discovered first?', foundIn);
+    if (!q) return null;
+    const years = q.options.map((o) => elementAt((o as { z: number }).z).discoveryYear!);
+    const first = Math.min(...years);
+    // The earliest must stand clear of the rest, by 30 years.
+    if (years.filter((y) => y < first + 30).length !== 1) return null;
+    return { ...q, answer: years.indexOf(first) };
+  },
+  life4: (pick) => oneOf('life4', pick, LIFE, NOT_LIFE, 4, 'Which of these is in every living thing?', () => '',
+    'Hydrogen, carbon, nitrogen, oxygen, phosphorus and sulfur are in every living thing.'),
   phase: (pick) => {
     // Most atoms are solids: pick the answer's state first, so gases and liquids come up too.
     const p = pick(['Solid', 'Solid', 'Gas', 'Gas', 'Liquid'] as Phase[]);
-    const e = elementAt(pick(FAMILIAR.filter((z) => phaseOf(elementAt(z)) === p)));
+    const e = elementAt(pick(familiar((x) => phaseOf(x) === p)));
     const other = pick((['Solid', 'Liquid', 'Gas'] as Phase[]).filter((x) => x !== p));
     const both = (['Solid', 'Liquid', 'Gas'] as Phase[]).filter((x) => x === p || x === other);
     return {
       type: 'phase', text: `What is ${e.name.toLowerCase()} at room temperature?`,
       options: [{ text: both[0] }, { text: both[1] }], answer: both[0] === p ? 0 : 1, after: ['', ''], about: e.z,
       note: `${e.name} melts at ${celsius(e.melt!)} and boils at ${celsius(e.boil!)}.`,
+    };
+  },
+  stateTrue: (pick, rnd) => {
+    const p = pick(['Solid', 'Gas', 'Gas', 'Liquid', 'Liquid'] as Phase[]);
+    const e = elementAt(pick(familiar((x) => phaseOf(x) === p)));
+    // Half the time the statement is true; otherwise it names another state.
+    const said = rnd() < 0.5 ? p : pick((['Solid', 'Liquid', 'Gas'] as Phase[]).filter((x) => x !== p));
+    return {
+      type: 'stateTrue', text: `True or false: ${e.name} is a ${said.toLowerCase()} at room temperature.`,
+      options: [{ text: 'True' }, { text: 'False' }], answer: said === p ? 0 : 1, after: ['', ''], about: e.z,
+      note: `${e.name} is a ${p.toLowerCase()}: it melts at ${celsius(e.melt!)} and boils at ${celsius(e.boil!)}.`,
     };
   },
   year: (pick, rnd) => {
@@ -191,11 +312,23 @@ const MAKE: Record<QuizType, (pick: Pick, rnd: () => number) => QuizQuestion | n
     const d = y + off > 2010 || y + off < 1600 ? y - off : y + off;
     if (d > 2010 || d < 1600) return null;
     const [a, b] = [y, d].sort((p, q) => p - q);
-    const who = e.discoverers?.trim();
     return {
       type: 'year', text: `When was ${e.name.toLowerCase()} discovered?`,
       options: [{ text: String(a) }, { text: String(b) }], answer: a === y ? 0 : 1, after: ['', ''], about: e.z,
-      note: `${e.name} was found in ${y}${who && !/ancient/i.test(who) ? ` by ${who.replace(/\.$/, '')}` : ''}.`,
+      note: foundNote(e),
+    };
+  },
+  era: (pick) => {
+    const e = elementAt(pick(FAMILIAR));
+    const y = e.discoveryYear;
+    if (y === null) return null;
+    // A round year 20 to 100 years from the real one.
+    const line = pick([1700, 1750, 1800, 1850, 1900, 1950].filter((t) => Math.abs(t - y) >= 20 && Math.abs(t - y) <= 100));
+    if (!line) return null;
+    return {
+      type: 'era', text: `Was ${e.name.toLowerCase()} discovered before or after ${line}?`,
+      options: [{ text: `Before ${line}` }, { text: `After ${line}` }], answer: y < line ? 0 : 1, after: ['', ''], about: e.z,
+      note: foundNote(e),
     };
   },
   metal: (pick) => {
@@ -209,18 +342,24 @@ const MAKE: Record<QuizType, (pick: Pick, rnd: () => number) => QuizQuestion | n
   },
 };
 
+function foundNote(e: Element): string {
+  const who = e.discoverers ?? '';
+  return `${e.name} was found in ${e.discoveryYear}${who && !/ancient/i.test(who) ? ` by ${people(who)}` : ''}.`;
+}
+
 /** The atoms a question names. */
 export const atomsOf = (q: QuizQuestion): number[] => [...q.options.flatMap((o) => ('z' in o ? [o.z] : [])), ...(q.about ? [q.about] : [])];
 
-/** Today's questions: each of a different kind, no atom twice. */
+/** Today's questions: each about something different, at most one with four cards, no atom twice. */
 export function quizOf(index: number, count = 3): QuizQuestion[] {
   const rnd = seeded(index * 3 + 1);
   const pick: Pick = (xs) => xs[Math.floor(rnd() * xs.length)];
   const out: QuizQuestion[] = [];
   const used = new Set<number>();
-  for (let tries = 0; out.length < count && tries < 1000; tries++) {
+  for (let tries = 0; out.length < count && tries < 2000; tries++) {
     const type = pick(QUIZ_TYPES);
-    if (out.some((q) => q.type === type)) continue;
+    if (out.some((q) => TOPIC[q.type] === TOPIC[type])) continue;
+    if (type.endsWith('4') && out.some((q) => q.type.endsWith('4'))) continue;
     const q = MAKE[type](pick, rnd);
     if (!q) continue;
     const zs = atomsOf(q);

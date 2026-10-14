@@ -193,7 +193,7 @@ function paintGuess(box: HTMLElement, index: number, go: HomeGo): void {
     box.querySelector<HTMLButtonElement>('[data-more]')!.onclick = () => go('learn', { z });
     return;
   }
-  const shown = clues(z).slice(0, g.clues);
+  const shown = clues(z, index).slice(0, g.clues);
   box.innerHTML = `<div class="home-card">`
     + `<div class="home-row"><span class="home-caps">Atom of the day</span><span class="home-muted">Clue ${g.clues} of 3</span></div>`
     + `<p class="home-q">Which atom is it?</p>`
