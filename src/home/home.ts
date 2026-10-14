@@ -1,32 +1,274 @@
 // Home: where the app opens for a returning player, and the Home button in the dock. A jumping
-// point to the three sections: Collect, Learn and Play, each under its own heading. This is the
-// first, plain version; the Home page design (being mocked up) replaces what is inside, while
-// the shell keeps mounting it here: renderHome(host, go) on every visit.
+// point to the three sections, each on its own panel under its heading (design H11, James
+// 2026-10-14), with a round button into the section:
+//   Collect — atoms built, then a track per period (stable thick, fleeting thin), then one
+//             stable step and one fleeting isotope to build next, each beside its total.
+//   Learn   — the atom of the day to guess on the table, Nu's higher-or-lower question with its
+//             streak, and a row into Learn itself.
+//   Play    — the game played last, on its card.
+// The shell mounts it on every visit:
 //
-//   renderHome($('home-body'), (s) => shell.toSection(s));
+//   renderHome($('home-body'), (to, at) => ...);   // at: { z } opens an atom in Learn, { game } a game
 
-import { loadSave } from '../core/save';
-import { collectionProgress } from '../gallery/atomlist';
-import { PUZZLES } from '../puzzles/catalog';
+import { loadSave, type SaveData } from '../core/save';
+import { nextStep, openStep, type NextStep } from '../core/next';
+import { atomBuilt, fleetingIsotopes, isotopeCollected, rowOpen, segmentsOf } from '../core/progress';
+import { formatDuration } from '../core/isotopes';
+import { lastPlayed } from '../core/plays';
+import { lastDial, pinnedGames } from '../core/wins';
+import { factsOf } from '../core/facts';
+import { ELEMENTS, MAX_Z, elementAt, placeColour, type Element } from '../gallery/data';
+import { inkOn } from '../gallery/looks';
+import { seriesOne } from '../gallery/table';
+import { periodShares } from '../gallery/atomlist';
+import { fleetingOpen } from '../gallery/locks';
+import { earnables } from '../gallery/earn';
+import { PUZZLES, puzzleIcon } from '../puzzles/catalog';
+import { gameCard } from '../puzzles/gameCard';
 import { icon, type IconName } from '../ui/icons';
+import { nuIconHtml } from '../ui/nu';
+import {
+  answerWords, atomOfDay, candidates, clues, finishQuiz, headlineOf, liveStreak, questionText, quizOf, readDay,
+  today, valueText, writeDay, type DayState,
+} from './daily';
 import './home.css';
 
 export type HomeTarget = 'collect' | 'learn' | 'play';
+export type HomeGo = (to: HomeTarget, at?: { z?: number; game?: string }) => void;
 
+const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 const pct = (f: number) => `${Math.round(Math.max(0, Math.min(1, f)) * 100)}%`;
+const fmt = (n: number) => n.toLocaleString('en-US');
 
-export function renderHome(host: HTMLElement, go: (to: HomeTarget) => void): void {
-  const p = collectionProgress(loadSave());
-  const games = PUZZLES.filter((g) => g.make).length;
-  const block = (to: HomeTarget, title: string, ico: IconName, body: string, cta: string) =>
-    `<section class="home-sec" aria-labelledby="home-h-${to}"><h2 class="home-h" id="home-h-${to}">${icon(ico, { size: 22 })}${title}</h2>`
-    + `<div class="home-card">${body}<button type="button" class="home-go" data-go="${to}">${cta}${icon('chevron-right', { size: 20 })}</button></div></section>`;
-  host.innerHTML = block('collect', 'Collect', 'collect',
-    `<p class="home-big"><b>${p.built}</b> of ${p.atoms} atoms built</p>`
-      + `<div class="home-trk"><span>Stable</span><i><b style="width:${pct(p.stable)}"></b></i><span>${pct(p.stable)}</span></div>`
-      + `<div class="home-trk home-trk--thin"><span>Fleeting</span><i><b style="width:${pct(p.fleeting)}"></b></i><span>${pct(p.fleeting)}</span></div>`,
-    'Open Collect')
-    + block('learn', 'Learn', 'atlas', '<p>Every atom up close: the table in its many shapes, facts, isotopes and properties.</p>', 'Open Learn')
-    + block('play', 'Play', 'puzzles', `<p>${games} games, each on its own, at any level.</p>`, 'Open Play');
+function plate(e: Element, cls = ''): string {
+  const bg = placeColour(e);
+  return `<span class="home-plate ${cls}" style="background:${bg};color:${inkOn(bg)}" aria-hidden="true"><small>${e.z}</small>${e.symbol}</span>`;
+}
+
+function panel(to: HomeTarget, title: string, ico: IconName, body: string): string {
+  return `<section class="home-sec" aria-labelledby="home-h-${to}">`
+    + `<div class="home-head"><span class="home-ico">${icon(ico, { size: 22 })}</span><h2 class="home-h" id="home-h-${to}">${title}</h2>`
+    + `<button type="button" class="home-round" data-go="${to}" aria-label="Open ${title}">${icon('chevron-right', { size: 22 })}</button></div>`
+    + body + '</section>';
+}
+
+export function renderHome(host: HTMLElement, go: HomeGo): void {
+  const save = loadSave();
+  host.innerHTML = panel('collect', 'Collect', 'collect', collectBody(save))
+    + panel('learn', 'Learn', 'atlas', '<div class="home-guess"></div><div class="home-quiz"></div>' + learnRow(save))
+    + panel('play', 'Play', 'puzzles', '<div class="home-game"></div>');
   host.querySelectorAll<HTMLButtonElement>('[data-go]').forEach((b) => { b.onclick = () => go(b.dataset.go as HomeTarget); });
+  wireCollect(host, save);
+  const day = today();
+  const guess = host.querySelector<HTMLElement>('.home-guess')!;
+  const quiz = host.querySelector<HTMLElement>('.home-quiz')!;
+  paintGuess(guess, day.index, go);
+  paintQuiz(quiz, day.index);
+  paintGame(host.querySelector<HTMLElement>('.home-game')!, go);
+}
+
+// ---------- Collect ----------
+
+interface Tally { built: number; stDone: number; stAll: number; flDone: number; flAll: number }
+
+function tally(save: SaveData): Tally {
+  const t: Tally = { built: 0, stDone: 0, stAll: 0, flDone: 0, flAll: 0 };
+  for (let z = 1; z <= MAX_Z; z++) {
+    if (atomBuilt(z, save)) t.built++;
+    const segs = segmentsOf(z, save);
+    t.stAll += segs.length;
+    t.stDone += segs.filter((s) => s.done).length;
+    for (const i of fleetingIsotopes(z)) {
+      t.flAll++;
+      if (isotopeCollected(save, z, i.a)) t.flDone++;
+    }
+  }
+  return t;
+}
+
+/** One column per period, as wide as it is long: the stable track, the fleeting track under it
+ *  and the period's number, or an amber lock while it is shut. */
+function tracks(save: SaveData, fleetOn: boolean): string {
+  let out = '';
+  for (let p = 1; p <= 7; p++) {
+    const s = periodShares(p, save);
+    const open = rowOpen(p, save);
+    const bar = (f: number, cls: string) => `<i class="home-trk ${cls}${f >= 1 ? ' is-done' : ''}"><b style="width:${open ? pct(f) : '0%'}"></b></i>`;
+    out += `<div class="home-per${open ? '' : ' is-locked'}" style="flex:${s.atoms}">${bar(s.stable, 'is-stable')}${bar(fleetOn ? s.fleeting : 0, 'is-fleeting')}`
+      + `<span class="home-per-n">${open ? p : icon('lock', { size: 14 })}<span class="sr-only">${open ? `Period ${p}: ${pct(s.stable)} stable, ${pct(s.fleeting)} fleeting` : `Period ${p} is locked`}</span></span></div>`;
+  }
+  return `<div class="home-pers">${out}</div>`;
+}
+
+/** The fleeting isotope to offer: on the atom the next step is on if it is built, else on the
+ *  highest atom built; the longest-lived one not built yet, so the easiest board. */
+function fleetingPick(save: SaveData, step: NextStep | null): { z: number; a: number; halfLife: number | null } | null {
+  const order: number[] = [];
+  if (step && atomBuilt(step.z, save)) order.push(step.z);
+  for (let z = MAX_Z; z >= 1; z--) if (atomBuilt(z, save) && z !== step?.z) order.push(z);
+  for (const z of order) {
+    const left = fleetingIsotopes(z).filter((i) => !isotopeCollected(save, z, i.a));
+    if (!left.length) continue;
+    const best = left.reduce((x, y) => ((y.halfLife ?? 0) > (x.halfLife ?? 0) ? y : x));
+    return { z, a: best.a, halfLife: best.halfLife };
+  }
+  return null;
+}
+
+function laneRow(kind: 'stable' | 'fleeting', done: number, all: number, choice: string): string {
+  const name = kind === 'stable' ? 'Stable' : 'Fleeting';
+  return `<div class="home-lane is-${kind}"><div class="home-lane-sum">${icon(kind === 'stable' ? 'isotope-stable' : 'isotope-fleeting', { size: 22 })}`
+    + `<span><b>${name}</b><small>${fmt(done)} of ${fmt(all)}</small></span></div>${choice}</div>`;
+}
+
+/** The stable step's two lines: the atom (or isotope) on top, then the part and its game. */
+const pickTitle = (s: NextStep): string => (s.a !== undefined ? `${elementAt(s.z).name}-${s.a}` : elementAt(s.z).name);
+const pickPart = (s: NextStep): string => (s.kind === 'nucleus' ? 'Nucleus · ' : s.kind === 'electrons' ? 'Electrons · ' : s.kind === 'discovery' ? 'Orbital shape · ' : s.kind === 'resume' && s.a === undefined ? 'Resume · ' : '');
+
+function collectBody(save: SaveData): string {
+  const t = tally(save);
+  const fleetOn = fleetingOpen(save);
+  const step = nextStep(save);
+  const stableChoice = step
+    ? `<button type="button" class="home-pick" data-step="stable">${plate(elementAt(step.z))}<span class="home-pick-txt"><b>${esc(pickTitle(step))}</b><small>${esc(pickPart(step))}${esc(step.gameName)}</small></span><span class="home-gi">${puzzleIcon(step.game, 20)}</span></button>`
+    : `<span class="home-pick is-done">${icon('check', { size: 22 })}<span class="home-pick-txt"><b>All built</b></span></span>`;
+  const f = fleetOn ? fleetingPick(save, step) : null;
+  const fleetChoice = !fleetOn
+    ? `<span class="home-pick is-fleet is-locked">${icon('lock', { size: 20 })}<span class="home-pick-txt"><b>Build an atom first</b><small>Then its fleeting isotopes open</small></span></span>`
+    : f
+      ? `<button type="button" class="home-pick is-fleet" data-step="fleeting">${plate(elementAt(f.z), 'is-fleet')}<span class="home-pick-txt"><b>${esc(elementAt(f.z).name)}-${f.a}</b><small>${f.halfLife === null ? 'Half-life unknown' : esc(formatDuration(f.halfLife))} · pick a game</small></span></button>`
+      : `<span class="home-pick is-fleet is-done">${icon('check', { size: 22 })}<span class="home-pick-txt"><b>All built so far</b></span></span>`;
+  return `<p class="home-count"><b>${t.built}</b> of ${MAX_Z} atoms built</p>`
+    + tracks(save, fleetOn)
+    + laneRow('stable', t.stDone, t.stAll, stableChoice)
+    + laneRow('fleeting', fleetOn ? t.flDone : 0, t.flAll, fleetChoice);
+}
+
+function wireCollect(host: HTMLElement, save: SaveData): void {
+  const step = nextStep(save);
+  const s = host.querySelector<HTMLButtonElement>('[data-step="stable"]');
+  if (s && step) s.onclick = () => openStep(step);
+  const f = host.querySelector<HTMLButtonElement>('[data-step="fleeting"]');
+  const pick = fleetingPick(save, step);
+  if (f && pick) {
+    f.onclick = () => openStep({ z: pick.z, kind: 'resume', a: pick.a, game: '', gameName: '', label: `${elementAt(pick.z).name}-${pick.a}`, stage: `fl-${pick.a}` });
+  }
+}
+
+// ---------- Learn ----------
+
+/** The table in its usual shape, small: the candidates outlined (crossed out once guessed
+ *  wrong), the rest dim. Lanthanides and actinides sit in their rows under the table. */
+function guessTable(cands: number[], wrong: number[]): string {
+  let cells = '';
+  for (const e of ELEMENTS) {
+    let col: number, row: number;
+    if (e.group === null) { col = e.z - (e.period === 6 ? 58 : 90) + 4; row = e.period + 3; }
+    else { col = e.group; row = e.period; }
+    const isCand = cands.includes(e.z), out = wrong.includes(e.z);
+    cells += isCand
+      ? `<button type="button" class="home-cell is-cand${out ? ' is-out' : ''}" data-z="${e.z}" style="grid-column:${col};grid-row:${row}" ${out ? 'disabled' : ''} aria-label="${out ? `Not ${esc(e.name)}` : `Guess ${esc(e.name)}`}"></button>`
+      : `<i class="home-cell${e.period === elementAt(cands[0]).period ? ' is-row' : ''}" style="grid-column:${col};grid-row:${row}"></i>`;
+  }
+  return `<div class="home-table">${cells}</div>`;
+}
+
+function paintGuess(box: HTMLElement, index: number, go: HomeGo): void {
+  const z = atomOfDay(index);
+  const cands = candidates(z, index);
+  const st = readDay();
+  const g = st.guess;
+  const e = elementAt(z);
+  if (g.done) {
+    const won = !g.wrong.length || g.wrong.length < cands.length - 1;
+    const extra = factsOf(z).filter((f) => f !== headlineOf(z)).slice(0, 2);
+    box.innerHTML = `<div class="home-card home-reveal">`
+      + `<div class="home-reveal-top">${plate(e, 'is-big')}<div><span class="home-caps">Atom of the day</span><b class="home-reveal-name">${esc(e.name)}</b>`
+      + `<small class="${won ? 'home-ok' : ''}">${won ? `${icon('check', { size: 14 })} Got it with ${g.clues} clue${g.clues === 1 ? '' : 's'}` : `Period ${e.period} · ${esc(seriesOne(e))}`}</small></div></div>`
+      + `<p class="home-reveal-h">${esc(headlineOf(z))}</p>`
+      + (extra.length ? `<ul class="home-facts">${extra.map((f) => `<li>${esc(f)}</li>`).join('')}</ul>` : '')
+      + `<div class="home-row"><button type="button" class="home-btn" data-more>${icon('atlas', { size: 18 })}Read more</button><span class="home-muted">A new atom tomorrow</span></div></div>`;
+    box.querySelector<HTMLButtonElement>('[data-more]')!.onclick = () => go('learn', { z });
+    return;
+  }
+  const shown = clues(z).slice(0, g.clues);
+  box.innerHTML = `<div class="home-card">`
+    + `<div class="home-row"><span class="home-caps">Atom of the day</span><span class="home-muted">Clue ${g.clues} of 3</span></div>`
+    + `<p class="home-q">Which atom is it?</p>`
+    + `<ol class="home-clues">${shown.map((c) => `<li>${esc(c)}</li>`).join('')}</ol>`
+    + guessTable(cands, g.wrong)
+    + `<div class="home-row"><span class="home-muted">It's one of the ${cands.length} outlined. Tap your guess.</span>`
+    + (g.clues < 3 ? '<button type="button" class="home-btn" data-clue>Another clue</button>' : '')
+    + '</div></div>';
+  const save = (next: DayState['guess']) => { const s = readDay(); writeDay({ ...s, guess: next }); paintGuess(box, index, go); };
+  box.querySelector<HTMLButtonElement>('[data-clue]')?.addEventListener('click', () => save({ ...g, clues: Math.min(3, g.clues + 1) }));
+  box.querySelectorAll<HTMLButtonElement>('.home-cell.is-cand:not(.is-out)').forEach((b) => {
+    b.onclick = () => {
+      const pick = Number(b.dataset.z);
+      if (pick === z) { save({ ...g, done: true }); return; }
+      const wrong = [...g.wrong, pick];
+      // A wrong guess shows the next clue; once only the answer is left, it is shown.
+      save({ wrong, clues: Math.min(3, g.clues + 1), done: wrong.length >= cands.length - 1 });
+    };
+  });
+}
+
+function paintQuiz(box: HTMLElement, index: number): void {
+  const qs = quizOf(index);
+  const st = readDay();
+  const n = st.quiz.length;
+  const streak = liveStreak(st);
+  const dots = `<span class="home-dots" aria-hidden="true">${qs.map((_, i) => `<i class="${i < n ? (st.quiz[i] ? 'is-right' : 'is-wrong') : ''}"></i>`).join('')}</span>`;
+  const head = `<div class="home-row"><span class="home-nu">${nuIconHtml(20)}</span><b class="home-q home-grow">Higher or lower?</b>`
+    + `<span class="home-muted">${streak ? `Streak ${streak} day${streak === 1 ? '' : 's'}` : 'Start a streak'}</span></div>`;
+  if (n >= qs.length) {
+    const right = st.quiz.filter(Boolean).length;
+    box.innerHTML = `<div class="home-card">${head}<p class="home-done">${right} of ${qs.length} right today. Three more tomorrow.</p><div class="home-row">${dots}</div></div>`;
+    return;
+  }
+  const q = qs[n];
+  const [hi, lo] = answerWords(q.prop);
+  const side = (z: number, val: string) => { const e = elementAt(z); return `<div class="home-hl">${plate(e)}<span class="home-hl-txt"><b>${esc(e.name)}</b><small class="home-val">${esc(val)}</small></span></div>`; };
+  box.innerHTML = `<div class="home-card">${head}<p class="home-ask">${esc(questionText(q))}</p>`
+    + `<div class="home-hls">${side(q.a, valueText(q.prop, q.a))}${side(q.b, '?')}</div>`
+    + `<div class="home-row home-answers"><button type="button" class="home-btn" data-ans="1">${hi}</button><button type="button" class="home-btn" data-ans="0">${lo}</button></div>`
+    + `<div class="home-row">${dots}<span class="home-muted">Question ${n + 1} of ${qs.length}</span></div></div>`;
+  box.querySelectorAll<HTMLButtonElement>('[data-ans]').forEach((b) => {
+    b.onclick = () => {
+      const right = (b.dataset.ans === '1') === q.higher;
+      // Show the answer, then move on.
+      box.querySelectorAll<HTMLButtonElement>('[data-ans]').forEach((x) => { x.disabled = true; });
+      box.querySelector(`[data-ans="${q.higher ? 1 : 0}"]`)?.classList.add('is-right');
+      if (!right) b.classList.add('is-wrong');
+      const val = box.querySelectorAll('.home-val')[1];
+      if (val) val.textContent = valueText(q.prop, q.b);
+      let s = readDay();
+      s = { ...s, quiz: [...s.quiz, right] };
+      if (s.quiz.length >= qs.length) s = finishQuiz(s);
+      writeDay(s);
+      setTimeout(() => paintQuiz(box, index), 1400);
+    };
+  });
+}
+
+function learnRow(save: SaveData): string {
+  const all = earnables(save);
+  const open = all.filter((e) => e.open).length + 1; // the plain table is always open
+  return `<button type="button" class="home-card home-link" data-go="learn">${icon('atlas', { size: 22 })}`
+    + `<span class="home-grow"><b>Explore all ${MAX_Z} atoms</b><small>${open} of ${all.length + 1} ways to see them open</small></span>${icon('chevron-right', { size: 20 })}</button>`;
+}
+
+// ---------- Play ----------
+
+function paintGame(box: HTMLElement, go: HomeGo): void {
+  const ids = PUZZLES.filter((g) => g.make).map((g) => g.id);
+  const id = [lastPlayed(), ...pinnedGames(), 'merge'].find((g): g is string => Boolean(g) && ids.includes(g!)) ?? ids[0];
+  const p = PUZZLES.find((g) => g.id === id)!;
+  const dial = lastDial(id);
+  box.append(gameCard({
+    id, name: p.name,
+    ...(dial !== null ? { difficulty: dial } : {}),
+    extra: lastPlayed() === id ? 'Played last' : 'Pick up a game',
+    action: { label: 'Play', ariaLabel: `Play ${p.name}`, onClick: () => go('play', { game: id }) },
+  }));
 }

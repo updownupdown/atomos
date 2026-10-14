@@ -140,6 +140,13 @@ export class Game {
     if (this.busy) return;
     if (z !== this.z) this.start(Math.min(MAX_Z, Math.max(1, z)));
     else this.suspend();
+    // A fleeting isotope with no puzzle named ('fl-103', from Home): its sheet, to pick one.
+    const pick = /^fl-(\d+)$/.exec(stage);
+    if (pick) {
+      if (this.stage !== 'home') this.enter('home');
+      if (atomBuilt(this.z, this.save)) this.pickFleeting(Number(pick[1]));
+      return;
+    }
     const s = stage as Stage;
     if (s === this.stage) return;
     if (this.canPlay(s)) this.enter(s);
