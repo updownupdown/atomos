@@ -2,7 +2,7 @@
 // element, as HTML for the View tabs. The top layer stays visual; this is the text
 // and tables the player opens on purpose.
 
-import { BLOCK_COLOUR, elementAt as elementAtZ, formatHalfLife, keyIsotope, shortConfiguration, sup, type Element } from './data';
+import { BLOCK_COLOUR, ELEMENTS, formatHalfLife, keyIsotope, shortConfiguration, sup, type Element } from './data';
 import { ORBITAL_NAMES } from './orbital';
 import FACTS from '../data/element-facts.json';
 import STORY from '../data/element-story.json';
@@ -10,7 +10,6 @@ import IMAGES from '../data/element-images.json';
 import { disclosureHTML } from '../ui/components';
 import { loadSave, type SaveData } from '../core/save';
 import { discoveryTimeline, discoveryWords, isotopeTable, orbitalTogether, propertyAxes, shellPlot } from './visuals';
-import { layout } from './layouts';
 import { lookColor, inkOn } from './looks';
 import { icon } from '../ui/icons';
 import './info.css';
@@ -96,15 +95,17 @@ export function elementFacts(z: number): { h: string; f: string[] } | null {
 
 /** A small periodic table with this atom lit, the way back to it in the Atlas. */
 function locator(e: Element): string {
-  const { cells } = layout('table');
-  const x0 = Math.min(...cells.map((c) => c.x)), y0 = Math.min(...cells.map((c) => c.y));
-  const x1 = Math.max(...cells.map((c) => c.x + c.w)), y1 = Math.max(...cells.map((c) => c.y + c.h));
-  const me = cells.find((c) => c.z === e.z)!;
-  const rect = (c: (typeof cells)[number], cls: string) => `<rect class="${cls}" x="${(c.x - x0 + 0.06).toFixed(2)}" y="${(c.y - y0 + 0.06).toFixed(2)}" width="${(c.w - 0.12).toFixed(2)}" height="${(c.h - 0.12).toFixed(2)}" rx="0.14"/>`;
-  const same = (c: (typeof cells)[number]) => elementAtZ(c.z).period === e.period && elementAtZ(c.z).group !== null;
-  const rows = cells.filter((c) => c.z !== e.z).map((c) => rect(c, same(c) ? 'lc-row' : 'lc-cell')).join('');
+  // Square cells, the f block in two rows under the table, level with group 4.
+  const at = (x: Element): [number, number] => (x.group == null ? [3 + (x.period === 6 ? x.z - 58 : x.z - 90), x.period === 6 ? 7.4 : 8.4] : [x.group - 1, x.period - 1]);
+  const rect = (x: Element, cls: string) => { const [c, r] = at(x); return `<rect class="${cls}" x="${(c + 0.07).toFixed(2)}" y="${(r + 0.07).toFixed(2)}" width="0.86" height="0.86" rx="0.16"/>`; };
+  const others = ELEMENTS.filter((x) => x.z !== e.z);
+  // Its period, f block aside, picked out as a lit row; the rest plain but easy to see.
+  const same = (x: Element) => x.period === e.period && x.group !== null;
+  const cells = others.filter((x) => !same(x)).map((x) => rect(x, 'lc-cell')).join('') + others.filter(same).map((x) => rect(x, 'lc-row')).join('');
+  const [c, r] = at(e);
+  const band = e.group !== null ? `<rect class="lc-band" x="-0.06" y="${(r - 0.04).toFixed(2)}" width="18.12" height="1.08" rx="0.26"/>` : '';
   return `<button type="button" class="ov-locate" data-z="${e.z}" aria-label="Show ${esc(e.name.toLowerCase())} in the Atlas">
-    <svg viewBox="0 0 ${(x1 - x0).toFixed(2)} ${(y1 - y0).toFixed(2)}" aria-hidden="true">${rows}<g style="--p:${lookColor('place', e)}">${rect(me, 'lc-me')}</g></svg>
+    <svg viewBox="-0.1 -0.1 18.2 9.6" aria-hidden="true">${band}${cells}<g style="--p:${lookColor('place', e)}"><rect class="lc-halo" x="${(c - 0.12).toFixed(2)}" y="${(r - 0.12).toFixed(2)}" width="1.24" height="1.24" rx="0.3"/>${rect(e, 'lc-me')}</g></svg>
   </button>`;
 }
 

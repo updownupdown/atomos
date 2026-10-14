@@ -3,43 +3,49 @@
    (atlaspage.ts) cover the whole screen, dock included. */
 .at { position: absolute; inset: 0; display: flex; flex-direction: column; padding-top: var(--top); font-family: var(--font); background: var(--c-bg); }
 
-/* Views: one pill row, the open one on the lighter plate in the accent, like the dock. */
-.at-views { flex: none; display: flex; gap: 2px; margin: var(--sp-2) var(--sp-3) 0; padding: 4px; height: 48px; border-radius: var(--r-pill); background: var(--c-well); overflow-x: auto; scrollbar-width: none; overscroll-behavior-x: contain; }
+/* Two rows of pills, each with its icon at the left: the shapes, then the colors. The open one
+   sits on the lighter plate in the accent; one still to earn has an amber lock and how. */
+.at-row { flex: none; display: flex; align-items: center; gap: var(--sp-2); margin: var(--sp-2) var(--sp-3) 0; }
+.at-row-ico { flex: none; width: 24px; display: grid; place-items: center; color: var(--c-text-2); }
+.at-views { flex: 1; min-width: 0; display: flex; gap: 2px; padding: 4px; height: 44px; border-radius: var(--r-pill); background: var(--c-well); overflow-x: auto; scrollbar-width: none; overscroll-behavior-x: contain; }
 .at-views::-webkit-scrollbar { display: none; }
-/* Eight views: the row scrolls sideways on a phone, the shapes still to earn at its end. */
 .at-views button { flex: 1 0 auto; display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-width: 0; padding: 0 12px; white-space: nowrap; border: 0; border-radius: var(--r-pill); background: transparent; color: var(--c-text-2); font: inherit; font-size: 13px; font-weight: var(--fw-semibold); cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .at-views button:hover { color: var(--c-text); }
 .at-views button[aria-checked='true'] { background: var(--c-pick); color: var(--c-accent); }
 .at-views button.is-locked { color: var(--c-text-2); }
-.at-views button.is-locked svg { width: 14px; height: 14px; opacity: 0.8; }
+.at-views button.is-locked svg { width: 14px; height: 14px; color: var(--c-warn); }
+.at-views button small { margin-left: 2px; font-size: 13px; font-weight: var(--fw-medium); color: var(--c-warn); }
 .at-views button:focus-visible { outline: 2px solid var(--c-accent); outline-offset: -2px; }
 
-/* Search and Color, for every view. */
-.at-tools { flex: none; display: flex; gap: var(--sp-2); margin: var(--sp-2) var(--sp-3) 0; }
-.at-search { position: relative; flex: 1; min-width: 0; display: block; }
-.at-search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); display: grid; color: var(--c-text-2); pointer-events: none; }
-.at-search input { width: 100%; height: 40px; padding: 0 40px 0 40px; border: 0; border-radius: var(--r-pill); background: var(--c-surface-2); color: var(--c-text); font: inherit; font-size: var(--fs-md); -webkit-appearance: none; appearance: none; outline: none; }
+/* Search, the legend and the microscope on one line. Search is a round button; tapped, its field
+   opens over the legend, and it closes when left empty. */
+.at-tools { position: relative; flex: none; display: flex; align-items: center; gap: var(--sp-2); min-height: 40px; margin: var(--sp-2) var(--sp-3) 0; }
+.at-search { flex: none; position: relative; width: 40px; height: 40px; }
+.at-search-btn { width: 40px; height: 40px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 50%; background: var(--c-surface-2); color: var(--c-text); cursor: pointer; }
+.at-search-btn:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
+.at-search input, .at-clear { display: none; }
+.at-tools.is-searching .at-search { position: absolute; left: 0; right: 48px; top: 0; z-index: 2; width: auto; }
+.at-tools.is-searching .at-search-btn { position: absolute; left: 0; top: 0; z-index: 1; background: transparent; color: var(--c-text-2); pointer-events: none; }
+.at-tools.is-searching .at-search input { display: block; width: 100%; height: 40px; padding: 0 40px; border: 0; border-radius: var(--r-pill); background: var(--c-surface-2); color: var(--c-text); font: inherit; font-size: var(--fs-md); -webkit-appearance: none; appearance: none; outline: none; }
 .at-search input::placeholder { color: var(--c-text-2); }
 .at-search input::-webkit-search-cancel-button { display: none; }
 .at-search input:focus-visible { box-shadow: inset 0 0 0 2px var(--c-accent); }
-.at-clear[hidden] { display: none; }
-.at-clear { position: absolute; right: 0; top: 0; width: 40px; height: 40px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--c-text-2); cursor: pointer; }
-.at-color { flex: none; display: inline-flex; align-items: center; gap: 6px; height: 40px; padding: 0 14px 0 12px; border: 0; border-radius: var(--r-pill); background: var(--c-surface-2); color: var(--c-text); font: inherit; font-size: 13px; font-weight: var(--fw-semibold); cursor: pointer; max-width: 50%; }
+.at-tools.is-searching .at-clear { display: grid; position: absolute; right: 0; top: 0; z-index: 1; width: 40px; height: 40px; place-items: center; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--c-text-2); cursor: pointer; }
+.at-tools.is-searching .at-legend { visibility: hidden; }
 .at-sci { flex: none; width: 40px; height: 40px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 50%; background: var(--c-surface-2); color: var(--c-text); cursor: pointer; }
 .at-sci svg { width: 22px; height: 22px; }
 .at-sci:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
-.at.is-details .at-sci { display: none; }
-.at-color small { font-size: 13px; font-weight: var(--fw-medium); color: var(--c-text-2); }
-.at-color span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.at-color:focus-visible, .at-peek:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
+.at.is-details .at-sci { visibility: hidden; }
+.at-peek:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
 
 /* A line about the shape on screen: Sizes is drawn to scale. */
 .at-note { flex: none; margin: var(--sp-2) var(--sp-4) 0; font-size: 13px; line-height: 1.45; color: var(--c-text-2); }
 .at-note[hidden] { display: none; }
 
-/* The legend for any color but Place. */
-.at-legend { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin: var(--sp-2) var(--sp-4) 0; font-size: 13px; color: var(--c-text-2); }
-.at-legend[hidden] { display: none; }
+/* The legend for the color on screen, between search and the microscope; it scrolls sideways
+   when it is long. */
+.at-legend { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px 12px; overflow-x: auto; scrollbar-width: none; white-space: nowrap; font-size: 13px; color: var(--c-text-2); }
+.at-legend::-webkit-scrollbar { display: none; }
 .at-ramp { flex: 1; min-width: 60px; max-width: 200px; height: 10px; border-radius: 5px; background: linear-gradient(to right, #24407a, #3d7cc4, #6fd0e6, #d9e6d4, #f2b552); }
 .at-key { display: inline-flex; align-items: center; gap: 6px; }
 .at-key i { width: 14px; height: 14px; border-radius: 4px; }
@@ -169,23 +175,11 @@ body:not([data-screen='gallery']) .at-page { display: none; }
 .at-lapse.is-on { background: var(--c-pick); }
 .at-lapse.is-on b { color: var(--c-accent); min-width: 4ch; }
 .at-lapse.is-locked { color: var(--c-text-2); }
+.at-lapse.is-locked svg { color: var(--c-warn); }
 
-/* Beside the title: how much of the Atlas is earned. */
-.at-count { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 12px; border: 0; border-radius: var(--r-pill); background: var(--c-surface-2); color: var(--c-text); font: inherit; font-size: 13px; font-weight: var(--fw-semibold); font-variant-numeric: tabular-nums; cursor: pointer; }
-.at-count svg { color: var(--c-accent); }
-.at-count:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
-
-/* The Color sheet and the earn sheet: rows still to earn, with Play or where to meet the game. */
-.look-row.is-locked { cursor: default; }
-.look-row.is-locked .look-main b { color: var(--c-text-2); }
-.look-go, .earn-mark { flex: none; display: inline-flex; align-items: center; }
-.earn-mark { color: var(--c-done); }
-.earn-row { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-3); border-radius: var(--r-md); background: var(--c-plate); }
-.earn-row:not(.is-open) .look-main b { color: var(--c-text-2); }
-.earn-h { margin: var(--sp-3) 2px 2px; font-size: 13px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--c-text-2); font-weight: var(--fw-semibold); }
-.earn-h small { font-size: 13px; letter-spacing: 0; text-transform: none; margin-left: 6px; }
-.earn-lede { margin: 0 0 var(--sp-2); color: var(--c-text-2); line-height: 1.5; }
+/* A color or the time-lapse still to earn, on its own: what it is and how to open it. */
 .earn-one { display: flex; flex-direction: column; gap: var(--sp-3); }
 .earn-one p { margin: 0; line-height: 1.55; }
 .earn-how { display: flex; align-items: center; gap: 8px; color: var(--c-text-2); }
+.earn-how svg { flex: none; color: var(--c-warn); }
 .earn-go { display: flex; }
