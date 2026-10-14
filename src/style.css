@@ -558,46 +558,8 @@ body.puzzling #overlay { pointer-events: auto; touch-action: none; }
 .gate-next { display: flex; flex-direction: column; }
 .gate-look { display: inline-flex; align-items: center; justify-content: center; gap: 8px; align-self: stretch; }
 
-/* Splash: the mark assembles on the plate while the app boots. See src/ui/splash.ts. */
-.splash {
-  position: fixed;
-  inset: 0;
-  z-index: 100;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  background: var(--bg);
-  color: var(--text);
-  transition: opacity 0.45s ease;
-}
-.splash.out { opacity: 0; pointer-events: none; }
-.splash .grain { position: absolute; }
-.splash-mark { width: min(46vw, 210px); height: auto; position: relative; }
-.splash-word { font-family: var(--font); font-weight: 700; font-size: 19px; letter-spacing: 0.32em; text-transform: uppercase; margin-top: 18px; padding-left: 0.32em; }
-/* The mark's two electrons are cyan, in the header and on the splash; the rest stays white. */
-.nav-logo .electron, .splash-mark .electron { fill: var(--c-accent); }
-/* On the splash they turn cyan only once the shell has settled: a last pop of color. */
-
-/* Starting states, only while playing: everything hidden or wound back. */
-.splash.play .nucleon { transform-box: fill-box; transform-origin: center; transform: scale(0); animation: splash-pop 0.42s cubic-bezier(0.2, 1.4, 0.4, 1) forwards; }
-.splash.play .nucleon:nth-of-type(1) { animation-delay: 0.05s; }
-.splash.play .nucleon:nth-of-type(2) { animation-delay: 0.17s; }
-.splash.play .nucleon:nth-of-type(3) { animation-delay: 0.27s; }
-.splash.play .nucleon:nth-of-type(4) { animation-delay: 0.37s; }
-.splash.play .nucleon:nth-of-type(5) { animation-delay: 0.47s; }
-.splash.play .nucleon:nth-of-type(6) { animation-delay: 0.57s; }
-.splash.play .nucleon:nth-of-type(7) { animation-delay: 0.67s; }
-.splash.play .electron { transform-box: fill-box; transform-origin: center; transform: scale(0); fill: var(--c-text); animation: splash-pop 0.36s cubic-bezier(0.2, 1.4, 0.4, 1) 0.5s forwards, splash-accent 0.5s cubic-bezier(0.2, 1.4, 0.4, 1) 1.85s forwards; }
-.splash.play .spin { transform-box: view-box; transform-origin: 50px 50px; transform: rotate(-200deg); animation: splash-swing 1.25s cubic-bezier(0.25, 0.8, 0.3, 1) 0.6s forwards; }
-.splash.play .shell { stroke-dasharray: 1; stroke-dashoffset: 1; animation: splash-draw 1.05s cubic-bezier(0.4, 0, 0.2, 1) 0.7s forwards; }
-.splash.play .splash-word { opacity: 0; animation: splash-fade 0.6s ease 1.35s forwards; }
-@keyframes splash-pop { to { transform: scale(1); } }
-@keyframes splash-draw { to { stroke-dashoffset: 0; } }
-@keyframes splash-swing { to { transform: rotate(0deg); } }
-@keyframes splash-fade { to { opacity: 1; } }
-@keyframes splash-accent { 0% { fill: var(--c-text); transform: scale(1); } 45% { fill: var(--c-accent); transform: scale(1.3); } 100% { fill: var(--c-accent); transform: scale(1); } }
+/* The mark's two electrons are cyan in the header; the rest stays white. */
+.nav-logo .electron { fill: var(--c-accent); }
 
 .loupe-screen { position: absolute; inset: 0; z-index: 3; background: var(--c-bg); opacity: 0; transition: opacity 0.24s ease; display: flex; flex-direction: column; }
 .loupe-screen.in { opacity: 1; }
@@ -1203,7 +1165,7 @@ body.puzzling #overlay { pointer-events: auto; touch-action: none; }
 .nav-btn svg { width: 24px; height: 24px; }
 .nav-btn:hover { background: var(--c-surface-2); }
 .nav-btn[aria-current='page'] { background: var(--c-pick); color: var(--c-accent); }
-/* The wordmark from the splash: Outfit bold, all caps, widely tracked. */
+/* The wordmark: Outfit bold, all caps, widely tracked. */
 .wordmark { font-family: var(--font); font-weight: var(--fw-bold); font-size: 12px; letter-spacing: 0.32em; text-transform: uppercase; line-height: 1; }
 .nav-logo:focus-visible, .nav-btn:focus-visible, .dock button:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
 /* Atom screens and Collect have no title row: the dock carries the atom, Build and Learn. Off

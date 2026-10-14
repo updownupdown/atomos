@@ -2,7 +2,7 @@
 // hollow neutrons) inside one closed shell, with both electrons sitting in gaps cut in the
 // ring. Li⁺ is the one honest way to draw that core with a single shell. Everything is
 // drawn on a 100-unit grid in one colour, so the same geometry serves the app icon, the
-// favicon, the splash screen and the gallery title. scripts/gen-icons.mjs renders the PNGs.
+// favicon and the gallery title. scripts/gen-icons.mjs renders the PNGs.
 
 export const MARK = {
   core: 0.66,     // nucleus size as a share of the grid
@@ -49,7 +49,7 @@ export function electrons(): [number, number][] {
 }
 
 /**
- * The mark as SVG inner markup in `currentColor`, classed so the splash can animate the
+ * The mark as SVG inner markup in `currentColor`, classed so each part can be styled:
  * parts: .nucleon (with .proton or .neutron), .shell, .orbit > .electron.
  */
 export function markInner(): string {
@@ -59,7 +59,7 @@ export function markInner(): string {
     : `<circle class="nucleon neutron" cx="${x}" cy="${y}" r="${f(r * 0.83)}" fill="none" stroke="currentColor" stroke-width="${f(r * 0.36)}"/>`,
   ).join('');
   const shell = shellArcs().map((p) => p.replace('<path ', '<path class="shell" ')).join('');
-  // Each electron sits in its own group so the splash can swing it round the ring.
+  // Each electron sits in its own group, so it can be turned round the ring on its own.
   const el = electrons().map(([x, y]) => `<g class="orbit"><circle class="electron" cx="${x}" cy="${y}" r="${MARK.electron}" fill="currentColor"/></g>`).join('');
   return core + shell + el;
 }
