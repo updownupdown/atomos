@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { atomOfDay, candidates, clues, dayBefore, finishQuiz, liveStreak, masked, quizOf, today, valueText, type DayState } from '../src/home/daily';
-import { ELEMENTS, MAX_Z, elementAt } from '../src/gallery/data';
+import { FAMILIAR, QUIZ_TYPES, atomOfDay, atomsOf, candidates, clues, dayBefore, finishQuiz, liveStreak, masked, quizOf, today, type DayState } from '../src/home/daily';
+import { MAX_Z, elementAt } from '../src/gallery/data';
 
 describe('the atom of the day', () => {
   it('visits every atom once in 118 days', () => {
@@ -8,13 +8,14 @@ describe('the atom of the day', () => {
     expect(seen.size).toBe(MAX_Z);
   });
 
-  it('outlines up to four atoms of its period, the answer among them', () => {
+  it('offers four atom cards of different kinds, the answer among them', () => {
     for (let d = 0; d < 300; d++) {
       const z = atomOfDay(d);
       const c = candidates(z, d);
       expect(c).toContain(z);
-      expect(c.length).toBe(Math.min(4, ELEMENTS.filter((e) => e.period === elementAt(z).period).length));
-      expect(c.every((o) => elementAt(o).period === elementAt(z).period)).toBe(true);
+      expect(new Set(c).size).toBe(4);
+      expect(new Set(c.map((o) => elementAt(o).series)).size).toBe(4);
+      expect([...c].sort((a, b) => a - b)).toEqual(c);
     }
   });
 
@@ -34,16 +35,44 @@ describe('the atom of the day', () => {
 });
 
 describe("Nu's question", () => {
-  it('deals three fair questions every day', () => {
-    for (let d = 0; d < 200; d++) {
+  it('deals three two-choice questions of different kinds every day, on well-known atoms', () => {
+    for (let d = 0; d < 400; d++) {
       const qs = quizOf(d);
       expect(qs).toHaveLength(3);
+      expect(new Set(qs.map((q) => q.type)).size).toBe(3);
+      const zs = qs.flatMap(atomsOf);
+      expect(new Set(zs).size).toBe(zs.length);
       for (const q of qs) {
-        expect(q.a).not.toBe(q.b);
-        expect(valueText(q.prop, q.a)).not.toBe('unknown');
-        expect(valueText(q.prop, q.b)).not.toBe('unknown');
+        expect(q.options).toHaveLength(2);
+        expect(JSON.stringify(q.options[0])).not.toBe(JSON.stringify(q.options[1]));
+        expect(atomsOf(q).every((z) => FAMILIAR.includes(z))).toBe(true);
       }
     }
+  });
+
+  it('marks the right answer', () => {
+    const seen = new Set<string>();
+    for (let d = 0; d < 400; d++) {
+      for (const q of quizOf(d)) {
+        seen.add(q.type);
+        const [a, b] = q.options.map((o) => ('z' in o ? elementAt(o.z) : null));
+        const pick = q.answer === 0 ? a : b, other = q.answer === 0 ? b : a;
+        const text = 'text' in q.options[q.answer] ? (q.options[q.answer] as { text: string }).text : '';
+        const about = q.about ? elementAt(q.about) : null;
+        switch (q.type) {
+          case 'melt': expect(pick!.melt! > other!.melt!).toBe(q.text.includes('higher')); break;
+          case 'boil': expect(pick!.boil! > other!.boil!).toBe(q.text.includes('higher')); break;
+          case 'dense': expect(pick!.density! > other!.density!).toBe(q.text === 'Which is denser?'); break;
+          case 'first': expect(pick!.discoveryYear! < other!.discoveryYear!).toBe(q.text.includes('first')); break;
+          case 'radioactive': expect([pick!.stableIsotopes, other!.stableIsotopes > 0]).toEqual([0, true]); break;
+          case 'noble': expect([pick!.series, other!.series === 'Noble gases']).toEqual(['Noble gases', false]); break;
+          case 'year': expect(Number(text)).toBe(about!.discoveryYear); break;
+          case 'phase': expect(text).toBe(about!.melt! > 293 ? 'Solid' : about!.boil! < 293 ? 'Gas' : 'Liquid'); break;
+          case 'metal': expect(text === 'Yes').toBe(['Alkali metals', 'Alkaline earth metals', 'Transition metals', 'Poor metals', 'Lanthanides', 'Actinides'].includes(about!.series)); break;
+        }
+      }
+    }
+    expect([...seen].sort()).toEqual([...QUIZ_TYPES].sort());
   });
 
   it('is the same on every device on a given day', () => {
