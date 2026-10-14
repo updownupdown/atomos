@@ -2,6 +2,7 @@ import json, math
 from mendeleev import element
 from mendeleev.fetch import fetch_table
 from american import american
+from discoverers import tidy
 iso = fetch_table('isotopes')
 U={'Yyear':3.156e31,'usec':1e-6,'minute':60,'nsec':1e-9,'asec':1e-18,'Gyear':3.156e16,'Eyear':3.156e25,'Zyear':3.156e28,'zsec':1e-21,'kyear':3.156e10,'Myear':3.156e13,'sec':1,'ysec':1e-24,'hour':3600,'msec':1e-3,'day':86400,'Pyear':3.156e22,'year':3.156e7,'Tyear':3.156e19,'psec':1e-12}
 STABLE="H2 He2 Li2 Be1 B2 C2 N2 O3 F1 Ne3 Na1 Mg3 Al1 Si3 P1 S4 Cl2 Ar3 K2 Ca5 Sc1 Ti5 V1 Cr4 Mn1 Fe4 Co1 Ni5 Cu2 Zn5 Ga2 Ge4 As1 Se5 Br2 Kr5 Rb1 Sr4 Y1 Zr4 Nb1 Mo6 Ru7 Rh1 Pd6 Ag2 Cd6 In1 Sn10 Sb2 Te6 I1 Xe7 Cs1 Ba6 La1 Ce4 Pr1 Nd5 Sm5 Eu1 Gd6 Tb1 Dy7 Ho1 Er6 Tm1 Yb7 Lu1 Hf5 Ta2 W4 Re1 Os6 Ir2 Pt5 Au1 Hg7 Tl2 Pb4"
@@ -44,7 +45,7 @@ for z in range(1,119):
         en=num(e.en_pauling),ea=num(e.electron_affinity),ie=num(ion.get(1)),
         ox=e.oxistates or [],cpk=e.cpk_color,crust=num(e.abundance_crust),sea=num(e.abundance_sea),
         geo=e.geochemical_class,phase=None,
-        year=e.discovery_year,who=american(e.discoverers),where=american(e.discovery_location),origin=american(e.name_origin),
+        year=e.discovery_year,who=tidy(z,american(e.discoverers)),where=american(e.discovery_location),origin=american(e.name_origin),
         desc=american(e.description),uses=american(e.uses),src=american(e.sources),
         stab=len(stable),nIso=len(rows)))
     isos.append([[r['A'],r['m'],r['ab'],r['hl'],r['sp'],r['st']] for r in rows])
