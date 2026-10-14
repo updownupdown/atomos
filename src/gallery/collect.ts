@@ -312,6 +312,8 @@ export class Collect {
     z = Math.max(1, Math.min(MAX_Z, z));
     if (z !== this.current) this.hideNews();
     this.current = z;
+    // The dock shows the atom in the lens (shell.ts listens).
+    window.dispatchEvent(new CustomEvent('atomos:focus', { detail: { z } }));
     const e = elementAt(z);
     const period = rowOf(z);
     const open = rowOpen(period, this.save);

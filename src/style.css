@@ -809,7 +809,7 @@ body.puzzling #overlay { pointer-events: auto; touch-action: none; }
 .pill.core { background: transparent; color: var(--label-muted); border: 1px dashed var(--c-text-3); font-weight: 400; }
 
 /* View's tabs: a strip under the header; the model tab shows the canvas, the others a scrolling page. */
-.loupe-screen { --tabs-h: 48px; --bar-h: 60px; --box-h: 0px; --chrome: calc(var(--top) + var(--bar-h) + var(--box-h) + var(--tabs-h)); }
+.loupe-screen { --tabs-h: 48px; --bar-h: 0px; --box-h: 0px; --chrome: calc(var(--top) + var(--bar-h) + var(--box-h) + var(--tabs-h)); }
 /* Info, over its tabs: the atom's progress box with Build (progressbox.ts). */
 .atom-box { position: absolute; left: 0; right: 0; top: calc(var(--top) + var(--bar-h)); z-index: 3; height: var(--box-h); display: flex; align-items: center; justify-content: center; background: var(--c-bg); }
 /* Info has no progress box: Build is on the atom's own screen. */
@@ -1206,14 +1206,19 @@ body.puzzling #overlay { pointer-events: auto; touch-action: none; }
 /* The wordmark from the splash: Outfit bold, all caps, widely tracked. */
 .wordmark { font-family: var(--font); font-weight: var(--fw-bold); font-size: 12px; letter-spacing: 0.32em; text-transform: uppercase; line-height: 1; }
 .nav-logo:focus-visible, .nav-btn:focus-visible, .dock button:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
-/* Atom screens have no title row: their atom bar is the top. */
-body[data-screen^='atom'] .nav { display: none; }
+/* Atom screens and Collect have no title row: the dock carries the atom, Build and Learn. Off
+   Home the header keeps only Search and Settings (the mark and wordmark are Home's). */
+body[data-screen^='atom'] .nav, body[data-screen='collect'] .nav { display: none; }
+body[data-screen='collect'] { --top: var(--safe-top); }
+body:not([data-screen='home']) .nav-logo, body:not([data-screen='home']) .nav-title { visibility: hidden; }
+.atom-bar[hidden] { display: none; }
 
-/* The dock (src/ui/dock.ts): Collect, Learn and Play in a pill floating at the foot, always in
-   that order. At a section's top the three share it, each an icon over its name; the one open
-   sits on a lighter plate in the accent. Inside a section they shrink to icons at the left and
-   the dropdown fills the rest: what is open, with a chevron pointing up to its list. Only the
-   3D atom full screen hides it. --safe-bottom grows by the dock, so whatever sits at a screen's
+/* The dock (src/ui/dock.ts): Home, Collect, Learn and Play in a pill floating at the foot,
+   always in that order. On Home and at Learn's and Play's tops the four share it, each an icon
+   over its name; the one open sits on a lighter plate in the accent. Inside a section Home
+   shrinks to its icon at the left, the dropdown fills the middle (what is open, with a chevron
+   pointing up to its list) and, on an atom, Build and Learn sit at the right. Only the 3D atom
+   full screen hides it. --safe-bottom grows by the dock, so whatever sits at a screen's
    foot (Up next, the end of a list, a game's status) stays clear of it. */
 :root { --dock-h: 64px; }
 .dock {
@@ -1225,7 +1230,7 @@ body[data-screen^='atom'] .nav { display: none; }
   transform: translateX(-50%);
   z-index: 16;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 4px;
   padding: 6px;
   border-radius: var(--r-pill);
@@ -1248,16 +1253,22 @@ body[data-screen^='atom'] .nav { display: none; }
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
+.dock button[hidden] { display: none; }
 .dock button:hover { color: var(--c-text); }
 .dock button[aria-current='page'] { background: var(--c-pick); color: var(--c-accent); }
 .nav-ico { display: grid; place-items: center; }
 .nav-ico svg { width: 24px; height: 24px; display: block; }
 .nav-lab { font-size: 13px; font-weight: var(--fw-semibold); line-height: 1.1; }
-/* Inside a section: three icons at the left, then the dropdown. */
-.dock.is-deep { grid-template-columns: repeat(3, calc(var(--dock-h) - 10px)) minmax(0, 1fr); padding: 5px; gap: 2px; }
+/* Inside a section: Home's icon at the left, the dropdown, then Build and Learn on an atom. */
+.dock.is-deep { grid-template-columns: calc(var(--dock-h) - 10px) minmax(0, 1fr); padding: 5px; gap: 2px; }
+.dock.is-deep.has-pages { grid-template-columns: calc(var(--dock-h) - 10px) minmax(0, 1fr) repeat(2, calc(var(--dock-h) - 10px)); }
+.dock.has-pages .dock-pick { margin-right: 4px; }
 /* Round, not pills: as wide as they are tall. */
-.dock.is-deep button[id^='nav-'] { border-radius: 50%; }
+.dock.is-deep button[id^='nav-'], .dock .dock-mode { border-radius: 50%; }
 .dock.is-deep .nav-lab { display: none; }
+/* Nu at rest: the Home icon's nucleus, in rose, while Nu is nowhere else on the screen. */
+.dock .dock-nu { transition: fill 0.3s var(--ease); }
+.dock.has-nu .dock-nu { fill: var(--c-go); filter: drop-shadow(0 0 2px rgba(255, 90, 168, 0.8)); }
 /* The dropdown on the same pale plate as the lit section. */
 .dock .dock-pick { flex-direction: row; justify-content: flex-start; gap: 6px; min-width: 0; margin-left: 4px; padding: 0 10px 0 5px; background: var(--c-pick); color: var(--c-text); text-align: left; }
 .dock .dock-pick:hover { background: color-mix(in srgb, var(--c-pick) 80%, var(--c-text)); }
@@ -1278,12 +1289,12 @@ body[data-screen='atom-view'] .dock { display: none; }
   .nav-title { letter-spacing: 0.22em; }
 }
 body:not([data-screen='atom-view']) { --safe-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--dock-h) + var(--dock-gap, 12px)); }
-@media (prefers-reduced-motion: reduce) { .dock-pick > svg { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .dock-pick > svg, .dock .dock-nu { transition: none; } }
 
 /* Atom screens, top down: the atom bar is the header (Build and Info each mount their own in
    the same place, so it reads as one); the dock floats at the foot. --top is the bottom of the
    header; screens add the bar's height (60 px) themselves, as they always have. */
-:root { --nav-bottom: calc(var(--safe-top) + var(--nav-h)); --atom-bar-h: 60px; --dock-gap: var(--sp-3); }
+:root { --nav-bottom: calc(var(--safe-top) + var(--nav-h)); --atom-bar-h: 0px; --dock-gap: var(--sp-3); }
 body[data-screen^='atom'] { --nav-bottom: var(--safe-top); --top: var(--nav-bottom); }
 body[data-screen^='atom'] .loupe-screen > .atom-bar,
 body[data-screen^='atom'] .build-bar { top: var(--nav-bottom); }
