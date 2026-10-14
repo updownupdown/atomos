@@ -7,7 +7,7 @@
 // and anything done further down shows white, never green. Stops are plain fills: gray not
 // done, white done, green in the green run; no outlines.
 // The stop where the Stable lane's green ends (or, once Stable is whole, the Fleeting lane's) is
-// pink, and Nu swims beside it. A part just won rings white for a moment.
+// pink. A part just won rings white for a moment.
 // The overlay form can also run as one single track (the atom's Build page): Stable's stops and
 // then Fleeting's on the one line, with a Stable and a Fleeting icon in circles on the line where
 // each part starts, and a check on the line by each part that is complete. There a stop that is
@@ -132,15 +132,11 @@ function stopHtml(s: LaneState): string {
   ].filter(Boolean).join(' ');
   if (st.kind === 'bar') {
     const share = Math.max(0, Math.min(1, st.share ?? (st.done ? 1 : 0)));
-    return `<i class="${cls}"><b style="height:${Math.round(share * 100)}%"></b></i>${s.nu ? SWIM : ''}`;
+    return `<i class="${cls}"><b style="height:${Math.round(share * 100)}%"></b></i>`;
   }
   if (st.done && st.icon) return `<i class="${cls} trk-stop--icon">${icon(st.icon, { size: 13 })}</i>`;
-  return `<i class="${cls}"></i>${s.nu ? SWIM : ''}`;
+  return `<i class="${cls}"></i>`;
 }
-
-/** Nu swimming beside the pink stop: a dot drifting on two slow swings, up and down and side to
- *  side, so it wanders in loops near the stop (still under Reduce motion). */
-const SWIM = '<em class="trk-swim"><b></b></em>';
 
 /** "Stable" and "Fleeting" with their icons, each over its lane: put it at the right edge of
  *  the row above the first, like a cell. */

@@ -12,7 +12,7 @@
 import { elementAt, placeColour } from '../gallery/data';
 import { puzzleIcon, puzzleType } from '../puzzles/catalog';
 import { icon, type IconName } from './icons';
-import { nuEnabled } from './nu';
+import { startNu } from './nu';
 
 export type Section = 'home' | 'collect' | 'learn' | 'play';
 
@@ -46,14 +46,11 @@ const PAGES: { id: AtomPage; button: string; icon: IconName; label: string }[] =
   { id: 'learn', button: 'dock-learn', icon: 'atlas', label: 'Learn' },
 ];
 
-/** The Home icon (icons/home.svg) with its nucleus apart, so Nu can light it. */
+/** The Home icon (icons/home.svg) with its nucleus as Nu's home slot: an empty ring that Nu
+ *  fills whenever it has nothing else to show (nu.ts). */
 const HOME_ICON = '<svg class="icon icon-home" width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">'
   + '<g stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><path d="M3.6 11L12 4L20.4 11"/><path d="M5.8 9.4V19.6H18.2V9.4"/></g>'
-  + '<circle class="dock-nu" cx="12" cy="14.2" r="2.4" fill="currentColor"/></svg>';
-
-/** Nu anywhere on the screen but the dock: the Next icon, Nu flying, orbiting or speaking,
- *  Collect's Nu on its table, or anything else marked data-nu. */
-const NU_SEEN = '.icon-nu, .nu-icon, .nu-fly, .nu-streak, .nu-orbit, .nu-line, .co-nu, [data-nu]';
+  + '<circle class="nu-slot nu-home-slot" cx="12" cy="14.2" r="2.4"/></svg>';
 
 const FIT_STEPS = 10;
 
@@ -82,7 +79,7 @@ export class Dock {
     this.name = this.pickBtn.querySelector('.dock-name')!;
     this.pickBtn.onclick = () => o.onPick();
     new ResizeObserver(() => this.fit()).observe(this.pickBtn);
-    this.watchNu();
+    startNu();
   }
 
   get current(): DockState { return this.state; }
@@ -108,7 +105,6 @@ export class Dock {
       b.setAttribute('aria-current', pages && state.page === p.id ? 'page' : 'false');
     }
     this.pickBtn.hidden = !deep;
-    this.paintNu();
     const p = state.pick;
     if (!p) return;
     if (p.kind === 'atom') {
@@ -134,19 +130,6 @@ export class Dock {
   setOpen(open: boolean): void {
     this.pickBtn.setAttribute('aria-expanded', String(open));
     this.pickBtn.classList.toggle('is-open', open);
-  }
-
-  /** Nu rests in the Home icon while it is nowhere else on the screen (and is on in Settings). */
-  private paintNu(): void {
-    const away = [...document.querySelectorAll<Element>(NU_SEEN)].some((n) => !this.el.contains(n) && n.getClientRects().length > 0);
-    this.el.classList.toggle('has-nu', nuEnabled() && !away);
-  }
-
-  /** Looks again whenever the page's elements come and go, once a frame at most. */
-  private watchNu(): void {
-    let queued = 0;
-    const look = () => { if (!queued) queued = requestAnimationFrame(() => { queued = 0; this.paintNu(); }); };
-    new MutationObserver(look).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['hidden'] });
   }
 
   /** Long names (Rutherfordium on a 360px phone) step down from 15px to 13px before they

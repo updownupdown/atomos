@@ -498,12 +498,8 @@
 .ui-confirm-actions .ui-confirm-problem { background: var(--c-warn); color: #2a1c02; }
 .ui-confirm-card .ui-confirm-note { margin: var(--sp-4) 0 0; font-size: var(--fs-sm); color: var(--c-text-2); }
 
-/* Nu circles the action's icon while the dialog waits. */
-.nu-orbit { position: relative; width: 76px; height: 76px; margin: 0 auto var(--sp-3); display: grid; place-items: center; }
-.nu-orbit-icon { color: var(--c-text); display: grid; place-items: center; }
-.nu-orbit-arm { position: absolute; inset: 0; animation: nu-orbit 2.6s linear infinite; }
-.nu-orbit-dot { position: absolute; top: 50%; right: 4px; width: 8px; height: 8px; margin-top: -4px; border-radius: 50%; background: var(--c-go); box-shadow: 0 0 10px 2px var(--c-go-ring); }
-@keyframes nu-orbit { to { transform: rotate(360deg); } }
+/* The action's icon in a confirm dialog, which Nu circles while it waits. */
+.ui-confirm-ico { width: 76px; height: 76px; margin: 0 auto var(--sp-3); display: grid; place-items: center; color: var(--c-text); }
 
 /* Nu streaking across a board: the dot and its fading trail, above everything, untouchable. */
 .nu-streak { position: fixed; z-index: 45; pointer-events: none; }
@@ -518,17 +514,21 @@
 }
 
 .ui-next.is-live.is-still::after { animation: none; box-shadow: 0 0 0 4px var(--c-go-ring); }
-.nu-orbit.is-still .nu-orbit-arm { animation: none; }
 @media (prefers-reduced-motion: reduce) {
   .ui-next.is-live::after { animation: none; box-shadow: 0 0 0 4px var(--c-go-ring); }
-  .nu-orbit-arm { animation: none; }
 }
 
-/* Nu in flight: the head and its fading trail of ghosts, above everything, untouchable. */
-.nu-fly { position: fixed; inset: 0; z-index: 45; pointer-events: none; }
-.nu-fly svg { position: absolute; inset: 0; overflow: visible; }
-.nu-fly line { stroke: var(--c-go); stroke-linecap: round; }
-.nu-fly b { position: absolute; left: -5px; top: -5px; width: 10px; height: 10px; border-radius: 50%; background: var(--c-go); box-shadow: 0 0 14px 4px var(--c-go-ring); will-change: transform; }
+/* The one Nu (nu.ts): the flying dot and its fading trail, above everything, untouchable,
+   shown only while it travels or circles something. At rest it is the slot it sits in. */
+.nu-guide { position: fixed; inset: 0; z-index: 45; pointer-events: none; opacity: 0; transition: opacity 0.18s ease; }
+.nu-guide.is-on { opacity: 1; transition: none; }
+.nu-guide svg { position: absolute; inset: 0; overflow: visible; }
+.nu-guide line { stroke: var(--c-go); stroke-linecap: round; }
+.nu-guide b { position: absolute; left: -5px; top: -5px; width: 10px; height: 10px; border-radius: 50%; background: var(--c-go); box-shadow: 0 0 14px 4px var(--c-go-ring); will-change: transform; }
+
+/* Nu's slots: an empty ring until Nu lands in it. With Nu off they are printed dots. */
+.nu-slot { fill: transparent; stroke: currentColor; stroke-width: 1.2; opacity: 0.7; transition: fill 0.16s ease, opacity 0.16s ease; }
+.nu-slot.is-nu, .nu-off .nu-slot { fill: currentColor; stroke-width: 0; opacity: 1; }
 
 /* A first-time line: Nu's icon and one plain sentence, on a quiet plate. */
 .nu-line { display: flex; align-items: flex-start; gap: var(--sp-2); margin: 0 0 var(--sp-3); padding: var(--sp-3) var(--sp-4) var(--sp-3) var(--sp-3); border-radius: var(--r-md); background: var(--c-surface); font-size: var(--fs-md); line-height: var(--lh); color: var(--c-text); }

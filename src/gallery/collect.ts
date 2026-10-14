@@ -29,7 +29,7 @@ import { tableCell } from '../ui/picker';
 import { inkOn } from './looks';
 import { seriesOne } from './table';
 import { icon } from '../ui/icons';
-import { reducedMotion } from '../ui/nu';
+import { nuShow, reducedMotion } from '../ui/nu';
 import './progressbox.css';
 import './collect.css';
 
@@ -194,7 +194,6 @@ export class Collect {
   private more: HTMLButtonElement;
   private zoom: HTMLElement;
   private table: HTMLElement;
-  private nu: HTMLElement;
   private extras: HTMLElement[];
   private coll: HTMLElement;
   private chips: HTMLElement;
@@ -213,10 +212,6 @@ export class Collect {
   private per: PeriodCounts[] = [];
   /** What each atom had when Collect last painted, to spot what a win added. */
   private held = new Map<number, Held>();
-  /** Nu's flight: where it circles (the next atom's cell, in the table's own pixels) and the
-   *  frame that moves it. */
-  private nuAt: { x: number; y: number; r: number; cell: number } | null = null;
-  private nuFrame = 0;
 
   constructor(host: HTMLElement, private handlers: CollectHandlers) {
     this.el = host;
@@ -231,7 +226,7 @@ export class Collect {
       </div>
       <div class="co-drawer">
         <div class="co-head"><span class="co-handle" aria-hidden="true"></span><div class="co-line"><span class="co-line-txt" role="status"></span><button type="button" class="co-more" aria-expanded="false"></button></div></div>
-        <div class="co-zoom"><div class="co-table" aria-label="Periodic table"><span class="co-nu" aria-hidden="true" hidden><i></i></span></div></div>
+        <div class="co-zoom"><div class="co-table" aria-label="Periodic table"></div></div>
         <p class="co-pinch co-extra">Pinch the table to zoom in</p>
         <div class="co-coll co-extra"></div>
         <div class="co-chips co-extra" role="group" aria-label="Periods"></div>
@@ -249,7 +244,6 @@ export class Collect {
     this.more = $('.co-more');
     this.zoom = $('.co-zoom');
     this.table = $('.co-table');
-    this.nu = $('.co-nu');
     this.coll = $('.co-coll');
     this.chips = $('.co-chips');
     this.extras = [...host.querySelectorAll<HTMLElement>('.co-extra')];
@@ -288,8 +282,6 @@ export class Collect {
     this.shown = false;
     this.live.stop();
     this.hideNews();
-    cancelAnimationFrame(this.nuFrame);
-    this.nuFrame = 0;
   }
 
   /** Progress changed: repaint in place, keeping the atom in the lens. */
@@ -572,36 +564,24 @@ export class Collect {
     requestAnimationFrame(() => this.placeNu());
   }
 
-  /** Nu circles the next atom's cell (in the table's own pixels) and, now and then, strays.
-   *  Closed on another period, Nu waits off the table. */
+  /** Nu flies out of the Home icon to circle the next atom's cell, strays once into the table,
+   *  and goes back after 5 s; once a minute at most for the same atom (nu.ts). */
   private placeNu(): void {
-    const cell = this.nextZ ? this.table.querySelector<HTMLElement>(`.co-cell[data-z="${this.nextZ}"]`) : null;
-    const seen = !!cell && cell.offsetWidth > 0;
-    this.nu.hidden = !seen;
-    if (!cell || !seen) { this.nuAt = null; return; }
-    this.nuAt = { x: cell.offsetLeft + cell.offsetWidth / 2, y: cell.offsetTop + cell.offsetHeight / 2, r: Math.max(9, cell.offsetWidth * 0.85), cell: cell.offsetWidth };
-    this.nu.style.left = `${this.nuAt.x}px`;
-    this.nu.style.top = `${this.nuAt.y}px`;
-    if (reducedMotion()) { this.nu.style.transform = `translate(${this.nuAt.r * 0.7}px, ${-this.nuAt.r * 0.7}px)`; return; }
-    if (!this.nuFrame && this.shown) this.nuFrame = requestAnimationFrame(this.flyNu);
+    if (!this.shown || !this.nextZ) return;
+    const z = this.nextZ;
+    const cell = this.table.querySelector<HTMLElement>(`.co-cell[data-z="${z}"]`);
+    if (!cell || !cell.offsetWidth) return;
+    const c = cell.getBoundingClientRect(), t = this.table.getBoundingClientRect();
+    if (!c.width || !t.width) return;
+    // Strays head into the table.
+    const away = Math.atan2(t.top + t.height / 2 - (c.top + c.height / 2), t.left + t.width / 2 - (c.left + c.width / 2));
+    nuShow(cell, {
+      key: `collect:${z}`,
+      r: Math.max(9, c.width * 0.85),
+      // A short circle, then one stray, back on the circle by the time Nu leaves.
+      path: (s, r) => nuOffset(s + NU_ORBIT - 0.6, r, c.width * 5, away),
+    });
   }
-
-  /** One frame of Nu's flight. Each stray heads into the table, a little differently each time. */
-  private flyNu = (now: number): void => {
-    this.nuFrame = 0;
-    const at = this.nuAt;
-    if (!at || !this.shown || this.nu.hidden) return;
-    const t = now / 1000;
-    const w = this.table.clientWidth, h = this.table.clientHeight;
-    const inward = Math.atan2(h / 2 - at.y, w / 2 - at.x);
-    const k = Math.floor(t / NU_CYCLE);
-    const away = inward + (((k * 0.618) % 1) - 0.5) * 2;
-    const o = nuOffset(t, at.r, at.cell * 5, away);
-    const x = Math.max(4, Math.min(w - 4, at.x + o.x)) - at.x;
-    const y = Math.max(4, Math.min(h - 4, at.y + o.y)) - at.y;
-    this.nu.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
-    this.nuFrame = requestAnimationFrame(this.flyNu);
-  };
 
   /** To the atom after or before, across the periods. */
   private step(dir: 1 | -1): void {

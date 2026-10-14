@@ -90,11 +90,6 @@
 .co-table.is-labeled .co-sym { display: block; }
 .co-table.is-labeled .co-cell[data-tone='started']::before, .co-table.is-labeled .co-cell[data-tone='built']::before { inset: auto 18% 12% 18%; height: max(3px, calc(var(--cw, 20px) * 0.1)); border-radius: 2px; }
 
-/* Nu circling the next atom's cell, and straying now and then (collect.ts moves it). */
-.co-nu { position: absolute; z-index: 3; width: 0; height: 0; pointer-events: none; will-change: transform; }
-.co-nu[hidden] { display: none; }
-.co-nu i { position: absolute; left: -3.5px; top: -3.5px; width: 7px; height: 7px; border-radius: 50%; background: var(--c-go); box-shadow: 0 0 8px 2px var(--c-go-ring); }
-
 /* Open only: the pinch hint, the collection's three bars, then a chip per period. */
 .co-extra { display: none; }
 .collect-screen.is-open .co-extra { display: flex; }

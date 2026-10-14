@@ -26,7 +26,7 @@ import { earnables } from '../gallery/earn';
 import { PUZZLES, puzzleIcon } from '../puzzles/catalog';
 import { gameCard } from '../puzzles/gameCard';
 import { icon, type IconName } from '../ui/icons';
-import { nuIconHtml } from '../ui/nu';
+import { nuIconHtml, nuShow } from '../ui/nu';
 import {
   answerWords, atomOfDay, candidates, clues, finishQuiz, headlineOf, liveStreak, questionText, quizOf, readDay,
   today, valueText, writeDay, type DayState,
@@ -65,6 +65,16 @@ export function renderHome(host: HTMLElement, go: HomeGo): void {
   paintGuess(guess, day.index, go);
   paintQuiz(quiz, day.index);
   paintGame(host.querySelector<HTMLElement>('.home-game')!, go);
+  // Nu comes out to circle the next step for a moment; once a minute at most for the same one.
+  const step = nextStep(save);
+  if (step && typeof requestAnimationFrame === 'function') requestAnimationFrame(() => askNu(host, `home:${step.z}:${step.stage}`));
+}
+
+/** Nu circles Collect's next step: on arriving at Home, and whenever the lit Home icon is tapped
+ *  ("what now?"), which skips the once-a-minute limit (no `key`). */
+export function askNu(host: HTMLElement, key?: string): void {
+  const pick = host.querySelector<HTMLElement>('[data-step="stable"]') ?? host.querySelector<HTMLElement>('[data-step="fleeting"]');
+  if (pick) nuShow(pick, { key });
 }
 
 // ---------- Collect ----------
@@ -222,6 +232,8 @@ function paintQuiz(box: HTMLElement, index: number): void {
   const head = `<div class="home-row"><span class="home-nu">${nuIconHtml(20)}</span><b class="home-q home-grow">Higher or lower?</b>`
     + `<span class="home-muted">${streak ? `Streak ${streak} day${streak === 1 ? '' : 's'}` : 'Start a streak'}</span></div>`;
   if (n >= qs.length) {
+    // Done for today: Nu leaves the quiz.
+    delete box.dataset.nuPerch;
     const right = st.quiz.filter(Boolean).length;
     box.innerHTML = `<div class="home-card">${head}<p class="home-done">${right} of ${qs.length} right today. Three more tomorrow.</p><div class="home-row">${dots}</div></div>`;
     return;
@@ -235,6 +247,8 @@ function paintQuiz(box: HTMLElement, index: number): void {
     + `<div class="home-row">${dots}<span class="home-muted">Question ${n + 1} of ${qs.length}</span></div></div>`;
   box.querySelectorAll<HTMLButtonElement>('[data-ans]').forEach((b) => {
     b.onclick = () => {
+      // Once the player is answering, Nu sits in the quiz's icon (nu.ts) until it's done.
+      box.dataset.nuPerch = '2';
       const right = (b.dataset.ans === '1') === q.higher;
       // Show the answer, then move on.
       box.querySelectorAll<HTMLButtonElement>('[data-ans]').forEach((x) => { x.disabled = true; });

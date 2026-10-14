@@ -10,7 +10,7 @@ import {
 } from './components';
 import { icon, MICROSCOPE } from './icons';
 import { openModal } from './modal';
-import { firstTimeLine, nuFly } from './nu';
+import { firstTimeLine, nuShow } from './nu';
 import { openElementPicker } from './picker';
 import { progressHtml } from './modebar';
 import { pipsHtml, progressRings } from './progress';
@@ -165,7 +165,7 @@ export function renderComponentPage(page: HTMLElement, onBack: () => void): void
   const sayBtn = ask('First-time line', () => firstTimeLine(`cl-${Date.now()}-${++lines}`, 'Each atom is two puzzles: its nucleus and its electrons. Play either one.', sayBtn));
   sayRow.append(sayBtn);
   const flyTarget = nextButton({ label: 'Next: helium', onClick: () => undefined, landKey: 'cl-fly' });
-  const flyBtn = ask('Nu flies here', () => nuFly(flyBtn, flyTarget));
+  const flyBtn = ask('Nu circles this', () => nuShow(flyTarget));
   const winBox = h('div', 'cl-winbox');
   const winBtn = ask('Show win panel', () => {
     const close = showWin({ outcome: 'flawless', headline: 'Flawless', title: 'Quanta · Carbon', game: 'orbitalGrid', stats: [{ label: 'Moves', value: '7' }, { label: 'Par', value: '7 ✓' }], actions: [{ label: 'Done', primary: true, onClick: () => close() }], explore: { name: 'carbon', fact: 'Every living thing on Earth is built around carbon.', actions: [{ label: 'View', onClick: () => close() }, { label: 'Learn', onClick: () => close() }] } }, true, winBox);

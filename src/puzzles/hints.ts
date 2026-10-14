@@ -1,13 +1,16 @@
 // The Hint button, the same wherever a puzzle is played. The first tap is Look here: the puzzle
 // marks a spot and says why in one line. A second tap on the same board is Show me: the puzzle
 // plays one move. A run that used Show me can't be flawless. When the player seems stuck (about
-// 45 seconds without progress, three undos in a row, or a second restart), the button gets a
-// pink icon; the first time ever, Nu's card says what Hint does and flies into it (guide.ts).
+// 45 seconds without progress, three undos in a row, or a second restart), Nu flies out of the
+// Home icon and circles the button for a few seconds (with Nu off, the icon pulses pink instead);
+// the first time ever, Nu's card says what Hint does first (guide.ts). Look here sends Nu onto
+// the board to circle the spot it marks.
 
 import { iconButton } from '../ui/components';
 import { icon } from '../ui/icons';
+import { nuShow } from '../ui/nu';
 import { guideHint } from './guide';
-import type { PuzzleView } from './view';
+import { helpMarkRect, type PuzzleView } from './view';
 
 const STUCK_MS = 45_000;
 
@@ -43,6 +46,10 @@ export class HintControl {
     this.pending = level === 1 && !h.moved ? { p, moves: p.moves } : null;
     this.said = { p, moves: p.moves, text: h.text };
     this.changed();
+    // Look here: once the board has drawn its mark, Nu circles it.
+    if (this.pending && typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(() => requestAnimationFrame(() => { if (helpMarkRect()) nuShow(helpMarkRect); }));
+    }
   }
 
   /** The player touched the board (some games count only some actions as moves, Flux only its
@@ -101,8 +108,12 @@ export class HintControl {
   }
 
   private nudge(on: boolean): void {
-    // The first time ever, Nu's card says what Hint does and flies into the button.
-    if (on && !this.button.classList.contains('is-nudge')) guideHint(this.button);
+    if (on && !this.button.classList.contains('is-nudge')) {
+      // The first time ever, Nu's card says what Hint does and hands over to Nu; after that Nu
+      // just comes and circles the button, once a minute at most.
+      if (!guideHint(this.button)) nuShow(this.button, { key: 'hint' });
+    }
+    // Marks the button stuck; it pulses pink only with Nu off (style.css).
     this.button.classList.toggle('is-nudge', on);
   }
 }
