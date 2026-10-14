@@ -402,6 +402,8 @@ uniform sampler2D uLook;   // per orbital: rows 0 pos color + gain, 1 neg color 
 uniform float uHue;        // turns every color round the wheel (radians)
 uniform vec4 uPulse;       // ripple: front radius (a0), width, strength, unused
 uniform vec3 uPulseCol;
+uniform float uMist;       // points grow with their radius (0: all one size)
+uniform float uR90;        // the atom's r90 (a0), the mist's scale
 out vec3 vColor;
 out float vAlpha;
 
@@ -445,7 +447,8 @@ void main() {
   col = col + uPulseCol * wave;
   vColor = col;
   vAlpha = uAlpha * gain * (lum + wave * 2.0 + c.w * 2.0);
-  gl_PointSize = max(1.0, uSize * (1.0 + spark * 0.9 * min(tw, 1.0)) / -mv.z);
+  float mist = 1.0 + uMist * min(r / max(uR90, 1e-3), 1.5);
+  gl_PointSize = max(1.0, uSize * mist * (1.0 + spark * 0.9 * min(tw, 1.0)) / -mv.z);
   gl_Position = projectionMatrix * mv;
 }`;
 
@@ -505,8 +508,10 @@ export class OrbitalCloud {
   density = 1;
   /** What render() clears the screen to first; null leaves the screen as it is. */
   background: number | null = LAB_BG;
+  /** Scales every point's size (1 = as designed). */
+  pointScale = 1;
 
-  constructor(opts: { halfFloat: boolean }) {
+  constructor(opts: { halfFloat: boolean; halo?: boolean }) {
     this.data = new Float32Array(MAX_ORBITALS * 3 * 4);
     this.look = new THREE.DataTexture(this.data, MAX_ORBITALS, 3, THREE.RGBAFormat, THREE.FloatType);
     this.look.minFilter = THREE.NearestFilter;
@@ -520,16 +525,21 @@ export class OrbitalCloud {
         uTime: { value: 0 }, uSize: { value: 2 }, uAlpha: { value: 0.3 }, uTwinkle: { value: 0.5 },
         uLook: { value: this.look }, uHue: { value: 0 },
         uPulse: { value: new THREE.Vector4(0, 1, 0, 0) }, uPulseCol: { value: new THREE.Vector3(1, 1, 1) },
+        uMist: { value: 0 }, uR90: { value: 1 },
       },
       ...ADD_BLEND,
     });
-    this.layer = new VolumePass(null, {}, { halfFloat: opts.halfFloat, smooth: false, tone: true });
+    this.layer = new VolumePass(null, {}, { halfFloat: opts.halfFloat, smooth: false, tone: true, halo: opts.halo });
     this.layer.scale = 1;
   }
+
+  /** A blurred halo of the cloud's own light added back (0 none; needs `halo` at construction). */
+  set haloAmount(v: number) { this.layer.haloAmount = v; }
 
   setSet(set: OrbitalSet, worldPerA0: number): void {
     this.set = set;
     this.worldPerA0 = worldPerA0;
+    this.material.uniforms.uR90.value = set.r90;
     this.wantDense([], 0);
     for (const p of this.parts) { this.scene.remove(p); p.geometry.dispose(); }
     this.parts = set.orbitals.map((o) => {
@@ -638,7 +648,7 @@ export class OrbitalCloud {
     const density = Math.max(0.01, Math.min(1, this.density));
     u.uTime.value = time;
     // Point sizes follow the layer's resolution, so a coarser layer keeps the same look.
-    u.uSize.value = Math.max(1.3, ctx.height / 560) * camera.position.length() * this.layer.scale;
+    u.uSize.value = Math.max(1.3, ctx.height / 560) * camera.position.length() * this.layer.scale * this.pointScale;
     this.look.needsUpdate = true;
     const set = this.set!;
     const base = this.drawnBase;
