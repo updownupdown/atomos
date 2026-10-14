@@ -7,7 +7,8 @@
 //   stable    stable isotopes too     its orbitals' colors in full, a gentle twinkle
 //   complete  everything collected    in full, the light walking its orbitals in turn
 //
-// It twinkles brightly for a moment as it first appears.
+// As it first appears it gathers out of the dark: its light rises and it settles in from a
+// little farther off, with no sparkle.
 
 import * as THREE from 'three';
 import { elementAt } from './data';
@@ -23,8 +24,9 @@ import { Spotlight, type SpotlightOptions } from '../render/spotlight';
 const GEM_POINTS = { per: 45_000, budget: 900_000 };
 const GEM_DENSITY = 0.6;
 const GEM_DENSE = 60_000;
-/** The twinkle as it appears: full, easing away over this many seconds. */
-const TWINKLE_S = 2.4;
+/** The entrance: how long the light takes to rise, and how much farther off it starts. */
+const ENTER_S = 1.4;
+const ENTER_BACK = 0.14;
 const TILT = 0.35;
 const SPIN = 0.22;
 /** The canvas reaches this many times the radius holding 90% of the points. */
@@ -37,8 +39,6 @@ export const GEM_LOOKS: Record<Tone, SpotlightOptions> = {
   stable: { ...ALL, twinkle: 0.3, brightness: 1.15 },
   complete: { spot: 'scan', rest: 'tint', palette: 'print', tempo: 0.5, camera: 'still', twinkle: 0.35, brightness: 1.3, pulse: 0.6, restShare: 0.75, scanDir: 'in' },
 };
-
-const smooth = (x: number) => { const k = Math.max(0, Math.min(1, x)); return k * k * (3 - 2 * k); };
 
 export class GemAtom {
   readonly canvas = document.createElement('canvas');
@@ -134,19 +134,18 @@ export class GemAtom {
     this.time += dt;
     this.age += dt;
     const still = this.still;
-    // It appears with a burst of twinkle, all of it, easing back to its tone's own.
-    const burst = still ? 0 : 1 - smooth(this.age / TWINKLE_S);
+    // It gathers out of the dark: the light rises (eased out) as it settles in from farther off.
+    const k = still ? 1 : 1 - (1 - Math.min(1, this.age / ENTER_S)) ** 3;
     const look = GEM_LOOKS[this.tone];
-    const o: SpotlightOptions = still ? { ...look, twinkle: 0, tempo: 0.25 }
-      : { ...look, twinkle: look.twinkle + (1.5 - look.twinkle) * burst, twinkleAll: burst };
-    this.clock += dt * (1 + 2.5 * burst);
+    const o: SpotlightOptions = still ? { ...look, twinkle: 0, tempo: 0.25 } : { ...look, brightness: look.brightness * k };
+    this.clock += dt;
     if (!still) this.angle += dt * SPIN;
     this.spotlight.step(cloud, dt, this.time, o, this.camera.position);
     cloud.wantDense(this.spotlight.denseWants, GEM_DENSE / Math.sqrt(this.spotlight.denseSplit));
     if (!sampling) cloud.sampleDense(5);
     // Frame the whole atom with room round it, so its outermost points thin out before the edge.
     const R = this.set.r90 * GEM_FRAME * this.wpa0;
-    const dist = R / Math.tan((this.camera.fov * Math.PI) / 360);
+    const dist = (R / Math.tan((this.camera.fov * Math.PI) / 360)) * (1 + ENTER_BACK * (1 - k));
     this.camera.position.set(Math.sin(this.angle) * Math.cos(TILT) * dist, Math.sin(TILT) * dist, Math.cos(this.angle) * Math.cos(TILT) * dist);
     this.camera.near = dist * 0.01;
     this.camera.far = dist * 10;

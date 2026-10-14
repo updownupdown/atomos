@@ -1,18 +1,17 @@
 // Collect: one atom large, everything about it in one block, and its period in a drawer that
 // opens to the whole table.
 //
-//   header                         COLLECT                 [⚛ Atoms v]  (atomlist.ts)
+//   [46 Pd] Palladium                       [Build]        the atom's block, always at the top;
+//           Period 5 · transition metal                    a win's news takes the bars' place
+//   Stable          8/8    Fleeting       18/35            for 3 s
+//   ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬    ▬▬▬▬▬▬▬▬▬▬▬
 //                 (the atom, as its gem)                   swipe sideways for the atom before or
 //                                                          after, down for the period above, up
 //                                                          for the one below, looping
-//   [46 Pd] Palladium                       [Build]        the atom's block, on black; a win's
-//           Period 5 · transition metal                    news takes the bars' place for 3 s
-//   Stable          8/8    Fleeting       18/35
-//   ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬    ▬▬▬▬▬▬▬▬▬▬▬
 //   ╭──────────────────── ─── ─────────────────────╮      the drawer: the period's row of the
-//   │ Period 5  10 of 18 built              Table ⌃ │      table. Swiped up (or Table), the block
-//   │ ▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪                           │      rises to the top, the row slides into
-//   │                  (dock)                       │      its place in the whole table and the
+//   │ Period 5  10 of 18 built              Table ⌃ │      table. Swiped up (or Table), the gem
+//   │ ▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪                           │      gives way, the row slides into its
+//   │                  (dock)                       │      place in the whole table and the
 //                                                          rest fades in; under the table, the
 //                                                          collection's three bars, then a chip
 //                                                          per period. A pinch zooms the table.
@@ -196,7 +195,6 @@ export class Collect {
   constructor(host: HTMLElement, private handlers: CollectHandlers) {
     this.el = host;
     host.innerHTML = `
-      <div class="co-stage"><button type="button" class="co-gem-btn"><span class="co-gem"></span></button></div>
       <div class="co-atom">
         <div class="co-atom-row">
           <button type="button" class="co-who"><span class="co-plate"><small></small><b></b></span><span class="co-name"><b></b><small></small></span></button>
@@ -204,6 +202,7 @@ export class Collect {
         </div>
         <div class="co-slot"><div class="co-bars"></div><div class="pb-news co-news" role="status" hidden></div></div>
       </div>
+      <div class="co-stage"><button type="button" class="co-gem-btn"><span class="co-gem"></span></button></div>
       <div class="co-drawer">
         <div class="co-head"><span class="co-handle" aria-hidden="true"></span><div class="co-line"><span class="co-line-txt" role="status"></span><button type="button" class="co-more" aria-expanded="false"></button></div></div>
         <div class="co-zoom"><div class="co-table" aria-label="Periodic table"></div></div>
@@ -428,9 +427,9 @@ export class Collect {
     this.table.classList.toggle('is-labeled', w >= 24);
   }
 
-  /** Open the drawer on the whole table, or close it on the period. The atom's block rises to
-   *  the top (or back), and the period's own cells slide between their row in the drawer and
-   *  their place in the table while the rest fade in. */
+  /** Open the drawer on the whole table, or close it on the period. The atom's block stays at
+   *  the top; the drawer rises into the gem's room, and the period's own cells slide between
+   *  their row in the drawer and their place in the table while the rest fade in. */
   setOpen(open: boolean): void {
     if (open === this.open) return;
     const motion = this.shown && !reducedMotion() && typeof this.atom.animate === 'function';
