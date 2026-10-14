@@ -102,17 +102,14 @@ export class Game {
 
   constructor(private hooks: { onElement?: (z: number) => void; onView?: (z: number) => void; onInfo?: (z: number) => void } = {}) {
     this.detail = new Detail($<HTMLCanvasElement>('bh-atom'), { variant: 'build', empty: $('bh-empty') });
-    // Top right of the atom: View, the 3D atom full screen (closing it comes back here). Top
-    // left: Info, the element's pages.
+    // Top right of the atom: View, the 3D atom full screen (closing it comes back here).
     const view = $('bh-view');
     view.innerHTML = `<span>View</span>${icon('fullscreen', { size: 20 })}`;
     view.hidden = !this.hooks.onView;
     view.onclick = () => this.hooks.onView?.(this.z);
-    const info = $('bh-info');
-    info.innerHTML = `${icon('info', { size: 20 })}<span>Info</span>`;
-    info.hidden = !this.hooks.onInfo;
-    info.onclick = () => this.hooks.onInfo?.(this.z);
-    this.bar = createAtomBar({ onChange: (z) => this.start(z), locked: (z) => !rowOpen(rowOf(z), this.save) });
+    // Info is in the header's Build | Info switch now (the atom bar).
+    $('bh-info').hidden = true;
+    this.bar = createAtomBar('build');
     $('build-bar').append(this.bar.el);
     this.applySettings();
     this.bindInput();

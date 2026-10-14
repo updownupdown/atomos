@@ -1,24 +1,32 @@
-// The app shell: the screen's name at the top, the sections in a dock at the foot, and the
-// hierarchy beneath them.
-//   Atlas    — every atom to admire and look up: the maps, Details and atom pages ('gallery').
+// The app shell: three sections in the dock at the foot (src/ui/dock.ts), always in this order,
+// and the hierarchy beneath them.
 //   Collect  — one period's atoms and how far each is collected; home.
-//     Atom   — one atom, in View mode (the loupe), Build mode (its puzzles) or Info, opened
-//              from Collect (or the Atlas); the header marks Collect while it is open.
-//   Puzzles  — every puzzle type on its own, on any atom; it never builds atoms.
-//   Settings — its own screen, the fourth section.
-// Atom screens have no title or dock: the atom bar is their top (back, the element, before and
-// after) and the View / Build / Info bar floats at the foot.
+//     Atom   — one atom, in Build mode (its puzzles) or Info (its pages), opened from Collect
+//              (or from Learn); View is its 3D atom, full screen.
+//   Learn    — the Atlas: every atom to admire and look up, the maps, Details and atom pages
+//              ('gallery').
+//   Play     — every game on its own, on any atom; it never builds atoms ('puzzles').
+//   Settings — its own screen, from the gear in the header.
+// A section's top has the header (the mark and wordmark, Search, Settings) and the dock with the
+// three sections named. Inside a section (an atom, an Atlas page, a game) the screen's own
+// header is the top (Build | Info; the game's stats and tools) and the dock shrinks its sections
+// to icons at the left, the section lit, beside a dropdown of what is open (the atom, or the
+// game), which lists the others. Tapping the lit section goes back to its top.
 
 import { GalleryApp } from './gallery';
 import { Collect } from './gallery/collect';
 import type { LookId } from './gallery/looks';
-import { closeAtomList, createListToggle, type ListToggle } from './gallery/atomlist';
+import { atomListOpen, openAtomList } from './gallery/atomlist';
+import { Dock, type DockPick, type Section } from './ui/dock';
+import { closeSheet } from './ui/sheet';
+import { gameListOpen, openGameList } from './ui/gamelist';
+import { openFinder } from './ui/finder';
 import type { Game } from './game';
 import type { Playground } from './playground';
 import { onSettingsChange, renderSettings } from './ui/settings';
 import { renderIconPage } from './ui/iconpage';
 import { renderComponentPage } from './ui/componentpage';
-import { icon, type IconName } from './ui/icons';
+import { icon } from './ui/icons';
 import { setScienceHandler } from './ui/science';
 import { markSvg } from './ui/mark';
 import { MODES, type AtomMode } from './ui/modebar';
@@ -33,11 +41,6 @@ export type { Screen };
 export type { AtomMode };
 
 const PLACE_KEY = 'atomos.place';
-
-/** Each screen's name, at the top in the wordmark's style. */
-const TITLES: Record<Screen, string> = {
-  gallery: 'Atlas', collect: 'Collect', atom: '', puzzles: 'Puzzles', settings: 'Settings', icons: 'Icons', components: 'Components',
-};
 
 export class AppShell {
   private screen: Screen = 'collect';
@@ -75,8 +78,11 @@ export class AppShell {
       },
     });
     this.collect = new Collect($('collect-screen'), { onOpen: (z) => { this.z = z; void this.go('atom', 'build'); } });
-    // The atom bar's Back button: where the atom was opened, Collect or the Atlas.
-    document.addEventListener('atomos:collect', () => this.closeAtom());
+    // The atom header's Build | Info switch.
+    document.addEventListener('atomos:mode', (ev) => {
+      const { mode } = (ev as CustomEvent<{ mode: AtomMode }>).detail;
+      if (this.screen === 'atom') void this.go('atom', mode);
+    });
     // Escape on the Build page: back where the atom was opened.
     document.addEventListener('atomos:close-atom', () => this.closeAtom());
     // An atom page's 3D button: the atom full screen, and back to that page when it closes.
@@ -92,20 +98,17 @@ export class AppShell {
       this.z = z;
       void this.go('gallery').then(() => this.gallery.showInAtlas(z, look));
     });
-    // Top: the mark (home), then the screen's name. The dock: the four sections, each an icon
-    // over its name.
+    // Top: the mark and wordmark (home), Search and Settings. The dock: the three sections and,
+    // inside one, the dropdown of what is open.
     $('nav-logo').innerHTML = markSvg();
     $('nav-logo').onclick = () => void this.go('collect');
-    const sections: [string, IconName, () => void][] = [
-      ['nav-collect', 'collect', () => void this.go('collect')],
-      ['nav-puzzles', 'puzzles', () => void this.go('puzzles')],
-      ['nav-gallery', 'atlas', () => void this.go('gallery')],
-      ['nav-settings', 'settings', () => void this.go('settings')],
-    ];
-    for (const [id, ico, go] of sections) {
-      $(id).querySelector('.nav-ico')!.innerHTML = icon(ico);
-      $(id).onclick = go;
-    }
+    $('nav-search').innerHTML = icon('search');
+    $('nav-search').onclick = () => this.search();
+    $('nav-settings').innerHTML = icon('settings');
+    $('nav-settings').onclick = () => void this.go('settings');
+    this.dock = new Dock($('dock'), { onSection: (s, lit) => this.toSection(s, lit), onPick: () => this.openPick() });
+    // A game or an Atlas page opened or closed from inside its screen.
+    window.addEventListener('atomos:nav', () => this.paintDock());
     onSettingsChange(() => {
       this.gallery.syncSettings();
       this.game?.reloadSettings();
@@ -161,7 +164,7 @@ export class AppShell {
   /** Something sits over the screen that Escape closes: a sheet, a dialog, a drawer, the win
    *  sheet or a gate puzzle. */
   private overlayOpen(): boolean {
-    return !$('modal').hidden || Boolean(document.querySelector('.win, .ui-confirm, .ui-drawer, .unlock-screen, .alist-scrim'));
+    return !$('modal').hidden || Boolean(document.querySelector('.win, .ui-confirm, .ui-drawer, .unlock-screen, .sheet-scrim'));
   }
 
   private atHome(): boolean {
@@ -176,6 +179,7 @@ export class AppShell {
     if (this.overlayOpen()) return escape();
     if (this.screen === 'atom' && (this.mode !== 'build' || this.game?.inPuzzle)) return escape();
     if (this.screen === 'puzzles' && this.playground?.inPuzzle) return escape();
+    if (this.screen === 'gallery' && this.gallery.pageZ !== null) return this.gallery.closePage();
     if (this.screen === 'icons' || this.screen === 'components') { void this.go('settings'); return; }
     if (this.screen === 'atom') return this.closeAtom();
     if (this.screen !== 'collect') void this.go('collect');
@@ -302,34 +306,92 @@ export class AppShell {
   private setZ(z: number): void {
     this.z = z;
     if (document.body.dataset.screen?.startsWith('atom')) this.remember('atom', this.mode);
+    this.paintDock();
   }
 
+  private dock: Dock | null = null;
 
-  /** At the right of the title on Collect: the collection button, how much of the table is
-   *  built, which opens the list of every atom (atomlist.ts). On the Atlas: how much of it is
-   *  earned. */
-  private listToggle: ListToggle | null = null;
+  /** The section the screen belongs to: an atom to the one it was opened from. */
+  private section(): Section | null {
+    switch (this.screen) {
+      case 'collect': return 'collect';
+      case 'gallery': return 'learn';
+      case 'puzzles': return 'play';
+      case 'atom': return this.atomFrom === 'gallery' ? 'learn' : 'collect';
+      default: return null;
+    }
+  }
+
+  /** The dock: the section lit and, inside it, what is open. */
+  private paintDock(): void {
+    if (!this.dock) return;
+    let pick: DockPick | null = null;
+    if (this.screen === 'atom') pick = { kind: 'atom', z: this.z };
+    else if (this.screen === 'gallery' && this.gallery.pageZ !== null) pick = { kind: 'atom', z: this.gallery.pageZ };
+    else if (this.screen === 'puzzles' && this.playground?.gameId) pick = { kind: 'game', id: this.playground.gameId };
+    this.dock.paint({ section: this.section(), pick, hidden: this.screen === 'atom' && this.mode === 'view' });
+  }
+
+  /** A section in the dock: the lit one goes back to its top (nothing to do there already);
+   *  another opens as it was left. */
+  private toSection(s: Section, lit: boolean): void {
+    closeSheet();
+    if (lit && !this.dock?.current.pick) return;
+    if (s === 'collect') void this.go('collect');
+    else if (s === 'learn') void this.go('gallery').then(() => { if (lit) this.gallery.closePage(); });
+    else if (lit && this.screen === 'puzzles' && this.playground?.inPuzzle) this.playground.back();
+    else void this.go('puzzles');
+  }
+
+  /** The dock's dropdown: the list of atoms (on the tab of the section) or of games. Again, it
+   *  closes the list. */
+  private openPick(): void {
+    const dock = this.dock;
+    const pick = dock?.current.pick;
+    if (!dock || !pick) return;
+    if (atomListOpen() || gameListOpen()) { closeSheet(); return; }
+    dock.setOpen(true);
+    const onClose = () => dock.setOpen(false);
+    if (pick.kind === 'game') openGameList({ current: pick.id, onPick: (id) => this.playground?.open(id), onClose });
+    else openAtomList({ current: pick.z, tab: dock.current.section === 'learn' ? 'learn' : 'collect', onPick: (z) => this.pickAtom(z), onClose });
+  }
+
+  /** An atom picked from the dock's list: the same page, on that atom. */
+  private pickAtom(z: number): void {
+    if (this.screen === 'gallery') { this.gallery.openPage(z); return; }
+    if (this.screen !== 'atom') return;
+    this.z = z;
+    if (this.mode === 'build') this.game?.openElement(z);
+    else this.gallery.openAtom(z, 'info');
+    this.paintDock();
+  }
+
+  /** Search, from the header: an atom opens on Learn's page when Learn is open, else its Build
+   *  page; a game opens on Play. */
+  private search(): void {
+    openFinder({
+      onAtom: (z) => {
+        if (this.screen === 'gallery') { this.gallery.openPage(z); return; }
+        this.z = z;
+        void this.go('atom', 'build');
+      },
+      onGame: (id) => void this.go('puzzles').then(() => this.playground?.open(id)),
+    });
+  }
+
+  /** Beside Search on Learn: how much of the Atlas is earned (atlas.ts). */
   private paintAside(screen: Screen): void {
     const aside = $('nav-aside');
-    aside.hidden = screen !== 'collect' && screen !== 'gallery';
-    if (aside.hidden) return;
-    // On the Atlas: how much of it is earned (atlas.ts).
-    if (screen === 'gallery') { aside.replaceChildren(this.gallery.atlasCount); return; }
-    if (!this.listToggle) this.listToggle = createListToggle({ current: () => this.collect.state.z, onPick: (z) => this.collect.focus(z) });
-    if (aside.firstChild !== this.listToggle.el) aside.replaceChildren(this.listToggle.el);
-    this.listToggle.refresh();
+    aside.hidden = screen !== 'gallery';
+    if (!aside.hidden && aside.firstChild !== this.gallery.atlasCount) aside.replaceChildren(this.gallery.atlasCount);
   }
 
   private setNav(screen: Screen, mode: AtomMode): void {
-    closeAtomList();
-    const on = (id: string, yes: boolean) => $(id).setAttribute('aria-current', yes ? 'page' : 'false');
-    on('nav-gallery', screen === 'gallery');
-    on('nav-collect', screen === 'collect' || screen === 'atom');
-    on('nav-puzzles', screen === 'puzzles');
-    on('nav-settings', screen === 'settings');
-    $('nav-title').textContent = TITLES[screen];
+    closeSheet();
+    $('nav-settings').setAttribute('aria-current', screen === 'settings' ? 'page' : 'false');
     this.paintAside(screen);
     document.body.dataset.screen = screen === 'atom' ? `atom-${mode}` : screen;
+    this.paintDock();
     this.remember(screen, mode);
     this.syncBack();
   }

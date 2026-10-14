@@ -50,7 +50,7 @@ export class Atlas {
   private picked: number | null = null;
   private map: AtlasMap;
   private table: Table | null = null;
-  private page: AtlasPage;
+  readonly page: AtlasPage;
   private root: HTMLElement;
   private views: HTMLElement;
   private input: HTMLInputElement;
@@ -271,7 +271,8 @@ export class Atlas {
     if (found && found.length === 1) this.pick(found[0]);
   }
 
-  private openPage(z: number): void {
+  /** Open an atom's page (also from the dock's atom list and search). */
+  openPage(z: number): void {
     const order = this.view === 'details' && this.table ? this.table.order() : ELEMENTS.map((e) => e.z);
     this.page.open(z, order.includes(z) ? order : ELEMENTS.map((e) => e.z));
     this.registerScience();

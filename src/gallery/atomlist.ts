@@ -1,38 +1,42 @@
-// The atom list: every atom in one plain list, grouped by period, for getting from one atom to
-// another quickly. Each row is the atom's number, symbol and name, then two bars: its stable
-// parts and its fleeting isotopes. No pictures, so it opens at once.
+// The atom list: every atom in one plain list, for getting from one atom to another quickly. It
+// rises from the dock's dropdown (the atom's number and name) on any atom screen, as a sheet
+// (ui/sheet.ts), with Collect | Learn under its title; it opens on the tab of the section the
+// player is in. No pictures, so it opens at once.
+//   Collect is built for progress: the whole collection's three rings on top, then the periods,
+//   each heading carrying its stable and fleeting percents, and per atom its number, symbol,
+//   name and two bars (stable parts, fleeting isotopes). Nu swims round the bar of the next thing
+//   to build. At the foot, Top scrolls back up and Next goes to the Up next atom.
+//   Learn is built for finding: a search field and the sorts (Number, A to Z, Family, Year
+//   found), and per atom its number, symbol, name and family, and its weight (or the year it
+//   was found).
+// Tapping a row picks that atom and closes the list, as do the dropdown again, the mask, Escape
+// and Back.
 //
-// It opens from the Atoms button (createListToggle) at the top right of Collect's title row and
-// of the atom bar, and looks the same from both. The button's fill is the share of atoms built;
-// its chevron turns while the list is open. The list drops from under the bar that holds the
-// button: the whole collection's progress on top, then the periods, each heading carrying its
-// stable and fleeting percents over those columns. Nu swims round the bar of the next thing to
-// build. At the foot, Top scrolls back up and Next goes to the Up next atom. Tapping a row picks
-// that atom and closes the list, as do the button again, the mask below it, Escape and Back.
-//
-//   const toggle = createListToggle({ current: () => z, onPick: (z) => show(z) });
-//   bar.append(toggle.el);
+//   openAtomList({ current: 26, tab: 'collect', onPick: (z) => show(z) });
 
-import { MAX_Z, elementAt, placeColour } from './data';
+import { ELEMENTS, MAX_Z, elementAt, placeColour, type Element } from './data';
 import { atomBuilt, fleetingCount, rowOpen, rowSpan, segmentsOf } from '../core/progress';
 import { loadSave, type SaveData } from '../core/save';
 import { nextStep } from '../core/next';
 import { fleetingOpen } from './locks';
 import { icon } from '../ui/icons';
-import { nextButton } from '../ui/components';
+import { createPills, createSegments, nextButton } from '../ui/components';
+import { openSheet, type Sheet } from '../ui/sheet';
+import { searchElements } from '../ui/search';
+import { COL, sortElements, type SortKey } from '../ui/elementlist';
 import './atomlist.css';
 
-export interface ListToggleOptions {
+export type AtomListTab = 'collect' | 'learn';
+
+export interface AtomListOptions {
   /** The atom on screen now: marked in the list and scrolled to. */
-  current: () => number;
+  current: number;
+  /** The tab it opens on: the section the player is in. */
+  tab: AtomListTab;
   /** A row (or Next) was tapped: the list has started closing. */
   onPick: (z: number) => void;
-}
-
-export interface ListToggle {
-  el: HTMLButtonElement;
-  /** Repaint the fill (progress changed). */
-  refresh(): void;
+  /** The list closed, picked or not. */
+  onClose?: () => void;
 }
 
 /** The whole collection: atoms built, and the shares of the stable parts and fleeting
@@ -106,61 +110,62 @@ export function shareRing(share: number, ico: string, size = 48): string {
     + `<span class="al-ring-ico">${icon(ico as never, { size: Math.round(size * 0.42) })}</span></span>`;
 }
 
-const toggles = new Set<ListToggle & { setOpen(open: boolean): void }>();
-let openList: { close: () => void } | null = null;
+let openList: Sheet | null = null;
+/** The Learn tab's sort, kept while the app is open. */
+let learnSort: LearnSort = 'z';
 
-export function createListToggle(o: ListToggleOptions): ListToggle {
-  const el = document.createElement('button');
-  el.type = 'button';
-  el.className = 'alist-toggle';
-  el.setAttribute('aria-expanded', 'false');
-  el.setAttribute('aria-haspopup', 'dialog');
-  el.innerHTML = `<span class="alist-fill"></span><span class="alist-ico">${icon('atom', { size: 20 })}</span><span class="alist-word">Atoms</span>${icon('chevron-down', { size: 18 })}`;
-  const fill = el.querySelector<HTMLElement>('.alist-fill')!;
-  const t = {
-    el,
-    refresh() {
-      const save = loadSave();
-      let built = 0;
-      for (let z = 1; z <= MAX_Z; z++) if (atomBuilt(z, save)) built++;
-      fill.style.width = pct(built / MAX_Z);
-      el.setAttribute('aria-label', `${el.getAttribute('aria-expanded') === 'true' ? 'Hide' : 'Show'} all atoms`);
-    },
-    setOpen(open: boolean) {
-      el.setAttribute('aria-expanded', String(open));
-      el.classList.toggle('is-open', open);
-      t.refresh();
-    },
+type LearnSort = 'z' | 'name' | 'series' | 'discovered';
+const SORTS: { id: LearnSort; label: string }[] = [
+  { id: 'z', label: 'Number' },
+  { id: 'name', label: 'A to Z' },
+  { id: 'series', label: 'Family' },
+  { id: 'discovered', label: 'Year found' },
+];
+
+/** Open the list over the screen, rising from the dock. */
+export function openAtomList(o: AtomListOptions): void {
+  const sheet = openSheet({ title: 'Atoms', label: 'All atoms', from: 'dock', className: 'alist', onClose: () => { if (openList === sheet) openList = null; o.onClose?.(); } });
+  openList = sheet;
+  const tabs = createSegments([
+    { id: 'collect', label: 'Collect', icon: icon('collect', { size: 20 }) },
+    { id: 'learn', label: 'Learn', icon: icon('atlas', { size: 20 }) },
+  ], { active: o.tab, label: 'List for', onChange: (id) => show(id as AtomListTab) });
+  tabs.el.classList.add('al-tabs');
+  const pick = (z: number) => { sheet.close(); o.onPick(z); };
+  sheet.body.addEventListener('click', (e) => {
+    const row = (e.target as HTMLElement).closest<HTMLElement>('[data-z]');
+    if (row) pick(Number(row.dataset.z));
+  });
+  const show = (tab: AtomListTab) => {
+    sheet.bar.replaceChildren(tabs.el);
+    sheet.foot.replaceChildren();
+    if (tab === 'collect') paintCollect(sheet, o.current, pick);
+    else paintLearn(sheet, o.current);
+    // The atom on screen sits in the middle of the list's view.
+    const cur = sheet.body.querySelector<HTMLElement>('.is-current');
+    requestAnimationFrame(() => {
+      if (cur) sheet.body.scrollTop = Math.max(0, cur.offsetTop - sheet.body.clientHeight / 2 + cur.offsetHeight / 2);
+      else sheet.body.scrollTop = 0;
+      if (tab === 'collect') (cur ?? sheet.body.querySelector<HTMLElement>('[data-z]'))?.focus({ preventScroll: true });
+    });
   };
-  el.onclick = () => {
-    if (openList) { openList.close(); return; }
-    openAtomList(el, o);
-  };
-  toggles.add(t);
-  window.addEventListener('atomos:progress', () => t.refresh());
-  t.refresh();
-  return t;
+  show(o.tab);
 }
 
-/** Open the list under the bar holding `anchor`. */
-function openAtomList(anchor: HTMLElement, o: ListToggleOptions): void {
+const topButton = (body: HTMLElement) => {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'sheet-pill';
+  b.innerHTML = `${icon('chevron-up', { size: 20 })}<span>Top</span>`;
+  b.onclick = () => body.scrollTo({ top: 0, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+  return b;
+};
+
+/** Collect: the whole collection, then each period's atoms with their bars. */
+function paintCollect(sheet: Sheet, current: number, pick: (z: number) => void): void {
   const save = loadSave();
   const fleetOn = fleetingOpen(save);
-  const current = o.current();
   const step = nextStep(save);
-  const bar = anchor.closest<HTMLElement>('.nav, .atom-bar') ?? anchor;
-  const top = Math.round(bar.getBoundingClientRect().bottom);
-
-  const scrim = document.createElement('div');
-  scrim.className = 'alist-scrim';
-  scrim.style.setProperty('--alist-top', `${top}px`);
-  const panel = document.createElement('section');
-  panel.className = 'alist';
-  panel.setAttribute('role', 'dialog');
-  panel.setAttribute('aria-label', 'All atoms');
-  const scroll = document.createElement('div');
-  scroll.className = 'al-scroll';
-
   // The whole collection: three rings, atoms built, stable and fleeting.
   const all = collectionProgress(save);
   const gauge = (share: number, ico: string, word: string, line: string, off = false) =>
@@ -187,57 +192,72 @@ function openAtomList(anchor: HTMLElement, o: ListToggleOptions): void {
     }
     html += '</ul>';
   }
-  scroll.innerHTML = html;
-
+  sheet.body.innerHTML = html;
   // The foot: Top, then Next.
-  const foot = document.createElement('div');
-  foot.className = 'al-foot';
-  const topBtn = document.createElement('button');
-  topBtn.type = 'button';
-  topBtn.className = 'al-top';
-  topBtn.innerHTML = `${icon('chevron-up', { size: 20 })}<span>Top</span>`;
-  topBtn.onclick = () => scroll.scrollTo({ top: 0, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
-  foot.append(topBtn);
-  if (step) foot.append(nextButton({ label: 'Next', compact: true, landKey: 'atom-list', onClick: () => { close(); o.onPick(step.z); } }));
+  sheet.foot.append(topButton(sheet.body));
+  if (step) sheet.foot.append(nextButton({ label: 'Next', compact: true, landKey: 'atom-list', onClick: () => pick(step.z) }));
+}
 
-  panel.append(scroll, foot);
-  scrim.append(panel);
-  document.body.append(scrim);
+/** A family's name for one atom: "Noble gases" becomes "Noble gas". */
+export const familyOf = (e: Element) => (e.series.endsWith('gases') ? e.series.slice(0, -2) : e.series.replace(/s$/, ''));
+const yearSection = (e: Element) => (e.discoveryYear === null ? 'Known since ancient times' : e.discoveryYear < 1700 ? 'Before 1700' : `${Math.floor(e.discoveryYear / 50) * 50}s`);
+const weightText = (e: Element) => (e.weight === null ? '–' : String(+e.weight.toFixed(e.weight < 100 ? 3 : 2)));
 
-  let closed = false;
-  const close = () => {
-    if (closed) return;
-    closed = true;
-    openList = null;
-    window.removeEventListener('keydown', onKey, true);
-    for (const t of toggles) t.setOpen(false);
-    scrim.classList.remove('is-open');
-    const done = () => scrim.remove();
-    if (matchMedia('(prefers-reduced-motion: reduce)').matches) done();
-    else setTimeout(done, 200);
+/** Learn: a search field and the sorts on top, then every atom with its family and weight. */
+function paintLearn(sheet: Sheet, current: number): void {
+  const search = document.createElement('label');
+  search.className = 'al-search';
+  search.innerHTML = `${icon('search', { size: 20 })}<input type="search" placeholder="Name, symbol or number" aria-label="Find an atom" autocomplete="off" enterkeyhint="search">`;
+  const input = search.querySelector('input')!;
+  const sorts = createPills(SORTS, { active: learnSort, label: 'Sort by', onChange: (id) => { learnSort = id as LearnSort; paint(); sheet.body.scrollTop = 0; } });
+  sorts.el.classList.add('al-sorts');
+  sheet.bar.append(search, sorts.el);
+  sheet.foot.append(topButton(sheet.body));
+  const row = (e: Element) => `<li><button type="button" class="sheet-row${e.z === current ? ' is-current' : ''}" data-z="${e.z}"${e.z === current ? ' aria-current="true"' : ''}>`
+    + `<span class="sheet-z">${e.z}</span><b class="sheet-sym" style="--c:${placeColour(e)}">${e.symbol}</b>`
+    + `<span class="sheet-name"><span>${esc(e.name)}</span><small>${esc(familyOf(e))}</small></span>`
+    + `<span class="sheet-fig">${learnSort === 'discovered' ? (e.discoveryYear ?? 'Ancient') : weightText(e)}</span></button></li>`;
+  const paint = () => {
+    const q = input.value.trim();
+    sorts.el.hidden = Boolean(q);
+    if (q) {
+      const found = searchElements(q);
+      sheet.body.innerHTML = found.length ? `<ul class="sheet-rows al-found">${found.map(row).join('')}</ul>` : `<p class="sheet-empty">No atom matches “${esc(q)}”.</p>`;
+      return;
+    }
+    const key: SortKey = learnSort;
+    const list = sortElements([...ELEMENTS], key);
+    const section = learnSort === 'discovered' ? yearSection : COL[key].section ?? (() => '');
+    let html = '';
+    let open = '';
+    const counts = new Map<string, number>();
+    for (const e of list) counts.set(section(e), (counts.get(section(e)) ?? 0) + 1);
+    for (const e of list) {
+      const s = section(e);
+      if (s !== open) {
+        if (open) html += '</ul>';
+        const n = counts.get(s) ?? 0;
+        html += `<h3 class="sheet-group">${esc(s)}<small>${n} ${n === 1 ? 'atom' : 'atoms'}</small></h3><ul class="sheet-rows">`;
+        open = s;
+      }
+      html += row(e);
+    }
+    sheet.body.innerHTML = `${html}</ul>`;
   };
-  const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.stopPropagation(); e.preventDefault(); close(); } };
-  window.addEventListener('keydown', onKey, true);
-  scrim.addEventListener('click', (e) => {
-    const row = (e.target as HTMLElement).closest<HTMLElement>('.al-row');
-    if (row) { close(); o.onPick(Number(row.dataset.z)); return; }
-    if (e.target === scrim) close();
+  input.addEventListener('input', () => { paint(); sheet.body.scrollTop = 0; });
+  input.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    sheet.body.querySelector<HTMLElement>('[data-z]')?.click();
   });
-  openList = { close };
-  for (const t of toggles) if (t.el === anchor) t.setOpen(true);
-
-  // The atom on screen sits in the middle of the list's view.
-  const cur = scroll.querySelector<HTMLElement>('.al-row.is-current');
-  requestAnimationFrame(() => {
-    scrim.classList.add('is-open');
-    if (cur) {
-      scroll.scrollTop = Math.max(0, cur.offsetTop - scroll.clientHeight / 2 + cur.offsetHeight / 2);
-      cur.focus({ preventScroll: true });
-    } else scroll.querySelector<HTMLElement>('.al-row')?.focus({ preventScroll: true });
-  });
+  paint();
 }
 
 /** Close the list if it is open (the screen is changing). */
 export function closeAtomList(): void {
   openList?.close();
+}
+
+/** The list is open. */
+export function atomListOpen(): boolean {
+  return openList !== null;
 }

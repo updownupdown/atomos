@@ -98,11 +98,14 @@
 .tb-sec span { font-size: 13px; font-weight: var(--fw-semibold); letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--c-text); }
 .tb-sec small { font-size: 13px; color: var(--c-text-2); }
 
-/* An atom's page: over everything, dock included. */
+/* An atom's page: over the Atlas and its header; the dock stays over it, with the atom in its
+   dropdown and Learn lit to go back to the maps. */
 .at-page { position: fixed; inset: 0; z-index: 15; display: flex; flex-direction: column; padding-top: var(--safe-top); background: var(--c-bg); font-family: var(--font); }
 .at-page[hidden] { display: none; }
 body:not([data-screen='gallery']) .at-page { display: none; }
-.ap-bar { flex: none; display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-2) var(--sp-3) 0; }
+.ap-bar { flex: none; display: flex; align-items: center; justify-content: flex-end; gap: var(--sp-3); padding: var(--sp-2) var(--sp-3) 0; }
+.ap-bar .ap-back, .ap-bar .ap-name { display: none; }
+.ap-bar .ap-sci { margin: 0 auto 0 0; }
 .ap-round { flex: none; height: 44px; min-width: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 2px; padding: 0; border: 0; border-radius: 22px; background: var(--c-surface-2); color: var(--c-text); font: inherit; font-size: 13px; font-weight: var(--fw-semibold); cursor: pointer; }
 .ap-round:disabled { opacity: 0.35; cursor: default; }
 .ap-step { padding: 0 10px; }
@@ -112,9 +115,9 @@ body:not([data-screen='gallery']) .at-page { display: none; }
 .ap-name b { font-size: 15px; font-weight: 700; letter-spacing: 0.3em; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ap-walk { display: flex; gap: 6px; }
 .ap-tabs { flex: none; display: flex; justify-content: center; padding: var(--sp-2) var(--sp-3) 0; box-shadow: inset 0 -1px 0 var(--c-line); }
-.ap-panel { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 96px); }
+.ap-panel { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-bottom: calc(var(--safe-bottom) + 84px); }
 /* The one way into play, contained at the foot. */
-.ap-foot { position: absolute; left: 0; right: 0; bottom: calc(env(safe-area-inset-bottom, 0px) + var(--sp-3)); display: flex; justify-content: center; padding: 0 var(--sp-3); pointer-events: none; }
+.ap-foot { position: absolute; left: 0; right: 0; bottom: calc(var(--safe-bottom) + var(--sp-2)); display: flex; justify-content: center; padding: 0 var(--sp-3); pointer-events: none; }
 .ap-build { pointer-events: auto; width: min(440px, 100%); min-height: 56px; display: flex; align-items: center; gap: var(--sp-3); padding: 6px 8px 6px 16px; border: 0; border-radius: 28px; background: var(--c-surface-2); color: var(--c-text); font: inherit; text-align: left; cursor: pointer; box-shadow: 0 6px 24px rgba(0, 0, 0, 0.55); }
 .ap-build:disabled { cursor: default; }
 .ap-build-ico { flex: none; display: grid; color: var(--c-accent); }
