@@ -2,6 +2,7 @@
 // disposed when left, so only the one on screen holds GPU resources.
 
 import type { Experiment } from '../types';
+import { CloudStudy } from './cloudStudy';
 import { CurrentLook } from './current';
 import { DenseCloud } from './particles';
 import { ExplorerView } from './explorer';
@@ -26,6 +27,7 @@ const entry = (make: () => Experiment): ExperimentEntry => {
 };
 
 export const EXPERIMENTS: ExperimentEntry[] = [
+  entry(() => new CloudStudy()),
   entry(() => new FingerprintView()),
   entry(() => new ExplorerView()),
   entry(() => new GlowSparks()),
