@@ -113,26 +113,6 @@ export function newsLine(name: string, before: Held, after: Held, stableTotal: n
   return { added: `+ ${added}`, note };
 }
 
-/** Nu's rhythm, in seconds: a turn round the cell, the whole cycle, and the circling part of it
- *  (two turns) before it strays. */
-export const NU_TURN = 2.8, NU_CYCLE = 10, NU_ORBIT = 5.6;
-
-/** Where Nu is `t` seconds in, from the center of the cell it circles: on a circle of radius
- *  `r`, then, for the end of each cycle, out along `away` (radians) as far as `reach`, curling
- *  as it goes, and smoothly back onto its circle. */
-export function nuOffset(t: number, r: number, reach: number, away: number): { x: number; y: number } {
-  const th = (2 * Math.PI * t) / NU_TURN;
-  const ox = r * Math.cos(th), oy = r * Math.sin(th);
-  const c = ((t % NU_CYCLE) + NU_CYCLE) % NU_CYCLE;
-  if (c < NU_ORBIT) return { x: ox, y: oy };
-  const v = (c - NU_ORBIT) / (NU_CYCLE - NU_ORBIT);
-  // Out and back with no jolt at either end, sweeping an arc while away.
-  const s = (1 - Math.cos(2 * Math.PI * v)) / 2;
-  const phi = away + 1.6 * (v - 0.5);
-  const fx = reach * Math.cos(phi) + 0.5 * r * Math.cos(2 * th), fy = reach * Math.sin(phi) + 0.5 * r * Math.sin(2 * th);
-  return { x: (1 - s) * ox + s * fx, y: (1 - s) * oy + s * fy };
-}
-
 /** The periods, top to bottom. */
 const PERIODS = [1, 2, 3, 4, 5, 6, 7];
 
@@ -564,23 +544,15 @@ export class Collect {
     requestAnimationFrame(() => this.placeNu());
   }
 
-  /** Nu flies out of the Home icon to circle the next atom's cell, strays once into the table,
-   *  and goes back after 5 s; once a minute at most for the same atom (nu.ts). */
+  /** Nu flies out of the Home icon to circle the next atom's cell, and goes back after 5 s;
+   *  once a minute at most for the same atom (nu.ts). */
   private placeNu(): void {
     if (!this.shown || !this.nextZ) return;
     const z = this.nextZ;
     const cell = this.table.querySelector<HTMLElement>(`.co-cell[data-z="${z}"]`);
     if (!cell || !cell.offsetWidth) return;
-    const c = cell.getBoundingClientRect(), t = this.table.getBoundingClientRect();
-    if (!c.width || !t.width) return;
-    // Strays head into the table.
-    const away = Math.atan2(t.top + t.height / 2 - (c.top + c.height / 2), t.left + t.width / 2 - (c.left + c.width / 2));
-    nuShow(cell, {
-      key: `collect:${z}`,
-      r: Math.max(9, c.width * 0.85),
-      // A short circle, then one stray, back on the circle by the time Nu leaves.
-      path: (s, r) => nuOffset(s + NU_ORBIT - 0.6, r, c.width * 5, away),
-    });
+    const w = cell.getBoundingClientRect().width;
+    if (w) nuShow(cell, { key: `collect:${z}`, r: Math.max(9, w * 0.85) });
   }
 
   /** To the atom after or before, across the periods. */
