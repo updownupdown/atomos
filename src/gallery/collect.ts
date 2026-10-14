@@ -3,8 +3,8 @@
 //
 //   header                         COLLECT                 [⚛ Atoms v]  (atomlist.ts)
 //                 (the atom, as its gem)                   swipe sideways for the atom before or
-//                                                          after in its period, up or down for the
-//                                                          period above or below, looping
+//                                                          after, down for the period above, up
+//                                                          for the one below, looping
 //   [46 Pd] Palladium                       [Build]        the atom's block, on black; a win's
 //           Period 5 · transition metal                    news takes the bars' place for 3 s
 //   Stable          8/8    Fleeting       18/35
@@ -136,11 +136,11 @@ export function nuOffset(t: number, r: number, reach: number, away: number): { x
 /** The periods, top to bottom. */
 const PERIODS = [1, 2, 3, 4, 5, 6, 7];
 
-/** The atom `dir` steps along `z`'s period, looping from its last atom round to its first. */
-export function stepInPeriod(z: number, dir: 1 | -1): number {
-  const [first, last] = rowSpan(rowOf(z));
+/** The atom `dir` steps from `z`: the next or the one before, on from a period's last atom to
+ *  the next period's first, and looping from 118 round to 1. */
+export function stepAtom(z: number, dir: 1 | -1): number {
   const n = z + dir;
-  return n > last ? first : n < first ? last : n;
+  return n > MAX_Z ? 1 : n < 1 ? MAX_Z : n;
 }
 
 /** The atom of `period` nearest `z`'s place in the table: the one in the same column, else the
@@ -506,14 +506,16 @@ export class Collect {
     const box = this.zoom, old = this.scale;
     if (Math.abs(s - old) < 0.001) return;
     if (old === 1) box.style.height = `${box.clientHeight}px`;
+    // The point under the fingers, in the table's own unzoomed pixels (the table sits centered
+    // in its box until it outgrows it).
     const ax = at?.x ?? box.clientWidth / 2, ay = at?.y ?? box.clientHeight / 2;
-    const cx = (box.scrollLeft + ax) / old, cy = (box.scrollTop + ay) / old;
+    const cx = (box.scrollLeft + ax - this.table.offsetLeft) / old, cy = (box.scrollTop + ay - this.table.offsetTop) / old;
     this.scale = s;
     this.table.style.width = s === 1 ? '' : `${s * 100}%`;
     this.table.style.maxWidth = s === 1 ? '' : `${720 * s}px`;
     if (s === 1) box.style.height = '';
-    box.scrollLeft = cx * s - ax;
-    box.scrollTop = cy * s - ay;
+    box.scrollLeft = cx * s + this.table.offsetLeft - ax;
+    box.scrollTop = cy * s + this.table.offsetTop - ay;
     this.el.classList.toggle('is-zoomed', s > 1);
     this.fitCells();
     this.placeBands();
@@ -599,9 +601,9 @@ export class Collect {
     this.nuFrame = requestAnimationFrame(this.flyNu);
   };
 
-  /** Along the period, looping. */
+  /** To the atom after or before, across the periods. */
   private step(dir: 1 | -1): void {
-    this.focus(stepInPeriod(this.current, dir));
+    this.focus(stepAtom(this.current, dir));
   }
 
   /** To the period above or below, looping. */
@@ -656,10 +658,11 @@ export class Collect {
     };
     const sideways = (dx: number, dy: number) => Math.abs(dx) > 48 && Math.abs(dx) > Math.abs(dy) * 1.4;
     const upDown = (dx: number, dy: number) => Math.abs(dy) > 40 && Math.abs(dy) > Math.abs(dx) * 1.4;
-    // On the atom: sideways along its period, up or down to the period above or below.
+    // On the atom: sideways to the atom after or before; down to the period above, up to the
+    // one below, as if pulling the table past.
     swipe(this.stage, () => true, (dx, dy) => {
       if (sideways(dx, dy)) { this.step(dx < 0 ? 1 : -1); return true; }
-      if (upDown(dx, dy)) { this.stepPeriod(dy < 0 ? -1 : 1); return true; }
+      if (upDown(dx, dy)) { this.stepPeriod(dy > 0 ? -1 : 1); return true; }
       return false;
     });
     // On the drawer (open, on its head): up opens it, down closes it.
