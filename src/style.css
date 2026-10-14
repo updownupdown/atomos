@@ -174,27 +174,33 @@ body.build-home #app .bottom { display: none; }
 .gbar-back { min-width: 0; flex: 0 1 auto; }
 .gbar-tools { flex: none; display: flex; align-items: center; gap: 6px; margin-left: auto; }
 .gbar--play .gbar-head, .gbar--play .gbar-back { display: none; }
-/* Play's header: the stats, each word over its figure, then the tools a size up. On a phone the
-   tools take a row of their own under the stats. The status line is its own row, centered. */
-.gbar--play .gbar-nav .gbar-in { flex-wrap: wrap; row-gap: var(--sp-2); }
-.gbar--play .gbar-nav .gbar-stats { flex: 0 1 auto; justify-content: flex-start; align-items: center; gap: var(--sp-4); }
+/* Play's header, one row: the board settings button (Difficulty over its pips), then the tools
+   a size up. Opened, the settings pill takes the tools' place. Under it the status line: Moves
+   and Par on the left, each word over its figure, then the message and the game's action. */
+.gbar--play .gbar-nav .gbar-in { gap: var(--sp-2); }
+.gbar--play .gbar-stats { flex: none; justify-content: flex-start; align-items: center; gap: var(--sp-3); }
 .gbar--play .gbar-stat { flex-direction: column; align-items: flex-start; gap: 2px; }
 .gbar--play .gbar-k { font-size: 13px; color: var(--c-text-2); }
 .gbar--play .gbar-stat--diff { display: flex; }
 .gbar--play .gbar-pips { align-self: flex-start; height: 1.3em; }
-.gbar--play .gbar-tools { gap: 8px; }
-.gbar--play .gbar-tools > * { width: 48px; height: 48px; }
+.gbar--play .gbar-tools { flex: 1 1 auto; justify-content: flex-end; gap: 8px; min-width: 0; }
+.gbar.gbar--play .gbar-tools > * { width: 48px; height: 48px; }
 .gbar--play .gbar-tools svg { width: 28px; height: 28px; }
+.gbar--play.is-dialing .gbar-tools { display: none; }
 /* The board settings button: its icon, then Difficulty over the pips. */
-.gbar--play .pg-fold { width: auto; height: 52px; display: inline-flex; align-items: center; gap: var(--sp-2); padding: 0 14px 0 10px; border-radius: var(--r-md); background: var(--c-nav); color: var(--c-text); }
+.gbar--play .pg-fold { flex: none; width: auto; height: 52px; display: inline-flex; align-items: center; gap: var(--sp-2); margin: 0; padding: 0 14px 0 10px; border-radius: var(--r-md); background: var(--c-nav); color: var(--c-text); }
 .gbar--play .pg-fold:hover { background: var(--c-surface-3); }
 .gbar--play .pg-fold[aria-expanded='true'] { background: var(--c-pick); }
 .pg-fold-ico { display: grid; color: var(--c-text-2); }
 .pg-fold-ico svg { width: 24px; height: 24px; }
-@media (max-width: 520px) {
-  .gbar--play .gbar-nav .gbar-stats { flex: 1 0 100%; justify-content: space-between; }
-  .gbar--play .gbar-tools { flex: 1 0 100%; justify-content: space-between; margin-left: 0; }
+@media (max-width: 380px) {
+  .gbar--play .gbar-tools { gap: 4px; }
+  .gbar.gbar--play .gbar-tools > * { width: 44px; height: 44px; }
+  .gbar--play .pg-fold { padding: 0 10px 0 8px; gap: 6px; }
 }
+/* The status line on Play: the stats are its lead. */
+.gbar--play .gbar-lead { align-self: center; }
+.gbar--play .gfoot-line { min-height: 52px; }
 .gbar .gbar-tools > * { margin: 0; flex: none; width: 40px; height: 40px; background: var(--c-nav); border-radius: var(--r-sm); }
 .gbar .gbar-tools > *:hover { background: var(--c-surface-3); }
 
@@ -926,30 +932,19 @@ body.puzzling #overlay { pointer-events: auto; touch-action: none; }
 
 /* Inside a puzzle: Back, then its name. */
 .pg-game { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-/* The board maker, at the foot of a game on the Puzzles screen: a settings button floating at the bottom left
-   of the board; open, a gray pill beside it (its X folds it again). It takes no row of its own. */
+/* The board maker on Play: closed, only its button in the top row; opened, a gray pill beside it,
+   as tall as the button, in the tools' place: the slider and a new deal. */
 .pg-foot { position: relative; flex: none; background: var(--c-bg); padding-bottom: var(--safe-bottom); }
-.pg-gen { position: absolute; left: var(--sp-3); right: var(--sp-3); top: var(--sp-2); bottom: 0; z-index: 3; display: flex; align-items: center; gap: var(--sp-2); pointer-events: none; }
-.pg-gen > * { pointer-events: auto; }
-/* Room on the left of the status line for the settings button. */
-.pg-gen.is-open { background: var(--c-bg); }
-.pg-fold { flex: none; width: 40px; height: 40px; border-radius: var(--r-sm); background: var(--c-nav); color: var(--c-text-2); }
-.pg-fold:hover, .pg-gen.is-open .pg-fold { color: var(--c-text); }
+.pg-gen { display: none; }
+.pg-gen.is-open { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; }
 /* The pill has just folded into the button: one blue ring breathes out of it. */
 .pg-fold.is-landed { color: var(--c-accent); animation: pg-landed 0.9s ease-out 1; }
 @keyframes pg-landed { 0% { box-shadow: 0 0 0 0 rgba(111, 208, 230, 0.85); } 100% { box-shadow: 0 0 0 12px rgba(111, 208, 230, 0); } }
 @media (prefers-reduced-motion: reduce) { .pg-fold.is-landed { animation: none; } }
-.pg-bar { transform-origin: left center; }
-.pg-bar { flex: 1 1 auto; display: flex; align-items: center; gap: 2px; min-width: 0; height: 44px; padding: 0 var(--sp-1); border-radius: var(--r-pill); background: var(--c-nav); box-sizing: border-box; }
-.pg-bar > .ui-icon-btn { width: 36px; height: 36px; }
+.pg-bar { flex: 1 1 auto; display: flex; align-items: center; gap: var(--sp-2); min-width: 0; height: 52px; padding: 0 var(--sp-2) 0 var(--sp-3); border-radius: var(--r-md); background: var(--c-nav); box-sizing: border-box; transform-origin: left center; }
 .pg-bar[hidden] { display: none; }
-.pg-el { flex: none; padding: 0 var(--sp-1) 0 var(--sp-2); font-size: var(--fs-md); font-weight: var(--fw-semibold); white-space: nowrap; font-variant-numeric: tabular-nums; }
-.pg-bar > .ui-icon-btn, .pg-bar .pg-deal { flex: none; }
-.pg-el b { font-weight: var(--fw-semibold); margin-right: 6px; }
-.pg-el span { color: var(--c-text-2); }
-.pg-el small { color: var(--c-text); margin-right: 6px; font-size: var(--fs-md); font-variant-numeric: tabular-nums; }
 .pg-bar .ui-slider { flex: 1 1 auto; min-width: 80px; }
-.pg-deal { display: flex; align-items: center; gap: 4px; flex: none; height: 34px; padding: 0 var(--sp-3) 0 var(--sp-2); border: 0; border-radius: var(--r-pill); background: var(--c-surface-3); color: var(--c-text); font: inherit; font-weight: var(--fw-semibold); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.pg-deal { display: flex; align-items: center; gap: 4px; flex: none; height: 38px; padding: 0 var(--sp-3) 0 var(--sp-2); border: 0; border-radius: var(--r-pill); background: var(--c-surface-3); color: var(--c-text); font: inherit; font-weight: var(--fw-semibold); cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .pg-deal svg { width: 20px; height: 20px; }
 .pg-deal:hover { background: #3b4046; }
 .pg-deal:active { transform: scale(0.96); }

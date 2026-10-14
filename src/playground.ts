@@ -61,20 +61,17 @@ export class Playground {
     this.demo = new GameDemo($('pg-demo') as HTMLCanvasElement, () => reducedMotion());
     this.renderHome();
 
-    // The board maker, folded into a settings button at the left of the status line (the X folds
-    // it again): "Difficulty: 60%", a slider across the dial, filled in the level's color, and a
-    // new deal. The slider runs 1 to 100 for every game; the ends a game cannot deal show white.
-    // A game opens with it unfolded; three seconds later it folds itself back into the button.
+    // The board maker, folded into the Difficulty button at the left of the top row (its X folds
+    // it again): opened, a slider across the dial, filled in the level's color, and a new deal
+    // cover the tools. The slider runs 1 to 100 for every game; the ends a game cannot deal show
+    // white. A game opens with it unfolded; three seconds later it folds itself back into the
+    // button.
     const bar = $('pg-bar');
     const gen = $('pg-gen');
     // In the header it is one button with Difficulty and its pips (below, once the bar is made).
     this.fold = iconButton({ icon: '<span class="pg-fold-ico"></span>', label: 'Board settings', className: 'pg-fold', onClick: () => this.setOpen(Boolean(bar.hidden)) });
     this.fold.setAttribute('aria-controls', 'pg-bar');
-    this.setOpen(false);
-    const label = document.createElement('span');
-    label.className = 'pg-el';
-    label.id = 'pg-el';
-    this.slider = createSlider({ min: 1, max: 100, value: this.dial, label: 'Difficulty', format: dialText, onInput: (v) => this.setDial(v) });
+    this.slider = createSlider({ min: 1, max: 100, value: this.dial, label: 'Difficulty', format: difficultyWord, onInput: (v) => this.setDial(v) });
     // A new deal: the shuffle and its number are one button.
     const deal = document.createElement('button');
     deal.type = 'button';
@@ -83,7 +80,7 @@ export class Playground {
     deal.title = 'New deal';
     deal.innerHTML = `${icon('shuffle')}<span class="pg-dealno" id="pg-dealno"></span>`;
     deal.onclick = () => this.load(this.deal + 1);
-    bar.append(label, this.slider.el, deal);
+    bar.append(this.slider.el, deal);
     // Touching the pill keeps it open.
     const keep = () => this.keepOpen();
     bar.addEventListener('pointerdown', keep);
@@ -100,17 +97,20 @@ export class Playground {
       iconButton({ icon: icon('info'), label: 'Instructions', onClick: () => this.instructions() }),
     ], { label: 'All games', onClick: () => this.back() });
     $('pg-gbar').append(this.gbar.el);
-    // The header on Play: the stats on the left, each word over its figure, the first of them
-    // the board settings button carrying Difficulty and its pips; the tools on the right (under
-    // the stats on a phone). The game's icon and name, and the way back to the list, are in the
-    // dock (its dropdown and the lit Play). The status line is a row of its own.
+    // The header on Play, one row: the board settings button carrying Difficulty over its pips,
+    // then the tools. Under it the status line: Moves and Par on the left, each word over its
+    // figure, the message, and the game's own action on the right. The game's icon and name, and
+    // the way back to the list, are in the dock (its dropdown and the lit Play).
     this.gbar.el.classList.add('gbar--play');
     const stats = this.gbar.el.querySelector<HTMLElement>('.gbar-stats')!;
-    this.gbar.el.querySelector('.gbar-nav .gbar-in')!.prepend(stats);
+    const row = this.gbar.el.querySelector<HTMLElement>('.gbar-nav .gbar-in')!;
     this.fold.append(stats.querySelector('.gbar-stat--diff')!);
-    stats.prepend(this.fold);
-    // Open, the board settings cover the status line.
-    this.gbar.foot.querySelector('.gfoot-line')!.prepend(gen);
+    row.prepend(this.fold);
+    // Open, the board settings cover the tools beside their button.
+    row.append(gen);
+    // Moves and Par share the status line, on its left.
+    this.gbar.foot.querySelector('.gbar-lead')!.append(stats);
+    this.setOpen(false);
 
     // The home: the card under the pinned box is the one in focus.
     let pending = 0;
@@ -148,8 +148,14 @@ export class Playground {
     this.demo.stop();
   }
 
-  /** Opens one puzzle from the home list, at the dial it was last played or picked at. */
-  open(id: string): void {
+  /** Opens one puzzle from the home list, at the dial it was last played or picked at, or at
+   *  `level` (the game list's pips): the remembered dial if it is in that level, else its middle.
+   *  The game already open only changes level. */
+  open(id: string, level?: number): void {
+    if (level) {
+      this.aimAt(id, level);
+      if (this.inPuzzle && this.type.id === id) { this.setDial(this.dialOf(id)); this.paintCard(id); return; }
+    }
     this.demo.stop();
     $('pg-home').hidden = true;
     $('pg-game').hidden = false;
@@ -192,6 +198,7 @@ export class Playground {
     const bar = $('pg-bar');
     bar.hidden = !open;
     $('pg-gen').classList.toggle('is-open', open);
+    this.gbar.el.classList.toggle('is-dialing', open);
     this.fold.querySelector('.pg-fold-ico')!.innerHTML = icon(open ? 'close' : 'settings');
     this.fold.setAttribute('aria-expanded', String(open));
     const label = open ? 'Close board settings' : 'Board settings';
@@ -422,12 +429,18 @@ export class Playground {
     return dialFor(id, lastDial(id) ?? 30);
   }
 
+  /** Sets the dial a game opens at to a level: the remembered dial if it is in that level, else
+   *  the level's middle. False if the game never deals that level. */
+  private aimAt(id: string, level: number): boolean {
+    const span = levelInGame(id, level);
+    if (!span) return false;
+    if (difficultyLevel(this.dialOf(id)) !== level) rememberDial(id, Math.round((span.lo + span.hi) / 2));
+    return true;
+  }
+
   /** Picks a level on the home: the remembered dial if it is in that level, else its middle. */
   private pickLevel(id: string, level: number): void {
-    const span = levelInGame(id, level);
-    if (!span) return;
-    const now = this.dialOf(id);
-    if (difficultyLevel(now) !== level) rememberDial(id, Math.round((span.lo + span.hi) / 2));
+    if (!this.aimAt(id, level)) return;
     this.paintCard(id);
     const p = PUZZLES.find((g) => g.id === id);
     if (p) this.paintWins(p);
@@ -448,7 +461,7 @@ export class Playground {
    *  type, so it is rebuilt when that changes. */
   private rebuildSlider(): void {
     const { lo, hi } = difficultyRange(this.type.id);
-    const fresh = createSlider({ min: 1, max: 100, value: this.dial, label: 'Difficulty', format: dialText, allowed: [lo, hi], onInput: (v) => this.setDial(v) });
+    const fresh = createSlider({ min: 1, max: 100, value: this.dial, label: 'Difficulty', format: difficultyWord, allowed: [lo, hi], onInput: (v) => this.setDial(v) });
     this.slider.el.replaceWith(fresh.el);
     this.slider = fresh;
   }
@@ -469,8 +482,6 @@ export class Playground {
     this.deal = deal;
     this.solved = false;
     this.closeWin();
-    $('pg-el').textContent = `Difficulty: ${this.dial}%`;
-    $('pg-el').title = dialText(this.dial);
     this.slider.set(this.dial);
     this.slider.el.style.setProperty('--slider-fill', `var(--c-lvl-${difficultyLevel(this.dial)})`);
     $('pg-dealno').textContent = `#${deal + 1}`;

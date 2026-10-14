@@ -1,7 +1,7 @@
 // Drawing and touch for Color Charge: drag across tiles (or tap them one by
 // one) to pick a group; a color-neutral group binds, its gluon strings snap
-// tight and it collapses into one white hadron. On gluon levels the Gluon
-// button sits beside the message line, under the board: tap it, then two
+// tight and it collapses into one white hadron. On gluon levels the Gluons
+// button sits on the board, centered over the grid: tap it, then two
 // neighboring tiles, to swap their colors. A swap stays provisional for a
 // moment (washed colors, a dashed silver outline, a gluon curl between the
 // two).
@@ -693,6 +693,45 @@ function gluonToken(ctx: CanvasRenderingContext2D, r: Area, mode: 'ready' | 'arm
   ctx.restore();
 }
 
+/** The Gluons button over the grid, as tall as the header's buttons. */
+const PILL_H = 40;
+const PILL_GAP = 12;
+const GLUON_D = 'M3 15c1.6 0 2.4-1.2 2.4-3S6.4 9 7.8 9s2.2 1.4 2.2 3-.6 3 .8 3 2.2-1.4 2.2-3 .8-3 2.2-3 2.2 1.4 2.2 3-.6 3 .8 3 2.4-1.2 2.6-3';
+let GLUON_PATH: Path2D | undefined;
+
+/** Draws the Gluons button centered on `cx` with its top at `y`, and returns where it is: the
+ *  gluon's curl and "Gluons 2"; lit in the accent while a gluon is armed, dim when none is left. */
+function gluonPill(ctx: CanvasRenderingContext2D, cx: number, y: number, left: number, mode: 'ready' | 'armed' | 'spent'): Area {
+  const none = left <= 0 || mode === 'spent';
+  const text = `Gluons ${Math.max(0, left)}`;
+  ctx.save();
+  ctx.font = font(15, 600);
+  const icon = 22;
+  const w = 12 + icon + 6 + ctx.measureText(text).width + 16;
+  const r: Area = { x: cx - w / 2, y, w, h: PILL_H };
+  const ink = mode === 'armed' ? C.tileInk : none ? C.text3 : C.text;
+  tile(ctx, r.x, r.y, r.w, r.h, r.h / 2, mode === 'armed' ? C.accent : C.surface3, null);
+  const cy = y + PILL_H / 2;
+  // The gluon icon (icons.gen.ts), drawn on its 24-unit grid.
+  if (typeof Path2D !== 'undefined') {
+    ctx.save();
+    ctx.translate(r.x + 12, cy - icon / 2);
+    ctx.scale(icon / 24, icon / 24);
+    ctx.strokeStyle = ink;
+    ctx.lineWidth = 1.75;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.stroke(GLUON_PATH ??= new Path2D(GLUON_D));
+    ctx.restore();
+  }
+  ctx.fillStyle = ink;
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, r.x + 12 + icon + 6, cy + 1);
+  ctx.restore();
+  return r;
+}
+
 /** A small name tag for a particle that just formed. */
 function tag(ctx: CanvasRenderingContext2D, cx: number, y: number, text: string, px: number, alpha: number, bounds: Area): void {
   ctx.save();
@@ -826,6 +865,8 @@ export class ColorChargeView implements PuzzleView {
   private dead: number[] = [];
   private wonAt: number | null = null;
   private geom: Geom = { cell: 1, x: 0, y: 0, tokens: [], area: { x: 0, y: 0, w: 0, h: 0 }, legend: 0 };
+  /** On gluon levels, the Gluons button over the grid. */
+  private pill: Area | null = null;
   private reduced: boolean;
   /** Look here: the tiles to ring, for the board it was asked on. */
   private mark: { state: ColorChargeState; cells: number[] } | null = null;
@@ -857,25 +898,14 @@ export class ColorChargeView implements PuzzleView {
       return this.lost.length ? 'Stranded tiles: undo to free them' : bad ? `${bad} group${bad === 1 ? '' : 's'} not in the clearance` : 'On track';
     }
     if (this.armed) return 'Gluon ready: pick two neighbors';
-    // The Gluons button beside this line counts what is left.
+    // The Gluons button over the board counts what is left.
     return `${s.groups.length} / ${s.par - s.gluons} bound`;
   }
 
-  /** Test and, on gluon levels, the Gluon button, beside the message line. */
+  /** Test, beside the message line. (On gluon levels the Gluons button is on the board.) */
   action() {
     const s = this.state;
-    const test = { label: 'Test', disabled: s.moves === 0 || this.binds.some((b) => this.clock() - b.at < BIND_MS), run: () => { this.test = { at: this.clock(), state: s }; } };
-    if (!s.gluons) return test;
-    const left = gluonsLeft(s);
-    const gluon = {
-      label: `Gluons (${Math.max(0, left)})`,
-      icon: 'gluon' as const,
-      pressed: this.armed,
-      disabled: left <= 0,
-      ariaLabel: `${this.armed ? 'Gluon armed: pick two neighbors' : 'Arm a gluon'}, ${left} left`,
-      run: () => this.toggleArmed(),
-    };
-    return [gluon, test];
+    return { label: 'Test', disabled: s.moves === 0 || this.binds.some((b) => this.clock() - b.at < BIND_MS), run: () => { this.test = { at: this.clock(), state: s }; } };
   }
 
   /** Test's marks while they are up: each group's verdict, and how strongly they show. */
@@ -1022,7 +1052,7 @@ export class ColorChargeView implements PuzzleView {
   }
 
   private tokenAt(p: Point): boolean {
-    return this.geom.tokens.some((r) => p.x >= r.x - 4 && p.x <= r.x + r.w + 4 && p.y >= r.y - 4 && p.y <= r.y + r.h + 4);
+    return [...this.geom.tokens, ...(this.pill ? [this.pill] : [])].some((r) => p.x >= r.x - 4 && p.x <= r.x + r.w + 4 && p.y >= r.y - 4 && p.y <= r.y + r.h + 4);
   }
 
   private free(i: number): boolean { return i >= 0 && this.state.bound[i] < 0; }
@@ -1096,8 +1126,9 @@ export class ColorChargeView implements PuzzleView {
   draw(ctx: CanvasRenderingContext2D, area: Area, now: number): void {
     const s = this.state;
     const legend = legendLayout(ctx, tally(s), area.w - 20);
-    // The gluons live beside the message line now, not under the grid.
-    this.geom = boardGeom(area, s.cols, s.rows, 0, { legend: legend.h });
+    // On gluon levels the Gluons button stands over the grid, centered; the grid makes room.
+    const strip = s.gluons ? PILL_H + PILL_GAP : 0;
+    this.geom = boardGeom(area, s.cols, s.rows, 0, { legend: legend.h, top: strip });
     const test = this.testing();
     paint(ctx, {
       cols: s.cols, rows: s.rows, tiles: s.tiles, bound: s.bound, groups: s.groups, swaps: s.swaps, gluons: 0,
@@ -1106,6 +1137,7 @@ export class ColorChargeView implements PuzzleView {
       binds: this.binds, swapAnim: this.swapAnim, provisional: this.provisional, fail: this.fail, wonAt: this.wonAt !== null && now >= this.wonAt ? this.wonAt : null,
     }, this.geom, now, this.reduced);
     drawLegend(ctx, legend, this.geom.x + (this.geom.cell * s.cols) / 2, this.geom.legend);
+    this.pill = s.gluons ? gluonPill(ctx, this.geom.x + (this.geom.cell * s.cols) / 2, this.geom.y - frameRoom(this.geom.cell) - PILL_GAP - PILL_H, gluonsLeft(s), this.won ? 'spent' : this.armed ? 'armed' : 'ready') : null;
 
     // Look here: each tile of the group (or the two to swap).
     if (this.mark?.state === s && !this.won) {

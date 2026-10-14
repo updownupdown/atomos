@@ -215,15 +215,16 @@ describe('view', () => {
     const area = { x: 0, y: 0, w: 340, h: 430 };
     v.draw(ctx(), area, 0);
     const geom = (v as unknown as { geom: { cell: number; x: number; y: number; tokens: { x: number; y: number; w: number; h: number }[] } }).geom;
-    // The gluon is a button beside the message line now, not a token under the grid.
+    // The gluons are one button over the grid, not tokens under it.
     expect(geom.tokens).toHaveLength(0);
+    const pill = (v as unknown as { pill: { x: number; y: number; w: number; h: number } | null }).pill!;
+    expect(pill.y + pill.h).toBeLessThan(geom.y);
+    expect(pill.x + pill.w / 2).toBeCloseTo(geom.x + (geom.cell * s.cols) / 2);
     const at = (i: number) => ({ x: geom.x + (i % s.cols + 0.5) * geom.cell, y: geom.y + (Math.floor(i / s.cols) + 0.5) * geom.cell });
     const tap = (p: { x: number; y: number }) => { v.down(p); v.up(p); };
-    const acts = v.action() as ViewAction[];
-    expect(acts.map((a) => a.label)).toEqual(['Gluons (1)', 'Test']);
+    expect((v.action() as ViewAction).label).toBe('Test');
     // The swap first: arm the gluon, tap the two tiles.
-    acts[0].run();
-    expect((v.action() as ViewAction[])[0].pressed).toBe(true);
+    tap({ x: pill.x + pill.w / 2, y: pill.y + pill.h / 2 });
     expect(v.hint()).toBe('Gluon ready: pick two neighbors');
     const [a, b] = s.solutionSwaps[0];
     tap(at(a));
@@ -331,7 +332,8 @@ describe('view', () => {
       expect(v.hint()).not.toMatch(/strand/i);
       frame(5000);
       expect(v.moves).toBe(1);
-      const test = (v.action() as ViewAction[]).find((a) => a.label === 'Test')!;
+      const test = v.action() as ViewAction;
+      expect(test.label).toBe('Test');
       test.run();
       expect(v.hint()).toBe('Stranded tiles: undo to free them');
       expect(v.hint().length).toBeLessThanOrEqual(40);

@@ -352,7 +352,7 @@ export class AppShell {
     if (atomListOpen() || gameListOpen()) { closeSheet(); return; }
     dock.setOpen(true);
     const onClose = () => dock.setOpen(false);
-    if (pick.kind === 'game') openGameList({ current: pick.id, onPick: (id) => this.playground?.open(id), onClose });
+    if (pick.kind === 'game') openGameList({ current: pick.id, onPick: (id, level) => this.playground?.open(id, level), onClose });
     else openAtomList({ current: pick.z, tab: dock.current.section === 'learn' ? 'learn' : 'collect', onPick: (z) => this.pickAtom(z), onClose });
   }
 
