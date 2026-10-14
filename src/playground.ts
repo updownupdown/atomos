@@ -67,9 +67,9 @@ export class Playground {
     // A game opens with it unfolded; three seconds later it folds itself back into the button.
     const bar = $('pg-bar');
     const gen = $('pg-gen');
-    this.fold = iconButton({ icon: icon('settings'), label: 'Board settings', className: 'pg-fold', onClick: () => this.setOpen(Boolean(bar.hidden)) });
+    // In the header it is one button with Difficulty and its pips (below, once the bar is made).
+    this.fold = iconButton({ icon: '<span class="pg-fold-ico"></span>', label: 'Board settings', className: 'pg-fold', onClick: () => this.setOpen(Boolean(bar.hidden)) });
     this.fold.setAttribute('aria-controls', 'pg-bar');
-    gen.prepend(this.fold);
     this.setOpen(false);
     const label = document.createElement('span');
     label.className = 'pg-el';
@@ -100,13 +100,16 @@ export class Playground {
       iconButton({ icon: icon('info'), label: 'Instructions', onClick: () => this.instructions() }),
     ], { label: 'All games', onClick: () => this.back() });
     $('pg-gbar').append(this.gbar.el);
-    // The header on Play is one row: the stats on the left, the tools on the right. The game's
-    // icon and name, and the way back to the list, are in the dock (its dropdown and the lit
-    // Play).
+    // The header on Play: the stats on the left, each word over its figure, the first of them
+    // the board settings button carrying Difficulty and its pips; the tools on the right (under
+    // the stats on a phone). The game's icon and name, and the way back to the list, are in the
+    // dock (its dropdown and the lit Play). The status line is a row of its own.
     this.gbar.el.classList.add('gbar--play');
-    this.gbar.el.querySelector('.gbar-nav .gbar-in')!.prepend(this.gbar.el.querySelector('.gbar-stats')!);
-    // The board settings sit at the left of the status line; open, they cover the rest of it.
-    this.gbar.foot.classList.add('has-gen');
+    const stats = this.gbar.el.querySelector<HTMLElement>('.gbar-stats')!;
+    this.gbar.el.querySelector('.gbar-nav .gbar-in')!.prepend(stats);
+    this.fold.append(stats.querySelector('.gbar-stat--diff')!);
+    stats.prepend(this.fold);
+    // Open, the board settings cover the status line.
     this.gbar.foot.querySelector('.gfoot-line')!.prepend(gen);
 
     // The home: the card under the pinned box is the one in focus.
@@ -189,7 +192,7 @@ export class Playground {
     const bar = $('pg-bar');
     bar.hidden = !open;
     $('pg-gen').classList.toggle('is-open', open);
-    this.fold.innerHTML = icon(open ? 'close' : 'settings');
+    this.fold.querySelector('.pg-fold-ico')!.innerHTML = icon(open ? 'close' : 'settings');
     this.fold.setAttribute('aria-expanded', String(open));
     const label = open ? 'Close board settings' : 'Board settings';
     this.fold.setAttribute('aria-label', label);
