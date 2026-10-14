@@ -1,10 +1,8 @@
-// Collect: one atom large, everything about it in one block, and its period in a drawer that
-// opens to the whole table.
+// Collect: one atom large, its two bars, and its period in a drawer that opens to the whole
+// table. The atom's plate, name and Build sit in the header (dock.ts), not here.
 //
-//   [46 Pd] Palladium                       [Build]        the atom's block, always at the top;
-//           Period 5 · transition metal                    a win's news takes the bars' place
-//   Stable          8/8    Fleeting       18/35            for 3 s
-//   ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬    ▬▬▬▬▬▬▬▬▬▬▬
+//   Stable          8/8    Fleeting       18/35            the atom's bars, always at the top;
+//   ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬    ▬▬▬▬▬▬▬▬▬▬▬                    a win's news takes their place for 3 s
 //                 (the atom, as its gem)                   swipe sideways for the atom before or
 //                                                          after, down for the period above, up
 //                                                          for the one below, looping
@@ -26,7 +24,6 @@ import { fleetingOpen, periodNeed } from './locks';
 import type { TrackRow } from '../ui/tracks';
 import { tableCell } from '../ui/picker';
 import { inkOn } from './looks';
-import { seriesOne } from './table';
 import { icon } from '../ui/icons';
 import { nuShow, reducedMotion } from '../ui/nu';
 import './progressbox.css';
@@ -164,8 +161,6 @@ export class Collect {
   private stage: HTMLElement;
   private gem: HTMLElement;
   private atom: HTMLElement;
-  private who: HTMLButtonElement;
-  private build: HTMLButtonElement;
   private bars: HTMLElement;
   private newsEl: HTMLElement;
   private drawer: HTMLElement;
@@ -196,10 +191,6 @@ export class Collect {
     this.el = host;
     host.innerHTML = `
       <div class="co-atom">
-        <div class="co-atom-row">
-          <button type="button" class="co-who"><span class="co-plate"><small></small><b></b></span><span class="co-name"><b></b><small></small></span></button>
-          <button type="button" class="co-build">${icon('build', { size: 20 })}<span>Build</span></button>
-        </div>
         <div class="co-slot"><div class="co-bars"></div><div class="pb-news co-news" role="status" hidden></div></div>
       </div>
       <div class="co-stage"><button type="button" class="co-gem-btn"><span class="co-gem"></span></button></div>
@@ -214,8 +205,6 @@ export class Collect {
     this.stage = $('.co-stage');
     this.gem = $('.co-gem');
     this.atom = $('.co-atom');
-    this.who = $('.co-who');
-    this.build = $('.co-build');
     this.bars = $('.co-bars');
     this.newsEl = $('.co-news');
     this.drawer = $('.co-drawer');
@@ -287,21 +276,9 @@ export class Collect {
     window.dispatchEvent(new CustomEvent('atomos:focus', { detail: { z } }));
     const e = elementAt(z);
     const period = rowOf(z);
-    const open = rowOpen(period, this.save);
     for (const c of this.table.querySelectorAll<HTMLElement>('.co-cell.is-current')) c.classList.remove('is-current');
     this.table.querySelector<HTMLElement>(`.co-cell[data-z="${z}"]`)?.classList.add('is-current');
-    const plate = this.who.querySelector<HTMLElement>('.co-plate')!;
-    const blk = placeColour(e);
-    plate.style.background = blk;
-    plate.style.color = inkOn(blk);
-    plate.querySelector('small')!.textContent = String(z);
-    plate.querySelector('b')!.textContent = e.symbol;
-    this.who.querySelector('.co-name b')!.textContent = e.name;
-    this.who.querySelector('.co-name small')!.textContent = `Period ${period} · ${seriesOne(e).toLowerCase()}`;
-    this.who.setAttribute('aria-label', `${e.name}, ${z}: ${STATUS_WORD[statusOf(z, this.save)].toLowerCase()}. Open it`);
-    this.stage.querySelector('.co-gem-btn')!.setAttribute('aria-label', `Open ${e.name}`);
-    this.build.disabled = !open;
-    this.build.setAttribute('aria-label', open ? `Build ${e.name}` : `${e.name} is locked`);
+    this.stage.querySelector('.co-gem-btn')!.setAttribute('aria-label', `${e.name}, ${z}: ${STATUS_WORD[statusOf(z, this.save)].toLowerCase()}. Open it`);
     this.paintBars(z);
     if (period !== this.laid) this.layoutTable();
     this.paintLine();
@@ -567,8 +544,6 @@ export class Collect {
   private bind(): void {
     const openAtom = () => { if (!this.swiped) this.handlers.onOpen(this.current); };
     this.stage.querySelector<HTMLElement>('.co-gem-btn')!.onclick = openAtom;
-    this.who.onclick = () => this.handlers.onOpen(this.current);
-    this.build.onclick = () => this.handlers.onOpen(this.current);
     // Its label is redrawn as it opens: the click must not reach the head as well.
     this.more.onclick = (e) => { e.stopPropagation(); this.setOpen(!this.open); };
     this.table.addEventListener('click', (e) => {
