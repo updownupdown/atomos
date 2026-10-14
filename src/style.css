@@ -1160,7 +1160,8 @@ body.puzzling #overlay { pointer-events: auto; touch-action: none; }
 .nav-logo:hover { background: var(--c-surface-2); }
 /* Nu at rest in the mark: the nucleon it sits on turns rose (nu.ts). With Nu off the mark is
    whole. */
-.nav-logo .nu-home-slot { transition: fill 0.16s ease; }
+.nav-logo .nu-home-slot { transition: fill 0.16s ease, stroke 0.16s ease; }
+.nav-logo .nu-home-slot.is-nu { fill: var(--c-go); stroke: var(--c-go); filter: drop-shadow(0 0 3px var(--c-go-ring)); }
 .nu-off .nav-logo .nu-home-slot { display: inline; }
 /* The wordmark (Outfit bold, all caps, widely tracked). */
 .nav-title { flex: 1; min-width: 0; margin: 0 0 0 var(--sp-1); font-family: var(--font); font-size: 15px; font-weight: var(--fw-bold); letter-spacing: 0.3em; text-transform: uppercase; line-height: 1; color: var(--c-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

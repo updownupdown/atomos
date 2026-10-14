@@ -52,14 +52,14 @@ export function electrons(): [number, number][] {
  * The mark as SVG inner markup in `currentColor`, classed so each part can be styled:
  * parts: .nucleon (with .proton or .neutron), .shell, .orbit > .electron.
  * With `nu`, it is the header's mark, where Nu rests (nu.ts): every nucleon is numbered
- * data-nu-dot (0 the centre, then clockwise from the top right) for Nu to pick a spot, and the
- * centre one is Nu's home slot (.nu-home-slot) meanwhile.
+ * data-nu-dot (0 the centre, then clockwise from the top right) and is one of Nu's home slots
+ * (.nu-home-slot): each time Nu comes home it picks one of them at random.
  */
 export function markInner(o: { nu?: boolean } = {}): string {
   const r = nucleonRadius();
   const core = nucleons().map(({ x, y, proton }, i) => {
     const nu = o.nu ? ` data-nu-dot="${i}"` : '';
-    const cls = o.nu && i === 0 ? ' nu-home-slot' : '';
+    const cls = o.nu ? ' nu-home-slot' : '';
     return proton
       ? `<circle class="nucleon proton${cls}"${nu} cx="${x}" cy="${y}" r="${r}" fill="currentColor"/>`
       : `<circle class="nucleon neutron${cls}"${nu} cx="${x}" cy="${y}" r="${f(r * 0.83)}" fill="none" stroke="currentColor" stroke-width="${f(r * 0.36)}"/>`;
