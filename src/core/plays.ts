@@ -24,8 +24,18 @@ export function countPlay(game: string): number {
   const all = read();
   const before = Number.isFinite(all[game]) ? all[game] : 0;
   all[game] = before + 1;
-  try { localStorage.setItem(KEY, JSON.stringify(all)); } catch { /* storage off: rules show again */ }
+  try {
+    localStorage.setItem(KEY, JSON.stringify(all));
+    localStorage.setItem(LAST_KEY, game);
+  } catch { /* storage off: rules show again */ }
   return before;
+}
+
+const LAST_KEY = 'atomos.lastplay.v1';
+
+/** The game started most recently, for Home's Play card; null before any. */
+export function lastPlayed(): string | null {
+  try { return localStorage.getItem(LAST_KEY); } catch { return null; }
 }
 
 /** How many plays lead with the goal line. */

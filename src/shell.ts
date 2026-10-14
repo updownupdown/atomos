@@ -291,7 +291,11 @@ export class AppShell {
       if (this.game!.currentZ !== this.z) this.game!.openElement(this.z);
       this.game!.resume();
     } else if (showHome) {
-      renderHome($('home-body'), (to) => this.toSection(to, false));
+      renderHome($('home-body'), (to, at) => {
+        if (to === 'learn' && at?.z) { this.z = at.z; void this.go('gallery').then(() => this.gallery.openPage(at.z!)); }
+        else if (to === 'play' && at?.game) void this.go('puzzles').then(() => this.playground?.open(at.game!));
+        else this.toSection(to, false);
+      });
       $('home-screen').scrollTop = 0;
     } else if (showCollect) {
       // Collect opens on the dock's atom: the one just left, or the last one looked at.
