@@ -50,6 +50,24 @@
 
 @media (prefers-reduced-motion: reduce) { .sheet, .sheet-scrim { transition: none; } }
 
+/* The game list (gamelist.ts): a row is the game's button, then its five level pips, as on the
+   game cards: white where it deals, the level it opens at in its color, a gap where it never
+   deals. Icons and names a size up from search's rows. */
+.gl-item { display: flex; align-items: center; gap: var(--sp-1); padding-right: var(--sp-1); border-radius: var(--r-sm); }
+.gl-item.is-current { background: var(--c-pick); }
+.gl-item > .sheet-row { flex: 1; min-width: 0; min-height: 56px; }
+.gl-item.is-current > .sheet-row:hover { background: transparent; }
+.gl-rows .sheet-ico { width: 41px; height: 41px; }
+.gl-rows .sheet-ico svg { width: 25px; height: 25px; }
+.gl-rows .sheet-name { font-size: 19px; }
+.gl-lvls { flex: none; display: flex; align-items: center; }
+.gl-lvl { width: 28px; height: 44px; display: grid; place-items: center; padding: 0; border: 0; border-radius: var(--r-sm); background: transparent; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.gl-lvl i { width: 10px; height: 10px; border-radius: 50%; background: var(--c-text); }
+.gl-lvl.is-on i { width: 14px; height: 14px; background: var(--lvl); }
+.gl-lvl:hover { background: var(--c-surface-3); }
+.gl-lvl:focus-visible { outline: 2px solid var(--c-accent); outline-offset: -2px; }
+.gl-lvl.is-off { cursor: default; }
+
 /* Search (finder.ts): the field in the title row, beside the close button. */
 .finder .sheet-head { padding: var(--sp-2) var(--sp-2) var(--sp-1) var(--sp-3); }
 .finder-field { flex: 1; margin-top: 0; }
