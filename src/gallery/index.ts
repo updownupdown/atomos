@@ -19,7 +19,7 @@ import { createAtomBar, type AtomBar } from './atombar';
 import { scienceButton, setScienceHandler } from '../ui/science';
 import { closeModal, openModal } from '../ui/modal';
 import { loadSave, writeSave, type SaveData } from '../core/save';
-import { atomBuilt, orbitalShapeUnlocked, rowOf, rowOpen, SHAPE_AT, stepState } from '../core/progress';
+import { atomBuilt, orbitalShapeUnlocked, SHAPE_AT, stepState } from '../core/progress';
 import { firstTimeLine } from '../ui/nu';
 import { isUnlocked, unlockPuzzle, type UnlockId } from '../core/unlocks';
 import { aPuzzle } from './earn';
@@ -88,12 +88,6 @@ export class GalleryApp {
     if (this.tab === 'isotopes') this.renderPanel();
   }
 
-  /** Whether this atom's row is not open yet (two thirds of the row above unbuilt). It stays
-   *  viewable; only Build waits. */
-  private buildLocked(z: number): boolean {
-    return !rowOpen(rowOf(z), this.save);
-  }
-
   /** Parts of an atom in color: each turns from pale gray once its Build puzzle is solved. */
   private litOf(z: number): AtomLit {
     return { nucleus: stepState(this.save, z, 'nucleus').done, electrons: stepState(this.save, z, 'shells').done ? z : 0 };
@@ -134,7 +128,7 @@ export class GalleryApp {
     this.buildHud();
     this.paintRingsToggle();
     // The bar: previous, the element (opens the picker), next.
-    this.bar = createAtomBar({ onChange: (z) => this.open(elementAt(z)), locked: (z) => this.buildLocked(z) });
+    this.bar = createAtomBar('info');
     $('loupe-screen').append(this.bar.el);
     // View's tabs: the model, then the element's science as pages.
     // Info's tabs: the element's pages (View is the 3D atom alone, with no tabs).
@@ -143,8 +137,8 @@ export class GalleryApp {
     $('atom-tabs').append(this.tabs.el);
     // Over the tabs: the atom's progress box, with Build (progressbox.ts, shared with Collect).
     $('atom-box').append(this.box.el);
-    // The microscope in the bar, before the Atoms pill, opens the open page's guide.
-    this.bar.el.insertBefore(scienceButton('ui-icon-btn ui-icon-btn--ghost science-btn ap-sci'), this.bar.el.lastElementChild);
+    // The microscope at the end of the bar opens the open page's guide.
+    this.bar.el.append(scienceButton('ui-icon-btn ui-icon-btn--ghost science-btn ap-sci'));
     $('atom-tabs').hidden = this.tab === 'model';
     this.bindTabSwipe();
   }
@@ -330,6 +324,21 @@ export class GalleryApp {
   /** Beside the Atlas title: how much of the Atlas is earned. */
   get atlasCount(): HTMLElement {
     return this.atlas.countButton;
+  }
+
+  /** The atom whose Atlas page is open, if one is. */
+  get pageZ(): number | null {
+    return this.atlas.page.isOpen ? this.atlas.page.current : null;
+  }
+
+  /** Open an atom's Atlas page (the shell has switched to the Atlas). */
+  openPage(z: number): void {
+    this.atlas.openPage(z);
+  }
+
+  /** Close the Atlas page, back to the maps. */
+  closePage(): void {
+    if (this.atlas.page.isOpen) this.atlas.page.close();
   }
 
   showInAtlas(z: number, look: LookId | null): void {

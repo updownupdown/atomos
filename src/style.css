@@ -173,6 +173,8 @@ body.build-home #app .bottom { display: none; }
 .gbar-nav .gbar-in { display: flex; align-items: center; gap: var(--sp-2); padding-block: var(--sp-2) 0; }
 .gbar-back { min-width: 0; flex: 0 1 auto; }
 .gbar-tools { flex: none; display: flex; align-items: center; gap: 6px; margin-left: auto; }
+.gbar--play .gbar-head, .gbar--play .gbar-back { display: none; }
+.gbar--play .gbar-nav .gbar-stats { justify-content: flex-start; gap: var(--sp-4); }
 .gbar .gbar-tools > * { margin: 0; flex: none; width: 40px; height: 40px; background: var(--c-nav); border-radius: var(--r-sm); }
 .gbar .gbar-tools > *:hover { background: var(--c-surface-3); }
 
@@ -1151,14 +1153,15 @@ body.puzzling #overlay { pointer-events: auto; touch-action: none; }
 .toggle input[type='checkbox']:checked::after { transform: translateX(18px); background: var(--c-accent-ink); }
 
 
-/* The top of every screen but an atom's: the mark (home), then the screen's name in the
-   wordmark's style, on black; a short line about the screen on the right. The sections are in the dock below. */
+/* The top of each section's home and of Settings: the mark and the wordmark (home), then Search
+   and Settings on the right (src/shell.ts). Inside a section the screen's own header takes its
+   place, with no mark: the dock says where you are. */
 .nav {
   display: flex;
   align-items: center;
-  gap: var(--sp-2);
+  gap: var(--sp-1);
   height: calc(var(--safe-top) + var(--nav-h));
-  padding: var(--safe-top) var(--sp-4) 0 var(--sp-2);
+  padding: var(--safe-top) var(--sp-3) 0 var(--sp-2);
   background: var(--c-bg);
   backdrop-filter: none;
   border-bottom: 0;
@@ -1177,21 +1180,26 @@ body.puzzling #overlay { pointer-events: auto; touch-action: none; }
 }
 .nav-logo svg { width: 30px; height: 30px; }
 .nav-logo:hover { background: var(--c-surface-2); }
-/* The screen's name in the wordmark's style (Outfit bold, all caps, widely tracked). */
-.nav-title { flex: 1; min-width: 0; margin: 0; font-family: var(--font); font-size: 15px; font-weight: var(--fw-bold); letter-spacing: 0.3em; text-transform: uppercase; line-height: 1; color: var(--c-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.nav-aside { flex: none; display: flex; align-items: center; }
+/* The wordmark (Outfit bold, all caps, widely tracked). */
+.nav-title { flex: 1; min-width: 0; margin: 0 0 0 var(--sp-1); font-family: var(--font); font-size: 15px; font-weight: var(--fw-bold); letter-spacing: 0.3em; text-transform: uppercase; line-height: 1; color: var(--c-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nav-aside { flex: none; display: flex; align-items: center; margin-right: var(--sp-1); }
 .nav-aside[hidden] { display: none; }
+.nav-btn { flex: none; width: 44px; height: 44px; display: grid; place-items: center; padding: 0; border: 0; border-radius: var(--r-pill); background: transparent; color: var(--c-text); cursor: pointer; }
+.nav-btn svg { width: 24px; height: 24px; }
+.nav-btn:hover { background: var(--c-surface-2); }
+.nav-btn[aria-current='page'] { background: var(--c-pick); color: var(--c-accent); }
 /* The wordmark from the splash: Outfit bold, all caps, widely tracked. */
 .wordmark { font-family: var(--font); font-weight: var(--fw-bold); font-size: 12px; letter-spacing: 0.32em; text-transform: uppercase; line-height: 1; }
-.nav-logo:focus-visible, .dock button:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
+.nav-logo:focus-visible, .nav-btn:focus-visible, .dock button:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
 /* Atom screens have no title row: their atom bar is the top. */
 body[data-screen^='atom'] .nav { display: none; }
 
-/* The dock: the four sections in a pill floating at the foot, each an icon over its name; the
-   one open sits on a lighter plate in the accent. Atom screens float their View / Build / Info
-   bar here instead, and a puzzle being played on Puzzles has the whole screen. --safe-bottom
-   grows by the dock, so whatever sits at a screen's foot (Up next, the end of a list) stays
-   clear of it. */
+/* The dock (src/ui/dock.ts): Collect, Learn and Play in a pill floating at the foot, always in
+   that order. At a section's top the three share it, each an icon over its name; the one open
+   sits on a lighter plate in the accent. Inside a section they shrink to icons at the left and
+   the dropdown fills the rest: what is open, with a chevron pointing up to its list. Only the
+   3D atom full screen hides it. --safe-bottom grows by the dock, so whatever sits at a screen's
+   foot (Up next, the end of a list, a game's status) stays clear of it. */
 :root { --dock-h: 64px; }
 .dock {
   position: fixed;
@@ -1200,15 +1208,16 @@ body[data-screen^='atom'] .nav { display: none; }
   width: min(440px, calc(100% - 2 * var(--sp-3)));
   height: var(--dock-h);
   transform: translateX(-50%);
-  z-index: 14;
+  z-index: 16;
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 4px;
   padding: 6px;
   border-radius: var(--r-pill);
   background: var(--c-nav);
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.55);
 }
+.dock[hidden] { display: none; }
 .dock button {
   display: flex;
   flex-direction: column;
@@ -1222,21 +1231,42 @@ body[data-screen^='atom'] .nav { display: none; }
   color: var(--c-text-2);
   font-family: var(--font);
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
 .dock button:hover { color: var(--c-text); }
 .dock button[aria-current='page'] { background: var(--c-pick); color: var(--c-accent); }
 .nav-ico { display: grid; place-items: center; }
 .nav-ico svg { width: 24px; height: 24px; display: block; }
 .nav-lab { font-size: 13px; font-weight: var(--fw-semibold); line-height: 1.1; }
-body[data-screen^='atom'] .dock, body.pg-playing .dock { display: none; }
-body:not([data-screen^='atom']):not(.pg-playing) { --safe-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--dock-h) + var(--dock-gap, 12px)); }
+/* Inside a section: three icons at the left, then the dropdown. */
+.dock.is-deep { grid-template-columns: 46px 46px 46px minmax(0, 1fr); padding: 5px; gap: 2px; }
+.dock.is-deep .nav-lab { display: none; }
+.dock .dock-pick { flex-direction: row; justify-content: flex-start; gap: 6px; min-width: 0; margin-left: 4px; padding: 0 10px 0 5px; background: var(--c-surface-2); color: var(--c-text); text-align: left; }
+.dock .dock-pick:hover { background: var(--c-surface-3); }
+.dock .dock-pick[hidden] { display: none; }
+.dock-pick > svg { flex: none; margin-left: auto; color: var(--c-text-2); transition: transform 0.2s var(--ease); }
+.dock-pick.is-open > svg { transform: rotate(180deg); }
+/* The atom's number on a plate in its place color (data.ts placeColour); a game's icon black on
+   a white circle, as on its card. */
+.dock-badge { flex: none; height: 36px; min-width: 36px; display: grid; place-items: center; border-radius: 18px; font-size: var(--fs-sm); font-weight: var(--fw-bold); font-variant-numeric: tabular-nums; }
+.dock-badge--atom { padding: 0 6px; background: color-mix(in srgb, var(--c) 34%, var(--c-surface-3)); color: var(--c-text); }
+.dock-badge--game { background: var(--c-text); color: var(--c-bg); }
+.dock-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; font-weight: var(--fw-semibold); }
+body[data-screen='atom-view'] .dock { display: none; }
+/* Small phones: the pill and the header give their margins to the names. */
+@media (max-width: 400px) {
+  .dock { width: calc(100% - 2 * var(--sp-2)); }
+  .nav-btn { width: 40px; }
+  .nav-title { letter-spacing: 0.22em; }
+}
+body:not([data-screen='atom-view']) { --safe-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--dock-h) + var(--dock-gap, 12px)); }
+@media (prefers-reduced-motion: reduce) { .dock-pick > svg { transition: none; } }
 
-/* Atom screens, top down: the header, then the atom bar (View and Build each mount their own in
-   the same place, so it reads as one). Nothing floats at the foot. --top is the bottom of the
+/* Atom screens, top down: the atom bar is the header (Build and Info each mount their own in
+   the same place, so it reads as one); the dock floats at the foot. --top is the bottom of the
    header; screens add the bar's height (60 px) themselves, as they always have. */
 :root { --nav-bottom: calc(var(--safe-top) + var(--nav-h)); --atom-bar-h: 60px; --dock-gap: var(--sp-3); }
 body[data-screen^='atom'] { --nav-bottom: var(--safe-top); --top: var(--nav-bottom); }
-body[data-screen^='atom']:not(.puzzling) { --safe-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--dock-gap)); }
 body[data-screen^='atom'] .loupe-screen > .atom-bar,
 body[data-screen^='atom'] .build-bar { top: var(--nav-bottom); }
 /* Stepping between Build and Info slides the page under the header and atom bar, which stay
@@ -1253,7 +1283,9 @@ html[data-vt='prev']::view-transition-new(root) { animation: vt-in-left 0.3s var
 @keyframes vt-in-left { from { transform: translateX(-24%); opacity: 0; } }
 .mode-seg { flex: 1; min-width: 0; }
 .mode-seg .ui-seg { width: 100%; padding: 3px; border-radius: var(--r-pill); background: var(--c-well); }
-.mode-seg .ui-seg-opt { min-height: 40px; padding: 0 var(--sp-3); border-radius: var(--r-pill); }
+.mode-seg .ui-seg-opt { flex: 1; min-height: 40px; padding: 0 var(--sp-3); border-radius: var(--r-pill); }
+.mode-seg .ui-seg-dot { display: none; }
+.atom-bar > .mode-seg { align-self: center; }
 /* The progress on the right: a ring, the main percentage large, and under it a small line for
    the extras (fleeting isotopes) when the atom has any. */
 .mode-prog { flex: none; display: inline-flex; align-items: center; gap: var(--sp-2); color: var(--c-text); }
@@ -1735,7 +1767,7 @@ body[data-screen^='atom'].build-home .science-fab, body[data-screen='atom-view']
 :is(.gcard-pips, .gbar-pips, .bh-pips, .win-pips):has(i.on:nth-child(4)) i.on { background: var(--c-lvl-4); opacity: 1; }
 :is(.gcard-pips, .gbar-pips, .bh-pips, .win-pips):has(i.on:nth-child(5)) i.on { background: var(--c-lvl-5); opacity: 1; }
 
-/* A puzzle being played on Puzzles has the whole screen: no title row, no dock; its game bar
-   is the top. */
+/* A puzzle being played on Play has no title row: its game bar is the top, one row of stats and
+   tools; the dock stays at the foot with the game in its dropdown. */
 body.pg-playing .nav { display: none; }
 body.pg-playing { --nav-bottom: var(--safe-top); --top: var(--safe-top); }

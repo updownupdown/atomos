@@ -100,6 +100,11 @@ export class Playground {
       iconButton({ icon: icon('info'), label: 'Instructions', onClick: () => this.instructions() }),
     ], { label: 'All games', onClick: () => this.back() });
     $('pg-gbar').append(this.gbar.el);
+    // The header on Play is one row: the stats on the left, the tools on the right. The game's
+    // icon and name, and the way back to the list, are in the dock (its dropdown and the lit
+    // Play).
+    this.gbar.el.classList.add('gbar--play');
+    this.gbar.el.querySelector('.gbar-nav .gbar-in')!.prepend(this.gbar.el.querySelector('.gbar-stats')!);
     // The board settings sit at the left of the status line; open, they cover the rest of it.
     this.gbar.foot.classList.add('has-gen');
     this.gbar.foot.querySelector('.gfoot-line')!.prepend(gen);
@@ -117,6 +122,11 @@ export class Playground {
   /** A puzzle is open (not the list of puzzles). */
   get inPuzzle(): boolean {
     return !$('pg-game').hidden;
+  }
+
+  /** The game open, if one is. */
+  get gameId(): string | null {
+    return this.inPuzzle ? this.type.id : null;
   }
 
   show(): void {
@@ -140,7 +150,7 @@ export class Playground {
     this.demo.stop();
     $('pg-home').hidden = true;
     $('pg-game').hidden = false;
-    // A puzzle gets the whole screen: the dock steps away while it is open.
+    // A puzzle has no title row: its game bar is the top, the dock still at the foot.
     document.body.classList.add('pg-playing');
     this.select(id);
     // Nu offers a game's rules the first time it is played, and its goal leads for three.
@@ -149,7 +159,8 @@ export class Playground {
     if (this.type.make) offerRules(this.gbar, this.type, () => this.instructions());
     this.host.wake();
     window.dispatchEvent(new Event('resize'));
-    this.gbar.back.focus({ preventScroll: true });
+    // The dock shows the game (shell.ts listens).
+    window.dispatchEvent(new Event('atomos:nav'));
     // The board settings show open for a few seconds, then fold into their button.
     this.setOpen(true);
     this.foldTimer = window.setTimeout(() => this.foldAway(), 3000);
@@ -170,6 +181,7 @@ export class Playground {
     this.paintFocus(true);
     this.demo.start();
     $('pg-list').querySelector<HTMLElement>(`[data-game="${this.type.id}"] .gcard-go`)?.focus({ preventScroll: false });
+    window.dispatchEvent(new Event('atomos:nav'));
   }
 
   /** Opens or folds the board settings pill. */

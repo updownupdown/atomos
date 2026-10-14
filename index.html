@@ -16,19 +16,23 @@
     <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
-    <!-- The top of every screen but an atom's: the mark (home), the screen's name in the wordmark's style, and a
-         line about it on the right. The sections live in the dock at the foot. src/shell.ts. -->
+    <!-- The top of every section's home (Collect, Learn, Play) and Settings: the mark and the
+         wordmark (home), then Search and Settings. Inside a section the screen's own header takes
+         its place. src/shell.ts. -->
     <header class="nav" id="nav" aria-label="Main">
-      <button class="nav-logo" id="nav-logo" aria-label="Atomos: back to Collect" title="Atomos"></button>
-      <h1 class="nav-title" id="nav-title">Collect</h1>
+      <button class="nav-logo" id="nav-logo" aria-label="Atomos: home" title="Atomos"></button>
+      <h1 class="nav-title" id="nav-title">Atomos</h1>
       <span class="nav-aside" id="nav-aside" hidden></span>
+      <button class="nav-btn" id="nav-search" aria-label="Search atoms and games" aria-haspopup="dialog"></button>
+      <button class="nav-btn" id="nav-settings" aria-label="Settings" aria-current="false"></button>
     </header>
-    <!-- The dock: the four sections in a pill floating at the foot. Atom screens have none. -->
+    <!-- The dock: the three sections in a pill floating at the foot, always in this order; inside
+         a section they shrink to icons and the dropdown shows what is open. src/ui/dock.ts. -->
     <nav class="dock" id="dock" aria-label="Sections">
       <button id="nav-collect" aria-current="page"><span class="nav-ico"></span><span class="nav-lab">Collect</span></button>
-      <button id="nav-puzzles" aria-current="false"><span class="nav-ico"></span><span class="nav-lab">Puzzles</span></button>
-      <button id="nav-gallery" aria-current="false"><span class="nav-ico"></span><span class="nav-lab">Atlas</span></button>
-      <button id="nav-settings" aria-current="false"><span class="nav-ico"></span><span class="nav-lab">Settings</span></button>
+      <button id="nav-gallery" aria-current="false"><span class="nav-ico"></span><span class="nav-lab">Learn</span></button>
+      <button id="nav-puzzles" aria-current="false"><span class="nav-ico"></span><span class="nav-lab">Play</span></button>
+      <button class="dock-pick" id="dock-pick" aria-haspopup="dialog" aria-expanded="false" hidden></button>
     </nav>
 
     <div id="gallery-screen">

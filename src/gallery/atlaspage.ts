@@ -1,6 +1,7 @@
-// An atom's page in the Atlas: what it is, before anything about playing. The bar holds Back,
-// the atom's number, symbol and name, and chevrons to the previous and next atom in the view's
-// order, with the microscope for each page's guide; then the Info tabs (Overview, Structure,
+// An atom's page in the Atlas: what it is, before anything about playing. The bar holds the
+// microscope for each page's guide and chevrons to the previous and next atom in the view's
+// order (which atom it is, and the way back to the maps, are in the dock at the foot: its
+// dropdown and the lit Learn); then the Info tabs (Overview, Structure,
 // Isotopes, Properties, from info.ts); and at the
 // foot one contained row, the only way from here into play: Build.
 //
@@ -90,6 +91,12 @@ export class AtlasPage {
     this.open_ = false;
     this.el.hidden = true;
     this.opts.onClose();
+    this.told();
+  }
+
+  /** The dock shows the atom open here (shell.ts listens). */
+  private told(): void {
+    window.dispatchEvent(new Event('atomos:nav'));
   }
 
   /** The Atlas is on screen again: the page comes back as it was, fresh. */
@@ -135,6 +142,7 @@ export class AtlasPage {
     this.paintBuild(e);
     this.tabs.select(this.tab, false);
     this.render();
+    this.told();
   }
 
   /** The one way into play: Build, or what opens it while the atom's period is shut. */

@@ -1,0 +1,57 @@
+/* The sheets (sheet.ts): the atom and game lists rise from just above the dock, which stays
+   tappable below their mask; search drops from the top over everything. */
+.sheet-scrim { position: fixed; left: 0; right: 0; top: 0; z-index: 32; overflow: hidden; background: rgba(0, 0, 0, 0); transition: background-color 0.2s var(--ease); }
+.sheet-scrim--dock { bottom: calc(env(safe-area-inset-bottom, 0px) + var(--dock-h) + var(--dock-gap)); }
+.sheet-scrim--top { bottom: 0; }
+.sheet-scrim.is-open { background: var(--c-scrim); -webkit-backdrop-filter: var(--blur-mask); backdrop-filter: var(--blur-mask); }
+.sheet { position: absolute; left: 50%; width: min(720px, calc(100% - 2 * var(--sp-3))); display: flex; flex-direction: column; background: var(--c-bg); border-radius: var(--r-lg); box-shadow: var(--shadow-modal); font-family: var(--font); transition: transform 0.2s var(--ease); }
+.sheet-scrim--dock .sheet { bottom: var(--sp-2); max-height: calc(100% - var(--safe-top) - var(--sp-4)); transform: translate(-50%, calc(100% + var(--sp-6))); }
+.sheet-scrim--top .sheet { top: calc(var(--safe-top) + var(--sp-2)); max-height: calc(100% - var(--safe-top) - env(safe-area-inset-bottom, 0px) - var(--sp-4)); transform: translate(-50%, calc(-100% - var(--sp-6))); }
+.sheet-scrim.is-open .sheet { transform: translate(-50%, 0); }
+.sheet-grab { align-self: center; flex: none; width: 36px; height: 4px; margin-top: var(--sp-2); border-radius: 2px; background: var(--c-surface-3); }
+.sheet-head { flex: none; display: flex; align-items: center; gap: var(--sp-2); min-height: 52px; padding: var(--sp-1) var(--sp-2) 0 var(--sp-4); }
+/* The title in the screen titles' style: Outfit bold, all caps, widely tracked. */
+.sheet-title { flex: 1; min-width: 0; margin: 0; font-size: 15px; font-weight: var(--fw-bold); letter-spacing: 0.3em; text-transform: uppercase; color: var(--c-text); }
+.sheet-close { flex: none; width: 44px; height: 44px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 50%; background: var(--c-surface-2); color: var(--c-text); cursor: pointer; }
+.sheet-close:hover { background: var(--c-surface-3); }
+.sheet-close:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
+.sheet-bar { flex: none; padding: var(--sp-2) var(--sp-3) 0; }
+.sheet-bar:empty, .sheet-foot:empty { display: none; }
+.sheet-body { position: relative; flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 var(--sp-3) var(--sp-2); }
+.sheet-foot { flex: none; display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3) var(--sp-3); }
+
+/* A pill in a sheet's foot (Top). */
+.sheet-pill { height: 36px; display: inline-flex; align-items: center; gap: 4px; padding: 0 14px 0 10px; border: 0; border-radius: var(--r-pill); background: var(--c-surface-2); color: var(--c-text); font-family: var(--font); font-size: var(--fs-sm); font-weight: var(--fw-semibold); cursor: pointer; }
+.sheet-pill:hover { background: var(--c-surface-3); }
+.sheet-pill:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
+
+/* A heading over a group of rows, staying at the top while its rows scroll. */
+.sheet-group { position: sticky; top: 0; z-index: 1; display: flex; align-items: baseline; gap: var(--sp-2); margin: 0; padding: var(--sp-3) var(--sp-2) var(--sp-1); background: var(--c-bg); font-size: var(--fs-md); font-weight: var(--fw-semibold); color: var(--c-text); }
+.sheet-group small { font-size: var(--fs-sm); font-weight: var(--fw-regular); color: var(--c-text-2); }
+.sheet-rows { margin: 0; padding: 0; list-style: none; }
+/* A row: a plate (symbol or game icon), the name with a line under it, and a figure on the right. */
+.sheet-row { width: 100%; min-height: 52px; display: flex; align-items: center; gap: var(--sp-3); padding: 4px var(--sp-2); border: 0; border-radius: var(--r-sm); background: transparent; color: var(--c-text); font-family: var(--font); text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.sheet-row:hover { background: var(--c-surface); }
+.sheet-row:focus-visible { outline: 2px solid var(--c-accent); outline-offset: -2px; }
+.sheet-row.is-current { background: var(--c-pick); }
+.sheet-row:disabled { cursor: default; background: transparent; }
+.sheet-row:disabled .sheet-name { color: var(--c-text-2); }
+.sheet-z { flex: none; width: 28px; font-size: var(--fs-sm); color: var(--c-text-2); font-variant-numeric: tabular-nums; }
+.sheet-sym { flex: none; width: 36px; height: 30px; display: grid; place-items: center; border-radius: 6px; background: color-mix(in srgb, var(--c) 30%, var(--c-surface-2)); font-size: var(--fs-sm); font-weight: var(--fw-bold); color: var(--c-text); }
+/* A game's icon: black on a white circle, as on the game cards. */
+.sheet-ico { flex: none; width: 36px; height: 36px; display: grid; place-items: center; border-radius: 50%; background: var(--c-text); color: var(--c-bg); }
+.sheet-row:disabled .sheet-ico { background: var(--c-surface-3); color: var(--c-text-2); }
+.sheet-name { flex: 1; min-width: 0; display: flex; flex-direction: column; font-size: var(--fs-md); font-weight: var(--fw-semibold); line-height: 1.25; }
+.sheet-name > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sheet-name small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: var(--fw-regular); color: var(--c-text-2); }
+.sheet-name mark { background: none; color: var(--c-accent); }
+.sheet-fig { flex: none; font-size: var(--fs-sm); color: var(--c-text-2); font-variant-numeric: tabular-nums; }
+.sheet-empty { margin: var(--sp-4) var(--sp-2); font-size: var(--fs-md); color: var(--c-text-2); }
+
+@media (prefers-reduced-motion: reduce) { .sheet, .sheet-scrim { transition: none; } }
+
+/* Search (finder.ts): the field in the title row, beside the close button. */
+.finder .sheet-head { padding: var(--sp-2) var(--sp-2) var(--sp-1) var(--sp-3); }
+.finder-field { flex: 1; margin-top: 0; }
+.finder .sheet-row > svg { flex: none; color: var(--c-text-2); }
+.finder .sheet-body { min-height: 120px; }
