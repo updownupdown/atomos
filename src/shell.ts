@@ -379,11 +379,9 @@ export class AppShell {
     });
   }
 
-  /** Beside Search on Learn: how much of the Atlas is earned (atlas.ts). */
-  private paintAside(screen: Screen): void {
-    const aside = $('nav-aside');
-    aside.hidden = screen !== 'gallery';
-    if (!aside.hidden && aside.firstChild !== this.gallery.atlasCount) aside.replaceChildren(this.gallery.atlasCount);
+  /** Beside Search: nothing for now (what is left to earn in Learn sits in its own lists). */
+  private paintAside(_screen: Screen): void {
+    $('nav-aside').hidden = true;
   }
 
   private setNav(screen: Screen, mode: AtomMode): void {

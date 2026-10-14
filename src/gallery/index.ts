@@ -320,11 +320,6 @@ export class GalleryApp {
   }
 
   /** Show an atom in the Atlas, from one of its pages (the shell has switched to the Atlas). */
-  /** Beside the Atlas title: how much of the Atlas is earned. */
-  get atlasCount(): HTMLElement {
-    return this.atlas.countButton;
-  }
-
   /** The atom whose Atlas page is open, if one is. */
   get pageZ(): number | null {
     return this.atlas.page.isOpen ? this.atlas.page.current : null;

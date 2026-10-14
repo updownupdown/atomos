@@ -19,7 +19,7 @@ import { elementFacts } from './info';
 import { searchElements } from '../ui/search';
 import { icon } from '../ui/icons';
 import { nextButton, playButton } from '../ui/components';
-import { isUnlocked, unlockPuzzle, type UnlockId } from '../core/unlocks';
+import { isUnlocked, SHAPE_PERIOD, unlockPuzzle, type UnlockId } from '../core/unlocks';
 import { loadSave } from '../core/save';
 import { atomBuilt, rowSpan } from '../core/progress';
 import { playUnlock } from '../puzzles/unlock';
@@ -58,7 +58,7 @@ export class Atlas {
   private mapHost: HTMLElement;
   private listHost: HTMLElement;
   private lockEl: HTMLElement;
-  private countEl: HTMLButtonElement;
+  private looksEl: HTMLElement;
   private earned: Earnable[] = [];
   /** A color just opened, shown once before going back to the player's own choice. */
   private tempLook: LookId | null = null;
@@ -70,16 +70,16 @@ export class Atlas {
     this.root = host;
     host.classList.add('at');
     host.innerHTML = `
-      <div class="at-views" role="radiogroup" aria-label="Atlas view"></div>
+      <div class="at-row"><span class="at-row-ico" title="Shapes">${icon('shapes', { size: 20, label: 'Shapes' })}</span><div class="at-views" role="radiogroup" aria-label="Shape"></div></div>
+      <div class="at-row"><span class="at-row-ico" title="Color">${icon('paint', { size: 20, label: 'Color' })}</span><div class="at-views at-looks" role="radiogroup" aria-label="Color by"></div></div>
       <div class="at-tools">
-        <label class="at-search">
-          <span class="at-search-icon">${icon('search', { size: 20 })}</span>
-          <input type="search" id="atlas-search" placeholder="Search" aria-label="Search the atoms by name, symbol or number" autocomplete="off" spellcheck="false" enterkeyhint="go">
-          <button type="button" class="at-clear" aria-label="Clear search" hidden>${icon('clear', { size: 22 })}</button>
-        </label>
-        <button type="button" class="at-color" aria-haspopup="dialog">${icon('paint', { size: 18 })}<small>Color</small><span></span></button>
+        <div class="at-search">
+          <button type="button" class="at-search-btn" aria-label="Search the atoms" aria-expanded="false">${icon('search', { size: 20 })}</button>
+          <input type="search" id="atlas-search" placeholder="Name, symbol or number" aria-label="Search the atoms by name, symbol or number" autocomplete="off" spellcheck="false" enterkeyhint="go">
+          <button type="button" class="at-clear" aria-label="Close search">${icon('clear', { size: 22 })}</button>
+        </div>
+        <div class="at-legend"></div>
       </div>
-      <div class="at-legend" hidden></div>
       <p class="at-note" hidden></p>
       <div class="at-body">
         <div class="at-map"></div>
@@ -88,15 +88,12 @@ export class Atlas {
       </div>
       <button type="button" class="at-peek" hidden></button>`;
     this.views = host.querySelector('.at-views')!;
+    this.looksEl = host.querySelector('.at-looks')!;
     this.input = host.querySelector('input')!;
     this.peekEl = host.querySelector('.at-peek')!;
     this.mapHost = host.querySelector('.at-map')!;
     this.listHost = host.querySelector('.at-list')!;
     this.lockEl = host.querySelector('.at-lock')!;
-    this.countEl = document.createElement('button');
-    this.countEl.type = 'button';
-    this.countEl.className = 'at-count';
-    this.countEl.onclick = () => this.openEarned();
     this.earned = earnables();
     this.paintViews();
     watchEarnings();
@@ -126,10 +123,20 @@ export class Atlas {
       this.setView(next.id);
       this.views.querySelector<HTMLElement>(`[data-id="${next.id}"]`)!.focus();
     });
+    // Search: a round button that opens a field over the legend; it closes when left empty.
+    const tools = this.root.querySelector<HTMLElement>('.at-tools')!;
+    const searchBtn = this.root.querySelector<HTMLButtonElement>('.at-search-btn')!;
+    const openSearch = (on: boolean) => {
+      tools.classList.toggle('is-searching', on);
+      searchBtn.setAttribute('aria-expanded', String(on));
+      if (on) this.input.focus();
+    };
+    searchBtn.onclick = () => openSearch(!tools.classList.contains('is-searching') || Boolean(this.query));
+    this.input.addEventListener('blur', () => { if (!this.query) openSearch(false); });
     const clear = this.root.querySelector<HTMLButtonElement>('.at-clear')!;
     this.input.addEventListener('input', () => {
       this.query = this.input.value.trim();
-      clear.hidden = !this.query;
+      if (this.query) tools.classList.add('is-searching');
       this.applySearch();
     });
     this.input.addEventListener('keydown', (e) => {
@@ -141,12 +148,23 @@ export class Atlas {
       if (this.view === 'details') this.openPage(first.z);
       else this.pick(first.z, true);
     });
+    // Clearing the search closes it.
+    clear.addEventListener('pointerdown', (e) => e.preventDefault());
     clear.addEventListener('click', () => {
       this.input.value = '';
       this.input.dispatchEvent(new Event('input'));
-      this.input.focus();
+      openSearch(false);
+      this.input.blur();
     });
-    this.root.querySelector<HTMLButtonElement>('.at-color')!.onclick = () => this.openColors();
+    this.looksEl.addEventListener('click', (e) => {
+      const b = (e.target as HTMLElement).closest<HTMLElement>('[data-id]');
+      if (!b) return;
+      const id = b.dataset.id as LookId;
+      const locked = this.earned.find((x) => x.id === `look:${id}` && !x.open);
+      if (locked) { this.offerEarnable(locked); return; }
+      this.endTemp();
+      this.setLook(id);
+    });
     // The microscope: why the atoms are arranged this way.
     this.root.querySelector('.at-tools')!.append(scienceButton('at-sci'));
     this.peekEl.onclick = () => { if (this.picked != null) this.openPage(this.picked); };
@@ -160,16 +178,27 @@ export class Atlas {
   }
 
   private paintViews(): void {
-    this.views.innerHTML = this.viewOrder().map((v) => `<button type="button" role="radio" data-id="${v.id}"${v.locked ? ' class="is-locked"' : ''} aria-label="${v.label}${v.locked ? ', locked' : ''}">${v.locked ? icon('lock', { size: 14 }) : ''}${v.label}</button>`).join('');
+    // A shape still to earn: an amber lock and the period that opens it.
+    this.views.innerHTML = this.viewOrder().map((v) => {
+      const how = v.locked ? `Period ${SHAPE_PERIOD[v.id]}` : '';
+      return `<button type="button" role="radio" data-id="${v.id}"${v.locked ? ' class="is-locked"' : ''} aria-label="${v.label}${v.locked ? `, opens when Period ${SHAPE_PERIOD[v.id]} is built` : ''}">${v.locked ? icon('lock', { size: 14 }) : ''}${v.label}${how ? `<small>${how}</small>` : ''}</button>`;
+    }).join('');
     this.views.querySelectorAll<HTMLElement>('[data-id]').forEach((b) => {
       const on = b.dataset.id === this.view;
       b.setAttribute('aria-checked', String(on));
       b.tabIndex = on ? 0 : -1;
     });
-    const shapes = this.earned.filter((e) => e.kind === 'shape'), rest = this.earned.filter((e) => e.kind !== 'shape');
-    const n = (l: Earnable[]) => l.filter((e) => e.open).length;
-    this.countEl.innerHTML = `${icon('star', { size: 16 })}<span>${n(this.earned)} of ${this.earned.length}</span>`;
-    this.countEl.setAttribute('aria-label', `Earned in the Atlas: ${n(shapes)} of ${shapes.length} shapes, ${n(rest)} of ${rest.length} colors and toys`);
+    this.paintLooks();
+  }
+
+  /** The Color row: every way to color the atoms, open ones first; one still to earn has an amber
+   *  lock and the game whose first win opens it. */
+  private paintLooks(): void {
+    const cur = this.shown();
+    const rows = LOOKS.map((l) => ({ l, e: this.earned.find((x) => x.id === `look:${l.id}` && !x.open) }));
+    this.looksEl.innerHTML = [...rows.filter((r) => !r.e), ...rows.filter((r) => r.e)].map(({ l, e }) => e
+      ? `<button type="button" role="radio" data-id="${l.id}" class="is-locked" aria-checked="false" aria-label="${esc(l.label)}, opens with a win in ${esc(gameName(e.game!))}">${icon('lock', { size: 14 })}${esc(l.label)}<small>${esc(gameName(e.game!))}</small></button>`
+      : `<button type="button" role="radio" data-id="${l.id}" aria-checked="${l.id === cur}" title="${esc(l.blurb)}">${esc(l.label)}</button>`).join('');
   }
 
   /** After a win or a build: what is open now, and the views row and the map to match. */
@@ -313,13 +342,13 @@ export class Atlas {
     if (!this.lockedView() && !this.lapse) this.map.setColors(fn);
     this.table?.setColors(fn);
     if (this.picked != null) this.pick(this.picked);
-    this.root.querySelector('.at-color span')!.textContent = lookOf(look).label;
+    this.looksEl.querySelectorAll<HTMLElement>('[data-id]').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.id === look)));
+    this.looksEl.querySelector<HTMLElement>(`[data-id="${look}"]`)?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
     const legend = this.root.querySelector<HTMLElement>('.at-legend')!;
     const lg = lookLegend(look);
     const fresh = this.tempLook ? `<span class="at-fresh">${icon('star', { size: 16 })}<b>${esc(lookOf(look).label)}</b> is open<button type="button" class="at-keep">Keep it</button></span>` : '';
     const lapse = look === 'discovery' && !this.root.classList.contains('is-details') ? this.lapseControl() : '';
-    legend.hidden = !lg && !fresh;
-    if (legend.hidden) return;
+    if (!lg && !fresh && !lapse) { legend.innerHTML = ''; return; }
     legend.innerHTML = fresh + (!lg ? '' : lg.swatches
       ? lg.swatches.map((s) => `<span class="at-key"><i style="background:${s.color}"></i>${esc(s.label)}</span>`).join('')
       : `<span>${esc(lg.low ?? '')}</span><i class="at-ramp"></i><span>${esc(lg.high ?? '')}</span><span class="at-key"><i class="at-unknown"></i>Not known</span>`) + lapse;
@@ -379,33 +408,6 @@ export class Atlas {
     this.paintColors();
   }
 
-  /** The Color sheet: every way to color the atoms, the ones still to earn with how to earn them. */
-  private openColors(): void {
-    const cur = this.shown();
-    const rows = LOOKS.map((l) => {
-      const e = this.earned.find((x) => x.id === `look:${l.id}`);
-      if (e && !e.open) {
-        return `<div class="look-row is-locked" data-id="${l.id}">
-          <span class="look-main"><b>${esc(l.label)}</b><span>Win ${esc(aPuzzle(e.game!))} to open it</span></span>
-          <span class="look-go"></span></div>`;
-      }
-      return `<button class="look-row" data-id="${l.id}" aria-pressed="${l.id === cur}">
-        <span class="look-main"><b>${esc(l.label)}</b><span>${esc(l.blurb)}</span></span>
-        ${l.id === cur ? `<span class="look-on">${icon('check', { size: 20 })}</span>` : ''}
-      </button>`;
-    }).join('');
-    const sheet = openModal(`<h2>Color by</h2><div class="look-list">${rows}</div>`);
-    sheet.querySelectorAll<HTMLButtonElement>('button.look-row').forEach((b) => (b.onclick = () => {
-      closeModal();
-      this.endTemp();
-      this.setLook(b.dataset.id as LookId);
-    }));
-    sheet.querySelectorAll<HTMLElement>('.look-row.is-locked').forEach((r) => {
-      const e = this.earned.find((x) => x.id === `look:${r.dataset.id}`)!;
-      r.querySelector('.look-go')!.append(this.earnButton(e));
-    });
-  }
-
   /** How to earn a color or toy: Play its game right here once it has been played, otherwise the
    *  atom where building next meets it. */
   private earnButton(e: Earnable): HTMLButtonElement {
@@ -427,28 +429,6 @@ export class Atlas {
     const what = e.kind === 'toy' ? 'Play history: the table fills in year by year, from antiquity to today, in the order the elements were found.' : `Color the whole Atlas by ${lookOf(e.id.slice(5) as LookId).blurb.replace(/^./, (c) => c.toLowerCase())}`;
     const sheet = openModal(`<h2>${esc(e.label)}</h2><div class="earn-one"><p>${esc(what)}</p><p class="earn-how">${icon('lock', { size: 20 })}<span>Win ${esc(aPuzzle(unlockPuzzle(e.id)))} to open it, anywhere in the game.</span></p><div class="earn-go"></div></div>`);
     sheet.querySelector('.earn-go')!.append(this.earnButton(e));
-  }
-
-  /** The count beside the title: everything there is to earn in the Atlas, open or not. */
-  private openEarned(): void {
-    const row = (e: Earnable) => `<div class="earn-row${e.open ? ' is-open' : ''}" data-id="${e.id}">
-        <span class="look-main"><b>${esc(e.label)}</b><span>${esc(e.kind === 'shape' && !e.open ? `${e.how}: ${e.count!.built} of ${e.count!.total} built` : e.how)}</span></span>
-        <span class="earn-mark">${e.open ? icon('check', { size: 20 }) : ''}</span></div>`;
-    const part = (title: string, list: Earnable[]) => `<h3 class="earn-h">${title} <small>${list.filter((e) => e.open).length} of ${list.length}</small></h3>${list.map(row).join('')}`;
-    const sheet = openModal(`<h2>Earn the Atlas</h2><p class="earn-lede">Every fact is open. Building periods opens new shapes, and each game's first win opens a new way to color the table.</p>
-      <div class="look-list">${part('Shapes', this.earned.filter((e) => e.kind === 'shape'))}${part('Colors and toys', this.earned.filter((e) => e.kind !== 'shape'))}</div>`);
-    sheet.querySelectorAll<HTMLElement>('.earn-row:not(.is-open)').forEach((r) => {
-      const e = this.earned.find((x) => x.id === r.dataset.id)!;
-      const mark = r.querySelector('.earn-mark')!;
-      if (e.kind === 'shape') {
-        if (e.next) mark.append(playButton({ label: elementAt(e.next).name, compact: true, icon: 'chevron-right', onClick: () => { closeModal(); this.opts.onBuild(e.next!); } }));
-      } else mark.append(this.earnButton(e));
-    });
-  }
-
-  /** Beside the Atlas title: how much of the Atlas is earned; a tap lists the rest. */
-  get countButton(): HTMLButtonElement {
-    return this.countEl;
   }
 
   /** Show an atom in the Atlas from one of its pages: on a map (the Table, if Details was showing),
