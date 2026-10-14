@@ -31,7 +31,7 @@ import { atomFingerprint } from '../render/fingerprint';
 import { worldPerA0 } from '../render/model';
 import { OrbitalCloud, orbitalSetBuilder, type OrbitalSet, type OrbitalSetBuilder } from '../render/orbitalCloud';
 import { ExplorerHud, OrbitalExplorer, type ExplorerCamera } from '../render/explorer';
-import { Spotlight, type SpotlightOptions } from '../render/spotlight';
+import { Nebula, type NebulaOptions } from '../render/nebula';
 import { QualityGovernor } from '../render/governor';
 import { RayLooks, type ViewLook } from '../render/rayLooks';
 
@@ -72,21 +72,19 @@ const sampleSlice = (frameMs: number) => Math.max(5, Math.min(30, frameMs * 0.25
 const PLAY_DWELL_S = 3.6;
 const PLAY_CONTEXT = 0.5;
 const PLAY_RESUME_MS = 5000;
-/** Build: how long a tap's twinkle lasts, rising to full and back, and how much faster the
- *  points flicker at its height. */
-const TAP_TWINKLE_S = 1.8;
-const TAP_TWINKLE_RATE = 3.5;
 /** Build: each size circle turns once in 4 s (the smallest) to 8 s (the largest), about its
  *  own axis, a touch fainter than in View. */
 const GYRO_S = [4, 8];
 const BUILD_RING_FADE = 0.94;
 
-/** The Build page's fixed look: the owner's pick from the lab, scanning through the orbitals
- *  along the ladder (resting on each) with the whole atom in view, no light pulses, and the rest
- *  of the atom kept visible enough to read its structure round the lit orbital. */
-const BUILD_LOOK: SpotlightOptions = {
-  spot: 'scan', rest: 'tint', palette: 'print', tempo: 0.5, camera: 'still', twinkle: 0.25, brightness: 3, pulse: 0, restShare: 0.75, scanDir: 'in',
-};
+/** The Build page's look: the nebula (render/nebula.ts), as the Collect gem draws it, the
+ *  light walking the orbitals built so far. */
+const BUILD_LOOK: NebulaOptions = { sat: 1, bright: 1.1, halo: 0.4, walk: true };
+/** View's particles: the same mist and point size, a lighter halo. */
+const VIEW_HALO = 0.3;
+/** Build's point layer: this share of the screen's resolution at most (see applyQuality). */
+const NEBULA_PIXEL = 0.5;
+const BUILD_ROOM = 1.12;
 
 /** An orbit camera that frames a radius, easing in powers of ten (so a dive of five decades
  *  glides evenly), with the explorer's pinch and turn. */
@@ -165,7 +163,7 @@ export class Detail {
   private explorer: OrbitalExplorer | null = null;
   private hud: ExplorerHud | null = null;
   private hudEl: HTMLElement | null;
-  private spotlight = new Spotlight();
+  private nebula = new Nebula();
   private governor = new QualityGovernor();
   private ringScene = new THREE.Scene();
   private atomRings = new THREE.Group();
@@ -182,12 +180,10 @@ export class Detail {
   private litTo = new Float32Array(64);
   private empty: HTMLElement | null;
   private legend: HTMLElement | null;
-  /** Build: the scanned orbital's name, the size circles' turns, and the twinkle's own clock
-   *  (it runs faster during a tap's twinkle). */
+  /** Build: the lit orbital's name, and the size circles' turns. */
   private orbitalEl: HTMLParagraphElement | null = null;
   private shownOrbital = -1;
   private gyro: { line: THREE.Line; r: number; period: number; axis: THREE.Vector3; base: number }[] = [];
-  private twinkleClock = 0;
   /** Build: how far the canvas reaches below its stage (CSS px), and the fit's correction for it. */
   private bleed = 0;
   private fitScale = 1;
@@ -234,13 +230,13 @@ export class Detail {
     this.renderer.autoClear = false;
     this.renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
     const halfFloat = this.renderer.extensions.has('EXT_color_buffer_float') || this.renderer.extensions.has('EXT_color_buffer_half_float');
-    this.cloud = new OrbitalCloud({ halfFloat });
+    this.cloud = new OrbitalCloud({ halfFloat, halo: true });
     this.cloud.background = null;
     this.nucleus = new NucleusView();
     this.rig = new Rig(this.camera, canvas);
     if (this.variant === 'view') {
       const ex = new OrbitalExplorer(this.rig);
-      ex.opts = { hard: true, finger: 'nav', palette: 'print', twinkle: 0.25, brightness: 1.3 };
+      ex.opts = { hard: true, finger: 'nav', palette: 'mono', twinkle: 0, brightness: 1.3 };
       ex.onInteract = () => this.touched();
       ex.attach(canvas);
       canvas.style.touchAction = 'none';
@@ -511,11 +507,13 @@ export class Detail {
   }
 
   /** Take on the governor's level: the point layer's resolution and the share of points. The
-   *  layer never drops below 0.6 of a CSS pixel, however few device pixels there are. */
+   *  layer never drops below 0.6 of a CSS pixel, however few device pixels there are. Build's
+   *  nebula is drawn at half resolution at best, as the Collect gem is: its points melt into
+   *  mist there, where a full-resolution layer shows them as grain. */
   private applyQuality(): void {
     const q = this.governor.spec;
     const pr = this.renderer.getPixelRatio();
-    const pixel = Math.min(1, Math.max(q.pixel, 0.6 / pr));
+    const pixel = Math.min(this.variant === 'build' ? NEBULA_PIXEL : 1, Math.max(q.pixel, 0.6 / pr));
     this.cloud.pixelScale = pixel;
     this.cloud.density = q.density;
     this.cloud.denseShare = q.dense;
@@ -544,8 +542,12 @@ export class Detail {
       this.set = set;
       const fp = atomFingerprint(set.element, set);
       this.cloud.setSet(set, this.wpa0);
-      this.spotlight.setSet(set, fp);
+      const fresh = this.nebula.set?.element.z !== set.element.z;
+      this.nebula.setSet(set);
+      // Build: a new atom comes up in its own first pose.
+      if (fresh && this.variant === 'build') this.rig.theta = this.nebula.theta0;
       this.explorer?.setSet(set, fp);
+      this.explorer?.setMono(this.nebula.restColors, this.nebula.litColors);
       this.computeLitTargets();
       this.litNow.set(this.litTo);
       this.rig.snap();
@@ -586,7 +588,8 @@ export class Detail {
     else this.frameView(now, dt);
   }
 
-  /** Build: a tap on the atom (not a scroll of the page over it) makes it twinkle. */
+  /** Build: a tap on the atom (not a scroll of the page over it) moves the light on to the
+   *  next orbital. */
   private bindTap(canvas: HTMLCanvasElement): void {
     let down: { x: number; y: number; t: number } | null = null;
     canvas.addEventListener('pointerdown', (e) => { down = { x: e.clientX, y: e.clientY, t: performance.now() }; });
@@ -594,19 +597,9 @@ export class Detail {
     canvas.addEventListener('pointerup', (e) => {
       const d = down;
       down = null;
-      if (d && Math.hypot(e.clientX - d.x, e.clientY - d.y) < 10 && performance.now() - d.t < 400) this.twinkleAt = this.time;
+      if (d && Math.hypot(e.clientX - d.x, e.clientY - d.y) < 10 && performance.now() - d.t < 400) this.nebula.advance();
     });
   }
-  /** When the atom was last tapped (seconds of this.time). */
-  private twinkleAt = -99;
-
-  /** The tap's twinkle: 0 at rest, up to 1 and back down, eased in and out. */
-  private get twinkleBoost(): number {
-    const t = (this.time - this.twinkleAt) / TAP_TWINKLE_S;
-    if (t < 0 || t >= 1 || this.reducedMotion) return 0;
-    return 0.5 - 0.5 * Math.cos(t * Math.PI * 2);
-  }
-
   private frameBuild(mode: 'empty' | 'nucleus' | 'cloud', dt: number): void {
     const r = this.renderer;
     if (mode === 'nucleus' && this.element) {
@@ -618,17 +611,15 @@ export class Detail {
       return;
     }
     if (!this.set) return;
-    // A tap: the whole atom twinkles, harder and faster, for a moment.
-    const boost = this.twinkleBoost;
-    const o: SpotlightOptions = this.reducedMotion ? { ...BUILD_LOOK, twinkle: 0, tempo: 0.25 }
-      : { ...BUILD_LOOK, twinkle: BUILD_LOOK.twinkle + (1.5 - BUILD_LOOK.twinkle) * boost, twinkleAll: boost };
-    this.twinkleClock += dt * (1 + (TAP_TWINKLE_RATE - 1) * boost);
-    const view = this.spotlight.step(this.cloud, dt, this.time, o, this.camera.position, this.litNow);
-    this.cloud.wantDense(this.spotlight.denseWants, DENSE_BUILD / Math.sqrt(this.spotlight.denseSplit));
+    // Reduced motion: the light stays where it is (a tap still moves it on).
+    const o: NebulaOptions = this.reducedMotion ? { ...BUILD_LOOK, walk: false } : BUILD_LOOK;
+    const nb = this.nebula;
+    nb.step(this.cloud, dt, this.time, o, DENSE_BUILD, this.litNow);
     if (!this.sampling) this.cloud.sampleDense(this.slice);
-    this.rig.fit(view * 1.12 * this.wpa0 * this.fitScale);
-    this.rig.update(dt, false, 0.22);
-    this.cloud.renderLayer(this.ctx, this.twinkleClock);
+    // A little more room than the gem gives, so a lit outer lobe clears the page's header.
+    this.rig.fit(nb.frameA0 * BUILD_ROOM * this.wpa0 * this.fitScale);
+    this.rig.update(dt, false, nb.spinSpeed * nb.spinDir);
+    this.cloud.renderLayer(this.ctx, this.time);
     this.cloud.draw(r);
     this.paintGyro();
     r.render(this.ringScene, this.camera);
@@ -657,7 +648,7 @@ export class Detail {
   /** Build: the name of the orbital the light rests on, under the atom. */
   private paintOrbital(): void {
     const el = this.orbitalEl, set = this.set;
-    const i = this.spotlight.scanOrbital;
+    const i = this.nebula.litOrbital;
     if (!el || !set || i === null || i === this.shownOrbital) return;
     this.shownOrbital = i;
     el.textContent = set.orbitals[i]?.label ?? '';
@@ -700,6 +691,7 @@ export class Detail {
       this.rays.draw(r);
     } else if (this.set && cloudFade > 0) {
       ex.applyLooks(this.cloud, frameA0, this.litNow);
+      this.nebula.dress(this.cloud, VIEW_HALO);
       this.cloud.wantDense(this.nucleusOn ? [] : ex.denseWants, DENSE_VIEW);
       if (ex.settled && !this.sampling && this.diveT >= 1) this.cloud.sampleDense(this.slice);
       this.cloud.material.uniforms.uAlpha.value *= cloudFade;

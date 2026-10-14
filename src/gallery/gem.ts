@@ -1,11 +1,12 @@
-// The atom in focus on Collect, drawn as the collected gem: the same fine cloud in the atom's own
-// palette that its Build page draws (render/orbitalCloud.ts, a few hundred thousand points), on
-// a small canvas of its own, turning slowly. How far the atom is collected (thumbs.ts Tone) sets its look:
+// The atom in focus on Collect, drawn as the collected gem: the nebula look (render/nebula.ts)
+// of the same fine cloud its Build page draws (render/orbitalCloud.ts, a few hundred thousand
+// points), on a small canvas of its own, turning slowly as itself. How far the atom is
+// collected (thumbs.ts Tone) sets its look:
 //
-//   unbuilt   not built yet           the whole cloud in gray, still
-//   built     built                   its orbitals' colors, muted
-//   stable    stable isotopes too     its orbitals' colors in full, a gentle twinkle
-//   complete  everything collected    in full, the light walking its orbitals in turn
+//   unbuilt   not built yet           the whole cloud in gray, still, no light walking
+//   built     built                   its hue, the light walking its orbitals
+//   stable    stable isotopes too     brighter, a fuller halo
+//   complete  everything collected    brightest, the halo in full
 //
 // As it first appears it gathers out of the dark: its light rises and it settles in from a
 // little farther off, with no sparkle.
@@ -13,10 +14,9 @@
 import * as THREE from 'three';
 import { elementAt } from './data';
 import type { Tone } from './thumbs';
-import { atomFingerprint } from '../render/fingerprint';
+import { Nebula, type NebulaOptions } from '../render/nebula';
 import { worldPerA0 } from '../render/model';
 import { OrbitalCloud, orbitalSetBuilder, type OrbitalSet, type OrbitalSetBuilder } from '../render/orbitalCloud';
-import { Spotlight, type SpotlightOptions } from '../render/spotlight';
 
 /** Points: the Build page's own set (so the two share it, and opening the atom from here is
  *  instant), drawn at 60% for the small canvas, with 60k more for the orbital the light rests
@@ -28,16 +28,12 @@ const GEM_DENSE = 60_000;
 const ENTER_S = 1.4;
 const ENTER_BACK = 0.14;
 const TILT = 0.35;
-const SPIN = 0.22;
-/** The canvas reaches this many times the radius holding 90% of the points. */
-const GEM_FRAME = 1.55;
 
-const ALL: SpotlightOptions = { spot: 'all', rest: 'ghost', palette: 'print', tempo: 0.5, camera: 'still', twinkle: 0.2, brightness: 1, pulse: 0 };
-export const GEM_LOOKS: Record<Tone, SpotlightOptions> = {
-  unbuilt: { ...ALL, twinkle: 0, brightness: 0.8, saturation: 0 },
-  built: { ...ALL, twinkle: 0.12, saturation: 0.4 },
-  stable: { ...ALL, twinkle: 0.3, brightness: 1.15 },
-  complete: { spot: 'scan', rest: 'tint', palette: 'print', tempo: 0.5, camera: 'still', twinkle: 0.35, brightness: 1.3, pulse: 0.6, restShare: 0.75, scanDir: 'in' },
+export const GEM_LOOKS: Record<Tone, NebulaOptions> = {
+  unbuilt: { sat: 0, bright: 0.7, halo: 0, walk: false },
+  built: { sat: 1, bright: 1, halo: 0.3, walk: true },
+  stable: { sat: 1, bright: 1.15, halo: 0.4, walk: true },
+  complete: { sat: 1, bright: 1.3, halo: 0.7, walk: true },
 };
 
 export class GemAtom {
@@ -45,7 +41,7 @@ export class GemAtom {
   private renderer: THREE.WebGLRenderer | null = null;
   private camera = new THREE.PerspectiveCamera(32, 1, 0.001, 100);
   private cloud: OrbitalCloud | null = null;
-  private spotlight = new Spotlight();
+  private nebula = new Nebula();
   private builder: OrbitalSetBuilder | null = null;
   private set: OrbitalSet | null = null;
   private wpa0 = 1;
@@ -56,7 +52,6 @@ export class GemAtom {
   private last = 0;
   private time = 0;
   private age = 0;
-  private angle = 0;
   private clock = 0;
   private w = 0;
   private h = 0;
@@ -69,7 +64,7 @@ export class GemAtom {
       this.renderer.autoClear = false;
       this.renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
       const halfFloat = this.renderer.extensions.has('EXT_color_buffer_float') || this.renderer.extensions.has('EXT_color_buffer_half_float');
-      this.cloud = new OrbitalCloud({ halfFloat });
+      this.cloud = new OrbitalCloud({ halfFloat, halo: true });
       this.cloud.background = null;
       this.cloud.density = GEM_DENSITY;
     } catch { this.renderer = null; /* no WebGL: the flat picture stays */ }
@@ -119,7 +114,7 @@ export class GemAtom {
     if (b.set && b.set !== this.set) {
       this.set = b.set;
       cloud.setSet(b.set, this.wpa0);
-      this.spotlight.setSet(b.set, atomFingerprint(b.set.element, b.set));
+      this.nebula.setSet(b.set);
     }
     if (!this.set) return;
     const w = this.canvas.clientWidth, h = this.canvas.clientHeight;
@@ -137,16 +132,19 @@ export class GemAtom {
     // It gathers out of the dark: the light rises (eased out) as it settles in from farther off.
     const k = still ? 1 : 1 - (1 - Math.min(1, this.age / ENTER_S)) ** 3;
     const look = GEM_LOOKS[this.tone];
-    const o: SpotlightOptions = still ? { ...look, twinkle: 0, tempo: 0.25 } : { ...look, brightness: look.brightness * k };
+    // Reduced motion: the light stays where it is (a still picture in the atom's own colors).
+    const o: NebulaOptions = still ? { ...look, walk: false } : { ...look, bright: look.bright * k };
     this.clock += dt;
-    if (!still) this.angle += dt * SPIN;
-    this.spotlight.step(cloud, dt, this.time, o, this.camera.position);
-    cloud.wantDense(this.spotlight.denseWants, GEM_DENSE / Math.sqrt(this.spotlight.denseSplit));
+    this.nebula.step(cloud, dt, this.time, o, GEM_DENSE);
     if (!sampling) cloud.sampleDense(5);
-    // Frame the whole atom with room round it, so its outermost points thin out before the edge.
-    const R = this.set.r90 * GEM_FRAME * this.wpa0;
+    // The atom's own spin: its first pose, direction and pace from its seed, the tilt nodding
+    // a little over a minute. Framed on where most of its points are, with room round them.
+    const nb = this.nebula;
+    const angle = nb.theta0 + (still ? 0 : this.time * nb.spinSpeed * nb.spinDir);
+    const tilt = TILT + (still ? 0 : nb.nod(this.time));
+    const R = nb.frameA0 * this.wpa0;
     const dist = (R / Math.tan((this.camera.fov * Math.PI) / 360)) * (1 + ENTER_BACK * (1 - k));
-    this.camera.position.set(Math.sin(this.angle) * Math.cos(TILT) * dist, Math.sin(TILT) * dist, Math.cos(this.angle) * Math.cos(TILT) * dist);
+    this.camera.position.set(Math.sin(angle) * Math.cos(tilt) * dist, Math.sin(tilt) * dist, Math.cos(angle) * Math.cos(tilt) * dist);
     this.camera.near = dist * 0.01;
     this.camera.far = dist * 10;
     this.camera.aspect = w / h;
