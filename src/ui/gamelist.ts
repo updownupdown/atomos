@@ -56,7 +56,7 @@ function listRow(p: PuzzleType, current: string): string {
 let openList: Sheet | null = null;
 
 export function openGameList(o: { current: string; onPick: (id: string, level?: number) => void; onClose?: () => void }): void {
-  const sheet = openSheet({ title: 'Games', label: 'All games', from: 'dock', onClose: () => { if (openList === sheet) openList = null; o.onClose?.(); } });
+  const sheet = openSheet({ title: 'Games', icon: 'puzzles', label: 'All games', from: 'dock', onClose: () => { if (openList === sheet) openList = null; o.onClose?.(); } });
   openList = sheet;
   sheet.body.innerHTML = `<ul class="sheet-rows gl-rows">${gamesInOrder().map((p) => listRow(p, o.current)).join('')}</ul>`;
   sheet.body.addEventListener('click', (e) => {
