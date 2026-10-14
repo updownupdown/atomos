@@ -3,9 +3,9 @@
 // 2026-10-14), with a round button into the section:
 //   Collect — atoms built, then a track per period (stable thick, fleeting thin), then one
 //             stable step and one fleeting isotope to build next, each beside its total.
-//   Learn   — the atom of the day to guess on the table, Nu's higher-or-lower question with its
-//             streak, and a row into Learn itself.
-//   Play    — the game played last, on its card.
+//   Learn   — the atom of the day to find among four atom cards, Nu's three two-choice questions
+//             with their streak, and a row into Learn itself.
+//   Play    — the game played last, then a game picked at random for the day, on their cards.
 // The shell mounts it on every visit:
 //
 //   renderHome($('home-body'), (to, at) => ...);   // at: { z } opens an atom in Learn, { game } a game
@@ -14,10 +14,10 @@ import { loadSave, type SaveData } from '../core/save';
 import { nextStep, openStep, type NextStep } from '../core/next';
 import { atomBuilt, fleetingIsotopes, isotopeCollected, rowOpen, segmentsOf } from '../core/progress';
 import { formatDuration } from '../core/isotopes';
-import { lastPlayed } from '../core/plays';
+import { lastPlayed, playsOf } from '../core/plays';
 import { lastDial, pinnedGames } from '../core/wins';
 import { factsOf } from '../core/facts';
-import { ELEMENTS, MAX_Z, elementAt, placeColour, type Element } from '../gallery/data';
+import { MAX_Z, elementAt, placeColour, type Element } from '../gallery/data';
 import { inkOn } from '../gallery/looks';
 import { seriesOne } from '../gallery/table';
 import { periodShares } from '../gallery/atomlist';
@@ -28,8 +28,8 @@ import { gameCard } from '../puzzles/gameCard';
 import { icon, type IconName } from '../ui/icons';
 import { nuIconHtml, nuShow } from '../ui/nu';
 import {
-  answerWords, atomOfDay, candidates, clues, finishQuiz, headlineOf, liveStreak, questionText, quizOf, readDay,
-  today, valueText, writeDay, type DayState,
+  atomOfDay, candidates, clues, finishQuiz, headlineOf, liveStreak, quizOf, readDay, today, writeDay,
+  type DayState, type QuizOption,
 } from './daily';
 import './home.css';
 
@@ -167,27 +167,19 @@ function wireCollect(host: HTMLElement, save: SaveData): void {
 
 // ---------- Learn ----------
 
-/** The table in its usual shape, small: the candidates outlined (crossed out once guessed
- *  wrong), the rest dim. Lanthanides and actinides sit in their rows under the table. */
-function guessTable(cands: number[], wrong: number[]): string {
-  let cells = '';
-  for (const e of ELEMENTS) {
-    let col: number, row: number;
-    if (e.group === null) { col = e.z - (e.period === 6 ? 58 : 90) + 4; row = e.period + 3; }
-    else { col = e.group; row = e.period; }
-    const isCand = cands.includes(e.z), out = wrong.includes(e.z);
-    cells += isCand
-      ? `<button type="button" class="home-cell is-cand${out ? ' is-out' : ''}" data-z="${e.z}" style="grid-column:${col};grid-row:${row}" ${out ? 'disabled' : ''} aria-label="${out ? `Not ${esc(e.name)}` : `Guess ${esc(e.name)}`}"></button>`
-      : `<i class="home-cell${e.period === elementAt(cands[0]).period ? ' is-row' : ''}" style="grid-column:${col};grid-row:${row}"></i>`;
-  }
-  return `<div class="home-table">${cells}</div>`;
+/** An atom as a card to tap: its plate and name, with a line under it once there is one. */
+function atomCard(z: number, attrs: string, cls = '', sub = ''): string {
+  const e = elementAt(z);
+  return `<button type="button" class="home-acard ${cls}" ${attrs}>${plate(e)}<span class="home-acard-txt"><b>${esc(e.name)}</b>`
+    + `${sub ? `<small>${sub}</small>` : ''}</span></button>`;
 }
 
 function paintGuess(box: HTMLElement, index: number, go: HomeGo): void {
   const z = atomOfDay(index);
   const cands = candidates(z, index);
   const st = readDay();
-  const g = st.guess;
+  // Wrong guesses from a different set of cards (an older version of the game) don't count.
+  const g = { ...st.guess, wrong: st.guess.wrong.filter((w) => cands.includes(w)) };
   const e = elementAt(z);
   if (g.done) {
     const won = !g.wrong.length || g.wrong.length < cands.length - 1;
@@ -206,13 +198,14 @@ function paintGuess(box: HTMLElement, index: number, go: HomeGo): void {
     + `<div class="home-row"><span class="home-caps">Atom of the day</span><span class="home-muted">Clue ${g.clues} of 3</span></div>`
     + `<p class="home-q">Which atom is it?</p>`
     + `<ol class="home-clues">${shown.map((c) => `<li>${esc(c)}</li>`).join('')}</ol>`
-    + guessTable(cands, g.wrong)
-    + `<div class="home-row"><span class="home-muted">It's one of the ${cands.length} outlined. Tap your guess.</span>`
-    + (g.clues < 3 ? '<button type="button" class="home-btn" data-clue>Another clue</button>' : '')
-    + '</div></div>';
+    + `<div class="home-acards">${cands.map((c) => (g.wrong.includes(c)
+      ? atomCard(c, `disabled aria-label="Not ${esc(elementAt(c).name)}"`, 'is-out', 'Not this one')
+      : atomCard(c, `data-z="${c}" aria-label="Guess ${esc(elementAt(c).name)}"`))).join('')}</div>`
+    + (g.clues < 3 ? '<div class="home-row"><span class="home-muted">A wrong guess shows the next clue.</span><button type="button" class="home-btn" data-clue>Another clue</button></div>' : '')
+    + '</div>';
   const save = (next: DayState['guess']) => { const s = readDay(); writeDay({ ...s, guess: next }); paintGuess(box, index, go); };
   box.querySelector<HTMLButtonElement>('[data-clue]')?.addEventListener('click', () => save({ ...g, clues: Math.min(3, g.clues + 1) }));
-  box.querySelectorAll<HTMLButtonElement>('.home-cell.is-cand:not(.is-out)').forEach((b) => {
+  box.querySelectorAll<HTMLButtonElement>('.home-acard[data-z]').forEach((b) => {
     b.onclick = () => {
       const pick = Number(b.dataset.z);
       if (pick === z) { save({ ...g, done: true }); return; }
@@ -229,7 +222,7 @@ function paintQuiz(box: HTMLElement, index: number): void {
   const n = st.quiz.length;
   const streak = liveStreak(st);
   const dots = `<span class="home-dots" aria-hidden="true">${qs.map((_, i) => `<i class="${i < n ? (st.quiz[i] ? 'is-right' : 'is-wrong') : ''}"></i>`).join('')}</span>`;
-  const head = `<div class="home-row"><span class="home-nu">${nuIconHtml(20)}</span><b class="home-q home-grow">Higher or lower?</b>`
+  const head = `<div class="home-row"><span class="home-nu">${nuIconHtml(20)}</span><b class="home-q home-grow">Nu asks</b>`
     + `<span class="home-muted">${streak ? `Streak ${streak} day${streak === 1 ? '' : 's'}` : 'Start a streak'}</span></div>`;
   if (n >= qs.length) {
     // Done for today: Nu leaves the quiz.
@@ -239,28 +232,38 @@ function paintQuiz(box: HTMLElement, index: number): void {
     return;
   }
   const q = qs[n];
-  const [hi, lo] = answerWords(q.prop);
-  const side = (z: number, val: string) => { const e = elementAt(z); return `<div class="home-hl">${plate(e)}<span class="home-hl-txt"><b>${esc(e.name)}</b><small class="home-val">${esc(val)}</small></span></div>`; };
-  box.innerHTML = `<div class="home-card">${head}<p class="home-ask">${esc(questionText(q))}</p>`
-    + `<div class="home-hls">${side(q.a, valueText(q.prop, q.a))}${side(q.b, '?')}</div>`
-    + `<div class="home-row home-answers"><button type="button" class="home-btn" data-ans="1">${hi}</button><button type="button" class="home-btn" data-ans="0">${lo}</button></div>`
+  const choice = (o: QuizOption, i: number) => ('z' in o
+    ? atomCard(o.z, `data-ans="${i}" aria-label="${esc(elementAt(o.z).name)}"`)
+    : `<button type="button" class="home-btn home-choice" data-ans="${i}">${esc(o.text)}</button>`);
+  const atoms = 'z' in q.options[0];
+  box.innerHTML = `<div class="home-card">${head}<p class="home-ask">${esc(q.text)}</p>`
+    + `<div class="${atoms ? 'home-acards is-two' : 'home-row home-answers'}">${q.options.map(choice).join('')}</div>`
+    + '<p class="home-note" hidden></p>'
     + `<div class="home-row">${dots}<span class="home-muted">Question ${n + 1} of ${qs.length}</span></div></div>`;
   box.querySelectorAll<HTMLButtonElement>('[data-ans]').forEach((b) => {
     b.onclick = () => {
       // Once the player is answering, Nu sits in the quiz's icon (nu.ts) until it's done.
       box.dataset.nuPerch = '2';
-      const right = (b.dataset.ans === '1') === q.higher;
-      // Show the answer, then move on.
-      box.querySelectorAll<HTMLButtonElement>('[data-ans]').forEach((x) => { x.disabled = true; });
-      box.querySelector(`[data-ans="${q.higher ? 1 : 0}"]`)?.classList.add('is-right');
+      const right = Number(b.dataset.ans) === q.answer;
+      // Show the answer and each card's value, then move on.
+      const all = box.querySelectorAll<HTMLButtonElement>('[data-ans]');
+      all.forEach((x, i) => {
+        x.disabled = true;
+        const sub = q.after[i];
+        if (sub) {
+          const txt = x.querySelector('.home-acard-txt');
+          txt?.insertAdjacentHTML('beforeend', `<small class="home-val">${esc(sub)}</small>`);
+        }
+      });
+      all[q.answer].classList.add('is-right');
       if (!right) b.classList.add('is-wrong');
-      const val = box.querySelectorAll('.home-val')[1];
-      if (val) val.textContent = valueText(q.prop, q.b);
+      const note = box.querySelector<HTMLElement>('.home-note')!;
+      if (q.note) { note.textContent = q.note; note.hidden = false; }
       let s = readDay();
       s = { ...s, quiz: [...s.quiz, right] };
       if (s.quiz.length >= qs.length) s = finishQuiz(s);
       writeDay(s);
-      setTimeout(() => paintQuiz(box, index), 1400);
+      setTimeout(() => paintQuiz(box, index), q.note ? 2600 : 1800);
     };
   });
 }
@@ -274,15 +277,29 @@ function learnRow(save: SaveData): string {
 
 // ---------- Play ----------
 
+/** The day's random game: any playable game but the one above it, the same all day; one not
+ *  played yet when there is one. */
+function randomGame(ids: string[], not: string, index: number): string {
+  const others = ids.filter((g) => g !== not);
+  const fresh = others.filter((g) => playsOf(g) === 0);
+  const pool = fresh.length ? fresh : others;
+  return pool[((index * 7919) % pool.length + pool.length) % pool.length];
+}
+
 function paintGame(box: HTMLElement, go: HomeGo): void {
   const ids = PUZZLES.filter((g) => g.make).map((g) => g.id);
   const id = [lastPlayed(), ...pinnedGames(), 'merge'].find((g): g is string => Boolean(g) && ids.includes(g!)) ?? ids[0];
-  const p = PUZZLES.find((g) => g.id === id)!;
-  const dial = lastDial(id);
-  box.append(gameCard({
-    id, name: p.name,
-    ...(dial !== null ? { difficulty: dial } : {}),
-    extra: lastPlayed() === id ? 'Played last' : 'Pick up a game',
-    action: { label: 'Play', ariaLabel: `Play ${p.name}`, onClick: () => go('play', { game: id }) },
-  }));
+  const card = (gid: string, extra: string) => {
+    const p = PUZZLES.find((g) => g.id === gid)!;
+    const dial = lastDial(gid);
+    return gameCard({
+      id: gid, name: p.name,
+      ...(dial !== null ? { difficulty: dial } : {}),
+      extra,
+      action: { label: 'Play', ariaLabel: `Play ${p.name}`, onClick: () => go('play', { game: gid }) },
+    });
+  };
+  box.append(card(id, lastPlayed() === id ? 'Played last' : 'Pick up a game'));
+  const other = randomGame(ids, id, today().index);
+  if (other) box.append(card(other, playsOf(other) ? 'Random pick' : 'Random pick · new to you'));
 }
