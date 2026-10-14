@@ -150,8 +150,8 @@ function collectBody(save: SaveData): string {
       : `<span class="home-pick is-fleet is-done">${icon('check', { size: 22 })}<span class="home-pick-txt"><b>All built so far</b></span></span>`;
   return `<p class="home-count"><b>${t.built}</b> of ${MAX_Z} atoms built</p>`
     + tracks(save, fleetOn)
-    + laneRow('stable', t.stDone, t.stAll, stableChoice)
-    + laneRow('fleeting', fleetOn ? t.flDone : 0, t.flAll, fleetChoice);
+    + `<div class="home-lanes">${laneRow('stable', t.stDone, t.stAll, stableChoice)}`
+    + `${laneRow('fleeting', fleetOn ? t.flDone : 0, t.flAll, fleetChoice)}</div>`;
 }
 
 function wireCollect(host: HTMLElement, save: SaveData): void {
