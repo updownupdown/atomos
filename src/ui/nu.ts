@@ -124,6 +124,10 @@ export async function nuStreak(over?: Element | null, onSweep?: (p: number) => v
 // back at once. With Nu off in Settings there is no Nu at all (body.nu-off): the slots are drawn
 // as printed dots, and the Home icon's is hidden.
 
+/** Nu's top speed in flight, in px per ms, and the shortest and longest a trip takes. */
+const NU_TOP_SPEED = 0.6;
+const NU_MIN_FLIGHT_MS = 320;
+const NU_MAX_FLIGHT_MS = 1600;
 /** How long Nu circles something, and how long before the same thing may be shown again. */
 export const NU_SHOW_MS = 5000;
 export const NU_COOLDOWN_MS = 60_000;
@@ -198,7 +202,8 @@ class Guide {
   /** The slot it is flying to, to rest. */
   private toward: Element | null = null;
   private task: Task | null = null;
-  private flight: { from: Pt; t0: number; ms: number } | null = null;
+  /** The flight under way: where it set off, at what velocity (px/ms), when, and for how long. */
+  private flight: { from: Pt; v0: Pt; t0: number; ms: number } | null = null;
   private hist: { x: number; y: number; t: number }[] = [];
   private frame = 0;
   private queued = 0;
@@ -290,7 +295,7 @@ class Guide {
     this.look();
   }
 
-  private begin(t: Task, maxMs = 900): void {
+  private begin(t: Task, maxMs?: number): void {
     if (this.rest?.isConnected && this.rest.getClientRects().length) this.pos = this.clamp(middle(this.rest.getBoundingClientRect()));
     this.leaveRest();
     if (!this.pos) {
@@ -394,13 +399,34 @@ class Guide {
     return { x: Math.max(0, Math.min(window.innerWidth, p.x)), y: Math.max(0, Math.min(window.innerHeight, p.y)) };
   }
 
-  private fly(from: Pt, maxMs = 900): void {
-    const goal = this.goal(performance.now());
+  /** Sets off from `from` toward the goal. Nu keeps the velocity it had (circling, or already
+   *  flying elsewhere), so it turns rather than jerks, and its speed peaks at NU_TOP_SPEED: a
+   *  longer trip takes longer, never faster. `maxMs` hurries it (the streak). */
+  private fly(from: Pt, maxMs?: number): void {
+    const now = performance.now();
+    const goal = this.goal(now);
     const len = goal ? Math.hypot(goal.x - from.x, goal.y - from.y) : 0;
-    this.flight = { from, t0: performance.now(), ms: reducedMotion() ? 0 : Math.min(maxMs, 380 + len * 0.6) };
-    this.hist = [];
+    const flying = this.layer.classList.contains('is-on');
+    const v0 = flying ? this.velocity() : { x: 0, y: 0 };
+    // With no start or end speed, a smooth trip peaks at 1.5 times its average speed.
+    let ms = Math.max(NU_MIN_FLIGHT_MS, Math.min(NU_MAX_FLIGHT_MS, (1.5 * len) / NU_TOP_SPEED));
+    if (maxMs !== undefined) ms = Math.min(ms, maxMs);
+    this.flight = { from, v0, t0: now, ms: reducedMotion() ? 0 : ms };
+    if (!flying) this.hist = [];
     this.layer.classList.add('is-on');
     this.run();
+  }
+
+  /** How fast Nu is moving now, in px/ms, from its trail; capped at the top speed. */
+  private velocity(): Pt {
+    const h = this.hist;
+    if (h.length < 2) return { x: 0, y: 0 };
+    const a = h[0], b = h.find((x) => a.t - x.t >= 24) ?? h[h.length - 1];
+    const dt = a.t - b.t;
+    if (dt <= 0) return { x: 0, y: 0 };
+    const v = { x: (a.x - b.x) / dt, y: (a.y - b.y) / dt };
+    const sp = Math.hypot(v.x, v.y);
+    return sp > NU_TOP_SPEED ? { x: (v.x / sp) * NU_TOP_SPEED, y: (v.y / sp) * NU_TOP_SPEED } : v;
   }
 
   /** Where Nu is heading this frame. */
@@ -423,11 +449,19 @@ class Guide {
     const f = this.flight;
     if (f) {
       const t = f.ms ? Math.min(1, (now - f.t0) / f.ms) : 1;
-      const e = 1 - (1 - t) ** 3; // fast start, soft stop
-      // Bow the path sideways by a fifth of its length, so it reads as flight, not a slide.
-      const dx = g.x - f.from.x, dy = g.y - f.from.y;
-      const cx = (f.from.x + g.x) / 2 - dy * 0.2, cy = (f.from.y + g.y) / 2 + dx * 0.2;
-      p = { x: (1 - e) ** 2 * f.from.x + 2 * (1 - e) * e * cx + e * e * g.x, y: (1 - e) ** 2 * f.from.y + 2 * (1 - e) * e * cy + e * e * g.y };
+      // A cubic from where Nu was, leaving at the velocity it had, to the goal, arriving at
+      // rest: no sudden start, no sudden stop.
+      const t2 = t * t, t3 = t2 * t;
+      const h00 = 2 * t3 - 3 * t2 + 1, h10 = t3 - 2 * t2 + t, e = -2 * t3 + 3 * t2;
+      const dx = g.x - f.from.x, dy = g.y - f.from.y, len = Math.hypot(dx, dy) || 1;
+      // Setting off from rest, it bows gently to one side, so it reads as flight, not a slide.
+      const carried = Math.min(1, Math.hypot(f.v0.x, f.v0.y) * f.ms / len);
+      const bow = Math.min(40, len * 0.12) * (1 - carried) * Math.sin(Math.PI * t);
+      p = {
+        x: h00 * f.from.x + h10 * f.v0.x * f.ms + e * g.x - (dy / len) * bow,
+        y: h00 * f.from.y + h10 * f.v0.y * f.ms + e * g.y + (dx / len) * bow,
+      };
+      p = this.clamp(p);
       if (this.toward) {
         const size = this.toward.getBoundingClientRect().width || HEAD;
         k = 1 + (Math.min(1, size / HEAD) - 1) * e * e;
