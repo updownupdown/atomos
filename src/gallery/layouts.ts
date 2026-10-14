@@ -89,6 +89,8 @@ export interface Layout {
   cells: Cell[];
   labels: MapLabel[];
   decor?: Decor[];
+  /** The cell size the period and group numbers wait for, when the cells vary (Sizes). */
+  unit?: number;
 }
 
 
@@ -232,9 +234,13 @@ function spiral(): Layout {
     };
     const t0 = i / n, t1 = (i + 1) / n;
     const pad = 0.025 / Math.max(1, SPIRAL_RADII[pi]) * 2;
+    // The next turn lies one step further out at the same angle: fill all but a seam of it.
+    const gap = (k: number): number => (k + 1 < SPIRAL_RADII.length ? SPIRAL_RADII[k + 1] - SPIRAL_RADII[k] : gap(k - 1));
+    const step = (t: number) => gap(pi) + (gap(pi + 1) - gap(pi)) * t;
+    const half = (step((t0 + t1) / 2) - 0.08) / 2;
     const [x, y] = at((t0 + t1) / 2, 0);
     const r = SPIRAL_RADII[pi] + (SPIRAL_RADII[pi + 1] - SPIRAL_RADII[pi]) * ((t0 + t1) / 2);
-    cells.push({ z: e.z, d: band(at, t0 + pad, t1 - pad, -0.5, 0.5, Math.max(3, Math.round(24 / n * 4))), x, y, w: Math.min(1.6, (t1 - t0) * 2 * Math.PI * r * 0.86), h: 0.94 });
+    cells.push({ z: e.z, d: band(at, t0 + pad, t1 - pad, -half, half, Math.max(3, Math.round(24 / n * 4))), x, y, w: Math.min(1.6, (t1 - t0) * 2 * Math.PI * r * 0.86), h: Math.min(1.2, half * 2 - 0.04) });
   }
   for (let p = 1; p <= 7; p++) labels.push({ x: -0.28, y: -SPIRAL_RADII[p - 1], text: String(p), kind: 'axis' });
   return { id: 'spiral', cells, labels };
@@ -302,7 +308,7 @@ function sizes(): Layout {
     const r = (Math.min(c.w, c.h) / 2) * (elementAt(c.z).vdw / VDW_MAX);
     return { z: c.z, d: circlePath(c.x, c.y, r), x: c.x, y: c.y, w: r * 1.5, h: r * 1.5 };
   });
-  return { id: 'sizes', cells, labels: t.labels };
+  return { id: 'sizes', cells, labels: t.labels, unit: 1.15 };
 }
 
 // ---------------------------------------------------------------------------

@@ -1,7 +1,7 @@
 // The gallery screen: the vitrine of all 118 atoms and the loupe over one of
 // them, wired to the page. The atom screen's View has tabs: the 3D model, with
 // a few white captions round the atom, then the element's science as pages.
-// The microscope in the atom bar opens each page's guide.
+// The microscope at the foot of each Info page opens its guide.
 
 import type { AtomLit } from './atom';
 import { CLOUD_RINGS, ELEMENTS, MAX_Z, elementAt, type Element } from './data';
@@ -14,9 +14,9 @@ import { guideHTML } from './guide';
 import { icon } from '../ui/icons';
 import { fullScreen, type FullScreen } from './fullscreen';
 import { createPills, createTabs, iconButton, type Tabs } from '../ui/components';
-import { mountInfoPage, type InfoState } from './infopage';
+import { guideFoot, mountInfoPage, type InfoState } from './infopage';
 import { createAtomBar, type AtomBar } from './atombar';
-import { scienceButton, setScienceHandler } from '../ui/science';
+import { setScienceHandler } from '../ui/science';
 import { closeModal, openModal } from '../ui/modal';
 import { loadSave, writeSave, type SaveData } from '../core/save';
 import { atomBuilt, orbitalShapeUnlocked, SHAPE_AT, stepState } from '../core/progress';
@@ -51,6 +51,7 @@ export class GalleryApp {
   private page: Exclude<ViewTab, 'model'> = 'overview';
   /** The Info pages' remembered choices (infopage.ts). */
   private info: InfoState = { isoFilter: 'lasting', structView: 'together', hiddenShapes: [] };
+  private guide = guideFoot();
   /** The 3D tab shows the nucleus up close instead of the whole atom (once Glyph opens it). */
   private nucleusOn = false;
   private rings = localStorage.getItem('atomos.gallery.rings') !== 'off';
@@ -137,8 +138,6 @@ export class GalleryApp {
     $('atom-tabs').append(this.tabs.el);
     // Over the tabs: the atom's progress box, with Build (progressbox.ts, shared with Collect).
     $('atom-box').append(this.box.el);
-    // The microscope at the end of the bar opens the open page's guide.
-    this.bar.el.append(scienceButton('ui-icon-btn ui-icon-btn--ghost science-btn ap-sci'));
     $('atom-tabs').hidden = this.tab === 'model';
     this.bindTabSwipe();
   }
@@ -402,6 +401,7 @@ export class GalleryApp {
     const panel = $('atom-panel');
     panel.innerHTML = `<div class="atom-page">${tabHTML(this.current, this.tab, this.collected(this.current.z), this.save)}</div>`;
     mountInfoPage(panel, this.info);
+    panel.firstElementChild!.append(this.guide);
     // The first time fleeting isotopes are open and on screen, Nu says what they are.
     const fleeting = panel.querySelector('.icl-fleeting');
     if (fleeting && fleetingOpen(this.save) && !$('loupe-screen').hidden && !$('gallery-screen').hidden) firstTimeLine('first-fleeting', 'Fleeting isotopes vanish in under a year. Pick any game to build one; shorter lives make harder boards.', fleeting);

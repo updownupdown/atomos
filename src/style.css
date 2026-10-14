@@ -784,9 +784,9 @@ body.puzzling #overlay { pointer-events: auto; touch-action: none; }
 /* View's tabs: a strip under the header; the model tab shows the canvas, the others a scrolling page. */
 .loupe-screen { --tabs-h: 48px; --bar-h: 60px; --box-h: 0px; --chrome: calc(var(--top) + var(--bar-h) + var(--box-h) + var(--tabs-h)); }
 /* Info, over its tabs: the atom's progress box with Build (progressbox.ts). */
-.loupe-screen.on-page { --box-h: 68px; }
 .atom-box { position: absolute; left: 0; right: 0; top: calc(var(--top) + var(--bar-h)); z-index: 3; height: var(--box-h); display: flex; align-items: center; justify-content: center; background: var(--c-bg); }
-.loupe-screen:not(.on-page) .atom-box, .loupe-screen.is-full .atom-box { display: none; }
+/* Info has no progress box: Build is on the atom's own screen. */
+.atom-box { display: none; }
 .atom-tabs { position: absolute; left: 0; right: 0; top: calc(var(--top) + var(--bar-h) + var(--box-h)); z-index: 3; height: var(--tabs-h); display: flex; align-items: flex-end; justify-content: center; padding: 0 var(--sp-3); background: var(--c-bg); box-shadow: inset 0 -1px 0 var(--c-line); }
 /* Info's header is black, and the line under the tabs runs to the screen's edges. */
 .atom-tabs .ui-tabs { max-width: 100%; box-shadow: none; }

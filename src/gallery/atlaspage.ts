@@ -12,14 +12,13 @@
 import { elementAt, type Element } from './data';
 import { tabHTML, TABS, type Tab } from './info';
 import { guideHTML } from './guide';
-import { mountInfoPage, type InfoState } from './infopage';
+import { guideFoot, mountInfoPage, type InfoState } from './infopage';
 import { rowLockNote } from './locks';
 import { loadSave, type OrbitalShape } from '../core/save';
 import { orbitalShapeUnlocked, SHAPE_AT } from '../core/progress';
 import { createTabs, type Tabs } from '../ui/components';
 import { icon } from '../ui/icons';
 import { openModal } from '../ui/modal';
-import { scienceButton } from '../ui/science';
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 
@@ -31,6 +30,7 @@ export class AtlasPage {
   private tabs: Tabs;
   private panel: HTMLElement;
   private state: InfoState = { isoFilter: 'lasting', structView: 'together', hiddenShapes: [] };
+  private guide = guideFoot();
   private open_ = false;
   private shown = true;
 
@@ -55,8 +55,6 @@ export class AtlasPage {
     this.panel = el.querySelector('.ap-panel')!;
     this.tabs = createTabs(TABS, { active: this.tab, label: 'About this atom', onChange: (id) => { this.tab = id as Tab; this.render(); } });
     el.querySelector('.ap-tabs')!.append(this.tabs.el);
-    // The microscope in the bar opens the open page's guide (Atlas registers it).
-    el.querySelector('.ap-walk')!.before(scienceButton('ui-icon-btn ui-icon-btn--ghost science-btn ap-sci'));
     el.querySelector<HTMLButtonElement>('.ap-back')!.onclick = () => this.close();
     el.querySelectorAll<HTMLButtonElement>('.ap-step').forEach((b) => (b.onclick = () => this.step(Number(b.dataset.dir))));
     el.querySelector<HTMLButtonElement>('.ap-build')!.onclick = () => {
@@ -163,6 +161,7 @@ export class AtlasPage {
     const label = TABS.find((t) => t.id === this.tab)!.label;
     this.panel.innerHTML = `<div class="atom-page">${tabHTML(e, this.tab, save.settings.unlockAll || Boolean(save.built[e.z]), save)}</div>`;
     mountInfoPage(this.panel, this.state);
+    this.panel.firstElementChild!.append(this.guide);
     this.panel.scrollTop = 0;
     this.panel.setAttribute('aria-label', label);
   }
