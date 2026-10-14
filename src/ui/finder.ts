@@ -1,5 +1,5 @@
-// Search, from the magnifier in the home header: one field over atoms (name, symbol or number)
-// and games (name), as a sheet dropping from the top. Results come in two groups, Atoms then
+// Search, from the magnifier in the header: one field over atoms (name, symbol or number) and
+// games (name), as a sheet dropping from the top, titled like the others with the field under it. Results come in two groups, Atoms then
 // Games, the typed letters lit in each name. Enter opens the first result.
 //
 //   openFinder({ onAtom: (z) => open(z), onGame: (id) => play(id) });
@@ -9,7 +9,7 @@ import { familyOf } from '../gallery/atomlist';
 import { searchElements } from './search';
 import { gameRow, gamesInOrder } from './gamelist';
 import { icon } from './icons';
-import { openSheet } from './sheet';
+import { openSheet, sheetSearch } from './sheet';
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 /** The name with the first run of the query lit. */
@@ -21,12 +21,9 @@ const lit = (name: string, q: string) => {
 const ATOMS_SHOWN = 40;
 
 export function openFinder(o: { onAtom: (z: number) => void; onGame: (id: string) => void }): void {
-  const sheet = openSheet({ title: null, label: 'Search atoms and games', from: 'top', className: 'finder' });
-  const field = document.createElement('label');
-  field.className = 'al-search finder-field';
-  field.innerHTML = `${icon('search', { size: 20 })}<input type="search" placeholder="Atoms and games" aria-label="Search atoms and games" autocomplete="off" enterkeyhint="search">`;
-  sheet.head.prepend(field);
-  const input = field.querySelector('input')!;
+  const sheet = openSheet({ title: 'Search', icon: 'search', label: 'Search atoms and games', from: 'top', className: 'finder' });
+  const { el: field, input } = sheetSearch({ placeholder: 'Atoms and games', label: 'Search atoms and games' });
+  sheet.bar.append(field);
   const atomRow = (e: Element, q: string) => `<li><button type="button" class="sheet-row" data-z="${e.z}">`
     + `<b class="sheet-sym" style="--c:${placeColour(e)}">${e.symbol}</b>`
     + `<span class="sheet-name"><span>${lit(e.name, q)}</span><small>${e.z} · ${esc(familyOf(e))}</small></span>${icon('chevron-right', { size: 20 })}</button></li>`;

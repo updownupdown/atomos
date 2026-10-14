@@ -3,15 +3,17 @@
 .sheet-scrim { position: fixed; left: 0; right: 0; top: 0; z-index: 32; overflow: hidden; background: rgba(0, 0, 0, 0); transition: background-color 0.2s var(--ease); }
 .sheet-scrim--dock { bottom: calc(env(safe-area-inset-bottom, 0px) + var(--dock-h) + var(--dock-gap)); }
 .sheet-scrim--top { bottom: 0; }
-.sheet-scrim.is-open { background: var(--c-scrim); -webkit-backdrop-filter: var(--blur-mask); backdrop-filter: var(--blur-mask); }
+.sheet-scrim.is-open { background: var(--c-scrim-pale); -webkit-backdrop-filter: var(--blur-mask); backdrop-filter: var(--blur-mask); }
 .sheet-scrim > .sheet { position: absolute; left: 50%; width: min(720px, calc(100% - 2 * var(--sp-3))); display: flex; flex-direction: column; background: var(--c-bg); border-radius: var(--r-lg); box-shadow: var(--shadow-modal); font-family: var(--font); transition: transform 0.2s var(--ease); }
 .sheet-scrim--dock .sheet { bottom: var(--sp-2); max-height: calc(100% - var(--safe-top) - var(--sp-4)); transform: translate(-50%, calc(100% + var(--sp-6))); }
 .sheet-scrim--top .sheet { top: calc(var(--safe-top) + var(--sp-2)); max-height: calc(100% - var(--safe-top) - env(safe-area-inset-bottom, 0px) - var(--sp-4)); transform: translate(-50%, calc(-100% - var(--sp-6))); }
 .sheet-scrim.is-open .sheet { transform: translate(-50%, 0); }
-.sheet-grab { align-self: center; flex: none; width: 36px; height: 4px; margin-top: var(--sp-2); border-radius: 2px; background: var(--c-surface-3); }
-.sheet-head { flex: none; display: flex; align-items: center; gap: var(--sp-2); min-height: 52px; padding: var(--sp-1) var(--sp-2) 0 var(--sp-4); }
-/* The title in the screen titles' style: Outfit bold, all caps, widely tracked. */
-.sheet-title { flex: 1; min-width: 0; margin: 0; font-size: 15px; font-weight: var(--fw-bold); letter-spacing: 0.3em; text-transform: uppercase; color: var(--c-text); }
+.sheet-head { flex: none; display: flex; align-items: center; gap: var(--sp-2); min-height: 60px; padding: var(--sp-2) var(--sp-2) 0 var(--sp-4); }
+/* The title in the screen titles' style (Outfit bold, all caps, widely tracked), after the
+   sheet's icon. */
+.sheet-scrim .sheet-title { flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--sp-3); margin: 0; font-size: 15px; font-weight: var(--fw-bold); letter-spacing: 0.3em; text-transform: uppercase; color: var(--c-text); }
+.sheet-scrim .sheet-title svg { flex: none; color: var(--c-text-2); }
+.sheet-scrim .sheet-title span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sheet-close { flex: none; width: 44px; height: 44px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 50%; background: var(--c-surface-2); color: var(--c-text); cursor: pointer; }
 .sheet-close:hover { background: var(--c-surface-3); }
 .sheet-close:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
@@ -68,8 +70,10 @@
 .gl-lvl:focus-visible { outline: 2px solid var(--c-accent); outline-offset: -2px; }
 .gl-lvl.is-off { cursor: default; }
 
-/* Search (finder.ts): the field in the title row, beside the close button. */
-.finder .sheet-head { padding: var(--sp-2) var(--sp-2) var(--sp-1) var(--sp-3); }
-.finder-field { flex: 1; margin-top: 0; }
+/* Search (finder.ts): the field in the bar under the title. */
 .finder .sheet-row > svg { flex: none; color: var(--c-text-2); }
-.finder .sheet-body { min-height: 120px; }
+.finder .sheet-empty { margin-bottom: var(--sp-2); }
+
+/* Settings (ui/settings.ts) as a sheet from the top. */
+.settings-sheet .sheet-body { padding: 0 var(--sp-4) var(--sp-4); }
+.settings-sheet .settings-page { width: 100%; padding-top: var(--sp-2); }

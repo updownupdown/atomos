@@ -19,7 +19,7 @@ import type { LookId } from './gallery/looks';
 import { atomListOpen, openAtomList } from './gallery/atomlist';
 import { Dock, type AtomPage, type DockPick, type Section } from './ui/dock';
 import { askNu, renderHome } from './home/home';
-import { closeSheet } from './ui/sheet';
+import { closeSheet, openSheet } from './ui/sheet';
 import { gameListOpen, openGameList } from './ui/gamelist';
 import { openFinder } from './ui/finder';
 import type { Game } from './game';
@@ -107,7 +107,7 @@ export class AppShell {
     $('nav-search').innerHTML = icon('search');
     $('nav-search').onclick = () => this.search();
     $('nav-settings').innerHTML = icon('settings');
-    $('nav-settings').onclick = () => void this.go('settings');
+    $('nav-settings').onclick = () => this.openSettings();
     this.dock = new Dock($('dock'), { onSection: (s, lit) => this.toSection(s, lit), onPick: () => this.openPick(), onPage: (p) => this.toPage(p) });
     // A game or an Atlas page opened or closed from inside its screen.
     window.addEventListener('atomos:nav', () => this.paintDock());
@@ -223,6 +223,8 @@ export class AppShell {
   /** Go to a screen. Between an atom's modes the page slides sideways (a view transition,
    *  where the browser has one and motion is on); anything else switches at once. */
   async go(screen: Screen, mode: AtomMode = this.mode): Promise<void> {
+    // Settings is a sheet now: asked for as a screen (back from a library page), it opens over Home.
+    if (screen === 'settings') { await this.go('home'); this.openSettings(); return; }
     // View opens over Build full screen, so only Build and Info slide.
     const stepping = this.screen === 'atom' && screen === 'atom' && mode !== this.mode && MODES.includes(mode) && MODES.includes(this.mode);
     const doc = document as Document & { startViewTransition?: (update: () => Promise<void>) => { finished: Promise<void> } };
@@ -400,6 +402,16 @@ export class AppShell {
     if (this.mode === 'build') this.game?.openElement(z);
     else this.gallery.openAtom(z, 'info');
     this.paintDock();
+  }
+
+  /** Settings, from the gear in the header: a sheet from the top over whatever is open, titled
+   *  like Search and the lists. */
+  private openSettings(): void {
+    const sheet = openSheet({ title: 'Settings', icon: 'settings', label: 'Settings', from: 'top', className: 'settings-sheet' });
+    const page = document.createElement('div');
+    page.className = 'settings-page';
+    sheet.body.append(page);
+    renderSettings(page);
   }
 
   /** Search, from the header: an atom opens on Learn's page when Learn is open, else its Build

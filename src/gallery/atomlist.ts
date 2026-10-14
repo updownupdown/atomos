@@ -21,7 +21,7 @@ import { nextStep } from '../core/next';
 import { fleetingOpen } from './locks';
 import { icon } from '../ui/icons';
 import { createPills, createSegments, nextButton } from '../ui/components';
-import { openSheet, type Sheet } from '../ui/sheet';
+import { openSheet, sheetSearch, type Sheet } from '../ui/sheet';
 import { searchElements } from '../ui/search';
 import { COL, sortElements, type SortKey } from '../ui/elementlist';
 import './atomlist.css';
@@ -124,7 +124,7 @@ const SORTS: { id: LearnSort; label: string }[] = [
 
 /** Open the list over the screen, rising from the dock. */
 export function openAtomList(o: AtomListOptions): void {
-  const sheet = openSheet({ title: 'Atoms', label: 'All atoms', from: 'dock', className: 'alist', onClose: () => { if (openList === sheet) openList = null; o.onClose?.(); } });
+  const sheet = openSheet({ title: 'Atoms', icon: 'atom', label: 'All atoms', from: 'dock', className: 'alist', onClose: () => { if (openList === sheet) openList = null; o.onClose?.(); } });
   openList = sheet;
   const tabs = createSegments([
     { id: 'collect', label: 'Collect', icon: icon('collect', { size: 20 }) },
@@ -205,10 +205,7 @@ const weightText = (e: Element) => (e.weight === null ? '–' : String(+e.weight
 
 /** Learn: a search field and the sorts on top, then every atom with its family and weight. */
 function paintLearn(sheet: Sheet, current: number): void {
-  const search = document.createElement('label');
-  search.className = 'al-search';
-  search.innerHTML = `${icon('search', { size: 20 })}<input type="search" placeholder="Name, symbol or number" aria-label="Find an atom" autocomplete="off" enterkeyhint="search">`;
-  const input = search.querySelector('input')!;
+  const { el: search, input } = sheetSearch({ placeholder: 'Name, symbol or number', label: 'Find an atom' });
   const sorts = createPills(SORTS, { active: learnSort, label: 'Sort by', onChange: (id) => { learnSort = id as LearnSort; paint(); sheet.body.scrollTop = 0; } });
   sorts.el.classList.add('al-sorts');
   sheet.bar.append(search, sorts.el);
