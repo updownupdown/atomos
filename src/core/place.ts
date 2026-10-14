@@ -1,13 +1,13 @@
 // Where the player was when they left: the screen, the atom and its mode. The shell saves it
-// on every move; the next visit opens on Collect, on that atom's period. Anything it cannot use
+// on every move; the next visit opens on Home, with that atom in Collect. Anything it cannot use
 // means Collect.
 
-export type Screen = 'gallery' | 'collect' | 'atom' | 'puzzles' | 'settings' | 'icons' | 'components';
+export type Screen = 'home' | 'gallery' | 'collect' | 'atom' | 'puzzles' | 'settings' | 'icons' | 'components';
 export type PlaceMode = 'view' | 'build' | 'info';
 
 export interface Place { screen: Screen; mode: PlaceMode; z: number }
 
-const SCREENS: Screen[] = ['gallery', 'collect', 'atom', 'puzzles', 'settings', 'icons', 'components'];
+const SCREENS: Screen[] = ['home', 'gallery', 'collect', 'atom', 'puzzles', 'settings', 'icons', 'components'];
 const HOME: Place = { screen: 'collect', mode: 'view', z: 1 };
 
 /** Read a saved place, falling back to Collect when it is missing or no longer valid. */

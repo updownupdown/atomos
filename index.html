@@ -26,13 +26,17 @@
       <button class="nav-btn" id="nav-search" aria-label="Search atoms and games" aria-haspopup="dialog"></button>
       <button class="nav-btn" id="nav-settings" aria-label="Settings" aria-current="false"></button>
     </header>
-    <!-- The dock: the three sections in a pill floating at the foot, always in this order; inside
-         a section they shrink to icons and the dropdown shows what is open. src/ui/dock.ts. -->
+    <!-- The dock: Home and the three sections in a pill floating at the foot, always in this
+         order; inside a section, Home, the dropdown of what is open and, on an atom, Build and
+         Learn. src/ui/dock.ts. -->
     <nav class="dock" id="dock" aria-label="Sections">
-      <button id="nav-collect" aria-current="page"><span class="nav-ico"></span><span class="nav-lab">Collect</span></button>
+      <button id="nav-home" aria-current="page"><span class="nav-ico"></span><span class="nav-lab">Home</span></button>
+      <button id="nav-collect" aria-current="false"><span class="nav-ico"></span><span class="nav-lab">Collect</span></button>
       <button id="nav-gallery" aria-current="false"><span class="nav-ico"></span><span class="nav-lab">Learn</span></button>
       <button id="nav-puzzles" aria-current="false"><span class="nav-ico"></span><span class="nav-lab">Play</span></button>
       <button class="dock-pick" id="dock-pick" aria-haspopup="dialog" aria-expanded="false" hidden></button>
+      <button class="dock-mode" id="dock-build" aria-current="false" hidden><span class="nav-ico"></span></button>
+      <button class="dock-mode" id="dock-learn" aria-current="false" hidden><span class="nav-ico"></span></button>
     </nav>
 
     <div id="gallery-screen">
@@ -64,6 +68,7 @@
     </div>
 
     <!-- Collect: one period's atoms and how far each is collected (src/gallery/collect.ts). -->
+    <section id="home-screen" class="home-screen" hidden aria-label="Home"><div class="home-body" id="home-body"></div></section>
     <section id="collect-screen" class="collect-screen" hidden aria-label="Collect"></section>
 
     <div id="app" hidden>
