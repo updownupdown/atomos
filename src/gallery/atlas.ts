@@ -28,6 +28,7 @@ import { UNKNOWN_FILL } from './looks';
 import { closeModal, openModal } from '../ui/modal';
 import { scienceButton, setScienceHandler, setScienceOpen } from '../ui/science';
 import './atlas.css';
+import { nuShow } from '../ui/nu';
 
 export type AtlasView = LayoutId | 'details';
 const VIEWS: { id: AtlasView; label: string }[] = [...LAYOUTS.map((l) => ({ id: l.id as AtlasView, label: l.label })), { id: 'details', label: 'Details' }];
@@ -474,6 +475,9 @@ export class Atlas {
       void this.mapHost.offsetWidth;
       this.mapHost.classList.add('is-reveal');
       window.setTimeout(() => this.mapHost.classList.remove('is-reveal'), 3200);
+      // Nu circles the newly earned view's button.
+      const btn = this.views.querySelector<HTMLElement>(`[data-id="${shape.slice(5)}"]`);
+      if (btn) requestAnimationFrame(() => nuShow(btn));
     }
     if (look) this.showOnce(look.slice(5) as LookId);
   }

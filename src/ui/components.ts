@@ -6,7 +6,7 @@
 // render a placeholder, then replace it with the element (or use switchHtml, which is a string).
 
 import { icon, type IconName } from './icons';
-import { landNu, nuEnabled, nuIconHtml, nuOrbit, nuStreak, reducedMotion } from './nu';
+import { landNu, nuEnabled, nuHome, nuIconHtml, nuShow, nuStreak, reducedMotion, startNu } from './nu';
 
 // Stand-in glyphs from before the icon library; drawn on the 24 px grid with 2 px padding.
 export const ICON_CLOSE = `<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>`;
@@ -432,8 +432,8 @@ export interface NextButtonOptions {
 const landed = new Set<string>();
 let nextSeen: IntersectionObserver | null = null;
 
-/** Watches Next buttons: the ring pulses only while one is on screen, and Nu lands on it the
- *  first time it shows. More than one Next on screen is a mistake, so it says so in the console. */
+/** Watches Next buttons: the ring pulses only while one is on screen, and the first time it shows
+ *  its triangle sweeps out of the dot (Nu itself flies into the dot; see nu.ts). More than one Next on screen is a mistake, so it says so in the console. */
 function watchNext(b: HTMLButtonElement): void {
   nextSeen ??= new IntersectionObserver((entries) => {
     for (const e of entries) {
@@ -454,14 +454,16 @@ function watchNext(b: HTMLButtonElement): void {
 }
 
 /** The Next button: the one way forward on a screen. Rose magenta, the Nu icon and a label, with
- *  a slow ring pulse while it is on screen (a still ring under Reduce motion). Use one per screen;
- *  every other play action is a playButton. */
+ *  a slow ring pulse while it is on screen (a still ring under Reduce motion). Nu rests in its
+ *  icon's dot while it is in view. Use one per screen; every other play action is a playButton. */
 export function nextButton(o: NextButtonOptions): HTMLButtonElement {
   const b = el('button', `ui-next${o.compact ? ' ui-next--compact' : ''} ${o.className ?? ''}`.trim(), `${nuIconHtml(o.compact ? 18 : 20)}<span>${esc(o.label)}</span>`);
   b.type = 'button';
   b.dataset.landKey = o.landKey ?? `screen:${document.body.dataset.screen ?? ''}`;
+  b.dataset.nuPerch = '1';
   b.onclick = () => o.onClick();
   watchNext(b);
+  startNu();
   return b;
 }
 
@@ -640,9 +642,9 @@ export function confirmDialog(o: ConfirmOptions): Promise<boolean> {
   card.setAttribute('role', 'alertdialog');
   card.setAttribute('aria-modal', 'true');
   card.setAttribute('aria-labelledby', titleId);
-  const orbit = o.nu ? nuOrbit(o.nu === 'reset' ? 'atom' : 'restart') : null;
   card.innerHTML = `<h2 id="${titleId}">${esc(o.title)}</h2><p>${esc(o.body)}</p>`;
-  if (orbit) card.prepend(orbit.el);
+  const ico = o.nu ? el('div', 'ui-confirm-ico', icon(o.nu === 'reset' ? 'atom' : 'restart', { size: 30 })) : null;
+  if (ico) card.prepend(ico);
   const actions = el('div', 'ui-confirm-actions');
   const cancel = el('button', 'secondary', esc(o.cancelLabel ?? 'Cancel'));
   const ok = el('button', o.tone === 'problem' ? 'primary ui-confirm-problem' : 'primary', esc(o.confirmLabel));
@@ -654,6 +656,8 @@ export function confirmDialog(o: ConfirmOptions): Promise<boolean> {
   const before = document.activeElement as HTMLElement | null;
   document.body.append(scrim);
   ok.focus();
+  // Nu flies over from where it is and circles the action while the dialog waits.
+  if (ico) nuShow(ico, { r: 34 });
   return new Promise((resolve) => {
     let done = false;
     // The overlay fades in (ui-fade) and out the same way.
@@ -668,7 +672,7 @@ export function confirmDialog(o: ConfirmOptions): Promise<boolean> {
       if (done) return;
       done = true;
       if (!yes) {
-        await orbit?.settle();
+        nuHome();
         close();
         resolve(false);
         return;

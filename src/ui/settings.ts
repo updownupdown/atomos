@@ -30,7 +30,7 @@ export function renderSettings(sheet: HTMLElement): void {
     ${toggle('reducedMotion', 'Reduce motion', 'Calmer clouds, shorter animations, no auto-rotation.')}
     ${toggle('sound', 'Sound', 'Tones for fusions, hops and finished atoms.')}
     ${toggle('haptics', 'Vibration', 'Taps on supported phones.')}
-    ${toggle('nu', 'Nu', 'The point of light that flies to what to do next and says a line the first time something happens.')}
+    ${toggle('nu', 'Nu', 'The point of light that lives in the Home icon, flies to what to do next, circles Hint when you seem stuck, and says a line the first time something happens.')}
     <h3>Progress</h3>
     <p class="muted">${atoms} of ${MAX_Z} atoms built · ${n(lasting.built)} of ${n(lasting.total)} lasting isotopes · ${n(fleeting.built)} of ${n(fleeting.total)} fleeting isotopes</p>
     <p class="muted" id="set-kept">Your progress is kept in this browser.</p>
@@ -45,6 +45,7 @@ export function renderSettings(sheet: HTMLElement): void {
     (s as unknown as Record<string, boolean>)[inp.dataset.key!] = inp.checked;
     writeSave(save);
     listeners.forEach((fn) => fn());
+    window.dispatchEvent(new Event('atomos:settings'));
   }));
   const preset = createSegments(PROGRESS_PRESETS.map((p) => ({ id: String(p), label: `${p}%` })), {
     active: String(currentPreset(save) ?? ''),

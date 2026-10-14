@@ -18,7 +18,7 @@ import { Collect } from './gallery/collect';
 import type { LookId } from './gallery/looks';
 import { atomListOpen, openAtomList } from './gallery/atomlist';
 import { Dock, type AtomPage, type DockPick, type Section } from './ui/dock';
-import { renderHome } from './home/home';
+import { askNu, renderHome } from './home/home';
 import { closeSheet } from './ui/sheet';
 import { gameListOpen, openGameList } from './ui/gamelist';
 import { openFinder } from './ui/finder';
@@ -363,10 +363,14 @@ export class AppShell {
   }
 
   /** Home or a section in the dock: the lit one goes back to its top (nothing to do there
-   *  already); another opens as it was left. */
+   *  already, but on Home Nu shows the next step); another opens as it was left. */
   private toSection(s: Section, lit: boolean): void {
     closeSheet();
-    if (lit && !this.dock?.current.pick) return;
+    if (lit && !this.dock?.current.pick) {
+      // Home again on Home: Nu shows what to do next.
+      if (s === 'home') askNu($('home-body'));
+      return;
+    }
     if (s === 'home') void this.go('home');
     else if (s === 'collect') void this.go('collect');
     else if (s === 'learn') void this.go('gallery').then(() => { if (lit) this.gallery.closePage(); });

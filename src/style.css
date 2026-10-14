@@ -1267,8 +1267,11 @@ body:not([data-screen='home']) .nav-logo, body:not([data-screen='home']) .nav-ti
 .dock.is-deep button[id^='nav-'], .dock .dock-mode { border-radius: 50%; }
 .dock.is-deep .nav-lab { display: none; }
 /* Nu at rest: the Home icon's nucleus, in rose, while Nu is nowhere else on the screen. */
-.dock .dock-nu { transition: fill 0.3s var(--ease); }
-.dock.has-nu .dock-nu { fill: var(--c-go); filter: drop-shadow(0 0 2px rgba(255, 90, 168, 0.8)); }
+/* Nu at home in the house: rose, glowing softly and breathing very slightly. Off, no nucleus. */
+.nu-home-slot.is-nu { fill: var(--c-go); filter: drop-shadow(0 0 2px rgba(255, 90, 168, 0.8)); animation: nu-breathe 3.6s ease-in-out infinite alternate; }
+.nu-off .nu-home-slot { display: none; }
+@keyframes nu-breathe { from { opacity: 1; } to { opacity: 0.72; } }
+@media (prefers-reduced-motion: reduce) { .nu-home-slot.is-nu { animation: none; } }
 /* The dropdown on the same pale plate as the lit section. */
 .dock .dock-pick { flex-direction: row; justify-content: flex-start; gap: 6px; min-width: 0; margin-left: 4px; padding: 0 10px 0 5px; background: var(--c-pick); color: var(--c-text); text-align: left; }
 .dock .dock-pick:hover { background: color-mix(in srgb, var(--c-pick) 80%, var(--c-text)); }
@@ -1289,7 +1292,7 @@ body[data-screen='atom-view'] .dock { display: none; }
   .nav-title { letter-spacing: 0.22em; }
 }
 body:not([data-screen='atom-view']) { --safe-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--dock-h) + var(--dock-gap, 12px)); }
-@media (prefers-reduced-motion: reduce) { .dock-pick > svg, .dock .dock-nu { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .dock-pick > svg { transition: none; } }
 
 /* Atom screens, top down: the atom bar is the header (Build and Info each mount their own in
    the same place, so it reads as one); the dock floats at the foot. --top is the bottom of the
@@ -1590,9 +1593,10 @@ body[data-screen^='atom'].build-home .science-fab, body[data-screen='atom-view']
 .mode-seg .ui-seg-opt { padding: 0 var(--sp-3); }
 .nowrap { white-space: nowrap; }
 
-/* The Hint button when the player seems stuck: its icon turns pink, still (only Next pulses). */
-.hint-btn.is-nudge { color: var(--c-go); animation: hint-glow 2.4s ease-in-out infinite alternate; }
-.hint-btn.is-nudge svg { filter: drop-shadow(0 0 6px var(--c-go-ring)); }
+/* The Hint button when the player seems stuck, with Nu off: its icon breathes pink (with Nu on,
+   Nu circles it instead; hints.ts). */
+.nu-off .hint-btn.is-nudge { color: var(--c-go); animation: hint-glow 2.4s ease-in-out infinite alternate; }
+.nu-off .hint-btn.is-nudge svg { filter: drop-shadow(0 0 6px var(--c-go-ring)); }
 /* A stuck player's Hint breathes softly between magenta and white. */
 @keyframes hint-glow { from { color: var(--c-go); } to { color: #fff; } }
 @media (prefers-reduced-motion: reduce) { .hint-btn.is-nudge { animation: none; } }
@@ -1719,8 +1723,8 @@ body[data-screen^='atom'].build-home .science-fab, body[data-screen='atom-view']
    Two lanes down the right edge of a list of rows, Stable then Fleeting, never shifting sideways
    (or, on the atom's Build page, one track with both parts on it). A lane is green from the top
    while progress runs unbroken, gray after the first gap. Stops are plain fills with no outlines:
-   gray not done, white done, green in the green run, pink for the next one, with Nu swimming
-   beside it. A row's cell fills its height; --trk-gap on the list bridges the space between
+   gray not done, white done, green in the green run, pink for the next one.
+   A row's cell fills its height; --trk-gap on the list bridges the space between
    rows; --trk-bg is the color behind, cut around each stop. */
 .trk { --w: 48px; --lane-gap: 28px; position: relative; flex: none; align-self: stretch; width: var(--w); min-height: 24px; pointer-events: none; }
 .trk-lane { position: absolute; top: calc(var(--trk-gap, 0px) / -2); bottom: calc(var(--trk-gap, 0px) / -2); width: 0; }
@@ -1745,19 +1749,13 @@ body[data-screen^='atom'].build-home .science-fab, body[data-screen='atom-view']
 .trk-stop--bar.is-done, .trk-stop--bar.is-run { background: #5d636a; }
 .trk-stop--bar.is-nu { background: var(--c-go); }
 .trk-stop--bar.is-just { animation: none; }
-/* Nu swimming beside the pink stop: two slow swings at different speeds trace loops near it. */
-.trk-swim { position: absolute; z-index: 2; left: -22px; top: 0; width: 0; height: 0; animation: trk-swim-y 1.9s ease-in-out infinite alternate; }
-.trk-lane > .trk-swim { top: 50%; }
-.trk-swim b { position: absolute; left: -3.5px; top: -3.5px; width: 7px; height: 7px; border-radius: 50%; background: var(--c-go); box-shadow: 0 0 8px 2px var(--c-go-ring); animation: trk-swim-x 3.1s ease-in-out infinite alternate; }
-@keyframes trk-swim-y { from { transform: translateY(-11px); } to { transform: translateY(11px); } }
-@keyframes trk-swim-x { from { transform: translateX(-7px); } to { transform: translateX(9px); } }
 .trk-legend { --lane-gap: 28px; display: flex; align-items: flex-end; gap: calc(var(--lane-gap) - 20px); }
 /* Each key stands over its lane: the icon on top, the word running up beneath it. */
 .trk-key { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 20px; font-size: var(--fs-caps-min); font-weight: var(--fw-semibold); letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--c-text-min); white-space: nowrap; }
 .trk-key span { writing-mode: vertical-rl; transform: rotate(180deg); line-height: 20px; }
 .trk-key svg { flex: none; width: 20px; height: 20px; color: var(--c-text-2); }
 .trk-legend--icons .trk-key span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
-@media (prefers-reduced-motion: reduce) { .trk-stop, .trk-swim, .trk-swim b { animation: none !important; } }
+@media (prefers-reduced-motion: reduce) { .trk-stop { animation: none !important; } }
 @keyframes trk-just { 0% { transform: scale(0.6); } 40% { transform: scale(1.5); } 100% { transform: scale(1); } }
 /* The overlay form: one layer over a whole block, lanes at its right edge (--trk-right, the
    Fleeting lane's distance from the edge; a single track's line). */
@@ -1781,13 +1779,13 @@ body[data-screen^='atom'].build-home .science-fab, body[data-screen='atom-view']
 .trk-stop--icon { display: grid; place-items: center; width: 20px; height: 20px; margin: -10px 0 0 -10px; color: #04130b; }
 
 /* Nu's guide cards in a game (src/puzzles/guide.ts): nothing to tap, so taps reach the board;
-   a thin line along the bottom runs out before the card flies into its button. */
+   a thin line along the bottom runs out before Nu leaves it for its button. */
 .guide-card { pointer-events: none; overflow: hidden; transform-origin: center; }
 .guide-card .ui-callout-pic { width: 40px; height: 40px; }
 .guide-card .ui-callout-text b { white-space: normal; font-size: var(--fs-md); line-height: 1.35; }
 .guide-time { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: var(--c-go); transform-origin: left; animation: guide-time var(--guide-ms, 3s) linear forwards; }
 @keyframes guide-time { from { transform: scaleX(1); } to { transform: scaleX(0); } }
-/* Where a guide card landed: the button rings pink twice. */
+/* Where a guide card points, under Reduce motion: the button rings pink twice. */
 .ui-icon-btn.is-guided { color: var(--c-go); animation: guided 1.3s ease-out 2; }
 @keyframes guided { 0% { box-shadow: 0 0 0 0 var(--c-go-ring); } 60% { box-shadow: 0 0 0 8px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
 @media (prefers-reduced-motion: reduce) { .guide-time { animation: none; } .ui-icon-btn.is-guided { animation: none; box-shadow: 0 0 0 3px var(--c-go-ring); } }

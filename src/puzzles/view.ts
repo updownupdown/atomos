@@ -104,6 +104,7 @@ export const HINT_RGB = '255, 90, 168';
 /** The Look here mark: a soft rose-magenta outline around a box, breathing slowly (still under
  *  reduced motion). r is the corner radius. */
 export function drawHelpMark(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, now: number, reduced = false, r = 8): void {
+  noteHelpMark(ctx, x, y, w, h);
   const k = reduced ? 1 : 0.65 + 0.35 * Math.sin(now / 320);
   ctx.save();
   ctx.strokeStyle = `rgba(${HINT_RGB}, ${0.95 * k})`;
@@ -114,6 +115,29 @@ export function drawHelpMark(ctx: CanvasRenderingContext2D, x: number, y: number
   ctx.roundRect(x - 3, y - 3, w + 6, h + 6, r);
   ctx.stroke();
   ctx.restore();
+}
+
+/** The last Look here mark drawn: its box in the canvas's own pixels, and when. */
+let lastMark: { canvas: HTMLCanvasElement; x0: number; y0: number; x1: number; y1: number; at: number } | null = null;
+
+function noteHelpMark(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number): void {
+  const canvas = ctx.canvas as HTMLCanvasElement | undefined;
+  if (!canvas || typeof ctx.getTransform !== 'function' || typeof performance === 'undefined') return;
+  const m = ctx.getTransform();
+  if (typeof m?.transformPoint !== 'function') return;
+  const a = m.transformPoint({ x, y }), b = m.transformPoint({ x: x + w, y: y + h });
+  lastMark = { canvas, x0: Math.min(a.x, b.x), y0: Math.min(a.y, b.y), x1: Math.max(a.x, b.x), y1: Math.max(a.y, b.y), at: performance.now() };
+}
+
+/** Where the Look here mark is on screen, while a board is still drawing it; null once it has
+ *  gone (the board changed). Nu circles it (hints.ts). */
+export function helpMarkRect(): DOMRect | null {
+  const m = lastMark;
+  if (!m || performance.now() - m.at > 300 || !m.canvas.isConnected) return null;
+  const r = m.canvas.getBoundingClientRect();
+  if (!m.canvas.width || !m.canvas.height) return null;
+  const sx = r.width / m.canvas.width, sy = r.height / m.canvas.height;
+  return new DOMRect(r.left + m.x0 * sx, r.top + m.y0 * sy, (m.x1 - m.x0) * sx, (m.y1 - m.y0) * sy);
 }
 
 /** Draws into a w x h box (CSS pixels, the context already scaled). t is seconds from the start
