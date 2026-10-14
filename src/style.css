@@ -174,7 +174,27 @@ body.build-home #app .bottom { display: none; }
 .gbar-back { min-width: 0; flex: 0 1 auto; }
 .gbar-tools { flex: none; display: flex; align-items: center; gap: 6px; margin-left: auto; }
 .gbar--play .gbar-head, .gbar--play .gbar-back { display: none; }
-.gbar--play .gbar-nav .gbar-stats { justify-content: flex-start; gap: var(--sp-4); }
+/* Play's header: the stats, each word over its figure, then the tools a size up. On a phone the
+   tools take a row of their own under the stats. The status line is its own row, centered. */
+.gbar--play .gbar-nav .gbar-in { flex-wrap: wrap; row-gap: var(--sp-2); }
+.gbar--play .gbar-nav .gbar-stats { flex: 0 1 auto; justify-content: flex-start; align-items: center; gap: var(--sp-4); }
+.gbar--play .gbar-stat { flex-direction: column; align-items: flex-start; gap: 2px; }
+.gbar--play .gbar-k { font-size: 13px; color: var(--c-text-2); }
+.gbar--play .gbar-stat--diff { display: flex; }
+.gbar--play .gbar-pips { align-self: flex-start; height: 1.3em; }
+.gbar--play .gbar-tools { gap: 8px; }
+.gbar--play .gbar-tools > * { width: 48px; height: 48px; }
+.gbar--play .gbar-tools svg { width: 28px; height: 28px; }
+/* The board settings button: its icon, then Difficulty over the pips. */
+.gbar--play .pg-fold { width: auto; height: 52px; display: inline-flex; align-items: center; gap: var(--sp-2); padding: 0 14px 0 10px; border-radius: var(--r-md); background: var(--c-nav); color: var(--c-text); }
+.gbar--play .pg-fold:hover { background: var(--c-surface-3); }
+.gbar--play .pg-fold[aria-expanded='true'] { background: var(--c-pick); }
+.pg-fold-ico { display: grid; color: var(--c-text-2); }
+.pg-fold-ico svg { width: 24px; height: 24px; }
+@media (max-width: 520px) {
+  .gbar--play .gbar-nav .gbar-stats { flex: 1 0 100%; justify-content: space-between; }
+  .gbar--play .gbar-tools { flex: 1 0 100%; justify-content: space-between; margin-left: 0; }
+}
 .gbar .gbar-tools > * { margin: 0; flex: none; width: 40px; height: 40px; background: var(--c-nav); border-radius: var(--r-sm); }
 .gbar .gbar-tools > *:hover { background: var(--c-surface-3); }
 
@@ -202,9 +222,10 @@ body[data-screen^='atom'].puzzling { --top: var(--safe-top); }
 .build-home { padding-bottom: calc(var(--sp-6) + var(--safe-bottom)); }
 .build-home[hidden] { display: none; }
 /* The navigator at the bottom (the gallery's atom bar, mounted here once it is shared). */
-#app:has(.build-bar:not(:empty)) { --build-bar-h: 60px; }
-/* The atom bar sits at the top of Build, under the View/Build row, as it does in View. */
-.build-bar { position: absolute; top: var(--top); left: 0; right: 0; height: var(--build-bar-h); z-index: 3; }
+/* The atom bar (Build | Info) floats over the top of Build's atom, beside View; the page runs
+   up under it. */
+.build-bar { position: absolute; top: var(--top); left: 0; right: 0; height: var(--atom-bar-h); z-index: 3; pointer-events: none; }
+#app > #build-bar { z-index: 3; }
 .build-bar > .atom-bar { height: 100%; }
 .build-bar:empty { display: none; }
 body:not(.build-home) .build-bar { display: none; }
@@ -219,7 +240,7 @@ body:not(.build-home) .build-bar { display: none; }
 .bh-stage canvas { position: absolute; top: 0; left: 0; width: 100%; height: calc(100% + var(--bh-bleed)); display: block; -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - var(--bh-bleed) - 48px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - var(--bh-bleed) - 48px), transparent); }
 .bh-stage + .bh-in { position: relative; z-index: 1; }
 /* View, top right of the atom: the 3D atom full screen. */
-.bh-view { position: absolute; right: var(--sp-4); top: var(--sp-2); z-index: 2; height: 40px; display: inline-flex; align-items: center; gap: 6px; padding: 0 12px 0 16px; border: 0; border-radius: var(--r-pill); background: color-mix(in srgb, var(--c-surface-2) 85%, transparent); color: var(--c-text); font-family: var(--font); font-size: var(--fs-md); font-weight: var(--fw-semibold); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.bh-view { position: absolute; right: var(--sp-4); top: 10px; z-index: 2; height: 40px; display: inline-flex; align-items: center; gap: 6px; padding: 0 12px 0 16px; border: 0; border-radius: var(--r-pill); background: color-mix(in srgb, var(--c-surface-2) 85%, transparent); color: var(--c-text); font-family: var(--font); font-size: var(--fs-md); font-weight: var(--fw-semibold); cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .bh-view:hover { background: var(--c-surface-3); }
 .bh-view:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
 .bh-view[hidden] { display: none; }
@@ -911,7 +932,6 @@ body.puzzling #overlay { pointer-events: auto; touch-action: none; }
 .pg-gen { position: absolute; left: var(--sp-3); right: var(--sp-3); top: var(--sp-2); bottom: 0; z-index: 3; display: flex; align-items: center; gap: var(--sp-2); pointer-events: none; }
 .pg-gen > * { pointer-events: auto; }
 /* Room on the left of the status line for the settings button. */
-.gfoot.has-gen .gfoot-line { padding-left: calc(var(--sp-3) + 40px + var(--sp-2)); }
 .pg-gen.is-open { background: var(--c-bg); }
 .pg-fold { flex: none; width: 40px; height: 40px; border-radius: var(--r-sm); background: var(--c-nav); color: var(--c-text-2); }
 .pg-fold:hover, .pg-gen.is-open .pg-fold { color: var(--c-text); }
@@ -1239,17 +1259,20 @@ body[data-screen^='atom'] .nav { display: none; }
 .nav-ico svg { width: 24px; height: 24px; display: block; }
 .nav-lab { font-size: 13px; font-weight: var(--fw-semibold); line-height: 1.1; }
 /* Inside a section: three icons at the left, then the dropdown. */
-.dock.is-deep { grid-template-columns: 46px 46px 46px minmax(0, 1fr); padding: 5px; gap: 2px; }
+.dock.is-deep { grid-template-columns: repeat(3, calc(var(--dock-h) - 10px)) minmax(0, 1fr); padding: 5px; gap: 2px; }
+/* Round, not pills: as wide as they are tall. */
+.dock.is-deep button[id^='nav-'] { border-radius: 50%; }
 .dock.is-deep .nav-lab { display: none; }
-.dock .dock-pick { flex-direction: row; justify-content: flex-start; gap: 6px; min-width: 0; margin-left: 4px; padding: 0 10px 0 5px; background: var(--c-surface-2); color: var(--c-text); text-align: left; }
-.dock .dock-pick:hover { background: var(--c-surface-3); }
+/* The dropdown on the same pale plate as the lit section. */
+.dock .dock-pick { flex-direction: row; justify-content: flex-start; gap: 6px; min-width: 0; margin-left: 4px; padding: 0 10px 0 5px; background: var(--c-pick); color: var(--c-text); text-align: left; }
+.dock .dock-pick:hover { background: color-mix(in srgb, var(--c-pick) 80%, var(--c-text)); }
 .dock .dock-pick[hidden] { display: none; }
 .dock-pick > svg { flex: none; margin-left: auto; color: var(--c-text-2); transition: transform 0.2s var(--ease); }
 .dock-pick.is-open > svg { transform: rotate(180deg); }
 /* The atom's number on a plate in its place color (data.ts placeColour); a game's icon black on
    a white circle, as on its card. */
 .dock-badge { flex: none; height: 36px; min-width: 36px; display: grid; place-items: center; border-radius: 18px; font-size: var(--fs-sm); font-weight: var(--fw-bold); font-variant-numeric: tabular-nums; }
-.dock-badge--atom { padding: 0 6px; background: color-mix(in srgb, var(--c) 34%, var(--c-surface-3)); color: var(--c-text); }
+.dock-badge--atom { padding: 0 6px; background: color-mix(in srgb, var(--c) 40%, var(--c-nav)); color: var(--c-text); }
 .dock-badge--game { background: var(--c-text); color: var(--c-bg); }
 .dock-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; font-weight: var(--fw-semibold); }
 body[data-screen='atom-view'] .dock { display: none; }
@@ -1285,7 +1308,12 @@ html[data-vt='prev']::view-transition-new(root) { animation: vt-in-left 0.3s var
 .mode-seg .ui-seg { width: 100%; padding: 3px; border-radius: var(--r-pill); background: var(--c-well); }
 .mode-seg .ui-seg-opt { flex: 1; min-height: 40px; padding: 0 var(--sp-3); border-radius: var(--r-pill); }
 .mode-seg .ui-seg-dot { display: none; }
-.atom-bar > .mode-seg { align-self: center; }
+/* Build | Info floats: a compact pill on the dock's plate, its own shadow, no row behind it. */
+.atom-bar { background: transparent; pointer-events: none; }
+.atom-bar > * { pointer-events: auto; }
+.atom-bar > .mode-seg { flex: 0 1 240px; align-self: center; }
+.atom-bar > .mode-seg .ui-seg { padding: 4px; background: var(--c-nav); box-shadow: 0 6px 24px rgba(0, 0, 0, 0.55); }
+.atom-bar > .mode-seg .ui-seg-opt { min-height: 40px; }
 /* The progress on the right: a ring, the main percentage large, and under it a small line for
    the extras (fleeting isotopes) when the atom has any. */
 .mode-prog { flex: none; display: inline-flex; align-items: center; gap: var(--sp-2); color: var(--c-text); }
