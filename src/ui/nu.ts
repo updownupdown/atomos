@@ -145,17 +145,13 @@ export interface NuShowOptions {
   ms?: number;
   /** The circle's radius in px; by default just outside the target. */
   r?: number;
-  /** Nu's offset from the target's middle `t` seconds after it set off, for a path of its own
-   *  (Collect's strays). Defaults to a circle of radius r. */
-  path?: (t: number, r: number) => Pt;
 }
 
 interface Task {
   target: NuTarget | Pt;
   ms: number;
   r?: number;
-  path?: (t: number, r: number) => Pt;
-  /** When it set off (the path's clock), the angle it joins the circle at, and when it arrived. */
+  /** When it set off (the circle's clock), the angle it joins the circle at, and when it arrived. */
   t0: number;
   a0: number;
   arrived: number;
@@ -251,7 +247,7 @@ class Guide {
       this.cool.set(o.key, now);
     }
     if (!this.rectOf(target)) return true;
-    this.begin({ target, ms: o.ms ?? NU_SHOW_MS, r: o.r, path: o.path, t0: now, a0: 0, arrived: 0 });
+    this.begin({ target, ms: o.ms ?? NU_SHOW_MS, r: o.r, t0: now, a0: 0, arrived: 0 });
     return true;
   }
 
@@ -329,8 +325,7 @@ class Guide {
     if (!(t.target instanceof Element) && typeof t.target !== 'function') return { p: c, c };
     const rad = t.r ?? Math.max(16, Math.max(r.width, r.height) / 2 + 8);
     let o: Pt;
-    if (t.path) o = t.path((now - t.t0) / 1000, rad);
-    else if (reducedMotion()) o = { x: rad * Math.SQRT1_2, y: -rad * Math.SQRT1_2 };
+    if (reducedMotion()) o = { x: rad * Math.SQRT1_2, y: -rad * Math.SQRT1_2 };
     else {
       const a0 = from ? Math.atan2(from.y - c.y, from.x - c.x) : t.a0;
       const a = a0 + ((now - t.t0) / NU_TURN_MS) * 2 * Math.PI;
