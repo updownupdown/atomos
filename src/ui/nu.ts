@@ -112,8 +112,8 @@ export async function nuStreak(over?: Element | null, onSweep?: (p: number) => v
 
 // ---- The one Nu -------------------------------------------------------------------------------
 //
-// There is one Nu on the screen. It rests in a slot: the empty ring in the middle of the Home
-// icon (.nu-home-slot) when it has nothing to show, or the ring in the Nu icon of whatever is
+// There is one Nu on the screen. It rests in a slot: one of the nucleons of the header's mark
+// (.nu-home-slot, picked at random each time it comes home) when it has nothing to show, or the ring in the Nu icon of whatever is
 // marked data-nu-perch and in view (the screen's Next button, a first-time line, a guide card),
 // the highest data-nu-perch number first. At rest the slot itself is filled (.is-nu) and the
 // flying dot is hidden. When the slot it wants changes, Nu flies there from wherever it is, on
@@ -122,7 +122,7 @@ export async function nuStreak(over?: Element | null, onSweep?: (p: number) => v
 // nuShow(el) sends it to circle something for 5 s, after which it goes back to rest and leaves
 // that thing alone for a minute. Any touch elsewhere, or the thing leaving the screen, sends it
 // back at once. With Nu off in Settings there is no Nu at all (body.nu-off): the slots are drawn
-// as printed dots, and the Home icon's is hidden.
+// as printed dots, and the mark is whole.
 
 /** Nu's top speed in flight, in px per ms, and the shortest and longest a trip takes. */
 const NU_TOP_SPEED = 0.6;
@@ -351,8 +351,10 @@ class Guide {
       best = slot; rank = n;
     }
     if (best) return best;
-    for (const slot of document.querySelectorAll('.nu-home-slot')) if (visible(slot, false)) return slot;
-    return null;
+    const homes = [...document.querySelectorAll('.nu-home-slot')].filter((s) => visible(s, false));
+    // Home is the header's mark: Nu keeps the nucleon it is on (or flying to), and each time it
+    // comes home it picks one of them at random.
+    return homes.find((s) => s === this.rest || s === this.toward) ?? homes[Math.floor(Math.random() * homes.length)] ?? null;
   }
 
   private look(): void {
