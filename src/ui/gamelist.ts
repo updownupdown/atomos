@@ -1,9 +1,9 @@
 // The game list: every game, as on the Play screen (pinned games first, then playable ones, each
-// part A to Z), as a sheet rising from the dock's dropdown while a game is open on Play. Each
-// row is the game's icon and name, then its five difficulty levels as pips, as on the game
-// cards: white where the game deals, the level it opens at in that level's color, a gap where it
-// never deals. Tapping the row opens the game where it was left; tapping a pip opens it at that
-// level. The game open now is marked. Games not built yet are listed, dimmed, and can't be picked.
+// part A to Z), as a sheet dropping from the bar's dropdown while a game is open on Play. Each
+// row is the game's icon and name, then its five difficulty levels as dots: each level the game
+// deals in that level's color, a smaller gray dot for one it never deals. Tapping the row opens
+// the game where it was left; tapping a dot opens it at that level. The game open now is marked.
+// Games not built yet are listed, dimmed, and can't be picked.
 //
 //   openGameList({ current: 'flux', onPick: (id, level) => open(id, level) });
 
@@ -40,12 +40,11 @@ export function openingLevel(id: string): number {
 /** A game in the list: its icon and name, then a pip for each of the five levels. */
 function listRow(p: PuzzleType, current: string): string {
   const on = p.id === current;
-  const at = openingLevel(p.id);
   const pips = Array.from({ length: LEVELS }, (_, i) => {
     const level = i + 1;
-    if (!p.make || !levelInGame(p.id, level)) return '<span class="gl-lvl is-off" aria-hidden="true"></span>';
+    if (!p.make || !levelInGame(p.id, level)) return '<span class="gl-lvl is-off" aria-hidden="true"><i></i></span>';
     const word = levelWord(level);
-    return `<button type="button" class="gl-lvl${level === at ? ' is-on' : ''}" data-level="${level}" style="--lvl: var(--c-lvl-${level})" aria-label="${esc(p.name)}, ${word}" title="${word}"><i></i></button>`;
+    return `<button type="button" class="gl-lvl" data-level="${level}" style="--lvl: var(--c-lvl-${level})" aria-label="${esc(p.name)}, ${word}" title="${word}"><i></i></button>`;
   }).join('');
   return `<li class="gl-item${on ? ' is-current' : ''}"><button type="button" class="sheet-row" data-game="${p.id}"${on ? ' aria-current="true"' : ''}${p.make ? '' : ' disabled'}>`
     + `<span class="sheet-ico" aria-hidden="true">${puzzleIcon(p.id, 26)}</span>`
@@ -56,7 +55,7 @@ function listRow(p: PuzzleType, current: string): string {
 let openList: Sheet | null = null;
 
 export function openGameList(o: { current: string; onPick: (id: string, level?: number) => void; onClose?: () => void }): void {
-  const sheet = openSheet({ title: 'Games', icon: 'puzzles', label: 'All games', from: 'dock', onClose: () => { if (openList === sheet) openList = null; o.onClose?.(); } });
+  const sheet = openSheet({ title: 'Games', icon: 'puzzles', label: 'All games', from: 'bar', onClose: () => { if (openList === sheet) openList = null; o.onClose?.(); } });
   openList = sheet;
   sheet.body.innerHTML = `<ul class="sheet-rows gl-rows">${gamesInOrder().map((p) => listRow(p, o.current)).join('')}</ul>`;
   sheet.body.addEventListener('click', (e) => {

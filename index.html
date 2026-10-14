@@ -16,27 +16,29 @@
     <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
-    <!-- The top of every section's home (Collect, Learn, Play) and Settings: the mark and the
-         wordmark (home), then Search and Settings. Inside a section the screen's own header takes
-         its place. src/shell.ts. -->
+    <!-- The header, on every screen but the 3D atom full screen, never moving: the mark at its
+         left (Home, and where Nu rests). On Home the wordmark, Search and Settings follow it;
+         everywhere else the bar (the dock) fills the rest. src/shell.ts. -->
     <header class="nav" id="nav" aria-label="Main">
-      <button class="nav-logo" id="nav-logo" aria-label="Atomos: home" title="Atomos"></button>
+      <button class="nav-logo" id="nav-logo" aria-label="Atomos: home" title="Home"></button>
       <h1 class="nav-title" id="nav-title">Atomos</h1>
       <span class="nav-aside" id="nav-aside" hidden></span>
       <button class="nav-btn" id="nav-search" aria-label="Search atoms and games" aria-haspopup="dialog"></button>
       <button class="nav-btn" id="nav-settings" aria-label="Settings" aria-current="false"></button>
     </header>
-    <!-- The dock: Home and the three sections in a pill floating at the foot, always in this
-         order; inside a section, Home, the dropdown of what is open and, on an atom, Build and
-         Learn. src/ui/dock.ts. -->
+    <!-- The bar: on Home, Collect, Learn and Play in a pill at the foot; anywhere else in the
+         header beside the mark: the three sections at Learn's and Play's tops, or the dropdown of
+         what is open with an atom's Build | Learn or a game's Difficulty. src/ui/dock.ts. -->
     <nav class="dock" id="dock" aria-label="Sections">
-      <button id="nav-home" aria-current="page"><span class="nav-ico"></span><span class="nav-lab">Home</span></button>
       <button id="nav-collect" aria-current="false"><span class="nav-ico"></span><span class="nav-lab">Collect</span></button>
       <button id="nav-gallery" aria-current="false"><span class="nav-ico"></span><span class="nav-lab">Learn</span></button>
       <button id="nav-puzzles" aria-current="false"><span class="nav-ico"></span><span class="nav-lab">Play</span></button>
       <button class="dock-pick" id="dock-pick" aria-haspopup="dialog" aria-expanded="false" hidden></button>
-      <button class="dock-mode" id="dock-build" aria-current="false" hidden><span class="nav-ico"></span></button>
-      <button class="dock-mode" id="dock-learn" aria-current="false" hidden><span class="nav-ico"></span></button>
+      <span class="dock-seg" id="dock-seg" role="group" hidden>
+        <button class="dock-mode" id="dock-build" aria-current="false"><span class="nav-ico"></span><span class="nav-lab">Build</span></button>
+        <button class="dock-mode" id="dock-learn" aria-current="false"><span class="nav-ico"></span><span class="nav-lab">Learn</span></button>
+      </span>
+      <span class="dock-extra" id="dock-extra" hidden></span>
     </nav>
 
     <div id="gallery-screen">

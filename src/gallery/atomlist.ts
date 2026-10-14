@@ -124,7 +124,7 @@ const SORTS: { id: LearnSort; label: string }[] = [
 
 /** Open the list over the screen, rising from the dock. */
 export function openAtomList(o: AtomListOptions): void {
-  const sheet = openSheet({ title: 'Atoms', icon: 'atom', label: 'All atoms', from: 'dock', className: 'alist', onClose: () => { if (openList === sheet) openList = null; o.onClose?.(); } });
+  const sheet = openSheet({ title: 'Atoms', icon: 'atom', label: 'All atoms', from: 'bar', className: 'alist', onClose: () => { if (openList === sheet) openList = null; o.onClose?.(); } });
   openList = sheet;
   const tabs = createSegments([
     { id: 'collect', label: 'Collect', icon: icon('collect', { size: 20 }) },

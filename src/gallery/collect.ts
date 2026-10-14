@@ -200,7 +200,7 @@ export class Collect {
       <div class="co-atom">
         <div class="co-atom-row">
           <button type="button" class="co-who"><span class="co-plate"><small></small><b></b></span><span class="co-name"><b></b><small></small></span></button>
-          <button type="button" class="co-build">${icon('mode-build', { size: 20 })}<span>Build</span></button>
+          <button type="button" class="co-build">${icon('build', { size: 20 })}<span>Build</span></button>
         </div>
         <div class="co-slot"><div class="co-bars"></div><div class="pb-news co-news" role="status" hidden></div></div>
       </div>

@@ -51,13 +51,19 @@ export function electrons(): [number, number][] {
 /**
  * The mark as SVG inner markup in `currentColor`, classed so each part can be styled:
  * parts: .nucleon (with .proton or .neutron), .shell, .orbit > .electron.
+ * With `nu`, it is the header's mark, where Nu rests (nu.ts): every nucleon is numbered
+ * data-nu-dot (0 the centre, then clockwise from the top right) for Nu to pick a spot, and the
+ * centre one is Nu's home slot (.nu-home-slot) meanwhile.
  */
-export function markInner(): string {
+export function markInner(o: { nu?: boolean } = {}): string {
   const r = nucleonRadius();
-  const core = nucleons().map(({ x, y, proton }) => proton
-    ? `<circle class="nucleon proton" cx="${x}" cy="${y}" r="${r}" fill="currentColor"/>`
-    : `<circle class="nucleon neutron" cx="${x}" cy="${y}" r="${f(r * 0.83)}" fill="none" stroke="currentColor" stroke-width="${f(r * 0.36)}"/>`,
-  ).join('');
+  const core = nucleons().map(({ x, y, proton }, i) => {
+    const nu = o.nu ? ` data-nu-dot="${i}"` : '';
+    const cls = o.nu && i === 0 ? ' nu-home-slot' : '';
+    return proton
+      ? `<circle class="nucleon proton${cls}"${nu} cx="${x}" cy="${y}" r="${r}" fill="currentColor"/>`
+      : `<circle class="nucleon neutron${cls}"${nu} cx="${x}" cy="${y}" r="${f(r * 0.83)}" fill="none" stroke="currentColor" stroke-width="${f(r * 0.36)}"/>`;
+  }).join('');
   const shell = shellArcs().map((p) => p.replace('<path ', '<path class="shell" ')).join('');
   // Each electron sits in its own group, so it can be turned round the ring on its own.
   const el = electrons().map(([x, y]) => `<g class="orbit"><circle class="electron" cx="${x}" cy="${y}" r="${MARK.electron}" fill="currentColor"/></g>`).join('');
@@ -65,6 +71,6 @@ export function markInner(): string {
 }
 
 /** A complete inline SVG of the mark, sized by CSS, in the current text colour. */
-export function markSvg(attrs = ''): string {
-  return `<svg viewBox="0 0 100 100" aria-hidden="true" ${attrs}>${markInner()}</svg>`;
+export function markSvg(attrs = '', o: { nu?: boolean } = {}): string {
+  return `<svg viewBox="0 0 100 100" aria-hidden="true" ${attrs}>${markInner(o)}</svg>`;
 }

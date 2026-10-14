@@ -45,9 +45,8 @@ export class Playground {
   private undoBtn: HTMLButtonElement;
   private restartBtn: HTMLButtonElement;
   private gbar: GameBar;
-  /** The board settings' button, and its pill's open state. */
+  /** The Difficulty button in the bar. */
   private fold: HTMLButtonElement;
-  private foldTimer = 0;
   /** The game in focus on the home: the top card, told about in the pinned box. */
   private focusId = '';
   private demo: GameDemo;
@@ -61,15 +60,18 @@ export class Playground {
     this.demo = new GameDemo($('pg-demo') as HTMLCanvasElement, () => reducedMotion());
     this.renderHome();
 
-    // The board maker, folded into the Difficulty button at the left of the top row (its X folds
-    // it again): opened, a slider across the dial, filled in the level's color, and a new deal
-    // cover the tools. The slider runs 1 to 100 for every game; the ends a game cannot deal show
-    // white. A game opens with it unfolded; three seconds later it folds itself back into the
-    // button.
+    // Difficulty: a button at the right of the header (in the bar, beside the game's dropdown),
+    // a chevron down then Difficulty over its pips. It drops the board maker just under the
+    // header, over the tools: a slider across the dial, filled in the level's color, a new deal
+    // and an X that folds it again. The slider runs 1 to 100 for every game; the ends a game
+    // cannot deal show white.
     const bar = $('pg-bar');
     const gen = $('pg-gen');
-    // In the header it is one button with Difficulty and its pips (below, once the bar is made).
-    this.fold = iconButton({ icon: '<span class="pg-fold-ico"></span>', label: 'Board settings', className: 'pg-fold', onClick: () => this.setOpen(Boolean(bar.hidden)) });
+    this.fold = document.createElement('button');
+    this.fold.type = 'button';
+    this.fold.className = 'pg-fold';
+    this.fold.innerHTML = '<span class="pg-fold-ico"></span>';
+    this.fold.onclick = () => this.setOpen(Boolean(bar.hidden));
     this.fold.setAttribute('aria-controls', 'pg-bar');
     this.slider = createSlider({ min: 1, max: 100, value: this.dial, label: 'Difficulty', format: difficultyWord, onInput: (v) => this.setDial(v) });
     // A new deal: the shuffle and its number are one button.
@@ -80,13 +82,10 @@ export class Playground {
     deal.title = 'New deal';
     deal.innerHTML = `${icon('shuffle')}<span class="pg-dealno" id="pg-dealno"></span>`;
     deal.onclick = () => this.load(this.deal + 1);
-    bar.append(this.slider.el, deal);
-    // Touching the pill keeps it open.
-    const keep = () => this.keepOpen();
-    bar.addEventListener('pointerdown', keep);
-    bar.addEventListener('focusin', keep);
+    const shut = iconButton({ icon: icon('close'), label: 'Close difficulty', className: 'pg-shut', onClick: () => this.setOpen(false) });
+    bar.append(this.slider.el, deal, shut);
 
-    // The tools beside Back: undo, restart, hint, instructions.
+    // The tools: undo, restart, hint, instructions.
     this.undoBtn = iconButton({ icon: icon('undo'), label: 'Undo', onClick: () => this.host.undo() });
     this.restartBtn = restartButton(this.restartOptions());
     this.host.onRestartKey = () => void askRestart(this.restartOptions());
@@ -97,19 +96,17 @@ export class Playground {
       iconButton({ icon: icon('info'), label: 'Instructions', onClick: () => this.instructions() }),
     ], { label: 'All games', onClick: () => this.back() });
     $('pg-gbar').append(this.gbar.el);
-    // The header on Play, one row: the board settings button carrying Difficulty over its pips,
-    // then the tools. Under it the status line: Moves and Par on the left, each word over its
-    // figure, the message, and the game's own action on the right. The game's icon and name, and
-    // the way back to the list, are in the dock (its dropdown and the lit Play).
+    // Under the header, one row: Moves and Par on the left, each word over its figure, the tools
+    // on the right. Under it the status line on its own: the message, and the game's own action
+    // on the right. The game's icon and name, and the list of games, are the bar's dropdown.
     this.gbar.el.classList.add('gbar--play');
     const stats = this.gbar.el.querySelector<HTMLElement>('.gbar-stats')!;
     const row = this.gbar.el.querySelector<HTMLElement>('.gbar-nav .gbar-in')!;
     this.fold.append(stats.querySelector('.gbar-stat--diff')!);
-    row.prepend(this.fold);
-    // Open, the board settings cover the tools beside their button.
-    row.append(gen);
-    // Moves and Par share the status line, on its left.
-    this.gbar.foot.querySelector('.gbar-lead')!.append(stats);
+    $('dock-extra').append(this.fold);
+    row.prepend(stats);
+    // Open, the board maker hangs over the tools, just under the header.
+    $('pg-game').prepend(gen);
     this.setOpen(false);
 
     // The home: the card under the pinned box is the one in focus.
@@ -168,18 +165,14 @@ export class Playground {
     if (this.type.make) offerRules(this.gbar, this.type, () => this.instructions());
     this.host.wake();
     window.dispatchEvent(new Event('resize'));
-    // The dock shows the game (shell.ts listens).
+    // The bar shows the game (shell.ts listens).
     window.dispatchEvent(new Event('atomos:nav'));
-    // The board settings show open for a few seconds, then fold into their button.
-    this.setOpen(true);
-    this.foldTimer = window.setTimeout(() => this.foldAway(), 3000);
   }
 
   /** Back to the list of puzzles. */
   back(): void {
     this.closeWin();
     clearOffers(this.gbar);
-    this.keepOpen();
     this.setOpen(false);
     this.host.pause();
     $('pg-game').hidden = true;
@@ -193,45 +186,14 @@ export class Playground {
     window.dispatchEvent(new Event('atomos:nav'));
   }
 
-  /** Opens or folds the board settings pill. */
+  /** Opens or folds the board maker. */
   private setOpen(open: boolean): void {
     const bar = $('pg-bar');
     bar.hidden = !open;
     $('pg-gen').classList.toggle('is-open', open);
-    this.gbar.el.classList.toggle('is-dialing', open);
-    this.fold.querySelector('.pg-fold-ico')!.innerHTML = icon(open ? 'close' : 'settings');
+    this.fold.querySelector('.pg-fold-ico')!.innerHTML = icon('chevron-down', { size: 20 });
     this.fold.setAttribute('aria-expanded', String(open));
-    const label = open ? 'Close board settings' : 'Board settings';
-    this.fold.setAttribute('aria-label', label);
-    this.fold.title = label;
-    if (!open) this.keepOpen();
-  }
-
-  /** Cancels the pill's fold on its own (the player has reached for it, or left). */
-  private keepOpen(): void {
-    window.clearTimeout(this.foldTimer);
-    this.foldTimer = 0;
-  }
-
-  /** The pill shrinks into its settings button, which then rings once. */
-  private foldAway(): void {
-    this.foldTimer = 0;
-    const bar = $('pg-bar');
-    if (bar.hidden || !this.inPuzzle) return;
-    const land = () => {
-      this.setOpen(false);
-      this.fold.classList.remove('is-landed');
-      void this.fold.offsetWidth;
-      this.fold.classList.add('is-landed');
-      window.setTimeout(() => this.fold.classList.remove('is-landed'), 1000);
-    };
-    if (reducedMotion() || typeof bar.animate !== 'function') { land(); return; }
-    const a = bar.getBoundingClientRect();
-    const b = this.fold.getBoundingClientRect();
-    bar.animate([
-      { transform: 'translateX(0) scaleX(1)', opacity: 1 },
-      { transform: `translateX(${b.left + b.width / 2 - a.left}px) scaleX(${Math.max(0.04, b.width / a.width)})`, opacity: 0 },
-    ], { duration: 420, easing: 'cubic-bezier(0.5, 0, 0.75, 0)' }).finished.then(land, land);
+    this.fold.setAttribute('aria-label', open ? 'Close difficulty' : 'Difficulty');
   }
 
   /** The home: the pinned box about the game in focus, then one card per game: pinned games
@@ -599,7 +561,12 @@ export class Playground {
 
   private key(e: KeyboardEvent): void {
     if ($('puzzles-screen').hidden || modalOpen() || confirming() || !this.inPuzzle) return;
-    if (e.key === 'Escape') { this.back(); e.preventDefault(); return; }
+    if (e.key === 'Escape') {
+      // The board maker folds first, then the game closes.
+      if (!$('pg-bar').hidden) this.setOpen(false); else this.back();
+      e.preventDefault();
+      return;
+    }
     const t = e.target as HTMLElement | null;
     if (t?.tagName === 'INPUT' || t?.closest?.('.ui-slider')) return;
     if (this.solved && e.key === 'Enter') { this.load(this.deal + 1); return; }
