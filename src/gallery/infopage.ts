@@ -9,6 +9,18 @@ import { createSegments, createSlider } from '../ui/components';
 import { icon } from '../ui/icons';
 import { buildOrder, ISO_FILTERS, orbitalFill, orbitalGlyphs, STRUCTURE_VIEWS } from './visuals';
 import { Together3D } from './together3d';
+import { scienceButton } from '../ui/science';
+
+/** The microscope at the foot of an Info page: "How to read this page". A page keeps one and
+ *  puts it back under each tab it renders; it opens whatever guide the screen registered. */
+export function guideFoot(): HTMLElement {
+  const foot = document.createElement('div');
+  foot.className = 'info-guide';
+  const b = scienceButton('info-guide-btn');
+  b.insertAdjacentHTML('beforeend', '<span>How to read this page</span>');
+  foot.append(b);
+  return foot;
+}
 
 /** What the pages remember while stepping from one atom to the next. */
 export interface InfoState {

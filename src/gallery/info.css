@@ -168,3 +168,9 @@
 .th-row b { font-size: var(--fs-lg); font-weight: var(--fw-medium); font-variant-numeric: tabular-nums; }
 .th-row .pr-rank { flex-basis: 100%; padding-left: calc(52px + var(--sp-3)); }
 .ap-sci { border-radius: 50%; }
+
+/* The microscope at the foot of every Info page: how to read it. */
+.info-guide { display: flex; justify-content: center; margin: var(--sp-5) 0 var(--sp-3); }
+.info-guide-btn { display: inline-flex; align-items: center; gap: var(--sp-2); min-height: 44px; padding: 0 var(--sp-4) 0 var(--sp-3); border: 0; border-radius: 22px; background: var(--c-surface-2); color: var(--c-text); font: inherit; font-size: var(--fs-sm); font-weight: var(--fw-semibold); cursor: pointer; }
+.info-guide-btn:hover { background: var(--c-surface-3); }
+.info-guide-btn svg { color: var(--c-accent); }

@@ -1,10 +1,10 @@
 // The Atlas map: one arrangement of the 118 atoms (layouts.ts) drawn as an SVG shape that
-// fills its box. Drag to move, pinch or wheel to zoom, double-tap to zoom in. The labels follow
+// fills its box. Drag to move, pinch or wheel to zoom; a double tap opens the atom. The labels follow
 // the zoom: at a glance only the colors show, then each cell's symbol once it is large enough,
 // then its number, then its name. Tapping a cell picks it (the animated border, in the accent);
 // tapping empty space lets it go. A search dims every cell it does not match.
 //
-//   const map = new AtlasMap(host, { onPick: (z) => peek(z) });
+//   const map = new AtlasMap(host, { onPick: (z) => peek(z), onOpen: (z) => openPage(z) });
 //   map.setLayout('ribbon');
 //   map.setColors((e) => placeColour(e));
 
@@ -57,7 +57,7 @@ export class AtlasMap {
   private lastTap = 0;
   private frame = 0;
 
-  constructor(host: HTMLElement, private opts: { onPick: (z: number | null) => void }) {
+  constructor(host: HTMLElement, private opts: { onPick: (z: number | null) => void; onOpen: (z: number) => void }) {
     this.el = svg('svg', { class: 'am', role: 'img' });
     this.el.append(this.world);
     this.world.append(this.decorG, this.cellsG, this.ringG, this.labelsG, this.axisG);
@@ -213,7 +213,7 @@ export class AtlasMap {
   /** The zoom at which a cell's symbol fits. */
   private symbolScale(c: Cell): number {
     const e = elementAt(c.z);
-    const symW = SYM_PX * 0.62 * e.symbol.length + 6;
+    const symW = SYM_PX * 0.62 * Math.max(2, e.symbol.length) + 6;
     return Math.max(symW / c.w, (SYM_PX + 4) / c.h);
   }
 
@@ -228,7 +228,8 @@ export class AtlasMap {
       for (const { sym, num, name, cell } of this.texts.values()) {
         const pw = cell.w * s, ph = cell.h * s;
         const e = elementAt(cell.z);
-        const showSym = pw >= SYM_PX * 0.62 * e.symbol.length + 6 && ph >= SYM_PX + 4;
+        // Room for two letters or none: a lone H or K among blank cells reads as a mistake.
+        const showSym = pw >= SYM_PX * 0.62 * Math.max(2, e.symbol.length) + 6 && ph >= SYM_PX + 4;
         const symPx = Math.min(30, Math.max(SYM_PX, ph * 0.34));
         const showNum = showSym && ph >= symPx + NUM_PX + 12;
         const nameW = NAME_PX * 0.56 * e.name.length + 8;
@@ -250,7 +251,7 @@ export class AtlasMap {
         put(name, showName, NAME_PX);
       }
       // Period and group numbers only once the cells are big enough to keep them apart.
-      this.axisG.style.display = (this.lay?.cells[0]?.h ?? 1) * s >= 16 ? '' : 'none';
+      this.axisG.style.display = (this.lay?.unit ?? this.lay?.cells[0]?.h ?? 1) * s >= 16 ? '' : 'none';
       for (const t of this.axisG.querySelectorAll<SVGTextElement>('text')) t.setAttribute('font-size', String(13 / s));
     });
   }
@@ -309,14 +310,16 @@ export class AtlasMap {
       if (!g || g.moved || ev.type === 'pointercancel') return;
       const now = performance.now();
       const p = at(ev);
+      const hit = document.elementFromPoint(ev.clientX, ev.clientY)?.closest?.('[data-z]');
+      const z = hit ? Number(hit.getAttribute('data-z')) : this.near(p);
+      // A double tap opens the atom's page; pinch is the way to zoom.
       if (now - this.lastTap < 300) {
         this.lastTap = 0;
-        zoomAt(p, this.scale * 2.2);
+        if (z != null) this.opts.onOpen(z);
         return;
       }
       this.lastTap = now;
-      const hit = document.elementFromPoint(ev.clientX, ev.clientY)?.closest?.('[data-z]');
-      this.opts.onPick(hit ? Number(hit.getAttribute('data-z')) : this.near(p));
+      this.opts.onPick(z);
     };
     el.addEventListener('pointerup', end);
     el.addEventListener('pointercancel', end);

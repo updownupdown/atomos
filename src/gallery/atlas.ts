@@ -103,7 +103,7 @@ export class Atlas {
     const refresh = () => this.refreshEarned();
     window.addEventListener('atomos:progress', refresh);
     window.addEventListener('atomos:win', refresh);
-    this.map = new AtlasMap(this.mapHost, { onPick: (z) => this.pick(z) });
+    this.map = new AtlasMap(this.mapHost, { onPick: (z) => this.pick(z), onOpen: (z) => { this.pick(z); this.openPage(z); } });
     this.page = new AtlasPage({ onBuild: opts.onBuild, onClose: () => this.afterPage() });
     document.body.append(this.page.el);
     this.bind();
