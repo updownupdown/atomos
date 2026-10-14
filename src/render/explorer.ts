@@ -32,13 +32,16 @@ export interface ExplorerOptions {
   hard: boolean;
   /** What one finger does: walk the ladder and set the context, or turn the atom. */
   finger: 'nav' | 'turn';
-  palette: 'phase' | 'print' | 'block';
+  palette: 'phase' | 'print' | 'block' | 'mono';
   /** 0 steady to 1.5. */
   twinkle: number;
   brightness: number;
 }
 
 export const EXPLORER_DEFAULTS: ExplorerOptions = { hard: true, finger: 'nav', palette: 'phase', twinkle: 0.35, brightness: 1 };
+
+type RGB = [number, number, number];
+const mix = (a: RGB, b: RGB, f: number): RGB => [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f];
 
 interface Finger { x: number; y: number; x0: number; y0: number; t0: number }
 
@@ -54,6 +57,8 @@ export class OrbitalExplorer {
   context = 0.35;
   contextGoal = 0.35;
   hue = 0;
+  /** The 'mono' palette: the resting cloud's lobe colors and the focus's (render/nebula.ts). */
+  private mono: { rest: [RGB, RGB]; lit: [RGB, RGB] } | null = null;
   /** How fast hard stops spring onto their orbital (per second); soft for auto-play. */
   private spring = 10;
   /** Gliding to `goal` (a tap on the ladder, a key) rather than coasting (gradual mode). */
@@ -87,6 +92,9 @@ export class OrbitalExplorer {
     this.focus = clamp(this.focus, 0, this.last);
     this.goal = clamp(this.goal, 0, this.last);
   }
+
+  /** The 'mono' palette's colors: the rest of the atom's lobes, and the focus's. */
+  setMono(rest: [RGB, RGB], lit: [RGB, RGB]): void { this.mono = { rest, lit }; }
 
   get last(): number { return Math.max(0, (this.set?.orbitals.length ?? 1) - 1); }
   /** A finger is down on the atom. */
@@ -292,7 +300,9 @@ export class OrbitalExplorer {
     for (const x of set.orbitals) {
       const d = x.index - this.focus;
       const e = Math.exp(-(d * d) / (2 * sigma * sigma));
-      const [pos, neg] = o.palette === 'print' ? fp.colors[x.index] : o.palette === 'block' ? BLOCK_RGB[x.block] : PHASE;
+      const m = o.palette === 'mono' ? this.mono : null;
+      const [pos, neg] = m ? [mix(m.rest[0], m.lit[0], e), mix(m.rest[1], m.lit[1], e)]
+        : o.palette === 'print' ? fp.colors[x.index] : o.palette === 'block' ? BLOCK_RGB[x.block] : PHASE;
       // The rest: hidden (solo), a thin gray veil (ghost), or all of it in color.
       // Small inner orbitals always thin out (they would pile into a white core); big outer
       // ones only while they are a veil.
