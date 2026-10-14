@@ -1,11 +1,12 @@
-// The sheets the dock and the header open: the atom list and the game list rise from the dock's
-// dropdown; Search and Settings drop from the top. One is open at a time, and all of them look
-// alike: a title row with the sheet's icon and name and a round close button, an optional bar
-// that stays put under it (the atom list's Collect | Learn, search's field), a body that scrolls
-// and an optional foot. Escape, the close button, the mask and Back close it; the dock stays
-// above the mask of the lists, so its sections and dropdown still answer while one is up.
+// The sheets the header opens. Search and Settings drop from the top of the screen: a title row
+// with the sheet's icon and name and a round close button. The atom list and the game list drop
+// from the bar's dropdown, under the header, which stays above their mask so the dropdown and
+// the mark still answer: their title is small, at the bottom left beside a chevron up that
+// pulls the list back up. Each has an optional bar that stays put at its top (the atom list's
+// Collect | Learn, search's field), a body that scrolls and an optional foot. One is open at a
+// time; Escape, the close button, the mask and Back close it.
 //
-//   const s = openSheet({ title: 'Games', icon: 'puzzles', label: 'All games', from: 'dock' });
+//   const s = openSheet({ title: 'Games', icon: 'puzzles', label: 'All games', from: 'bar' });
 //   s.body.append(list);
 
 import { icon, type IconName } from './icons';
@@ -18,15 +19,16 @@ export interface SheetOptions {
   icon?: IconName;
   /** The sheet's accessible name. */
   label: string;
-  /** Rises from above the dock, or drops from the top of the screen. */
-  from: 'dock' | 'top';
+  /** Drops from under the header (the bar's dropdowns), or from the top of the screen. */
+  from: 'bar' | 'top';
   className?: string;
   onClose?: () => void;
 }
 
 export interface Sheet {
   readonly panel: HTMLElement;
-  /** The title row: the title (if any), then the close button. */
+  /** The title row: the title, then the close button; under the header, the small title and its
+   *  chevron at the bottom left, before the foot. */
   readonly head: HTMLElement;
   /** Under the title row, staying put; empty and hidden unless something is put in it. */
   readonly bar: HTMLElement;
@@ -49,15 +51,23 @@ export function openSheet(o: SheetOptions): Sheet {
   panel.className = `sheet${o.className ? ` ${o.className}` : ''}`;
   panel.setAttribute('role', 'dialog');
   panel.setAttribute('aria-label', o.label);
-  panel.innerHTML = `<div class="sheet-head"><h2 class="sheet-title">${o.icon ? icon(o.icon, { size: 22 }) : ''}<span>${o.title}</span></h2></div>`
-    + '<div class="sheet-bar"></div><div class="sheet-body"></div><div class="sheet-foot"></div>';
-  const head = panel.querySelector<HTMLElement>('.sheet-head')!;
   const shut = document.createElement('button');
   shut.type = 'button';
-  shut.className = 'sheet-close';
-  shut.setAttribute('aria-label', 'Close');
-  shut.innerHTML = icon('close', { size: 22 });
-  head.append(shut);
+  if (o.from === 'bar') {
+    panel.innerHTML = '<div class="sheet-bar"></div><div class="sheet-body"></div><div class="sheet-tail"><div class="sheet-head"></div><div class="sheet-foot"></div></div>';
+    shut.className = 'sheet-up';
+    shut.setAttribute('aria-label', `Close ${o.title}`);
+    shut.innerHTML = `${icon('chevron-up', { size: 20 })}<span>${o.title}</span>`;
+    panel.querySelector('.sheet-head')!.append(shut);
+  } else {
+    panel.innerHTML = `<div class="sheet-head"><h2 class="sheet-title">${o.icon ? icon(o.icon, { size: 22 }) : ''}<span>${o.title}</span></h2></div>`
+      + '<div class="sheet-bar"></div><div class="sheet-body"></div><div class="sheet-foot"></div>';
+    shut.className = 'sheet-close';
+    shut.setAttribute('aria-label', 'Close');
+    shut.innerHTML = icon('close', { size: 22 });
+    panel.querySelector('.sheet-head')!.append(shut);
+  }
+  const head = panel.querySelector<HTMLElement>('.sheet-head')!;
   scrim.append(panel);
   document.body.append(scrim);
 

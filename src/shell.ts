@@ -1,5 +1,4 @@
-// The app shell: Home and three sections in the dock at the foot (src/ui/dock.ts), always in
-// this order, and the hierarchy beneath them.
+// The app shell: Home and three sections, and the hierarchy beneath them.
 //   Home     — where a returning player lands: a jumping point to the sections (src/home).
 //   Collect  — one period's atoms and how far each is collected.
 //     Atom   — one atom, its Build page (its puzzles) or its Learn page ('info'), opened from
@@ -7,11 +6,13 @@
 //   Learn    — the Atlas: every atom to admire and look up, the maps, Details and atom pages
 //              ('gallery').
 //   Play     — every game on its own, on any atom; it never builds atoms ('puzzles').
-//   Settings — its own screen, from the gear in the header.
-// Home has the header (the mark and wordmark, Search, Settings); Learn's and Play's tops keep
-// Search and Settings. On those the dock names Home and the three sections. Anywhere in Collect,
-// on an atom and in a game there is no header: the dock holds Home's icon, the dropdown of what
-// is open (the atom, or the game), which lists the others, and on an atom its Build and Learn.
+//   Settings — a sheet from the gear on Home.
+// The header is on every screen but View and never moves: the mark at its left goes Home (Nu
+// rests in it). On Home the wordmark, Search and Settings follow, and the bar (src/ui/dock.ts)
+// holds Collect, Learn and Play at the foot. Everywhere else the bar sits in the header beside
+// the mark: the sections at Learn's and Play's tops; anywhere in Collect, on an atom and in a
+// game the dropdown of what is open (the atom, or the game), which lists the others, then an
+// atom's Build | Learn or a game's Difficulty.
 
 import { GalleryApp } from './gallery';
 import { Collect } from './gallery/collect';
@@ -100,10 +101,11 @@ export class AppShell {
       this.z = z;
       void this.go('gallery').then(() => this.gallery.showInAtlas(z, look));
     });
-    // Top: the mark and wordmark (on Home), Search and Settings. The dock: Home and the three
-    // sections and, inside one, the dropdown of what is open and an atom's Build and Learn.
-    $('nav-logo').innerHTML = markSvg();
-    $('nav-logo').onclick = () => void this.go('home');
+    // The header: the mark (Home; again on Home, Nu shows what to do next), then on Home the
+    // wordmark, Search and Settings. The bar: the sections and, inside one, the dropdown of what
+    // is open and an atom's Build | Learn.
+    $('nav-logo').innerHTML = markSvg('', { nu: true });
+    $('nav-logo').onclick = () => this.toSection('home', this.screen === 'home');
     $('nav-search').innerHTML = icon('search');
     $('nav-search').onclick = () => this.search();
     $('nav-settings').innerHTML = icon('settings');
@@ -364,8 +366,8 @@ export class AppShell {
     void this.go('atom', mode);
   }
 
-  /** Home or a section in the dock: the lit one goes back to its top (nothing to do there
-   *  already, but on Home Nu shows the next step); another opens as it was left. */
+  /** Home (the mark) or a section in the bar: the lit one goes back to its top (nothing to do
+   *  there already, but on Home Nu shows the next step); another opens as it was left. */
   private toSection(s: Section, lit: boolean): void {
     closeSheet();
     if (lit && !this.dock?.current.pick) {

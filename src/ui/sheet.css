@@ -1,11 +1,11 @@
-/* The sheets (sheet.ts): the atom and game lists rise from just above the dock, which stays
-   tappable below their mask; search drops from the top over everything. */
+/* The sheets (sheet.ts): the atom and game lists drop from under the header, which stays
+   tappable above their mask; Search and Settings drop from the top over everything. */
 .sheet-scrim { position: fixed; left: 0; right: 0; top: 0; z-index: 32; overflow: hidden; background: rgba(0, 0, 0, 0); transition: background-color 0.2s var(--ease); }
-.sheet-scrim--dock { bottom: calc(env(safe-area-inset-bottom, 0px) + var(--dock-h) + var(--dock-gap)); }
+.sheet-scrim--bar { top: calc(var(--safe-top) + var(--nav-h)); bottom: 0; }
 .sheet-scrim--top { bottom: 0; }
 .sheet-scrim.is-open { background: var(--c-scrim-pale); -webkit-backdrop-filter: var(--blur-mask); backdrop-filter: var(--blur-mask); }
 .sheet-scrim > .sheet { position: absolute; left: 50%; width: min(720px, calc(100% - 2 * var(--sp-3))); display: flex; flex-direction: column; background: var(--c-bg); border-radius: var(--r-lg); box-shadow: var(--shadow-modal); font-family: var(--font); transition: transform 0.2s var(--ease); }
-.sheet-scrim--dock .sheet { bottom: var(--sp-2); max-height: calc(100% - var(--safe-top) - var(--sp-4)); transform: translate(-50%, calc(100% + var(--sp-6))); }
+.sheet-scrim--bar .sheet { top: var(--sp-1); max-height: calc(100% - env(safe-area-inset-bottom, 0px) - var(--sp-4)); transform: translate(-50%, calc(-100% - var(--sp-6))); }
 .sheet-scrim--top .sheet { top: calc(var(--safe-top) + var(--sp-2)); max-height: calc(100% - var(--safe-top) - env(safe-area-inset-bottom, 0px) - var(--sp-4)); transform: translate(-50%, calc(-100% - var(--sp-6))); }
 .sheet-scrim.is-open .sheet { transform: translate(-50%, 0); }
 .sheet-head { flex: none; display: flex; align-items: center; gap: var(--sp-2); min-height: 60px; padding: var(--sp-2) var(--sp-2) 0 var(--sp-4); }
@@ -21,6 +21,13 @@
 .sheet-bar:empty, .sheet-foot:empty { display: none; }
 .sheet-body { position: relative; flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 var(--sp-3) var(--sp-2); }
 .sheet-foot { flex: none; display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3) var(--sp-3); }
+/* Under the header: the small title with its chevron up at the bottom left, the foot beside it. */
+.sheet-tail { flex: none; display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3) var(--sp-3) var(--sp-2); }
+.sheet-tail .sheet-head { min-height: 0; padding: 0; }
+.sheet-tail .sheet-foot { flex: 1; min-width: 0; padding: 0; }
+.sheet-up { flex: none; height: 36px; display: inline-flex; align-items: center; gap: 6px; padding: 0 14px 0 8px; border: 0; border-radius: var(--r-pill); background: transparent; color: var(--c-text-2); font-family: var(--font); font-size: 13px; font-weight: var(--fw-bold); letter-spacing: 0.24em; text-transform: uppercase; cursor: pointer; }
+.sheet-up:hover { background: var(--c-surface-2); color: var(--c-text); }
+.sheet-up:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
 
 /* A pill in a sheet's foot (Top). */
 .sheet-pill { height: 36px; display: inline-flex; align-items: center; gap: 4px; padding: 0 14px 0 10px; border: 0; border-radius: var(--r-pill); background: var(--c-surface-2); color: var(--c-text); font-family: var(--font); font-size: var(--fs-sm); font-weight: var(--fw-semibold); cursor: pointer; }
@@ -52,9 +59,9 @@
 
 @media (prefers-reduced-motion: reduce) { .sheet, .sheet-scrim { transition: none; } }
 
-/* The game list (gamelist.ts): a row is the game's button, then its five level pips, as on the
-   game cards: white where it deals, the level it opens at in its color, a gap where it never
-   deals. Icons and names a size up from search's rows. */
+/* The game list (gamelist.ts): a row is the game's button, then its five level dots: each level
+   it deals in its color, a gray dot a fifth smaller where it never deals. Icons and names a size up from
+   search's rows. */
 .gl-item { display: flex; align-items: center; gap: var(--sp-1); padding-right: var(--sp-1); border-radius: var(--r-sm); }
 .gl-item.is-current { background: var(--c-pick); }
 .gl-item > .sheet-row { flex: 1; min-width: 0; min-height: 56px; }
@@ -64,8 +71,8 @@
 .gl-rows .sheet-name { font-size: 19px; }
 .gl-lvls { flex: none; display: flex; align-items: center; }
 .gl-lvl { width: 28px; height: 44px; display: grid; place-items: center; padding: 0; border: 0; border-radius: var(--r-sm); background: transparent; cursor: pointer; -webkit-tap-highlight-color: transparent; }
-.gl-lvl i { width: 10px; height: 10px; border-radius: 50%; background: var(--c-text); }
-.gl-lvl.is-on i { width: 14px; height: 14px; background: var(--lvl); }
+.gl-lvl i { width: 17px; height: 17px; border-radius: 50%; background: var(--lvl); }
+.gl-lvl.is-off i { width: 14px; height: 14px; background: var(--c-text-3); }
 .gl-lvl:hover { background: var(--c-surface-3); }
 .gl-lvl:focus-visible { outline: 2px solid var(--c-accent); outline-offset: -2px; }
 .gl-lvl.is-off { cursor: default; }

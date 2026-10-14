@@ -35,7 +35,7 @@ export class ProgressBox {
     this.el.className = `pbox${className ? ` ${className}` : ''}`;
     this.el.innerHTML = `
       <div class="pb-slot"><div class="pb-progs"></div><div class="pb-news" role="status" hidden></div></div>
-      <button type="button" class="pb-build">${icon('mode-build', { size: 20 })}<span>Build</span></button>`;
+      <button type="button" class="pb-build">${icon('build', { size: 20 })}<span>Build</span></button>`;
     this.progs = this.el.querySelector('.pb-progs')!;
     this.newsEl = this.el.querySelector('.pb-news')!;
     this.build = this.el.querySelector('.pb-build')!;
