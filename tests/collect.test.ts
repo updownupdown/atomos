@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { defaultSave, type SaveData } from '../src/core/save';
-import { NU_CYCLE, NU_ORBIT, newsLine, nuOffset, pctLabel, periodProgress, periodNeighbour, periodPick, periodTracks, stepInPeriod } from '../src/gallery/collect';
+import { NU_CYCLE, NU_ORBIT, newsLine, nuOffset, pctLabel, periodProgress, periodNeighbour, periodPick, periodTracks, stepAtom } from '../src/gallery/collect';
 import { toneOf } from '../src/gallery/thumbs';
 import { lastingIsotopes, fleetingIsotopes } from '../src/core/progress';
 
@@ -74,13 +74,14 @@ describe('atom list', () => {
   });
 });
 
-describe('moving along a period and between periods', () => {
-  it('steps along the period, looping at its ends', () => {
-    expect(stepInPeriod(26, 1)).toBe(27); // Fe → Co
-    expect(stepInPeriod(36, 1)).toBe(19); // Kr → K
-    expect(stepInPeriod(19, -1)).toBe(36); // K → Kr
-    expect(stepInPeriod(1, -1)).toBe(2); // H → He
-    expect(stepInPeriod(71, 1)).toBe(72); // Lu → Hf, through the f-block in order
+describe('moving between atoms and periods', () => {
+  it('steps to the atom after or before, on into the next period and round from 118 to 1', () => {
+    expect(stepAtom(26, 1)).toBe(27); // Fe → Co
+    expect(stepAtom(36, 1)).toBe(37); // Kr, the end of Period 4 → Rb, the start of Period 5
+    expect(stepAtom(37, -1)).toBe(36); // Rb → Kr
+    expect(stepAtom(118, 1)).toBe(1); // Og → H
+    expect(stepAtom(1, -1)).toBe(118); // H → Og
+    expect(stepAtom(71, 1)).toBe(72); // Lu → Hf, through the f-block in order
   });
   it('goes to the same column in the period above or below', () => {
     expect(periodNeighbour(11, -1)).toBe(3); // Na → Li

@@ -64,10 +64,13 @@
 /* The table: closed (.is-strip), only the period's cells, in their row (and the f-block row under
    it); open, the whole table, 100% wide, zoomed by a pinch inside its box. */
 .co-zoom { position: relative; overflow: hidden; }
-.collect-screen.is-open .co-zoom { touch-action: none; }
+/* Open, the table takes the room the rows under it leave, centered in it (auto margins, so a
+   zoomed table outgrowing the box still starts at its top), and the rows sit at the foot. */
+.collect-screen.is-open .co-zoom { flex: 1 0 auto; display: flex; touch-action: none; }
+.collect-screen.is-open .co-table { margin: auto; flex: none; }
 .co-table { position: relative; display: grid; grid-template-columns: repeat(18, minmax(0, 1fr)); grid-template-rows: repeat(7, auto) 4px repeat(2, auto); gap: 3px; width: 100%; max-width: 720px; margin: 0 auto; padding: 4px var(--sp-4); box-sizing: border-box; }
 .co-table.is-strip .co-cell:not(.in-period) { display: none; }
-.co-band { position: absolute; z-index: 0; left: calc(var(--sp-4) - 6px); right: calc(var(--sp-4) - 6px); border-radius: 6px; background: var(--c-pick); pointer-events: none; }
+.co-band { position: absolute; z-index: 0; left: calc(var(--sp-4) - 6px); right: calc(var(--sp-4) - 6px); border-radius: 6px; background: var(--c-bg); pointer-events: none; }
 .co-cell { position: relative; z-index: 1; aspect-ratio: 1; min-width: 0; padding: 0; border: 0; border-radius: 3px; background: #383c42; color: var(--c-text); font-family: var(--font); cursor: pointer; -webkit-tap-highlight-color: transparent; }
 /* Lit by collection: under way, a square of the atom's place color in the middle that grows with
    the stable parts built (--k); stable collected, the whole cell; all collected, a soft glow. */
