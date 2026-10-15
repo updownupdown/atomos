@@ -1245,7 +1245,7 @@ body[data-screen='puzzles'].pg-playing .nav-tools { display: flex; }
 /* The bar on Home (src/ui/dock.ts): Collect, Atlas and Play in a pill floating at the foot, each
    an icon over its name. --safe-bottom grows by the pill on Home, so whatever sits at the foot
    stays clear of it. Off Home it hides; the trail says where you are. */
-:root { --dock-h: 64px; --bar-h: 48px; }
+:root { --dock-h: 72px; --bar-h: 48px; }
 .dock {
   position: fixed;
   left: 50%;
@@ -1255,7 +1255,8 @@ body[data-screen='puzzles'].pg-playing .nav-tools { display: flex; }
   transform: translateX(-50%);
   z-index: 16;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
   gap: 4px;
   padding: 6px;
   border-radius: var(--r-pill);
@@ -1268,7 +1269,7 @@ body[data-screen='puzzles'].pg-playing .nav-tools { display: flex; }
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2px;
+  gap: 6px;
   padding: 0;
   border: 0;
   border-radius: var(--r-pill);
@@ -1280,7 +1281,7 @@ body[data-screen='puzzles'].pg-playing .nav-tools { display: flex; }
 }
 .dock button:hover { background: var(--c-surface-2); }
 .nav-ico { display: grid; place-items: center; }
-.nav-ico svg { width: 24px; height: 24px; display: block; }
+.nav-ico svg { width: 29px; height: 29px; display: block; }
 .nav-lab { font-size: 15px; font-weight: var(--fw-semibold); line-height: 1.1; }
 /* Small phones: the pill and the header give their margins to the names. */
 @media (max-width: 400px) {

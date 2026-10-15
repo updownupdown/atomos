@@ -2,8 +2,8 @@
 // back to it and the last the screen itself.
 //
 //   (.) › Collect                        Collect
-//   (.) › Collect › Nd › Build           an atom's Build page (Collect and Nd go back to Collect
-//                                        on that atom)
+//   (.) › Collect › (Nd Neodymium ⌄)     an atom's Build page (Collect goes back to Collect on
+//                                        that atom); the atom is a dropdown of the atoms
 //   (.) › Collect › Nd › [] Flux         a puzzle from that page (Nd goes back to it)
 //   (.) › Atlas › (Nd Neodymium ⌄)       an atom's page in the Atlas; the atom is a dropdown of
 //                                        the atoms
