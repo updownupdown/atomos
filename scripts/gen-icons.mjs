@@ -13,17 +13,16 @@ import { markInner } from '../src/ui/mark.ts';
 const here = dirname(fileURLToPath(import.meta.url));
 const out = join(here, '..', 'public', 'icons');
 
-const PLATE = '#0c0b0a';
-const SILVER = '#d9d6cf';
+// Pure white on pure black (James, 2026-10-15), so the launch splash, which shows the icon on the
+// manifest's black background, has no visible square around the mark.
+const PLATE = '#000000';
+const SILVER = '#ffffff';
 
-// The mark fills `share` of the canvas; the rest is plate black, with a faint grain so an
-// enlarged icon still reads as the Cloud Chamber ground rather than flat black.
-const icon = (share, { grain = true } = {}) => {
+// The mark fills `share` of the canvas; the rest is flat black.
+const icon = (share) => {
   const s = 100 * share, o = (100 - s) / 2;
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <defs><filter id="n"><feTurbulence type="fractalNoise" baseFrequency="1.1" numOctaves="2" stitchTiles="stitch"/><feColorMatrix values="0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.06 0"/></filter></defs>
   <rect width="100" height="100" fill="${PLATE}"/>
-  ${grain ? '<rect width="100" height="100" filter="url(#n)"/>' : ''}
   <svg x="${o}" y="${o}" width="${s}" height="${s}" viewBox="0 0 100 100" color="${SILVER}">${markInner()}</svg>
 </svg>`;
 };
@@ -55,6 +54,6 @@ await render(icon(0.78), 512, 'icon-512.png');
 // Maskable icons are cropped to a circle or squircle; the mark stays inside the safe 80%.
 await render(icon(0.58), 512, 'maskable-512.png');
 // iOS rounds the corners itself and ignores transparency.
-await render(icon(0.78, { grain: false }), 180, 'apple-touch-icon.png');
+await render(icon(0.78), 180, 'apple-touch-icon.png');
 await browser.close();
 console.log('icons written to', out);
