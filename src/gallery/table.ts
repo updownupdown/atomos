@@ -153,8 +153,7 @@ export function createTable(opts: { onPick: (z: number) => void }): Table {
           <button type="button" class="el-sortbtn tb-btn" aria-haspopup="menu" aria-expanded="false"></button>
           ${menu('', GROUPS)}
         </div>
-        <button type="button" class="ui-icon-btn el-filter" aria-label="Filter" aria-expanded="false" aria-controls="tb-filters">${icon('filter', { size: 22 })}</button>
-        <span class="el-count tb-count" aria-live="polite"></span>
+        <span class="tb-countf"><span class="el-count tb-count" aria-live="polite"></span><button type="button" class="ui-icon-btn el-filter" aria-label="Filter" aria-expanded="false" aria-controls="tb-filters">${icon('filter', { size: 22 })}</button></span>
       </div>
       <div class="tb-filters" id="tb-filters" hidden>
         ${FILTER_KEYS.map((k) => `<div class="tb-fgroup"><small>${esc(FILTERS[k].label)}</small><div class="ui-pills" role="group" aria-label="${esc(FILTERS[k].label)}">${FILTERS[k].values.map((v) => `<button type="button" role="checkbox" class="ui-pill tb-pill" data-f="${k}" data-v="${esc(v.id)}">${esc(v.label)}</button>`).join('')}</div></div>`).join('')}
@@ -167,6 +166,11 @@ export function createTable(opts: { onPick: (z: number) => void }): Table {
   const none = root.querySelector<HTMLElement>('.el-none')!;
   const filterBtn = root.querySelector<HTMLButtonElement>('.el-filter')!;
   const panel = root.querySelector<HTMLElement>('.tb-filters')!;
+  // The filters float in a box under the bar; a tap anywhere else puts them away.
+  const showFilters = (on: boolean) => {
+    panel.hidden = !on;
+    filterBtn.setAttribute('aria-expanded', String(on));
+  };
 
   const draw = () => {
     const sections = tableRows(st, query);
@@ -240,7 +244,9 @@ export function createTable(opts: { onPick: (z: number) => void }): Table {
   };
   const away = (e: Event) => {
     if (!root.isConnected) return;
-    if (!(e.target as HTMLElement).closest('.tb-box')) openMenu(null);
+    const t = e.target as HTMLElement;
+    if (!t.closest('.tb-box')) openMenu(null);
+    if (!panel.hidden && !t.closest('.tb-filters, .el-filter')) showFilters(false);
   };
   document.addEventListener('pointerdown', away, true);
   root.addEventListener('keydown', (e) => {
@@ -262,11 +268,7 @@ export function createTable(opts: { onPick: (z: number) => void }): Table {
       return;
     }
     if (t.closest('.el-dir')) { change(() => { st.desc = !st.desc; }); return; }
-    if (t.closest('.el-filter')) {
-      panel.hidden = !panel.hidden;
-      filterBtn.setAttribute('aria-expanded', String(!panel.hidden));
-      return;
-    }
+    if (t.closest('.el-filter')) { showFilters(Boolean(panel.hidden)); return; }
     const pill = t.closest<HTMLElement>('.tb-pill');
     if (pill) {
       const k = pill.dataset.f as FilterKey, v = pill.dataset.v!;

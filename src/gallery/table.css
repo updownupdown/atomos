@@ -1,28 +1,29 @@
 /* Tables (table.ts): the search, filters, sort and grouping on the header gray, and the table
    on black beneath, scrolling both ways with its heading row and symbol column held in place. */
 .tb { flex: 1; min-height: 0; display: flex; flex-direction: column; font-family: var(--font); }
-.tb-tools { display: flex; flex-direction: column; gap: var(--sp-3); padding: var(--sp-2) var(--sp-3) var(--sp-3); background: var(--c-nav); }
+.tb-tools { position: relative; display: flex; flex-direction: column; gap: var(--sp-3); padding: var(--sp-2) var(--sp-3) var(--sp-3); background: var(--c-nav); }
 .tb-tools .el-search input { background: var(--c-bg); }
 .tb-tools .el-filter { background: var(--c-surface-3); color: var(--c-text); }
 
 /* Filters: a row of pills for each, any number picked; an element shows if it matches one
-   picked value in every filter that has any. */
-.tb-filters { display: flex; flex-direction: column; gap: var(--sp-3); }
+   picked value in every filter that has any. They float in a gray box over the rows. */
+.tb-filters { position: absolute; top: calc(100% - var(--sp-1)); left: var(--sp-3); right: var(--sp-3); z-index: 5; display: flex; flex-direction: column; gap: var(--sp-3); max-height: min(65vh, 560px); overflow-y: auto; overscroll-behavior: contain; padding: var(--sp-3) var(--sp-4) var(--sp-4); border-radius: 18px; background: var(--c-surface-2); box-shadow: 0 10px 32px rgba(0, 0, 0, 0.6); }
 .tb-filters[hidden] { display: none; }
 .tb-fgroup { display: flex; flex-direction: column; gap: var(--sp-1); }
 .tb-fgroup small { font-size: var(--fs-caps-min); font-weight: var(--fw-semibold); letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--c-text-2); }
 .tb-fgroup .ui-pills { flex-wrap: wrap; gap: 6px; }
-.tb-fgroup .ui-pill { background: var(--c-bg); }
+.tb-fgroup .ui-pill { background: var(--c-surface-3); }
 .tb-fgroup .ui-pill[aria-checked='true'] { background: var(--c-accent); }
 .tb-clearf { align-self: flex-start; min-height: 36px; padding: 0 var(--sp-3); border: 0; border-radius: var(--r-pill); background: transparent; color: var(--c-accent); font-family: var(--font); font-size: var(--fs-sm); font-weight: var(--fw-semibold); cursor: pointer; }
 .tb-clearf[hidden] { display: none; }
 .el-none .tb-clearf { background: var(--c-surface-2); }
 
-/* Sort (with its direction) and Group as two dropdowns, the count after them. */
+/* Sort (with its direction) and Group as two dropdowns, then the count and the filter button. */
 .tb-bar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
 .tb-bar .el-sortbtn, .tb-bar .el-dir { background: var(--c-bg); }
 .tb-btn small { font-size: var(--fs-sm); font-weight: var(--fw-medium); color: var(--c-text-2); }
-.tb-count { margin-left: auto; }
+.tb-countf { margin-left: auto; display: flex; align-items: center; gap: var(--sp-2); white-space: nowrap; }
+.tb-count { color: var(--c-text-2); }
 .tb-menu--left { left: 0; right: auto; }
 .tb-menu { max-height: min(60vh, 520px); overflow-y: auto; }
 .is-searching .tb-box { opacity: 0.4; }

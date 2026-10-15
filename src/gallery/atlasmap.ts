@@ -26,7 +26,7 @@ const NAME_PX = 13;
 const MAX_ZOOM = 9;
 /** Kept clear when the whole shape is shown: at the top for "About this shape" and the legend,
  *  at the foot for the peek strip, which float there. */
-const TOP_ROOM = 52;
+const TOP_ROOM = 44;
 const FOOT_ROOM = 84;
 
 interface Pointer { x: number; y: number }

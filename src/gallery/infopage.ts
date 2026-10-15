@@ -18,7 +18,7 @@ export function guideFoot(): HTMLElement {
   const foot = document.createElement('div');
   foot.className = 'info-guide';
   const b = scienceButton('foot-card info-guide-btn');
-  b.innerHTML = `<span class="foot-card-ico">${icon('microscope', { size: 22 })}</span><span class="foot-card-text"><b>How to read this page</b><small>What each part shows</small></span><span class="foot-card-go">${icon('chevron-right', { size: 22 })}</span>`;
+  b.innerHTML = `<span class="foot-card-ico">${icon('microscope', { size: 40 })}</span><span class="foot-card-text"><b>How to read this page</b></span><span class="foot-card-go">${icon('chevron-right', { size: 22 })}</span>`;
   foot.append(b);
   return foot;
 }
