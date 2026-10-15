@@ -52,10 +52,11 @@ function panel(to: HomeTarget, title: string, ico: IconName, body: string): stri
     + body + '</section>';
 }
 
-/** The break between two sections: an orbit around its nucleus, tilted a little. */
-const SEP = '<div class="home-sep" data-nu-toy aria-hidden="true"><svg viewBox="0 0 96 24">'
-  + '<ellipse cx="48" cy="12" rx="44" ry="9" fill="none" stroke="currentColor" stroke-width="2" transform="rotate(-6 48 12)"/>'
-  + '<circle cx="48" cy="12" r="4" fill="currentColor"/></svg></div>';
+/** The break between two sections: a round orbit around its nucleus (an <ellipse>, which is what
+ *  Nu flies along when it plays here). */
+const SEP = '<div class="home-sep" data-nu-toy aria-hidden="true"><svg viewBox="0 0 40 40">'
+  + '<ellipse cx="20" cy="20" rx="16" ry="16" fill="none" stroke="currentColor" stroke-width="2"/>'
+  + '<circle cx="20" cy="20" r="3.5" fill="currentColor"/></svg></div>';
 
 export function renderHome(host: HTMLElement, go: HomeGo): void {
   const save = loadSave();
@@ -231,54 +232,64 @@ function paintGuess(box: HTMLElement, index: number, go: HomeGo): void {
   });
 }
 
+/** How long an answer stays up before the next question; a note gets time to be read. */
+const QUIZ_SHOW_MS = 2200, QUIZ_NOTE_MS = 3600;
+
+/** Nu's questions. One card that keeps its shape from question to answer: the values under the
+ *  atom cards and the line under them are laid out from the start and only shown on answering,
+ *  and the bar at the foot (a segment a question) fills its segment as the countdown to the
+ *  next one. */
 function paintQuiz(box: HTMLElement, index: number): void {
   const qs = quizOf(index);
   const st = readDay();
   const n = st.quiz.length;
   const streak = liveStreak(st);
-  const dots = `<span class="home-dots" aria-hidden="true">${qs.map((_, i) => `<i class="${i < n ? (st.quiz[i] ? 'is-right' : 'is-wrong') : ''}"></i>`).join('')}</span>`;
+  const bar = `<div class="home-qbar" aria-hidden="true">${qs.map((_, i) => `<i class="${i < n ? (st.quiz[i] ? 'is-right' : 'is-wrong') : ''}"><b></b></i>`).join('')}</div>`;
   const head = `<div class="home-row"><span class="home-nu">${nuIconHtml(20)}</span><b class="home-q home-grow">Nu asks</b>`
     + `<span class="home-muted">${streak ? `Streak ${streak} day${streak === 1 ? '' : 's'}` : 'Start a streak'}</span></div>`;
   if (n >= qs.length) {
     // Done for today: Nu leaves the quiz.
     delete box.dataset.nuPerch;
     const right = st.quiz.filter(Boolean).length;
-    box.innerHTML = `<div class="home-card">${head}<p class="home-done">${right} of ${qs.length} right today. Three more tomorrow.</p><div class="home-row">${dots}</div></div>`;
+    box.innerHTML = `<div class="home-card home-quizcard">${head}`
+      + `<div class="home-qdone"><b>${right}/${qs.length}</b><span><b>right today</b><small>Three more tomorrow</small></span></div>${bar}</div>`;
     return;
   }
   const q = qs[n];
   const choice = (o: QuizOption, i: number) => ('z' in o
-    ? atomCard(o.z, `data-ans="${i}" aria-label="${esc(elementAt(o.z).name)}"`)
-    : `<button type="button" class="home-btn home-choice" data-ans="${i}">${esc(o.text)}</button>`);
+    ? atomCard(o.z, `data-ans="${i}" aria-label="${esc(elementAt(o.z).name)}"`, '', esc(q.after[i] || '\u00a0'))
+    : `<button type="button" class="home-tile" data-ans="${i}">${esc(o.text)}</button>`);
   const atoms = 'z' in q.options[0];
-  box.innerHTML = `<div class="home-card">${head}<p class="home-ask">${esc(q.text)}</p>`
-    + `<div class="${atoms ? 'home-acards is-two' : 'home-row home-answers'}">${q.options.map(choice).join('')}</div>`
-    + '<p class="home-note" hidden></p>'
-    + `<div class="home-row">${dots}<span class="home-muted">Question ${n + 1} of ${qs.length}</span></div></div>`;
+  // "Not quite." is the longer verdict, so the line is laid out at its widest.
+  box.innerHTML = `<div class="home-card home-quizcard">${head}<p class="home-ask">${esc(q.text)}</p>`
+    + `<div class="${atoms ? 'home-acards' : 'home-tiles'}">${q.options.map(choice).join('')}</div>`
+    + `<p class="home-qline"><span class="home-qnow">Question ${n + 1} of ${qs.length}</span>`
+    + `<span class="home-qafter" aria-live="polite"><b>Not quite.</b>${q.note ? ` ${esc(q.note)}` : ''}</span></p>${bar}</div>`;
+  const card = box.firstElementChild as HTMLElement;
   box.querySelectorAll<HTMLButtonElement>('[data-ans]').forEach((b) => {
     b.onclick = () => {
       // Once the player is answering, Nu sits in the quiz's icon (nu.ts) until it's done.
       box.dataset.nuPerch = '2';
       const right = Number(b.dataset.ans) === q.answer;
-      // Show the answer and each card's value, then move on.
       const all = box.querySelectorAll<HTMLButtonElement>('[data-ans]');
-      all.forEach((x, i) => {
-        x.disabled = true;
-        const sub = q.after[i];
-        if (sub) {
-          const txt = x.querySelector('.home-acard-txt');
-          txt?.insertAdjacentHTML('beforeend', `<small class="home-val">${esc(sub)}</small>`);
-        }
-      });
+      all.forEach((x) => { x.disabled = true; });
       all[q.answer].classList.add('is-right');
-      if (!right) b.classList.add('is-wrong');
-      const note = box.querySelector<HTMLElement>('.home-note')!;
-      if (q.note) { note.textContent = q.note; note.hidden = false; }
+      all[q.answer].insertAdjacentHTML('beforeend', `<span class="home-mark">${icon('check', { size: 16 })}</span>`);
+      if (!right) {
+        b.classList.add('is-wrong');
+        b.insertAdjacentHTML('beforeend', `<span class="home-mark">${icon('close', { size: 16 })}</span>`);
+      }
+      card.querySelector('.home-qafter b')!.textContent = right ? 'Right.' : 'Not quite.';
+      const ms = q.note ? QUIZ_NOTE_MS : QUIZ_SHOW_MS;
+      const seg = card.querySelectorAll<HTMLElement>('.home-qbar i')[n];
+      seg.classList.add(right ? 'is-right' : 'is-wrong', 'is-timing');
+      seg.style.setProperty('--ms', `${ms}ms`);
+      card.classList.add('is-answered');
       let s = readDay();
       s = { ...s, quiz: [...s.quiz, right] };
       if (s.quiz.length >= qs.length) s = finishQuiz(s);
       writeDay(s);
-      setTimeout(() => paintQuiz(box, index), q.note ? 2600 : 1800);
+      setTimeout(() => paintQuiz(box, index), ms);
     };
   });
 }
