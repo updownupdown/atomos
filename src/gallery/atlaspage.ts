@@ -1,8 +1,9 @@
 // An atom's page in the Atlas: what it is, before anything about playing. It is the atom's Info
-// from anywhere in the app. The bar holds chevrons to the previous and next atom in the view's
-// order (which atom it is, and the way back to the maps, are in the header's trail: Atlas ›
-// (Nd Neodymium)); then the Info tabs (Overview, Structure, Isotopes, Properties, from info.ts);
-// and at the foot of Overview one card, the only way from here into play: Build.
+// from anywhere in the app. Which atom it is, the way back to the maps and the list of the
+// others are in the header's trail: Atlas › (Nd Neodymium ⌄); the arrow keys step through the
+// view's order. Then the Info tabs (Overview, Structure, Isotopes, Properties, from info.ts). On
+// Overview, View (the 3D atom full screen) sits in its card, and at its foot one card, the only
+// way from here into play: Build.
 //
 //   const page = new AtlasPage({ onBuild, onClose });
 //   document.body.append(page.el);
@@ -34,6 +35,8 @@ export class AtlasPage {
   /** Build, at the foot of Overview. */
   private build = document.createElement('button');
   private foot = document.createElement('div');
+  /** View, in Overview's card. */
+  private view = document.createElement('button');
   private shown = true;
 
   constructor(private opts: { onBuild: (z: number) => void; onClose: () => void }) {
@@ -42,22 +45,18 @@ export class AtlasPage {
     el.hidden = true;
     el.setAttribute('aria-label', 'An atom in the Atlas');
     el.innerHTML = `
-      <div class="ap-bar">
-        <button type="button" class="ap-round ap-back" aria-label="Back to the Atlas">${icon('chevron-left', { size: 24 })}</button>
-        <div class="ap-name"><small></small><b></b></div>
-        <div class="ap-walk">
-          <button type="button" class="ap-round ap-step" data-dir="-1">${icon('chevron-left', { size: 20 })}<span></span></button>
-          <button type="button" class="ap-round ap-step" data-dir="1"><span></span>${icon('chevron-right', { size: 20 })}</button>
-        </div>
-      </div>
       <div class="ap-tabs"></div>
       <div class="ap-panel" role="tabpanel"></div>`;
     this.el = el;
     this.panel = el.querySelector('.ap-panel')!;
     this.tabs = createTabs(TABS, { active: this.tab, label: 'About this atom', onChange: (id) => { this.tab = id as Tab; this.render(); } });
     el.querySelector('.ap-tabs')!.append(this.tabs.el);
-    el.querySelector<HTMLButtonElement>('.ap-back')!.onclick = () => this.close();
-    el.querySelectorAll<HTMLButtonElement>('.ap-step').forEach((b) => (b.onclick = () => this.step(Number(b.dataset.dir))));
+    this.view.type = 'button';
+    this.view.className = 'ov-view';
+    this.view.innerHTML = `${icon('fullscreen', { size: 18 })}<span>View</span>`;
+    this.view.onclick = () => {
+      if (this.current != null) this.view.dispatchEvent(new CustomEvent('atomos:view3d', { bubbles: true, detail: { z: this.current } }));
+    };
     this.build.type = 'button';
     this.build.className = 'foot-card ap-build';
     this.foot.className = 'ap-foot';
@@ -133,15 +132,7 @@ export class AtlasPage {
   private paint(): void {
     if (this.current == null) return;
     const e = elementAt(this.current);
-    this.el.querySelector('.ap-name small')!.textContent = `${e.z} ${e.symbol}`;
-    this.el.querySelector('.ap-name b')!.textContent = e.name;
-    const i = this.order.indexOf(e.z);
-    this.el.querySelectorAll<HTMLButtonElement>('.ap-step').forEach((b) => {
-      const z = this.order[i + Number(b.dataset.dir)];
-      b.disabled = z == null;
-      b.querySelector('span')!.textContent = z == null ? '' : elementAt(z).symbol;
-      b.setAttribute('aria-label', z == null ? 'No more atoms this way' : `${Number(b.dataset.dir) < 0 ? 'Previous' : 'Next'}: ${elementAt(z).name}`);
-    });
+    this.view.setAttribute('aria-label', `View ${e.name} in 3D, full screen`);
     this.paintBuild(e);
     this.tabs.select(this.tab, false);
     this.render();
@@ -166,7 +157,10 @@ export class AtlasPage {
     const label = TABS.find((t) => t.id === this.tab)!.label;
     this.panel.innerHTML = `<div class="atom-page">${tabHTML(e, this.tab, save.settings.unlockAll || Boolean(save.built[e.z]), save)}</div>`;
     mountInfoPage(this.panel, this.state);
-    if (this.tab === 'overview') this.panel.firstElementChild!.append(this.foot);
+    if (this.tab === 'overview') {
+      this.panel.querySelector('.ov-stats')?.append(this.view);
+      this.panel.firstElementChild!.append(this.foot);
+    }
     this.panel.firstElementChild!.append(this.guide);
     this.panel.scrollTop = 0;
     this.panel.setAttribute('aria-label', label);
