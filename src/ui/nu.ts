@@ -313,7 +313,10 @@ class Guide {
 
   /** Where the task's target is on screen now. */
   private rectOf(target: NuTarget | Pt): DOMRect | null {
-    if (typeof target === 'function') return target();
+    if (typeof target === 'function') {
+      const r = target();
+      return r && inView(r) ? r : null;
+    }
     if (target instanceof Element) {
       if (!target.isConnected || !target.getClientRects().length) return null;
       const r = target.getBoundingClientRect();
