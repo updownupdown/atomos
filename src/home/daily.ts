@@ -98,30 +98,50 @@ export function share(mgPerKg: number): string {
   return parts(mgPerKg * 1000, 'billion');
 }
 
-/** Every clue an atom has, by how much it gives away: hard, middle, easy. */
+/** Facts about where an atom is found or what it is used for: the softest way in. */
+const SOFT = /\b(uses?|used|alloys?|made (?:from|into)|your|body|blood|bones?|teeth|plants?|food|air|water|sea|oceans?|crust|rocks?|minerals?|ores?|mined?|stars?|sun|batter(?:y|ies)|steel|coins?|jewel\w*|lamps?|lights?|screens?|magnets?|glass|paint|pigments?|medic\w*|fuel|reactors?|electronics|fertilizer|wires?|cans?|pipes?|tools?)\b/i;
+/** Facts about its discovery or its name, which belong with the story clues. */
+const STORY = /\b(discovered|identified|isolated|named|name|symbol|Latin|Greek|first made|first found|announced)\b/i;
+
+/** The atom of the day's clues in three pools, one clue drawn from each, in this order:
+ *  1. where it's found or what it's used for (a fact, else its share of the crust);
+ *  2. its story and character: who found it and where, the headline fact, what kind it is;
+ *  3. numbers, last: melting and boiling points, density, stable isotopes. */
 export function cluePool(z: number): [string[], string[], string[]] {
   const e = elementAt(z);
   const who = e.discoverers ?? '';
   const ancient = /ancient/i.test(who);
-  const hard: string[] = [];
-  if (e.discoveryYear) hard.push(`Found in ${e.discoveryYear}${who && !ancient ? ` by ${people(who)}` : ''}.`);
-  else if (ancient) hard.push('Known since ancient times.');
-  if (e.discoveryPlace && !ancient) hard.push(`First found in ${andList(e.discoveryPlace.split('/').map(article))}${e.discoveryYear ? `, in ${e.discoveryYear}` : ''}.`);
-  if (e.melt !== null) hard.push(`Melts at ${celsius(e.melt)}${e.density !== null ? `, and its density is ${density(e.density)}` : ''}.`);
-  else if (e.boil !== null) hard.push(`Boils at ${celsius(e.boil)}.`);
-  if (e.boil !== null && e.melt !== null) hard.push(`Boils at ${celsius(e.boil)}.`);
-  hard.push(e.stableIsotopes ? `It has ${e.stableIsotopes} stable isotope${e.stableIsotopes === 1 ? '' : 's'}.` : 'It has no stable isotopes: every atom of it is radioactive.');
-  if (e.crust !== null && e.crust >= 0.001) hard.push(`It makes up ${share(e.crust)} of Earth's crust.`);
-  const mid = ((FACTS as { f?: string[] }[])[z - 1]?.f ?? []).map((f) => masked(f, e));
+  const facts = ((FACTS as { f?: string[] }[])[z - 1]?.f ?? []);
+  const crust = e.crust !== null && e.crust >= 0.001 ? `It makes up ${share(e.crust)} of Earth's crust.` : '';
+
+  const soft = facts.filter((f) => SOFT.test(f) && !STORY.test(f)).map((f) => masked(f, e));
+  if (!soft.length && crust) soft.push(crust);
+
+  const story: string[] = [];
+  if (e.discoveryYear) story.push(`Found in ${e.discoveryYear}${who && !ancient ? ` by ${people(who)}` : ''}.`);
+  else if (ancient) story.push('Known since ancient times.');
+  if (e.discoveryPlace && !ancient) story.push(`First found in ${andList(e.discoveryPlace.split('/').map(article))}${e.discoveryYear ? `, in ${e.discoveryYear}` : ''}.`);
   const p = phaseOf(e);
   // The headline fact twice as often as the kind, which the four cards alone can give away.
   const h = masked(headline(z), e);
-  const easy = [h, h, `It's ${aKind(e)}${p ? `, a ${p.toLowerCase()} at room temperature` : ''}.`];
-  return [hard, mid.length ? mid : easy.slice(2), easy];
+  story.push(h, h, `It's ${aKind(e)}${p ? `, a ${p.toLowerCase()} at room temperature` : ''}.`);
+  // Facts that are neither use nor story (rarer atoms often have only these) open the day
+  // when nothing softer is known.
+  if (!soft.length) soft.push(...facts.filter((f) => !STORY.test(f)).map((f) => masked(f, e)));
+  if (!soft.length) soft.push(story[story.length - 1]);
+
+  const numbers: string[] = [];
+  if (e.melt !== null) numbers.push(`Melts at ${celsius(e.melt)}${e.density !== null ? `, and its density is ${density(e.density)}` : ''}.`);
+  else if (e.boil !== null) numbers.push(`Boils at ${celsius(e.boil)}.`);
+  if (e.boil !== null && e.melt !== null) numbers.push(`Boils at ${celsius(e.boil)}.`);
+  numbers.push(e.stableIsotopes ? `It has ${e.stableIsotopes} stable isotope${e.stableIsotopes === 1 ? '' : 's'}.` : 'It has no stable isotopes: every atom of it is radioactive.');
+  if (crust && soft[0] !== crust) numbers.push(crust);
+  const rest = story.filter((c) => c && !soft.includes(c));
+  return [soft, rest.length ? rest : story, numbers];
 }
 
-/** The day's three clues, hardest first: one from each part of the pool, a different mix
- *  every day. */
+/** The day's three clues: where it's found or used first, numbers last; one from each part of
+ *  the pool, a different mix every day. */
 export function clues(z: number, index = 0): string[] {
   const rnd = seeded(index * 5 + 3);
   return cluePool(z).map((pool) => pool[Math.floor(rnd() * pool.length)]);
