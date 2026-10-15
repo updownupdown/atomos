@@ -194,6 +194,7 @@ export class AppShell {
     if (this.screen === 'gallery' && this.gallery.pageZ !== null) return this.gallery.closePage();
     if (this.screen === 'icons' || this.screen === 'components') { void this.go('settings'); return; }
     if (this.screen === 'atom') return this.closeAtom();
+    if (this.screen === 'nu' && this.park?.back()) return;
     if (this.screen !== 'home') void this.go('home');
   }
 
@@ -377,7 +378,11 @@ export class AppShell {
       }
       case 'icons': return [{ label: 'Settings', go: () => void this.go('settings') }, { label: 'Icons' }];
       case 'components': return [{ label: 'Settings', go: () => void this.go('settings') }, { label: 'Components' }];
-      case 'nu': return [{ label: 'Nu' }];
+      case 'nu': {
+        const game = this.park?.gameName;
+        if (!game) return [{ label: 'Nu' }];
+        return [{ label: 'Nu', go: () => this.park?.goHome() }, { label: game }];
+      }
       default: return null;
     }
   }
