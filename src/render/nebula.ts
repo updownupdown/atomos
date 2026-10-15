@@ -29,7 +29,13 @@ export interface NebulaOptions {
   dwell?: number;
   /** The share of light the rest keep while one orbital is lit. */
   rest?: number;
+  /** The share of the circle (from noon, clockwise) in color; the rest is gray and dimmer.
+   *  1 (default) colors the whole atom. */
+  slice?: number;
 }
+
+/** The light the gray part of a sliced atom keeps. */
+const SLICE_DIM = 0.7;
 
 /** Points grow by this much; the outer points grow this much more; the frame reaches this many
  *  times the radius holding 85% of the points; the core's falloff. */
@@ -169,6 +175,7 @@ export class Nebula {
     u.uAlpha.value = 0.55 * o.bright;
     u.uHue.value = 0;
     (u.uPulse.value as { set(x: number, y: number, z: number, w: number): unknown }).set(-1, 1, 0, 0);
+    (u.uSlice.value as { set(x: number, y: number): unknown }).set(o.slice ?? 1, SLICE_DIM);
     this.dress(cloud, o.halo);
   }
 

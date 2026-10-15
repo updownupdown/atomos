@@ -1,24 +1,25 @@
-// Collect: the atom's period in a drawer at the top that opens to the whole table, the atom large,
-// and at the foot its two bars, its plate and name, and Build.
+// Collect: the atom's period in a box at the top that opens to the whole table, the atom large,
+// and at the foot its counts and Build.
 //
-//   │ ▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪                           │      the drawer: the period's row of the
-//   │ Period 5  10 of 18 built              Table ⌄ │      table. Swiped down (or Table), the gem
-//   ╰──────────────────── ─── ─────────────────────╯      gives way, the row slides into its
-//                                                          place in the whole table and the rest
-//                 (the atom, as its gem)                   fades in; under the table, the
-//                                                          collection's three bars, then a chip
-//                                                          per period. A pinch zooms the table.
+//   ╭──────────────────────────────────────────────╮      the box: the period's heading, its
+//   │ Period 5   ◎▬▬▬▬  ◌▬▬▬          Table ⌄      │      two bars (stable parts, fleeting
+//   │ ▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪                           │      isotopes) and Table; under them the
+//   ╰──────────────────────────────────────────────╯      period's row of the table. Swiped
+//                                                          down (or Table), the gem gives way,
+//                 (the atom, as its gem,                   the collection's totals come in
+//                  colored over the slice                  above the row, which slides into its
+//                  of games won, scaffolded                place in the whole table while the
+//                  over the rest)                          rest fades in, and a chip per period
+//                                                          under it. A pinch zooms the table.
 //                                                          On the gem: sideways for the atom
-//                                                          before or after, down for the period
-//                                                          above, up for the one below, looping
-//   Stable          8/8    Fleeting       18/35            the atom's bars; a win's news takes
-//   ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬    ▬▬▬▬▬▬▬▬▬▬▬                    their place for 3 s
-//   [Nd] Neodymium                           [Build]       the atom, and the way into its Build
-//        Period 6 · Lanthanide                             page, where the gem and the bars rise
-//                                                          to the top
+//   ╭──────────────────────────────────────────────╮      before or after, down for the period
+//   │ Stable 2/3   Fleeting 20/39          [Build] │      above, up for the one below, looping.
+//   ╰──────────────────────────────────────────────╯      The foot's row rises to the top of
+//                                                          the atom's Build page, Build as Close.
 
 import { MAX_Z, elementAt, placeColour } from './data';
 import { atomPicture, toneOf, type Tone } from './thumbs';
+import { atomSlice } from './scaffold';
 import { GemAtom } from './gem';
 import { atomBuilt, fleetingCount, rowOf, rowOpen, rowSpan, segmentsOf } from '../core/progress';
 import { loadSave, type SaveData } from '../core/save';
@@ -27,7 +28,6 @@ import { fleetingOpen, periodNeed } from './locks';
 import type { TrackRow } from '../ui/tracks';
 import { tableCell } from '../ui/picker';
 import { inkOn } from './looks';
-import { seriesOne } from './table';
 import { icon } from '../ui/icons';
 import { nuShow, reducedMotion } from '../ui/nu';
 import './progressbox.css';
@@ -144,22 +144,34 @@ export function periodNeighbour(z: number, dir: 1 | -1): number {
 const fmt = (n: number) => n.toLocaleString('en-US');
 const width = (share: number) => `${(Math.max(0, Math.min(1, share)) * 100).toFixed(1)}%`;
 
-/** An atom's two bars: its stable parts, and its fleeting isotopes once they are open. Collect
- *  shows them under the atom, and its Build page under its own (game.ts). */
-export function atomBars(z: number, save: SaveData): string {
-  const segs = segmentsOf(z, save);
-  const done = segs.filter((s) => s.done).length;
-  const f = fleetingCount(z, save);
-  const fleetOn = fleetingOpen(save);
-  return lbar('Stable', `${done}/${segs.length}`, segs.length ? done / segs.length : 0, segs.length > 0 && done >= segs.length)
-    + (!f.total ? lbar('Fleeting', 'None', 0, false, true)
-      : fleetOn ? lbar('Fleeting', `${f.built}/${f.total}`, f.built / f.total, f.built >= f.total)
-        : lbar('Fleeting', `0/${f.total}`, 0, false, true));
+/** An atom's counts: its stable parts built, and its fleeting isotopes once they are open,
+ *  then a button: Build on Collect, Close on the atom's own page (game.ts), where the row sits
+ *  at the top under the atom. */
+export function atomRow(z: number, save: SaveData, action: 'build' | 'close'): string {
+  const s = atomSlice(z, save);
+  const count = (word: string, figure: string, done: boolean, off = false) =>
+    `<span class="co-count${done ? ' is-done' : ''}${off ? ' is-off' : ''}"><span>${word}</span><b>${figure}</b></span>`;
+  const fleeting = !s.fleetingTotal ? count('Fleeting', 'None', false, true)
+    : s.fleetingOn ? count('Fleeting', `${s.fleetingBuilt}/${s.fleetingTotal}`, s.fleetingBuilt >= s.fleetingTotal)
+      : count('Fleeting', `0/${s.fleetingTotal}`, false, true);
+  const name = elementAt(z).name;
+  const button = action === 'build'
+    ? `<button type="button" class="co-build" aria-label="Build ${name}">${icon('build', { size: 20 })}<span>Build</span></button>`
+    : `<button type="button" class="co-build is-close" aria-label="Close ${name}, back to Collect">${icon('close', { size: 20 })}<span>Close</span></button>`;
+  return `<div class="co-slot"><div class="co-counts">${count('Stable', `${s.stableBuilt}/${s.stableTotal}`, s.stableTotal > 0 && s.stableBuilt >= s.stableTotal)}${fleeting}</div><div class="pb-news co-news" role="status" hidden></div></div>${button}`;
 }
 
-/** A bar with its word and count over it: one atom's stable parts or fleeting isotopes. */
-function lbar(word: string, figure: string, share: number, done: boolean, off = false): string {
-  return `<div class="co-lbar${done ? ' is-done' : ''}${off ? ' is-off' : ''}"><span class="co-lbar-top"><span>${word}</span><b>${figure}</b></span><span class="co-trk"><i style="width:${width(off ? 0 : share)}"></i></span></div>`;
+/** Put an atom's row in `host`, its button doing `onClick`. */
+export function mountAtomRow(host: HTMLElement, z: number, save: SaveData, action: 'build' | 'close', onClick: () => void): void {
+  host.classList.add('co-row');
+  host.innerHTML = atomRow(z, save, action);
+  host.querySelector<HTMLButtonElement>('.co-build')!.onclick = onClick;
+}
+
+/** The share of a period's parts built, as a small bar: white under way, green once whole. */
+function pbar(ico: string, label: string, n: number, total: number): string {
+  const done = total > 0 && n >= total;
+  return `<span class="co-pbar${done ? ' is-done' : ''}" role="img" aria-label="${label}: ${fmt(n)} of ${fmt(total)}">${icon(ico as never, { size: 16 })}<span class="co-trk"><i style="width:${width(total ? n / total : 0)}"></i></span></span>`;
 }
 
 /** One of the collection's totals: the word, built of all, and a bar. */
@@ -178,12 +190,10 @@ export class Collect {
   private stage: HTMLElement;
   private gem: HTMLElement;
   private atom: HTMLElement;
-  private bars: HTMLElement;
-  private card: HTMLElement;
-  private build: HTMLButtonElement;
-  private newsEl: HTMLElement;
+  private row: HTMLElement;
   private drawer: HTMLElement;
-  private line: HTMLElement;
+  private heading: HTMLElement;
+  private pbars: HTMLElement;
   private more: HTMLButtonElement;
   private zoom: HTMLElement;
   private table: HTMLElement;
@@ -210,27 +220,21 @@ export class Collect {
     this.el = host;
     host.innerHTML = `
       <div class="co-drawer">
-        <div class="co-zoom"><div class="co-table" aria-label="Periodic table"></div></div>
-        <p class="co-pinch co-extra">Pinch the table to zoom in</p>
+        <div class="co-head"><div class="co-line"><b class="co-period" role="status"></b><span class="co-pbars"></span><button type="button" class="co-more" aria-expanded="false"></button></div></div>
         <div class="co-coll co-extra"></div>
+        <div class="co-zoom"><div class="co-table" aria-label="Periodic table"></div></div>
         <div class="co-chips co-extra" role="group" aria-label="Periods"></div>
-        <div class="co-head"><div class="co-line"><span class="co-line-txt" role="status"></span><button type="button" class="co-more" aria-expanded="false"></button></div><span class="co-handle" aria-hidden="true"></span></div>
       </div>
       <div class="co-stage"><button type="button" class="co-gem-btn"><span class="co-gem"></span></button></div>
-      <div class="co-atom">
-        <div class="co-slot"><div class="co-bars"></div><div class="pb-news co-news" role="status" hidden></div></div>
-        <div class="co-card"><span class="co-plate"></span><span class="co-name"><b></b><small></small></span><button type="button" class="co-build">${icon('build', { size: 20 })}<span>Build</span></button></div>
-      </div>`;
+      <div class="co-atom"><div class="co-row" role="group"></div></div>`;
     const $ = <T extends HTMLElement>(s: string) => host.querySelector<T>(s)!;
     this.stage = $('.co-stage');
     this.gem = $('.co-gem');
     this.atom = $('.co-atom');
-    this.bars = $('.co-bars');
-    this.card = $('.co-card');
-    this.build = $('.co-build');
-    this.newsEl = $('.co-news');
+    this.row = $('.co-row');
     this.drawer = $('.co-drawer');
-    this.line = $('.co-line-txt');
+    this.heading = $('.co-period');
+    this.pbars = $('.co-pbars');
     this.more = $('.co-more');
     this.zoom = $('.co-zoom');
     this.table = $('.co-table');
@@ -301,32 +305,24 @@ export class Collect {
     for (const c of this.table.querySelectorAll<HTMLElement>('.co-cell.is-current')) c.classList.remove('is-current');
     this.table.querySelector<HTMLElement>(`.co-cell[data-z="${z}"]`)?.classList.add('is-current');
     this.stage.querySelector('.co-gem-btn')!.setAttribute('aria-label', `${e.name}, ${z}: ${STATUS_WORD[statusOf(z, this.save)].toLowerCase()}. Open it`);
-    this.paintBars(z);
+    this.paintRow(z);
     if (period !== this.laid) this.layoutTable();
     this.paintLine();
     this.paintChips();
     if (this.shown && !this.open) this.showGem(z);
   }
 
-  /** The atom's two bars, then its plate, its name and where it sits, and Build. */
-  private paintBars(z: number): void {
-    this.bars.innerHTML = atomBars(z, this.save);
-    const e = elementAt(z);
-    const c = placeColour(e);
-    const plate = this.card.querySelector<HTMLElement>('.co-plate')!;
-    plate.style.background = c;
-    plate.style.color = inkOn(c);
-    plate.innerHTML = `<small>${e.z}</small><b>${e.symbol}</b>`;
-    this.card.querySelector('.co-name b')!.textContent = e.name;
-    this.card.querySelector('.co-name small')!.textContent = `Period ${rowOf(z)} · ${seriesOne(e)}`;
-    this.build.setAttribute('aria-label', `Build ${e.name}`);
+  /** The atom's counts and Build at the foot. */
+  private paintRow(z: number): void {
+    mountAtomRow(this.row, z, this.save, 'build', () => this.handlers.onOpen(this.current));
+    this.row.setAttribute('aria-label', `${elementAt(z).name}'s progress`);
   }
 
   /** The atom, large, as its gem: live where WebGL runs, else its picture. */
   private showGem(z: number): void {
     const tone = toneOf(z, this.save);
     if (this.live.ok) {
-      this.live.show(z, tone, reducedMotion());
+      this.live.show(z, atomSlice(z, this.save), reducedMotion());
       this.live.start();
     } else if (!this.gem.querySelector('img') || this.gem.dataset.z !== String(z)) {
       this.gem.dataset.z = String(z);
@@ -340,27 +336,23 @@ export class Collect {
     }
   }
 
-  /** The drawer's line: closed, the period (how many of its atoms are built, or what opens it)
-   *  and Table; open, Collection and Close. */
+  /** The box's line: the period's heading, its two bars (stable parts and fleeting isotopes
+   *  built, or what opens it while locked), and Table. */
   private paintLine(): void {
-    this.more.innerHTML = this.open ? `<span>Close</span>${icon('chevron-up', { size: 18 })}` : `<span>Table</span>${icon('chevron-down', { size: 18 })}`;
+    this.more.innerHTML = `<span>Table</span>${icon(this.open ? 'chevron-up' : 'chevron-down', { size: 20 })}`;
     this.more.setAttribute('aria-label', this.open ? 'Close the table' : 'Open the whole table');
-    if (this.open) {
-      this.line.className = 'co-line-txt';
-      this.line.innerHTML = '<b>Collection</b>';
-      return;
-    }
     const period = rowOf(this.current);
     if (!rowOpen(period, this.save)) {
       const need = periodNeed(this.current, this.save);
-      this.line.className = 'co-line-txt is-locked';
-      this.line.innerHTML = `${icon('lock', { size: 16 })}<b>Period ${period}</b><span>${need ? `Build ${need.more} more in Period ${period - 1}` : 'Locked'}</span>`;
+      this.heading.className = 'co-period is-locked';
+      this.heading.innerHTML = `${icon('lock', { size: 16 })}Period ${period}`;
+      this.pbars.innerHTML = `<span class="co-need">${need ? `Build ${need.more} more in Period ${period - 1}` : 'Locked'}</span>`;
       return;
     }
     const p = this.per[period - 1];
-    const done = p.built >= p.atoms;
-    this.line.className = `co-line-txt${done ? ' is-done' : ''}`;
-    this.line.innerHTML = `${done ? icon('check', { size: 16 }) : ''}<b>Period ${period}</b><span>${p.built} of ${p.atoms} built</span>`;
+    this.heading.className = 'co-period';
+    this.heading.textContent = `Period ${period}`;
+    this.pbars.innerHTML = pbar('isotope-stable', 'Stable parts', p.stableBuilt, p.stableTotal) + pbar('isotope-fleeting', 'Fleeting isotopes', p.fleetingBuilt, p.fleetingTotal);
   }
 
   /** A chip per period: its atoms built, a check once all are, a lock until it opens. */
@@ -496,19 +488,21 @@ export class Collect {
     this.placeNu();
   }
 
-  /** For a moment, in place of the bars: a green line of what the atom just gained. */
+  /** For a moment, in place of the counts: a green line of what the atom just gained. */
   private news(n: { added: string; note: string }): void {
     window.clearTimeout(this.newsTimer);
-    this.newsEl.innerHTML = `<b>${esc(n.added)}</b><span>${esc(n.note)}</span>`;
-    this.newsEl.hidden = false;
-    this.bars.classList.add('is-hidden');
+    const el = this.row.querySelector<HTMLElement>('.co-news')!;
+    el.innerHTML = `<b>${esc(n.added)}</b><span>${esc(n.note)}</span>`;
+    el.hidden = false;
+    this.row.querySelector('.co-counts')!.classList.add('is-hidden');
     this.newsTimer = window.setTimeout(() => this.hideNews(), 3000);
   }
 
   private hideNews(): void {
     window.clearTimeout(this.newsTimer);
-    this.newsEl.hidden = true;
-    this.bars.classList.remove('is-hidden');
+    const el = this.row.querySelector<HTMLElement>('.co-news');
+    if (el) el.hidden = true;
+    this.row.querySelector('.co-counts')?.classList.remove('is-hidden');
   }
 
   /** Each cell lit by how far its atom is collected: gray until a part is built, a square of
@@ -568,7 +562,6 @@ export class Collect {
   private bind(): void {
     const openAtom = () => { if (!this.swiped) this.handlers.onOpen(this.current); };
     this.stage.querySelector<HTMLElement>('.co-gem-btn')!.onclick = openAtom;
-    this.build.onclick = () => this.handlers.onOpen(this.current);
     // Its label is redrawn as it opens: the click must not reach the head as well.
     this.more.onclick = (e) => { e.stopPropagation(); this.setOpen(!this.open); };
     this.table.addEventListener('click', (e) => {
@@ -695,7 +688,7 @@ export class Collect {
   }
 
   /** For checks: the period, the atom in the lens, and whether the table is open. */
-  get state(): { period: number; z: number; open: boolean; scale: number; live: { z: number; tone: string; ready: boolean } } {
+  get state(): { period: number; z: number; open: boolean; scale: number; live: { z: number; pct: number; ready: boolean } } {
     return { period: rowOf(this.current), z: this.current, open: this.open, scale: this.scale, live: this.live.state };
   }
 }

@@ -404,6 +404,8 @@ uniform vec4 uPulse;       // ripple: front radius (a0), width, strength, unused
 uniform vec3 uPulseCol;
 uniform float uMist;       // points grow with their radius (0: all one size)
 uniform float uR90;        // the atom's r90 (a0), the mist's scale
+uniform vec2 uSlice;       // the share of the circle (from noon, clockwise) in color, and the light the rest keeps
+uniform float uAspect;     // the view's width over its height
 out vec3 vColor;
 out float vAlpha;
 
@@ -441,15 +443,27 @@ void main() {
   float r = length(position);
   float wave = uPulse.z * exp(-pow((r - uPulse.x) / max(uPulse.y, 1e-3), 2.0));
 
+  // The slice: in color over uSlice.x of the circle round the atom's center on the screen,
+  // from noon clockwise, gray and dimmer over the rest, with a soft edge between.
+  vec4 clip = projectionMatrix * mv;
+  float inSlice = 1.0;
+  if (uSlice.x < 1.0) {
+    vec4 c0 = projectionMatrix * modelViewMatrix * vec4(0.0, 0.0, 0.0, 1.0);
+    vec2 d = clip.xy / clip.w - c0.xy / c0.w;
+    d.x *= uAspect;
+    float turn = fract(atan(d.x, d.y) / 6.2831853);
+    inSlice = uSlice.x <= 0.0 ? 0.0 : 1.0 - smoothstep(uSlice.x - 0.004, uSlice.x + 0.004, turn);
+  }
+  sat *= inSlice;
   vec3 gray = vec3(dot(col, vec3(0.3, 0.59, 0.11))) * 0.75;
   col = hueTurn(mix(gray, col, sat), uHue);
   col = mix(col, vec3(1.0), spark * 0.35 * min(tw, 1.0));
   col = col + uPulseCol * wave;
   vColor = col;
-  vAlpha = uAlpha * gain * (lum + wave * 2.0 + c.w * 2.0);
+  vAlpha = uAlpha * gain * (lum + wave * 2.0 + c.w * 2.0) * mix(uSlice.y, 1.0, inSlice);
   float mist = 1.0 + uMist * min(r / max(uR90, 1e-3), 1.5);
   gl_PointSize = max(1.0, uSize * mist * (1.0 + spark * 0.9 * min(tw, 1.0)) / -mv.z);
-  gl_Position = projectionMatrix * mv;
+  gl_Position = clip;
 }`;
 
 /** One orbital's look, as the shader reads it. Colors are raw display RGB (0 to 1). */
@@ -526,6 +540,7 @@ export class OrbitalCloud {
         uLook: { value: this.look }, uHue: { value: 0 },
         uPulse: { value: new THREE.Vector4(0, 1, 0, 0) }, uPulseCol: { value: new THREE.Vector3(1, 1, 1) },
         uMist: { value: 0 }, uR90: { value: 1 },
+        uSlice: { value: new THREE.Vector2(1, 1) }, uAspect: { value: 1 },
       },
       ...ADD_BLEND,
     });
@@ -649,6 +664,7 @@ export class OrbitalCloud {
     u.uTime.value = time;
     // Point sizes follow the layer's resolution, so a coarser layer keeps the same look.
     u.uSize.value = Math.max(1.3, ctx.height / 560) * camera.position.length() * this.layer.scale * this.pointScale;
+    u.uAspect.value = ctx.width / Math.max(1, ctx.height);
     this.look.needsUpdate = true;
     const set = this.set!;
     const base = this.drawnBase;
