@@ -1,18 +1,21 @@
-// Collect: one atom large, its two bars, and its period in a drawer that opens to the whole
-// table. The atom's plate, name and Build sit in the header (dock.ts), not here.
+// Collect: the atom's period in a drawer at the top that opens to the whole table, the atom large,
+// and at the foot its two bars, its plate and name, and Build.
 //
-//   Stable          8/8    Fleeting       18/35            the atom's bars, always at the top;
-//   ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬    ▬▬▬▬▬▬▬▬▬▬▬                    a win's news takes their place for 3 s
-//                 (the atom, as its gem)                   swipe sideways for the atom before or
-//                                                          after, down for the period above, up
-//                                                          for the one below, looping
-//   ╭──────────────────── ─── ─────────────────────╮      the drawer: the period's row of the
-//   │ Period 5  10 of 18 built              Table ⌃ │      table. Swiped up (or Table), the gem
-//   │ ▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪                           │      gives way, the row slides into its
-//   │                  (dock)                       │      place in the whole table and the
-//                                                          rest fades in; under the table, the
+//   │ ▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪                           │      the drawer: the period's row of the
+//   │ Period 5  10 of 18 built              Table ⌄ │      table. Swiped down (or Table), the gem
+//   ╰──────────────────── ─── ─────────────────────╯      gives way, the row slides into its
+//                                                          place in the whole table and the rest
+//                 (the atom, as its gem)                   fades in; under the table, the
 //                                                          collection's three bars, then a chip
 //                                                          per period. A pinch zooms the table.
+//                                                          On the gem: sideways for the atom
+//                                                          before or after, down for the period
+//                                                          above, up for the one below, looping
+//   Stable          8/8    Fleeting       18/35            the atom's bars; a win's news takes
+//   ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬    ▬▬▬▬▬▬▬▬▬▬▬                    their place for 3 s
+//   [Nd] Neodymium                           [Build]       the atom, and the way into its Build
+//        Period 6 · Lanthanide                             page, where the gem and the bars rise
+//                                                          to the top
 
 import { MAX_Z, elementAt, placeColour } from './data';
 import { atomPicture, toneOf, type Tone } from './thumbs';
@@ -24,6 +27,7 @@ import { fleetingOpen, periodNeed } from './locks';
 import type { TrackRow } from '../ui/tracks';
 import { tableCell } from '../ui/picker';
 import { inkOn } from './looks';
+import { seriesOne } from './table';
 import { icon } from '../ui/icons';
 import { nuShow, reducedMotion } from '../ui/nu';
 import './progressbox.css';
@@ -140,6 +144,19 @@ export function periodNeighbour(z: number, dir: 1 | -1): number {
 const fmt = (n: number) => n.toLocaleString('en-US');
 const width = (share: number) => `${(Math.max(0, Math.min(1, share)) * 100).toFixed(1)}%`;
 
+/** An atom's two bars: its stable parts, and its fleeting isotopes once they are open. Collect
+ *  shows them under the atom, and its Build page under its own (game.ts). */
+export function atomBars(z: number, save: SaveData): string {
+  const segs = segmentsOf(z, save);
+  const done = segs.filter((s) => s.done).length;
+  const f = fleetingCount(z, save);
+  const fleetOn = fleetingOpen(save);
+  return lbar('Stable', `${done}/${segs.length}`, segs.length ? done / segs.length : 0, segs.length > 0 && done >= segs.length)
+    + (!f.total ? lbar('Fleeting', 'None', 0, false, true)
+      : fleetOn ? lbar('Fleeting', `${f.built}/${f.total}`, f.built / f.total, f.built >= f.total)
+        : lbar('Fleeting', `0/${f.total}`, 0, false, true));
+}
+
 /** A bar with its word and count over it: one atom's stable parts or fleeting isotopes. */
 function lbar(word: string, figure: string, share: number, done: boolean, off = false): string {
   return `<div class="co-lbar${done ? ' is-done' : ''}${off ? ' is-off' : ''}"><span class="co-lbar-top"><span>${word}</span><b>${figure}</b></span><span class="co-trk"><i style="width:${width(off ? 0 : share)}"></i></span></div>`;
@@ -162,6 +179,8 @@ export class Collect {
   private gem: HTMLElement;
   private atom: HTMLElement;
   private bars: HTMLElement;
+  private card: HTMLElement;
+  private build: HTMLButtonElement;
   private newsEl: HTMLElement;
   private drawer: HTMLElement;
   private line: HTMLElement;
@@ -190,22 +209,25 @@ export class Collect {
   constructor(host: HTMLElement, private handlers: CollectHandlers) {
     this.el = host;
     host.innerHTML = `
-      <div class="co-atom">
-        <div class="co-slot"><div class="co-bars"></div><div class="pb-news co-news" role="status" hidden></div></div>
-      </div>
-      <div class="co-stage"><button type="button" class="co-gem-btn"><span class="co-gem"></span></button></div>
       <div class="co-drawer">
-        <div class="co-head"><span class="co-handle" aria-hidden="true"></span><div class="co-line"><span class="co-line-txt" role="status"></span><button type="button" class="co-more" aria-expanded="false"></button></div></div>
         <div class="co-zoom"><div class="co-table" aria-label="Periodic table"></div></div>
         <p class="co-pinch co-extra">Pinch the table to zoom in</p>
         <div class="co-coll co-extra"></div>
         <div class="co-chips co-extra" role="group" aria-label="Periods"></div>
+        <div class="co-head"><div class="co-line"><span class="co-line-txt" role="status"></span><button type="button" class="co-more" aria-expanded="false"></button></div><span class="co-handle" aria-hidden="true"></span></div>
+      </div>
+      <div class="co-stage"><button type="button" class="co-gem-btn"><span class="co-gem"></span></button></div>
+      <div class="co-atom">
+        <div class="co-slot"><div class="co-bars"></div><div class="pb-news co-news" role="status" hidden></div></div>
+        <div class="co-card"><span class="co-plate"></span><span class="co-name"><b></b><small></small></span><button type="button" class="co-build">${icon('build', { size: 20 })}<span>Build</span></button></div>
       </div>`;
     const $ = <T extends HTMLElement>(s: string) => host.querySelector<T>(s)!;
     this.stage = $('.co-stage');
     this.gem = $('.co-gem');
     this.atom = $('.co-atom');
     this.bars = $('.co-bars');
+    this.card = $('.co-card');
+    this.build = $('.co-build');
     this.newsEl = $('.co-news');
     this.drawer = $('.co-drawer');
     this.line = $('.co-line-txt');
@@ -286,16 +308,18 @@ export class Collect {
     if (this.shown && !this.open) this.showGem(z);
   }
 
-  /** The atom's two bars: its stable parts, and its fleeting isotopes once they are open. */
+  /** The atom's two bars, then its plate, its name and where it sits, and Build. */
   private paintBars(z: number): void {
-    const segs = segmentsOf(z, this.save);
-    const done = segs.filter((s) => s.done).length;
-    const f = fleetingCount(z, this.save);
-    const fleetOn = fleetingOpen(this.save);
-    this.bars.innerHTML = lbar('Stable', `${done}/${segs.length}`, segs.length ? done / segs.length : 0, segs.length > 0 && done >= segs.length)
-      + (!f.total ? lbar('Fleeting', 'None', 0, false, true)
-        : fleetOn ? lbar('Fleeting', `${f.built}/${f.total}`, f.built / f.total, f.built >= f.total)
-          : lbar('Fleeting', `0/${f.total}`, 0, false, true));
+    this.bars.innerHTML = atomBars(z, this.save);
+    const e = elementAt(z);
+    const c = placeColour(e);
+    const plate = this.card.querySelector<HTMLElement>('.co-plate')!;
+    plate.style.background = c;
+    plate.style.color = inkOn(c);
+    plate.innerHTML = `<small>${e.z}</small><b>${e.symbol}</b>`;
+    this.card.querySelector('.co-name b')!.textContent = e.name;
+    this.card.querySelector('.co-name small')!.textContent = `Period ${rowOf(z)} · ${seriesOne(e)}`;
+    this.build.setAttribute('aria-label', `Build ${e.name}`);
   }
 
   /** The atom, large, as its gem: live where WebGL runs, else its picture. */
@@ -319,7 +343,7 @@ export class Collect {
   /** The drawer's line: closed, the period (how many of its atoms are built, or what opens it)
    *  and Table; open, Collection and Close. */
   private paintLine(): void {
-    this.more.innerHTML = this.open ? `${icon('chevron-down', { size: 18 })}<span>Close</span>` : `<span>Table</span>${icon('chevron-up', { size: 18 })}`;
+    this.more.innerHTML = this.open ? `<span>Close</span>${icon('chevron-up', { size: 18 })}` : `<span>Table</span>${icon('chevron-down', { size: 18 })}`;
     this.more.setAttribute('aria-label', this.open ? 'Close the table' : 'Open the whole table');
     if (this.open) {
       this.line.className = 'co-line-txt';
@@ -544,6 +568,7 @@ export class Collect {
   private bind(): void {
     const openAtom = () => { if (!this.swiped) this.handlers.onOpen(this.current); };
     this.stage.querySelector<HTMLElement>('.co-gem-btn')!.onclick = openAtom;
+    this.build.onclick = () => this.handlers.onOpen(this.current);
     // Its label is redrawn as it opens: the click must not reach the head as well.
     this.more.onclick = (e) => { e.stopPropagation(); this.setOpen(!this.open); };
     this.table.addEventListener('click', (e) => {
@@ -593,10 +618,10 @@ export class Collect {
       if (upDown(dx, dy)) { this.stepPeriod(dy > 0 ? -1 : 1); return true; }
       return false;
     });
-    // On the drawer (open, on its head): up opens it, down closes it.
+    // On the drawer (open, on its head): down opens it, up closes it.
     swipe(this.drawer, (e) => !this.open || !!(e.target as HTMLElement).closest('.co-head'), (dx, dy) => {
       if (!upDown(dx, dy)) return false;
-      this.setOpen(dy < 0);
+      this.setOpen(dy > 0);
       return true;
     });
     this.drawer.querySelector<HTMLElement>('.co-head')!.addEventListener('click', (e) => {

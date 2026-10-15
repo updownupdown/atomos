@@ -157,9 +157,10 @@ export class GalleryApp {
     };
     this.detail.onPlay(this.detail.playing);
     this.full = fullScreen($('loupe-screen'), (on) => {
-      full.innerHTML = icon(on ? 'fullscreen-exit' : 'fullscreen');
-      full.setAttribute('aria-label', on ? 'Leave full screen' : 'Full screen');
-      full.title = on ? 'Leave full screen' : 'Full screen';
+      // View opens over the page it came from, like a dialog: an X closes it.
+      full.innerHTML = icon(on ? 'close' : 'fullscreen');
+      full.setAttribute('aria-label', on ? 'Close View' : 'Full screen');
+      full.title = on ? 'Close' : 'Full screen';
       // View is the atom full screen: leaving full screen there is leaving View, back to Build.
       if (!on && document.body.dataset.screen === 'atom-view') this.handlers.onLeaveView?.();
     });

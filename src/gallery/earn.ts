@@ -121,9 +121,9 @@ export function watchEarnings(): void {
       writeList(SEEN_KEY, [...seen, ...now]);
       writeList(FRESH_KEY, [...(readList(FRESH_KEY) ?? []), ...now.filter((id) => id !== 'nucleus-view')]);
       now.forEach((id, i) => setTimeout(() => showToast(toastText(id), { tone: 'good', duration: 3400 }), i * 900));
-      // Nu carries the news to the Learn button, where there is one on screen.
+      // Nu carries the news to the Atlas button, where there is one on screen.
       setTimeout(() => {
-        const learn = [...document.querySelectorAll<HTMLElement>('#dock-learn, #nav-gallery')].find((b) => !b.hidden && b.getClientRects().length);
+        const learn = [...document.querySelectorAll<HTMLElement>('#nav-gallery, #bh-to-info')].find((b) => !b.hidden && b.getClientRects().length);
         if (learn) nuShow(learn, { key: 'earned' });
       }, 600);
     }, 500);

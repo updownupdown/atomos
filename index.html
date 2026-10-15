@@ -18,27 +18,22 @@
   <body>
     <!-- The header, on every screen but the 3D atom full screen, never moving: the mark at its
          left (Home, and where Nu rests). On Home the wordmark, Search and Settings follow it;
-         everywhere else the bar (the dock) fills the rest. src/shell.ts. -->
+         everywhere else the trail from Home to the screen open (src/ui/crumbs.ts), then the
+         screen's own tools on the right (Play's Difficulty). src/shell.ts. -->
     <header class="nav" id="nav" aria-label="Main">
       <button class="nav-logo" id="nav-logo" aria-label="Atomos: home" title="Home"></button>
       <h1 class="nav-title" id="nav-title">Atomos</h1>
+      <nav class="crumbs" id="crumbs" aria-label="You are here" hidden></nav>
+      <span class="nav-tools" id="nav-tools"></span>
       <span class="nav-aside" id="nav-aside" hidden></span>
       <button class="nav-btn" id="nav-search" aria-label="Search atoms and games" aria-haspopup="dialog"></button>
       <button class="nav-btn" id="nav-settings" aria-label="Settings" aria-current="false"></button>
     </header>
-    <!-- The bar: on Home, Collect, Learn and Play in a pill at the foot; anywhere else in the
-         header beside the mark: the three sections at Learn's and Play's tops, or the dropdown of
-         what is open with an atom's Build | Learn or a game's Difficulty. src/ui/dock.ts. -->
+    <!-- The bar on Home: Collect, Atlas and Play in a pill at the foot. src/ui/dock.ts. -->
     <nav class="dock" id="dock" aria-label="Sections">
-      <button id="nav-collect" aria-current="false"><span class="nav-ico"></span><span class="nav-lab">Collect</span></button>
-      <button id="nav-gallery" aria-current="false"><span class="nav-ico"></span><span class="nav-lab">Learn</span></button>
-      <button id="nav-puzzles" aria-current="false"><span class="nav-ico"></span><span class="nav-lab">Play</span></button>
-      <button class="dock-pick" id="dock-pick" aria-haspopup="dialog" aria-expanded="false" hidden></button>
-      <span class="dock-seg" id="dock-seg" role="group" hidden>
-        <button class="dock-mode" id="dock-build" aria-current="false"><span class="nav-ico"></span><span class="nav-lab">Build</span></button>
-        <button class="dock-mode" id="dock-learn" aria-current="false"><span class="nav-ico"></span><span class="nav-lab">Learn</span></button>
-      </span>
-      <span class="dock-extra" id="dock-extra" hidden></span>
+      <button id="nav-collect"><span class="nav-ico"></span><span class="nav-lab">Collect</span></button>
+      <button id="nav-gallery"><span class="nav-ico"></span><span class="nav-lab">Atlas</span></button>
+      <button id="nav-puzzles"><span class="nav-ico"></span><span class="nav-lab">Play</span></button>
     </nav>
 
     <div id="gallery-screen">
@@ -84,10 +79,9 @@
         <div class="bh-stage" id="bh-stage">
           <canvas id="bh-atom" aria-label="The atom you are building."></canvas>
           <div class="bh-empty" id="bh-empty" hidden>Nucleus not built</div>
-          <div class="bh-rings" id="bh-progress" role="img"></div>
-          <button type="button" class="bh-view bh-info" id="bh-info" aria-label="Info: this element's pages"></button>
           <button type="button" class="bh-view" id="bh-view" aria-label="View the atom full screen"></button>
         </div>
+        <div class="bh-bars co-bars" id="bh-progress" role="group"></div>
         <div class="bh-in" id="bh-in"></div>
       </section>
       <div class="build-head" id="build-head" hidden></div>

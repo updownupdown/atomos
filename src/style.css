@@ -192,18 +192,11 @@ body.build-home #app .bottom { display: none; }
 .gbar--play .gbar-lead:empty { display: none; }
 .gbar--play .gfoot-line { min-height: 52px; grid-template-columns: 1fr auto; }
 .gbar--play .gbar-msg { grid-column: 1; }
-/* Difficulty, in the header at the right of the bar: a chevron down, then the word over its
-   pips. */
-.pg-fold { flex: none; height: 100%; display: inline-flex; align-items: center; gap: 6px; margin: 0; padding: 0 14px 0 8px; border: 0; border-radius: var(--r-pill); background: var(--c-nav); color: var(--c-text); font-family: var(--font); cursor: pointer; -webkit-tap-highlight-color: transparent; }
-.dock .pg-fold { flex-direction: row; gap: 6px; padding: 0 14px 0 8px; background: var(--c-nav); color: var(--c-text); }
-.dock .pg-fold:hover, .dock .pg-fold[aria-expanded='true'] { background: var(--c-pick); }
-.pg-fold .gbar-stat--diff { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; }
-.pg-fold .gbar-k { font-size: 13px; line-height: 1; color: var(--c-text-2); }
-.pg-fold .gbar-pips { height: auto; }
-.pg-fold-ico { display: grid; color: var(--c-text-2); transition: transform 0.2s var(--ease); }
-.pg-fold[aria-expanded='true'] .pg-fold-ico { transform: rotate(180deg); }
-@media (prefers-reduced-motion: reduce) { .pg-fold-ico { transition: none; } }
-@media (max-width: 380px) { .dock .pg-fold { padding: 0 10px 0 6px; } }
+/* Difficulty, dropped from the settings button at the right of the header: the word over its
+   pips, then the slider, the deal and the X (.pg-bar). */
+.pg-bar .gbar-stat--diff { flex: none; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.pg-bar .gbar-k { font-size: 13px; line-height: 1; color: var(--c-text-2); }
+.pg-bar .gbar-pips { height: auto; }
 .gbar .gbar-tools > * { margin: 0; flex: none; width: 40px; height: 40px; background: var(--c-nav); border-radius: var(--r-sm); }
 .gbar .gbar-tools > *:hover { background: var(--c-surface-3); }
 
@@ -244,14 +237,15 @@ body:not(.build-home) .build-bar { display: none; }
    there, so the bottom of the atom is never cut off short (detail.ts keeps it centered on the
    stage). Its top may be cut. */
 .bh-stage canvas { position: absolute; top: 0; left: 0; width: 100%; height: calc(100% + var(--bh-bleed)); display: block; -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - var(--bh-bleed) - 48px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - var(--bh-bleed) - 48px), transparent); }
-.bh-stage + .bh-in { position: relative; z-index: 1; }
+.bh-stage ~ .bh-in { position: relative; z-index: 1; }
+/* Under the atom, its two bars (collect.css), as at the foot of Collect. */
+.bh-bars { position: relative; z-index: 1; max-width: 560px; margin: 0 auto; padding: var(--sp-2) var(--sp-4) 0; box-sizing: border-box; }
 /* View, top right of the atom: the 3D atom full screen. */
-.bh-view { position: absolute; right: var(--sp-4); top: 10px; z-index: 2; height: 40px; display: inline-flex; align-items: center; gap: 6px; padding: 0 12px 0 16px; border: 0; border-radius: var(--r-pill); background: color-mix(in srgb, var(--c-surface-2) 85%, transparent); color: var(--c-text); font-family: var(--font); font-size: var(--fs-md); font-weight: var(--fw-semibold); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.bh-view { position: absolute; left: var(--sp-4); bottom: var(--sp-2); z-index: 2; height: 40px; display: inline-flex; align-items: center; gap: 6px; padding: 0 16px 0 12px; border: 0; border-radius: var(--r-pill); background: color-mix(in srgb, var(--c-surface-2) 85%, transparent); color: var(--c-text); font-family: var(--font); font-size: var(--fs-md); font-weight: var(--fw-semibold); cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .bh-view:hover { background: var(--c-surface-3); }
 .bh-view:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
 .bh-view[hidden] { display: none; }
 /* Its twin top left: Info, the element's pages. */
-.bh-view.bh-info { right: auto; left: var(--sp-4); padding: 0 16px 0 12px; }
 /* The name of the orbital the light rests on, at the foot of the atom. */
 .atom-orbital { position: absolute; left: 0; right: 0; bottom: var(--sp-2); z-index: 1; margin: 0; text-align: center; pointer-events: none; font-family: var(--font); font-size: var(--fs-md); font-weight: var(--fw-semibold); color: var(--c-text); }
 .atom-orbital[hidden] { display: none; }
@@ -1132,7 +1126,7 @@ body.puzzling #overlay { pointer-events: auto; touch-action: none; }
 
 /* The header (src/shell.ts), on every screen but the 3D atom full screen, never moving: the mark
    at its left is Home and where Nu rests. On Home the wordmark, Search and Settings follow it;
-   anywhere else the bar (the dock) fills the rest of it. */
+   anywhere else the trail from Home to the screen open (crumbs.ts), then the screen's tools. */
 .nav {
   display: flex;
   align-items: center;
@@ -1173,20 +1167,49 @@ body.puzzling #overlay { pointer-events: auto; touch-action: none; }
 .nav-btn[aria-current='page'] { background: var(--c-pick); color: var(--c-accent); }
 /* The wordmark: Outfit bold, all caps, widely tracked. */
 .wordmark { font-family: var(--font); font-weight: var(--fw-bold); font-size: 12px; letter-spacing: 0.32em; text-transform: uppercase; line-height: 1; }
-.nav-logo:focus-visible, .nav-btn:focus-visible, .dock button:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
-/* Off Home the header keeps only the mark; the bar takes the rest. */
+.nav-logo:focus-visible, .nav-btn:focus-visible, .dock button:focus-visible, .crumb:focus-visible, .nav-tools button:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
+/* Off Home the header keeps only the mark; the trail takes the rest. */
 body:not([data-screen='home']) :is(.nav-title, .nav-aside, .nav-btn) { display: none; }
 body[data-screen='atom-view'] .nav { display: none; }
 body[data-screen='atom-view'] { --top: var(--safe-top); }
 .atom-bar[hidden] { display: none; }
 
-/* The bar (src/ui/dock.ts). On Home: Collect, Learn and Play in a pill floating at the foot, each
-   an icon over its name. Anywhere else it sits in the header beside the mark, at the same height
-   on every screen, so moving between pages only swaps what is in it: at Learn's and Play's tops
-   the three sections in a row, the one open lit; inside one, the dropdown of what is open (its
-   chevron points down to the list it drops), then an atom's Build | Learn toggle or a game's
-   Difficulty. Only the 3D atom full screen hides it. On Home --safe-bottom grows by the pill, so
-   whatever sits at the foot stays clear of it. */
+/* The trail (src/ui/crumbs.ts): a chevron after the mark and between steps. Links back up and the
+   screen open are plain words (the open one white, links gray); only a dropdown sits on a plate,
+   the atom's number over its symbol (or the game's icon) at its left and a chevron down at its
+   right. The open screen's name gives way first when room runs short. */
+.crumbs { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 2px; height: 48px; font-family: var(--font); }
+.crumbs[hidden] { display: none; }
+.crumb-sep { flex: none; display: grid; place-items: center; width: 16px; color: var(--c-text-3); }
+.crumb { flex: none; min-width: 0; height: 40px; display: inline-flex; align-items: center; gap: 8px; padding: 0 8px; border: 0; border-radius: var(--r-pill); background: transparent; color: var(--c-text-2); font-family: var(--font); font-size: 16px; font-weight: var(--fw-semibold); white-space: nowrap; -webkit-tap-highlight-color: transparent; }
+button.crumb { cursor: pointer; }
+.crumb--link:hover { color: var(--c-text); background: var(--c-surface-2); }
+.crumb--here { color: var(--c-text); }
+.crumb.is-last { flex: 0 1 auto; }
+.crumb-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.crumb-game { flex: none; width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%; background: var(--c-text); color: var(--c-bg); }
+.crumb--drop { height: 48px; gap: var(--sp-2); padding: 0 10px 0 5px; border-radius: 12px 24px 24px 12px; background: var(--c-nav); color: var(--c-text); font-size: 17px; }
+.crumb--drop:hover { background: var(--c-pick); }
+.crumb--drop:has(.crumb-game) { border-radius: 24px; padding-left: 7px; }
+.crumb--drop > svg { flex: none; margin-left: auto; color: var(--c-text-2); transition: transform 0.2s var(--ease); }
+.crumb--drop.is-open > svg { transform: rotate(180deg); }
+.crumb--drop .crumb-game { width: 36px; height: 36px; }
+.crumb-plate { flex: none; width: 38px; height: 38px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; border-radius: 8px; line-height: 1; font-variant-numeric: tabular-nums; }
+.crumb-plate small { font-size: 11px; font-weight: var(--fw-semibold); }
+.crumb-plate b { font-size: 16px; font-weight: 700; }
+@media (max-width: 400px) { .crumb { padding: 0 6px; } .crumb-sep { width: 14px; } }
+@media (prefers-reduced-motion: reduce) { .crumb--drop > svg { transition: none; } }
+/* The screen's own tools, right of the trail: a game's Difficulty on Play (playground.ts). */
+.nav-tools { flex: none; display: none; align-items: center; margin-left: auto; }
+body[data-screen='puzzles'].pg-playing .nav-tools { display: flex; }
+.nav-tools .pg-fold { width: 44px; height: 44px; display: grid; place-items: center; padding: 0; border: 0; border-radius: var(--r-pill); background: transparent; color: var(--c-text); cursor: pointer; }
+.nav-tools .pg-fold svg { width: 24px; height: 24px; }
+.nav-tools .pg-fold:hover, .nav-tools .pg-fold[aria-expanded='true'] { background: var(--c-pick); }
+.nav-tools .pg-fold[aria-expanded='true'] { color: var(--c-accent); }
+
+/* The bar on Home (src/ui/dock.ts): Collect, Atlas and Play in a pill floating at the foot, each
+   an icon over its name. --safe-bottom grows by the pill on Home, so whatever sits at the foot
+   stays clear of it. Off Home it hides; the trail says where you are. */
 :root { --dock-h: 64px; --bar-h: 48px; }
 .dock {
   position: fixed;
@@ -1203,7 +1226,6 @@ body[data-screen='atom-view'] { --top: var(--safe-top); }
   border-radius: var(--r-pill);
   background: var(--c-nav);
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.55);
-  view-transition-name: app-dock;
 }
 .dock[hidden] { display: none; }
 .dock button {
@@ -1221,74 +1243,17 @@ body[data-screen='atom-view'] { --top: var(--safe-top); }
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
-.dock button[hidden], .dock > span[hidden] { display: none; }
 .dock button:hover { color: var(--c-text); }
-.dock button[aria-current='page'] { background: var(--c-pick); color: var(--c-accent); }
 .nav-ico { display: grid; place-items: center; }
 .nav-ico svg { width: 24px; height: 24px; display: block; }
 .nav-lab { font-size: 13px; font-weight: var(--fw-semibold); line-height: 1.1; }
-
-/* In the header: from the mark's right to the edge, centered in the header's row. */
-body:not([data-screen='home']) .dock {
-  left: calc(var(--sp-2) + 44px + var(--sp-2));
-  right: var(--sp-3);
-  top: calc(var(--safe-top) + (var(--nav-h) - var(--bar-h)) / 2);
-  bottom: auto;
-  width: auto;
-  height: var(--bar-h);
-  transform: none;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 0;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-}
-body:not([data-screen='home']) .dock > button[id^='nav-'] { flex: 0 1 160px; min-width: 0; height: 100%; flex-direction: row; gap: 6px; }
-body:not([data-screen='home']) .dock .nav-lab { font-size: 14px; }
-body:not([data-screen='home']) .dock .nav-ico svg { width: 22px; height: 22px; }
-
-/* The dropdown: the atom's plate (its number over its symbol, in its place color) or the game's
-   icon, then the name, and a chevron down to its list (up while the list is open). Less round on
-   the left, where the plate sits. */
-.dock .dock-pick { flex: 0 1 360px; min-width: 0; height: 100%; flex-direction: row; justify-content: flex-start; gap: var(--sp-2); padding: 0 var(--sp-2) 0 5px; border-radius: 12px calc(var(--bar-h) / 2) calc(var(--bar-h) / 2) 12px; background: var(--c-nav); color: var(--c-text); text-align: left; }
-.dock .dock-pick:hover { background: var(--c-pick); }
-.dock-pick > svg { flex: none; margin-left: auto; color: var(--c-text-2); transition: transform 0.2s var(--ease); }
-.dock-pick.is-open > svg { transform: rotate(180deg); }
-.dock-badge { flex: none; width: 38px; height: 38px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; border-radius: 8px; line-height: 1; font-variant-numeric: tabular-nums; }
-.dock-badge small { font-size: 11px; font-weight: var(--fw-semibold); }
-.dock-badge b { font-size: 16px; font-weight: 700; }
-.dock-badge--game { border-radius: 50%; background: var(--c-text); color: var(--c-bg); }
-.dock-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 17px; font-weight: var(--fw-semibold); }
-
-/* An atom's Build | Learn: one toggle, the page open on the lighter plate in the accent. On
-   Collect, where neither is open, Build is filled: the way into the atom. Names only on phones;
-   their icons too where there is room. */
-.dock-seg { flex: none; margin-left: auto; height: 100%; display: flex; align-items: center; gap: 2px; padding: 3px; border-radius: var(--r-pill); background: var(--c-nav); }
-.dock .dock-mode { height: 100%; flex-direction: row; gap: 6px; padding: 0 14px; color: var(--c-text-2); }
-.dock .dock-mode .nav-lab { font-size: 14px; }
-.dock .dock-mode .nav-ico { display: none; }
-.dock-seg.is-cta #dock-build { background: var(--c-accent); color: var(--c-accent-ink); }
-.dock-seg.is-cta #dock-build:hover { background: color-mix(in srgb, var(--c-accent) 85%, white); }
-@media (min-width: 480px) {
-  .dock .dock-mode { padding: 0 16px 0 12px; }
-  .dock .dock-mode .nav-ico { display: grid; }
-  .dock .dock-mode .nav-ico svg { width: 20px; height: 20px; }
-}
-/* A game's own: its Difficulty (playground.ts). */
-.dock-extra { flex: none; margin-left: auto; height: 100%; display: flex; align-items: center; }
-body[data-screen='atom-view'] .dock { display: none; }
 /* Small phones: the pill and the header give their margins to the names. */
 @media (max-width: 400px) {
   .dock { width: calc(100% - 2 * var(--sp-2)); }
   .nav-btn { width: 40px; }
   .nav-title { letter-spacing: 0.22em; }
-  body:not([data-screen='home']) .dock { gap: 4px; }
-  .dock .dock-mode { padding: 0 11px; }
 }
 body[data-screen='home'] { --safe-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--dock-h) + var(--dock-gap, 12px)); }
-@media (prefers-reduced-motion: reduce) { .dock-pick > svg { transition: none; } }
 
 /* Atom screens, top down: the atom bar is the header (Build and Info each mount their own in
    the same place, so it reads as one); the dock floats at the foot. --top is the bottom of the
@@ -1296,18 +1261,13 @@ body[data-screen='home'] { --safe-bottom: calc(env(safe-area-inset-bottom, 0px) 
 :root { --nav-bottom: calc(var(--safe-top) + var(--nav-h)); --atom-bar-h: 0px; --dock-gap: var(--sp-3); }
 body[data-screen^='atom'] .loupe-screen > .atom-bar,
 body[data-screen^='atom'] .build-bar { top: var(--nav-bottom); }
-/* Stepping between Build and Info slides the page under the header and the bar, which stay put
-   (the bar is named app-dock above). */
+/* Into an atom from Collect and back (shell.ts): the header stays, the atom and its bars glide
+   between the middle and foot of Collect and the top of the Build page, and the rest fades. */
 .nav { view-transition-name: app-nav; }
-body[data-screen^='atom'] .loupe-screen > .atom-bar, body[data-screen^='atom'] .build-bar { view-transition-name: atom-bar; }
-html[data-vt='next']::view-transition-old(root) { animation: vt-out-left 0.3s var(--ease) both; }
-html[data-vt='next']::view-transition-new(root) { animation: vt-in-right 0.3s var(--ease) both; }
-html[data-vt='prev']::view-transition-old(root) { animation: vt-out-right 0.3s var(--ease) both; }
-html[data-vt='prev']::view-transition-new(root) { animation: vt-in-left 0.3s var(--ease) both; }
-@keyframes vt-out-left { to { transform: translateX(-24%); opacity: 0; } }
-@keyframes vt-out-right { to { transform: translateX(24%); opacity: 0; } }
-@keyframes vt-in-right { from { transform: translateX(24%); opacity: 0; } }
-@keyframes vt-in-left { from { transform: translateX(-24%); opacity: 0; } }
+html[data-vt='rise'] .co-gem-btn, html[data-vt='rise'] .bh-stage { view-transition-name: atom-stage; }
+html[data-vt='rise'] .co-atom .co-bars, html[data-vt='rise'] #bh-progress { view-transition-name: atom-bars; }
+html[data-vt='rise']::view-transition-group(atom-stage), html[data-vt='rise']::view-transition-group(atom-bars) { animation-duration: 0.42s; animation-timing-function: cubic-bezier(0.2, 0.7, 0.2, 1); }
+html[data-vt='rise']::view-transition-old(root), html[data-vt='rise']::view-transition-new(root) { animation-duration: 0.3s; }
 .mode-seg { flex: 1; min-width: 0; }
 .mode-seg .ui-seg { width: 100%; padding: 3px; border-radius: var(--r-pill); background: var(--c-well); }
 .mode-seg .ui-seg-opt { flex: 1; min-height: 40px; padding: 0 var(--sp-3); border-radius: var(--r-pill); }
@@ -1796,3 +1756,16 @@ body[data-screen^='atom'].build-home .science-fab, body[data-screen='atom-view']
 
 /* A puzzle being played on Play: the header holds the game's dropdown and Difficulty; under it
    the tools row, then the status line. */
+
+/* A page's way across to the atom's other page, at its foot: Info on the Build page, Build at
+   the foot of an Atlas page's Overview. Icon, name and a line, and a round chevron. */
+.foot-card { width: 100%; min-height: 64px; display: flex; align-items: center; gap: var(--sp-3); padding: 8px 10px 8px 16px; border: 0; border-radius: 32px; background: var(--c-surface-2); color: var(--c-text); font-family: var(--font); text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.foot-card:hover { background: var(--c-surface-3); }
+.foot-card:disabled { cursor: default; background: var(--c-surface-2); }
+.foot-card:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
+.foot-card-ico { flex: none; display: grid; color: var(--c-accent); }
+.foot-card:disabled .foot-card-ico { color: var(--c-warn); }
+.foot-card-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.foot-card-text b { font-size: 17px; font-weight: var(--fw-semibold); }
+.foot-card-text small { font-size: var(--fs-sm); color: var(--c-text-2); }
+.foot-card-go { flex: none; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; background: var(--c-pick); }
