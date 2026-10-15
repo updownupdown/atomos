@@ -15,7 +15,8 @@ import { nextStep, openStep, type NextStep } from '../core/next';
 import { atomBuilt, fleetingIsotopes, isotopeCollected, rowOpen, segmentsOf } from '../core/progress';
 import { formatDuration } from '../core/isotopes';
 import { lastPlayed, playsOf } from '../core/plays';
-import { lastDial, pinnedGames } from '../core/wins';
+import { lastDial, pinnedGames, winsOf } from '../core/wins';
+import { difficultyLevel, levelWord } from '../puzzles/difficulty';
 import { factsOf } from '../core/facts';
 import { MAX_Z, elementAt, placeColour, type Element } from '../gallery/data';
 import { inkOn } from '../gallery/looks';
@@ -317,6 +318,15 @@ function randomGame(ids: string[], not: string, index: number): string {
   return pool[((index * 7919) % pool.length + pool.length) % pool.length];
 }
 
+/** Under the first game: the level it was last played at and the wins there ("Hard · 3 wins"). */
+function levelLine(game: string): string {
+  const dial = lastDial(game);
+  if (dial === null) return lastPlayed() === game ? 'Played last' : 'Not played yet';
+  const level = difficultyLevel(dial);
+  const won = winsOf(game)[level - 1].solved;
+  return `${levelWord(level)} · ${won ? `${fmt(won)} win${won === 1 ? '' : 's'}` : 'no wins yet'}`;
+}
+
 function paintGame(box: HTMLElement, go: HomeGo): void {
   const ids = PUZZLES.filter((g) => g.make).map((g) => g.id);
   const id = [lastPlayed(), ...pinnedGames(), 'merge'].find((g): g is string => Boolean(g) && ids.includes(g!)) ?? ids[0];
@@ -330,7 +340,7 @@ function paintGame(box: HTMLElement, go: HomeGo): void {
       action: { label: 'Play', ariaLabel: `Play ${p.name}`, onClick: () => go('play', { game: gid }) },
     });
   };
-  box.append(card(id, lastPlayed() === id ? 'Played last' : 'Pick up a game'));
+  box.append(card(id, levelLine(id)));
   const other = randomGame(ids, id, today().index);
   if (other) box.append(card(other, playsOf(other) ? 'Random pick' : 'Random pick · new to you'));
 }
