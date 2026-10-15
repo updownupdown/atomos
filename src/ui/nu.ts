@@ -9,6 +9,8 @@
 // the flying and speaking stop when the player turns Nu off in Settings (nuEnabled).
 
 import { loadSave, writeSave } from '../core/save';
+import { addTreat, arrive, found, hideDue, hideTried, napping, stillHere, wake, warmth, warmUp } from '../nu/bond';
+import { chimeSound } from '../audio';
 
 /** Reduce motion: the system setting or the app's Settings switch. */
 export function reducedMotion(): boolean {
@@ -137,6 +139,8 @@ export const NU_COOLDOWN_MS = 60_000;
 const NU_TURN_MS = 2600;
 /** How long Nu sits at home, with no touch or scroll, before it goes to play round a toy. */
 const NU_IDLE_MS = 15_000;
+/** How long Nu naps when you come back after days away, unless woken sooner. */
+const NU_NAP_MS = 45_000;
 const TRAIL_MS = 160;
 const SEGS = 12;
 /** The flying dot's size, in px; it shrinks to the slot's size as it lands. */
@@ -167,6 +171,8 @@ interface Task {
   sticky?: boolean;
   /** A toy's orbit to fly along, in place of a circle round the target. */
   ring?: SVGEllipseElement;
+  /** Hide and seek: Nu is hiding here, peeking out, until it's found. */
+  hide?: boolean;
   onArrive?: () => void;
 }
 
@@ -239,6 +245,7 @@ class Guide {
   private idleTimer = 0;
   /** On the far side of a toy's orbit (drawn dimmer, as if behind its nucleus). */
   private behind = false;
+  private hideTimer = 0;
 
   start(): void {
     if (this.started || !hasDom()) return;
@@ -267,7 +274,83 @@ class Guide {
     for (const ev of ['pointerdown', 'keydown', 'wheel']) window.addEventListener(ev, act, { capture: true, passive: true });
     window.addEventListener('scroll', act, { capture: true, passive: true });
     this.lastAct = performance.now();
+    this.wireBond();
     this.soon();
+  }
+
+  /** What Nu remembers (src/nu/bond.ts): how warmly it glows, whether it's napping, treats from
+   *  wins, and its daily game of hide and seek. */
+  private wireBond(): void {
+    const root = document.documentElement;
+    const mood = () => {
+      root.style.setProperty('--nu-warm', warmth().toFixed(2));
+      root.classList.toggle('nu-napping', napping());
+    };
+    // Back after days away: Nu naps in the mark for a while, or until you tap it.
+    if (arrive()) window.setTimeout(() => wake(), NU_NAP_MS);
+    mood();
+    window.addEventListener('atomos:nu-bond', mood);
+    window.setInterval(mood, 10 * 60_000);
+    // A win leaves Nu a treat in its park.
+    window.addEventListener('atomos:win', () => addTreat());
+    window.addEventListener('pagehide', () => stillHere());
+    document.addEventListener('visibilitychange', () => { if (document.hidden) stillHere(); });
+    // Tapping the logo wakes it.
+    window.addEventListener('pointerdown', (e) => {
+      if (napping() && (e.target as Element | null)?.closest?.('#nav-logo')) { wake(); this.lastAct = performance.now(); }
+    }, true);
+    // Found it! A tap on Nu where it hides.
+    window.addEventListener('pointerdown', (e) => {
+      const t = this.task;
+      if (!t?.hide || !t.arrived || !this.pos) return;
+      if (Math.hypot(e.clientX - this.pos.x, e.clientY - this.pos.y) > 30) return;
+      e.preventDefault();
+      e.stopPropagation();
+      // The tap is for Nu, not for what it hid by.
+      const eat = (c: Event) => { c.preventDefault(); c.stopPropagation(); };
+      window.addEventListener('click', eat, { capture: true, once: true });
+      window.setTimeout(() => window.removeEventListener('click', eat, true), 600);
+      found();
+      warmUp(0.25);
+      chimeSound(4);
+      this.layer.classList.add('is-found');
+      window.setTimeout(() => this.layer.classList.remove('is-found'), 700);
+      this.endTask();
+    }, true);
+    this.hideSoon(30_000 + Math.random() * 60_000);
+  }
+
+  private hideSoon(ms: number): void {
+    clearTimeout(this.hideTimer);
+    this.hideTimer = window.setTimeout(() => this.hide(), ms);
+  }
+
+  /** Once a day Nu slips off to hide by something on the screen you're on, peeking out from its
+   *  corner, until you tap it there. It gives up after a while (or when that screen goes) and
+   *  tries again later that day, a few times at most. */
+  private hide(): void {
+    if (!hideDue()) return;
+    const now = performance.now();
+    const ready = nuEnabled() && !reducedMotion() && !document.hidden && !napping() && !this.task && !this.held && !this.toward
+      && !!this.rest?.classList.contains('nu-home-slot') && now - this.lastAct > 2000;
+    if (!ready) { this.hideSoon(20_000); return; }
+    const spots = [...document.querySelectorAll<HTMLElement>('button, .home-card, a[href]')].filter((el) => {
+      if (el.closest('#nav, #dock, .nu-screen, [role=dialog], .sheet') || (el as HTMLButtonElement).disabled) return false;
+      const r = el.getBoundingClientRect();
+      return r.width >= 32 && r.height >= 32 && r.width <= 420 && r.top > 70 && r.bottom < window.innerHeight - 70 && visible(el, true);
+    });
+    if (!spots.length) { this.hideSoon(20_000); return; }
+    const el = spots[Math.floor(Math.random() * spots.length)];
+    const cx = Math.random() < 0.5 ? 0 : 1, cy = Math.random() < 0.5 ? 0 : 1;
+    const at = (): DOMRect | null => {
+      if (!el.isConnected || !el.getClientRects().length) return null;
+      const r = el.getBoundingClientRect();
+      return new DOMRect(r.left + 5 + cx * (r.width - 10), r.top + 5 + cy * (r.height - 10), 1, 1);
+    };
+    hideTried();
+    this.begin({ target: at, r: 0, ms: 90_000, t0: now, a0: 0, arrived: 0, sticky: true, hide: true });
+    // Not found this time: another try later, while today's tries last.
+    this.hideSoon(5 * 60_000 + Math.random() * 5 * 60_000);
   }
 
   /** Looks again on the next frame. */
@@ -279,6 +362,8 @@ class Guide {
   show(target: NuTarget, o: NuShowOptions): boolean {
     if (!hasDom() || !nuEnabled()) return false;
     this.start();
+    // Napping, it sleeps through it.
+    if (napping()) return true;
     const now = performance.now();
     if (o.key) {
       const last = this.cool.get(o.key);
@@ -540,6 +625,7 @@ class Guide {
     this.head.style.transform = `translate(${p.x.toFixed(1)}px, ${p.y.toFixed(1)}px) scale(${k.toFixed(3)})`;
     const t = this.task;
     this.layer.classList.toggle('is-back', !!t?.ring && !!t.arrived && !this.flight && this.behind);
+    this.layer.classList.toggle('is-hiding', !!t?.hide && !!t.arrived && !this.flight);
     this.hist.unshift({ x: p.x, y: p.y, t: now });
     while (this.hist.length > 2 && now - this.hist[this.hist.length - 1].t > TRAIL_MS) this.hist.pop();
     const at = (age: number): Pt => this.hist.find((h) => now - h.t >= age) ?? this.hist[this.hist.length - 1];
@@ -564,7 +650,7 @@ class Guide {
   private play(): void {
     if (!this.rest?.classList.contains('nu-home-slot') || this.task || this.held || this.toward) return;
     // Nothing to play with here (yet): look again now and then.
-    if (reducedMotion() || document.hidden || !nuEnabled()) { this.idleSoon(5000); return; }
+    if (reducedMotion() || document.hidden || !nuEnabled() || napping()) { this.idleSoon(napping() ? 60_000 : 5000); return; }
     const now = performance.now();
     if (now - this.lastAct < NU_IDLE_MS || now - this.lastPlay < NU_COOLDOWN_MS) { this.idleSoon(); return; }
     const here = middle(this.rest.getBoundingClientRect());

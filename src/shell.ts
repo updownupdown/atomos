@@ -32,6 +32,7 @@ import { openFinder } from './ui/finder';
 import type { Game } from './game';
 import type { Playground } from './playground';
 import type { NuPark } from './nu/park';
+import type { GameId } from './nu/games';
 import { onSettingsChange, renderSettings } from './ui/settings';
 import { renderIconPage } from './ui/iconpage';
 import { renderComponentPage } from './ui/componentpage';
@@ -312,6 +313,7 @@ export class AppShell {
       renderHome($('home-body'), (to, at) => {
         if (to === 'learn' && at?.z) { this.z = at.z; void this.go('gallery').then(() => this.gallery.openPage(at.z!)); }
         else if (to === 'play' && at?.game) void this.go('puzzles').then(() => this.playground?.open(at.game!));
+        else if (to === 'nu' && at?.game) void this.go('nu').then(() => this.park?.openGame(at.game as GameId));
         else this.toSection(to);
       });
       $('home-screen').scrollTop = 0;

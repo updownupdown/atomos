@@ -527,7 +527,12 @@
 /* Going round the far side of a toy's orbit, Nu dims, as if behind its nucleus. */
 .nu-guide > * { transition: opacity 0.3s ease; }
 .nu-guide.is-back > * { opacity: 0.4; }
-.nu-guide b { position: absolute; left: -5px; top: -5px; width: 10px; height: 10px; border-radius: 50%; background: var(--c-go); box-shadow: 0 0 14px 4px var(--c-go-ring); will-change: transform; }
+.nu-guide b { position: absolute; left: -5px; top: -5px; width: 10px; height: 10px; border-radius: 50%; background: var(--c-go); box-shadow: 0 0 calc(12px + 10px * var(--nu-warm, 0)) calc(3px + 4px * var(--nu-warm, 0)) var(--c-go-ring); will-change: transform; }
+/* Hide and seek (nu.ts): Nu peeks out from where it hides, fading in and out; found, it flashes. */
+.nu-guide.is-hiding b { animation: nu-peek 2.6s ease-in-out infinite; }
+@keyframes nu-peek { 0%, 100% { opacity: 0.9; } 50% { opacity: 0.35; } }
+.nu-guide.is-found b { animation: nu-found 0.7s ease-out; }
+@keyframes nu-found { 0% { box-shadow: 0 0 0 0 var(--c-go-ring); } 40% { box-shadow: 0 0 22px 14px var(--c-go-ring); } }
 
 /* Nu's slots: an empty ring until Nu lands in it. With Nu off they are printed dots. */
 .nu-slot { fill: transparent; stroke: currentColor; stroke-width: 1.2; opacity: 0.7; transition: fill 0.16s ease, opacity 0.16s ease; }
