@@ -28,7 +28,7 @@ export const LAYOUT_STORY: Record<LayoutId, string[]> = {
   ],
   ribbon: [
     "After J. F. Hyde's chart of 1975. The groups run round one continuous ribbon instead of breaking into rows, so the end of each period flows straight into the next.",
-    'Across the ribbon, periods go from the inside out. The band is narrower where the d block runs, because the d block only starts in period 4. Hydrogen and helium curl up in the middle.',
+    'Periods 4 to 7 share the long loop, one lane each from the inside out. Periods 1 to 3 curl up in rings inside it, lined up with their groups.',
     'The f block rises from the ribbon as a loop of its own, cerium to lutetium inside and thorium to lawrencium outside, between groups 3 and 4 where it belongs.',
   ],
   spiral: [
@@ -144,21 +144,22 @@ function table(): Layout {
 }
 
 // ---------------------------------------------------------------------------
-// Ribbon. A peanut-shaped loop: R(θ) = a(1 + k cos 2θ) is the inner edge, and each period from
-// 2 to 7 is one band further out. Groups run anticlockwise from the right: 1 and 2, then 3, the
-// f loop, 4 to 12 round the far lobe (the d block, four bands deep), 13 to 17, and 18 closing
-// back where 1 began. Hydrogen and helium curl in the near lobe's heart.
+// Ribbon, after J. F. Hyde's chart of 1975. A peanut-shaped loop, R(θ) = a(1 + k cos 2θ) its inner
+// edge, carries periods 4 to 7 as four bands, all eighteen groups unbroken: anticlockwise from
+// the right, 1 and 2, then 3, the f loop rising off the top, 4 to 12 round the far lobe, 13 to 17
+// along the bottom, and 18 closing back where 1 began. Periods 2 and 3 have no d block, so, as
+// in Hyde's chart, they curl round the near lobe on their own as two rings of eight, their
+// groups facing the same ones on the loop, with hydrogen and helium at the heart.
 
-const RIB_A = 4.4;
-const RIB_K = 0.5;
+const RIB_A = 5.5;
+const RIB_K = 0.55;
 const ribR = (th: number) => RIB_A * (1 + RIB_K * Math.cos(2 * th));
-/** Degrees each group spans: s and p groups wider than d groups. */
-const ribSpan = (g: number) => (g <= 2 || g >= 13 ? 21 : 17);
-const RIB_START = 7;
-const RIB_F_GAP = 8;
+const RIB_F_GAP = 12;
+/** Degrees each group spans on the loop: d groups 17, s and p groups sharing the rest. */
+const ribSpan = (g: number) => (g >= 3 && g <= 12 ? 17 : (360 - 10 * 17 - RIB_F_GAP) / 8);
 const ribAngles: Record<number, [number, number]> = (() => {
   const out: Record<number, [number, number]> = {};
-  let t = RIB_START;
+  let t = 0;
   for (let g = 1; g <= 18; g++) {
     out[g] = [t, t + ribSpan(g)];
     t += ribSpan(g);
@@ -166,48 +167,67 @@ const ribAngles: Record<number, [number, number]> = (() => {
   }
   return out;
 })();
+/** The near lobe's heart, where the inner rings center, and their radii: hydrogen and helium,
+ *  then period 2, then period 3, which just clears the loop. */
+const RIB_CX = 4.15;
+const RIB_RINGS = [0.55, 1.6, 2.7, 3.82];
+/** The inner rings' groups, anticlockwise from the right like the loop's. */
+const RIB_INNER = [1, 2, 13, 14, 15, 16, 17, 18];
 const rad = (d: number) => (d * Math.PI) / 180;
 
 function ribbon(): Layout {
   const P = (th: number, r: number): [number, number] => [Math.cos(th) * r, -Math.sin(th) * r];
   const at = (deg: number, slot: number) => P(rad(deg), ribR(rad(deg)) + slot);
+  const ring = (deg: number, r: number): [number, number] => [RIB_CX + Math.cos(rad(deg)) * r, -Math.sin(rad(deg)) * r];
   const cells: Cell[] = [];
   const labels: MapLabel[] = [];
+  const SEAM_DEG = (r: number) => (SEAM / 2 / r) * (180 / Math.PI);
   for (const e of ELEMENTS) {
-    if (isF(e) || e.period === 1) continue;
-    const [d0, d1] = ribAngles[e.group!];
-    const s0 = e.period - 2;
-    const mid = (d0 + d1) / 2;
-    const [x, y] = at(mid, s0 + 0.5);
-    const len = rad(d1 - d0) * (ribR(rad(mid)) + s0 + 0.5);
-    cells.push({ z: e.z, d: band(at, d0 + 0.35, d1 - 0.35, s0 + 0.03, s0 + 0.97), x, y, w: len * 0.86, h: 0.9 });
+    if (isF(e)) continue;
+    if (e.period >= 4) {
+      // The loop: one band per period from 4 out.
+      const [d0, d1] = ribAngles[e.group!];
+      const s0 = e.period - 4, mid = (d0 + d1) / 2;
+      const r = ribR(rad(mid)) + s0 + 0.5;
+      const pad = SEAM_DEG(r);
+      const [x, y] = at(mid, s0 + 0.5);
+      cells.push({ z: e.z, d: band(at, d0 + pad, d1 - pad, s0 + SEAM / 2, s0 + 1 - SEAM / 2), x, y, w: rad(d1 - d0) * r * 0.86, h: 0.9 });
+    } else {
+      // The inner rings: hydrogen and helium halves, then eight to a ring.
+      const k = e.period - 1;
+      const [r0, r1] = [RIB_RINGS[k], RIB_RINGS[k + 1]];
+      const n = e.period === 1 ? 2 : 8;
+      const i = e.period === 1 ? e.z - 1 : RIB_INNER.indexOf(e.group!);
+      const d0 = (360 * i) / n, d1 = (360 * (i + 1)) / n, mid = (d0 + d1) / 2, rm = (r0 + r1) / 2;
+      const pad = SEAM_DEG(rm);
+      const [x, y] = ring(mid, rm);
+      cells.push({ z: e.z, d: band(ring, d0 + pad, d1 - pad, r0 + SEAM / 2, r1 - SEAM / 2, n === 2 ? 24 : 8), x, y, w: Math.min(rad(d1 - d0) * rm * 0.8, 1.6), h: (r1 - r0) * 0.9 });
+    }
   }
   for (let g = 1; g <= 18; g++) {
     const [d0, d1] = ribAngles[g];
-    const [x, y] = at((d0 + d1) / 2, 6.55);
+    // Group 3's number sits toward group 2, clear of the f loop's foot.
+    const [x, y] = at(g === 3 ? d0 + 3 : (d0 + d1) / 2, 4.55);
     labels.push({ x, y, text: String(g), kind: 'axis' });
   }
-  // Hydrogen and helium in the near lobe.
-  const [hx, hy] = P(0, RIB_A * 0.75);
-  for (const [z, s] of [[1, -1], [2, 1]] as const) {
-    const x = hx, y = hy + s * 0.75;
-    cells.push({ z, d: rect(x - 0.6, y - 0.6, 1.2, 1.2, 0.2), x, y, w: 1.2, h: 1.2 });
-  }
-  // The f loop: an annulus standing off the ribbon between groups 3 and 4, open where it joins.
+  // The f loop: a ring off the top of the loop between groups 3 and 4, its opening on the loop's
+  // outer edge, lanthanides inside and actinides outside.
   const midDeg = (ribAngles[3][1] + ribAngles[4][0]) / 2;
-  const base = at(midDeg, 6.2);
-  const out = at(midDeg, 7.2);
+  const base = at(midDeg, 4);
+  const out = at(midDeg, 5);
   const dir = [out[0] - base[0], out[1] - base[1]];
-  const rIn = 1.7, gap = 0.9;
-  const cx = base[0] + dir[0] * (rIn + 2.4), cy = base[1] + dir[1] * (rIn + 2.4);
+  const rIn = 2.1, gap = 0.5;
+  const cx = base[0] + dir[0] * (rIn + 2.7), cy = base[1] + dir[1] * (rIn + 2.7);
   const open = Math.atan2(-dir[1], -dir[0]);
   const loopAt = (q: number, r: number): [number, number] => [cx + Math.cos(q) * r, cy + Math.sin(q) * r];
   for (const e of ELEMENTS.filter(isF)) {
     const i = fIndex(e), k = e.period === 6 ? 0 : 1;
-    const q0 = open + gap / 2 + ((2 * Math.PI - gap) * i) / 14, q1 = open + gap / 2 + ((2 * Math.PI - gap) * (i + 1)) / 14;
+    // Cerium starts beside lanthanum's side of the opening, lutetium ends beside hafnium's.
+    const q0 = open - gap / 2 - ((2 * Math.PI - gap) * (i + 1)) / 14, q1 = open - gap / 2 - ((2 * Math.PI - gap) * i) / 14;
     const r0 = rIn + k, qm = (q0 + q1) / 2;
     const [x, y] = loopAt(qm, r0 + 0.5);
-    cells.push({ z: e.z, d: band(loopAt, q0 + 0.015, q1 - 0.015, r0 + 0.03, r0 + 0.97, 5), x, y, w: (q1 - q0) * (r0 + 0.5) * 0.86, h: 0.9 });
+    const pad = SEAM / 2 / (r0 + 0.5);
+    cells.push({ z: e.z, d: band(loopAt, q0 + pad, q1 - pad, r0 + SEAM / 2, r0 + 1 - SEAM / 2, 5), x, y, w: (q1 - q0) * (r0 + 0.5) * 0.86, h: 0.9 });
   }
   labels.push({ x: cx, y: cy, text: 'f', kind: 'title' });
   return { id: 'ribbon', cells, labels };
@@ -233,7 +253,9 @@ function spiral(): Layout {
       return [Math.cos(th) * r, -Math.sin(th) * r];
     };
     const t0 = i / n, t1 = (i + 1) / n;
-    const pad = 0.025 / Math.max(1, SPIRAL_RADII[pi]) * 2;
+    // A seam between neighbors along the turn: a fixed width, so a fraction of the turn's length.
+    const rMid = SPIRAL_RADII[pi] + (SPIRAL_RADII[pi + 1] - SPIRAL_RADII[pi]) * ((t0 + t1) / 2);
+    const pad = SEAM / 2 / (2 * Math.PI * rMid);
     // The next turn lies one step further out at the same angle: fill all but a seam of it.
     const gap = (k: number): number => (k + 1 < SPIRAL_RADII.length ? SPIRAL_RADII[k + 1] - SPIRAL_RADII[k] : gap(k - 1));
     const step = (t: number) => gap(pi) + (gap(pi + 1) - gap(pi)) * t;
@@ -242,7 +264,7 @@ function spiral(): Layout {
     const r = SPIRAL_RADII[pi] + (SPIRAL_RADII[pi + 1] - SPIRAL_RADII[pi]) * ((t0 + t1) / 2);
     cells.push({ z: e.z, d: band(at, t0 + pad, t1 - pad, -half, half, Math.max(3, Math.round(24 / n * 4))), x, y, w: Math.min(1.6, (t1 - t0) * 2 * Math.PI * r * 0.86), h: Math.min(1.2, half * 2 - 0.04) });
   }
-  for (let p = 1; p <= 7; p++) labels.push({ x: -0.28, y: -SPIRAL_RADII[p - 1], text: String(p), kind: 'axis' });
+  // No period numbers: the turns touch at the seam, with no room between them.
   return { id: 'spiral', cells, labels };
 }
 

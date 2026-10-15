@@ -15,7 +15,7 @@ import { guideHTML } from './guide';
 import { guideFoot, mountInfoPage, type InfoState } from './infopage';
 import { rowLockNote } from './locks';
 import { loadSave, type OrbitalShape } from '../core/save';
-import { orbitalShapeUnlocked, SHAPE_AT } from '../core/progress';
+import { fleetingCount, orbitalShapeUnlocked, segmentsOf, SHAPE_AT } from '../core/progress';
 import { createTabs, type Tabs } from '../ui/components';
 import { icon } from '../ui/icons';
 import { openModal } from '../ui/modal';
@@ -139,14 +139,21 @@ export class AtlasPage {
     this.told();
   }
 
-  /** The one way into play: Build, or what opens it while the atom's period is shut. */
+  /** The one way into play: its Build page in Collect, with how much of the atom is built
+   *  (stable and fleeting together), or what opens it while the atom's period is shut. */
   private paintBuild(e: Element): void {
     const b = this.build;
     const lock = rowLockNote(e.z);
     b.disabled = Boolean(lock);
-    b.innerHTML = lock
-      ? `<span class="foot-card-ico">${icon('lock', { size: 22 })}</span><span class="foot-card-text"><b>Build ${esc(e.name)}</b><small>${esc(lock)}</small></span>`
-      : `<span class="foot-card-ico">${icon('build', { size: 22 })}</span><span class="foot-card-text"><b>Build ${esc(e.name)}</b><small>Its puzzles, in Collect</small></span><span class="foot-card-go">${icon('chevron-right', { size: 22 })}</span>`;
+    if (lock) {
+      b.innerHTML = `<span class="foot-card-ico">${icon('lock', { size: 40 })}</span><span class="foot-card-text"><b>View in Collect</b><small>${esc(lock)}</small></span>`;
+      return;
+    }
+    const save = loadSave();
+    const segs = segmentsOf(e.z, save), fleeting = fleetingCount(e.z, save);
+    const total = segs.length + fleeting.total;
+    const pct = total ? Math.round(((segs.filter((s) => s.done).length + fleeting.built) / total) * 100) : 0;
+    b.innerHTML = `<span class="foot-card-ico">${icon('build', { size: 40 })}</span><span class="foot-card-text"><b>View in Collect</b></span><span class="foot-card-pct">${pct}%</span><span class="foot-card-go">${icon('chevron-right', { size: 22 })}</span>`;
   }
 
   private render(): void {

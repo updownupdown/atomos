@@ -14,6 +14,7 @@
 import { ELEMENTS, elementAt, type Element } from './data';
 import { AtlasMap } from './atlasmap';
 import { isLayoutId, LAYOUT_STORY, LAYOUTS, type LayoutId } from './layouts';
+import { shapeStory } from './shapestory';
 import { inkOn, isLookId, lookColor, lookLegend, lookOf, LOOKS, type LookId } from './looks';
 import { createTable, seriesOne, type Table } from './table';
 import { AtlasPage } from './atlaspage';
@@ -176,8 +177,9 @@ export class Atlas {
     });
     // The microscope: about the shape on screen, why the atoms are arranged this way.
     const sci = scienceButton('at-sci');
-    sci.insertAdjacentHTML('afterbegin', '<span>About this shape</span>');
-    this.root.querySelector('.at-top')!.prepend(sci);
+    sci.insertAdjacentHTML('beforeend', '<span>About this shape</span>');
+    // Floats at the bottom left; the atom card, when one is picked, covers it.
+    this.root.querySelector('.at-body')!.append(sci);
     this.peekEl.onclick = () => { if (this.picked != null) this.openPage(this.picked); };
   }
 
@@ -481,8 +483,7 @@ export class Atlas {
     const l = LAYOUTS.find((x) => x.id === this.view)!;
     setScienceHandler(() => {
       setScienceOpen(true);
-      const scale = l.id === 'sizes' ? ["Drawn to scale: each circle is as wide as its atom (van der Waals radius), from hydrogen's 110 pm to francium's 348 pm."] : [];
-      openModal(`<h2>${l.label}</h2>${[...scale, ...LAYOUT_STORY[l.id]].map((p) => `<p>${p}</p>`).join('')}`, () => setScienceOpen(false));
+      openModal(`<h2>${l.label}</h2>${shapeStory(l.id)}`, () => setScienceOpen(false));
     }, `About this shape: ${l.label}`);
   }
 

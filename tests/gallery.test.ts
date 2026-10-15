@@ -72,13 +72,16 @@ describe('Atlas maps', () => {
     expect(at('pyramid', 3).y).toBeLessThan(at('pyramid', 4).y);
   });
   it('line groups up along spokes in the circle and across the ribbon', () => {
-    for (const id of ['circle', 'ribbon'] as const) {
-      const l = layout(id);
-      const ang = (z: number) => { const c = l.cells.find((x) => x.z === z)!; return Math.atan2(c.y, c.x); };
-      // Lithium, sodium and potassium share a direction from the center.
-      expect(Math.abs(ang(3) - ang(11)), id).toBeLessThan(0.05);
-      expect(Math.abs(ang(3) - ang(19)), id).toBeLessThan(0.05);
-    }
+    const at = (l: ReturnType<typeof layout>, z: number) => l.cells.find((x) => x.z === z)!;
+    // The circle: lithium, sodium and potassium share a direction from the center.
+    const c = layout('circle');
+    const ang = (z: number) => { const p = at(c, z); return Math.atan2(p.y, p.x); };
+    expect(Math.abs(ang(3) - ang(11))).toBeLessThan(0.05);
+    expect(Math.abs(ang(3) - ang(19))).toBeLessThan(0.05);
+    // The ribbon: the alkali metals and the noble gases each run in a line from the inner rings out across the loop.
+    const r = layout('ribbon');
+    const dir = (a: number, b: number) => Math.atan2(at(r, b).y - at(r, a).y, at(r, b).x - at(r, a).x);
+    for (const [a, b, k] of [[3, 11, 19], [10, 18, 36]]) expect(Math.abs(dir(a, b) - dir(a, k)), `${a}`).toBeLessThan(0.1);
   });
 });
 
