@@ -22,8 +22,9 @@
 .home-grow { flex: 1; min-width: 0; }
 .home-muted { font-size: var(--fs-sm); color: var(--c-text-2); }
 .home-caps { display: block; font-size: var(--fs-caps-min); letter-spacing: var(--tracking-caps); text-transform: uppercase; font-weight: var(--fw-semibold); color: var(--c-text-2); }
-/* Learn's boxes sit a step paler than the panel, and what is in them a step paler again. */
-.home-card { display: flex; flex-direction: column; gap: var(--sp-3); padding: 14px; border-radius: var(--r-lg); background: var(--c-surface-3); }
+/* Cards on black are plates (--c-plate, the shade of Play's game cards); what is in them sits on
+   K700 so it reads against the plate. */
+.home-card { display: flex; flex-direction: column; gap: var(--sp-3); padding: 14px; border-radius: var(--r-lg); background: var(--c-plate); }
 .home-card .home-btn, .home-card .home-acard { background: var(--c-pick); }
 .home-card .home-btn:hover:not(:disabled), .home-card .home-acard:hover:not(:disabled), .home-link:hover { background: #3b4147; }
 .home-btn { display: inline-flex; align-items: center; gap: 6px; height: 40px; padding: 0 var(--sp-4); border: 0; border-radius: var(--r-pill); background: var(--c-surface-3); color: var(--c-text); font: inherit; font-size: var(--fs-md); font-weight: var(--fw-semibold); cursor: pointer; }
@@ -58,12 +59,12 @@
 .home-lane-sum span { display: flex; flex-direction: column; min-width: 0; }
 .home-lane-sum b { font-weight: var(--fw-semibold); }
 .home-lane-sum small { white-space: nowrap; font-size: var(--fs-sm); color: var(--c-text-2); font-variant-numeric: tabular-nums; }
-.home-pick { display: flex; align-items: center; gap: 10px; min-width: 0; min-height: 56px; padding: 8px 10px 8px 8px; border: 0; border-radius: 18px; background: var(--c-surface-3); color: var(--c-text); font: inherit; text-align: left; cursor: pointer; }
+.home-pick { display: flex; align-items: center; gap: 10px; min-width: 0; min-height: 56px; padding: 8px 10px 8px 8px; border: 0; border-radius: 18px; background: var(--c-plate); color: var(--c-text); font: inherit; text-align: left; cursor: pointer; }
 .home-pick.is-done { color: var(--c-done); cursor: default; }
 .home-pick.is-locked { color: var(--c-warn); cursor: default; }
 .home-pick-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .home-pick-txt b { font-weight: var(--fw-semibold); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--c-text); }
-.home-gi { width: 34px; height: 34px; flex: none; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: #fff; color: #000; box-shadow: 0 0 0 2px var(--c-surface-3), 0 0 0 3px var(--c-line-2); }
+.home-gi { width: 34px; height: 34px; flex: none; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: #fff; color: #000; box-shadow: 0 0 0 2px var(--c-plate), 0 0 0 3px var(--c-line-2); }
 /* Fleeting: the player picks the game, so a question mark in place of its icon. */
 .home-gi.is-ask { background: var(--c-pick); color: var(--c-text); font-size: 19px; font-weight: var(--fw-bold); }
 
@@ -105,7 +106,7 @@
 .home-tile:hover:not(:disabled) { background: #3b4147; }
 .home-tile:disabled { cursor: default; }
 .home-tile.is-right, .home-card .home-acard.is-right { background: var(--c-done); color: #05210f; }
-.home-tile.is-wrong, .home-card .home-acard.is-wrong { background: var(--c-surface-2); color: var(--c-text-2); opacity: 1; }
+.home-tile.is-wrong, .home-card .home-acard.is-wrong { background: var(--c-plate-2); color: var(--c-text-2); opacity: 1; }
 .home-card .home-acard.is-wrong .home-acard-txt b { color: var(--c-text-2); }
 .home-mark { position: absolute; top: 8px; right: 8px; width: 24px; height: 24px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: #05210f; color: var(--c-done); }
 .is-wrong > .home-mark { background: var(--c-pick); color: var(--c-text-2); }
@@ -141,4 +142,3 @@
 
 /* Play */
 .home-game { display: flex; flex-direction: column; gap: var(--sp-2); }
-.home-game .gcard { background: var(--c-pick); }
