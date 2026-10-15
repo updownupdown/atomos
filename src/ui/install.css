@@ -1,0 +1,31 @@
+/* The one-time offer to keep Atomos on the home screen (install.ts): a plate in the bar's shade
+   floating just above it, the mark and two lines of text over its buttons. */
+.install-offer {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--safe-bottom) + var(--sp-3));
+  z-index: 15;
+  width: min(360px, calc(100% - 2 * var(--sp-3)));
+  transform: translateX(-50%);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: var(--sp-4);
+  border-radius: 24px;
+  background: var(--c-nav);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.55);
+  font-family: var(--font);
+  color: var(--c-text);
+}
+@media (max-width: 400px) { .install-offer { width: calc(100% - 2 * var(--sp-2)); } }
+.io-row { display: flex; align-items: center; gap: var(--sp-3); }
+.io-mark { flex: none; display: grid; place-items: center; width: 52px; height: 52px; border-radius: 50%; background: #000; color: #fff; }
+.io-mark svg { width: 36px; height: 36px; display: block; }
+.io-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.io-text strong { font-size: 17px; font-weight: var(--fw-bold); line-height: 1.25; }
+.io-text > span { font-size: 15px; line-height: 1.4; color: var(--c-text-2); }
+.io-share { display: inline-grid; place-items: center; vertical-align: -3px; color: var(--c-text); }
+.io-share svg { width: 18px; height: 18px; display: block; }
+.io-btns { display: flex; gap: var(--sp-2); }
+.io-btns button { flex: 1; border-radius: var(--r-pill); }
