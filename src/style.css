@@ -836,7 +836,7 @@ body.puzzling #overlay { pointer-events: auto; touch-action: none; }
    the header), none below, and a soft shadow onto the cards scrolling under it. */
 .pg-focus { position: sticky; top: 0; z-index: 2; padding: var(--sp-3) 0 0; background: linear-gradient(var(--c-bg), var(--c-bg)) top / 100% var(--sp-3) no-repeat; }
 .pg-focus-in { box-shadow: 0 12px 28px rgba(0, 0, 0, 0.7), 0 2px 6px rgba(0, 0, 0, 0.5); }
-.pg-focus-in { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'text demo' 'stats stats' 'levels levels'; gap: var(--sp-3) var(--sp-4); padding: var(--sp-3); border-radius: var(--r-lg); background: var(--c-surface); }
+.pg-focus-in { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'text demo' 'stats stats' 'levels levels'; gap: var(--sp-3) var(--sp-4); padding: var(--sp-3); border-radius: var(--r-lg); background: var(--c-plate); }
 .pg-demo { grid-area: demo; width: clamp(128px, 36vw, 200px); aspect-ratio: 1; border-radius: var(--r-md); background: var(--c-bg); }
 .pg-focus-text { grid-area: text; align-self: center; display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; }
 .pg-focus-name { font-size: var(--fs-xl); font-weight: var(--fw-semibold); line-height: var(--lh-tight); color: var(--c-text); }
@@ -862,7 +862,7 @@ body.puzzling #overlay { pointer-events: auto; touch-action: none; }
    Five buttons, each its level's word over a play icon; the picked level filled in its color,
    levels never dealt an empty outline. The stats use the same five columns. */
 .lvl-btns, .lvl-stats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
-.lvl-btn { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; min-width: 0; min-height: 60px; padding: 6px 2px; border: 0; border-radius: var(--r-sm); background: var(--c-surface-2); color: #050607; font: inherit; text-align: center; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.lvl-btn { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; min-width: 0; min-height: 60px; padding: 6px 2px; border: 0; border-radius: var(--r-sm); background: var(--c-plate-2); color: #050607; font: inherit; text-align: center; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .lvl-btn.lvl-1 { background: var(--c-lvl-1); }
 .lvl-btn.lvl-2 { background: var(--c-lvl-2); }
 .lvl-btn.lvl-3 { background: var(--c-lvl-3); }
@@ -882,7 +882,7 @@ body.puzzling #overlay { pointer-events: auto; touch-action: none; }
 .lvl-btn.lvl-5 .lvl-btn-icon { color: var(--c-lvl-5); }
 .lvl-btn.is-off { cursor: default; }
 .lvl-btn.is-off .lvl-btn-word { color: var(--c-text-min); font-weight: var(--fw-regular); }
-.lvl-stats-col { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 0; padding: 6px 2px; border-radius: var(--r-sm); background: var(--c-surface-2); }
+.lvl-stats-col { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 0; padding: 6px 2px; border-radius: var(--r-sm); background: var(--c-plate-2); }
 .lvl-stats-col.is-off { background: transparent; }
 .lvl-stats-word { font-size: var(--fs-min); color: var(--c-text-2); white-space: nowrap; line-height: 1.2; margin-bottom: 2px; }
 .lvl-stat { display: inline-flex; align-items: center; gap: 4px; font-variant-numeric: tabular-nums; color: var(--c-done); }
@@ -1371,16 +1371,16 @@ body[data-screen^='atom'].build-home .science-fab, body[data-screen='atom-view']
 /* Settings: the switches on one plate, then Progress (three counts and backup), Testing and
    Design, each under a heading in the modal heading style. */
 .settings-page .set-head { margin: var(--sp-6) 0 var(--sp-3); font-size: 15px; font-weight: var(--fw-bold); letter-spacing: 0.24em; text-transform: uppercase; line-height: 1.2; color: var(--c-text-2); }
-.set-card { display: flex; flex-direction: column; gap: var(--sp-1); padding: var(--sp-2); border-radius: var(--r-md); background: var(--c-surface); }
+.set-card { display: flex; flex-direction: column; gap: var(--sp-1); padding: var(--sp-2); border-radius: var(--r-md); background: var(--c-plate); }
 .settings-page .set-row { min-height: 60px; padding: var(--sp-2); background: transparent; gap: var(--sp-3); }
 .settings-page .set-row + .set-row { margin-top: 0; }
 .settings-page .set-row .ui-switch-text { flex: 1; min-width: 0; font-size: calc(var(--fs-md) + 1px); }
 .settings-page .set-row .ui-switch-text small { margin-top: 2px; font-size: var(--fs-sm); line-height: 1.35; }
-.set-icon { display: grid; place-items: center; flex: none; width: 36px; height: 36px; border-radius: 50%; background: var(--c-surface-3); color: var(--c-text); }
+.set-icon { display: grid; place-items: center; flex: none; width: 36px; height: 36px; border-radius: 50%; background: var(--c-plate-2); color: var(--c-text); }
 .set-counts { gap: var(--sp-2); padding: var(--sp-3); }
 .set-count { display: grid; grid-template-columns: 36px 4.8em minmax(0, 1fr) 4.6em; align-items: center; gap: var(--sp-3); }
 .set-count-name { font-size: var(--fs-md); font-weight: var(--fw-semibold); color: var(--c-text); }
-.set-count-bar { height: 6px; border-radius: 3px; background: var(--c-surface-3); overflow: hidden; }
+.set-count-bar { height: 6px; border-radius: 3px; background: var(--c-plate-2); overflow: hidden; }
 .set-count-bar i { display: block; height: 100%; border-radius: inherit; background: var(--c-done); }
 .set-count-n { font-size: var(--fs-md); font-variant-numeric: tabular-nums; text-align: right; color: var(--c-text-2); }
 .set-note { margin: var(--sp-3) 0; font-size: var(--fs-md); line-height: var(--lh); color: var(--c-text-2); }
@@ -1391,7 +1391,7 @@ body[data-screen^='atom'].build-home .science-fab, body[data-screen='atom-view']
 .set-links { gap: 0; padding: var(--sp-1) var(--sp-2); }
 .set-link { display: flex; align-items: center; justify-content: space-between; min-height: 52px; padding: 0 var(--sp-2); font-size: var(--fs-md); font-weight: var(--fw-semibold); color: var(--c-text); text-decoration: none; border-radius: var(--r-sm); }
 .set-link svg { color: var(--c-text-2); }
-.set-link:hover { background: var(--c-surface-2); }
+.set-link:hover { background: var(--c-plate-2); }
 .set-link:focus-visible { outline: 2px solid var(--c-text); outline-offset: 2px; }
 
 /* ---- Science sheet: one picture per tab ---- */
