@@ -59,9 +59,19 @@ export const vaultIsotopes = lastingIsotopes;
 
 /** The puzzles that build isotopes. A lasting isotope has one of the first six, fixed in
  *  src/data/isotope-games.json so retuning never reshuffles a board; a fleeting one can be
- *  built with any of them, Lumen and Tokamak included. */
+ *  built with any of them, Lumen and Tokamak included, or any of FLEETING_GAMES. */
 export const ISOTOPE_GAMES_LIST = ['packing', 'colorCharge', 'lines', 'sliding', 'slideStop', 'rutherford', 'light', 'merge'] as const;
 export type IsotopeGame = (typeof ISOTOPE_GAMES_LIST)[number];
+
+/** Every puzzle a fleeting isotope can be built with: the isotope puzzles and every game from
+ *  the Puzzles screen (Kiln only past iron, where its capture mode deals). The player picks;
+ *  the pick is kept in the save by id. */
+export const FLEETING_GAMES = [
+  ...ISOTOPE_GAMES_LIST,
+  'bond', 'spin', 'fission', 'capture', 'planar', 'circuit', 'valence', 'emit', 'sort', 'flood',
+  'dipole', 'trace', 'shells', 'drop', 'push', 'collide', 'annihil', 'solo', 'blocks',
+] as const;
+export type FleetingGame = (typeof FLEETING_GAMES)[number];
 
 const GAME_OF = ISOTOPE_GAMES as Record<string, IsotopeGame>;
 

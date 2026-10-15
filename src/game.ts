@@ -6,7 +6,7 @@ import {
 import { frontier, loadSave, writeSave, type OrbitalShape, type SaveData, type StepId } from './core/save';
 // The gallery's gate puzzles (lenses, nucleus view, looks); loaded here so they are ready.
 import './puzzles/unlock';
-import { atomBuilt, atomProgress, fleetingCount, fleetingIsotopes, isotopeCollected, isotopeGame, ISOTOPE_GAMES_LIST, lastingIsotopes, rowNeed, rowOf, rowOpen, rowSpan, segmentsOf, shapeAt, stepState, stepsOf, type IsotopeGame, type StepState } from './core/progress';
+import { atomBuilt, atomProgress, fleetingCount, fleetingIsotopes, isotopeCollected, isotopeGame, FLEETING_GAMES, ISOTOPE_GAMES_LIST, lastingIsotopes, rowNeed, rowOf, rowOpen, rowSpan, segmentsOf, shapeAt, stepState, stepsOf, type FleetingGame, type StepState } from './core/progress';
 import { SHAPE_GLYPH_Z } from './core/unlocks';
 import { nextLabel, nextStep, nextStepElsewhere, nextStepHere, notePaused, type NextStep } from './core/next';
 import { atomFact } from './core/facts';
@@ -52,14 +52,24 @@ const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as 
  *  the isotope with mass number 7), or a fleeting isotope with the puzzle the player picked
  *  ('fl-8-packing' builds the isotope with mass number 8 with Tessera). */
 type IsoStage = `iso-${number}`;
-type FleetStage = `fl-${number}-${IsotopeGame}`;
+type FleetStage = `fl-${number}-${FleetingGame}`;
 type Stage = 'home' | StepId | 'shape' | IsoStage | FleetStage;
 
 const isIso = (s: Stage): s is IsoStage => s.startsWith('iso-');
 const isoA = (s: IsoStage): number => Number(s.slice(4));
 const isFleet = (s: Stage): s is FleetStage => s.startsWith('fl-');
 const fleetA = (s: FleetStage): number => Number(s.split('-')[1]);
-const fleetGame = (s: FleetStage): IsotopeGame => s.split('-')[2] as IsotopeGame;
+const fleetGame = (s: FleetStage): FleetingGame => s.split('-')[2] as FleetingGame;
+
+/** The puzzles a fleeting isotope of atom z can be built with, A to Z as on the Puzzles screen:
+ *  the isotope puzzles always, the Puzzles-screen games where they deal for z (Kiln past iron). */
+function fleetingGamesFor(z: number): FleetingGame[] {
+  return FLEETING_GAMES.filter((g) => {
+    if ((ISOTOPE_GAMES_LIST as readonly string[]).includes(g)) return true;
+    const [lo, hi] = puzzleType(g).zRange;
+    return z >= lo && z <= hi;
+  }).sort((a, b) => puzzleType(a).name.localeCompare(puzzleType(b).name));
+}
 
 const STEP_LABEL: Record<StepId, string> = { nucleus: 'Nucleus', shells: 'Electrons' };
 
@@ -162,7 +172,7 @@ export class Game {
     if (s === 'shape') return shapeAt(z) !== undefined;
     const built = Boolean(this.save.built[z]);
     if (isIso(s)) return built && lastingIsotopes(z).some((i) => i.a === isoA(s));
-    if (isFleet(s)) return built && fleetingIsotopes(z).some((i) => i.a === fleetA(s)) && (ISOTOPE_GAMES_LIST as readonly string[]).includes(fleetGame(s));
+    if (isFleet(s)) return built && fleetingIsotopes(z).some((i) => i.a === fleetA(s)) && fleetingGamesFor(z).includes(fleetGame(s));
     return false;
   }
 
@@ -548,7 +558,7 @@ export class Game {
       <p class="muted">Pick a puzzle to build it${done ? ' again' : ''}. The shorter an isotope lives, the harder its board.</p>
       <ul class="bh-picks"></ul>`);
     const list = sheet.querySelector<HTMLElement>('.bh-picks')!;
-    for (const g of ISOTOPE_GAMES_LIST) {
+    for (const g of fleetingGamesFor(this.z)) {
       const name = puzzleType(g).name;
       const li = document.createElement('li');
       li.append(gameCard({
@@ -961,7 +971,7 @@ export class Game {
   /** An isotope's board solved: it joins the collection (a fleeting one with the puzzle it was
    *  built with, for display). A known unstable isotope also starts its own life on the bench,
    *  decaying in real time. */
-  private collectIsotope(a: number, game?: IsotopeGame): void {
+  private collectIsotope(a: number, game?: FleetingGame): void {
     const z = this.z;
     const key = isotopeKey(z, a);
     this.save.isotopes[key] = { ...this.save.isotopes[key], collected: true, ...(game ? { game, at: Date.now() } : {}) };

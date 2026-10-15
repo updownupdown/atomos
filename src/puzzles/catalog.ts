@@ -4,7 +4,7 @@
 // nucleus from Tokamak, Inertia, Tessera and Nova, the electrons from Quanta, Flux, Chroma and
 // Aurum. Tessera, Chroma, Flux, Nova, Inertia and Aurum also build lasting isotopes, and Lumen
 // fleeting ones; Glyph opens the display unlocks. Reserve games are played from the Puzzles
-// screen only, until they earn a place.
+// screen, and any of them can build a fleeting isotope, by choice (FLEETING_GAMES).
 
 import { elementAt as element } from '../gallery/data';
 import { ICON_NAMES, icon } from '../ui/icons';
@@ -148,7 +148,7 @@ export const TIER_NOTE: Record<Tier, string> = {
   every: 'The first two puzzles you meet, building nuclei and electrons; other puzzles share those steps atom by atom.',
   facet: 'Build isotopes, and share the atom steps. Each lasting isotope has its own puzzle; for a fleeting one you pick.',
   gate: 'Open new ways to see the atoms: the nucleus view and the orbital shapes.',
-  reserve: 'Built to try out; no place in the game yet.',
+  reserve: 'Played from here, and any of them can build a fleeting isotope, by choice.',
 };
 
 export const TIER_LABEL: Record<Tier, string> = {
@@ -402,6 +402,7 @@ export const PUZZLES: PuzzleType[] = [
   },
   {
     id: 'bond', name: 'Tether', tier: 'reserve',
+    live: 'Build mode: any fleeting isotope by choice.',
     use: 'Practice',
     get rules() { return rulesOf(BondV); },
     goal: 'Join every pair of dots; paths never cross.',
@@ -420,6 +421,7 @@ export const PUZZLES: PuzzleType[] = [
   },
   {
     id: 'spin', name: 'Parity', tier: 'reserve',
+    live: 'Build mode: any fleeting isotope by choice.',
     use: 'Practice',
     get rules() { return rulesOf(SpinV); },
     goal: 'Fill the grid with ups and downs, balanced and never three alike.',
@@ -438,6 +440,7 @@ export const PUZZLES: PuzzleType[] = [
   },
   {
     id: 'fission', name: 'Cascade', tier: 'reserve',
+    live: 'Build mode: any fleeting isotope by choice.',
     use: 'Practice',
     get rules() { return rulesOf(FissionV); },
     goal: 'Split every nucleus in the fewest taps.',
@@ -456,6 +459,7 @@ export const PUZZLES: PuzzleType[] = [
   },
   {
     id: 'capture', name: 'Kiln', tier: 'reserve',
+    live: 'Build mode: any fleeting isotope past iron, by choice.',
     use: 'Practice',
     get rules() { return MergeV.CAPTURE_RULES; },
     goal: 'Kiln mode: build one cluster of exactly the mass number.',
@@ -474,6 +478,7 @@ export const PUZZLES: PuzzleType[] = [
   },
   {
     id: 'planar', name: 'Unfurl', tier: 'reserve',
+    live: 'Build mode: any fleeting isotope by choice.',
     use: 'Practice',
     get rules() { return rulesOf(PlanarV); },
     goal: 'Drag the atoms until no two bonds cross.',
@@ -493,6 +498,7 @@ export const PUZZLES: PuzzleType[] = [
   },
   {
     id: 'circuit', name: 'Volta', tier: 'reserve',
+    live: 'Build mode: any fleeting isotope by choice.',
     use: 'Practice',
     get rules() { return rulesOf(CircuitV); },
     goal: 'Turn the tiles until current from the cell reaches every one.',
@@ -511,6 +517,7 @@ export const PUZZLES: PuzzleType[] = [
   },
   {
     id: 'valence', name: 'Valence', tier: 'reserve',
+    live: 'Build mode: any fleeting isotope by choice.',
     use: 'Practice',
     get rules() { return rulesOf(ValenceV); },
     goal: 'Bond every atom to its number in one molecule.',
@@ -526,6 +533,7 @@ export const PUZZLES: PuzzleType[] = [
   },
   {
     id: 'emit', name: 'Emit', tier: 'reserve',
+    live: 'Build mode: any fleeting isotope by choice.',
     use: 'Practice',
     get rules() { return rulesOf(EmitV); },
     goal: 'Light every cell; no lamp in another lamp\u2019s light.',
@@ -541,6 +549,7 @@ export const PUZZLES: PuzzleType[] = [
   },
   {
     id: 'sort', name: 'Vials', tier: 'reserve',
+    live: 'Build mode: any fleeting isotope by choice.',
     use: 'Practice',
     get rules() { return rulesOf(SortV); },
     goal: 'Pour each color of light into a vial of its own.',
@@ -559,6 +568,7 @@ export const PUZZLES: PuzzleType[] = [
   },
   {
     id: 'flood', name: 'Flood', tier: 'reserve',
+    live: 'Build mode: any fleeting isotope by choice.',
     use: 'Practice',
     get rules() { return rulesOf(FloodV); },
     goal: 'Grow the crystal over the whole board within the picks allowed.',
@@ -576,6 +586,7 @@ export const PUZZLES: PuzzleType[] = [
   },
   {
     id: 'dipole', name: 'Dipole', tier: 'reserve',
+    live: 'Build mode: any fleeting isotope by choice.',
     use: 'Practice',
     get rules() { return rulesOf(DipoleV); },
     goal: 'Place the magnets so every edge number is met and like poles never touch.',
@@ -594,6 +605,7 @@ export const PUZZLES: PuzzleType[] = [
   },
   {
     id: 'trace', name: 'Tracer', tier: 'reserve',
+    live: 'Build mode: any fleeting isotope by choice.',
     use: 'Practice',
     get rules() { return rulesOf(TraceV); },
     goal: 'Draw one trail through every cell, meeting the numbers in order.',
@@ -612,6 +624,7 @@ export const PUZZLES: PuzzleType[] = [
   },
   {
     id: 'shells', name: 'Shells', tier: 'reserve',
+    live: 'Build mode: any fleeting isotope by choice.',
     use: 'Practice',
     get rules() { return rulesOf(ShellsV); },
     goal: 'Turn the rings until every bead faces its mark.',
@@ -634,6 +647,7 @@ export const PUZZLES: PuzzleType[] = [
   },
   {
     id: 'drop', name: 'Well', tier: 'reserve',
+    live: 'Build mode: any fleeting isotope by choice.',
     use: 'Practice',
     get rules() { return rulesOf(DropV); },
     goal: 'Fill the well to the brim with the falling clusters.',
@@ -653,6 +667,7 @@ export const PUZZLES: PuzzleType[] = [
   },
   {
     id: 'push', name: 'Shepherd', tier: 'reserve',
+    live: 'Build mode: any fleeting isotope by choice.',
     use: 'Practice',
     get rules() { return rulesOf(PushV); },
     goal: 'Push every nucleon onto a socket of its own kind.',
@@ -671,6 +686,7 @@ export const PUZZLES: PuzzleType[] = [
   },
   {
     id: 'collide', name: 'Hadron', tier: 'reserve',
+    live: 'Build mode: any fleeting isotope by choice.',
     use: 'Practice',
     get rules() { return rulesOf(CollideV); },
     goal: 'Collect the target particles within the move budget.',
@@ -686,6 +702,7 @@ export const PUZZLES: PuzzleType[] = [
   },
   {
     id: 'annihil', name: 'Nullis', tier: 'reserve',
+    live: 'Build mode: any fleeting isotope by choice.',
     use: 'Practice',
     get rules() { return rulesOf(AnnihilV); },
     goal: 'Jump pieces over their opposites until one is left.',
@@ -702,6 +719,7 @@ export const PUZZLES: PuzzleType[] = [
   },
   {
     id: 'solo', name: 'Solus', tier: 'reserve',
+    live: 'Build mode: any fleeting isotope by choice.',
     use: 'Practice',
     get rules() { return rulesOf(SoloV); },
     goal: 'One electron in every row, column and orbital; none touching.',
@@ -717,6 +735,7 @@ export const PUZZLES: PuzzleType[] = [
   },
   {
     id: 'blocks', name: 'Cubit', tier: 'reserve',
+    live: 'Build mode: any fleeting isotope by choice.',
     use: 'Practice',
     get rules() { return rulesOf(BlocksV); },
     goal: 'Cut the grid into rectangles, one number in each, sized by its number.',
