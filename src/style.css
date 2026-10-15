@@ -305,6 +305,8 @@ body:not(.build-home) .build-bar { display: none; }
 .bh-sec > :not(.bh-steps) { max-width: calc(100% - var(--trk-room)); }
 .bh-sec > .bh-sec-head { max-width: calc(100% - 42px); }
 .bh-sec > .bh-fleet { width: calc(100% - var(--trk-room)); }
+/* The Info card keeps clear of the track too, the width of the sections above it. */
+.bh-in > #bh-to-info { width: calc(100% - var(--trk-room)); }
 .bh-row { display: grid; grid-template-columns: minmax(0, 1fr) clamp(140px, 40%, 240px); align-items: center; gap: var(--sp-3); }
 .bh-gc { min-width: 0; }
 .bh-gc .gcard { width: 100%; }

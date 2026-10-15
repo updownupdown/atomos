@@ -3,7 +3,8 @@
 // was simplified to draw them, and a little of the wider story, with small drawings in place of
 // long explanations. Detail most readers can skip folds away in a disclosure.
 
-import { BLOCK_COLOUR, type Element } from './data';
+import { BLOCK_COLOUR, shortConfiguration, type Element } from './data';
+import { inkOn, lookColor } from './looks';
 import type { Tab } from './info';
 import { lifeMeter } from './visuals';
 import { disclosureHTML } from '../ui/components';
@@ -24,18 +25,26 @@ function blockLegend(): string {
   return `<ul class="gd-blocks">${rows.map(([b, name, text]) => `<li><i style="background:${BLOCK_COLOUR[b]}"></i><b>${name}</b><span>${text}</span></li>`).join('')}</ul>`;
 }
 
-/** This element's tile with its parts named. */
-function tileAnatomy(e: Element): string {
-  const w = e.weight == null ? '' : `${Number(e.weight.toPrecision(5))}`;
+/** This element's card with its parts named: the plate, where it sits, and the three numbers. */
+function cardAnatomy(e: Element): string {
+  const fill = lookColor('place', e);
+  const w = e.weight == null ? `[${e.commonA}]` : `${Number(e.weight.toPrecision(5))}`;
+  const where = [esc(e.series), e.group == null ? '' : `group ${e.group}`, `period ${e.period}`].filter(Boolean).join(' · ');
   return `<div class="gd-anatomy">
-    <div class="ov-tile" style="--b:${BLOCK_COLOUR[e.block]}"><span>${e.z}</span><b>${e.symbol}</b><em>${w}</em></div>
+    <div class="ov-plate" style="background:${fill};color:${inkOn(fill)}"><span>${e.z}</span><b>${e.symbol}</b></div>
     <ul>
-      <li><b>${e.z}</b> Atomic number: the protons in every ${esc(e.name.toLowerCase())} nucleus, and the electrons round a neutral atom.</li>
+      <li><b>${e.z}</b> Atomic number: the protons in every ${esc(e.name.toLowerCase())} nucleus, and the electrons round a neutral atom. It alone decides which element an atom is.</li>
       <li><b>${e.symbol}</b> Symbol, often from the Latin or Greek name.</li>
-      ${w ? `<li><b>${w}</b> Atomic weight: the average mass of its atoms as found on Earth, in daltons (a twelfth of a carbon-12 atom).</li>` : ''}
-      <li><b class="gd-strip" style="background:${BLOCK_COLOUR[e.block]}"></b> The colored edge is its block.</li>
+      <li><b class="gd-strip" style="background:${fill}"></b> The plate takes the color of its place in the table, the same color it has in the Atlas and in Collect.</li>
     </ul>
-  </div>`;
+  </div>
+  <dl class="gd-defs">
+    <dt>${where}</dt><dd>Its family${e.group == null ? '' : ', its column'} and its row. Elements in a column share their outer electrons, so they behave alike; the row is how many shells of electrons it has.</dd>
+    <dt>The little table</dt><dd>Where ${esc(e.name.toLowerCase())} sits, its row picked out. Tap it to see ${esc(e.name.toLowerCase())} in the Atlas.</dd>
+    <dt>Weight ${w}</dt><dd>${e.weight == null ? 'No atom of it lasts long enough to weigh a natural sample, so the brackets give the mass number of its longest-lived isotope.' : 'The average mass of its atoms as found on Earth, in daltons (a twelfth of a carbon-12 atom). It is not a whole number because natural samples mix isotopes.'}</dd>
+    <dt>Electrons ${shortConfiguration(e)}</dt><dd>Its electron arrangement, written short: a noble gas in brackets stands for all the shells that gas has filled, then the layers on top, each with its count of electrons. Structure draws it.</dd>
+    <dt>Block ${e.block}</dt><dd>The kind of layer its last electrons go into.</dd>
+  </dl>`;
 }
 
 /** The filling-order chart: subshells in rows, read along the diagonals. */
@@ -96,14 +105,14 @@ function guide(e: Element, tab: Tab): { title: string; html: string } {
     case 'overview': return {
       title: 'Reading the overview',
       html:
-        section('The tile', tileAnatomy(e))
-        + section('Blocks and colors', p('Every element sits in one of four blocks, named after the kind of electron layer it is filling. The same four colors mark the layers in the 3D view, the orbitals and the puzzles.') + blockLegend())
-        + section('The 3D view', p('Each colored cloud is one layer of electrons. Where the dots are dense, an electron is more likely to be found. Nothing is orbiting: the dots are samples of a probability, which is why they fade and reappear somewhere else. The bright dot in the middle marks the nucleus; at true scale it would be tens of thousands of times too small to see.')
-          + p('The edge of the cloud sits at the atom\'s van der Waals radius, and the scale circles are 300, 400, 500 and 600 pm across (a picometer is a trillionth of a meter). Show or hide the circles at the bottom left. Under Draw as, Cloud shows only the dots, Shapes the textbook orbital surfaces, Hybrid both. Pinch (or scroll) to look closer; the view drifts back to the shared scale after a moment, so every element stays comparable.')
-          + p('Zoom to Nucleus (opened by solving a Glyph puzzle) swaps the atom for its nucleus, about a hundred thousand times smaller: every proton (gold) and neutron (silver) of the most common isotope, with circles 4, 8, 12 and 16 fm across (a femtometer is a thousandth of a picometer). The balls show how many there are and how big the nucleus is, not fixed places: nucleons have none.')
-          + p('Double-tap the atom to dive in and out. The dive keeps the true proportions: everything grows 37,500 times, evenly in powers of ten, while the width of the view counts down from picometers to femtometers. The cloud swells past you and fades, then there is a long stretch of nothing, because an atom is almost entirely empty space, until the nucleus grows out of a point.')
-          + disclosureHTML({ title: 'How the clouds are made', body: p('The shapes are the hydrogen-like orbitals, the exact solutions for a single electron, spaced by Slater\'s rules for how much the inner electrons shield the outer ones from the nucleus. Real many-electron atoms differ in the detail, and the lobes are sharpened a little so they read on a phone. Stepping to a neighbor keeps the layers both atoms share; added electrons fade in white and removed ones fade out red.') }))
-        + section('Facts and photos', p(`The headline and facts were written for Atomos and spot-checked against standard references. Photos come from Wikimedia Commons, credited under each one with the author and license; a few radioactive elements have no photo of a real sample.${e.z >= 104 ? ` Elements from rutherfordium on, ${name} among them, have only been made a few atoms at a time, so much of what we show of them is prediction.` : ''}`)),
+        section('The card', cardAnatomy(e))
+        + section('Blocks', p('Every element sits in one of four blocks, named after the kind of electron layer it is filling. These four colors mark the layers on Structure and in the 3D view.') + blockLegend())
+        + section('The photo', p(`Photos are of real samples, from Wikimedia Commons, credited under each one with the photographer and license. A few radioactive elements have no photo of a real sample${e.z >= 99 ? `, ${name} among them: too little has ever been made to see` : ''}.`))
+        + section('Facts', p('The headline and the facts under it were written for ATOMOS and checked against standard references. The name\'s origin, Made in and Used for skip anything the facts already say, so each line appears once.'))
+        + section('Discovered', p('The year it was first found or made, by whom and where, and a line from antiquity to today with this discovery marked among all the others.') + disclosureHTML({ title: 'Five eras of discovery', body: `<dl class="gd-defs">${ERAS.map(([t, d]) => `<dt>${t}</dt><dd>${d}</dd>`).join('')}</dl>` }))
+        + section('View', p('The View button opens the atom in 3D. Each colored cloud is one layer of electrons; where the dots are dense, an electron is more likely to be found. Nothing is orbiting: the dots are samples of a probability, which is why they fade and reappear somewhere else. The cloud\'s edge sits at the van der Waals radius, so atoms keep their true sizes against each other.')
+          + disclosureHTML({ title: 'How the clouds are made', body: p('The shapes are the hydrogen-like orbitals, the exact solutions for a single electron, spaced by Slater\'s rules for how much the inner electrons shield the outer ones from the nucleus. Real many-electron atoms differ in the detail, and the lobes are sharpened a little so they read on a phone.') }))
+        + (e.z >= 104 ? section('Made a few atoms at a time', p(`From rutherfordium on, ${name} among them, elements have only been made a few atoms at a time, so much of what is shown of them is prediction.`)) : ''),
     };
     case 'structure': return {
       title: 'Reading the structure',
