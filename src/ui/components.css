@@ -524,6 +524,9 @@
 .nu-guide.is-on { opacity: 1; transition: none; }
 .nu-guide svg { position: absolute; inset: 0; overflow: visible; }
 .nu-guide line { stroke: var(--c-go); stroke-linecap: round; }
+/* Going round the far side of a toy's orbit, Nu dims, as if behind its nucleus. */
+.nu-guide > * { transition: opacity 0.3s ease; }
+.nu-guide.is-back > * { opacity: 0.4; }
 .nu-guide b { position: absolute; left: -5px; top: -5px; width: 10px; height: 10px; border-radius: 50%; background: var(--c-go); box-shadow: 0 0 14px 4px var(--c-go-ring); will-change: transform; }
 
 /* Nu's slots: an empty ring until Nu lands in it. With Nu off they are printed dots. */
