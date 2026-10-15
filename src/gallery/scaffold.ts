@@ -61,7 +61,7 @@ export class Scaffold {
   private px = 0;
   private seg = 0;
 
-  constructor(color = 0xe4e8ea, opacity = 0.55) {
+  constructor(color = 0xe4e8ea, opacity = 0.35) {
     this.material = new THREE.MeshBasicMaterial({ color, transparent: true, opacity, depthTest: false, depthWrite: false, side: THREE.DoubleSide });
     this.scene.add(this.group);
   }
