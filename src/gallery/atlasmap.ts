@@ -24,8 +24,10 @@ const SYM_PX = 13;
 const NUM_PX = 13;
 const NAME_PX = 13;
 const MAX_ZOOM = 9;
-/** Kept clear at the bottom when the whole shape is shown, for the peek strip that floats there. */
-const PEEK_ROOM = 84;
+/** Kept clear when the whole shape is shown: at the top for the peek strip, at the bottom for
+ *  search and the microscope, which float there. */
+const TOP_ROOM = 84;
+const FOOT_ROOM = 60;
 
 interface Pointer { x: number; y: number }
 
@@ -108,9 +110,9 @@ export class AtlasMap {
     if (this.scale < need) this.scale = Math.min(this.fit * MAX_ZOOM, need * 1.1);
     const sx = (c.x - this.tx) * this.scale, sy = (c.y - this.ty) * this.scale;
     const m = 40;
-    if (sx < m || sx > this.w - m || sy < m || sy > this.h - m) {
+    if (sx < m || sx > this.w - m || sy < TOP_ROOM + m || sy > this.h - FOOT_ROOM - m) {
       this.tx = c.x - this.w / 2 / this.scale;
-      this.ty = c.y - this.h / 2 / this.scale;
+      this.ty = c.y - (TOP_ROOM + (this.h - TOP_ROOM - FOOT_ROOM) / 2) / this.scale;
     }
     this.clampView();
     this.apply();
@@ -170,7 +172,7 @@ export class AtlasMap {
     const r = this.el.getBoundingClientRect();
     this.w = Math.max(1, r.width);
     this.h = Math.max(1, r.height);
-    this.fit = Math.min(this.w / this.bounds.w, (this.h - PEEK_ROOM) / this.bounds.h) * 0.96;
+    this.fit = Math.min(this.w / this.bounds.w, (this.h - TOP_ROOM - FOOT_ROOM) / this.bounds.h) * 0.96;
   }
 
   private resize(): void {
@@ -184,18 +186,19 @@ export class AtlasMap {
 
   private center(): void {
     this.tx = this.bounds.x + this.bounds.w / 2 - this.w / 2 / this.scale;
-    this.ty = this.bounds.y + this.bounds.h / 2 - (this.h - PEEK_ROOM) / 2 / this.scale;
+    this.ty = this.bounds.y + this.bounds.h / 2 - (TOP_ROOM + (this.h - TOP_ROOM - FOOT_ROOM) / 2) / this.scale;
   }
 
   /** Keep some of the shape on screen however far it is dragged. */
   private clampView(): void {
     this.scale = Math.max(this.fit, Math.min(this.fit * MAX_ZOOM, this.scale));
-    // The bottom of the shape can scroll up clear of the peek strip.
-    const vw = this.w / this.scale, vh = (this.h - PEEK_ROOM) / this.scale;
+    // The shape's edges can scroll clear of the peek strip above and the tools below.
+    const vw = this.w / this.scale, vh = (this.h - TOP_ROOM - FOOT_ROOM) / this.scale;
     const b = this.bounds;
     const fx = (lo: number, hi: number, v: number, span: number) => (span >= hi - lo ? (lo + hi) / 2 - span / 2 : Math.max(lo, Math.min(hi - span, v)));
     this.tx = fx(b.x, b.x + b.w, this.tx, vw);
-    this.ty = fx(b.y, b.y + b.h, this.ty, vh);
+    const top = TOP_ROOM / this.scale;
+    this.ty = fx(b.y, b.y + b.h, this.ty + top, vh) - top;
   }
 
   /** The atom whose cell center is within half a cell of a screen point: a tap just off a small
