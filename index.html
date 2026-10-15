@@ -29,11 +29,12 @@
       <button class="nav-btn" id="nav-search" aria-label="Search atoms and games" aria-haspopup="dialog"></button>
       <button class="nav-btn" id="nav-settings" aria-label="Settings" aria-current="false"></button>
     </header>
-    <!-- The bar on Home: Collect, Atlas and Play in a pill at the foot. src/ui/dock.ts. -->
+    <!-- The bar on Home: Collect, Atlas, Play and Nu in a pill at the foot. src/ui/dock.ts. -->
     <nav class="dock" id="dock" aria-label="Sections">
       <button id="nav-collect"><span class="nav-ico"></span><span class="nav-lab">Collect</span></button>
       <button id="nav-gallery"><span class="nav-ico"></span><span class="nav-lab">Atlas</span></button>
       <button id="nav-puzzles"><span class="nav-ico"></span><span class="nav-lab">Play</span></button>
+      <button id="nav-nu"><span class="nav-ico"></span><span class="nav-lab">Nu</span></button>
     </nav>
 
     <div id="gallery-screen">
@@ -122,6 +123,9 @@
         </div>
       </div>
     </section>
+
+    <!-- Nu's park: five games to play with Nu (src/nu/park.ts). -->
+    <section id="nu-screen" class="nu-screen" hidden aria-label="Nu"></section>
 
     <section id="settings-screen" class="settings-screen" hidden aria-label="Settings">
       <div class="sheet settings-page" id="settings-page"></div>

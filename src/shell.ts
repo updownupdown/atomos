@@ -12,6 +12,7 @@
 //   View        — the 3D atom, full screen over the page it was opened from (Build or an atom
 //                 page), which it goes back to when closed.
 //   Settings    — a sheet from the gear on Home.
+//   Nu          — Nu's park, from the bar on Home: five games to play with Nu (src/nu).
 // The header is on every screen but View and never moves: the mark at its left goes Home (Nu
 // rests in it). On Home the wordmark, Search and Settings follow, and the bar (src/ui/dock.ts)
 // holds Collect, Atlas and Play at the foot. Everywhere else the trail (src/ui/crumbs.ts) follows
@@ -30,6 +31,7 @@ import { gameListOpen, openGameList } from './ui/gamelist';
 import { openFinder } from './ui/finder';
 import type { Game } from './game';
 import type { Playground } from './playground';
+import type { NuPark } from './nu/park';
 import { onSettingsChange, renderSettings } from './ui/settings';
 import { renderIconPage } from './ui/iconpage';
 import { renderComponentPage } from './ui/componentpage';
@@ -58,6 +60,7 @@ export class AppShell {
   private collect: Collect;
   private game: Game | null = null;
   private playground: Playground | null = null;
+  private park: NuPark | null = null;
 
   constructor() {
     // Read where the player was before anything below records the gallery as the new place.
@@ -257,6 +260,10 @@ export class AppShell {
   }
 
   private async show(screen: Screen, mode: AtomMode): Promise<void> {
+    if (screen === 'nu' && !this.park) {
+      const { NuPark } = await import('./nu/park');
+      this.park = new NuPark($('nu-screen'));
+    }
     if (screen === 'puzzles' && !this.playground) {
       const { Playground } = await import('./playground');
       this.playground = new Playground();
@@ -283,6 +290,7 @@ export class AppShell {
     if (!showGame) { this.game?.pause(); $('app').hidden = true; }
     if (!showCollect) this.collect.hide();
     if (!showPlay) this.playground?.hide();
+    if (screen !== 'nu') this.park?.hide();
     $('home-screen').hidden = !showHome;
     $('settings-screen').hidden = !showSettings;
     $('icons-screen').hidden = !showIcons;
@@ -312,6 +320,8 @@ export class AppShell {
       this.collectZ = true;
     } else if (showPlay) {
       this.playground!.show();
+    } else if (screen === 'nu') {
+      this.park!.show();
     } else if (showComponents) {
       renderComponentPage($('component-page'), () => void this.go('settings'));
       $('components-screen').scrollTop = 0;
@@ -367,6 +377,7 @@ export class AppShell {
       }
       case 'icons': return [{ label: 'Settings', go: () => void this.go('settings') }, { label: 'Icons' }];
       case 'components': return [{ label: 'Settings', go: () => void this.go('settings') }, { label: 'Components' }];
+      case 'nu': return [{ label: 'Nu' }];
       default: return null;
     }
   }
@@ -377,6 +388,7 @@ export class AppShell {
     if (s === 'home') { if (this.screen === 'home') askNu($('home-body')); else void this.go('home'); }
     else if (s === 'collect') void this.go('collect');
     else if (s === 'learn') void this.go('gallery');
+    else if (s === 'nu') void this.go('nu');
     else void this.go('puzzles');
   }
 

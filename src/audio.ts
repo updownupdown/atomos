@@ -139,3 +139,10 @@ export function stopHum(): void {
   g.gain.setTargetAtTime(0.0001, ctx.currentTime, 0.05);
   o.stop(ctx.currentTime + 0.3);
 }
+
+/** One of five soft bell notes (a pentatonic scale), for Nu's Echo game. */
+export function chimeSound(i: number): void {
+  const f = [523.25, 587.33, 659.25, 783.99, 880][((i % 5) + 5) % 5];
+  tone(f, 0.5, 0.05, 'sine');
+  tone(f * 2, 0.25, 0.012, 'sine');
+}
