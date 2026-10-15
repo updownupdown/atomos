@@ -11,7 +11,7 @@
 //   const atlas = new Atlas(host, { onBuild: (z) => openBuild(z) });
 //   atlas.show();
 
-import { ELEMENTS, elementAt, type Element } from './data';
+import { ELEMENTS, elementAt, placeColour, type Element } from './data';
 import { AtlasMap } from './atlasmap';
 import { isLayoutId, LAYOUT_STORY, LAYOUTS, type LayoutId } from './layouts';
 import { shapeStory } from './shapestory';
@@ -33,6 +33,27 @@ import { scienceButton, setScienceHandler, setScienceOpen } from '../ui/science'
 import './atlas.css';
 import { nuShow } from '../ui/nu';
 
+/** Place has no scale to explain, so its legend names the families instead: each swatch is the
+ *  family's hue (period 4's shade), and a tap lights its atoms. Lanthanum and actinium count with
+ *  their series; hydrogen belongs to none. */
+const FAMILIES: { id: string; label: string; of: (e: Element) => boolean; swatch: number[] }[] = [
+  { id: 'alkali', label: 'Alkali metals', of: (e) => e.group === 1 && e.z !== 1, swatch: [19] },
+  { id: 'earth', label: 'Alkaline earths', of: (e) => e.group === 2, swatch: [20] },
+  { id: 'transition', label: 'Transition metals', of: (e) => e.group != null && e.group >= 3 && e.group <= 12 && e.z !== 57 && e.z !== 89, swatch: [21, 23, 24, 25, 26, 29, 30] },
+  { id: 'boron', label: 'Boron group', of: (e) => e.group === 13, swatch: [31] },
+  { id: 'carbon', label: 'Carbon group', of: (e) => e.group === 14, swatch: [32] },
+  { id: 'nitrogen', label: 'Nitrogen group', of: (e) => e.group === 15, swatch: [33] },
+  { id: 'chalcogen', label: 'Chalcogens', of: (e) => e.group === 16, swatch: [34] },
+  { id: 'halogen', label: 'Halogens', of: (e) => e.group === 17, swatch: [35] },
+  { id: 'noble', label: 'Noble gases', of: (e) => e.group === 18, swatch: [36] },
+  { id: 'lanthanide', label: 'Lanthanides', of: (e) => e.z >= 57 && e.z <= 71, swatch: [60] },
+  { id: 'actinide', label: 'Actinides', of: (e) => e.z >= 89 && e.z <= 103, swatch: [92] },
+];
+const swatchFill = (zs: number[]) => {
+  const c = zs.map((z) => placeColour(elementAt(z)));
+  return c.length === 1 ? c[0] : `linear-gradient(90deg, ${c.join(', ')})`;
+};
+
 export type AtlasView = LayoutId | 'details';
 const VIEWS: { id: AtlasView; label: string }[] = [...LAYOUTS.map((l) => ({ id: l.id as AtlasView, label: l.label })), { id: 'details', label: 'Details' }];
 const lensOf = (v: AtlasView): UnlockId | null => (v === 'table' || v === 'details' ? null : `lens:${v}`);
@@ -49,6 +70,8 @@ export class Atlas {
   private view: AtlasView = ((v) => (v === 'details' || isLayoutId(v) ? v : 'table'))(read(VIEW_KEY));
   private look: LookId = ((v) => (isLookId(v) ? v : 'place'))(read(LOOK_KEY));
   private query = '';
+  /** The family lit from Place's legend, if any. */
+  private family: string | null = null;
   private picked: number | null = null;
   private map: AtlasMap;
   private table: Table | null = null;
@@ -145,7 +168,7 @@ export class Atlas {
     const clear = this.root.querySelector<HTMLButtonElement>('.at-clear')!;
     this.input.addEventListener('input', () => {
       this.query = this.input.value.trim();
-      if (this.query) tools.classList.add('is-searching');
+      if (this.query) { tools.classList.add('is-searching'); this.family = null; this.paintFamilies(); }
       this.applySearch();
     });
     this.input.addEventListener('keydown', (e) => {
@@ -180,6 +203,9 @@ export class Atlas {
     sci.insertAdjacentHTML('beforeend', '<span>About this shape</span>');
     // Floats at the bottom left; the atom card, when one is picked, covers it.
     this.root.querySelector('.at-body')!.append(sci);
+    // The legend can wrap to more lines (Place's families): keep the shape clear of it.
+    const top = this.root.querySelector<HTMLElement>('.at-top')!;
+    new ResizeObserver(() => this.map.setTopRoom(top.offsetHeight ? top.offsetTop + top.offsetHeight + 8 : 0)).observe(top);
     this.peekEl.onclick = () => { if (this.picked != null) this.openPage(this.picked); };
   }
 
@@ -297,7 +323,8 @@ export class Atlas {
   }
 
   private applySearch(): void {
-    const found = this.query ? searchElements(this.query).map((e) => e.z) : null;
+    const fam = FAMILIES.find((f) => f.id === this.family);
+    const found = this.query ? searchElements(this.query).map((e) => e.z) : fam ? ELEMENTS.filter(fam.of).map((e) => e.z) : null;
     if (this.view === 'details') { this.table?.setQuery(this.query); return; }
     this.map.setMatches(found);
     // One atom found: pick it.
@@ -351,12 +378,39 @@ export class Atlas {
     const lg = lookLegend(look);
     const fresh = this.tempLook ? `<span class="at-fresh">${icon('star', { size: 16 })}<b>${esc(lookOf(look).label)}</b> is open<button type="button" class="at-keep">Keep it</button></span>` : '';
     const lapse = look === 'discovery' && !this.root.classList.contains('is-details') ? this.lapseControl() : '';
+    const families = look === 'place' && !fresh && !this.root.classList.contains('is-details');
+    if (look !== 'place' && this.family) { this.family = null; this.applySearch(); }
+    if (families) {
+      legend.innerHTML = FAMILIES.map((f) => `<button type="button" class="at-key at-fam" data-fam="${f.id}" aria-pressed="false"><i style="background:${swatchFill(f.swatch)}"></i>${esc(f.label)}</button>`).join('');
+      legend.querySelectorAll<HTMLButtonElement>('.at-fam').forEach((b) => { b.onclick = () => this.lightFamily(b.dataset.fam!); });
+      this.paintFamilies();
+      return;
+    }
     if (!lg && !fresh && !lapse) { legend.innerHTML = ''; return; }
     legend.innerHTML = fresh + (!lg ? '' : lg.swatches
       ? lg.swatches.map((s) => `<span class="at-key"><i style="background:${s.color}"></i>${esc(s.label)}</span>`).join('')
       : `<span>${esc(lg.low ?? '')}</span><i class="at-ramp"></i><span>${esc(lg.high ?? '')}</span><span class="at-key"><i class="at-unknown"></i>Not known</span>`) + lapse;
     legend.querySelector<HTMLButtonElement>('.at-keep')?.addEventListener('click', () => { const id = this.tempLook!; this.endTemp(); this.setLook(id); });
     legend.querySelector<HTMLButtonElement>('.at-lapse')?.addEventListener('click', () => this.toggleLapse());
+  }
+
+  /** Light one family's atoms on the map (a second tap lets go); a search showing is cleared. */
+  private lightFamily(id: string): void {
+    this.family = this.family === id ? null : id;
+    if (this.family && this.query) {
+      this.input.value = '';
+      this.query = '';
+      this.root.querySelector<HTMLButtonElement>('.at-clear')!.hidden = true;
+    }
+    this.paintFamilies();
+    this.applySearch();
+  }
+
+  private paintFamilies(): void {
+    this.root.querySelectorAll<HTMLButtonElement>('.at-fam').forEach((b) => {
+      const on = b.dataset.fam === this.family;
+      b.setAttribute('aria-pressed', String(on));
+    });
   }
 
   /** Paint the Atlas once in a color just opened, then go back to the player's own. */
@@ -468,6 +522,7 @@ export class Atlas {
       this.root.querySelector<HTMLButtonElement>('.at-clear')!.hidden = true;
       this.map.setMatches(null);
     }
+    if (this.family) { this.family = null; this.map.setMatches(null); }
     if (look && this.lookOpen(look)) this.setLook(look);
     if (this.view === 'details') this.setView('table');
     this.pick(z, true);

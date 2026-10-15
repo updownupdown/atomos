@@ -26,6 +26,7 @@ const NAME_PX = 13;
 const MAX_ZOOM = 9;
 /** Kept clear when the whole shape is shown: at the top for "About this shape" and the legend,
  *  at the foot for the peek strip, which float there. */
+/** Room kept clear above the shape when nothing taller sits there (the legend, one line). */
 const TOP_ROOM = 44;
 const FOOT_ROOM = 84;
 
@@ -54,6 +55,7 @@ export class AtlasMap {
   private w = 1;
   private h = 1;
   private bounds = { x: 0, y: 0, w: 1, h: 1 };
+  private topRoom = TOP_ROOM;
   private pointers = new Map<number, Pointer>();
   private gesture: { moved: boolean; start: Pointer; pinch?: { d: number; scale: number; cx: number; cy: number } } | null = null;
   private lastTap = 0;
@@ -84,6 +86,14 @@ export class AtlasMap {
     }
   }
 
+  /** How far down the tools above reach (a legend that wraps to more lines); the shape refits. */
+  setTopRoom(px: number): void {
+    const room = Math.max(TOP_ROOM, Math.round(px));
+    if (room === this.topRoom) return;
+    this.topRoom = room;
+    this.resize();
+  }
+
   /** Dim every cell but these (null: none dimmed). */
   setMatches(zs: number[] | null): void {
     this.matches = zs ? new Set(zs) : null;
@@ -110,9 +120,9 @@ export class AtlasMap {
     if (this.scale < need) this.scale = Math.min(this.fit * MAX_ZOOM, need * 1.1);
     const sx = (c.x - this.tx) * this.scale, sy = (c.y - this.ty) * this.scale;
     const m = 40;
-    if (sx < m || sx > this.w - m || sy < TOP_ROOM + m || sy > this.h - FOOT_ROOM - m) {
+    if (sx < m || sx > this.w - m || sy < this.topRoom + m || sy > this.h - FOOT_ROOM - m) {
       this.tx = c.x - this.w / 2 / this.scale;
-      this.ty = c.y - (TOP_ROOM + (this.h - TOP_ROOM - FOOT_ROOM) / 2) / this.scale;
+      this.ty = c.y - (this.topRoom + (this.h - this.topRoom - FOOT_ROOM) / 2) / this.scale;
     }
     this.clampView();
     this.apply();
@@ -172,7 +182,7 @@ export class AtlasMap {
     const r = this.el.getBoundingClientRect();
     this.w = Math.max(1, r.width);
     this.h = Math.max(1, r.height);
-    this.fit = Math.min(this.w / this.bounds.w, (this.h - TOP_ROOM - FOOT_ROOM) / this.bounds.h) * 0.96;
+    this.fit = Math.min(this.w / this.bounds.w, (this.h - this.topRoom - FOOT_ROOM) / this.bounds.h) * 0.96;
   }
 
   private resize(): void {
@@ -186,18 +196,18 @@ export class AtlasMap {
 
   private center(): void {
     this.tx = this.bounds.x + this.bounds.w / 2 - this.w / 2 / this.scale;
-    this.ty = this.bounds.y + this.bounds.h / 2 - (TOP_ROOM + (this.h - TOP_ROOM - FOOT_ROOM) / 2) / this.scale;
+    this.ty = this.bounds.y + this.bounds.h / 2 - (this.topRoom + (this.h - this.topRoom - FOOT_ROOM) / 2) / this.scale;
   }
 
   /** Keep some of the shape on screen however far it is dragged. */
   private clampView(): void {
     this.scale = Math.max(this.fit, Math.min(this.fit * MAX_ZOOM, this.scale));
     // The shape's edges can scroll clear of the tools above and the peek strip below.
-    const vw = this.w / this.scale, vh = (this.h - TOP_ROOM - FOOT_ROOM) / this.scale;
+    const vw = this.w / this.scale, vh = (this.h - this.topRoom - FOOT_ROOM) / this.scale;
     const b = this.bounds;
     const fx = (lo: number, hi: number, v: number, span: number) => (span >= hi - lo ? (lo + hi) / 2 - span / 2 : Math.max(lo, Math.min(hi - span, v)));
     this.tx = fx(b.x, b.x + b.w, this.tx, vw);
-    const top = TOP_ROOM / this.scale;
+    const top = this.topRoom / this.scale;
     this.ty = fx(b.y, b.y + b.h, this.ty + top, vh) - top;
   }
 
