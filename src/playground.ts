@@ -25,6 +25,7 @@ import { clearOffers, createGameBar, offerRules, type GameBar } from './puzzles/
 import { dialFor, difficultyLevel, difficultyRange, difficultyWord, elementForDial, levelInGame } from './puzzles/difficulty';
 import { lastDial, pinnedGames, recordWin, rememberDial, setPinned } from './core/wins';
 import { GameDemo } from './puzzles/demo';
+import { dailyPuzzle, dailyStreak, recordDaily, type DailyPuzzle } from './puzzles/daily';
 import { askRestart, confirming, restartButton } from './puzzles/restart';
 import { icon } from './ui/icons';
 import { modalOpen } from './ui/modal';
@@ -38,6 +39,10 @@ export class Playground {
   /** The difficulty dial, 1 to 100, the board is dealt at. */
   private dial = 30;
   private deal = 0;
+  /** The day whose daily puzzle is on the board, if it is the daily one. */
+  private dailyKey: string | null = null;
+  /** The daily puzzle to deal when its game opens (openDaily). */
+  private pendingDaily: DailyPuzzle | null = null;
   private shownHint = '';
   /** The game's goal, shown before the first move of its first plays. */
   private goal = '';
@@ -137,7 +142,7 @@ export class Playground {
     $('puzzles-screen').hidden = false;
     document.body.classList.toggle('pg-playing', this.inPuzzle);
     if (this.inPuzzle) this.host.wake();
-    else this.demo.start();
+    else { this.demo.start(); this.renderDaily(); }
     window.dispatchEvent(new Event('resize'));
     this.layoutHome();
   }
@@ -238,12 +243,46 @@ export class Playground {
       }, true);
       list.append(sec);
     }
+    this.renderDaily();
     const hint = document.createElement('p');
     hint.className = 'pg-pin-hint';
     hint.textContent = 'Long-press to pin and unpin games';
     list.append(hint);
     this.focusId = games.some((g) => g.id === keep) ? keep : games[0]?.id ?? '';
     this.paintFocus(true);
+  }
+
+  /** The daily puzzle's card at the top of Play, above the box (it scrolls away under the
+   *  header as the list moves): today's game at the day's level, the streak beside its heading,
+   *  Play (or Replay once it is solved). */
+  private renderDaily(): void {
+    const d = dailyPuzzle();
+    const p = PUZZLES.find((g) => g.id === d.game);
+    $('pg-home').querySelector('.pg-daily')?.remove();
+    if (!p) return;
+    const s = dailyStreak();
+    const box = document.createElement('section');
+    box.className = `pg-daily${s.today ? ' is-done' : ''}`;
+    box.setAttribute('aria-label', 'Daily puzzle');
+    const head = document.createElement('div');
+    head.className = 'pg-daily-head';
+    const streak = s.streak ? `<span class="pg-daily-streak">${icon('star', { size: 16 })}${s.streak === 1 ? '1 day' : `${s.streak} days`} in a row</span>` : '';
+    head.innerHTML = `<h2 class="pg-daily-title">Daily puzzle</h2>${streak}`;
+    box.append(head, gameCard({
+      id: p.id,
+      name: p.name,
+      difficulty: d.dial,
+      pipsBeside: true,
+      action: s.today
+        ? { label: 'Replay', ariaLabel: `Replay today's ${p.name}`, onClick: () => this.openDaily() }
+        : { label: 'Play', ariaLabel: `Play today's ${p.name}`, onClick: () => this.openDaily() },
+      extra: s.today ? (s.flawless ? 'Solved today, flawless' : 'Solved today') : 'The same board for everyone today',
+    }));
+    box.addEventListener('click', (e) => {
+      if ((e.target as HTMLElement).closest('button')) return;
+      this.openDaily();
+    });
+    $('pg-focus').before(box);
   }
 
   /** A long press just fired: the click that ends it is swallowed. */
@@ -407,7 +446,18 @@ export class Playground {
     this.dial = this.dialOf(this.type.id);
     $('pg-planned').hidden = Boolean(this.type.make);
     $('pg-play').hidden = !this.type.make;
-    this.load(0);
+    const daily = this.pendingDaily?.game === this.type.id ? this.pendingDaily : null;
+    this.pendingDaily = null;
+    if (daily) { this.dial = daily.dial; this.load(daily.deal, daily.key); }
+    else this.load(0);
+  }
+
+  /** Opens today's daily puzzle: its game, at its level and deal. */
+  openDaily(): void {
+    const d = dailyPuzzle();
+    this.pendingDaily = d;
+    if (this.inPuzzle && this.type.id === d.game) this.select(d.game);
+    else this.open(d.game);
   }
 
   /** The bar's levels, each in its level's color. */
@@ -442,13 +492,19 @@ export class Playground {
     return elementForDial(this.type.id, this.dial);
   }
 
-  private load(deal: number): void {
+  /** Deals board `deal` at the dial; `daily` is the day's key when it is the daily puzzle (any
+   *  other deal leaves the daily behind). */
+  private load(deal: number, daily: string | null = null): void {
+    // A new deal after the daily goes back to the ordinary deals.
+    if (this.dailyKey && !daily) deal = 0;
     this.deal = deal;
+    this.dailyKey = daily;
     this.solved = false;
     this.closeWin();
     this.paintLevels();
-    $('pg-dealno').textContent = `#${deal + 1}`;
-    rememberDial(this.type.id, this.dial);
+    $('pg-dealno').textContent = daily ? 'Daily' : `#${deal + 1}`;
+    // The daily's level is the day's, not the player's choice: it is not remembered.
+    if (!daily) rememberDial(this.type.id, this.dial);
     this.shownHint = '';
     this.gbar.setDifficulty(this.dial);
     this.gbar.update(null, '');
@@ -482,15 +538,18 @@ export class Playground {
     const t = this.type;
     const flawless = clean && (par === null || moves <= par);
     recordWin(t.id, this.dial, flawless);
+    // The daily puzzle: its day solved, and the streak it makes.
+    const streak = this.dailyKey ? recordDaily(this.dailyKey, flawless) : 0;
+    if (this.dailyKey) this.renderDaily();
     this.closeWin = showWin({
       outcome: flawless ? 'flawless' : 'won',
-      headline: flawless ? 'Flawless' : 'Solved',
+      headline: this.dailyKey ? (flawless ? 'Daily, flawless' : 'Daily solved') : flawless ? 'Flawless' : 'Solved',
       title: `${t.name} · ${dialText(this.dial)}`,
       game: t.id,
       stats: [
         { label: 'Moves', value: String(moves) },
         { label: 'Par', value: par === null ? '–' : moves <= par ? `${par} ✓` : `${par}` },
-        { label: 'Deal', value: `#${this.deal + 1}` },
+        this.dailyKey ? { label: 'Streak', value: streak === 1 ? '1 day' : `${streak} days` } : { label: 'Deal', value: `#${this.deal + 1}` },
       ],
       actions: [
         { label: 'New deal', primary: true, onClick: () => this.load(this.deal + 1) },
@@ -512,7 +571,7 @@ export class Playground {
       title: `${t.name} · ${dialText(this.dial)}`,
       note: loss.note,
       game: t.id,
-      stats: [{ label: 'Moves', value: String(v.moves) }, { label: 'Deal', value: `#${this.deal + 1}` }],
+      stats: [{ label: 'Moves', value: String(v.moves) }, { label: 'Deal', value: this.dailyKey ? 'Daily' : `#${this.deal + 1}` }],
       actions: [
         ...(loss.undo ? [{ label: 'Undo', primary: true, onClick: () => this.host.undo() }] : []),
         { label: 'Restart', primary: !loss.undo, onClick: () => this.host.restart() },
