@@ -601,8 +601,9 @@ export class Detail {
     this.rig.update(dt, false, turning ? nb.spinSpeed * nb.spinDir : 0);
     this.cloud.renderLayer(this.ctx, this.time);
     this.cloud.draw(r);
-    // The scaffolding over the gray: rings cut away over the slice.
-    this.scaffold.set(R, this.pctNow);
+    // The scaffolding over the gray: rings sized to the stage (the canvas less its bleed, as the
+    // atom is framed), cut away over the slice.
+    this.scaffold.set(this.camera, Math.min(this.canvas.clientWidth, this.canvas.clientHeight), this.pctNow, 1 / this.fitScale);
     this.scaffold.render(r, this.camera);
   }
 

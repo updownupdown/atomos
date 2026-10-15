@@ -191,7 +191,8 @@ export function trackOverlay(container: HTMLElement, items: TrackItem[], opts: {
     });
     const firstMark = opts.single ? list.findIndex((it) => it.mark) : -1;
     const top = firstMark >= 0 ? ys[firstMark] : opts.top?.() ?? 0;
-    const bottom = container.scrollHeight;
+    // One track ends at its last stop; two lanes run on to the block's foot.
+    const bottom = opts.single && ys.length ? Math.max(...ys) : container.scrollHeight;
     let html = '';
     for (const lane of (opts.single ? ['stable'] : ['stable', 'fleeting']) as Lane[]) {
       let y0 = top;
