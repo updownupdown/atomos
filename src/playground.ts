@@ -337,10 +337,8 @@ export class Playground {
     $('pg-list').querySelectorAll<HTMLElement>('.pg-sec').forEach((sec) => {
       const on = sec.dataset.id === p.id;
       sec.classList.toggle('is-focus', on);
-      if (on) sec.style.setProperty('--lvl', `var(--c-lvl-${difficultyLevel(this.dialOf(p.id))})`);
-      // The pips show the levels the game reaches in white; in focus, the one Play deals at is in
-      // its level's color.
-      setCardDifficulty(sec, difficultyRange(sec.dataset.id!), on ? this.dialOf(sec.dataset.id!) : undefined);
+      // The pips show the levels the game reaches: white, or in focus each in its level's color.
+      setCardDifficulty(sec, difficultyRange(sec.dataset.id!));
     });
     const box = $('pg-focus');
     if (!force && box.dataset.id === p.id) return;
@@ -352,8 +350,8 @@ export class Playground {
     this.demo.show(p);
   }
 
-  /** The focused game's five levels as play buttons (the one its Play deals at filled in its
-   *  color; tapping one plays that level), and above them, behind the Stats toggle, its Won and
+  /** The focused game's five levels as play buttons (each in its level's color; tapping one
+   *  plays that level), and above them, behind the Stats toggle, its Won and
    *  Flawless counts at each level. */
   private paintWins(p: PuzzleType): void {
     if ($('pg-focus').dataset.id !== p.id) return;
@@ -380,13 +378,11 @@ export class Playground {
     this.layoutHome();
   }
 
-  /** A card's pips, and the focus color, after its dial has changed. */
+  /** A card's pips, after its dial has changed. */
   private paintCard(id: string): void {
     const sec = $('pg-list').querySelector<HTMLElement>(`.pg-sec[data-id="${id}"]`);
     if (!sec) return;
-    const on = sec.classList.contains('is-focus');
-    setCardDifficulty(sec, difficultyRange(id), on ? this.dialOf(id) : undefined);
-    sec.style.setProperty('--lvl', `var(--c-lvl-${difficultyLevel(this.dialOf(id))})`);
+    setCardDifficulty(sec, difficultyRange(id));
   }
 
   /** The dial a game opens at: where it was last played or picked, or an easy board. */
@@ -412,7 +408,7 @@ export class Playground {
     this.load(0);
   }
 
-  /** The bar's levels, the one dealt at filled in. */
+  /** The bar's levels, each in its level's color. */
   private paintLevels(): void {
     const id = this.type.id;
     const fresh = levelButtons({ game: id, picked: difficultyLevel(this.dial), label: 'Difficulty', onPlay: (level) => this.playLevel(level) });

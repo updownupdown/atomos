@@ -1,11 +1,11 @@
 // A game's five difficulty levels as play buttons, and its wins at each.
 //
-// levelButtons: one button per level, its word over a play icon; tapping one plays that level.
-// The picked level (the one the game's Play deals at) is filled in its level color; levels the
-// game never deals are an empty outline and cannot be pressed. Used by the Play screen's top box
-// and the difficulty bar inside a game.
+// levelButtons: one button per level, its word over a play icon (black on a white disc);
+// tapping one plays that level. Every level the game deals is filled in its own level color, none
+// singled out; levels it never deals are plain gray and cannot be pressed. Used by the Play
+// screen's top box and the difficulty bar inside a game.
 //
-//   row.replaceWith(levelButtons({ game: 'packing', picked: 2, onPlay: (level) => play(level) }));
+//   row.replaceWith(levelButtons({ game: 'packing', onPlay: (level) => play(level) }));
 //
 // levelStats: the Won and Flawless counts at each level, in five columns that line up with the
 // buttons when both sit in rows of the same width.
@@ -17,8 +17,8 @@ import { difficultyLevel, difficultyRange, LEVELS, levelWord } from './difficult
 export interface LevelButtonsOptions {
   /** The game (its id), for the levels it deals. */
   game: string;
-  /** The level (1 to 5) its Play deals at; 0 for none. */
-  picked: number;
+  /** The level (1 to 5) its Play deals at, told to screen readers only; nothing shows it. */
+  picked?: number;
   /** A level was pressed. */
   onPlay: (level: number) => void;
   /** What a screen reader hears for the row. */
@@ -46,10 +46,10 @@ export function levelButtons(o: LevelButtonsOptions): HTMLElement {
       b.className = 'lvl-btn is-off';
       b.disabled = true;
       b.title = `${word}: not dealt in this game`;
-      b.innerHTML = `<span class="lvl-btn-word">${word}</span><span class="lvl-btn-icon"></span><span class="sr-only">: not dealt</span>`;
+      b.innerHTML = `<span class="lvl-btn-word">${word}</span><span class="sr-only">: not dealt</span>`;
     } else {
       const on = level === o.picked;
-      b.className = `lvl-btn lvl-${level}${on ? ' is-on' : ''}`;
+      b.className = `lvl-btn lvl-${level}`;
       b.setAttribute('aria-label', `Play ${word}${on ? ', the level picked' : ''}`);
       if (on) b.setAttribute('aria-current', 'true');
       b.innerHTML = `<span class="lvl-btn-word" aria-hidden="true">${word}</span><span class="lvl-btn-icon" aria-hidden="true">${icon('play', { size: 16 })}</span>`;
