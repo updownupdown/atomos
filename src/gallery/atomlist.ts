@@ -20,7 +20,7 @@ import { loadSave, type SaveData } from '../core/save';
 import { nextStep } from '../core/next';
 import { fleetingOpen } from './locks';
 import { icon } from '../ui/icons';
-import { createPills, createSegments, nextButton } from '../ui/components';
+import { createPills, nextButton } from '../ui/components';
 import { openSheet, sheetSearch, type Sheet } from '../ui/sheet';
 import { searchElements } from '../ui/search';
 import { COL, sortElements, type SortKey } from '../ui/elementlist';
@@ -126,18 +126,14 @@ const SORTS: { id: LearnSort; label: string }[] = [
 export function openAtomList(o: AtomListOptions): void {
   const sheet = openSheet({ title: 'Atoms', icon: 'atom', label: 'All atoms', from: 'bar', className: 'alist', onClose: () => { if (openList === sheet) openList = null; o.onClose?.(); } });
   openList = sheet;
-  const tabs = createSegments([
-    { id: 'collect', label: 'Collect', icon: icon('collect', { size: 20 }) },
-    { id: 'learn', label: 'Atlas', icon: icon('atlas', { size: 20 }) },
-  ], { active: o.tab, label: 'List for', onChange: (id) => show(id as AtomListTab) });
-  tabs.el.classList.add('al-tabs');
   const pick = (z: number) => { sheet.close(); o.onPick(z); };
   sheet.body.addEventListener('click', (e) => {
     const row = (e.target as HTMLElement).closest<HTMLElement>('[data-z]');
     if (row) pick(Number(row.dataset.z));
   });
   const show = (tab: AtomListTab) => {
-    sheet.bar.replaceChildren(tabs.el);
+    // One list per place it opens from: Collect's with each atom's bars, the Atlas's to look up.
+    sheet.bar.replaceChildren();
     sheet.foot.replaceChildren();
     if (tab === 'collect') paintCollect(sheet, o.current, pick);
     else paintLearn(sheet, o.current);

@@ -1024,6 +1024,10 @@ export class Game {
     this.hints.button.id = 'btn-hint';
     const how = iconButton({ icon: icon('info'), label: 'Instructions', onClick: () => this.showHow() });
     this.gbar = createGameBar([undo, restart, this.hints.button, how], { label: element(this.z).name, onClick: () => this.toHome() }, [scienceButton('ui-icon-btn science-btn')]);
+    // Like a game on Play: the header's trail names the atom and the game, so the bar is one row,
+    // Moves and Par on the left and the tools on the right, then the status line.
+    this.gbar.el.classList.add('gbar--play', 'gbar--build');
+    this.gbar.el.querySelector('.gbar-nav .gbar-in')!.prepend(this.gbar.el.querySelector('.gbar-stats')!);
     $('build-head').append(this.gbar.el);
     window.addEventListener('keydown', (e) => this.onKey(e));
     window.addEventListener('blur', () => this.onCancel());

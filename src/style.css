@@ -192,6 +192,11 @@ body.build-home #app .bottom { display: none; }
 .gbar--play .gbar-lead:empty { display: none; }
 .gbar--play .gfoot-line { min-height: 52px; grid-template-columns: 1fr auto; }
 .gbar--play .gbar-msg { grid-column: 1; }
+/* A Build puzzle in the same frame: no Difficulty in the row, and the microscope keeps its place
+   at the left of the status line. */
+.gbar--build .gbar-stat--diff { display: none; }
+.gbar--play.gbar--build .gfoot-line { grid-template-columns: auto 1fr auto; }
+.gbar--play.gbar--build .gbar-msg { grid-column: auto; }
 /* Difficulty, dropped from the settings button at the right of the header: the word over its
    pips, then the slider, the deal and the X (.pg-bar). */
 .pg-bar .gbar-stat--diff { flex: none; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
@@ -1185,7 +1190,9 @@ body[data-screen='atom-view'] { --top: var(--safe-top); }
 button.crumb { cursor: pointer; }
 .crumb--link:hover { color: var(--c-text); background: var(--c-surface-2); }
 .crumb--here { color: var(--c-text); }
-.crumb.is-last { flex: 0 1 auto; }
+.crumb.is-last, .crumb--drop { flex: 0 1 auto; }
+/* After a dropdown, the page's own name keeps its room; the dropdown's name gives way instead. */
+.crumb--drop ~ .crumb.is-last { flex: none; }
 .crumb-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .crumb-game { flex: none; width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%; background: var(--c-text); color: var(--c-bg); }
 .crumb--drop { height: 48px; gap: var(--sp-2); padding: 0 10px 0 5px; border-radius: 12px 24px 24px 12px; background: var(--c-nav); color: var(--c-text); font-size: 17px; }
@@ -1197,7 +1204,7 @@ button.crumb { cursor: pointer; }
 .crumb-plate { flex: none; width: 38px; height: 38px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; border-radius: 8px; line-height: 1; font-variant-numeric: tabular-nums; }
 .crumb-plate small { font-size: 11px; font-weight: var(--fw-semibold); }
 .crumb-plate b { font-size: 16px; font-weight: 700; }
-@media (max-width: 400px) { .crumb { padding: 0 6px; } .crumb-sep { width: 14px; } }
+@media (max-width: 400px) { .crumb { padding: 0 5px; } .crumb-sep { width: 12px; } .crumbs { gap: 0; } .crumb--drop { gap: 6px; padding-right: 6px; } }
 @media (prefers-reduced-motion: reduce) { .crumb--drop > svg { transition: none; } }
 /* The screen's own tools, right of the trail: a game's Difficulty on Play (playground.ts). */
 .nav-tools { flex: none; display: none; align-items: center; margin-left: auto; }

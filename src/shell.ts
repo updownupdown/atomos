@@ -353,7 +353,7 @@ export class AppShell {
         const z = this.z;
         const id = this.game?.puzzleId;
         if (this.mode === 'build' && id) return [{ label: 'Collect', go: toCollect }, atomCrumb(z, { go: () => this.game?.back() }), gameCrumb(id)];
-        return [{ label: 'Collect', go: toCollect }, atomCrumb(z, { go: toCollect }), { label: 'Build' }];
+        return [{ label: 'Collect', go: toCollect }, atomCrumb(z, { drop: () => this.openPick() }), { label: 'Build' }];
       }
       case 'gallery': {
         const z = this.gallery.pageZ;
@@ -380,17 +380,17 @@ export class AppShell {
     else void this.go('puzzles');
   }
 
-  /** The trail's dropdown: the list of atoms on an Atlas page, or of games on Play. Again, it
-   *  closes the list. */
+  /** The trail's dropdown: the list of atoms on an Atlas page (to look them up) or a Build page
+   *  (with how far each is built), or of games on Play. Again, it closes the list. */
   private openPick(): void {
     const crumbs = this.crumbs;
     if (!crumbs) return;
     if (atomListOpen() || gameListOpen()) { closeSheet(); return; }
     const onClose = () => crumbs.setOpen(false);
-    const z = this.screen === 'gallery' ? this.gallery.pageZ : null;
     const id = this.screen === 'puzzles' ? this.playground?.gameId : null;
     if (id) openGameList({ current: id, onPick: (g, level) => this.playground?.open(g, level), onClose });
-    else if (z !== null) openAtomList({ current: z, tab: 'learn', onPick: (n) => { this.z = n; this.gallery.openPage(n); }, onClose });
+    else if (this.screen === 'gallery' && this.gallery.pageZ !== null) openAtomList({ current: this.gallery.pageZ, tab: 'learn', onPick: (n) => { this.z = n; this.gallery.openPage(n); }, onClose });
+    else if (this.screen === 'atom' && this.mode === 'build') openAtomList({ current: this.z, tab: 'collect', onPick: (n) => { this.z = n; this.game?.openElement(n); this.paintDock(); }, onClose });
     else return;
     crumbs.setOpen(true);
   }
