@@ -314,7 +314,7 @@ export class Collect {
   }
 
   /** Which atom is in the lens: its plate (number over symbol, in its place color) top left,
-   *  its name top middle. */
+   *  its name beside it. */
   private paintId(e: ReturnType<typeof elementAt>): void {
     const plate = this.stage.querySelector<HTMLElement>('.co-plate')!;
     const c = placeColour(e);
