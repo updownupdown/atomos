@@ -1,7 +1,6 @@
-/* Collect (collect.ts): the atom's two bars on black at the top (its plate, name and Build are in
-   the header), the atom large, then the drawer with the atom's period. Open (.is-open), the bars
-   stay and the drawer takes the atom's room: the whole table, the collection's three bars and a
-   chip per period. */
+/* Collect (collect.ts): the drawer with the atom's period at the top, the atom large, then at the
+   foot its two bars, its plate and name, and Build. Open (.is-open), the foot stays and the drawer
+   takes the atom's room: the whole table, the collection's three bars and a chip per period. */
 .collect-screen { position: fixed; inset: 0; z-index: 2; display: flex; flex-direction: column; padding: var(--top) 0 0; box-sizing: border-box; overflow: hidden; background: var(--c-bg); font-family: var(--font); user-select: none; -webkit-user-select: none; }
 .collect-screen[hidden] { display: none; }
 
@@ -16,8 +15,19 @@
 .co-gem > .gem-atom { opacity: 0; transition: opacity 0.6s var(--ease); }
 .co-gem > .gem-atom.is-shown { opacity: 1; }
 
-/* The atom's block: its two bars, under the header that names it. */
-.co-atom { flex: none; width: 100%; max-width: 560px; margin: 0 auto; display: flex; flex-direction: column; padding: var(--sp-3) var(--sp-4); box-sizing: border-box; }
+/* The atom's block at the foot: its two bars (they rise to the top of its Build page, under the
+   atom), then its plate, name and place, and Build. */
+.co-atom { flex: none; width: 100%; max-width: 560px; margin: 0 auto; display: flex; flex-direction: column; gap: var(--sp-4); padding: var(--sp-2) var(--sp-4) calc(var(--safe-bottom) + var(--sp-4)); box-sizing: border-box; }
+.co-card { display: flex; align-items: center; gap: var(--sp-3); min-width: 0; }
+.co-plate { flex: none; width: 48px; height: 48px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; border-radius: 10px; line-height: 1; font-variant-numeric: tabular-nums; }
+.co-plate small { font-size: 12px; font-weight: var(--fw-semibold); }
+.co-plate b { font-size: 20px; font-weight: 700; }
+.co-name { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.co-name b { font-size: 20px; font-weight: var(--fw-semibold); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.co-name small { font-size: var(--fs-sm); color: var(--c-text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.co-build { flex: none; height: 48px; display: inline-flex; align-items: center; gap: 6px; padding: 0 20px 0 16px; border: 0; border-radius: var(--r-pill); background: var(--c-accent); color: var(--c-accent-ink); font-family: var(--font); font-size: var(--fs-md); font-weight: var(--fw-semibold); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.co-build:hover { background: color-mix(in srgb, var(--c-accent) 85%, white); }
+.co-build:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
 .co-more:focus-visible, .co-chip:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
 
 /* The atom's two bars, or for a moment a win's news in their place (.pb-news, progressbox.css). */
@@ -35,8 +45,9 @@
 .is-done > .co-trk i { background: var(--c-done); }
 .co-news { justify-self: stretch; }
 
-/* The drawer: the atom's period, and, open, the whole collection. Its foot clears the dock. */
-.co-drawer { flex: none; display: flex; flex-direction: column; gap: 12px; padding: 10px 0 calc(var(--safe-bottom) + var(--sp-3)); border-radius: 28px 28px 0 0; background: var(--c-surface); touch-action: none; }
+/* The drawer: the atom's period, and, open, the whole collection. It hangs from the header, its
+   head and handle at its foot. */
+.co-drawer { flex: none; display: flex; flex-direction: column; gap: 12px; padding: var(--sp-2) 0 10px; border-radius: 0 0 28px 28px; background: var(--c-surface); touch-action: none; }
 .collect-screen.is-open .co-drawer { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; }
 .co-drawer > * { flex: none; width: 100%; max-width: 720px; margin: 0 auto; box-sizing: border-box; }
 .co-head { display: flex; flex-direction: column; gap: 10px; cursor: pointer; touch-action: none; }

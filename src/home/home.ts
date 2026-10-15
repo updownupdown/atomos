@@ -55,7 +55,7 @@ function panel(to: HomeTarget, title: string, ico: IconName, body: string): stri
 export function renderHome(host: HTMLElement, go: HomeGo): void {
   const save = loadSave();
   host.innerHTML = panel('collect', 'Collect', 'collect', collectBody(save))
-    + panel('learn', 'Learn', 'atlas', '<div class="home-guess"></div><div class="home-quiz"></div>' + learnRow(save))
+    + panel('learn', 'Atlas', 'atlas', '<div class="home-guess"></div><div class="home-quiz"></div>' + learnRow(save))
     + panel('play', 'Play', 'puzzles', '<div class="home-game"></div>');
   host.querySelectorAll<HTMLButtonElement>('[data-go]').forEach((b) => { b.onclick = () => go(b.dataset.go as HomeTarget); });
   wireCollect(host, save);

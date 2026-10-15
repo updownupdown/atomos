@@ -31,7 +31,7 @@ import { closeModal, modalOpen, openModal } from './ui/modal';
 import { createTabs, iconButton, nextButton, playButton } from './ui/components';
 import { gameCard } from './puzzles/gameCard';
 import { trackOverlay, type TrackItem, type TrackOverlay } from './ui/tracks';
-import { iconRing } from './ui/progress';
+import { atomBars } from './gallery/collect';
 import { askRestart, confirming, restartButton } from './puzzles/restart';
 import { HintControl } from './puzzles/hints';
 import { clearOffers, createGameBar, offerRules, type GameBar } from './puzzles/gamebar';
@@ -102,13 +102,11 @@ export class Game {
 
   constructor(private hooks: { onElement?: (z: number) => void; onView?: (z: number) => void; onInfo?: (z: number) => void } = {}) {
     this.detail = new Detail($<HTMLCanvasElement>('bh-atom'), { variant: 'build', empty: $('bh-empty') });
-    // Top right of the atom: View, the 3D atom full screen (closing it comes back here).
+    // Bottom left of the atom: View, the 3D atom full screen (closing it comes back here).
     const view = $('bh-view');
-    view.innerHTML = `<span>View</span>${icon('fullscreen', { size: 20 })}`;
+    view.innerHTML = `${icon('fullscreen', { size: 20 })}<span>View</span>`;
     view.hidden = !this.hooks.onView;
     view.onclick = () => this.hooks.onView?.(this.z);
-    // Info is in the header's Build | Info switch now (the atom bar).
-    $('bh-info').hidden = true;
     this.bar = createAtomBar('build');
     $('build-bar').append(this.bar.el);
     this.applySettings();
@@ -133,6 +131,8 @@ export class Game {
   get currentZ(): number { return this.z; }
   /** A puzzle is open, rather than the Build page. */
   get inPuzzle(): boolean { return this.stage !== 'home'; }
+  /** The game of the puzzle open, if one is (the header's trail names it). */
+  get puzzleId(): string | null { return this.stage === 'home' ? null : this.stagePuzzle(this.stage).id; }
 
   /** Opens one of an atom's puzzles, from the Next button anywhere in the app. A puzzle under way
    *  is kept to pick up later; a stage that isn't open yet leaves the player on the Build page. */
@@ -242,6 +242,8 @@ export class Game {
     this.registerScience();
     this.refresh();
     this.ensureLoop();
+    // The header's trail names the puzzle, or the Build page (shell.ts listens).
+    window.dispatchEvent(new Event('atomos:nav'));
   }
 
   /** The 3D atom on the Build page runs only while the page shows. */
@@ -292,6 +294,8 @@ export class Game {
   }
 
   /** Back to the Build page, keeping a puzzle that is under way. */
+  back(): void { this.toHome(); }
+
   private toHome(): void {
     if (this.busy) return;
     this.suspend();
@@ -463,10 +467,13 @@ export class Game {
         `Gone in under a year. Pick any isotope puzzle for each: the shorter it lives, the harder the board. They don't count toward ${name}'s 100%.${later}`,
         this.fleetingGrid(fleeting, Boolean(built)), fc.total > 0 && fc.built === fc.total) : '',
       shapeCard ? this.section('unlock', 'Discoveries', '', shapeCard, '', '', Boolean(shape && this.save.shapes[shape])) : '',
+      // Info: the atom's page in the Atlas.
+      this.hooks.onInfo ? `<button type="button" class="foot-card" id="bh-to-info"><span class="foot-card-ico">${icon('info', { size: 22 })}</span><span class="foot-card-text"><b>${el.name} info</b><small>Its page in the Atlas</small></span><span class="foot-card-go">${icon('chevron-right', { size: 22 })}</span></button>` : '',
       // The microscope, on its own row at the foot of the page.
       `<div class="bh-sci-row" id="bh-sci-row"></div>`,
     ].join('');
     $('bh-sci-row').append(scienceButton());
+    $('bh-in').querySelector<HTMLButtonElement>('#bh-to-info')?.addEventListener('click', () => this.hooks.onInfo?.(this.z));
 
     const root = $('bh-in');
     this.mountCards(root);
@@ -683,21 +690,11 @@ export class Game {
       </li>`;
   }
 
-  /** Progress over the atom, at the foot of the atom on the right: Stable's share (the nucleus,
-   *  electrons and lasting isotopes) over the fleeting isotopes', each a line of its name and
-   *  percent beside a ring around its icon, white while under way, green once whole. */
+  /** Progress under the atom: its stable parts and its fleeting isotopes as two bars, the same
+   *  as at the foot of Collect, so going into the atom they only rise. */
   private renderProgress(): void {
-    const z = this.z;
-    const share = atomProgress(z, this.save);
-    const pct = Math.round(share * 100);
-    const fleet = fleetingCount(z, this.save);
-    const fleetShare = fleet.total ? fleet.built / fleet.total : 0;
-    const fleetPct = Math.round(fleetShare * 100);
-    const line = (name: string, v: number, p: number, glyph: IconName) =>
-      `<div class="bh-prog-line${v >= 1 ? ' is-done' : ''}"><span>${name}</span><b>${p}%</b>${iconRing(v, glyph)}</div>`;
-    $('bh-progress').innerHTML = line('Stable', share, pct, 'isotope-stable')
-      + (fleet.total ? line('Fleeting', fleetShare, fleetPct, 'isotope-fleeting') : '');
-    $('bh-progress').setAttribute('aria-label', `${pct}% built${fleet.total ? `, ${fleet.built} of ${fleet.total} fleeting isotopes (${fleetPct}%)` : ''}`);
+    $('bh-progress').innerHTML = atomBars(this.z, this.save);
+    $('bh-progress').setAttribute('aria-label', `${element(this.z).name}'s progress`);
   }
 
   private openRulesFor(t: PuzzleType): void {
@@ -918,7 +915,7 @@ export class Game {
         fact: atomFact(z),
         actions: [
           ...(this.hooks.onView ? [{ label: 'View', onClick: () => { this.enter('home'); this.hooks.onView!(z); } }] : []),
-          ...(this.hooks.onInfo ? [{ label: 'Learn', onClick: () => { this.enter('home'); this.hooks.onInfo!(z); } }] : []),
+          ...(this.hooks.onInfo ? [{ label: 'Info', onClick: () => { this.enter('home'); this.hooks.onInfo!(z); } }] : []),
         ],
       },
       onDismiss: () => this.enter('home'),

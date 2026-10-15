@@ -128,7 +128,7 @@ export function openAtomList(o: AtomListOptions): void {
   openList = sheet;
   const tabs = createSegments([
     { id: 'collect', label: 'Collect', icon: icon('collect', { size: 20 }) },
-    { id: 'learn', label: 'Learn', icon: icon('atlas', { size: 20 }) },
+    { id: 'learn', label: 'Atlas', icon: icon('atlas', { size: 20 }) },
   ], { active: o.tab, label: 'List for', onChange: (id) => show(id as AtomListTab) });
   tabs.el.classList.add('al-tabs');
   const pick = (z: number) => { sheet.close(); o.onPick(z); };

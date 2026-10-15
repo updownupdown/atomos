@@ -60,19 +60,19 @@ export class Playground {
     this.demo = new GameDemo($('pg-demo') as HTMLCanvasElement, () => reducedMotion());
     this.renderHome();
 
-    // Difficulty: a button at the right of the header (in the bar, beside the game's dropdown),
-    // a chevron down then Difficulty over its pips. It drops the board maker just under the
-    // header, over the tools: a slider across the dial, filled in the level's color, a new deal
-    // and an X that folds it again. The slider runs 1 to 100 for every game; the ends a game
-    // cannot deal show white.
+    // Difficulty: a settings button at the right of the header, after the trail. It drops the
+    // board maker just under the header, over the tools: Difficulty over its pips, a slider
+    // across the dial, filled in the level's color, a new deal and an X that folds it again. The
+    // slider runs 1 to 100 for every game; the ends a game cannot deal show white.
     const bar = $('pg-bar');
     const gen = $('pg-gen');
     this.fold = document.createElement('button');
     this.fold.type = 'button';
     this.fold.className = 'pg-fold';
-    this.fold.innerHTML = '<span class="pg-fold-ico"></span>';
+    this.fold.innerHTML = icon('settings');
     this.fold.onclick = () => this.setOpen(Boolean(bar.hidden));
     this.fold.setAttribute('aria-controls', 'pg-bar');
+    this.fold.title = 'Difficulty';
     this.slider = createSlider({ min: 1, max: 100, value: this.dial, label: 'Difficulty', format: difficultyWord, onInput: (v) => this.setDial(v) });
     // A new deal: the shuffle and its number are one button.
     const deal = document.createElement('button');
@@ -102,8 +102,8 @@ export class Playground {
     this.gbar.el.classList.add('gbar--play');
     const stats = this.gbar.el.querySelector<HTMLElement>('.gbar-stats')!;
     const row = this.gbar.el.querySelector<HTMLElement>('.gbar-nav .gbar-in')!;
-    this.fold.append(stats.querySelector('.gbar-stat--diff')!);
-    $('dock-extra').append(this.fold);
+    bar.prepend(stats.querySelector('.gbar-stat--diff')!);
+    $('nav-tools').append(this.fold);
     row.prepend(stats);
     // Open, the board maker hangs over the tools, just under the header.
     $('pg-game').prepend(gen);
@@ -191,7 +191,6 @@ export class Playground {
     const bar = $('pg-bar');
     bar.hidden = !open;
     $('pg-gen').classList.toggle('is-open', open);
-    this.fold.querySelector('.pg-fold-ico')!.innerHTML = icon('chevron-down', { size: 20 });
     this.fold.setAttribute('aria-expanded', String(open));
     this.fold.setAttribute('aria-label', open ? 'Close difficulty' : 'Difficulty');
   }
