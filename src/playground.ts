@@ -65,7 +65,8 @@ export class Playground {
 
     // Difficulty: a settings button at the right of the header, after the trail. It drops the
     // board maker just under the header, over the tools: Difficulty over its pips, a slider
-    // across the dial, filled in the level's color, a new deal and an X that folds it again. The
+    // across the dial, filled in the level's color, and a new deal; the button turns to an X on
+    // the bar's own plate to fold it again. The
     // slider runs 1 to 100 for every game; the ends a game cannot deal show white.
     const bar = $('pg-bar');
     const gen = $('pg-gen');
@@ -85,8 +86,7 @@ export class Playground {
     deal.title = 'New deal';
     deal.innerHTML = `${icon('shuffle')}<span class="pg-dealno" id="pg-dealno"></span>`;
     deal.onclick = () => this.load(this.deal + 1);
-    const shut = iconButton({ icon: icon('close'), label: 'Close difficulty', className: 'pg-shut', onClick: () => this.setOpen(false) });
-    bar.append(this.slider.el, deal, shut);
+    bar.append(this.slider.el, deal);
 
     // The tools: undo, restart, hint, instructions.
     this.undoBtn = iconButton({ icon: icon('undo'), label: 'Undo', onClick: () => this.host.undo() });
@@ -196,6 +196,12 @@ export class Playground {
     $('pg-gen').classList.toggle('is-open', open);
     this.fold.setAttribute('aria-expanded', String(open));
     this.fold.setAttribute('aria-label', open ? 'Close difficulty' : 'Difficulty');
+    // Open, the button is the bar's X, on the same gray plate as the bar.
+    this.fold.innerHTML = icon(open ? 'close' : 'settings');
+    if (open) {
+      const gap = bar.getBoundingClientRect().top - this.fold.getBoundingClientRect().bottom;
+      this.fold.style.setProperty('--pg-stem', `${Math.max(0, gap) + 1}px`);
+    }
   }
 
   /** The home: the pinned box about the game in focus, then one card per game: pinned games

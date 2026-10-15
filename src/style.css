@@ -923,12 +923,8 @@ body.puzzling #overlay { pointer-events: auto; touch-action: none; }
 .pg-game { position: relative; }
 .pg-foot { position: relative; flex: none; background: var(--c-bg); padding-bottom: var(--safe-bottom); }
 .pg-gen { display: none; }
-.pg-gen.is-open { position: absolute; top: 0; left: 0; right: 0; z-index: 6; display: flex; justify-content: center; padding: var(--sp-2) var(--sp-3) 0; pointer-events: none; }
-.pg-gen.is-open > .pg-bar { pointer-events: auto; width: min(560px, 100%); box-shadow: 0 6px 24px rgba(0, 0, 0, 0.55); animation: pg-drop 0.18s var(--ease); }
-@keyframes pg-drop { from { transform: translateY(-12px); opacity: 0; } }
-@media (prefers-reduced-motion: reduce) { .pg-gen.is-open > .pg-bar { animation: none; } }
-.pg-shut { flex: none; width: 40px; height: 40px; border-radius: 50%; background: transparent; }
-.pg-shut:hover { background: var(--c-surface-3); }
+.pg-gen.is-open { position: absolute; top: 0; left: 0; right: 0; z-index: 6; display: flex; justify-content: flex-end; padding: var(--sp-2) var(--sp-3) 0; pointer-events: none; }
+.pg-gen.is-open > .pg-bar { flex: 0 1 auto; pointer-events: auto; width: min(560px, 100%); border-top-right-radius: 0; box-shadow: 0 6px 24px rgba(0, 0, 0, 0.55); }
 .pg-bar { flex: 1 1 auto; display: flex; align-items: center; gap: var(--sp-2); min-width: 0; height: 60px; padding: 0 var(--sp-1) 0 var(--sp-4); border-radius: var(--r-md); background: var(--c-nav); box-sizing: border-box; }
 .pg-bar[hidden] { display: none; }
 .pg-bar .ui-slider { flex: 1 1 auto; min-width: 80px; }
@@ -1243,8 +1239,13 @@ button.crumb { cursor: pointer; }
 body[data-screen='puzzles'].pg-playing .nav-tools { display: flex; }
 .nav-tools .pg-fold { width: 44px; height: 44px; display: grid; place-items: center; padding: 0; border: 0; border-radius: var(--r-pill); background: transparent; color: var(--c-text); cursor: pointer; }
 .nav-tools .pg-fold svg { width: 24px; height: 24px; }
-.nav-tools .pg-fold:hover, .nav-tools .pg-fold[aria-expanded='true'] { background: var(--c-pick); }
-.nav-tools .pg-fold[aria-expanded='true'] { color: var(--c-accent); }
+.nav-tools .pg-fold:hover { background: var(--c-pick); }
+/* Open, the button is the bar's X: the bar's plate rises from the bar to hold it, rounded on
+   top, with a small inner curve where it meets the bar. */
+.nav-tools .pg-fold { position: relative; }
+.nav-tools .pg-fold[aria-expanded='true'] { z-index: 7; border-radius: 22px 22px 0 0; background: var(--c-nav); }
+.nav-tools .pg-fold[aria-expanded='true']::after { content: ''; position: absolute; left: 0; right: 0; top: 100%; height: var(--pg-stem, 14px); background: var(--c-nav); }
+.nav-tools .pg-fold[aria-expanded='true']::before { content: ''; position: absolute; right: 100%; top: calc(100% + var(--pg-stem, 14px) - 12px); width: 12px; height: 12px; border-bottom-right-radius: 12px; box-shadow: 6px 6px 0 6px var(--c-nav); clip-path: inset(0 -6px -6px 0); }
 
 /* The bar on Home (src/ui/dock.ts): Collect, Atlas and Play in a pill floating at the foot, each
    an icon over its name. --safe-bottom grows by the pill on Home, so whatever sits at the foot
