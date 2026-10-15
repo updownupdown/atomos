@@ -70,11 +70,21 @@ export function renderHome(host: HTMLElement, go: HomeGo): void {
   if (step && typeof requestAnimationFrame === 'function') requestAnimationFrame(() => askNu(host, `home:${step.z}:${step.stage}`));
 }
 
-/** Nu circles Collect's next step: on arriving at Home, and whenever the lit Home icon is tapped
- *  ("what now?"), which skips the once-a-minute limit (no `key`). */
+/** Nu circles Collect's next steps: on arriving at Home, and whenever the lit Home icon is tapped
+ *  ("what now?"), which skips the once-a-minute limit (no `key`). Its orbit circles the
+ *  stable and fleeting picks together, centred on the gap between them. */
 export function askNu(host: HTMLElement, key?: string): void {
-  const pick = host.querySelector<HTMLElement>('[data-step="stable"]') ?? host.querySelector<HTMLElement>('[data-step="fleeting"]');
-  if (pick) nuShow(pick, { key });
+  const picks = [...host.querySelectorAll<HTMLElement>('[data-step="stable"], [data-step="fleeting"]')];
+  if (!picks.length) return;
+  nuShow(() => {
+    const rs = picks.filter((e) => e.isConnected && e.getClientRects().length).map((e) => e.getBoundingClientRect());
+    if (!rs.length) return null;
+    const x = Math.min(...rs.map((r) => r.left)), y = Math.min(...rs.map((r) => r.top));
+    const w = Math.max(...rs.map((r) => r.right)) - x, h = Math.max(...rs.map((r) => r.bottom)) - y;
+    // Centred on the gap between the two picks (one pick: its own middle).
+    const cy = rs.length > 1 ? (rs[0].bottom + rs[1].top) / 2 : y + h / 2;
+    return new DOMRect(x, cy - h / 2, w, h);
+  }, { key });
 }
 
 // ---------- Collect ----------
