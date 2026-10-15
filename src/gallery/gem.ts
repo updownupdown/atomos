@@ -1,19 +1,18 @@
 // The atom in focus on Collect, drawn as the collected gem: the nebula look (render/nebula.ts)
 // of the same fine cloud its Build page draws (render/orbitalCloud.ts, a few hundred thousand
-// points), on a small canvas of its own, turning slowly as itself. How far the atom is
-// collected (thumbs.ts Tone) sets its look:
-//
-//   unbuilt   not built yet           the whole cloud in gray, still, no light walking
-//   built     built                   its hue, the light walking its orbitals
-//   stable    stable isotopes too     brighter, a fuller halo
-//   complete  everything collected    brightest, the halo in full
+// points), on a canvas of its own. How far the atom is collected (scaffold.ts) is the picture:
+// its color fills a slice of the circle from noon, clockwise, by the games won, the rest gray
+// and dimmer under scaffolding rings that stand over what is still to build; the light walks its
+// orbitals once a game is won; it turns once its stable parts are all built; the rings and the
+// gray go once everything is.
 //
 // As it first appears it gathers out of the dark: its light rises and it settles in from a
 // little farther off, with no sparkle.
 
 import * as THREE from 'three';
 import { elementAt } from './data';
-import type { Tone } from './thumbs';
+import type { AtomSlice } from './scaffold';
+import { Scaffold } from './scaffold';
 import { Nebula, type NebulaOptions } from '../render/nebula';
 import { worldPerA0 } from '../render/model';
 import { OrbitalCloud, orbitalSetBuilder, type OrbitalSet, type OrbitalSetBuilder } from '../render/orbitalCloud';
@@ -30,13 +29,13 @@ const ENTER_BACK = 0.14;
 const TILT = 0.35;
 /** Room round the framed body, so its outer lobes thin out before the canvas's edge. */
 const GEM_ROOM = 1.25;
+/** How fast the slice eases to a new share (per second), so a win grows it. */
+const SLICE_RATE = 2.5;
 
-export const GEM_LOOKS: Record<Tone, NebulaOptions> = {
-  unbuilt: { sat: 0, bright: 0.7, halo: 0, walk: false },
-  built: { sat: 1, bright: 1, halo: 0.3, walk: true },
-  stable: { sat: 1, bright: 1.15, halo: 0.4, walk: true },
-  complete: { sat: 1, bright: 1.3, halo: 0.7, walk: true },
-};
+/** The look by how far the atom is collected: a little brighter and more haloed as it fills. */
+export function gemLook(pct: number, still: boolean): NebulaOptions {
+  return { sat: 1, bright: 1 + 0.3 * pct, halo: 0.3 + 0.4 * pct, walk: pct > 0 && !still, slice: pct };
+}
 
 export class GemAtom {
   readonly canvas = document.createElement('canvas');
@@ -48,7 +47,12 @@ export class GemAtom {
   private set: OrbitalSet | null = null;
   private wpa0 = 1;
   private z = 0;
-  private tone: Tone = 'unbuilt';
+  private slice: AtomSlice = { pct: 0, spin: false, stableBuilt: 0, stableTotal: 0, fleetingBuilt: 0, fleetingTotal: 0, fleetingOn: false };
+  /** The slice drawn now, easing toward the atom's. */
+  private pctNow = 0;
+  private scaffold = new Scaffold();
+  /** The spin's angle, kept where it stopped. */
+  private angle = 0;
   private still = false;
   private raf = 0;
   private last = 0;
@@ -74,18 +78,20 @@ export class GemAtom {
 
   get ok(): boolean { return this.renderer !== null; }
 
-  /** Show atom `z` in a tone; `still` (reduced motion) neither turns nor twinkles. */
-  show(z: number, tone: Tone, still: boolean): void {
+  /** Show atom `z` as far as it is collected; `still` (reduced motion) neither turns nor walks
+   *  the light. */
+  show(z: number, slice: AtomSlice, still: boolean): void {
     if (z !== this.z) {
       const e = elementAt(z);
       this.wpa0 = worldPerA0(e);
       this.builder = orbitalSetBuilder(e, GEM_POINTS.per, GEM_POINTS.budget);
       this.set = null;
       this.age = 0;
+      this.pctNow = slice.pct;
       this.canvas.classList.remove('is-shown');
     }
     this.z = z;
-    this.tone = tone;
+    this.slice = slice;
     this.still = still;
   }
 
@@ -133,18 +139,24 @@ export class GemAtom {
     const still = this.still;
     // It gathers out of the dark: the light rises (eased out) as it settles in from farther off.
     const k = still ? 1 : 1 - (1 - Math.min(1, this.age / ENTER_S)) ** 3;
-    const look = GEM_LOOKS[this.tone];
-    // Reduced motion: the light stays where it is (a still picture in the atom's own colors).
-    const o: NebulaOptions = still ? { ...look, walk: false } : { ...look, bright: look.bright * k };
+    // The slice eases to its share (a win grows it); the look follows it.
+    const want = this.slice.pct;
+    this.pctNow = still ? want : this.pctNow + (want - this.pctNow) * Math.min(1, dt * SLICE_RATE);
+    if (Math.abs(want - this.pctNow) < 0.002) this.pctNow = want;
+    const look = gemLook(this.pctNow, still);
+    const o: NebulaOptions = { ...look, bright: look.bright * k };
     this.clock += dt;
     this.nebula.step(cloud, dt, this.time, o, GEM_DENSE);
     if (!sampling) cloud.sampleDense(5);
-    // The atom's own spin: its first pose, direction and pace from its seed, the tilt nodding
-    // a little over a minute. Framed on where most of its points are, with room round them.
+    // The atom's own spin, once its stable parts are built: its first pose, direction and pace
+    // from its seed, the tilt nodding a little over a minute. Framed on where most of its points
+    // are, with room round them, on the canvas's shorter side: a tall or wide canvas keeps the
+    // extra room.
     const nb = this.nebula;
-    const angle = nb.theta0 + (still ? 0 : this.time * nb.spinSpeed * nb.spinDir);
-    const tilt = TILT + (still ? 0 : nb.nod(this.time));
-    // Framed on the canvas's shorter side: a tall or wide canvas keeps the extra room.
+    const turning = this.slice.spin && !still;
+    if (turning) this.angle += dt * nb.spinSpeed * nb.spinDir;
+    const angle = nb.theta0 + this.angle;
+    const tilt = TILT + (turning ? nb.nod(this.time) : 0);
     const R = nb.frameA0 * GEM_ROOM * this.wpa0;
     const dist = (R / Math.tan((this.camera.fov * Math.PI) / 360)) * (1 + ENTER_BACK * (1 - k)) / Math.min(1, w / h);
     this.camera.position.set(Math.sin(angle) * Math.cos(tilt) * dist, Math.sin(tilt) * dist, Math.cos(angle) * Math.cos(tilt) * dist);
@@ -161,10 +173,13 @@ export class GemAtom {
     const size = r.getDrawingBufferSize(new THREE.Vector2());
     cloud.renderLayer({ renderer: r, camera: this.camera, width: size.x, height: size.y }, this.clock);
     cloud.draw(r);
+    // The scaffolding over the gray: rings that fade in with the light, cut away over the slice.
+    this.scaffold.set(R, this.pctNow);
+    this.scaffold.render(r, this.camera);
     this.canvas.classList.add('is-shown');
     if (still) this.stop();
   }
 
   /** For checks: what it shows, and whether its points are in. */
-  get state(): { z: number; tone: Tone; ready: boolean } { return { z: this.z, tone: this.tone, ready: this.set !== null }; }
+  get state(): { z: number; pct: number; ready: boolean } { return { z: this.z, pct: this.slice.pct, ready: this.set !== null }; }
 }

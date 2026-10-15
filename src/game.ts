@@ -31,7 +31,7 @@ import { closeModal, modalOpen, openModal } from './ui/modal';
 import { createTabs, iconButton, nextButton, playButton } from './ui/components';
 import { gameCard } from './puzzles/gameCard';
 import { trackOverlay, type TrackItem, type TrackOverlay } from './ui/tracks';
-import { atomBars } from './gallery/collect';
+import { mountAtomRow } from './gallery/collect';
 import { askRestart, confirming, restartButton } from './puzzles/restart';
 import { HintControl } from './puzzles/hints';
 import { clearOffers, createGameBar, offerRules, type GameBar } from './puzzles/gamebar';
@@ -100,7 +100,7 @@ export class Game {
   /** The frame of a puzzle: stats, Back and the tools on top, the message line under it. */
   private gbar!: GameBar;
 
-  constructor(private hooks: { onElement?: (z: number) => void; onView?: (z: number) => void; onInfo?: (z: number) => void } = {}) {
+  constructor(private hooks: { onElement?: (z: number) => void; onView?: (z: number) => void; onInfo?: (z: number) => void; onClose?: (z: number) => void } = {}) {
     this.detail = new Detail($<HTMLCanvasElement>('bh-atom'), { variant: 'build', empty: $('bh-empty') });
     // Bottom left of the atom: View, the 3D atom full screen (closing it comes back here).
     const view = $('bh-view');
@@ -693,7 +693,7 @@ export class Game {
   /** Progress under the atom: its stable parts and its fleeting isotopes as two bars, the same
    *  as at the foot of Collect, so going into the atom they only rise. */
   private renderProgress(): void {
-    $('bh-progress').innerHTML = atomBars(this.z, this.save);
+    mountAtomRow($('bh-progress'), this.z, this.save, 'close', () => this.hooks.onClose?.(this.z));
     $('bh-progress').setAttribute('aria-label', `${element(this.z).name}'s progress`);
   }
 

@@ -26,12 +26,14 @@ import * as THREE from 'three';
 import { fillOrder, type AtomLit } from './atom';
 import { CLOUD_RINGS, type Element } from './data';
 import { token } from './tokens';
-import { NUCLEUS_RINGS, NucleusView, nucleusExtent } from './nucleus';
+import { NUCLEUS_RINGS, NucleusView } from './nucleus';
 import { atomFingerprint } from '../render/fingerprint';
 import { worldPerA0 } from '../render/model';
 import { OrbitalCloud, orbitalSetBuilder, type OrbitalSet, type OrbitalSetBuilder } from '../render/orbitalCloud';
 import { ExplorerHud, OrbitalExplorer, type ExplorerCamera } from '../render/explorer';
 import { Nebula, type NebulaOptions } from '../render/nebula';
+import { atomSlice, Scaffold } from './scaffold';
+import { loadSave } from '../core/save';
 import { QualityGovernor } from '../render/governor';
 import { RayLooks, type ViewLook } from '../render/rayLooks';
 
@@ -79,6 +81,8 @@ const VIEW_HALO = 0.3;
 /** Build's point layer: this share of the screen's resolution at most (see applyQuality). */
 const NEBULA_PIXEL = 0.5;
 const BUILD_ROOM = 1.25;
+/** How fast the slice eases to a new share (per second). */
+const SLICE_RATE = 2.5;
 
 /** An orbit camera that frames a radius, easing in powers of ten (so a dive of five decades
  *  glides evenly), with the explorer's pinch and turn. */
@@ -173,9 +177,11 @@ export class Detail {
   private litNow = new Float32Array(64);
   private litTo = new Float32Array(64);
   private empty: HTMLElement | null;
-  /** Build: the lit orbital's name. */
-  private orbitalEl: HTMLParagraphElement | null = null;
-  private shownOrbital = -1;
+  /** Build: how far the atom is collected (scaffold.ts): the slice in color, easing to its
+   *  share as games are won, and whether its stable parts are all built (then it turns). */
+  private sliceTo = { pct: 0, spin: false };
+  private pctNow = 0;
+  private scaffold = new Scaffold();
   /** Build: how far the canvas reaches below its stage (CSS px), and the fit's correction for it. */
   private bleed = 0;
   private fitScale = 1;
@@ -249,11 +255,7 @@ export class Detail {
     }
     if (this.variant === 'build') {
       this.bindTap(canvas);
-      // The orbital the light rests on, named at the bottom of the stage.
-      this.orbitalEl = document.createElement('p');
-      this.orbitalEl.className = 'atom-orbital';
-      this.orbitalEl.setAttribute('aria-hidden', 'true');
-      canvas.parentElement?.append(this.orbitalEl);
+      window.addEventListener('atomos:progress', () => this.readSlice());
     }
     new ResizeObserver(() => this.resize()).observe(canvas);
     this.resize();
@@ -265,7 +267,8 @@ export class Detail {
     const fresh = this.element?.z !== e.z;
     this.element = e;
     this.wpa0 = worldPerA0(e);
-    if (this.nucleusOn || this.variant === 'build') this.nucleus.show(e);
+    if (this.nucleusOn) this.nucleus.show(e);
+    if (this.variant === 'build') this.readSlice(fresh);
     if (fresh) {
       const pts = this.variant === 'build' ? BUILD_POINTS : BASE_POINTS;
       this.builder = orbitalSetBuilder(e, pts.per, pts.budget);
@@ -308,20 +311,18 @@ export class Detail {
     for (const o of set.orbitals) this.litTo[o.index] = share.get(o.key) ?? 0;
   }
 
-  /** Build: what is drawn follows what is built. */
-  private get buildMode(): 'empty' | 'nucleus' | 'cloud' {
-    if (this.lit.electrons > 0) return 'cloud';
-    return this.lit.nucleus ? 'nucleus' : 'empty';
+  /** Build: how far the atom is collected, from the save; a new atom starts at its share, a win
+   *  on the one shown eases to it. */
+  private readSlice(fresh = false): void {
+    if (!this.element) return;
+    const s = atomSlice(this.element.z, loadSave());
+    this.sliceTo = { pct: s.pct, spin: s.spin };
+    if (fresh) this.pctNow = s.pct;
   }
 
   private paintMode(): void {
-    if (this.variant === 'build') {
-      const mode = this.buildMode;
-      if (this.empty) this.empty.hidden = mode !== 'empty';
-      if (this.orbitalEl) this.orbitalEl.hidden = mode !== 'cloud';
-      this.canvas.style.visibility = mode === 'empty' ? 'hidden' : '';
-      if (mode === 'nucleus' && this.element) this.nucleus.show(this.element);
-    }
+    // Build always draws the whole cloud: the slice in color says what is built.
+    if (this.empty) this.empty.hidden = true;
     this.syncLoop();
   }
 
@@ -449,7 +450,7 @@ export class Detail {
   }
 
   private syncLoop(): void {
-    const on = this.wanted && !(this.variant === 'build' && this.buildMode === 'empty');
+    const on = this.wanted;
     if (on === this.running) return;
     this.running = on;
     if (on) {
@@ -546,8 +547,6 @@ export class Detail {
     const sampling = Boolean(this.builder && !this.builder.done);
     this.sampling = sampling;
     this.slice = sampleSlice(dtMs);
-    const mode = this.variant === 'build' ? this.buildMode : 'cloud';
-    // Build samples the electrons while it shows the nucleus too, so they are ready to light up.
     this.takeSet(dtMs);
     // Sampling costs its slice on purpose: judge the frames only once it is done.
     if (sampling || this.pinned != null) this.governor.reset(now);
@@ -566,7 +565,7 @@ export class Detail {
     r.setRenderTarget(null);
     r.setClearColor(BG(), 1);
     r.clear();
-    if (this.variant === 'build') this.frameBuild(mode, dt);
+    if (this.variant === 'build') this.frameBuild(dt);
     else this.frameView(now, dt);
   }
 
@@ -582,37 +581,29 @@ export class Detail {
       if (d && Math.hypot(e.clientX - d.x, e.clientY - d.y) < 10 && performance.now() - d.t < 400) this.nebula.advance();
     });
   }
-  private frameBuild(mode: 'empty' | 'nucleus' | 'cloud', dt: number): void {
+  private frameBuild(dt: number): void {
     const r = this.renderer;
-    if (mode === 'nucleus' && this.element) {
-      this.rig.fit(nucleusExtent(this.element) * 1.2 * UNITS_PER_FM * this.fitScale);
-      this.rig.update(dt, false, 0.22);
-      this.nucleus.group.scale.setScalar(UNITS_PER_FM);
-      this.nucleus.intensity = 1;
-      this.nucleus.render(r, this.camera, this.time, dt);
-      return;
-    }
     if (!this.set) return;
-    // Reduced motion: the light stays where it is (a tap still moves it on).
-    const o: NebulaOptions = this.reducedMotion ? { ...BUILD_LOOK, walk: false } : BUILD_LOOK;
+    // The slice eases to its share (a win grows it). Reduced motion: the light stays where it
+    // is (a tap still moves it on), and the atom never turns.
+    const want = this.sliceTo.pct;
+    this.pctNow = this.reducedMotion ? want : this.pctNow + (want - this.pctNow) * Math.min(1, dt * SLICE_RATE);
+    if (Math.abs(want - this.pctNow) < 0.002) this.pctNow = want;
+    const o: NebulaOptions = { ...BUILD_LOOK, slice: this.pctNow, walk: this.pctNow > 0 && !this.reducedMotion };
     const nb = this.nebula;
-    nb.step(this.cloud, dt, this.time, o, DENSE_BUILD, this.litNow);
+    nb.step(this.cloud, dt, this.time, o, DENSE_BUILD);
     if (!this.sampling) this.cloud.sampleDense(this.slice);
     // A little more room than the gem gives, so a lit outer lobe clears the page's header.
-    this.rig.fit(nb.frameA0 * BUILD_ROOM * this.wpa0 * this.fitScale);
-    this.rig.update(dt, false, nb.spinSpeed * nb.spinDir);
+    const R = nb.frameA0 * BUILD_ROOM * this.wpa0;
+    this.rig.fit(R * this.fitScale);
+    // It turns once its stable parts are all built.
+    const turning = this.sliceTo.spin && !this.reducedMotion;
+    this.rig.update(dt, false, turning ? nb.spinSpeed * nb.spinDir : 0);
     this.cloud.renderLayer(this.ctx, this.time);
     this.cloud.draw(r);
-    this.paintOrbital();
-  }
-
-  /** Build: the name of the orbital the light rests on, under the atom. */
-  private paintOrbital(): void {
-    const el = this.orbitalEl, set = this.set;
-    const i = this.nebula.litOrbital;
-    if (!el || !set || i === null || i === this.shownOrbital) return;
-    this.shownOrbital = i;
-    el.textContent = set.orbitals[i]?.label ?? '';
+    // The scaffolding over the gray: rings cut away over the slice.
+    this.scaffold.set(R, this.pctNow);
+    this.scaffold.render(r, this.camera);
   }
 
   private get ctx() {

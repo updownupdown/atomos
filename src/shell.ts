@@ -252,7 +252,7 @@ export class AppShell {
     if (this.game) return;
     const { Game } = await import('./game');
     const want = this.z;
-    this.game = new Game({ onElement: (z) => this.setZ(z), onView: (z) => { this.setZ(z); void this.go('atom', 'view'); }, onInfo: (z) => { this.setZ(z); void this.go('atom', 'info'); } });
+    this.game = new Game({ onElement: (z) => this.setZ(z), onView: (z) => { this.setZ(z); void this.go('atom', 'view'); }, onInfo: (z) => { this.setZ(z); void this.go('atom', 'info'); }, onClose: () => void this.go('collect') });
     this.z = want;
   }
 
