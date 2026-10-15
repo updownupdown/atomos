@@ -26,14 +26,17 @@ import { earnables } from '../gallery/earn';
 import { PUZZLES, puzzleIcon } from '../puzzles/catalog';
 import { gameCard } from '../puzzles/gameCard';
 import { icon, type IconName } from '../ui/icons';
-import { nuIconHtml, nuShow } from '../ui/nu';
+import { nuEnabled, nuIconHtml, nuShow } from '../ui/nu';
+import { NU_BAR_ICON } from '../nu/icon';
+import { nuPick } from '../nu/games';
+import { finds, foundToday, hideDue, treats } from '../nu/bond';
 import {
   atomOfDay, candidates, clues, finishQuiz, headlineOf, liveStreak, quizOf, readDay, today, writeDay,
   type DayState, type QuizOption,
 } from './daily';
 import './home.css';
 
-export type HomeTarget = 'collect' | 'learn' | 'play';
+export type HomeTarget = 'collect' | 'learn' | 'play' | 'nu';
 export type HomeGo = (to: HomeTarget, at?: { z?: number; game?: string }) => void;
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
@@ -45,9 +48,9 @@ function plate(e: Element, cls = ''): string {
   return `<span class="home-plate ${cls}" style="background:${bg};color:${inkOn(bg)}" aria-hidden="true"><small>${e.z}</small>${e.symbol}</span>`;
 }
 
-function panel(to: HomeTarget, title: string, ico: IconName, body: string): string {
+function panel(to: HomeTarget, title: string, ico: IconName | { html: string }, body: string): string {
   return `<section class="home-sec" aria-labelledby="home-h-${to}">`
-    + `<div class="home-head"><span class="home-ico">${icon(ico, { size: 26 })}</span><h2 class="home-h" id="home-h-${to}">${title}</h2>`
+    + `<div class="home-head"><span class="home-ico">${typeof ico === 'string' ? icon(ico, { size: 26 }) : ico.html}</span><h2 class="home-h" id="home-h-${to}">${title}</h2>`
     + `<button type="button" class="home-round" data-go="${to}" aria-label="Open ${title}">${icon('chevron-right', { size: 22 })}</button></div>`
     + body + '</section>';
 }
@@ -62,8 +65,10 @@ export function renderHome(host: HTMLElement, go: HomeGo): void {
   const save = loadSave();
   host.innerHTML = panel('collect', 'Collect', 'collect', collectBody(save)) + SEP
     + panel('learn', 'Atlas', 'atlas', '<div class="home-guess"></div><div class="home-quiz"></div>' + learnRow(save)) + SEP
-    + panel('play', 'Play', 'puzzles', '<div class="home-game"></div>');
+    + panel('play', 'Play', 'puzzles', '<div class="home-game"></div>')
+    + (nuEnabled() ? SEP + panel('nu', 'Nu', { html: NU_BAR_ICON }, nuBody()) : '');
   host.querySelectorAll<HTMLButtonElement>('[data-go]').forEach((b) => { b.onclick = () => go(b.dataset.go as HomeTarget); });
+  host.querySelectorAll<HTMLButtonElement>('[data-nu-game]').forEach((b) => { b.onclick = () => go('nu', { game: b.dataset.nuGame }); });
   wireCollect(host, save);
   const day = today();
   const guess = host.querySelector<HTMLElement>('.home-guess')!;
@@ -328,4 +333,20 @@ function paintGame(box: HTMLElement, go: HomeGo): void {
   box.append(card(id, lastPlayed() === id ? 'Played last' : 'Pick up a game'));
   const other = randomGame(ids, id, today().index);
   if (other) box.append(card(other, playsOf(other) ? 'Random pick' : 'Random pick · new to you'));
+}
+
+// ---------- Nu ----------
+
+/** Nu's section: the game it wants to play today (into its park), and what's waiting there:
+ *  treats from wins, and a hint that it's hiding somewhere today (or how often it's been found). */
+function nuBody(): string {
+  const g = nuPick(), n = treats(), f = finds();
+  const notes: string[] = [];
+  if (n) notes.push(`${n} ${n === 1 ? 'treat' : 'treats'} waiting`);
+  if (hideDue()) notes.push('Hiding somewhere today');
+  else if (foundToday()) notes.push(`Found ${f === 1 ? 'once' : `${f} times`}`);
+  return `<button type="button" class="home-card home-link home-nupick" data-nu-game="${g.id}">`
+    + `<span class="home-nupick-ico" aria-hidden="true">${g.icon}</span>`
+    + `<span class="home-grow"><b>Nu wants to play ${g.label}</b>${notes.length ? `<small>${notes.join(' · ')}</small>` : ''}</span>`
+    + `${icon('chevron-right', { size: 20 })}</button>`;
 }

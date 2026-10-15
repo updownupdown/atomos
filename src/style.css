@@ -1193,7 +1193,11 @@ body.puzzling #overlay { pointer-events: auto; touch-action: none; }
 /* Nu at rest in the mark: the nucleon it sits on turns rose (nu.ts). With Nu off the mark is
    whole. */
 .nav-logo .nu-home-slot { transition: fill 0.16s ease, stroke 0.16s ease; }
-.nav-logo .nu-home-slot.is-nu { fill: var(--c-go); stroke: var(--c-go); filter: drop-shadow(0 0 3px var(--c-go-ring)); }
+.nav-logo .nu-home-slot.is-nu { fill: var(--c-go); stroke: var(--c-go); filter: drop-shadow(0 0 calc(3px + 4px * var(--nu-warm, 0)) var(--c-go-ring)); }
+/* Away a few days, Nu naps in the mark (src/nu/bond.ts): it breathes slowly until woken. */
+.nu-napping .nav-logo .nu-home-slot.is-nu { filter: none; animation: nu-nap 4.8s ease-in-out infinite; }
+@keyframes nu-nap { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+@media (prefers-reduced-motion: reduce) { .nu-napping .nav-logo .nu-home-slot.is-nu { animation: none; opacity: 0.55; } }
 .nu-off .nav-logo .nu-home-slot { display: inline; }
 /* The wordmark (Outfit bold, all caps, widely tracked). */
 .nav-title { flex: 1; min-width: 0; margin: 0 0 0 var(--sp-1); font-family: var(--font); font-size: 15px; font-weight: var(--fw-bold); letter-spacing: 0.3em; text-transform: uppercase; line-height: 1; color: var(--c-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

@@ -21,11 +21,12 @@
 import { buzz, captureSound, chimeSound, completeSound, missSound, tickSound } from '../audio';
 import { loadSave, writeSave } from '../core/save';
 import { nuBorrow, nuEnabled, nuGiveBack, reducedMotion } from '../ui/nu';
+import { eatTreat, giveToy, periodsDone, toysSeen, treats, wake, warmth, warmUp } from './bond';
+import { F, GAMES, S, ST, nuPick, type GameId } from './games';
 import './park.css';
 
 type Pt = { x: number; y: number };
 type Mover = Pt & { vx: number; vy: number };
-type GameId = 'sling' | 'course' | 'echo' | 'orbit' | 'shells' | 'herd' | 'trace' | 'tag';
 type PlaceId = 'home' | GameId;
 
 const PARK_KEY = 'atomos.nu-park';
@@ -240,7 +241,14 @@ interface Toy {
 
 // ---- Home: pet and fetch ---------------------------------------------------------------------
 
-type PlayThing = Mover & { kind: 'photon' | 'hoop' | 'pair'; spin: number };
+type PlayThing = Mover & { kind: 'photon' | 'hoop' | 'pair' | 'treat' | 'atom'; spin: number; period?: number };
+
+/** How big a toy is, for catching and bouncing. */
+const toyR = (t: PlayThing): number => (t.kind === 'atom' ? 12 : t.kind === 'treat' ? 6 : 10);
+
+/** The colour of a period's toy: the orbital colour of the newest block that period fills
+ *  (s in period 1, p from 2, d from 4, f from 6). */
+const periodColour = (p: number): string => NOTE_COLOURS[p >= 6 ? 3 : p >= 4 ? 2 : p >= 2 ? 1 : 0];
 
 /** Nu's home. Stroke it and it warms up and leans into your finger; full, it purrs, three
  *  little electrons going round it. Tap it and it hops. Flick a toy and Nu fetches it back to
@@ -260,6 +268,10 @@ class Home implements Toy {
   private target: PlayThing | null = null;
   private drop: Pt = { x: 0, y: 0 };
   private quiet = 0;
+  /** Treats from wins still to come in, and when the last one did. */
+  private treatsDue = 0;
+  private treatAt = 0;
+  private warm = 0;
   private spot(s: Stage): Pt { return { x: s.c.x, y: s.c.y - s.R * 0.08 }; }
 
   enter(s: Stage): void {
@@ -275,9 +287,32 @@ class Home implements Toy {
     }
     this.state = 'idle';
     this.quiet = 0;
+    this.warm = warmth();
+    this.treatsDue = treats();
+    this.treatAt = performance.now();
+    // A toy for each period finished: a tiny model of its atom. A new one appears in the middle
+    // and Nu brings it to you.
+    const have = new Set(this.toys.filter((t) => t.kind === 'atom').map((t) => t.period));
+    const seen = toysSeen();
+    for (const p of periodsDone()) {
+      if (have.has(p)) continue;
+      const fresh = !seen.includes(p), a = -Math.PI / 2 + (p * TAU) / 7, k = fresh ? 0.3 : 0.4 + Math.random() * 0.35;
+      const t: PlayThing = { x: s.c.x + Math.cos(a) * s.R * k, y: s.c.y + Math.sin(a) * s.R * k, vx: 0, vy: 0, kind: 'atom', spin: 0, period: p };
+      Object.assign(t, inside(s, t, toyR(t)));
+      this.toys.push(t);
+      if (fresh) {
+        giveToy(p);
+        s.fx.ring(t, periodColour(p), 6, 60, 1200);
+        s.fx.burst(t, 12, periodColour(p), 0.12);
+        chimeSound(p % 5);
+        this.target = t;
+        this.drop = { x: s.c.x, y: s.c.y + s.R * 0.62 };
+        this.state = 'chase';
+      }
+    }
   }
 
-  resize(s: Stage): void { for (const t of this.toys) Object.assign(t, inside(s, t, 12)); }
+  resize(s: Stage): void { for (const t of this.toys) Object.assign(t, inside(s, t, toyR(t))); }
 
   step(s: Stage, dt: number, now: number): void {
     const nu = s.nu;
@@ -289,7 +324,7 @@ class Home implements Toy {
       t.vx *= f;
       t.vy *= f;
       t.spin += Math.hypot(t.vx, t.vy) * dt * 0.02;
-      if (bounceIn(s, t, 10)) tickSound(0);
+      if (bounceIn(s, t, toyR(t)) && t.kind !== 'treat') tickSound(0);
     }
     this.quiet += dt;
     if (this.state === 'idle') {
@@ -303,6 +338,16 @@ class Home implements Toy {
         nu.scale = 1 + Math.sin(t * TAU) * 0.12;
       } else nu.scale = 1 + Math.sin(now / 700) * 0.03 * (1 + this.happy);
       nu.seek(to, dt, 0.6, 0.012);
+      // A treat from a win drifts in from the rim, and Nu goes to eat it.
+      if (this.treatsDue > 0 && !this.held && now - this.treatAt > 1400) {
+        this.treatsDue--;
+        this.treatAt = now;
+        const a = Math.random() * TAU, t: PlayThing = { x: s.c.x + Math.cos(a) * (s.R - 8), y: s.c.y + Math.sin(a) * (s.R - 8), vx: -Math.cos(a) * 0.12, vy: -Math.sin(a) * 0.12, kind: 'treat', spin: 0 };
+        this.toys.push(t);
+        this.target = t;
+        this.state = 'chase';
+        return;
+      }
       // Bored: it fetches a toy for you, and drops it by the button.
       if (this.quiet > 9000 && !this.held && !reducedMotion()) {
         this.quiet = 0;
@@ -313,7 +358,23 @@ class Home implements Toy {
     } else if (this.state === 'chase' && this.target) {
       nu.scale = 1;
       nu.seek(this.target, dt, 0.62, 0.02);
-      if (dist(nu, this.target) < nu.r + 10) { this.state = 'carry'; captureSound(); s.fx.ring(this.target, WHITE, 6, 26, 450); }
+      if (dist(nu, this.target) < nu.r + toyR(this.target)) {
+        if (this.target.kind === 'treat') {
+          // Eaten: Nu glows a little warmer.
+          this.toys.splice(this.toys.indexOf(this.target), 1);
+          s.fx.burst(this.target, 10, CYAN, 0.12);
+          chimeSound(Math.floor(Math.random() * 5));
+          eatTreat();
+          this.warm = warmUp(0.08);
+          this.hop = 520;
+          this.target = null;
+          this.state = 'idle';
+          return;
+        }
+        this.state = 'carry';
+        captureSound();
+        s.fx.ring(this.target, WHITE, 6, 26, 450);
+      }
     } else if (this.state === 'carry' && this.target) {
       nu.seek(this.drop, dt, 0.42, 0.01);
       this.target.x = nu.x + 13;
@@ -327,10 +388,11 @@ class Home implements Toy {
         this.quiet = 0;
         s.fx.burst(nu, 6, ROSE, 0.08);
         tickSound(3);
+        this.warm = warmUp(0.03);
       }
     }
     this.happy = clamp(this.happy - dt * 0.00003, 0, 1);
-    nu.glow = 1 + this.happy * 1.4;
+    nu.glow = 1 + this.warm * 0.8 + this.happy * 1.4;
   }
 
   draw(s: Stage, ctx: CanvasRenderingContext2D, now: number): void {
@@ -343,6 +405,23 @@ class Home implements Toy {
         ctx.restore();
       } else if (t.kind === 'hoop') {
         ring(ctx, t, 8, WHITE, 3);
+      } else if (t.kind === 'treat') {
+        ctx.save();
+        ctx.shadowColor = 'rgba(111, 208, 230, 0.9)';
+        ctx.shadowBlur = 14;
+        dot(ctx, t, 4, WHITE);
+        ctx.restore();
+        ring(ctx, t, 7 + Math.sin(now / 180) * 1.5, CYAN, 1.6, 0.6);
+      } else if (t.kind === 'atom') {
+        // A period's atom: its nucleus in the period's colour, and as many electrons going round
+        // as the period has shells.
+        const c = periodColour(t.period ?? 1), n = t.period ?? 1, r = toyR(t) - 2;
+        ring(ctx, t, r, c, 2, 0.55);
+        dot(ctx, t, 4.2, c);
+        for (let i = 0; i < n; i++) {
+          const a = t.spin + now / 1100 + (i * TAU) / n;
+          dot(ctx, { x: t.x + Math.cos(a) * r, y: t.y + Math.sin(a) * r }, 1.9, WHITE);
+        }
       } else {
         const ox = Math.cos(t.spin) * 5, oy = Math.sin(t.spin) * 5;
         dot(ctx, { x: t.x + ox, y: t.y + oy }, 5.5, WHITE);
@@ -373,7 +452,7 @@ class Home implements Toy {
     this.finger = p;
     this.downAt = performance.now();
     this.downP = p;
-    const t = this.toys.find((q) => dist(p, q) < 30 && !(this.state === 'carry' && q === this.target));
+    const t = this.toys.find((q) => q.kind !== 'treat' && dist(p, q) < Math.max(30, toyR(q) + 14) && !(this.state === 'carry' && q === this.target));
     if (t) {
       this.held = t;
       t.vx = t.vy = 0;
@@ -388,7 +467,7 @@ class Home implements Toy {
     const last = this.finger;
     this.finger = p;
     if (this.held) {
-      Object.assign(this.held, inside(s, p, 10));
+      Object.assign(this.held, inside(s, p, toyR(this.held)));
       this.trail.unshift({ ...p, t: performance.now() });
       this.trail.length = Math.min(this.trail.length, 8);
       return;
@@ -398,7 +477,7 @@ class Home implements Toy {
     this.happy = clamp(this.happy + dist(p, last) * 0.0016, 0, 1);
     const now = performance.now();
     if (now - this.lastRing > 160) { this.lastRing = now; s.fx.ring(s.nu, ROSE, s.nu.r, s.nu.r + 30, 800); }
-    if (was < 1 && this.happy >= 1 && now - this.lastBurst > 8000) { this.lastBurst = now; s.fx.burst(s.nu, 12); completeSound(); buzz(12); }
+    if (was < 1 && this.happy >= 1 && now - this.lastBurst > 8000) { this.lastBurst = now; s.fx.burst(s.nu, 12); completeSound(); buzz(12); this.warm = warmUp(0.12); }
   }
 
   up(s: Stage, p: Pt): void {
@@ -1324,21 +1403,6 @@ class Tag implements Toy {
 
 // ---- The screen ------------------------------------------------------------------------------
 
-const S = (d: string) => `<svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">${d}</svg>`;
-const ST = 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"';
-const F = 'fill="currentColor"';
-
-/** The games, in the order they sit round the picker. */
-const GAMES: { id: GameId; label: string; icon: string }[] = [
-  { id: 'orbit', label: 'Orbit', icon: S(`<circle cx="12" cy="12" r="8" ${ST}/><circle cx="12" cy="4" r="2.6" ${F}/>`) },
-  { id: 'sling', label: 'Sling', icon: S(`<circle cx="12" cy="12" r="3" ${F}/><path d="M3.5 18C5 9 15 4 20.5 8.5" ${ST}/><circle cx="20.5" cy="8.5" r="2" ${F}/>`) },
-  { id: 'shells', label: 'Shells', icon: S(`<circle cx="5.5" cy="14" r="3.5" ${ST}/><circle cx="12" cy="14" r="3.5" ${F}/><circle cx="18.5" cy="14" r="3.5" ${ST}/>`) },
-  { id: 'echo', label: 'Echo', icon: S(`<circle cx="12" cy="4.5" r="2.3" ${F}/><circle cx="19.5" cy="10" r="2.3" ${F}/><circle cx="16.7" cy="19" r="2.3" ${F}/><circle cx="7.3" cy="19" r="2.3" ${F}/><circle cx="4.5" cy="10" r="2.3" ${F}/>`) },
-  { id: 'herd', label: 'Herd', icon: S(`<circle cx="12" cy="12" r="3" ${F}/><circle cx="12" cy="12" r="7" ${ST} stroke-dasharray="2 4"/><circle cx="20" cy="5" r="1.8" ${F}/><circle cx="4" cy="19" r="1.8" ${F}/>`) },
-  { id: 'course', label: 'Course', icon: S(`<path d="M7 21V17c0-3 10-2 10-5.5S7 8.5 7 5.5V3" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="7" cy="3.2" r="2" ${F}/>`) },
-  { id: 'trace', label: 'Trace', icon: S(`<path d="M4 18c3-8 6 2 9-5s5-6 7-4" ${ST}/><circle cx="20" cy="9" r="2.2" ${F}/>`) },
-  { id: 'tag', label: 'Tag', icon: S(`<circle cx="15" cy="9" r="3.4" ${F}/><path d="M4 20l6-6M9 20H4v-5" ${ST} stroke-linejoin="round"/>`) },
-];
 
 const HOME_ICON = S(`<circle cx="12" cy="12" r="4" ${F}/><ellipse cx="12" cy="12" rx="9.5" ry="4.6" ${ST} transform="rotate(-24 12 12)"/>`);
 const PICK_ICON = S(`<circle cx="12" cy="12" r="2.6" ${F}/><circle cx="12" cy="4" r="2" ${F}/><circle cx="18.9" cy="8" r="2" ${F}/><circle cx="18.9" cy="16" r="2" ${F}/><circle cx="12" cy="20" r="2" ${F}/><circle cx="5.1" cy="16" r="2" ${F}/><circle cx="5.1" cy="8" r="2" ${F}/>`);
@@ -1365,6 +1429,7 @@ export class NuPark {
   /** The picker is open, and the game Nu fancies today (it circles it there). */
   private picking = false;
   private fancy: GameId = 'orbit';
+  private since = 0;
   private pickAt = 0;
 
   constructor(host: HTMLElement) {
@@ -1413,6 +1478,8 @@ export class NuPark {
   show(): void {
     this.root.hidden = false;
     this.open = true;
+    this.since = performance.now();
+    wake();
     this.place = 'home';
     this.fit();
     this.closePick();
@@ -1426,8 +1493,13 @@ export class NuPark {
     this.root.hidden = true;
     cancelAnimationFrame(this.frame);
     this.frame = 0;
+    // Time spent playing warms Nu up, a little per minute.
+    if (this.have) warmUp(Math.min(0.3, ((performance.now() - this.since) / 60_000) * 0.05));
     this.giveBack();
   }
+
+  /** Opens straight into a game (Home's Nu section). */
+  openGame(id: GameId): void { this.go(id); }
 
   /** Nu's home, from the header's trail. */
   goHome(): void { this.go('home'); }
@@ -1488,7 +1560,7 @@ export class NuPark {
     if (!this.have) return;
     this.picking = true;
     this.pickAt = performance.now();
-    this.fancy = GAMES[Math.floor(Math.random() * GAMES.length)].id;
+    this.fancy = nuPick().id;
     this.layoutPick();
     this.pickEl.hidden = false;
     this.scoreEl.style.visibility = 'hidden';
