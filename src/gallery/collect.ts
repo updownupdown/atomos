@@ -225,7 +225,7 @@ export class Collect {
         <div class="co-zoom"><div class="co-table" aria-label="Periodic table"></div></div>
         <div class="co-chips co-extra" role="group" aria-label="Periods"></div>
       </div>
-      <div class="co-stage"><button type="button" class="co-gem-btn"><span class="co-gem"></span></button></div>
+      <div class="co-stage"><button type="button" class="co-gem-btn"><span class="co-gem"></span></button><div class="co-id" aria-hidden="true"><span class="co-plate"></span><b class="co-name"></b></div></div>
       <div class="co-atom"><div class="co-row" role="group"></div></div>`;
     const $ = <T extends HTMLElement>(s: string) => host.querySelector<T>(s)!;
     this.stage = $('.co-stage');
@@ -304,12 +304,24 @@ export class Collect {
     const period = rowOf(z);
     for (const c of this.table.querySelectorAll<HTMLElement>('.co-cell.is-current')) c.classList.remove('is-current');
     this.table.querySelector<HTMLElement>(`.co-cell[data-z="${z}"]`)?.classList.add('is-current');
+    this.paintId(e);
     this.stage.querySelector('.co-gem-btn')!.setAttribute('aria-label', `${e.name}, ${z}: ${STATUS_WORD[statusOf(z, this.save)].toLowerCase()}. Open it`);
     this.paintRow(z);
     if (period !== this.laid) this.layoutTable();
     this.paintLine();
     this.paintChips();
     if (this.shown && !this.open) this.showGem(z);
+  }
+
+  /** Which atom is in the lens: its plate (number over symbol, in its place color) top left,
+   *  its name top middle. */
+  private paintId(e: ReturnType<typeof elementAt>): void {
+    const plate = this.stage.querySelector<HTMLElement>('.co-plate')!;
+    const c = placeColour(e);
+    plate.style.background = c;
+    plate.style.color = inkOn(c);
+    plate.innerHTML = `<small>${e.z}</small><b>${e.symbol}</b>`;
+    this.stage.querySelector('.co-name')!.textContent = e.name;
   }
 
   /** The atom's counts and Build at the foot. */
