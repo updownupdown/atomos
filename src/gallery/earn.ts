@@ -101,6 +101,29 @@ function toastText(id: string): string {
   return e.kind === 'shape' ? `${e.label} is open in the Atlas` : e.kind === 'toy' ? 'Time-lapse is open in the Atlas' : `${e.label} colors are open in the Atlas`;
 }
 
+/** The toasts for what just opened: at most one for each kind (shapes, colors, views), naming
+ *  the first and counting the rest ("Ribbon and 2 more shapes unlocked in the Atlas"). */
+export function unlockToasts(ids: string[]): string[] {
+  const all = earnables();
+  const groups = new Map<'shape' | 'color' | 'view', string[]>();
+  for (const id of ids) {
+    const kind = id === 'nucleus-view' ? 'view' : all.find((x) => x.id === id)?.kind;
+    if (!kind) continue;
+    const key = kind === 'toy' ? 'view' : kind;
+    groups.set(key, [...(groups.get(key) ?? []), id]);
+  }
+  const out: string[] = [];
+  for (const [key, list] of groups) {
+    const more = list.length - 1;
+    if (!more) { out.push(toastText(list[0])); continue; }
+    const first = list[0] === 'nucleus-view' ? 'The nucleus view' : all.find((x) => x.id === list[0])!;
+    const name = typeof first === 'string' ? first : first.kind === 'toy' ? 'Time-lapse' : first.kind === 'color' ? `${first.label} colors` : first.label;
+    const noun = key === 'shape' ? 'shape' : key === 'color' ? 'color' : 'view';
+    out.push(`${name} and ${more} more ${noun}${more > 1 ? 's' : ''} unlocked in the Atlas`);
+  }
+  return out.filter(Boolean);
+}
+
 let watching = false;
 /** Watches wins and progress, and announces anything newly open. The first run only notes what
  *  is open already, so an existing player is not greeted with a pile of toasts. */
@@ -120,7 +143,8 @@ export function watchEarnings(): void {
       if (!now.length) return;
       writeList(SEEN_KEY, [...seen, ...now]);
       writeList(FRESH_KEY, [...(readList(FRESH_KEY) ?? []), ...now.filter((id) => id !== 'nucleus-view')]);
-      now.forEach((id, i) => setTimeout(() => showToast(toastText(id), { tone: 'good', duration: 3400 }), i * 900));
+      // One toast for each kind at most, however many opened with one win.
+      unlockToasts(now).forEach((text, i) => setTimeout(() => showToast(text, { tone: 'good', duration: 3400 }), i * 900));
       // Nu carries the news to the Atlas button, where there is one on screen.
       setTimeout(() => {
         const learn = [...document.querySelectorAll<HTMLElement>('#nav-gallery, #bh-to-info')].find((b) => !b.hidden && b.getClientRects().length);
