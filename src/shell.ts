@@ -15,7 +15,7 @@
 // The header is on every screen but View and never moves: the mark at its left goes Home (Nu
 // rests in it). On Home the wordmark, Search and Settings follow, and the bar (src/ui/dock.ts)
 // holds Collect, Atlas and Play at the foot. Everywhere else the trail (src/ui/crumbs.ts) follows
-// the mark: Collect › Nd › Build, Collect › Nd › Flux, Atlas › (Nd Neodymium), Play › (Flux), each
+// the mark: Collect › (Nd Neodymium), Collect › Nd › Flux, Atlas › (Nd Neodymium), Play › (Flux), each
 // step a link back up and the atom or game a dropdown where the list helps.
 
 import { GalleryApp } from './gallery';
@@ -353,7 +353,7 @@ export class AppShell {
         const z = this.z;
         const id = this.game?.puzzleId;
         if (this.mode === 'build' && id) return [{ label: 'Collect', go: toCollect }, atomCrumb(z, { go: () => this.game?.back() }), gameCrumb(id)];
-        return [{ label: 'Collect', go: toCollect }, atomCrumb(z, { drop: () => this.openPick() }), { label: 'Build' }];
+        return [{ label: 'Collect', go: toCollect }, atomCrumb(z, { drop: () => this.openPick() })];
       }
       case 'gallery': {
         const z = this.gallery.pageZ;
