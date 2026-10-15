@@ -33,19 +33,52 @@
   --lh: 1.45;
   --tracking-caps: 0.14em;
 
+  /* The palette, by code (James, 2026-10-15): one name per color, so a shade can be called out
+     ("make it K900"). K is the graphite gray scale, 50 palest to 975 darkest; C cyan, M rose
+     magenta, G green, R red, A amber. Screens never use these directly: they use the roles
+     below (--c-plate, --c-text ...), which point at them. The component library shows all. */
+  --k-50: #eef1f2;
+  --k-100: #e4e8ea;
+  --k-200: #c5ccd0;
+  --k-300: #a3abaf;
+  --k-400: #7a8287;
+  --k-500: #50575b;
+  --k-600: #434950;
+  --k-700: #353a40;
+  --k-800: #2a2e32;
+  --k-850: #222529;
+  --k-900: #1f2225;
+  --k-950: #17191b;
+  --k-975: #121416;
+  --c-500: #6fd0e6;
+  --c-950: #06232a;
+  --m-500: #ff5aa8;
+  --m-950: #2a0418;
+  --g-500: #4ff29a;
+  --g-950: #05210f;
+  --r-400: #ef6a55;
+  --r-500: #e0503a;
+  --a-500: #e8b45c;
+
   /* Colour: graphite, cool white, cyan. Red is kept only for the active target in an atom. */
   /* Content sits on pure black; the navigation rows (header, atom bar, View/Build) on a
      slightly lighter graphite, so the chrome reads apart from the page without lines. */
   --c-bg: #000000;
-  --c-nav: #222529;
-  --c-well: #121416;     /* sunken groups on navigation rows: the mode choices */
+  --c-nav: var(--k-850);
+  --c-well: var(--k-975);     /* sunken groups on navigation rows: the mode choices */
   /* The picked item in a navigation row: cyan on a dark gray chip. */
-  --c-pick: #353a40;
-  --c-plate: #131416;
-  --c-surface: #17191b;
-  --c-surface-2: #1f2225;
-  --c-surface-3: #2a2e32;
-  --c-tile: #e4e8ea;
+  --c-pick: var(--k-700);
+  /* The plate: every card, panel and row that sits straight on black (Home sections, Play's game
+     cards, Info and Atlas rows). One shade everywhere, K900 (James, 2026-10-15: darker now that
+     sections sit on black). Things inside a plate sit one step up, on --c-plate-2. */
+  --c-plate: var(--k-900);
+  --c-plate-2: var(--k-800);
+  /* Zebra stripes in tables and lists: quieter than a plate. */
+  --c-stripe: var(--k-975);
+  --c-surface: var(--k-950);
+  --c-surface-2: var(--k-900);
+  --c-surface-3: var(--k-800);
+  --c-tile: var(--k-100);
   --c-tile-ink: #101112;
   --c-scrim: rgba(5, 6, 7, 0.62);
   /* The mask under a modal: paler than the scrim, so the black card stands off the page. */
@@ -58,29 +91,30 @@
      4.9:1 on --c-pick and 6.6:1 on --c-nav. --c-text-min names that floor: no readable text
      dimmer than it. --c-text-3 (2:1) is for decoration only: lines, icons at rest, disabled
      marks, scale ticks; never for words or numbers a player reads. */
-  --c-text: #e4e8ea;
-  --c-text-2: #a3abaf;
+  --c-text: var(--k-100);
+  --c-text-2: var(--k-300);
   --c-text-min: var(--c-text-2);
-  --c-text-3: #50575b;
+  --c-text-3: var(--k-500);
   --c-line: rgba(228, 232, 234, 0.12);
   --c-line-2: rgba(228, 232, 234, 0.26);
   --c-line-3: rgba(228, 232, 234, 0.5);
-  --c-silver: #eef1f2;
-  --c-accent: #6fd0e6;
-  --c-accent-ink: #06232a;
-  --c-target: #e0503a;
+  --c-silver: var(--k-50);
+  --c-accent: var(--c-500);
+  --c-accent-ink: var(--c-950);
+  --c-target: var(--r-500);
   /* Good, in rules pictures and toasts: the same neon green as done. */
-  --c-good: #4ff29a;
+  --c-good: var(--g-500);
   /* Done: a neon green, as saturated as the cyan, for what is built and complete (100%, Built,
      Flawless, a finished progress ring). */
-  --c-done: #4ff29a;
-  --c-warn: #e8b45c;
+  --c-done: var(--g-500);
+  --c-done-ink: var(--g-950);
+  --c-warn: var(--a-500);
   /* Rose magenta: the way forward. Only the Next button and Nu, the guide, wear it; never a
      puzzle board, never decoration. Cyan stays the accent (where you are, partial progress). */
-  --c-go: #ff5aa8;
-  --c-go-ink: #2a0418;
+  --c-go: var(--m-500);
+  --c-go-ink: var(--m-950);
   --c-go-ring: rgba(255, 90, 168, 0.45);
-  --c-bad: #ef6a55;
+  --c-bad: var(--r-400);
   /* The five difficulty levels, Very easy to Expert: blue, green, yellow, orange, red. They color
      the difficulty pips, the Puzzles level picker and the slider's fill, and nothing else. */
   --c-lvl-1: #58a6ff;

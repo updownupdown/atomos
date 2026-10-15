@@ -59,12 +59,52 @@ function fakeView(moves: number): PuzzleView {
   };
 }
 
+/** The palette: [code, CSS variable, roles that point at it]. */
+type Swatch = [string, string, string];
+const PALETTE: [string, string, Swatch[]][] = [
+  ['K: graphite grays', 'From the palest text to the darkest well. Content sits on pure black.', [
+    ['K50', '--k-50', 'Silver'], ['K100', '--k-100', 'Text, tiles'], ['K200', '--k-200', ''],
+    ['K300', '--k-300', 'Second text, the floor'], ['K400', '--k-400', ''], ['K500', '--k-500', 'Decoration only'],
+    ['K600', '--k-600', 'Hover on a chip'], ['K700', '--k-700', 'Picked chip'], ['K800', '--k-800', 'Inside a plate'],
+    ['K850', '--k-850', 'Navigation rows'], ['K900', '--k-900', 'Plate: cards on black'], ['K950', '--k-950', 'Surface'],
+    ['K975', '--k-975', 'Wells, stripes'], ['Black', '--c-bg', 'Content'],
+  ]],
+  ['C, M, G, R, A: the colors', 'Each keeps one job: cyan is where you are, rose magenta the way forward (Next and Nu only), green done, red the target, amber a problem.', [
+    ['C500', '--c-500', 'Accent'], ['C950', '--c-950', 'Ink on cyan'],
+    ['M500', '--m-500', 'Next, Nu'], ['M950', '--m-950', 'Ink on rose'],
+    ['G500', '--g-500', 'Done, good'], ['G950', '--g-950', 'Ink on green'],
+    ['R500', '--r-500', 'Target'], ['R400', '--r-400', 'Wrong'], ['A500', '--a-500', 'Problem, locks'],
+  ]],
+  ['Levels and orbitals', 'Fixed sets with one use each: the five difficulty levels, and the s, p, d, f orbitals.', [
+    ['L1', '--c-lvl-1', 'Very easy'], ['L2', '--c-lvl-2', 'Easy'], ['L3', '--c-lvl-3', 'Medium'], ['L4', '--c-lvl-4', 'Hard'], ['L5', '--c-lvl-5', 'Expert'],
+    ['s', '--c-orb-s', 'Orbital'], ['p', '--c-orb-p', 'Orbital'], ['d', '--c-orb-d', 'Orbital'], ['f', '--c-orb-f', 'Orbital'],
+  ]],
+];
+
+function paletteRow(swatches: Swatch[]): HTMLElement {
+  const row = h('div', 'cl-swatches cl-wide');
+  const css = getComputedStyle(document.documentElement);
+  for (const [code, prop, role] of swatches) {
+    const sw = h('div', 'cl-swatch', '<i></i><b></b><span></span><em></em>');
+    (sw.querySelector('i') as HTMLElement).style.background = `var(${prop})`;
+    sw.querySelector('b')!.textContent = code;
+    sw.querySelector('span')!.textContent = css.getPropertyValue(prop).trim().toLowerCase();
+    sw.querySelector('em')!.textContent = role;
+    row.append(sw);
+  }
+  return row;
+}
+
 /** Fill the page. `onBack` runs when the player taps Back. */
 export function renderComponentPage(page: HTMLElement, onBack: () => void): void {
   page.replaceChildren();
   const head = h('div', 'ip-head');
   head.append(backButton('Settings', onBack));
   page.append(head, h('h1', 'ip-title', 'Components'), h('p', 'ip-lede', 'Every shared button, choice, overlay and mark, working. They are the real components, so tuning one here tunes it everywhere it is used. Icons have their own <a href="#icons">library</a>.'));
+
+  // ---- Palette ----
+  section(page, 'Palette', 'Every color by its code, so a shade can be called out ("make it K900"). Screens use the roles under each code, never the code itself, so changing a role moves every screen at once.',
+    ...PALETTE.map(([title, where, swatches]) => spec(title, where, paletteRow(swatches))));
 
   // ---- Buttons ----
   const primary = h('button', 'primary', 'Done');
