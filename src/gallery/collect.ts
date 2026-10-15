@@ -150,7 +150,7 @@ const width = (share: number) => `${(Math.max(0, Math.min(1, share)) * 100).toFi
 export function atomRow(z: number, save: SaveData, action: 'build' | 'close'): string {
   const s = atomSlice(z, save);
   const count = (ico: 'isotope-stable' | 'isotope-fleeting', word: string, figure: string, done: boolean, off = false) =>
-    `<span class="co-count${done ? ' is-done' : ''}${off ? ' is-off' : ''}">${icon(ico, { size: 22 })}<span class="co-count-in"><span>${word}</span><b>${figure}</b></span></span>`;
+    `<span class="co-count${done ? ' is-done' : ''}${off ? ' is-off' : ''}">${icon(ico, { size: 40 })}<span class="co-count-in"><span>${word}</span><b>${figure}</b></span></span>`;
   const fleeting = !s.fleetingTotal ? count('isotope-fleeting', 'Fleeting', 'None', false, true)
     : s.fleetingOn ? count('isotope-fleeting', 'Fleeting', `${s.fleetingBuilt}/${s.fleetingTotal}`, s.fleetingBuilt >= s.fleetingTotal)
       : count('isotope-fleeting', 'Fleeting', `0/${s.fleetingTotal}`, false, true);
@@ -158,7 +158,7 @@ export function atomRow(z: number, save: SaveData, action: 'build' | 'close'): s
   const button = action === 'build'
     ? `<button type="button" class="co-build" aria-label="Build ${name}">${icon('build', { size: 20 })}<span>Build</span></button>`
     : `<button type="button" class="co-build is-close" aria-label="Close ${name}, back to Collect">${icon('close', { size: 20 })}<span>Close</span></button>`;
-  return `<div class="co-slot"><div class="co-counts">${count('isotope-stable', 'Stable', `${s.stableBuilt}/${s.stableTotal}`, s.stableTotal > 0 && s.stableBuilt >= s.stableTotal)}${fleeting}</div><div class="pb-news co-news" role="status" hidden></div></div>${button}`;
+  return `${count('isotope-stable', 'Stable', `${s.stableBuilt}/${s.stableTotal}`, s.stableTotal > 0 && s.stableBuilt >= s.stableTotal)}${fleeting}<div class="pb-news co-news" role="status" hidden></div>${button}`;
 }
 
 /** Put an atom's row in `host`, its button doing `onClick`. */
@@ -174,10 +174,10 @@ function pbar(ico: string, label: string, n: number, total: number): string {
   return `<span class="co-pbar${done ? ' is-done' : ''}" role="img" aria-label="${label}: ${fmt(n)} of ${fmt(total)}">${icon(ico as never, { size: 16 })}<span class="co-trk"><i style="width:${width(total ? n / total : 0)}"></i></span></span>`;
 }
 
-/** One of the collection's totals: the word, built of all, and a bar. */
-function stat(word: string, n: number, total: number): string {
+/** One of the collection's totals, a row: its icon, the word, a bar, and built of all. */
+function stat(ico: 'atom' | 'isotope-stable' | 'isotope-fleeting', word: string, n: number, total: number): string {
   const done = total > 0 && n >= total;
-  return `<div class="co-stat${done ? ' is-done' : ''}"><span class="co-stat-k">${word}</span><span class="co-stat-v">${fmt(n)}<small> / ${fmt(total)}</small></span><span class="co-trk"><i style="width:${width(total ? n / total : 0)}"></i></span></div>`;
+  return `<div class="co-stat${done ? ' is-done' : ''}"><span class="co-stat-i">${icon(ico, { size: 22 })}</span><span class="co-stat-k">${word}</span><span class="co-trk"><i style="width:${width(total ? n / total : 0)}"></i></span><span class="co-stat-v">${fmt(n)}<small>/${fmt(total)}</small></span></div>`;
 }
 
 type PeriodCounts = ReturnType<typeof periodProgress>;
@@ -221,9 +221,9 @@ export class Collect {
     host.innerHTML = `
       <div class="co-drawer">
         <div class="co-head"><div class="co-line"><b class="co-period" role="status"></b><span class="co-pbars"></span><button type="button" class="co-more" aria-expanded="false"></button></div></div>
-        <div class="co-coll co-extra"></div>
-        <div class="co-zoom"><div class="co-table" aria-label="Periodic table"></div></div>
         <div class="co-chips co-extra" role="group" aria-label="Periods"></div>
+        <div class="co-zoom"><div class="co-table" aria-label="Periodic table"></div></div>
+        <div class="co-coll co-extra"></div>
       </div>
       <div class="co-stage"><button type="button" class="co-gem-btn"><span class="co-gem"></span></button><div class="co-id" aria-hidden="true"><span class="co-plate"></span><b class="co-name"></b></div></div>
       <div class="co-atom"><div class="co-row" role="group"></div></div>`;
@@ -290,7 +290,7 @@ export class Collect {
   private count(): void {
     this.per = PERIODS.map((p) => periodProgress(p, this.save));
     const sum = (k: 'built' | 'atoms' | 'stableBuilt' | 'stableTotal' | 'fleetingBuilt' | 'fleetingTotal') => this.per.reduce((n, p) => n + p[k], 0);
-    this.coll.innerHTML = stat('Atoms', sum('built'), sum('atoms')) + stat('Stable parts', sum('stableBuilt'), sum('stableTotal')) + stat('Fleeting', sum('fleetingBuilt'), sum('fleetingTotal'));
+    this.coll.innerHTML = stat('atom', 'Atoms', sum('built'), sum('atoms')) + stat('isotope-stable', 'Stable', sum('stableBuilt'), sum('stableTotal')) + stat('isotope-fleeting', 'Fleeting', sum('fleetingBuilt'), sum('fleetingTotal'));
   }
 
   /** Put atom `z` in the lens. */
@@ -506,7 +506,7 @@ export class Collect {
     const el = this.row.querySelector<HTMLElement>('.co-news')!;
     el.innerHTML = `<b>${esc(n.added)}</b><span>${esc(n.note)}</span>`;
     el.hidden = false;
-    this.row.querySelector('.co-counts')!.classList.add('is-hidden');
+    this.row.querySelectorAll('.co-count').forEach((c) => c.classList.add('is-hidden'));
     this.newsTimer = window.setTimeout(() => this.hideNews(), 3000);
   }
 
@@ -514,7 +514,7 @@ export class Collect {
     window.clearTimeout(this.newsTimer);
     const el = this.row.querySelector<HTMLElement>('.co-news');
     if (el) el.hidden = true;
-    this.row.querySelector('.co-counts')?.classList.remove('is-hidden');
+    this.row.querySelectorAll('.co-count').forEach((c) => c.classList.remove('is-hidden'));
   }
 
   /** Each cell lit by how far its atom is collected: gray until a part is built, a square of

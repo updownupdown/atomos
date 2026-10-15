@@ -18,10 +18,12 @@ const f1 = (n: number) => Math.round(n * 10) / 10;
 const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`;
 const YEAR = 3.156e7;
 
-/** The microscope at the foot of the Build page, as a full-width card. */
+/** The microscope at the foot of the Build page, as a full-width card. (The science module
+ *  relabels it on each screen change; the label here is only until then.) */
 export function buildGuideButton(name: string): HTMLButtonElement {
   const b = scienceButton('foot-card bg-open');
-  b.innerHTML = `<span class="foot-card-ico">${b.innerHTML}</span><span class="foot-card-text"><b>How ${esc(name.toLowerCase())} is built</b><small>What each part is, and what its puzzle stands for</small></span><span class="foot-card-go">${icon('chevron-right', { size: 22 })}</span>`;
+  b.innerHTML = `<span class="foot-card-ico">${icon('microscope', { size: 40 })}</span><span class="foot-card-text"><b>Build specs</b></span><span class="foot-card-go">${icon('chevron-right', { size: 22 })}</span>`;
+  b.setAttribute('aria-label', `Build specs: how ${esc(name.toLowerCase())} is built`);
   return b;
 }
 
@@ -61,7 +63,7 @@ export function buildGuideHTML(z: number, save: SaveData): string {
     shape ? step('unlock', 'Discovery', save.shapes[shape] ? 'Found' : 'One puzzle', Boolean(save.shapes[shape]), '',
       `${esc(e.name)} is the first atom with ${shape} orbitals. Cracking the code here uncovers their shape for the Atlas's 3D views.`) : '',
   ].join('');
-  return `<h2>How ${esc(name)} is built</h2>
+  return `<h2 class="bg-title">${icon('microscope', { size: 22 })}<span>Build specs</span></h2>
     <div class="bg">
       <p class="bg-lead">Each part is one puzzle, in the order of its page. The stable parts make up ${esc(name)}'s 100% and set it turning once they are all built; fleeting isotopes fill in the rest of its ring.</p>
       ${parts}

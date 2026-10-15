@@ -320,7 +320,7 @@ export class Game {
   /** The microscope: how building works on the Build page, the science of a puzzle inside it. */
   private registerScience(): void {
     if (this.paused) return;
-    if (this.stage === 'home') setScienceHandler(() => this.showBuildScience(), `How ${element(this.z).name} is built`);
+    if (this.stage === 'home') setScienceHandler(() => this.showBuildScience(), `Build specs: how ${element(this.z).name} is built`);
     else setScienceHandler(() => this.showWhy(), 'The science behind this puzzle');
   }
 
@@ -469,7 +469,7 @@ export class Game {
         this.fleetingGrid(fleeting, Boolean(built)), fc.total > 0 && fc.built === fc.total) : '',
       shapeCard ? this.section('unlock', 'Discoveries', '', shapeCard, '', '', Boolean(shape && this.save.shapes[shape])) : '',
       // The foot: the atom's page in the Atlas, and the guide to how it is built.
-      `<div class="bh-foot" id="bh-foot">${this.hooks.onInfo ? `<button type="button" class="foot-card" id="bh-to-info"><span class="foot-card-ico">${icon('info', { size: 22 })}</span><span class="foot-card-text"><b>${el.name} info</b><small>Its page in the Atlas</small></span><span class="foot-card-go">${icon('chevron-right', { size: 22 })}</span></button>` : ''}</div>`,
+      `<div class="bh-foot" id="bh-foot">${this.hooks.onInfo ? `<button type="button" class="foot-card" id="bh-to-info" aria-label="View ${el.name} in the Atlas"><span class="foot-card-ico">${icon('atlas', { size: 40 })}</span><span class="foot-card-text"><b>View in Atlas</b></span><span class="foot-card-go">${icon('chevron-right', { size: 22 })}</span></button>` : ''}</div>`,
     ].join('');
     $('bh-foot').append(buildGuideButton(el.name));
     $('bh-in').querySelector<HTMLButtonElement>('#bh-to-info')?.addEventListener('click', () => this.hooks.onInfo?.(this.z));
