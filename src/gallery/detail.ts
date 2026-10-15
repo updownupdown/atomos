@@ -46,8 +46,6 @@ export interface DetailOptions {
   hud?: HTMLElement;
   /** Build: shown in place of the atom while the nucleus is not built. */
   empty?: HTMLElement;
-  /** Build: a list for the size circles' legend (filled here), shown with the electrons. */
-  legend?: HTMLElement;
 }
 
 /** Scene units are 100 pm, as everywhere in the app; a femtometre is 1e-5 of one. */
@@ -72,10 +70,6 @@ const sampleSlice = (frameMs: number) => Math.max(5, Math.min(30, frameMs * 0.25
 const PLAY_DWELL_S = 3.6;
 const PLAY_CONTEXT = 0.5;
 const PLAY_RESUME_MS = 5000;
-/** Build: each size circle turns once in 4 s (the smallest) to 8 s (the largest), about its
- *  own axis, a touch fainter than in View. */
-const GYRO_S = [4, 8];
-const BUILD_RING_FADE = 0.94;
 
 /** The Build page's look: the nebula (render/nebula.ts), as the Collect gem draws it, the
  *  light walking the orbitals built so far. */
@@ -84,7 +78,7 @@ const BUILD_LOOK: NebulaOptions = { sat: 1, bright: 1.1, halo: 0.4, walk: true }
 const VIEW_HALO = 0.3;
 /** Build's point layer: this share of the screen's resolution at most (see applyQuality). */
 const NEBULA_PIXEL = 0.5;
-const BUILD_ROOM = 1.12;
+const BUILD_ROOM = 1.25;
 
 /** An orbit camera that frames a radius, easing in powers of ten (so a dive of five decades
  *  glides evenly), with the explorer's pinch and turn. */
@@ -179,11 +173,9 @@ export class Detail {
   private litNow = new Float32Array(64);
   private litTo = new Float32Array(64);
   private empty: HTMLElement | null;
-  private legend: HTMLElement | null;
-  /** Build: the lit orbital's name, and the size circles' turns. */
+  /** Build: the lit orbital's name. */
   private orbitalEl: HTMLParagraphElement | null = null;
   private shownOrbital = -1;
-  private gyro: { line: THREE.Line; r: number; period: number; axis: THREE.Vector3; base: number }[] = [];
   /** Build: how far the canvas reaches below its stage (CSS px), and the fit's correction for it. */
   private bleed = 0;
   private fitScale = 1;
@@ -225,7 +217,6 @@ export class Detail {
     this.variant = opts.variant;
     this.hudEl = opts.hud ?? null;
     this.empty = opts.empty ?? null;
-    this.legend = opts.legend ?? null;
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: this.variant === 'view', alpha: false, powerPreference: 'high-performance' });
     this.renderer.autoClear = false;
     this.renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
@@ -251,12 +242,10 @@ export class Detail {
       }
       this.ringScene.add(this.nucleusRings, this.diveRingGroup);
     }
-    // The size circles round the whole atom, in View and (with their legend) in Build.
-    for (const r of CLOUD_RINGS) this.atomRings.add(ring(r.pm / 100, r.style));
-    this.ringScene.add(this.atomRings);
-    if (this.legend) {
-      const line = (style: string) => `<svg width="16" height="4" aria-hidden="true"><line x1="1" y1="2" x2="15" y2="2" stroke="currentColor" stroke-width="1.5"${style === 'dashed' ? ' stroke-dasharray="3 2.5"' : ''}/></svg>`;
-      this.legend.innerHTML = CLOUD_RINGS.map((r) => `<li>${line(r.style)}<span>${r.pm * 2} pm</span></li>`).join('');
+    // The size circles round the whole atom, in View only: Build shows the cloud alone.
+    if (this.variant === 'view') {
+      for (const r of CLOUD_RINGS) this.atomRings.add(ring(r.pm / 100, r.style));
+      this.ringScene.add(this.atomRings);
     }
     if (this.variant === 'build') {
       this.bindTap(canvas);
@@ -265,12 +254,6 @@ export class Detail {
       this.orbitalEl.className = 'atom-orbital';
       this.orbitalEl.setAttribute('aria-hidden', 'true');
       canvas.parentElement?.append(this.orbitalEl);
-      this.atomRings.children.forEach((ln, i, all) => {
-        const k = all.length > 1 ? i / (all.length - 1) : 0;
-        // Each turns about its own axis in the picture's plane, a quarter turn apart in step.
-        const line = ln as THREE.Line;
-        this.gyro.push({ line, r: CLOUD_RINGS[i].pm / 100, period: GYRO_S[0] + (GYRO_S[1] - GYRO_S[0]) * k, axis: new THREE.Vector3(Math.cos(i * 1.9), Math.sin(i * 1.9), 0), base: (line.material as THREE.LineBasicMaterial).opacity * BUILD_RING_FADE });
-      });
     }
     new ResizeObserver(() => this.resize()).observe(canvas);
     this.resize();
@@ -335,7 +318,6 @@ export class Detail {
     if (this.variant === 'build') {
       const mode = this.buildMode;
       if (this.empty) this.empty.hidden = mode !== 'empty';
-      if (this.legend) this.legend.hidden = mode !== 'cloud';
       if (this.orbitalEl) this.orbitalEl.hidden = mode !== 'cloud';
       this.canvas.style.visibility = mode === 'empty' ? 'hidden' : '';
       if (mode === 'nucleus' && this.element) this.nucleus.show(this.element);
@@ -621,28 +603,7 @@ export class Detail {
     this.rig.update(dt, false, nb.spinSpeed * nb.spinDir);
     this.cloud.renderLayer(this.ctx, this.time);
     this.cloud.draw(r);
-    this.paintGyro();
-    r.render(this.ringScene, this.camera);
     this.paintOrbital();
-  }
-
-  /** Build: the size circles face the camera, each turning about its own axis in the picture's
-   *  plane like the rings of a gyroscope. One that would run well off the sides fades away. */
-  private paintGyro(): void {
-    this.ringScene.quaternion.copy(this.camera.quaternion);
-    // Half the canvas's width at the atom, in scene units.
-    const c = this.camera;
-    const halfW = c.position.length() * Math.tan((c.fov * Math.PI) / 360) * c.aspect;
-    const still = this.reducedMotion;
-    for (const g of this.gyro) {
-      const r = g.r;
-      g.line.quaternion.setFromAxisAngle(g.axis, still ? 0 : (this.time / g.period) * Math.PI * 2);
-      const a = 1 - step(1.02, 1.12, r / halfW);
-      g.line.visible = a > 0.01;
-      (g.line.material as THREE.LineBasicMaterial).opacity = g.base * a;
-    }
-    // The legend lists only the circles on show.
-    this.legend?.querySelectorAll('li').forEach((li, i) => { const on = this.gyro[i]?.line.visible ?? true; if (li.hidden === on) li.hidden = !on; });
   }
 
   /** Build: the name of the orbital the light rests on, under the atom. */
