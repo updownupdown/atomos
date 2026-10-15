@@ -1,9 +1,9 @@
 // The Instructions modal for any puzzle: the game's icon and name pinned at the top, its goal,
-// large and given room, then one card per rule, then its Specs (what a flawless solve needs and
-// how its boards are made). Each card has its title and text (the key phrase in bold, written
+// large and given room, then one card per rule, then the player's Stats (Won and Flawless at each
+// level) and its Specs (what a flawless solve needs and how its boards are made). Each card has its title and text (the key phrase in bold, written
 // **so** in the rule), then its pictures side by side, the rule kept and the rule broken, drawn
 // as stills as wide as the sheet allows. The card crossing the middle of the sheet is the
-// current one: it turns gray with a paler gray edge and its pictures play, one after the other,
+// current one: it sits on a gray plate, its title in cyan, and its pictures play, one after the other,
 // over and over; the rest sit black, holding their finished stills. Scrolled to the very end, the
 // last card is current; tapping a card brings it to the middle. There are no Play buttons. Under
 // Reduce motion the current card still turns gray but its pictures stay still.
@@ -12,6 +12,7 @@
 import { openModal } from '../ui/modal';
 import { icon } from '../ui/icons';
 import { puzzleIcon, type PuzzleType } from './catalog';
+import { levelStats } from './levelButtons';
 import { syncPalette } from './palette';
 import type { Illustration, RuleCard } from './view';
 
@@ -52,10 +53,12 @@ export function openRules(t: PuzzleType, opts: { reducedMotion?: boolean; footer
       <section class="how-goal"><h3>Goal</h3><p>${escape(t.goal)}</p></section>
       <p class="how-blurb">${t.blurb}</p>
       ${rules.length ? `<ul class="rules">${cards}</ul>` : ''}
+      <section class="how-stats"><h3>Stats</h3><div class="how-stats-key"><span>${icon('check', { size: 14 })}Won</span><span>${icon('star', { size: 14 })}Flawless</span></div></section>
       ${t.instructions ?? ''}
       ${opts.footer ?? ''}
     </div>`, () => { stop(); sheet.classList.remove('is-rules'); });
   sheet.classList.add('is-rules');
+  sheet.querySelector('.how-stats')?.append(levelStats(t.id));
   stop = wire(sheet, rules, Boolean(opts.reducedMotion));
   return sheet;
 }

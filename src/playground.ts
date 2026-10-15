@@ -14,15 +14,16 @@
 import { loadSave } from './core/save';
 import { PUZZLES, puzzleIcon, type PuzzleType } from './puzzles/catalog';
 import { gameCard, setCardDifficulty } from './puzzles/gameCard';
+import { levelButtons, levelStats } from './puzzles/levelButtons';
 import { PuzzleHost } from './puzzles/host';
 import { openRules } from './puzzles/rulesModal';
 import { showWin, type WinLevels } from './puzzles/winPanel';
 import { lossOf, type Area, type PuzzleView } from './puzzles/view';
-import { createSlider, iconButton, ringOn, showToast, type Slider } from './ui/components';
+import { createSlider, iconButton, showToast, type Slider } from './ui/components';
 import { countPlay, GOAL_PLAYS } from './core/plays';
 import { clearOffers, createGameBar, offerRules, type GameBar } from './puzzles/gamebar';
-import { dialFor, difficultyLevel, difficultyRange, difficultyWord, elementForDial, LEVELS, levelInGame, levelWord } from './puzzles/difficulty';
-import { lastDial, pinnedGames, recordWin, rememberDial, setPinned, winsOf } from './core/wins';
+import { dialFor, difficultyLevel, difficultyRange, difficultyWord, elementForDial, levelInGame } from './puzzles/difficulty';
+import { lastDial, pinnedGames, recordWin, rememberDial, setPinned } from './core/wins';
 import { GameDemo } from './puzzles/demo';
 import { askRestart, confirming, restartButton } from './puzzles/restart';
 import { icon } from './ui/icons';
@@ -58,6 +59,8 @@ export class Playground {
     this.host.onWon = (v) => this.won(v.moves, v.par, v.clean && !this.host.hints.used(v));
     this.host.onLost = (v) => this.lost(v);
     this.demo = new GameDemo($('pg-demo') as HTMLCanvasElement, () => reducedMotion());
+    $('pg-stats-toggle').onclick = () => this.toggleStats();
+    $('pg-stats-key').innerHTML = `<span>${icon('check', { size: 14 })}Won</span><span>${icon('star', { size: 14 })}Flawless</span>`;
     this.renderHome();
 
     // Difficulty: a settings button at the right of the header, after the trail. It drops the
@@ -331,8 +334,6 @@ export class Playground {
       // The pips show the levels the game reaches in white; in focus, the one Play deals at is in
       // its level's color.
       setCardDifficulty(sec, difficultyRange(sec.dataset.id!), on ? this.dialOf(sec.dataset.id!) : undefined);
-      const card = sec.querySelector<HTMLElement>('.gcard');
-      if (card) ringOn(card, on ? 'focus' : null);
     });
     const box = $('pg-focus');
     if (!force && box.dataset.id === p.id) return;
@@ -344,36 +345,32 @@ export class Playground {
     this.demo.show(p);
   }
 
-  /** The focused game's five levels: its wins at each (the solved count and the flawless stars),
-   *  and the one Play deals at, filled in its color. Tapping a level picks it. Levels its boards
-   *  never reach are an empty outline; levels not yet won show a dash. */
+  /** The focused game's five levels as play buttons (the one its Play deals at filled in its
+   *  color; tapping one plays that level), and above them, behind the Stats toggle, its Won and
+   *  Flawless counts at each level. */
   private paintWins(p: PuzzleType): void {
-    const row = $('pg-levels');
     if ($('pg-focus').dataset.id !== p.id) return;
-    const { lo, hi } = difficultyRange(p.id);
-    const from = difficultyLevel(lo);
-    const to = difficultyLevel(hi);
-    const wins = winsOf(p.id);
-    const picked = difficultyLevel(this.dialOf(p.id));
-    row.setAttribute('aria-label', `${p.name} difficulty, with wins at each level`);
-    row.innerHTML = Array.from({ length: LEVELS }, (_, i) => {
-      const level = i + 1;
-      const word = levelWord(level);
-      if (level < from || level > to) {
-        return `<button type="button" class="pg-lvl is-off" role="radio" aria-checked="false" disabled title="${word}: not dealt in ${p.name}"><span class="pg-lvl-word">${word}</span><span class="pg-lvl-none"></span><span class="sr-only">: not dealt</span></button>`;
-      }
-      const w = wins[i];
-      const on = level === picked;
-      const say = w.solved ? `${word}: ${w.solved} solved, ${w.flawless} flawless` : `${word}: not solved yet`;
-      const val = w.solved
-        ? `<span class="pg-lvl-n">${icon('check', { size: 12 })}${w.solved}</span>` + (w.flawless ? `<span class="pg-lvl-star">${icon('star', { size: 12 })}${w.flawless}</span>` : '')
-        : `<span class="pg-lvl-dash">–</span>`;
-      return `<button type="button" class="pg-lvl lvl-${level}${on ? ' is-on' : ''}${w.solved ? ' is-won' : ''}" role="radio" aria-checked="${on}" data-level="${level}" title="${say}" aria-label="${say}">`
-        + `<span class="pg-lvl-word" aria-hidden="true">${word}</span><span class="pg-lvl-val" aria-hidden="true">${val}</span></button>`;
-    }).join('');
-    row.querySelectorAll<HTMLButtonElement>('.pg-lvl[data-level]').forEach((b) => {
-      b.onclick = () => this.pickLevel(p.id, Number(b.dataset.level));
-    });
+    $('pg-levels').replaceChildren(levelButtons({
+      game: p.id,
+      picked: difficultyLevel(this.dialOf(p.id)),
+      label: `Play ${p.name} at a difficulty`,
+      onPlay: (level) => this.open(p.id, level),
+    }));
+    const body = $('pg-stats-body');
+    body.replaceChildren(...(this.statsOpen ? [levelStats(p.id)] : []));
+  }
+
+  /** The Stats toggle: shows or hides the Won and Flawless counts over the level buttons. */
+  private statsOpen = false;
+  private toggleStats(): void {
+    this.statsOpen = !this.statsOpen;
+    $('pg-stats-toggle').setAttribute('aria-expanded', String(this.statsOpen));
+    $('pg-stats').classList.toggle('is-open', this.statsOpen);
+    $('pg-stats-body').hidden = !this.statsOpen;
+    $('pg-stats-key').hidden = !this.statsOpen;
+    const p = PUZZLES.find((g) => g.id === this.focusId);
+    if (p) this.paintWins(p);
+    this.layoutHome();
   }
 
   /** A card's pips, and the focus color, after its dial has changed. */
@@ -397,15 +394,6 @@ export class Playground {
     if (!span) return false;
     if (difficultyLevel(this.dialOf(id)) !== level) rememberDial(id, Math.round((span.lo + span.hi) / 2));
     return true;
-  }
-
-  /** Picks a level on the home: the remembered dial if it is in that level, else its middle. */
-  private pickLevel(id: string, level: number): void {
-    if (!this.aimAt(id, level)) return;
-    this.paintCard(id);
-    const p = PUZZLES.find((g) => g.id === id);
-    if (p) this.paintWins(p);
-    $('pg-levels').querySelector<HTMLElement>(`[data-level="${level}"]`)?.focus({ preventScroll: true });
   }
 
   private select(id: string): void {

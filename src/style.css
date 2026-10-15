@@ -835,30 +835,53 @@ body.puzzling #overlay { pointer-events: auto; touch-action: none; }
 .pg-home[hidden], .pg-game[hidden] { display: none; }
 .pg-home-in { max-width: 600px; margin: 0 auto; }
 .pg-focus { position: sticky; top: 0; z-index: 2; padding: var(--sp-3) 0 var(--sp-1); background: var(--c-bg); }
-.pg-focus-in { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'text demo' 'levels levels'; gap: var(--sp-3) var(--sp-4); padding: var(--sp-3); border-radius: var(--r-lg); background: var(--c-surface); }
+.pg-focus-in { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'text demo' 'stats stats' 'levels levels'; gap: var(--sp-3) var(--sp-4); padding: var(--sp-3); border-radius: var(--r-lg); background: var(--c-surface); }
 .pg-demo { grid-area: demo; width: clamp(128px, 36vw, 200px); aspect-ratio: 1; border-radius: var(--r-md); background: var(--c-bg); }
 .pg-focus-text { grid-area: text; align-self: center; display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; }
 .pg-focus-name { font-size: var(--fs-xl); font-weight: var(--fw-semibold); line-height: var(--lh-tight); color: var(--c-text); }
 .pg-focus-goal { margin: 0; font-size: calc(var(--fs-md) * 1.25); line-height: 1.35; color: var(--c-text-2); }
-.pg-levels { grid-area: levels; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
-.pg-lvl { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-width: 0; min-height: 52px; padding: 6px 2px; border: 0; border-radius: var(--r-sm); background: var(--c-surface-3); color: var(--c-text); font: inherit; text-align: center; cursor: pointer; -webkit-tap-highlight-color: transparent; }
-.pg-lvl:hover:not(:disabled):not(.is-on) { background: var(--c-pick); }
-.pg-lvl:focus-visible { outline: 2px solid var(--c-text); outline-offset: 2px; }
-.pg-lvl-word { font-size: var(--fs-min); color: var(--c-text-min); white-space: nowrap; line-height: 1.2; }
-.pg-lvl-val { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 0 5px; min-height: 20px; font-size: var(--fs-md); font-weight: var(--fw-semibold); color: var(--c-text); font-variant-numeric: tabular-nums; }
-.pg-lvl-n, .pg-lvl-star { display: inline-flex; align-items: center; gap: 1px; }
-.pg-lvl-n svg { color: var(--c-done); }
-.pg-lvl-star { color: var(--c-done); }
-.pg-lvl-dash { color: var(--c-text-min); font-weight: var(--fw-regular); }
-.pg-lvl.is-on { color: #050607; }
-.pg-lvl.is-on .pg-lvl-word, .pg-lvl.is-on .pg-lvl-val, .pg-lvl.is-on .pg-lvl-dash, .pg-lvl.is-on svg, .pg-lvl.is-on .pg-lvl-star { color: #050607; font-weight: var(--fw-semibold); }
-.pg-lvl.is-on.lvl-1 { background: var(--c-lvl-1); }
-.pg-lvl.is-on.lvl-2 { background: var(--c-lvl-2); }
-.pg-lvl.is-on.lvl-3 { background: var(--c-lvl-3); }
-.pg-lvl.is-on.lvl-4 { background: var(--c-lvl-4); }
-.pg-lvl.is-on.lvl-5 { background: var(--c-lvl-5); }
-.pg-lvl.is-off { background: transparent; box-shadow: inset 0 0 0 2px var(--c-surface-3); cursor: default; }
-.pg-lvl-none { height: 20px; }
+.pg-levels { grid-area: levels; }
+/* Stats: a toggle over the level buttons; open, the Won and Flawless counts at each level in
+   columns over the buttons, with a key on the right. */
+.pg-stats { grid-area: stats; display: flex; flex-direction: column; gap: var(--sp-2); margin-bottom: calc(-1 * var(--sp-1)); }
+.pg-stats-row { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); }
+.pg-stats-toggle { display: inline-flex; align-items: center; gap: 4px; min-height: 32px; padding: 0 var(--sp-2) 0 0; border: 0; background: none; color: var(--c-text-2); font: inherit; font-size: var(--fs-md); font-weight: var(--fw-semibold); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.pg-stats-toggle:hover { color: var(--c-text); }
+.pg-stats-toggle:focus-visible { outline: 2px solid var(--c-text); outline-offset: 2px; border-radius: var(--r-sm); }
+.pg-stats-toggle svg { transition: transform var(--dur) var(--ease); }
+.pg-stats.is-open .pg-stats-toggle { color: var(--c-text); }
+.pg-stats.is-open .pg-stats-toggle svg { transform: rotate(180deg); }
+.pg-stats-key { display: inline-flex; gap: var(--sp-3); font-size: var(--fs-sm); color: var(--c-text-2); }
+.pg-stats-key[hidden], .pg-stats-body[hidden] { display: none; }
+.pg-stats-key span { display: inline-flex; align-items: center; gap: 4px; }
+.pg-stats-key svg { color: var(--c-done); }
+.pg-stats .lvl-stats-word { display: none; }
+
+/* ---- Level buttons and stats (src/puzzles/levelButtons.ts) -------------------------------------
+   Five buttons, each its level's word over a play icon; the picked level filled in its color,
+   levels never dealt an empty outline. The stats use the same five columns. */
+.lvl-btns, .lvl-stats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+.lvl-btn { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-width: 0; min-height: 56px; padding: 6px 2px; border: 0; border-radius: var(--r-sm); background: var(--c-surface-3); color: var(--c-text); font: inherit; text-align: center; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.lvl-btn:hover:not(:disabled):not(.is-on) { background: var(--c-pick); }
+.lvl-btn:active:not(:disabled) { transform: scale(0.97); }
+.lvl-btn:focus-visible { outline: 2px solid var(--c-text); outline-offset: 2px; }
+.lvl-btn-word { font-size: var(--fs-min); color: var(--c-text-2); white-space: nowrap; line-height: 1.2; }
+.lvl-btn-icon { display: grid; place-items: center; height: 18px; color: var(--c-text); }
+.lvl-btn.is-on .lvl-btn-word, .lvl-btn.is-on .lvl-btn-icon { color: #050607; font-weight: var(--fw-semibold); }
+.lvl-btn.is-on.lvl-1 { background: var(--c-lvl-1); }
+.lvl-btn.is-on.lvl-2 { background: var(--c-lvl-2); }
+.lvl-btn.is-on.lvl-3 { background: var(--c-lvl-3); }
+.lvl-btn.is-on.lvl-4 { background: var(--c-lvl-4); }
+.lvl-btn.is-on.lvl-5 { background: var(--c-lvl-5); }
+.lvl-btn.is-off { background: transparent; box-shadow: inset 0 0 0 2px var(--c-surface-3); cursor: default; }
+.lvl-btn.is-off .lvl-btn-word { color: var(--c-text-min); }
+.lvl-stats-col { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 0; padding: 6px 2px; border-radius: var(--r-sm); background: var(--c-surface-2); }
+.lvl-stats-col.is-off { background: transparent; }
+.lvl-stats-word { font-size: var(--fs-min); color: var(--c-text-2); white-space: nowrap; line-height: 1.2; margin-bottom: 2px; }
+.lvl-stat { display: inline-flex; align-items: center; gap: 4px; font-variant-numeric: tabular-nums; color: var(--c-done); }
+.lvl-stat b { font-size: var(--fs-lg); font-weight: var(--fw-semibold); color: var(--c-text); }
+.lvl-stat.is-zero { color: var(--c-text-min); }
+.lvl-stat.is-zero b { color: var(--c-text-min); font-weight: var(--fw-regular); }
 .pg-list { display: flex; flex-direction: column; gap: var(--sp-4); padding-top: 14px; }
 /* A long press pins a game, so a held card selects no text and raises no menu. */
 .pg-sec { min-width: 0; scroll-snap-align: start; cursor: pointer; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
@@ -879,13 +902,15 @@ body.puzzling #overlay { pointer-events: auto; touch-action: none; }
 .pg-list .pg-sec .gcard .gcard-pips i.sel.lvl-3 { background: var(--c-lvl-3); }
 .pg-list .pg-sec .gcard .gcard-pips i.sel.lvl-4 { background: var(--c-lvl-4); }
 .pg-list .pg-sec .gcard .gcard-pips i.sel.lvl-5 { background: var(--c-lvl-5); }
+/* The game in focus: its picked pip glows in its level's color (the card itself has no border). */
+.pg-list .pg-sec.is-focus .gcard .gcard-pips i.sel { box-shadow: 0 0 6px 2px var(--lvl, currentColor), 0 0 14px 3px color-mix(in srgb, var(--lvl, currentColor) 45%, transparent); }
 /* A quarter more room between the icon and the name, and between the pips and Play. */
 .pg-sec .gcard-body { padding-left: 15px; }
 .pg-sec .gcard-diff--beside { padding-right: 15px; }
 .pg-sec:not(.is-focus) .gcard .gcard-go.primary { background: transparent; color: var(--c-text); box-shadow: inset 0 0 0 2px var(--c-text); }
 .pg-pin-hint { margin: 0; padding: var(--sp-2) var(--sp-4) 0; text-align: center; font-size: var(--fs-sm); color: var(--c-text-2); }
 @media (min-width: 700px) {
-  .pg-focus-in { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'text demo' 'levels demo'; padding: var(--sp-4); }
+  .pg-focus-in { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'text demo' 'stats demo' 'levels demo'; padding: var(--sp-4); }
   .pg-levels { align-self: end; }
 }
 
@@ -934,14 +959,15 @@ body.puzzling #overlay { pointer-events: auto; touch-action: none; }
 .how-icon svg { width: 18px; height: 18px; }
 /* The goal leads, large, with room above and below so it is read first. */
 .how-goal { margin: 0 0 var(--sp-3); padding: var(--sp-5) 0; }
-.how .how-goal h3 { margin: 0 0 var(--sp-2); font-size: var(--fs-caps-min); font-weight: var(--fw-semibold); letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--c-text-2); }
+.how :is(.how-goal, .how-stats, .how-specs) > h3 { margin: 0 0 var(--sp-3); font-size: 15px; font-weight: var(--fw-bold); letter-spacing: 0.24em; text-transform: uppercase; line-height: 1.2; color: var(--c-text-2); }
 .how-goal p { margin: 0; font-size: var(--fs-xl); font-weight: var(--fw-semibold); line-height: 1.3; color: var(--c-text); text-wrap: balance; }
 .how-blurb { margin: 0; font-size: var(--fs-md); color: var(--c-text-2); line-height: var(--lh); }
 .how .rules { list-style: none; padding: 0; margin: var(--sp-6) 0 0; display: flex; flex-direction: column; gap: var(--sp-6); }
-.how .rule { margin: 0; padding: var(--sp-4); border-radius: var(--r-md); background: var(--c-bg); box-shadow: inset 0 0 0 3px transparent; cursor: pointer; transition: background-color 220ms var(--ease), box-shadow 220ms var(--ease); }
-.how .rule.is-current { background: var(--c-surface-2); box-shadow: inset 0 0 0 3px #3a3f45; }
+.how .rule { margin: 0; padding: var(--sp-4); border-radius: var(--r-md); background: var(--c-bg); cursor: pointer; transition: background-color 220ms var(--ease); }
+.how .rule.is-current { background: var(--c-surface-2); }
+.how .rule.is-current .rule-head b { color: var(--c-accent); }
 .rule-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
-.rule-head b { font-size: var(--fs-lg); font-weight: var(--fw-semibold); color: var(--c-text); }
+.rule-head b { font-size: calc(var(--fs-lg) * 1.15); font-weight: var(--fw-semibold); color: var(--c-text); transition: color 220ms var(--ease); }
 .how .rule > p { margin: var(--sp-1) 0 0; font-size: var(--fs-md); color: var(--c-text-2); line-height: var(--lh); }
 .how .rule > p b { font-weight: var(--fw-semibold); color: var(--c-text); }
 .rule-pics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-3); margin-top: var(--sp-3); max-width: 520px; }
@@ -952,8 +978,12 @@ body.puzzling #overlay { pointer-events: auto; touch-action: none; }
 .rule-pic--good figcaption { color: var(--c-good); }
 .rule-pic--bad figcaption { color: var(--c-bad); }
 /* Specs: a bullet list three gaps below the cards, Flawless first, each with a bold lead. */
-.how .how-specs { margin-top: calc(var(--sp-6) * 3); }
-.how .how-specs h3 { margin: 0 0 var(--sp-3); font-size: var(--fs-caps-min); font-weight: var(--fw-semibold); letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--c-text-2); }
+/* Stats, three gaps below the cards: Won and Flawless at each level, with a key. Then Specs. */
+.how .how-stats { margin-top: calc(var(--sp-6) * 3); position: relative; }
+.how-stats-key { position: absolute; top: 0; right: 0; display: flex; gap: var(--sp-3); font-size: var(--fs-sm); color: var(--c-text-2); }
+.how-stats-key span { display: inline-flex; align-items: center; gap: 4px; }
+.how-stats-key svg { color: var(--c-done); }
+.how .how-specs { margin-top: calc(var(--sp-6) * 2); }
 .how .how-specs ul { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column; gap: var(--sp-2); }
 .how .how-specs li { margin: 0; font-size: var(--fs-md); line-height: var(--lh); color: var(--c-text-2); }
 .how .how-specs li::marker { color: var(--c-text-min); }
