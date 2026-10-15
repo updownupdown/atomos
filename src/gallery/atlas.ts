@@ -1,9 +1,10 @@
-// The Atlas: every atom, to admire and to look up. Two boxes on one row, Shape and Color, each
-// dropping its list (open ones first, then the ones still to earn, an amber name and lock); search,
-// the legend and the microscope float at the foot, so the map gets the rest. Shapes open as periods
+// The Atlas: every atom, to admire and to look up. One row: the Shape and Color boxes, each
+// dropping its list (open ones first, then the ones still to earn, an amber name and lock), and
+// search, which opens over both. Over the map, "About this shape" (the microscope) at the top
+// left with the legend beside it, and the peek strip at the foot. Shapes open as periods
 // are built and colors with the first win of a game (earn.ts); tapping one still to earn opens a
 // sheet with how, and a game card to get there. On a map, a tap picks an atom and shows its peek
-// strip at the top (number and symbol plate, name, period and category); tapping the strip opens
+// strip at the foot (number and symbol plate, name, period and category); tapping the strip opens
 // the atom's page. In Details a row opens the page at once. Nothing
 // here shows how far an atom is built: that is Collect's.
 //
@@ -72,24 +73,20 @@ export class Atlas {
     host.classList.add('at');
     host.innerHTML = `
       <div class="at-pickers">
-        <div class="at-pick"><span class="at-pick-title" id="at-shape-t">Shape</span><button type="button" class="at-box" data-menu="shape" aria-haspopup="true" aria-expanded="false" aria-labelledby="at-shape-t at-shape-v"><span id="at-shape-v"></span>${icon('chevron-down', { size: 20 })}</button><div class="at-menu at-views" role="radiogroup" aria-label="Shape" hidden></div></div>
-        <div class="at-pick"><span class="at-pick-title" id="at-look-t">Color</span><button type="button" class="at-box" data-menu="look" aria-haspopup="true" aria-expanded="false" aria-labelledby="at-look-t at-look-v"><span id="at-look-v"></span>${icon('chevron-down', { size: 20 })}</button><div class="at-menu at-looks" role="radiogroup" aria-label="Color by" hidden></div></div>
-      </div>
-      <p class="at-note" hidden></p>
-      <div class="at-body">
-        <div class="at-map"></div>
-        <div class="at-list" hidden></div>
-        <button type="button" class="at-peek" hidden></button>
-      </div>
-      <div class="at-tools">
+        <div class="at-pick"><button type="button" class="at-box" data-menu="shape" aria-haspopup="true" aria-expanded="false" aria-label="Shape">${icon('shapes', { size: 20 })}<span id="at-shape-v"></span>${icon('chevron-down', { size: 20 })}</button><div class="at-menu at-views" role="radiogroup" aria-label="Shape" hidden></div></div>
+        <div class="at-pick"><button type="button" class="at-box" data-menu="look" aria-haspopup="true" aria-expanded="false" aria-label="Color">${icon('paint', { size: 20 })}<span id="at-look-v"></span>${icon('chevron-down', { size: 20 })}</button><div class="at-menu at-looks" role="radiogroup" aria-label="Color by" hidden></div></div>
         <div class="at-search">
           <button type="button" class="at-search-btn" aria-label="Search the atoms" aria-expanded="false">${icon('search', { size: 20 })}</button>
           <input type="search" id="atlas-search" placeholder="Name, symbol or number" aria-label="Search the atoms by name, symbol or number" autocomplete="off" spellcheck="false" enterkeyhint="go">
           <button type="button" class="at-clear" aria-label="Close search">${icon('clear', { size: 22 })}</button>
         </div>
-        <div class="at-legend"></div>
       </div>
-`;
+      <div class="at-body">
+        <div class="at-map"></div>
+        <div class="at-list" hidden></div>
+        <div class="at-top"><div class="at-legend"></div></div>
+        <button type="button" class="at-peek" hidden></button>
+      </div>`;
     this.views = host.querySelector('.at-views')!;
     this.looksEl = host.querySelector('.at-looks')!;
     this.input = host.querySelector('input')!;
@@ -133,13 +130,14 @@ export class Atlas {
         items[(i + (e.key === 'ArrowDown' ? 1 : items.length - 1)) % items.length]?.focus();
       });
     }
-    // Search: a round button that opens a field over the legend; it closes when left empty.
-    const tools = this.root.querySelector<HTMLElement>('.at-tools')!;
+    // Search: a button at the end of the row that opens a field over both boxes; it closes when
+    // left empty.
+    const tools = this.root.querySelector<HTMLElement>('.at-pickers')!;
     const searchBtn = this.root.querySelector<HTMLButtonElement>('.at-search-btn')!;
     const openSearch = (on: boolean) => {
       tools.classList.toggle('is-searching', on);
       searchBtn.setAttribute('aria-expanded', String(on));
-      if (on) this.input.focus();
+      if (on) { this.closeMenu(); this.input.focus(); }
     };
     searchBtn.onclick = () => openSearch(!tools.classList.contains('is-searching') || Boolean(this.query));
     this.input.addEventListener('blur', () => { if (!this.query) openSearch(false); });
@@ -176,8 +174,10 @@ export class Atlas {
       this.endTemp();
       this.setLook(id);
     });
-    // The microscope: why the atoms are arranged this way.
-    this.root.querySelector('.at-tools')!.append(scienceButton('at-sci'));
+    // The microscope: about the shape on screen, why the atoms are arranged this way.
+    const sci = scienceButton('at-sci');
+    sci.insertAdjacentHTML('afterbegin', '<span>About this shape</span>');
+    this.root.querySelector('.at-top')!.prepend(sci);
     this.peekEl.onclick = () => { if (this.picked != null) this.openPage(this.picked); };
   }
 
@@ -197,7 +197,7 @@ export class Atlas {
 
   /** One line of a dropped list: a still-to-earn one is its name in amber after a lock. */
   private static item(id: string, label: string, on: boolean, locked: boolean, title = ''): string {
-    return `<button type="button" role="radio" data-id="${id}"${locked ? ' class="is-locked"' : ''} aria-checked="${on}"${title ? ` title="${esc(title)}"` : ''}${locked ? ` aria-label="${esc(label)}, still to earn"` : ''}>${locked ? icon('lock', { size: 16 }) : ''}<span>${esc(label)}</span>${on ? icon('check', { size: 18 }) : ''}</button>`;
+    return `<button type="button" role="radio" data-id="${id}"${locked ? ' class="is-locked"' : ''} aria-checked="${on}"${title ? ` title="${esc(title)}"` : ''}${locked ? ` aria-label="${esc(label)}, still to earn"` : ''}><span>${esc(label)}</span>${locked ? icon('lock', { size: 18 }) : on ? icon('check', { size: 18 }) : ''}</button>`;
   }
 
   private paintViews(): void {
@@ -257,9 +257,6 @@ export class Atlas {
     write(VIEW_KEY, v);
     this.paintViews();
     this.stopLapse();
-    const note = this.root.querySelector<HTMLElement>('.at-note')!;
-    note.hidden = v !== 'sizes';
-    note.textContent = v === 'sizes' ? "Drawn to scale: each circle is as wide as its atom (van der Waals radius), from hydrogen's 110 pm to francium's 348 pm." : '';
     const details = v === 'details';
     this.mapHost.hidden = details;
     this.listHost.hidden = !details;
@@ -484,8 +481,9 @@ export class Atlas {
     const l = LAYOUTS.find((x) => x.id === this.view)!;
     setScienceHandler(() => {
       setScienceOpen(true);
-      openModal(`<h2>${l.label}</h2>${LAYOUT_STORY[l.id].map((p) => `<p>${p}</p>`).join('')}`, () => setScienceOpen(false));
-    }, 'Why the atoms are arranged this way');
+      const scale = l.id === 'sizes' ? ["Drawn to scale: each circle is as wide as its atom (van der Waals radius), from hydrogen's 110 pm to francium's 348 pm."] : [];
+      openModal(`<h2>${l.label}</h2>${[...scale, ...LAYOUT_STORY[l.id]].map((p) => `<p>${p}</p>`).join('')}`, () => setScienceOpen(false));
+    }, `About this shape: ${l.label}`);
   }
 
   show(): void {

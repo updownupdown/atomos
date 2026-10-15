@@ -11,13 +11,14 @@ import { buildOrder, ISO_FILTERS, orbitalFill, orbitalGlyphs, STRUCTURE_VIEWS } 
 import { Together3D } from './together3d';
 import { scienceButton } from '../ui/science';
 
-/** The microscope at the foot of an Info page: "How to read this page". A page keeps one and
- *  puts it back under each tab it renders; it opens whatever guide the screen registered. */
+/** The microscope at the foot of an Info page: "How to read this page", a full-width card like
+ *  the Build card above it. A page keeps one and puts it back under each tab it renders; it opens
+ *  whatever guide the screen registered. */
 export function guideFoot(): HTMLElement {
   const foot = document.createElement('div');
   foot.className = 'info-guide';
-  const b = scienceButton('info-guide-btn');
-  b.insertAdjacentHTML('beforeend', '<span>How to read this page</span>');
+  const b = scienceButton('foot-card info-guide-btn');
+  b.innerHTML = `<span class="foot-card-ico">${icon('microscope', { size: 22 })}</span><span class="foot-card-text"><b>How to read this page</b><small>What each part shows</small></span><span class="foot-card-go">${icon('chevron-right', { size: 22 })}</span>`;
   foot.append(b);
   return foot;
 }

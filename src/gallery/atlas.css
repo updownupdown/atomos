@@ -1,21 +1,21 @@
-/* The Atlas (atlas.ts): the Shape and Color boxes under the title, then the map or the Details
-   list filling the rest, with the peek strip floating at its top and search, the legend and the
-   microscope floating at the foot. Its atom pages
+/* The Atlas (atlas.ts): the Shape and Color boxes and search under the title, then the map or the
+   Details list filling the rest, with "About this shape" and the legend floating at its top and
+   the peek strip at its foot. Its atom pages
    (atlaspage.ts) cover the whole screen, dock included. */
 .at { position: absolute; inset: 0; display: flex; flex-direction: column; padding-top: var(--top); font-family: var(--font); background: var(--c-bg); }
 
-/* Shape and Color: a title over a box with the choice and a chevron; tapped, the box drops its
-   list over the map. The choice in the list is in the accent with a check; one still to earn is
-   its name in amber after a lock. */
-.at-pickers { flex: none; display: flex; gap: var(--sp-3); margin: var(--sp-2) var(--sp-3) 0; }
-.at-pick { position: relative; flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
-.at-pick-title { padding-left: 4px; font-size: 13px; font-weight: var(--fw-semibold); color: var(--c-text-2); }
-.at-box { display: flex; align-items: center; gap: var(--sp-2); height: 48px; padding: 0 12px 0 16px; border: 0; border-radius: 16px; background: var(--c-surface-2); color: var(--c-text); font: inherit; font-size: var(--fs-md); font-weight: var(--fw-semibold); text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+/* One row: Shape and Color, each a box with its icon, the choice and a chevron (tapped, it drops
+   its list over the map), then search. The choice in a list is in the accent with a check; one
+   still to earn is its name in amber with a lock where the check would be. */
+.at-pickers { position: relative; flex: none; display: flex; gap: var(--sp-2); margin: var(--sp-2) var(--sp-3) 0; }
+.at-pick { position: relative; flex: 1; min-width: 0; }
+.at-box { width: 100%; display: flex; align-items: center; gap: var(--sp-2); height: 48px; padding: 0 10px 0 14px; border: 0; border-radius: 16px; background: var(--c-surface-2); color: var(--c-text); font: inherit; font-size: var(--fs-md); font-weight: var(--fw-semibold); text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .at-box span { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.at-box svg { flex: none; color: var(--c-text-2); transition: transform 0.2s var(--ease); }
-.at-pick.is-open .at-box svg { transform: rotate(180deg); }
+.at-box svg { flex: none; color: var(--c-text-2); }
+.at-box svg:last-child { transition: transform 0.2s var(--ease); }
+.at-pick.is-open .at-box svg:last-child { transform: rotate(180deg); }
 .at-box:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
-.at-menu { position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 6; display: flex; flex-direction: column; gap: 2px; max-height: min(60vh, 460px); overflow-y: auto; overscroll-behavior: contain; padding: 6px; border-radius: 16px; background: var(--c-surface-2); box-shadow: 0 10px 32px rgba(0, 0, 0, 0.6); }
+.at-menu { position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 6; display: flex; flex-direction: column; gap: 2px; min-width: 180px; max-height: min(60vh, 460px); overflow-y: auto; overscroll-behavior: contain; padding: 6px; border-radius: 16px; background: var(--c-surface-2); box-shadow: 0 10px 32px rgba(0, 0, 0, 0.6); }
 .at-menu[hidden] { display: none; }
 .at-menu button { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 12px; border: 0; border-radius: 12px; background: transparent; color: var(--c-text); font: inherit; font-size: var(--fs-md); text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .at-menu button span { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -25,37 +25,35 @@
 .at-menu button svg { flex: none; }
 .at-menu button:focus-visible { outline: 2px solid var(--c-accent); outline-offset: -2px; }
 
-/* Search, the legend and the microscope on one line floating at the foot. Search is a round
-   button; tapped, its field opens over the legend, and it closes when left empty. */
-.at-tools { position: absolute; left: var(--sp-3); right: var(--sp-3); bottom: calc(var(--safe-bottom) + var(--sp-2)); z-index: 4; display: flex; align-items: center; gap: var(--sp-2); min-height: 44px; pointer-events: none; }
-.at-tools > * { pointer-events: auto; }
-.at-search { flex: none; position: relative; width: 44px; height: 44px; }
-.at-search-btn { width: 44px; height: 44px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5); display: grid; place-items: center; padding: 0; border: 0; border-radius: 50%; background: var(--c-surface-2); color: var(--c-text); cursor: pointer; }
+/* Search: a square button the shape of the boxes at the end of the row; tapped, its field opens
+   over the whole row, and it closes when left empty. */
+.at-search { flex: none; width: 48px; height: 48px; }
+.at-search-btn { width: 48px; height: 48px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 16px; background: var(--c-surface-2); color: var(--c-text); cursor: pointer; }
 .at-search-btn:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
 .at-search input, .at-clear { display: none; }
-.at-tools.is-searching .at-search { position: absolute; left: 0; right: 52px; top: 0; z-index: 2; width: auto; }
-.at-tools.is-searching .at-search-btn { position: absolute; left: 0; top: 0; z-index: 1; background: transparent; box-shadow: none; color: var(--c-text-2); pointer-events: none; }
-.at-tools.is-searching .at-search input { display: block; width: 100%; height: 44px; padding: 0 44px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5); border: 0; border-radius: var(--r-pill); background: var(--c-surface-2); color: var(--c-text); font: inherit; font-size: var(--fs-md); -webkit-appearance: none; appearance: none; outline: none; }
+.at-pickers.is-searching .at-search { position: absolute; inset: 0; z-index: 7; width: auto; height: auto; }
+.at-pickers.is-searching .at-search-btn { position: absolute; left: 0; top: 0; z-index: 1; background: transparent; color: var(--c-text-2); pointer-events: none; }
+.at-pickers.is-searching .at-search input { display: block; width: 100%; height: 48px; padding: 0 48px; border: 0; border-radius: 16px; background: var(--c-surface-2); color: var(--c-text); font: inherit; font-size: var(--fs-md); -webkit-appearance: none; appearance: none; outline: none; }
 .at-search input::placeholder { color: var(--c-text-2); }
 .at-search input::-webkit-search-cancel-button { display: none; }
 .at-search input:focus-visible { box-shadow: inset 0 0 0 2px var(--c-accent); }
-.at-tools.is-searching .at-clear { display: grid; position: absolute; right: 0; top: 0; z-index: 1; width: 44px; height: 44px; place-items: center; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--c-text-2); cursor: pointer; }
-.at-tools.is-searching .at-legend { visibility: hidden; }
-.at-sci { flex: none; margin-left: auto; width: 44px; height: 44px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 50%; background: var(--c-surface-2); color: var(--c-text); cursor: pointer; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5); }
-.at-sci svg { width: 22px; height: 22px; }
+.at-pickers.is-searching .at-clear { display: grid; position: absolute; right: 0; top: 0; z-index: 1; width: 48px; height: 48px; place-items: center; padding: 0; border: 0; border-radius: 16px; background: transparent; color: var(--c-text-2); cursor: pointer; }
+
+/* Over the top of the map: "About this shape" and its microscope on the black, then the legend
+   for the color on screen, which scrolls sideways when it is long. */
+.at-top { position: absolute; top: var(--sp-2); left: var(--sp-3); right: var(--sp-3); z-index: 4; display: flex; align-items: center; gap: var(--sp-2); min-height: 40px; pointer-events: none; }
+.at-top > * { pointer-events: auto; }
+.at-sci { flex: none; display: inline-flex; align-items: center; gap: 6px; height: 40px; padding: 0 4px; border: 0; border-radius: 12px; background: transparent; color: var(--c-text); font: inherit; font-size: var(--fs-sm); font-weight: var(--fw-semibold); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.at-sci svg { width: 22px; height: 22px; color: var(--c-accent); }
+.at-sci:hover span { color: var(--c-accent); }
 .at-sci:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
-.at.is-details .at-sci { visibility: hidden; }
+.at.is-details .at-sci { display: none; }
 .at-peek:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
-
-/* A line about the shape on screen: Sizes is drawn to scale. */
-.at-note { flex: none; margin: var(--sp-2) var(--sp-4) 0; font-size: 13px; line-height: 1.45; color: var(--c-text-2); }
-.at-note[hidden] { display: none; }
-
-/* The legend for the color on screen, between search and the microscope, on a plate of its own
-   over the map; it scrolls sideways when it is long. */
-.at-legend { flex: 0 1 auto; min-width: 0; display: flex; align-items: center; gap: 6px 12px; height: 44px; padding: 0 14px; border-radius: var(--r-pill); background: var(--c-surface-2); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5); overflow-x: auto; scrollbar-width: none; white-space: nowrap; font-size: 13px; color: var(--c-text-2); }
+.at-legend { flex: 0 1 auto; margin-left: auto; min-width: 0; display: flex; align-items: center; gap: 6px 12px; height: 36px; padding: 0 12px; border-radius: var(--r-pill); background: var(--c-surface-2); overflow-x: auto; scrollbar-width: none; white-space: nowrap; font-size: 13px; color: var(--c-text-2); }
 .at-legend::-webkit-scrollbar { display: none; }
 .at-legend:empty { display: none; }
+.at.is-details .at-top { position: static; order: -1; margin: var(--sp-2) var(--sp-3) 0; }
+.at.is-details .at-top:not(:has(.at-legend:not(:empty))) { display: none; }
 .at-ramp { flex: 1; min-width: 60px; max-width: 200px; height: 10px; border-radius: 5px; background: linear-gradient(to right, #24407a, #3d7cc4, #6fd0e6, #d9e6d4, #f2b552); }
 .at-key { display: inline-flex; align-items: center; gap: 6px; }
 .at-key i { width: 14px; height: 14px; border-radius: 4px; }
@@ -84,8 +82,8 @@
 @keyframes am-breathe { 0%, 100% { opacity: 0.2; } 50% { opacity: 0.5; } }
 @media (prefers-reduced-motion: reduce) { .am-pick-glow { animation: none; opacity: 0.4; } .am-cell { transition: none; } }
 
-/* The peek strip: the picked atom at the top of the map; a tap opens its page. */
-.at-peek { position: absolute; left: 50%; top: var(--sp-2); transform: translateX(-50%); z-index: 3; width: min(440px, calc(100% - 2 * var(--sp-3))); display: flex; align-items: center; gap: var(--sp-3); padding: 10px 10px 10px 12px; border: 0; border-radius: 22px; background: var(--c-surface-2); color: var(--c-text); font: inherit; text-align: left; cursor: pointer; box-shadow: 0 6px 24px rgba(0, 0, 0, 0.55); }
+/* The peek strip: the picked atom at the foot of the map; a tap opens its page. */
+.at-peek { position: absolute; left: 50%; bottom: calc(var(--safe-bottom) + var(--sp-2)); transform: translateX(-50%); z-index: 3; width: min(440px, calc(100% - 2 * var(--sp-3))); display: flex; align-items: center; gap: var(--sp-3); padding: 10px 10px 10px 12px; border: 0; border-radius: 22px; background: var(--c-surface-2); color: var(--c-text); font: inherit; text-align: left; cursor: pointer; box-shadow: 0 6px 24px rgba(0, 0, 0, 0.55); }
 .at-peek[hidden], .at.is-details .at-peek { display: none; }
 .at-plate { flex: none; width: 48px; height: 48px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; border-radius: 10px; line-height: 1; font-variant-numeric: tabular-nums; }
 .at-plate small { font-size: 12px; font-weight: var(--fw-semibold); }
@@ -123,13 +121,13 @@
 body:not([data-screen='gallery']) .at-page { display: none; }
 .ap-tabs { flex: none; display: flex; justify-content: center; padding: 0 var(--sp-3); box-shadow: inset 0 -1px 0 var(--c-line); }
 .ap-panel { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-bottom: calc(var(--safe-bottom) + var(--sp-4)); }
-/* The one way into play, contained at the foot. */
-.ap-foot { padding: var(--sp-6) var(--sp-4) 0; max-width: 560px; margin: 0 auto; box-sizing: border-box; }
+/* The one way into play at the foot, as wide as the page, like the guide card under it. */
+.ap-foot { padding-top: var(--sp-6); }
 
 /* A phone on its side: slimmer rows so the flat table has room. */
 @media (max-height: 500px) {
   .at-pickers { margin-top: var(--sp-1); }
-  .at-box { height: 40px; }
+  .at-box, .at-search, .at-search-btn { height: 40px; }
 }
 
 /* Lines under the cells: Bohr's family links, and the seats for elements not yet made. */

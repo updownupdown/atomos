@@ -24,10 +24,10 @@ const SYM_PX = 13;
 const NUM_PX = 13;
 const NAME_PX = 13;
 const MAX_ZOOM = 9;
-/** Kept clear when the whole shape is shown: at the top for the peek strip, at the bottom for
- *  search and the microscope, which float there. */
-const TOP_ROOM = 84;
-const FOOT_ROOM = 60;
+/** Kept clear when the whole shape is shown: at the top for "About this shape" and the legend,
+ *  at the foot for the peek strip, which float there. */
+const TOP_ROOM = 52;
+const FOOT_ROOM = 84;
 
 interface Pointer { x: number; y: number }
 
@@ -192,7 +192,7 @@ export class AtlasMap {
   /** Keep some of the shape on screen however far it is dragged. */
   private clampView(): void {
     this.scale = Math.max(this.fit, Math.min(this.fit * MAX_ZOOM, this.scale));
-    // The shape's edges can scroll clear of the peek strip above and the tools below.
+    // The shape's edges can scroll clear of the tools above and the peek strip below.
     const vw = this.w / this.scale, vh = (this.h - TOP_ROOM - FOOT_ROOM) / this.scale;
     const b = this.bounds;
     const fx = (lo: number, hi: number, v: number, span: number) => (span >= hi - lo ? (lo + hi) / 2 - span / 2 : Math.max(lo, Math.min(hi - span, v)));
