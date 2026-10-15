@@ -2,12 +2,12 @@
 // on every move; the next visit opens on Home, with that atom in Collect. Anything it cannot use
 // means Collect.
 
-export type Screen = 'home' | 'gallery' | 'collect' | 'atom' | 'puzzles' | 'settings' | 'icons' | 'components';
+export type Screen = 'home' | 'gallery' | 'collect' | 'atom' | 'puzzles' | 'settings' | 'icons' | 'components' | 'nu';
 export type PlaceMode = 'view' | 'build' | 'info';
 
 export interface Place { screen: Screen; mode: PlaceMode; z: number }
 
-const SCREENS: Screen[] = ['home', 'gallery', 'collect', 'atom', 'puzzles', 'settings', 'icons', 'components'];
+const SCREENS: Screen[] = ['home', 'gallery', 'collect', 'atom', 'puzzles', 'settings', 'icons', 'components', 'nu'];
 const HOME: Place = { screen: 'collect', mode: 'view', z: 1 };
 
 /** Read a saved place, falling back to Collect when it is missing or no longer valid. */

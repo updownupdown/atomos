@@ -1,0 +1,25 @@
+/* Nu's park (park.ts): the tabs, one line on what to do with the score beside it, and the field
+   the game is drawn in, filling the rest of the screen on black. */
+.nu-screen { position: fixed; inset: 0; z-index: 4; padding: var(--top) var(--sp-3) calc(var(--sp-3) + env(safe-area-inset-bottom, 0px)); background: var(--c-bg); color: var(--c-text); font-family: var(--font); }
+.nu-screen[hidden] { display: none; }
+.nup { height: 100%; max-width: 640px; margin: 0 auto; display: flex; flex-direction: column; padding-top: var(--sp-2); }
+
+.nup-tabs { flex: none; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; padding: 4px; border-radius: 22px; background: var(--c-surface); }
+.nup-tab { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-height: 58px; padding: 6px 0; border: 0; border-radius: 18px; background: transparent; color: var(--c-text-2); font: inherit; font-size: var(--fs-sm); font-weight: var(--fw-semibold); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.nup-tab svg { width: 24px; height: 24px; display: block; }
+.nup-tab:hover { color: var(--c-text); }
+.nup-tab[aria-selected='true'] { background: var(--c-pick); color: var(--c-accent); }
+.nup-tab:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
+
+/* Two lines kept for the hint, so the field never moves when it changes. */
+.nup-info { flex: none; display: flex; align-items: flex-start; gap: var(--sp-3); min-height: 48px; padding: var(--sp-3) var(--sp-1) 0; }
+.nup-info p { margin: 0; line-height: 1.35; }
+.nup-hint { flex: 1; min-width: 0; font-size: var(--fs-md); color: var(--c-text-2); }
+.nup-score { flex: none; font-size: var(--fs-md); font-weight: var(--fw-semibold); font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+
+.nup-field { position: relative; flex: 1; min-height: 0; margin-top: var(--sp-2); }
+.nup-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; user-select: none; -webkit-user-select: none; }
+.nup-off { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--sp-3); text-align: center; color: var(--c-text-2); font-size: var(--fs-md); }
+.nup-off[hidden] { display: none; }
+.nup-off p { margin: 0; }
+.nup-on { min-height: var(--hit, 44px); padding: 0 var(--sp-4); border: 0; border-radius: var(--r-pill); background: var(--c-tile); color: var(--c-tile-ink); font: inherit; font-weight: var(--fw-semibold); cursor: pointer; }

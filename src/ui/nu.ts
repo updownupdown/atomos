@@ -619,6 +619,19 @@ export function nuShow(target: NuTarget, o: NuShowOptions = {}): boolean {
   return guide().show(target, o);
 }
 
+/** Nu's park borrows Nu: it flies to `to` (a point on screen) and the guide lets go of it there,
+ *  so the park can draw it. False at once when Nu is off. Give it back with nuGiveBack. */
+export function nuBorrow(to: { x: number; y: number }): Promise<boolean> {
+  if (!hasDom() || !nuEnabled()) return Promise.resolve(false);
+  const g = guide();
+  return g.travel(to, 900).then(() => { g.hold(); return true; });
+}
+
+/** The park gives Nu back where it last drew it, and Nu flies home from there. */
+export function nuGiveBack(at: { x: number; y: number }): void {
+  if (hasDom()) guide().release(at);
+}
+
 /** Sends Nu back to rest now. */
 export function nuHome(): void {
   theGuide?.home();
