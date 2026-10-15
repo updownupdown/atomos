@@ -113,16 +113,18 @@ export async function nuStreak(over?: Element | null, onSweep?: (p: number) => v
 // ---- The one Nu -------------------------------------------------------------------------------
 //
 // There is one Nu on the screen. It rests in a slot: one of the nucleons of the header's mark
-// (.nu-home-slot, picked at random each time it comes home) when it has nothing to show, or the ring in the Nu icon of whatever is
-// marked data-nu-perch and in view (the screen's Next button, a first-time line, a guide card),
+// (.nu-home-slot, picked at random each time it comes home) when it has nothing to show, or the
+// ring in the Nu icon of whatever is marked data-nu-perch and in view (the screen's Next button, a first-time line, a guide card),
 // the highest data-nu-perch number first. At rest the slot itself is filled (.is-nu) and the
 // flying dot is hidden. When the slot it wants changes, Nu flies there from wherever it is, on
 // a gentle arc with a fading trail; it never appears from nowhere.
 //
 // nuShow(el) sends it to circle something for 5 s, after which it goes back to rest and leaves
 // that thing alone for a minute. Any touch elsewhere, or the thing leaving the screen, sends it
-// back at once. With Nu off in Settings there is no Nu at all (body.nu-off): the slots are drawn
-// as printed dots, and the mark is whole.
+// back at once. Left alone at home for a while, it may fly to a toy in view ([data-nu-toy], the
+// orbits between Home's sections), go round its orbit once or twice and come back. With Nu off
+// in Settings there is no Nu at all (body.nu-off): the slots are drawn as printed dots, and the
+// mark is whole.
 
 /** Nu's top speed in flight, in px per ms, and the shortest and longest a trip takes. */
 const NU_TOP_SPEED = 0.6;
@@ -133,6 +135,8 @@ export const NU_SHOW_MS = 5000;
 export const NU_COOLDOWN_MS = 60_000;
 /** Once round, in ms, while circling. */
 const NU_TURN_MS = 2600;
+/** How long Nu sits at home, with no touch or scroll, before it goes to play round a toy. */
+const NU_IDLE_MS = 15_000;
 const TRAIL_MS = 160;
 const SEGS = 12;
 /** The flying dot's size, in px; it shrinks to the slot's size as it lands. */
@@ -161,10 +165,30 @@ interface Task {
   arrived: number;
   /** Not ended by a touch (a trip to a point, for the streak). */
   sticky?: boolean;
+  /** A toy's orbit to fly along, in place of a circle round the target. */
+  ring?: SVGEllipseElement;
   onArrive?: () => void;
 }
 
 const hasDom = (): boolean => typeof document !== 'undefined' && typeof window !== 'undefined';
+
+/** A point on a toy's orbit (an SVG ellipse, tilt and all) on screen, at angle `a` round it,
+ *  or its middle (`a` null). */
+function ringPoint(e: SVGEllipseElement, a: number | null): Pt | null {
+  const m = e.getScreenCTM();
+  if (!m) return null;
+  const cx = e.cx.baseVal.value, cy = e.cy.baseVal.value;
+  const q = new DOMPoint(a === null ? cx : cx + e.rx.baseVal.value * Math.cos(a), a === null ? cy : cy + e.ry.baseVal.value * Math.sin(a)).matrixTransform(m);
+  return { x: q.x, y: q.y };
+}
+
+/** The angle round a toy's orbit nearest to a point on screen. */
+function ringAngle(e: SVGEllipseElement, p: Pt): number {
+  const m = e.getScreenCTM();
+  if (!m) return 0;
+  const q = new DOMPoint(p.x, p.y).matrixTransform(m.inverse());
+  return Math.atan2((q.y - e.cy.baseVal.value) / (e.ry.baseVal.value || 1), (q.x - e.cx.baseVal.value) / (e.rx.baseVal.value || 1));
+}
 
 function middle(r: DOMRect): Pt {
   return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
@@ -209,6 +233,12 @@ class Guide {
   private queued = 0;
   private held = false;
   private cool = new Map<string, number>();
+  /** Idle play: the last touch, key or scroll, the last game, and the timer for the next. */
+  private lastAct = 0;
+  private lastPlay = -Infinity;
+  private idleTimer = 0;
+  /** On the far side of a toy's orbit (drawn dimmer, as if behind its nucleus). */
+  private behind = false;
 
   start(): void {
     if (this.started || !hasDom()) return;
@@ -233,6 +263,10 @@ class Guide {
       if (t.target instanceof Element && t.target.contains(e.target as Node)) return;
       this.endTask();
     }, true);
+    const act = () => { this.lastAct = performance.now(); };
+    for (const ev of ['pointerdown', 'keydown', 'wheel']) window.addEventListener(ev, act, { capture: true, passive: true });
+    window.addEventListener('scroll', act, { capture: true, passive: true });
+    this.lastAct = performance.now();
     this.soon();
   }
 
@@ -305,7 +339,7 @@ class Guide {
     }
     const from = this.pos ?? { x: window.innerWidth / 2, y: window.innerHeight };
     const goal = this.taskPoint(t, performance.now(), from);
-    t.a0 = goal ? Math.atan2(from.y - goal.c.y, from.x - goal.c.x) : 0;
+    t.a0 = t.ring ? ringAngle(t.ring, from) : goal ? Math.atan2(from.y - goal.c.y, from.x - goal.c.x) : 0;
     this.task = t;
     this.toward = null;
     this.fly(from, maxMs);
@@ -329,6 +363,14 @@ class Guide {
   private taskPoint(t: Task, now: number, from?: Pt): { p: Pt; c: Pt } | null {
     const r = this.rectOf(t.target);
     if (!r) return null;
+    if (t.ring) {
+      // Along the toy's orbit, the way its electron would go.
+      const a = (from ? ringAngle(t.ring, from) : t.a0) + ((now - t.t0) / NU_TURN_MS) * 2 * Math.PI;
+      const q = ringPoint(t.ring, a);
+      if (!q) return null;
+      this.behind = Math.sin(a) < 0;
+      return { p: q, c: ringPoint(t.ring, null) ?? q };
+    }
     const c = middle(r);
     if (!(t.target instanceof Element) && typeof t.target !== 'function') return { p: c, c };
     const rad = t.r ?? Math.max(16, Math.max(r.width, r.height) / 2 + 8);
@@ -496,6 +538,8 @@ class Guide {
   private place(p: Pt, k: number): void {
     const now = performance.now();
     this.head.style.transform = `translate(${p.x.toFixed(1)}px, ${p.y.toFixed(1)}px) scale(${k.toFixed(3)})`;
+    const t = this.task;
+    this.layer.classList.toggle('is-back', !!t?.ring && !!t.arrived && !this.flight && this.behind);
     this.hist.unshift({ x: p.x, y: p.y, t: now });
     while (this.hist.length > 2 && now - this.hist[this.hist.length - 1].t > TRAIL_MS) this.hist.pop();
     const at = (age: number): Pt => this.hist.find((h) => now - h.t >= age) ?? this.hist[this.hist.length - 1];
@@ -506,10 +550,42 @@ class Guide {
     });
   }
 
+  /** Nu has come home: after a while with nothing touched it may go and play. */
+  private idleSoon(min = 250): void {
+    clearTimeout(this.idleTimer);
+    const now = performance.now();
+    const at = Math.max(this.lastAct + NU_IDLE_MS, this.lastPlay + NU_COOLDOWN_MS);
+    this.idleTimer = window.setTimeout(() => this.play(), Math.max(min, at - now));
+  }
+
+  /** Bored at home, Nu flies to the nearest toy in view (Home's section orbits), goes round its
+   *  orbit like its electron for a while, then comes back. Never with reduced motion, and never
+   *  more than once a minute; a touch anywhere sends it home. */
+  private play(): void {
+    if (!this.rest?.classList.contains('nu-home-slot') || this.task || this.held || this.toward) return;
+    // Nothing to play with here (yet): look again now and then.
+    if (reducedMotion() || document.hidden || !nuEnabled()) { this.idleSoon(5000); return; }
+    const now = performance.now();
+    if (now - this.lastAct < NU_IDLE_MS || now - this.lastPlay < NU_COOLDOWN_MS) { this.idleSoon(); return; }
+    const here = middle(this.rest.getBoundingClientRect());
+    let best: { toy: HTMLElement; ring: SVGEllipseElement; d: number } | null = null;
+    for (const toy of document.querySelectorAll<HTMLElement>('[data-nu-toy]')) {
+      const ring = toy.querySelector('ellipse');
+      if (!ring || !visible(toy, true)) continue;
+      const m = middle(toy.getBoundingClientRect());
+      const d = Math.hypot(m.x - here.x, m.y - here.y);
+      if (!best || d < best.d) best = { toy, ring, d };
+    }
+    if (!best) { this.idleSoon(5000); return; }
+    this.lastPlay = now;
+    this.begin({ target: best.toy, ring: best.ring, ms: NU_SHOW_MS, t0: now, a0: 0, arrived: 0 });
+  }
+
   private land(slot: Element): void {
     this.toward = null;
     this.flight = null;
     this.rest = slot;
+    if (slot.classList.contains('nu-home-slot')) this.idleSoon();
     this.pos = middle(slot.getBoundingClientRect());
     slot.classList.add('is-nu');
     this.layer.classList.remove('is-on');
