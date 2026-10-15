@@ -859,20 +859,21 @@ body.puzzling #overlay { pointer-events: auto; touch-action: none; }
    Five buttons, each its level's word over a play icon; the picked level filled in its color,
    levels never dealt an empty outline. The stats use the same five columns. */
 .lvl-btns, .lvl-stats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
-.lvl-btn { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-width: 0; min-height: 56px; padding: 6px 2px; border: 0; border-radius: var(--r-sm); background: var(--c-surface-3); color: var(--c-text); font: inherit; text-align: center; cursor: pointer; -webkit-tap-highlight-color: transparent; }
-.lvl-btn:hover:not(:disabled):not(.is-on) { background: var(--c-pick); }
+.lvl-btn { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; min-width: 0; min-height: 60px; padding: 6px 2px; border: 0; border-radius: var(--r-sm); background: var(--c-surface-2); color: #050607; font: inherit; text-align: center; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.lvl-btn.lvl-1 { background: var(--c-lvl-1); }
+.lvl-btn.lvl-2 { background: var(--c-lvl-2); }
+.lvl-btn.lvl-3 { background: var(--c-lvl-3); }
+.lvl-btn.lvl-4 { background: var(--c-lvl-4); }
+.lvl-btn.lvl-5 { background: var(--c-lvl-5); }
+.lvl-btn:hover:not(:disabled) { filter: brightness(1.08); }
 .lvl-btn:active:not(:disabled) { transform: scale(0.97); }
 .lvl-btn:focus-visible { outline: 2px solid var(--c-text); outline-offset: 2px; }
-.lvl-btn-word { font-size: var(--fs-min); color: var(--c-text-2); white-space: nowrap; line-height: 1.2; }
-.lvl-btn-icon { display: grid; place-items: center; height: 18px; color: var(--c-text); }
-.lvl-btn.is-on .lvl-btn-word, .lvl-btn.is-on .lvl-btn-icon { color: #050607; font-weight: var(--fw-semibold); }
-.lvl-btn.is-on.lvl-1 { background: var(--c-lvl-1); }
-.lvl-btn.is-on.lvl-2 { background: var(--c-lvl-2); }
-.lvl-btn.is-on.lvl-3 { background: var(--c-lvl-3); }
-.lvl-btn.is-on.lvl-4 { background: var(--c-lvl-4); }
-.lvl-btn.is-on.lvl-5 { background: var(--c-lvl-5); }
-.lvl-btn.is-off { background: transparent; box-shadow: inset 0 0 0 2px var(--c-surface-3); cursor: default; }
-.lvl-btn.is-off .lvl-btn-word { color: var(--c-text-min); }
+.lvl-btn-word { font-size: var(--fs-min); font-weight: var(--fw-semibold); color: #050607; white-space: nowrap; line-height: 1.2; }
+/* The play icon: black on a white disc, like every Play. */
+.lvl-btn-icon { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: #fff; color: #050607; }
+.lvl-btn-icon svg { width: 13px; height: 13px; margin-left: 1px; }
+.lvl-btn.is-off { cursor: default; }
+.lvl-btn.is-off .lvl-btn-word { color: var(--c-text-min); font-weight: var(--fw-regular); }
 .lvl-stats-col { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 0; padding: 6px 2px; border-radius: var(--r-sm); background: var(--c-surface-2); }
 .lvl-stats-col.is-off { background: transparent; }
 .lvl-stats-word { font-size: var(--fs-min); color: var(--c-text-2); white-space: nowrap; line-height: 1.2; margin-bottom: 2px; }
@@ -885,23 +886,18 @@ body.puzzling #overlay { pointer-events: auto; touch-action: none; }
 .pg-sec { min-width: 0; scroll-snap-align: start; cursor: pointer; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
 .pg-sec .gcard-go { cursor: pointer; }
 .pg-sec .gcard-name { font-size: var(--fs-xl); }
-/* The game in focus wears its level's color (--lvl, set with the level picked): its border, its
-   pips and its Play filled in it. The rest show the levels they reach in white pips, and a
-   white-ringed Play. */
-.pg-sec.is-focus .gcard { --ring: var(--lvl, var(--c-accent)); }
-.pg-sec.is-focus .gcard .gcard-go.primary { background: var(--lvl, var(--c-accent)); color: #050607; }
-/* Pips a fifth bigger, white for the levels the game reaches; the picked one (in focus) in its
-   level's color. */
+/* The game in focus: a white Play with a black icon. The rest: a white-ringed Play. */
+.pg-sec.is-focus .gcard .gcard-go.primary { background: var(--c-text); color: #050607; }
+/* Pips a fifth bigger, white for the levels the game reaches; on the game in focus, each in its
+   own level's color. No level is singled out. */
 .pg-list .pg-sec .gcard .gcard-pips { gap: 4px; }
 .pg-list .pg-sec .gcard .gcard-pips i { width: 8.5px; height: 8.5px; }
 .pg-list .pg-sec .gcard .gcard-pips i.on { background: var(--c-text); }
-.pg-list .pg-sec .gcard .gcard-pips i.sel.lvl-1 { background: var(--c-lvl-1); }
-.pg-list .pg-sec .gcard .gcard-pips i.sel.lvl-2 { background: var(--c-lvl-2); }
-.pg-list .pg-sec .gcard .gcard-pips i.sel.lvl-3 { background: var(--c-lvl-3); }
-.pg-list .pg-sec .gcard .gcard-pips i.sel.lvl-4 { background: var(--c-lvl-4); }
-.pg-list .pg-sec .gcard .gcard-pips i.sel.lvl-5 { background: var(--c-lvl-5); }
-/* The game in focus: its picked pip glows in its level's color (the card itself has no border). */
-.pg-list .pg-sec.is-focus .gcard .gcard-pips i.sel { box-shadow: 0 0 6px 2px var(--lvl, currentColor), 0 0 14px 3px color-mix(in srgb, var(--lvl, currentColor) 45%, transparent); }
+.pg-list .pg-sec.is-focus .gcard .gcard-pips i.on:nth-child(1) { background: var(--c-lvl-1); }
+.pg-list .pg-sec.is-focus .gcard .gcard-pips i.on:nth-child(2) { background: var(--c-lvl-2); }
+.pg-list .pg-sec.is-focus .gcard .gcard-pips i.on:nth-child(3) { background: var(--c-lvl-3); }
+.pg-list .pg-sec.is-focus .gcard .gcard-pips i.on:nth-child(4) { background: var(--c-lvl-4); }
+.pg-list .pg-sec.is-focus .gcard .gcard-pips i.on:nth-child(5) { background: var(--c-lvl-5); }
 /* A quarter more room between the icon and the name, and between the pips and Play. */
 .pg-sec .gcard-body { padding-left: 15px; }
 .pg-sec .gcard-diff--beside { padding-right: 15px; }
