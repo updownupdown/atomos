@@ -2,7 +2,7 @@
 // far, Details, then the shapes still to earn), then the search and the Color chip, which work in
 // every view. Shapes open as periods are built and colors with the first win of a game (earn.ts);
 // a locked shape shows a gray preview with how far its period is built and the atom to build next. On a map, a
-// tap picks an atom and shows its peek strip (symbol, name, weight, category, headline fact);
+// tap picks an atom and shows its peek strip (number and symbol plate, name, period and category);
 // tapping the strip opens the atom's page. In Details a row opens the page at once. Nothing
 // here shows how far an atom is built: that is Collect's.
 //
@@ -15,13 +15,12 @@ import { isLayoutId, LAYOUT_STORY, LAYOUTS, type LayoutId } from './layouts';
 import { inkOn, isLookId, lookColor, lookLegend, lookOf, LOOKS, type LookId } from './looks';
 import { createTable, seriesOne, type Table } from './table';
 import { AtlasPage } from './atlaspage';
-import { elementFacts } from './info';
 import { searchElements } from '../ui/search';
 import { icon } from '../ui/icons';
 import { nextButton, playButton } from '../ui/components';
 import { isUnlocked, SHAPE_PERIOD, unlockPuzzle, type UnlockId } from '../core/unlocks';
 import { loadSave } from '../core/save';
-import { atomBuilt, rowSpan } from '../core/progress';
+import { atomBuilt, rowOf, rowSpan } from '../core/progress';
 import { playUnlock } from '../puzzles/unlock';
 import { aPuzzle, earnables, gameName, meetText, takeFresh, watchEarnings, type Earnable } from './earn';
 import { UNKNOWN_FILL } from './looks';
@@ -42,7 +41,6 @@ const read = (key: string): string | null => { try { return localStorage.getItem
 const write = (key: string, v: string) => { try { localStorage.setItem(key, v); } catch { /* storage off: the choice just resets */ } };
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 /** "55.845", or the mass number in brackets for an atom with no standard weight. */
-export const weightText = (e: Element): string => (e.weight == null ? `[${e.commonA}]` : String(Number(e.weight.toPrecision(e.weight < 10 ? 4 : 5))));
 
 export class Atlas {
   private view: AtlasView = ((v) => (v === 'details' || isLayoutId(v) ? v : 'table'))(read(VIEW_KEY));
@@ -286,10 +284,9 @@ export class Atlas {
     if (z == null) return;
     const e = elementAt(z);
     const fill = lookColor(this.look, e);
-    const fact = elementFacts(z)?.h ?? '';
     p.setAttribute('aria-label', `${e.name}: open its page`);
-    p.innerHTML = `<span class="at-plate" style="background:${fill};color:${inkOn(fill)}">${e.symbol}</span>
-      <span class="at-peek-text"><b>${esc(e.name)}</b><span>${e.z} · ${weightText(e)} · ${esc(seriesOne(e))}</span><span class="at-peek-fact">${esc(fact)}</span></span>
+    p.innerHTML = `<span class="at-plate" style="background:${fill};color:${inkOn(fill)}"><small>${e.z}</small><b>${e.symbol}</b></span>
+      <span class="at-peek-text"><b>${esc(e.name)}</b><span>Period ${rowOf(z)} · ${esc(seriesOne(e))}</span></span>
       <span class="at-peek-go">${icon('chevron-right', { size: 22 })}</span>`;
   }
 

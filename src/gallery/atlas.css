@@ -77,10 +77,12 @@
 /* The peek strip: the picked atom over the map; a tap opens its page. */
 .at-peek { position: fixed; left: 50%; bottom: calc(var(--safe-bottom) + var(--sp-2)); transform: translateX(-50%); z-index: 3; width: min(440px, calc(100% - 2 * var(--sp-3))); display: flex; align-items: center; gap: var(--sp-3); padding: 10px 10px 10px 12px; border: 0; border-radius: 22px; background: var(--c-surface-2); color: var(--c-text); font: inherit; text-align: left; cursor: pointer; box-shadow: 0 6px 24px rgba(0, 0, 0, 0.55); }
 .at-peek[hidden], .at.is-details .at-peek { display: none; }
-.at-plate { flex: none; width: 52px; height: 52px; border-radius: 14px; display: grid; place-items: center; font-size: 22px; font-weight: 700; }
-.at-peek-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
-.at-peek-text b { font-size: var(--fs-md); font-weight: var(--fw-semibold); }
-.at-peek-text span { font-size: 13px; color: var(--c-text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.at-plate { flex: none; width: 48px; height: 48px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; border-radius: 10px; line-height: 1; font-variant-numeric: tabular-nums; }
+.at-plate small { font-size: 12px; font-weight: var(--fw-semibold); }
+.at-plate b { font-size: 20px; font-weight: 700; }
+.at-peek-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.at-peek-text b { font-size: 20px; font-weight: var(--fw-semibold); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.at-peek-text span { font-size: var(--fs-sm); color: var(--c-text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .at-peek-go { flex: none; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: var(--c-pick); color: var(--c-text); }
 
 /* Details: the tools on black, then the rows. */
