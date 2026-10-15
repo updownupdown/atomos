@@ -149,16 +149,16 @@ const width = (share: number) => `${(Math.max(0, Math.min(1, share)) * 100).toFi
  *  at the top under the atom. */
 export function atomRow(z: number, save: SaveData, action: 'build' | 'close'): string {
   const s = atomSlice(z, save);
-  const count = (word: string, figure: string, done: boolean, off = false) =>
-    `<span class="co-count${done ? ' is-done' : ''}${off ? ' is-off' : ''}"><span>${word}</span><b>${figure}</b></span>`;
-  const fleeting = !s.fleetingTotal ? count('Fleeting', 'None', false, true)
-    : s.fleetingOn ? count('Fleeting', `${s.fleetingBuilt}/${s.fleetingTotal}`, s.fleetingBuilt >= s.fleetingTotal)
-      : count('Fleeting', `0/${s.fleetingTotal}`, false, true);
+  const count = (ico: 'isotope-stable' | 'isotope-fleeting', word: string, figure: string, done: boolean, off = false) =>
+    `<span class="co-count${done ? ' is-done' : ''}${off ? ' is-off' : ''}">${icon(ico, { size: 22 })}<span class="co-count-in"><span>${word}</span><b>${figure}</b></span></span>`;
+  const fleeting = !s.fleetingTotal ? count('isotope-fleeting', 'Fleeting', 'None', false, true)
+    : s.fleetingOn ? count('isotope-fleeting', 'Fleeting', `${s.fleetingBuilt}/${s.fleetingTotal}`, s.fleetingBuilt >= s.fleetingTotal)
+      : count('isotope-fleeting', 'Fleeting', `0/${s.fleetingTotal}`, false, true);
   const name = elementAt(z).name;
   const button = action === 'build'
     ? `<button type="button" class="co-build" aria-label="Build ${name}">${icon('build', { size: 20 })}<span>Build</span></button>`
     : `<button type="button" class="co-build is-close" aria-label="Close ${name}, back to Collect">${icon('close', { size: 20 })}<span>Close</span></button>`;
-  return `<div class="co-slot"><div class="co-counts">${count('Stable', `${s.stableBuilt}/${s.stableTotal}`, s.stableTotal > 0 && s.stableBuilt >= s.stableTotal)}${fleeting}</div><div class="pb-news co-news" role="status" hidden></div></div>${button}`;
+  return `<div class="co-slot"><div class="co-counts">${count('isotope-stable', 'Stable', `${s.stableBuilt}/${s.stableTotal}`, s.stableTotal > 0 && s.stableBuilt >= s.stableTotal)}${fleeting}</div><div class="pb-news co-news" role="status" hidden></div></div>${button}`;
 }
 
 /** Put an atom's row in `host`, its button doing `onClick`. */
@@ -349,9 +349,9 @@ export class Collect {
   }
 
   /** The box's line: the period's heading, its two bars (stable parts and fleeting isotopes
-   *  built, or what opens it while locked), and Table. */
+   *  built, or what opens it while locked), and the chevron that opens the whole table. */
   private paintLine(): void {
-    this.more.innerHTML = `<span>Table</span>${icon(this.open ? 'chevron-up' : 'chevron-down', { size: 20 })}`;
+    this.more.innerHTML = icon(this.open ? 'chevron-up' : 'chevron-down', { size: 28 });
     this.more.setAttribute('aria-label', this.open ? 'Close the table' : 'Open the whole table');
     const period = rowOf(this.current);
     if (!rowOpen(period, this.save)) {

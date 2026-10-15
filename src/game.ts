@@ -32,6 +32,7 @@ import { createTabs, iconButton, nextButton, playButton } from './ui/components'
 import { gameCard } from './puzzles/gameCard';
 import { trackOverlay, type TrackItem, type TrackOverlay } from './ui/tracks';
 import { mountAtomRow } from './gallery/collect';
+import { buildGuideButton, buildGuideHTML } from './gallery/buildguide';
 import { askRestart, confirming, restartButton } from './puzzles/restart';
 import { HintControl } from './puzzles/hints';
 import { clearOffers, createGameBar, offerRules, type GameBar } from './puzzles/gamebar';
@@ -467,12 +468,10 @@ export class Game {
         `Gone in under a year. Pick any isotope puzzle for each: the shorter it lives, the harder the board. They don't count toward ${name}'s 100%.${later}`,
         this.fleetingGrid(fleeting, Boolean(built)), fc.total > 0 && fc.built === fc.total) : '',
       shapeCard ? this.section('unlock', 'Discoveries', '', shapeCard, '', '', Boolean(shape && this.save.shapes[shape])) : '',
-      // Info: the atom's page in the Atlas.
-      this.hooks.onInfo ? `<button type="button" class="foot-card" id="bh-to-info"><span class="foot-card-ico">${icon('info', { size: 22 })}</span><span class="foot-card-text"><b>${el.name} info</b><small>Its page in the Atlas</small></span><span class="foot-card-go">${icon('chevron-right', { size: 22 })}</span></button>` : '',
-      // The microscope, on its own row at the foot of the page.
-      `<div class="bh-sci-row" id="bh-sci-row"></div>`,
+      // The foot: the atom's page in the Atlas, and the guide to how it is built.
+      `<div class="bh-foot" id="bh-foot">${this.hooks.onInfo ? `<button type="button" class="foot-card" id="bh-to-info"><span class="foot-card-ico">${icon('info', { size: 22 })}</span><span class="foot-card-text"><b>${el.name} info</b><small>Its page in the Atlas</small></span><span class="foot-card-go">${icon('chevron-right', { size: 22 })}</span></button>` : ''}</div>`,
     ].join('');
-    $('bh-sci-row').append(scienceButton());
+    $('bh-foot').append(buildGuideButton(el.name));
     $('bh-in').querySelector<HTMLButtonElement>('#bh-to-info')?.addEventListener('click', () => this.hooks.onInfo?.(this.z));
 
     const root = $('bh-in');
@@ -1246,50 +1245,9 @@ export class Game {
     this.openModal(t.science?.(this.z) ?? `<h2>${t.name}</h2><p>${t.blurb}</p>`);
   }
 
-  /** The microscope on the Build page: what each step stands for in a real atom. */
-  /** The Build page's microscope: what the atom is made of, one short tab per part, each with a
-   *  way into the science of the puzzle that builds it (where the longer story lives). */
+  /** The Build page's microscope: how the atom is built, in its page's order (gallery/buildguide.ts). */
   private showBuildScience(): void {
-    const z = this.z;
-    const el = element(z);
-    const n = this.neutrons;
-    const vault = lastingIsotopes(z);
-    const fleet = fleetingIsotopes(z);
-    const games = [...new Set(vault.map((i) => isotopeGame(z, i.a) ?? 'packing'))];
-    const word = (k: number, w: string) => (k === 1 ? w : `${w}s`);
-    const stat = (value: string, label: string) => `<div class="bs-stat"><b>${value}</b><span>${label}</span></div>`;
-    const more = (id: string) => { const t = puzzleType(id); return `<button class="secondary bs-more" data-sci="${id}">${puzzleIcon(id, 20)}<span>The science of ${t.name}</span></button>`; };
-    const nucleusId = this.stagePuzzle('nucleus').id;
-    const tabs: { id: string; label: string; html: () => string }[] = [
-      { id: 'atom', label: 'Atom', html: () => `
-        <div class="bs-stats">${stat(String(z), word(z, 'proton'))}${stat(String(n), word(n, 'neutron'))}${stat(String(z), word(z, 'electron'))}</div>
-        <p>Protons decide which element it is. Electrons decide how it behaves.</p>` },
-      { id: 'nucleus', label: 'Nucleus', html: () => `
-        <div class="bs-stats">${stat(String(z), word(z, 'proton'))}${stat(String(n), word(n, 'neutron'))}</div>
-        <p>${z === 1 ? 'A single proton: nothing to gather.' : 'Packed into a core 100,000 times smaller than the atom.'}</p>
-        ${z === 1 ? '' : more(nucleusId)}` },
-      { id: 'electrons', label: 'Electrons', html: () => `
-        <div class="bs-stats">${stat(shortConfiguration(elementAt(z)), `${z} ${word(z, 'electron')}`)}</div>
-        <p>They fill orbitals from the lowest energy up.</p>
-        ${more('orbitalGrid')}` },
-      ...(vault.length || fleet.length ? [{ id: 'isotopes', label: 'Isotopes', html: () => `
-        <div class="bs-stats">${stat(String(vault.length), 'lasting')}${stat(String(fleet.length), 'fleeting')}</div>
-        <p>The same protons with a different number of neutrons. Lasting ones are stable or live over a year; fleeting ones are gone sooner.</p>
-        ${games.map(more).join('')}` }] : []),
-    ];
-    const sheet = this.openModal(`<h2>How ${el.name.toLowerCase()} is built</h2><div class="bs-tabs"></div><div class="bs-body"></div>`);
-    const body = sheet.querySelector<HTMLElement>('.bs-body')!;
-    const show = (id: string) => {
-      body.innerHTML = tabs.find((t) => t.id === id)!.html();
-      body.querySelectorAll<HTMLButtonElement>('[data-sci]').forEach((b) => (b.onclick = () => {
-        const t = puzzleType(b.dataset.sci!);
-        this.openModal(t.science?.(z) ?? `<h2>${t.name}</h2><p>${t.blurb}</p>`);
-      }));
-    };
-    const tabRow = createTabs(tabs.map(({ id, label }) => ({ id, label })), { active: 'atom', onChange: show, label: 'Parts of the atom' });
-    tabRow.el.classList.add('ui-tabs--fill');
-    sheet.querySelector('.bs-tabs')!.append(tabRow.el);
-    show('atom');
+    this.openModal(buildGuideHTML(this.z, this.save));
   }
 
   private showHow(): void {

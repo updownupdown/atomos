@@ -1,0 +1,43 @@
+/* The Build page's guide: a scrolling sheet of numbered parts in the page's order, each with a
+   small drawing and a short line. */
+.bg { display: flex; flex-direction: column; gap: var(--sp-5); }
+.bg p { margin: 0; font-size: var(--fs-md); line-height: 1.55; color: var(--c-text-2); }
+.bg-lead { color: var(--c-text); }
+.bg-step { display: flex; flex-direction: column; gap: var(--sp-3); }
+.bg-head { display: flex; align-items: center; gap: var(--sp-2); min-height: 32px; }
+.bg-num { flex: none; width: 26px; height: 26px; display: grid; place-items: center; border-radius: 50%; background: var(--c-surface-3); color: var(--c-text); font-size: var(--fs-sm); font-weight: var(--fw-semibold); font-variant-numeric: tabular-nums; }
+.bg-step.is-done .bg-num { background: var(--c-done); color: var(--c-bg); }
+.bg-ico { flex: none; display: grid; color: var(--c-text); }
+.ui-modal-card .bg .bg-head h3 { flex: 1; min-width: 0; margin: 0; font-family: var(--font); font-size: 18px; font-weight: var(--fw-semibold); letter-spacing: 0; text-transform: none; color: var(--c-text); }
+.bg-state { flex: none; display: inline-flex; align-items: center; gap: 4px; font-size: var(--fs-sm); font-weight: var(--fw-semibold); color: var(--c-text-2); }
+.bg-step.is-done .bg-state { color: var(--c-done); }
+.bg-fig { display: flex; flex-direction: column; gap: var(--sp-2); margin: 0; padding: var(--sp-3) var(--sp-3) var(--sp-2); border-radius: var(--r-sm); background: var(--c-surface-2); }
+.bg-fig figcaption { display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-4); font-size: var(--fs-sm); color: var(--c-text-2); }
+.bg-fig figcaption span { display: inline-flex; align-items: center; gap: 6px; }
+.bg-fig figcaption i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; }
+/* The nucleus: protons cyan, neutrons gray. */
+.bg-nucleus { display: block; width: 120px; height: 120px; margin: 0 auto; }
+.bg-nucleus circle.bg-p, i.bg-p { fill: var(--c-accent); background: var(--c-accent); }
+.bg-nucleus circle.bg-n, i.bg-n { fill: #6b737a; background: #6b737a; }
+/* The orbitals in fill order: a chip each, its block's color, dots for its electrons. */
+.bg-orbs { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 2px; }
+.bg-orb { display: inline-flex; flex-direction: column; align-items: center; gap: 3px; min-width: 34px; padding: 4px 6px 5px; border-radius: 8px; background: color-mix(in srgb, var(--b) 22%, var(--c-surface-2)); }
+.bg-orb b { font-size: 13px; font-weight: var(--fw-semibold); color: var(--c-text); }
+.bg-orb-dots { display: inline-flex; gap: 2px; }
+.bg-orb-dots i, .bg-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; box-sizing: border-box; }
+.bg-orb-dots i.is-2, .bg-dot.is-2 { background: var(--b, var(--c-text)); }
+.bg-orb-dots i.is-1, .bg-dot.is-1 { background: linear-gradient(90deg, var(--b, var(--c-text)) 50%, transparent 50%); border: 1.5px solid var(--b, var(--c-text)); }
+.bg-orb-dots i.is-0, .bg-dot.is-0 { border: 1.5px solid color-mix(in srgb, var(--b, var(--c-text)) 60%, transparent); }
+.bg-arrow { color: var(--c-text-3); font-size: 14px; padding: 0 1px; }
+/* The isotope strip and the half-life ruler. */
+.bg-strip, .bg-ruler { display: block; width: 100%; max-width: 420px; margin: 0 auto; }
+.bg-base { stroke: var(--c-line-2); stroke-width: 2; stroke-linecap: round; }
+.bg-iso.is-fleeting, .bg-dot.is-fleeting { fill: #6b737a; background: #6b737a; }
+.bg-iso.is-long, .bg-dot.is-long { fill: color-mix(in srgb, var(--c-accent) 55%, #6b737a); background: color-mix(in srgb, var(--c-accent) 55%, #6b737a); }
+.bg-iso.is-stable, .bg-dot.is-stable { fill: var(--c-accent); background: var(--c-accent); }
+.bg-iso.is-mine { stroke: var(--c-text); stroke-width: 1.5; }
+.bg-strip text, .bg-ruler text { fill: var(--c-text-2); font-family: var(--font); font-size: 11px; }
+.bg-ruler text { text-anchor: middle; }
+.bg-ruler-bar { fill: var(--c-surface-3); }
+.bg-tick { stroke: var(--c-line-2); stroke-width: 1.5; }
+.bg-life { stroke: var(--c-accent); stroke-width: 2; stroke-linecap: round; opacity: 0.85; }

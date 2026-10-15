@@ -28,11 +28,15 @@
    isotopes are closed) and Build, or Close on the atom's page. */
 .co-atom { flex: none; width: 100%; max-width: 560px; margin: 0 auto; padding: var(--sp-2) var(--sp-4) calc(var(--safe-bottom) + var(--sp-4)); box-sizing: border-box; }
 .co-row { display: flex; align-items: center; gap: var(--sp-3); min-width: 0; min-height: 68px; padding: 10px 10px 10px 16px; border-radius: 22px; background: var(--c-surface-2); box-sizing: border-box; }
-.co-counts { display: flex; align-items: center; gap: var(--sp-4); min-width: 0; transition: opacity 0.3s var(--ease); }
+/* Stable, Fleeting and Build spread evenly across the row, each count behind its icon. */
+.co-counts { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); min-width: 0; padding-right: var(--sp-3); transition: opacity 0.3s var(--ease); }
 .co-counts.is-hidden { opacity: 0; visibility: hidden; }
-.co-count { display: flex; flex-direction: column; gap: 2px; min-width: 0; white-space: nowrap; }
-.co-count span { font-size: var(--fs-sm); color: var(--c-text-2); }
-.co-count b { font-size: 18px; font-weight: var(--fw-semibold); color: var(--c-text); font-variant-numeric: tabular-nums; }
+.co-count { display: flex; align-items: center; gap: 8px; min-width: 0; white-space: nowrap; color: var(--c-text-2); }
+.co-count > svg { flex: none; }
+.co-count-in { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.co-count-in span { font-size: var(--fs-sm); color: var(--c-text-2); }
+.co-count-in b { font-size: 18px; font-weight: var(--fw-semibold); color: var(--c-text); font-variant-numeric: tabular-nums; }
+.co-count.is-done { color: var(--c-done); }
 .co-count.is-done b { color: var(--c-done); }
 .co-count.is-off b { color: var(--c-text-2); font-weight: 500; }
 .co-build { flex: none; height: 48px; margin-left: auto; display: inline-flex; align-items: center; gap: 6px; padding: 0 20px 0 16px; border: 0; border-radius: var(--r-pill); background: var(--c-accent); color: var(--c-accent-ink); font-family: var(--font); font-size: var(--fs-md); font-weight: var(--fw-semibold); cursor: pointer; -webkit-tap-highlight-color: transparent; }
@@ -65,7 +69,7 @@
 .co-pbar .co-trk { flex: 1; }
 .co-pbar.is-done { color: var(--c-done); }
 .co-need { font-size: var(--fs-sm); color: var(--c-text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.co-more { flex: none; height: 40px; display: inline-flex; align-items: center; gap: 2px; padding: 0 var(--sp-2) 0 var(--sp-3); border: 0; border-radius: var(--r-pill); background: transparent; color: var(--c-text); font-family: var(--font); font-size: var(--fs-md); font-weight: var(--fw-semibold); cursor: pointer; }
+.co-more { flex: none; width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--c-text); cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .co-more:hover { background: var(--c-surface-3); }
 
 /* The table: closed (.is-strip), only the period's cells, in their row (and the f-block row under
@@ -74,7 +78,7 @@
 /* Open, the table takes the room the rows under it leave, centered in it (auto margins, so a
    zoomed table outgrowing the box still starts at its top), and the rows sit at the foot. */
 .collect-screen.is-open .co-zoom { flex: 1 0 auto; display: flex; touch-action: none; }
-.collect-screen.is-open .co-table { margin: 0 auto auto; flex: none; }
+.collect-screen.is-open .co-table { margin: auto; flex: none; }
 .co-table { position: relative; display: grid; grid-template-columns: repeat(18, minmax(0, 1fr)); grid-template-rows: repeat(7, auto) 4px repeat(2, auto); gap: 3px; width: 100%; max-width: 720px; margin: 0 auto; padding: 4px var(--sp-4); box-sizing: border-box; }
 .co-table.is-strip .co-cell:not(.in-period) { display: none; }
 .co-band { position: absolute; z-index: 0; left: calc(var(--sp-4) - 6px); right: calc(var(--sp-4) - 6px); border-radius: 6px; background: var(--c-bg); pointer-events: none; }

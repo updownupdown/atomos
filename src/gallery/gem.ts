@@ -173,8 +173,8 @@ export class GemAtom {
     const size = r.getDrawingBufferSize(new THREE.Vector2());
     cloud.renderLayer({ renderer: r, camera: this.camera, width: size.x, height: size.y }, this.clock);
     cloud.draw(r);
-    // The scaffolding over the gray: rings that fade in with the light, cut away over the slice.
-    this.scaffold.set(R, this.pctNow);
+    // The scaffolding over the gray: rings sized to the canvas, cut away over the slice.
+    this.scaffold.set(this.camera, Math.min(w, h), this.pctNow);
     this.scaffold.render(r, this.camera);
     this.canvas.classList.add('is-shown');
     if (still) this.stop();
