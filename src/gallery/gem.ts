@@ -28,6 +28,8 @@ const GEM_DENSE = 60_000;
 const ENTER_S = 1.4;
 const ENTER_BACK = 0.14;
 const TILT = 0.35;
+/** Room round the framed body, so its outer lobes thin out before the canvas's edge. */
+const GEM_ROOM = 1.25;
 
 export const GEM_LOOKS: Record<Tone, NebulaOptions> = {
   unbuilt: { sat: 0, bright: 0.7, halo: 0, walk: false },
@@ -142,8 +144,9 @@ export class GemAtom {
     const nb = this.nebula;
     const angle = nb.theta0 + (still ? 0 : this.time * nb.spinSpeed * nb.spinDir);
     const tilt = TILT + (still ? 0 : nb.nod(this.time));
-    const R = nb.frameA0 * this.wpa0;
-    const dist = (R / Math.tan((this.camera.fov * Math.PI) / 360)) * (1 + ENTER_BACK * (1 - k));
+    // Framed on the canvas's shorter side: a tall or wide canvas keeps the extra room.
+    const R = nb.frameA0 * GEM_ROOM * this.wpa0;
+    const dist = (R / Math.tan((this.camera.fov * Math.PI) / 360)) * (1 + ENTER_BACK * (1 - k)) / Math.min(1, w / h);
     this.camera.position.set(Math.sin(angle) * Math.cos(tilt) * dist, Math.sin(tilt) * dist, Math.cos(angle) * Math.cos(tilt) * dist);
     this.camera.near = dist * 0.01;
     this.camera.far = dist * 10;
