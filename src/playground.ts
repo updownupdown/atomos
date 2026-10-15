@@ -19,7 +19,7 @@ import { PuzzleHost } from './puzzles/host';
 import { openRules } from './puzzles/rulesModal';
 import { showWin, type WinLevels } from './puzzles/winPanel';
 import { lossOf, type Area, type PuzzleView } from './puzzles/view';
-import { iconButton, showToast } from './ui/components';
+import { iconButton, ringOn, showToast } from './ui/components';
 import { countPlay, GOAL_PLAYS } from './core/plays';
 import { clearOffers, createGameBar, offerRules, type GameBar } from './puzzles/gamebar';
 import { dialFor, difficultyLevel, difficultyRange, difficultyWord, elementForDial, levelInGame } from './puzzles/difficulty';
@@ -339,6 +339,8 @@ export class Playground {
       sec.classList.toggle('is-focus', on);
       // The pips show the levels the game reaches: white, or in focus each in its level's color.
       setCardDifficulty(sec, difficultyRange(sec.dataset.id!));
+      const card = sec.querySelector<HTMLElement>('.gcard');
+      if (card) ringOn(card, on ? 'focus' : null);
     });
     const box = $('pg-focus');
     if (!force && box.dataset.id === p.id) return;

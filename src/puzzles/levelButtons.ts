@@ -1,9 +1,9 @@
 // A game's five difficulty levels as play buttons, and its wins at each.
 //
-// levelButtons: one button per level, its word over a play icon (black on a white disc);
-// tapping one plays that level. Every level the game deals is filled in its own level color, none
-// singled out; levels it never deals are plain gray and cannot be pressed. Used by the Play
-// screen's top box and the difficulty bar inside a game.
+// levelButtons: one button per level, its word over a play icon (a white disc, the triangle in the
+// level's color); tapping one plays that level. Every level the game deals is filled in its own
+// level color, none singled out; levels it never deals are plain gray and cannot be pressed. Used
+// by the Play screen's top box and the difficulty bar inside a game.
 //
 //   row.replaceWith(levelButtons({ game: 'packing', onPlay: (level) => play(level) }));
 //
