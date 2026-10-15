@@ -1277,15 +1277,15 @@ body[data-screen='puzzles'].pg-playing .nav-tools { display: flex; }
   border: 0;
   border-radius: var(--r-pill);
   background: transparent;
-  color: var(--c-text-2);
+  color: var(--c-text);
   font-family: var(--font);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
-.dock button:hover { color: var(--c-text); }
+.dock button:hover { background: var(--c-surface-2); }
 .nav-ico { display: grid; place-items: center; }
 .nav-ico svg { width: 24px; height: 24px; display: block; }
-.nav-lab { font-size: 13px; font-weight: var(--fw-semibold); line-height: 1.1; }
+.nav-lab { font-size: 15px; font-weight: var(--fw-semibold); line-height: 1.1; }
 /* Small phones: the pill and the header give their margins to the names. */
 @media (max-width: 400px) {
   .dock { width: calc(100% - 2 * var(--sp-2)); }
