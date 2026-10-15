@@ -1,6 +1,6 @@
 // Home: where the app opens for a returning player, and the Home button in the dock. A jumping
-// point to the three sections, each on its own panel under its heading (design H11, James
-// 2026-10-14), with a round button into the section:
+// point to the three sections, each under its heading (design H11, James 2026-10-14) with a round
+// button into the section, set apart by a small orbit Nu can play around:
 //   Collect — atoms built, then a track per period (stable thick, fleeting thin), then one
 //             stable step and one fleeting isotope to build next, each beside its total.
 //   Learn   — the atom of the day to find among four atom cards, Nu's three two-choice questions
@@ -47,15 +47,20 @@ function plate(e: Element, cls = ''): string {
 
 function panel(to: HomeTarget, title: string, ico: IconName, body: string): string {
   return `<section class="home-sec" aria-labelledby="home-h-${to}">`
-    + `<div class="home-head"><span class="home-ico">${icon(ico, { size: 22 })}</span><h2 class="home-h" id="home-h-${to}">${title}</h2>`
+    + `<div class="home-head"><span class="home-ico">${icon(ico, { size: 26 })}</span><h2 class="home-h" id="home-h-${to}">${title}</h2>`
     + `<button type="button" class="home-round" data-go="${to}" aria-label="Open ${title}">${icon('chevron-right', { size: 22 })}</button></div>`
     + body + '</section>';
 }
 
+/** The break between two sections: an orbit around its nucleus, tilted a little. */
+const SEP = '<div class="home-sep" data-nu-toy aria-hidden="true"><svg viewBox="0 0 96 24">'
+  + '<ellipse cx="48" cy="12" rx="44" ry="9" fill="none" stroke="currentColor" stroke-width="2" transform="rotate(-6 48 12)"/>'
+  + '<circle cx="48" cy="12" r="4" fill="currentColor"/></svg></div>';
+
 export function renderHome(host: HTMLElement, go: HomeGo): void {
   const save = loadSave();
-  host.innerHTML = panel('collect', 'Collect', 'collect', collectBody(save))
-    + panel('learn', 'Atlas', 'atlas', '<div class="home-guess"></div><div class="home-quiz"></div>' + learnRow(save))
+  host.innerHTML = panel('collect', 'Collect', 'collect', collectBody(save)) + SEP
+    + panel('learn', 'Atlas', 'atlas', '<div class="home-guess"></div><div class="home-quiz"></div>' + learnRow(save)) + SEP
     + panel('play', 'Play', 'puzzles', '<div class="home-game"></div>');
   host.querySelectorAll<HTMLButtonElement>('[data-go]').forEach((b) => { b.onclick = () => go(b.dataset.go as HomeTarget); });
   wireCollect(host, save);
@@ -128,10 +133,10 @@ function fleetingPick(save: SaveData, step: NextStep | null): { z: number; a: nu
 function laneRow(kind: 'stable' | 'fleeting', done: number, all: number, choice: string): string {
   const name = kind === 'stable' ? 'Stable' : 'Fleeting';
   return `<div class="home-lane is-${kind}"><div class="home-lane-sum">${icon(kind === 'stable' ? 'isotope-stable' : 'isotope-fleeting', { size: 22 })}`
-    + `<span><b>${name}</b><small>${fmt(done)} of ${fmt(all)}</small></span></div>${choice}</div>`;
+    + `<span><b>${name}</b><small>${fmt(done)}/${fmt(all)}</small></span></div>${choice}</div>`;
 }
 
-/** The stable step's two lines: the atom (or isotope) on top, then the part and its game. */
+/** The stable step: the atom (or isotope) on the card; the part and its game for screen readers. */
 const pickTitle = (s: NextStep): string => (s.a !== undefined ? `${elementAt(s.z).name}-${s.a}` : elementAt(s.z).name);
 const pickPart = (s: NextStep): string => (s.kind === 'nucleus' ? 'Nucleus · ' : s.kind === 'electrons' ? 'Electrons · ' : s.kind === 'discovery' ? 'Orbital shape · ' : s.kind === 'resume' && s.a === undefined ? 'Resume · ' : '');
 
@@ -140,13 +145,13 @@ function collectBody(save: SaveData): string {
   const fleetOn = fleetingOpen(save);
   const step = nextStep(save);
   const stableChoice = step
-    ? `<button type="button" class="home-pick" data-step="stable">${plate(elementAt(step.z))}<span class="home-pick-txt"><b>${esc(pickTitle(step))}</b><small>${esc(pickPart(step))}${esc(step.gameName)}</small></span><span class="home-gi">${puzzleIcon(step.game, 20)}</span></button>`
+    ? `<button type="button" class="home-pick" data-step="stable" aria-label="${esc(`${pickTitle(step)}: ${pickPart(step)}${step.gameName}`)}">${plate(elementAt(step.z))}<span class="home-pick-txt"><b>${esc(pickTitle(step))}</b></span><span class="home-gi">${puzzleIcon(step.game, 20)}</span></button>`
     : `<span class="home-pick is-done">${icon('check', { size: 22 })}<span class="home-pick-txt"><b>All built</b></span></span>`;
   const f = fleetOn ? fleetingPick(save, step) : null;
   const fleetChoice = !fleetOn
-    ? `<span class="home-pick is-fleet is-locked">${icon('lock', { size: 20 })}<span class="home-pick-txt"><b>Build an atom first</b><small>Then its fleeting isotopes open</small></span></span>`
+    ? `<span class="home-pick is-fleet is-locked">${icon('lock', { size: 20 })}<span class="home-pick-txt"><b>Build an atom first</b></span></span>`
     : f
-      ? `<button type="button" class="home-pick is-fleet" data-step="fleeting">${plate(elementAt(f.z), 'is-fleet')}<span class="home-pick-txt"><b>${esc(elementAt(f.z).name)}-${f.a}</b><small>${f.halfLife === null ? 'Half-life unknown' : esc(formatDuration(f.halfLife))} · pick a game</small></span></button>`
+      ? `<button type="button" class="home-pick is-fleet" data-step="fleeting" aria-label="${esc(`${elementAt(f.z).name}-${f.a}, ${f.halfLife === null ? 'half-life unknown' : formatDuration(f.halfLife)}: pick a game`)}">${plate(elementAt(f.z), 'is-fleet')}<span class="home-pick-txt"><b>${esc(elementAt(f.z).name)}-${f.a}</b></span><span class="home-gi is-ask">?</span></button>`
       : `<span class="home-pick is-fleet is-done">${icon('check', { size: 22 })}<span class="home-pick-txt"><b>All built so far</b></span></span>`;
   return `<p class="home-count"><b>${t.built}</b> of ${MAX_Z} atoms built</p>`
     + tracks(save, fleetOn)
