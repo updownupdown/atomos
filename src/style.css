@@ -197,11 +197,6 @@ body.build-home #app .bottom { display: none; }
 .gbar--build .gbar-stat--diff { display: none; }
 .gbar--play.gbar--build .gfoot-line { grid-template-columns: auto 1fr auto; }
 .gbar--play.gbar--build .gbar-msg { grid-column: auto; }
-/* Difficulty, dropped from the settings button at the right of the header: the word over its
-   pips, then the slider, the deal and the X (.pg-bar). */
-.pg-bar .gbar-stat--diff { flex: none; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
-.pg-bar .gbar-k { font-size: 13px; line-height: 1; color: var(--c-text-2); }
-.pg-bar .gbar-pips { height: auto; }
 .gbar .gbar-tools > * { margin: 0; flex: none; width: 40px; height: 40px; background: var(--c-nav); border-radius: var(--r-sm); }
 .gbar .gbar-tools > *:hover { background: var(--c-surface-3); }
 
@@ -924,21 +919,20 @@ body.puzzling #overlay { pointer-events: auto; touch-action: none; }
 .pg-game { position: relative; }
 .pg-foot { position: relative; flex: none; background: var(--c-bg); padding-bottom: var(--safe-bottom); }
 .pg-gen { display: none; }
-.pg-gen.is-open { position: absolute; top: 0; left: 0; right: 0; z-index: 6; display: flex; justify-content: center; padding: var(--sp-2) var(--sp-3) 0; pointer-events: none; }
-.pg-gen.is-open > .pg-bar { pointer-events: auto; width: min(560px, 100%); box-shadow: 0 6px 24px rgba(0, 0, 0, 0.55); animation: pg-drop 0.18s var(--ease); }
-@keyframes pg-drop { from { transform: translateY(-12px); opacity: 0; } }
-@media (prefers-reduced-motion: reduce) { .pg-gen.is-open > .pg-bar { animation: none; } }
-.pg-shut { flex: none; width: 40px; height: 40px; border-radius: 50%; background: transparent; }
-.pg-shut:hover { background: var(--c-surface-3); }
-.pg-bar { flex: 1 1 auto; display: flex; align-items: center; gap: var(--sp-2); min-width: 0; height: 60px; padding: 0 var(--sp-1) 0 var(--sp-4); border-radius: var(--r-md); background: var(--c-nav); box-sizing: border-box; }
+.pg-gen.is-open { position: absolute; top: 0; left: 0; right: 0; z-index: 6; display: flex; justify-content: flex-end; padding: var(--sp-2) var(--sp-3) 0; pointer-events: none; }
+.pg-gen.is-open > .pg-bar { flex: 0 1 auto; pointer-events: auto; width: min(560px, 100%); border-top-right-radius: 0; box-shadow: 0 6px 24px rgba(0, 0, 0, 0.55); }
+.pg-bar { flex: 1 1 auto; display: flex; align-items: center; gap: var(--sp-2); min-width: 0; padding: var(--sp-2); border-radius: var(--r-md); background: var(--c-nav); box-sizing: border-box; }
 .pg-bar[hidden] { display: none; }
-.pg-bar .ui-slider { flex: 1 1 auto; min-width: 80px; }
-.pg-deal { display: flex; align-items: center; gap: 4px; flex: none; height: 38px; padding: 0 var(--sp-3) 0 var(--sp-2); border: 0; border-radius: var(--r-pill); background: var(--c-surface-3); color: var(--c-text); font: inherit; font-weight: var(--fw-semibold); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+/* The levels take the row; the new deal, the shuffle over its number, sits at the right. */
+.pg-bar > .lvl-btns { flex: 1 1 auto; min-width: 0; gap: 4px; }
+.pg-bar .lvl-btn { padding-inline: 0; }
+.pg-bar .lvl-btn-word { white-space: normal; line-height: 1.1; }
+.pg-deal { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; flex: none; width: 52px; min-height: 56px; padding: 6px 0; border: 0; border-radius: var(--r-sm); background: var(--c-surface-3); color: var(--c-text); font: inherit; font-weight: var(--fw-semibold); cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .pg-deal svg { width: 20px; height: 20px; }
 .pg-deal:hover { background: #3b4046; }
 .pg-deal:active { transform: scale(0.96); }
 .pg-deal:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 1px; }
-.pg-dealno { font-size: var(--fs-md); color: var(--c-text); min-width: 2.2em; text-align: left; font-variant-numeric: tabular-nums; }
+.pg-dealno { font-size: var(--fs-min); line-height: 1.2; color: var(--c-text); text-align: center; font-variant-numeric: tabular-nums; }
 .pg-play { position: relative; flex: 1; min-height: 0; }
 .pg-play[hidden] { display: none; }
 #pg-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
@@ -1244,8 +1238,13 @@ button.crumb { cursor: pointer; }
 body[data-screen='puzzles'].pg-playing .nav-tools { display: flex; }
 .nav-tools .pg-fold { width: 44px; height: 44px; display: grid; place-items: center; padding: 0; border: 0; border-radius: var(--r-pill); background: transparent; color: var(--c-text); cursor: pointer; }
 .nav-tools .pg-fold svg { width: 24px; height: 24px; }
-.nav-tools .pg-fold:hover, .nav-tools .pg-fold[aria-expanded='true'] { background: var(--c-pick); }
-.nav-tools .pg-fold[aria-expanded='true'] { color: var(--c-accent); }
+.nav-tools .pg-fold:hover { background: var(--c-pick); }
+/* Open, the button is the bar's X: the bar's plate rises from the bar to hold it, rounded on
+   top, with a small inner curve where it meets the bar. */
+.nav-tools .pg-fold { position: relative; }
+.nav-tools .pg-fold[aria-expanded='true'] { z-index: 7; border-radius: 22px 22px 0 0; background: var(--c-nav); }
+.nav-tools .pg-fold[aria-expanded='true']::after { content: ''; position: absolute; left: 0; right: 0; top: 100%; height: var(--pg-stem, 14px); background: var(--c-nav); }
+.nav-tools .pg-fold[aria-expanded='true']::before { content: ''; position: absolute; right: 100%; top: calc(100% + var(--pg-stem, 14px) - 12px); width: 12px; height: 12px; border-bottom-right-radius: 12px; box-shadow: 6px 6px 0 6px var(--c-nav); clip-path: inset(0 -6px -6px 0); }
 
 /* The bar on Home (src/ui/dock.ts): Collect, Atlas and Play in a pill floating at the foot, each
    an icon over its name. --safe-bottom grows by the pill on Home, so whatever sits at the foot

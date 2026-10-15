@@ -19,7 +19,7 @@ import { PuzzleHost } from './puzzles/host';
 import { openRules } from './puzzles/rulesModal';
 import { showWin, type WinLevels } from './puzzles/winPanel';
 import { lossOf, type Area, type PuzzleView } from './puzzles/view';
-import { createSlider, iconButton, showToast, type Slider } from './ui/components';
+import { iconButton, showToast } from './ui/components';
 import { countPlay, GOAL_PLAYS } from './core/plays';
 import { clearOffers, createGameBar, offerRules, type GameBar } from './puzzles/gamebar';
 import { dialFor, difficultyLevel, difficultyRange, difficultyWord, elementForDial, levelInGame } from './puzzles/difficulty';
@@ -42,7 +42,8 @@ export class Playground {
   /** The game's goal, shown before the first move of its first plays. */
   private goal = '';
   private solved = false;
-  private slider: Slider;
+  /** The bar's five levels (levelButtons). */
+  private barLevels: HTMLElement;
   private undoBtn: HTMLButtonElement;
   private restartBtn: HTMLButtonElement;
   private gbar: GameBar;
@@ -64,9 +65,9 @@ export class Playground {
     this.renderHome();
 
     // Difficulty: a settings button at the right of the header, after the trail. It drops the
-    // board maker just under the header, over the tools: Difficulty over its pips, a slider
-    // across the dial, filled in the level's color, a new deal and an X that folds it again. The
-    // slider runs 1 to 100 for every game; the ends a game cannot deal show white.
+    // board maker just under the header, over the tools: the game's five levels as play buttons
+    // (as on the Play screen), then a new deal; the button turns to an X on the bar's own plate
+    // to fold it again. Playing a level folds the bar; a new deal leaves it open.
     const bar = $('pg-bar');
     const gen = $('pg-gen');
     this.fold = document.createElement('button');
@@ -76,7 +77,6 @@ export class Playground {
     this.fold.onclick = () => this.setOpen(Boolean(bar.hidden));
     this.fold.setAttribute('aria-controls', 'pg-bar');
     this.fold.title = 'Difficulty';
-    this.slider = createSlider({ min: 1, max: 100, value: this.dial, label: 'Difficulty', format: difficultyWord, onInput: (v) => this.setDial(v) });
     // A new deal: the shuffle and its number are one button.
     const deal = document.createElement('button');
     deal.type = 'button';
@@ -85,8 +85,8 @@ export class Playground {
     deal.title = 'New deal';
     deal.innerHTML = `${icon('shuffle')}<span class="pg-dealno" id="pg-dealno"></span>`;
     deal.onclick = () => this.load(this.deal + 1);
-    const shut = iconButton({ icon: icon('close'), label: 'Close difficulty', className: 'pg-shut', onClick: () => this.setOpen(false) });
-    bar.append(this.slider.el, deal, shut);
+    this.barLevels = document.createElement('div');
+    bar.append(this.barLevels, deal);
 
     // The tools: undo, restart, hint, instructions.
     this.undoBtn = iconButton({ icon: icon('undo'), label: 'Undo', onClick: () => this.host.undo() });
@@ -105,7 +105,8 @@ export class Playground {
     this.gbar.el.classList.add('gbar--play');
     const stats = this.gbar.el.querySelector<HTMLElement>('.gbar-stats')!;
     const row = this.gbar.el.querySelector<HTMLElement>('.gbar-nav .gbar-in')!;
-    bar.prepend(stats.querySelector('.gbar-stat--diff')!);
+    // The levels say the difficulty, so the bar's own pips go.
+    stats.querySelector('.gbar-stat--diff')?.remove();
     $('nav-tools').append(this.fold);
     row.prepend(stats);
     // Open, the board maker hangs over the tools, just under the header.
@@ -196,6 +197,12 @@ export class Playground {
     $('pg-gen').classList.toggle('is-open', open);
     this.fold.setAttribute('aria-expanded', String(open));
     this.fold.setAttribute('aria-label', open ? 'Close difficulty' : 'Difficulty');
+    // Open, the button is the bar's X, on the same gray plate as the bar.
+    this.fold.innerHTML = icon(open ? 'close' : 'settings');
+    if (open) {
+      const gap = bar.getBoundingClientRect().top - this.fold.getBoundingClientRect().bottom;
+      this.fold.style.setProperty('--pg-stem', `${Math.max(0, gap) + 1}px`);
+    }
   }
 
   /** The home: the pinned box about the game in focus, then one card per game: pinned games
@@ -400,19 +407,29 @@ export class Playground {
     this.type = PUZZLES.find((p) => p.id === id) ?? PUZZLES[0];
     this.gbar.setTitle(this.type.name, puzzleIcon(this.type.id, 22));
     this.dial = this.dialOf(this.type.id);
-    this.rebuildSlider();
     $('pg-planned').hidden = Boolean(this.type.make);
     $('pg-play').hidden = !this.type.make;
     this.load(0);
   }
 
-  /** The slider always spans the whole dial; the part the game cannot deal follows the puzzle
-   *  type, so it is rebuilt when that changes. */
-  private rebuildSlider(): void {
-    const { lo, hi } = difficultyRange(this.type.id);
-    const fresh = createSlider({ min: 1, max: 100, value: this.dial, label: 'Difficulty', format: difficultyWord, allowed: [lo, hi], onInput: (v) => this.setDial(v) });
-    this.slider.el.replaceWith(fresh.el);
-    this.slider = fresh;
+  /** The bar's levels, the one dealt at filled in. */
+  private paintLevels(): void {
+    const id = this.type.id;
+    const fresh = levelButtons({ game: id, picked: difficultyLevel(this.dial), label: 'Difficulty', onPlay: (level) => this.playLevel(level) });
+    this.barLevels.replaceWith(fresh);
+    this.barLevels = fresh;
+  }
+
+  /** A level from the bar: a board at that level (the one open if it is already there), and the
+   *  bar folds. */
+  private playLevel(level: number): void {
+    const id = this.type.id;
+    if (difficultyLevel(this.dial) !== level && this.aimAt(id, level)) {
+      this.setDial(this.dialOf(id));
+      this.paintCard(id);
+    }
+    this.setOpen(false);
+    this.fold.focus({ preventScroll: true });
   }
 
   private setDial(d: number): void {
@@ -431,8 +448,7 @@ export class Playground {
     this.deal = deal;
     this.solved = false;
     this.closeWin();
-    this.slider.set(this.dial);
-    this.slider.el.style.setProperty('--slider-fill', `var(--c-lvl-${difficultyLevel(this.dial)})`);
+    this.paintLevels();
     $('pg-dealno').textContent = `#${deal + 1}`;
     rememberDial(this.type.id, this.dial);
     this.shownHint = '';
