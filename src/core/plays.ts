@@ -2,6 +2,8 @@
 // itself on its first play, and its one-line goal leads the status line for the first three.
 // Kept apart from the save: losing it only shows the rules once more.
 
+import { noteRecent } from './recent';
+
 const KEY = 'atomos.plays.v1';
 
 function read(): Record<string, number> {
@@ -24,6 +26,7 @@ export function countPlay(game: string): number {
   const all = read();
   const before = Number.isFinite(all[game]) ? all[game] : 0;
   all[game] = before + 1;
+  noteRecent({ kind: 'game', id: game });
   try {
     localStorage.setItem(KEY, JSON.stringify(all));
     localStorage.setItem(LAST_KEY, game);

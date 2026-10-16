@@ -37,6 +37,10 @@
 /* A heading over a group of rows, staying at the top while its rows scroll. */
 .sheet-group { position: sticky; top: 0; z-index: 1; display: flex; align-items: baseline; gap: var(--sp-2); margin: 0; padding: var(--sp-3) var(--sp-2) var(--sp-1); background: var(--c-bg); font-size: var(--fs-md); font-weight: var(--fw-semibold); color: var(--c-text); }
 .sheet-group small { font-size: var(--fs-sm); font-weight: var(--fw-regular); color: var(--c-text-2); }
+/* Inside a sheet the group headings are the app's small gray capitals (round 3), not the cyan
+   that the older `.sheet h3` rule gave them, with room under them so the first row clears. */
+.sheet .sheet-group { padding: var(--sp-4) var(--sp-2) var(--sp-2); font-size: var(--fs-caps-min); font-weight: var(--fw-semibold); letter-spacing: var(--tracking-caps); text-transform: uppercase; line-height: 1.2; color: var(--c-text-2); }
+.sheet .sheet-group small { font-size: inherit; font-weight: inherit; color: inherit; }
 .sheet-rows { margin: 0; padding: 0; list-style: none; }
 /* A row: a plate (symbol or game icon), the name with a line under it, and a figure on the right. */
 .sheet-row { width: 100%; min-height: 52px; display: flex; align-items: center; gap: var(--sp-3); padding: 4px var(--sp-2); border: 0; border-radius: var(--r-sm); background: transparent; color: var(--c-text); font-family: var(--font); text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; }

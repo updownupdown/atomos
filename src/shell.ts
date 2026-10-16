@@ -19,6 +19,7 @@
 // the mark: Collect › (Nd Neodymium), Collect › Nd › Flux, Atlas › (Nd Neodymium), Play › (Flux), each
 // step a link back up and the atom or game a dropdown where the list helps.
 
+import { noteRecent } from './core/recent';
 import { GalleryApp } from './gallery';
 import { Collect } from './gallery/collect';
 import type { LookId } from './gallery/looks';
@@ -245,6 +246,7 @@ export class AppShell {
    *  their places on the other (a view transition, where the browser has one and motion is on),
    *  while the rest fades; anything else switches at once. */
   async go(screen: Screen, mode: AtomMode = this.mode): Promise<void> {
+    if (screen === 'atom' && mode === 'build') noteRecent({ kind: 'atom', z: this.z });
     // Settings is a sheet now: asked for as a screen (back from a library page), it opens over Home.
     if (screen === 'settings') { await this.go('home'); this.openSettings(); return; }
     // An atom's Info is its page in the Atlas, from wherever it is asked for.

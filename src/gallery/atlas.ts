@@ -384,8 +384,13 @@ export class Atlas {
       legend.innerHTML = FAMILIES.map((f) => `<button type="button" class="at-key at-fam" data-fam="${f.id}" aria-pressed="false"><i style="background:${swatchFill(f.swatch)}"></i>${esc(f.label)}</button>`).join('');
       legend.querySelectorAll<HTMLButtonElement>('.at-fam').forEach((b) => { b.onclick = () => this.lightFamily(b.dataset.fam!); });
       this.paintFamilies();
+      const more = () => { legend.classList.toggle('is-more', legend.scrollLeft + legend.clientWidth < legend.scrollWidth - 2); legend.classList.toggle('is-back', legend.scrollLeft > 2); };
+      legend.onscroll = more;
+      requestAnimationFrame(more);
       return;
     }
+    legend.classList.remove('is-more', 'is-back');
+    legend.onscroll = null;
     if (!lg && !fresh && !lapse) { legend.innerHTML = ''; return; }
     legend.innerHTML = fresh + (!lg ? '' : lg.swatches
       ? lg.swatches.map((s) => `<span class="at-key"><i style="background:${s.color}"></i>${esc(s.label)}</span>`).join('')
@@ -404,6 +409,8 @@ export class Atlas {
     }
     this.paintFamilies();
     this.applySearch();
+    // A family half off screen slides into view when tapped.
+    this.root.querySelector<HTMLElement>(`.at-fam[data-fam="${id}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
   }
 
   private paintFamilies(): void {

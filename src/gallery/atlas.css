@@ -61,6 +61,11 @@
 /* Place's legend: the families, each a button that lights its atoms. */
 /* The families on one row that scrolls sideways (James, 10/16), however many there are. */
 .at-legend:has(.at-fam) { height: auto; gap: 4px; }
+/* The row starts at the left edge; while more families wait to the right, its right edge fades out so the cut reads as "keep swiping". */
+.at-legend:has(.at-fam) { justify-content: flex-start; }
+.at-legend.is-more { --fade-r: 36px; }
+.at-legend.is-back { --fade-l: 36px; }
+.at-legend:is(.is-more, .is-back) { -webkit-mask-image: linear-gradient(to right, transparent, #000 var(--fade-l, 0px), #000 calc(100% - var(--fade-r, 0px)), transparent); mask-image: linear-gradient(to right, transparent, #000 var(--fade-l, 0px), #000 calc(100% - var(--fade-r, 0px)), transparent); }
 .at-fam { flex: none; display: inline-flex; align-items: center; gap: 6px; height: 34px; white-space: nowrap; padding: 0 12px 0 10px; border: 0; border-radius: var(--r-pill); background: transparent; color: var(--c-text-2); font: inherit; font-size: 13px; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .at-fam i { width: 14px; height: 14px; border-radius: 50%; }
 .at-fam:hover { color: var(--c-text); }
