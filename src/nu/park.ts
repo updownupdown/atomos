@@ -21,7 +21,7 @@
 //   Dive    tap to dive Nu through the gaps in turning shells, down to the nucleus.
 //   Hockey, Chain, Split, Pairs: see arcade.ts. Flash, Halo, Pulse: see court.ts. Rally, Ripple:
 //   see swim.ts. Bloom, Hop, Juggle, Loop, Pull, Spark, Twin: see yard.ts. Grow, Rain, Sort, Spot,
-//   Stack, Tilt: see field.ts.
+//   Stack, Tilt: see field.ts. Brick, Drop, Flip, Maze, More, Stick: see lawn.ts.
 // Most games are learnt by trying, so they carry no words: just the score and best under the arena.
 // When the park opens, the guide Nu (src/ui/nu.ts) flies in from the logo and the park takes it
 // over; leaving, it hands Nu back where it is and Nu flies home. It never jumps. Bests are kept
@@ -43,6 +43,7 @@ import { Flash, Halo, Pulse } from './court';
 import { Rally, Ripple } from './swim';
 import { Bloom, Hop, Juggle, Loop, Pull, Spark, Twin } from './yard';
 import { Grow, Rain, Sort, Spot, Stack, Tilt } from './field';
+import { Brick, Drop, Flip, Maze, More, Stick } from './lawn';
 import './park.css';
 
 type PlaceId = 'home' | GameId;
@@ -1673,6 +1674,7 @@ const MAKE: Record<PlaceId, () => Toy> = {
   pulse: () => new Pulse(), rally: () => new Rally(), ripple: () => new Ripple(), bloom: () => new Bloom(), hop: () => new Hop(),
   juggle: () => new Juggle(), loop: () => new Loop(), pull: () => new Pull(), spark: () => new Spark(), twin: () => new Twin(),
   grow: () => new Grow(), rain: () => new Rain(), sort: () => new Sort(), spot: () => new Spot(), stack: () => new Stack(), tilt: () => new Tilt(),
+  brick: () => new Brick(), drop: () => new Drop(), flip: () => new Flip(), maze: () => new Maze(), more: () => new More(), stick: () => new Stick(),
 };
 
 /** The arena fills the field (w x h), its rim just inside the edge; the court is the biggest
@@ -1778,6 +1780,8 @@ const BOTS: Record<GameId, Bot> = {
   sling: { kind: 'sling' }, sort: { kind: 'tap', every: 900, at: 'side' }, spark: { kind: 'tap', every: 2600 },
   split: { kind: 'drag', path: 'row' }, spot: { kind: 'tap', every: 1300 }, stack: { kind: 'tap', every: 1250 },
   tilt: { kind: 'drag', path: 'wander' }, trace: { kind: 'drag', path: 'wander' }, twin: { kind: 'drag', path: 'wander' },
+  brick: { kind: 'drag', path: 'row' }, drop: { kind: 'hold', on: 500, off: 2200 }, flip: { kind: 'tap', every: 750 },
+  maze: { kind: 'drag', path: 'wander' }, more: { kind: 'tap', every: 1300, at: 'side' }, stick: { kind: 'tap', every: 950 },
 };
 
 /** The size a tile plays at, before it's scaled down to fit: about a phone's arena. */

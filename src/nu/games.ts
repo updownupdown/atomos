@@ -3,7 +3,7 @@
 
 import { dayIndex } from './bond';
 
-export type GameId = 'sling' | 'course' | 'echo' | 'orbit' | 'shells' | 'herd' | 'trace' | 'hockey' | 'chain' | 'split' | 'pairs' | 'dive' | 'flash' | 'halo' | 'pulse' | 'rally' | 'ripple' | 'bloom' | 'hop' | 'juggle' | 'loop' | 'pull' | 'spark' | 'twin' | 'grow' | 'rain' | 'sort' | 'spot' | 'stack' | 'tilt';
+export type GameId = 'sling' | 'course' | 'echo' | 'orbit' | 'shells' | 'herd' | 'trace' | 'hockey' | 'chain' | 'split' | 'pairs' | 'dive' | 'flash' | 'halo' | 'pulse' | 'rally' | 'ripple' | 'bloom' | 'hop' | 'juggle' | 'loop' | 'pull' | 'spark' | 'twin' | 'grow' | 'rain' | 'sort' | 'spot' | 'stack' | 'tilt' | 'brick' | 'drop' | 'flip' | 'maze' | 'more' | 'stick';
 
 export const S = (d: string) => `<svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">${d}</svg>`;
 export const ST = 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"';
@@ -40,6 +40,12 @@ const LIST: { id: GameId; label: string; icon: string }[] = [
   { id: 'spot', label: 'Spot', icon: S(`<circle cx="6" cy="6" r="2.4" ${F}/><circle cx="12" cy="6" r="2.4" ${F}/><circle cx="18" cy="6" r="2.4" ${F}/><circle cx="6" cy="12.5" r="2.4" ${F}/><circle cx="12.5" cy="12.5" r="3.4" ${ST}/><circle cx="18" cy="12.5" r="2.4" ${F}/><circle cx="6" cy="19" r="2.4" ${F}/><circle cx="12" cy="19" r="2.4" ${F}/><circle cx="18" cy="19" r="2.4" ${F}/>`) },
   { id: 'stack', label: 'Stack', icon: S(`<circle cx="12" cy="18.5" r="3" ${F}/><circle cx="13" cy="12.5" r="3" ${F}/><circle cx="6" cy="5" r="3" ${ST}/>`) },
   { id: 'tilt', label: 'Tilt', icon: S(`<path d="M3 17L21 9" ${ST}/><circle cx="10" cy="10.5" r="3" ${F}/><circle cx="17" cy="18" r="2.6" ${ST}/>`) },
+  { id: 'brick', label: 'Brick', icon: S(`<circle cx="5" cy="4.5" r="2.2" ${F}/><circle cx="12" cy="4.5" r="2.2" ${F}/><circle cx="19" cy="4.5" r="2.2" ${F}/><circle cx="8.5" cy="10" r="2.2" ${F}/><circle cx="14" cy="15" r="2.4" ${ST}/><path d="M6 20.5h12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>`) },
+  { id: 'drop', label: 'Drop', icon: S(`<circle cx="12" cy="3.5" r="2.4" ${F}/><circle cx="7.5" cy="9.5" r="1.6" ${F}/><circle cx="16.5" cy="9.5" r="1.6" ${F}/><circle cx="12" cy="14" r="1.6" ${F}/><path d="M3 21h18M8 17v4M16 17v4" ${ST}/>`) },
+  { id: 'flip', label: 'Flip', icon: S(`<path d="M3 3h18M3 21h18" ${ST}/><circle cx="7" cy="6.8" r="2.8" ${F}/><rect x="14.5" y="12" width="4.5" height="9" rx="2.25" ${ST}/>`) },
+  { id: 'maze', label: 'Maze', icon: S(`<path d="M3.5 3.5h17v17h-17zM3.5 9.5h11M9.5 15v5.5M15 15h5.5" ${ST}/><circle cx="6.5" cy="17.5" r="2" ${F}/>`) },
+  { id: 'more', label: 'More', icon: S(`<path d="M12 3v18" ${ST} stroke-dasharray="2 3.5"/><circle cx="4.5" cy="7" r="1.9" ${F}/><circle cx="8" cy="12" r="1.9" ${F}/><circle cx="4.5" cy="17" r="1.9" ${F}/><circle cx="18" cy="12" r="1.9" ${F}/>`) },
+  { id: 'stick', label: 'Stick', icon: S(`<circle cx="12" cy="10" r="3.5" ${F}/><circle cx="12" cy="10" r="7" ${ST} stroke-dasharray="2 3"/><circle cx="5.5" cy="7.5" r="1.9" ${F}/><circle cx="17.5" cy="5" r="1.9" ${F}/><circle cx="12" cy="21" r="1.9" ${ST}/>`) },
   { id: 'dive', label: 'Dive', icon: S(`<path d="M8.4 4.3A8.5 8.5 0 1 0 15.6 4.3" ${ST}/><circle cx="12" cy="13" r="3" ${F}/><circle cx="12" cy="2.8" r="2" ${F}/>`) },
 ];
 
