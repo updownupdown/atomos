@@ -840,8 +840,9 @@ body.puzzling #overlay { pointer-events: auto; touch-action: none; }
 .pg-focus-in { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'text demo' 'stats stats' 'levels levels'; gap: var(--sp-3) var(--sp-4); padding: var(--sp-3); border-radius: var(--r-lg); background: var(--c-plate); }
 .pg-demo { grid-area: demo; width: clamp(128px, 36vw, 200px); aspect-ratio: 1; border-radius: var(--r-md); background: var(--c-bg); }
 .pg-focus-text { grid-area: text; align-self: center; display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; }
-.pg-focus-name { font-size: var(--fs-xl); font-weight: var(--fw-semibold); line-height: var(--lh-tight); color: var(--c-text); }
-.pg-focus-goal { margin: 0; font-size: calc(var(--fs-md) * 1.25); line-height: 1.35; color: var(--c-text-2); }
+/* The ringed card under the box names the game, so the box's name is for screen readers only (James, 10/16). */
+.pg-focus-name { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.pg-focus-goal { margin: 0; font-size: 16px; line-height: 1.45; color: var(--c-text); }
 .pg-levels { grid-area: levels; }
 /* Stats: a toggle over the level buttons; open, the Won and Flawless counts at each level in
    columns over the buttons, with a key on the right. */
@@ -910,19 +911,6 @@ body.puzzling #overlay { pointer-events: auto; touch-action: none; }
 .pg-sec .gcard-body { padding-left: 15px; }
 .pg-sec .gcard-diff--beside { padding-right: 15px; }
 .pg-sec:not(.is-focus) .gcard .gcard-go.primary { background: transparent; color: var(--c-text); box-shadow: inset 0 0 0 2px var(--c-text); }
-/* The daily puzzle, above the box: a heading in the modal heading style with the streak at its
-   right, then the day's game card. */
-.pg-daily { padding-top: var(--sp-4); cursor: pointer; }
-/* A snap point at the very top, so the list's snapping (which lines cards up under the box) can
-   rest with the daily in view. */
-.pg-daily { scroll-snap-align: start; scroll-margin-top: calc(-1 * (var(--focus-h) + 14px)); }
-.pg-daily-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); padding: 0 var(--sp-2) var(--sp-2); }
-.pg-daily-title { margin: 0; font-size: var(--fs-caps-min); font-weight: var(--fw-semibold); letter-spacing: var(--tracking-caps); text-transform: uppercase; line-height: 1.2; color: var(--c-text-2); }
-.pg-daily-streak { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-sm); font-weight: var(--fw-semibold); color: var(--c-text); white-space: nowrap; }
-.pg-daily-streak svg { color: var(--c-done); }
-.pg-daily .gcard-name { font-size: var(--fs-xl); }
-.pg-daily .gcard-body { padding-left: 15px; }
-.pg-daily .gcard-diff--beside { padding-right: 15px; }
 .pg-pin-hint { margin: 0; padding: var(--sp-2) var(--sp-4) 0; text-align: center; font-size: var(--fs-sm); color: var(--c-text-2); }
 @media (min-width: 700px) {
   .pg-focus-in { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'text demo' 'stats demo' 'levels demo'; padding: var(--sp-4); }

@@ -26,6 +26,7 @@ import { fleetingOpen } from '../gallery/locks';
 import { earnables } from '../gallery/earn';
 import { PUZZLES, puzzleIcon } from '../puzzles/catalog';
 import { gameCard } from '../puzzles/gameCard';
+import { dailyPuzzle, dailyStreak } from '../puzzles/daily';
 import { icon, type IconName } from '../ui/icons';
 import { nuEnabled, nuIconHtml, nuShow } from '../ui/nu';
 import { NU_BAR_ICON } from '../nu/icon';
@@ -39,7 +40,7 @@ import {
 import './home.css';
 
 export type HomeTarget = 'collect' | 'learn' | 'play' | 'nu';
-export type HomeGo = (to: HomeTarget, at?: { z?: number; game?: string }) => void;
+export type HomeGo = (to: HomeTarget, at?: { z?: number; game?: string; daily?: boolean }) => void;
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 const pct = (f: number) => `${Math.round(Math.max(0, Math.min(1, f)) * 100)}%`;
@@ -344,6 +345,21 @@ function paintGame(box: HTMLElement, go: HomeGo): void {
       action: { label: 'Play', ariaLabel: `Play ${p.name}`, onClick: () => go('play', { game: gid }) },
     });
   };
+  // The daily puzzle first (moved here from Play, James 10/16): today's game at the day's level,
+  // the same board for everyone; Replay once it is solved.
+  const d = dailyPuzzle();
+  const dp = PUZZLES.find((g) => g.id === d.game);
+  if (dp) {
+    const s = dailyStreak();
+    const level = levelWord(d.level);
+    box.append(gameCard({
+      id: dp.id, name: dp.name, difficulty: d.dial,
+      extra: s.today ? `Solved today${s.flawless ? ', flawless' : ''} · ${level}` : `Today's puzzle · ${level}`,
+      action: s.today
+        ? { label: 'Replay', ariaLabel: `Replay today's ${dp.name}`, onClick: () => go('play', { game: dp.id, daily: true }) }
+        : { label: 'Play', ariaLabel: `Play today's ${dp.name}`, onClick: () => go('play', { game: dp.id, daily: true }) },
+    }));
+  }
   box.append(card(id, levelLine(id)));
   const other = randomGame(ids, id, today().index);
   if (other) box.append(card(other, playsOf(other) ? 'Random pick' : 'Random pick · new to you'));

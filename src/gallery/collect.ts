@@ -181,10 +181,11 @@ export function mountAtomRow(host: HTMLElement, z: number, save: SaveData, actio
   host.querySelector<HTMLButtonElement>('.co-build')!.onclick = onClick;
 }
 
-/** The share of a period's parts built, as a small bar: white under way, green once whole. */
+/** A period's parts built, as its icon and a count ("25/177"): gray under way, green once whole.
+ *  Counts, not bars: early in a period a bar is nearly empty and says nothing (James, 10/16). */
 function pbar(ico: string, label: string, n: number, total: number): string {
   const done = total > 0 && n >= total;
-  return `<span class="co-pbar${done ? ' is-done' : ''}" role="img" aria-label="${label}: ${fmt(n)} of ${fmt(total)}">${icon(ico as never, { size: 16 })}<span class="co-trk"><i style="width:${width(total ? n / total : 0)}"></i></span></span>`;
+  return `<span class="co-pbar${done ? ' is-done' : ''}" role="img" aria-label="${label}: ${fmt(n)} of ${fmt(total)}">${icon(ico as never, { size: 20 })}<span class="co-pnum" aria-hidden="true">${fmt(n)}/${fmt(total)}</span></span>`;
 }
 
 /** One of the collection's totals, a row: its icon, the word, a bar, and built of all. */
