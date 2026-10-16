@@ -137,6 +137,8 @@ export const NU_SHOW_MS = 5000;
 export const NU_COOLDOWN_MS = 60_000;
 /** Once round, in ms, while circling. */
 const NU_TURN_MS = 2600;
+/** How long a swoop off a toy's orbit lasts. */
+const NU_LEAP_MS = 1100;
 /** How long Nu sits at home, with no touch or scroll, before it goes to play round a toy. */
 const NU_IDLE_MS = 15_000;
 /** How long Nu naps when you come back after days away, unless woken sooner. */
@@ -176,6 +178,9 @@ interface Task {
   sticky?: boolean;
   /** A toy's orbit to fly along, in place of a circle round the target. */
   ring?: SVGEllipseElement;
+  /** Riding a toy's orbit: when (ms after arriving) Nu spins up off it for a moment, to dive
+   *  back in for another turn. */
+  leap?: number;
   /** Hide and seek: Nu is hiding here, peeking out, until it's found. */
   hide?: boolean;
   /** Reading along the target's lines, each `read` px tall. */
@@ -261,8 +266,6 @@ class Guide {
   private lastAct = 0;
   private lastPlay = -Infinity;
   private idleTimer = 0;
-  /** On the far side of a toy's orbit (drawn dimmer, as if behind its nucleus). */
-  private behind = false;
   private hideTimer = 0;
 
   start(): void {
@@ -476,8 +479,14 @@ class Guide {
       const a = (from ? ringAngle(t.ring, from) : t.a0) + ((now - t.t0) / NU_TURN_MS) * 2 * Math.PI;
       const q = ringPoint(t.ring, a);
       if (!q) return null;
-      this.behind = Math.sin(a) < 0;
-      return { p: q, c: ringPoint(t.ring, null) ?? q };
+      const c = ringPoint(t.ring, null) ?? q;
+      const u = t.leap !== undefined && t.arrived ? (now - t.arrived - t.leap) / NU_LEAP_MS : -1;
+      if (u > 0 && u < 1) {
+        // Off the track: out and up in a swoop, and back onto it further round.
+        const k = Math.sin(Math.PI * u);
+        return { p: this.clamp({ x: c.x + (q.x - c.x) * (1 + 1.4 * k), y: c.y + (q.y - c.y) * (1 + 1.4 * k) - 34 * k }), c };
+      }
+      return { p: q, c };
     }
     const c = middle(r);
     if (!(t.target instanceof Element) && typeof t.target !== 'function') return { p: c, c };
@@ -648,7 +657,6 @@ class Guide {
     const now = performance.now();
     this.head.style.transform = `translate(${p.x.toFixed(1)}px, ${p.y.toFixed(1)}px) scale(${k.toFixed(3)})`;
     const t = this.task;
-    this.layer.classList.toggle('is-back', !!t?.ring && !!t.arrived && !this.flight && this.behind);
     this.layer.classList.toggle('is-hiding', !!t?.hide && !!t.arrived && !this.flight);
     this.hist.unshift({ x: p.x, y: p.y, t: now });
     while (this.hist.length > 2 && now - this.hist[this.hist.length - 1].t > TRAIL_MS) this.hist.pop();
@@ -688,7 +696,9 @@ class Guide {
     }
     if (!best) { this.idleSoon(5000); return; }
     this.lastPlay = now;
-    this.begin({ target: best.toy, ring: best.ring, ms: NU_SHOW_MS, t0: now, a0: 0, arrived: 0 });
+    // Sometimes it spins up off the orbit partway round, and dives back in for another turn.
+    const leap = Math.random() < 0.6 ? 1200 + Math.random() * 1600 : undefined;
+    this.begin({ target: best.toy, ring: best.ring, ms: NU_SHOW_MS + (leap ? NU_LEAP_MS : 0), t0: now, a0: 0, arrived: 0, leap });
   }
 
   private land(slot: Element): void {

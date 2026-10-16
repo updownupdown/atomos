@@ -6,7 +6,7 @@
 // one of its toys and it fetches it back to you. Left alone, it brings you a toy. Drop a toy in
 // the round toy box to put it away; tap the box a few times and Nu tidies up (if it listens,
 // and it may not finish). Throw a toy in the round pool and Nu swims out for it, slowly. The
-// round button under the arena opens the games, a 3 by 4 grid, and Nu circles the one it
+// round button under the arena opens the games, a grid A to Z, and Nu circles the one it
 // fancies today; under the grid, "Read from the Atlas" opens a random atom's page and Nu reads
 // along (read.ts):
 //   Orbit   Nu runs round two rings; tap to turn, swipe to hop rings, catch photons, dodge red.
@@ -17,7 +17,7 @@
 //   Course  lead Nu up a channel past orbiting electrons, against the clock.
 //   Trace   draw a path and Nu rides it, lighting stars and missing the red.
 //   Dive    tap to dive Nu through the gaps in turning shells, down to the nucleus.
-//   Hockey, Chain, Split, Pairs: see arcade.ts.
+//   Hockey, Chain, Split, Pairs: see arcade.ts. Flash, Halo, Pulse: see court.ts.
 // Most games are learnt by trying, so they carry no words: just the score and best under the arena.
 // When the park opens, the guide Nu (src/ui/nu.ts) flies in from the logo and the park takes it
 // over; leaving, it hands Nu back where it is and Nu flies home. It never jumps. Bests are kept
@@ -33,6 +33,7 @@ import {
   anywhere, arenaPath, best, Bests, Body, bounceIn, buzz, captureSound, chimeSound, clamp, completeSound, CYAN, dist, dot, edge, Fx, GREEN, inside, K300, K500, K800, K900, K975, missSound, Mover, NOTE_COLOURS, Pt, readBests, RED, rimPoint, ring, ROSE, seeded, setBest, Stage, TAU, tickSound, Toy, WHITE, writeBests,
 } from './kit';
 import { Chain, Hockey, Pairs, Split } from './arcade';
+import { Flash, Halo, Pulse } from './court';
 import './park.css';
 
 type PlaceId = 'home' | GameId;
@@ -721,22 +722,39 @@ class Course implements Toy {
       return;
     }
     if (this.state === 'done') { nu.seek(this.path[this.path.length - 1], dt, 0.3, 0.01); return; }
+    // Still holding on after being knocked back: Nu takes up the finger again from where it is.
+    if (this.finger && !this.grab) this.grab = { x: nu.x - this.finger.x, y: nu.y - this.finger.y };
     if (this.state === 'ready' && this.finger) this.state = 'run';
     if (this.state !== 'run') { nu.seek({ x: this.path[0].x, y: this.path[0].y + Math.sin(now / 600) * 3 }, dt, 0.2, 0.01); return; }
     this.time += dt;
-    if (this.finger && this.grab) nu.seek({ x: this.grab.x + this.finger.x, y: this.grab.y + this.finger.y }, dt, 0.42, 0.02);
-    else { nu.vx *= 0.9; nu.vy *= 0.9; }
-    const n = this.nearest(nu);
-    this.progress = n.i;
+    // Nu goes straight where the finger says, no swinging past it, at most so fast; and it's
+    // checked against the walls every few px of the way, so a quick move can't skip through one.
+    nu.vx = nu.vy = 0;
+    let hit = false;
+    if (this.finger && this.grab) {
+      const to = { x: this.grab.x + this.finger.x, y: this.grab.y + this.finger.y };
+      const d = dist(nu, to), go = Math.min(d, 1.1 * dt), steps = Math.max(1, Math.ceil(go / 3));
+      const ux = d ? (to.x - nu.x) / d : 0, uy = d ? (to.y - nu.y) / d : 0;
+      for (let k = 0; k < steps && !hit; k++) {
+        nu.x += (ux * go) / steps;
+        nu.y += (uy * go) / steps;
+        const n = this.nearest(nu);
+        this.progress = n.i;
+        hit = n.d > this.half - nu.r * 0.75;
+      }
+      // Where Nu is now, for its trail.
+      nu.vx = (ux * go) / dt;
+      nu.vy = (uy * go) / dt;
+    }
     for (let g = this.gates.length - 1; g > this.gate; g--) if (this.progress >= this.gates[g]) { this.gate = g; s.fx.ring(this.path[this.gates[g]], CYAN, 8, 30, 600); tickSound(2); break; }
-    let hit = n.d > this.half - nu.r;
     if (!hit) for (const o of this.orbits) if (dist(nu, this.electron(o, now)) < nu.r + 4) hit = true;
     if (hit) {
       this.hitAt = now;
       s.fx.ring(nu, RED, nu.r, nu.r + 22, 500);
       missSound();
       this.state = 'back';
-      this.finger = null;
+      nu.vx = nu.vy = 0;
+      this.grab = null;
       return;
     }
     if (this.progress >= this.path.length - 3) {
@@ -792,7 +810,8 @@ class Course implements Toy {
 
   down(s: Stage, p: Pt): void {
     if (this.state === 'done') { this.level++; this.build(s); return; }
-    if (this.state === 'run' || this.state === 'ready') { this.finger = p; this.grab = { x: s.nu.x - p.x, y: s.nu.y - p.y }; }
+    this.finger = p;
+    this.grab = this.state === 'run' || this.state === 'ready' ? { x: s.nu.x - p.x, y: s.nu.y - p.y } : null;
   }
 
   move(_s: Stage, p: Pt): void { if (this.finger) this.finger = p; }
@@ -1415,13 +1434,16 @@ class Trace implements Toy {
 
 // ---- Dive ------------------------------------------------------------------------------------
 
-/** Shells turn round the nucleus, each with a gap. Nu waits at the top; tap and it dives through
- *  the next shell, if its gap is there. Miss and it bounces back out a shell. Reach the nucleus
+/** Shells turn round the nucleus, each with a few gaps. Nu waits at the top; tap and it dives
+ *  through the next shell, if a gap is there. Miss and it bounces back out a shell. Reach the nucleus
  *  for the next atom, with one more shell. */
 class Dive implements Toy {
   court = true;
   private level = 1;
-  private shells: { phase: number; speed: number; gap: number }[] = [];
+  /** Each shell turns at its own speed with 2 to 4 gaps of different widths round it (their
+   *  middles, from the shell's turn, and their widths, in radians): wait for a wide one, or
+   *  risk a narrow one coming sooner. */
+  private shells: { phase: number; speed: number; gaps: { at: number; w: number }[] }[] = [];
   /** How many shells Nu is through. */
   private band = 0;
   private hitAt = 0;
@@ -1451,7 +1473,13 @@ class Dive implements Toy {
     this.shells = [];
     for (let k = 0; k < n; k++) {
       const sp = (0.0006 + rnd() * 0.0006 + this.level * 0.00008) * (k % 2 ? -1 : 1);
-      this.shells.push({ phase: rnd() * TAU, speed: sp, gap: Math.max(0.3, 0.55 - this.level * 0.03) });
+      const n = 2 + Math.floor(rnd() * 3), wide = Math.max(0.3, 0.55 - this.level * 0.03), gaps: { at: number; w: number }[] = [];
+      for (let g = 0; g < n; g++) {
+        // Spread round the shell, a little off even; one wide, the rest narrower.
+        const at = (g * TAU) / n + (rnd() - 0.5) * (TAU / n) * 0.35;
+        gaps.push({ at, w: g === 0 ? wide : wide * (0.55 + rnd() * 0.3) });
+      }
+      this.shells.push({ phase: rnd() * TAU, speed: sp, gaps });
     }
     this.band = 0;
     this.doneAt = 0;
@@ -1459,13 +1487,13 @@ class Dive implements Toy {
     s.score(this.level, best(s, 'dive') || null);
   }
 
-  /** The middle of shell k's gap, now. */
-  private gapAt(k: number, now: number): number { const sh = this.shells[k]; return sh.phase + now * sh.speed; }
+  /** How far shell k has turned, now. */
+  private turn(k: number, now: number): number { const sh = this.shells[k]; return sh.phase + now * sh.speed; }
 
-  /** Nu is at the top (straight up from the nucleus): is shell k's gap there? */
+  /** Nu is at the top (straight up from the nucleus): is one of shell k's gaps there? */
   private open(s: Stage, k: number, now: number): boolean {
-    const top = -Math.PI / 2, d = Math.abs(Math.atan2(Math.sin(this.gapAt(k, now) - top), Math.cos(this.gapAt(k, now) - top)));
-    return d < this.shells[k].gap / 2 - s.nu.r / this.radius(s, k);
+    const top = -Math.PI / 2, t = this.turn(k, now), pad = s.nu.r / this.radius(s, k);
+    return this.shells[k].gaps.some((g) => Math.abs(Math.atan2(Math.sin(t + g.at - top), Math.cos(t + g.at - top))) < g.w / 2 - pad);
   }
 
   step(s: Stage, dt: number, now: number): void {
@@ -1478,13 +1506,18 @@ class Dive implements Toy {
     ctx.save();
     ctx.lineCap = 'round';
     this.shells.forEach((sh, k) => {
-      const r = this.radius(s, k), g = this.gapAt(k, now);
+      const r = this.radius(s, k), t = this.turn(k, now);
       ctx.strokeStyle = k === this.hitShell && flash > 0 ? RED : k < this.band ? CYAN : K300;
       ctx.globalAlpha = k < this.band ? 0.35 : 0.85;
       ctx.lineWidth = 4;
-      ctx.beginPath();
-      ctx.arc(s.c.x, s.c.y, r, g + sh.gap / 2, g - sh.gap / 2 + TAU);
-      ctx.stroke();
+      // The shell between its gaps, in pieces.
+      const gs = sh.gaps.slice().sort((a, b) => a.at - b.at);
+      gs.forEach((g, i) => {
+        const nx = gs[(i + 1) % gs.length], end = nx.at - nx.w / 2 + (i === gs.length - 1 ? TAU : 0);
+        ctx.beginPath();
+        ctx.arc(s.c.x, s.c.y, r, t + g.at + g.w / 2, t + end);
+        ctx.stroke();
+      });
     });
     ctx.restore();
     const won = this.band >= this.shells.length;
@@ -1536,7 +1569,7 @@ export class NuPark {
   private pickEl: HTMLElement;
   private goBtn: HTMLButtonElement;
   private off: HTMLElement;
-  private toys: Record<PlaceId, Toy> = { home: new Home(), sling: new Sling(), course: new Course(), echo: new Echo(), orbit: new Orbit(), shells: new Shells(), herd: new Herd(), trace: new Trace(), hockey: new Hockey(), chain: new Chain(), split: new Split(), pairs: new Pairs(), dive: new Dive() };
+  private toys: Record<PlaceId, Toy> = { home: new Home(), sling: new Sling(), course: new Course(), echo: new Echo(), orbit: new Orbit(), shells: new Shells(), herd: new Herd(), trace: new Trace(), hockey: new Hockey(), chain: new Chain(), split: new Split(), pairs: new Pairs(), dive: new Dive(), flash: new Flash(), halo: new Halo(), pulse: new Pulse() };
   private place: PlaceId = 'home';
   private stage: Stage;
   private frame = 0;

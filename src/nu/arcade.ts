@@ -5,7 +5,7 @@
 //   Pairs   atom cards face down; turn two at a time to find the pairs, in as few turns as you can.
 
 import {
-  CYAN, K300, K500, K800, K900, NOTE_COLOURS, RED, TAU, WHITE,
+  CYAN, K300, K500, K800, K900, NOTE_COLOURS, RED, ROSE, TAU, WHITE,
   best, bounceIn, buzz, chimeSound, clamp, completeSound, dist, dot, edge, inside, missSound, ring, setBest, tickSound,
   type Mover, type Pt, type Stage, type Toy,
 } from './kit';
@@ -391,7 +391,9 @@ type Glyph = { z: number; symbol: string; colour: string; ink: string };
 /** Atom cards face down. Turn two at a time (Nu flies to each); a pair stays up. Find them all
  *  in as few turns as you can: the best is the fewest. */
 export class Pairs implements Toy {
-  private tiles: { p: Pt; g: Glyph; up: boolean; done: boolean; turned: number }[] = [];
+  private tiles: { p: Pt; g: Glyph; up: boolean; done: boolean; turned: number; matched: number }[] = [];
+  /** Nu's little celebration of a pair: when, and the two cards it loops round. */
+  private cheer: { at: number; a: Pt; b: Pt } | null = null;
   private open: number[] = [];
   private turns = 0;
   private hold = 0;
@@ -420,7 +422,7 @@ export class Pairs implements Toy {
     this.size = Math.min(gx, gy) * 0.42;
     this.tiles = deck.map((g, i) => ({
       p: { x: s.c.x - s.hw + 15 + gx * ((i % cols) + 0.5), y: s.c.y - s.hh + 15 + gy * (Math.floor(i / cols) + 0.5) },
-      g, up: false, done: false, turned: 0,
+      g, up: false, done: false, turned: 0, matched: 0,
     }));
     this.open = [];
     this.turns = 0;
@@ -430,7 +432,22 @@ export class Pairs implements Toy {
 
   step(s: Stage, dt: number, now: number): void {
     const nu = s.nu;
-    nu.seek(this.flyTo ?? s.c, dt, 0.8, 0.03);
+    // Nu keeps round the card it's looking at, never on it, so the atom's name stays clear.
+    // A pair found: it loops round the two cards, a little bigger and brighter.
+    const ch = this.cheer && now - this.cheer.at < 1100 ? this.cheer : null;
+    nu.scale = ch ? 1 + 0.25 * Math.sin(((now - ch.at) / 1100) * Math.PI) : 1;
+    nu.glow = ch ? 2.2 : 1;
+    let to: Pt = s.c;
+    if (ch) {
+      const m = { x: (ch.a.x + ch.b.x) / 2, y: (ch.a.y + ch.b.y) / 2 }, half = dist(ch.a, ch.b) / 2 + this.size + 10;
+      const a = ((now - ch.at) / 1100) * TAU, ang = Math.atan2(ch.b.y - ch.a.y, ch.b.x - ch.a.x);
+      const ex = Math.cos(a) * half, ey = Math.sin(a) * (this.size + 12);
+      to = { x: m.x + ex * Math.cos(ang) - ey * Math.sin(ang), y: m.y + ex * Math.sin(ang) + ey * Math.cos(ang) };
+    } else if (this.flyTo) {
+      const a = now / 700;
+      to = { x: this.flyTo.x + Math.cos(a) * (this.size + 12), y: this.flyTo.y + Math.sin(a) * (this.size + 12) };
+    }
+    nu.seek(to, dt, ch ? 1.4 : 0.8, ch ? 0.08 : 0.03);
     if (this.hold > 0) {
       this.hold -= dt;
       if (this.hold <= 0) {
@@ -447,12 +464,20 @@ export class Pairs implements Toy {
       const flip = clamp((now - t.turned) / 180, 0, 1), showing = t.up || t.done;
       if (!showing) { dot(ctx, t.p, r, K900); ring(ctx, t.p, r, K500, 2, 0.7); continue; }
       // The card turns over: it grows from a sliver to the full atom card.
-      const g = t.g, rr = r * (0.6 + 0.4 * flip);
-      dot(ctx, t.p, rr, g.colour, t.done ? 0.75 : 1);
+      // A pair glows a moment when found, then settles at half strength: done.
+      const g = t.g, rr = r * (0.6 + 0.4 * flip), since = now - t.matched;
+      const glow = t.done ? clamp(1 - (since - 500) / 600, 0, 1) : 0, alpha = t.done ? 0.5 + 0.5 * glow : 1;
+      if (glow > 0) {
+        ctx.save();
+        ctx.shadowColor = g.colour;
+        ctx.shadowBlur = 26 * glow;
+        dot(ctx, t.p, rr + 3 * glow, g.colour, alpha);
+        ctx.restore();
+      } else dot(ctx, t.p, rr, g.colour, alpha);
       if (flip > 0.5) {
         ctx.save();
         ctx.fillStyle = g.ink;
-        ctx.globalAlpha = t.done ? 0.75 : 1;
+        ctx.globalAlpha = alpha;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.font = `600 ${Math.round(r * 0.72)}px Outfit, system-ui, sans-serif`;
@@ -461,7 +486,6 @@ export class Pairs implements Toy {
         ctx.fillText(String(g.z), t.p.x, t.p.y - r * 0.5);
         ctx.restore();
       }
-      if (t.done) ring(ctx, t.p, r, g.colour, 2, 0.5);
     }
     s.nu.draw(ctx, now);
   }
@@ -482,6 +506,10 @@ export class Pairs implements Toy {
     const [a, b] = this.open.map((k) => this.tiles[k]);
     if (a.g.z === b.g.z) {
       a.done = b.done = true;
+      a.matched = b.matched = performance.now();
+      this.cheer = { at: performance.now(), a: a.p, b: b.p };
+      this.flyTo = null;
+      s.fx.burst({ x: (a.p.x + b.p.x) / 2, y: (a.p.y + b.p.y) / 2 }, 8, ROSE, 0.1);
       this.open = [];
       chimeSound(a.g.z % 5);
       s.fx.ring(a.p, a.g.colour, this.size, this.size + 18, 500);
