@@ -292,6 +292,8 @@ export interface Toy {
   court?: boolean;
   /** Wants room under the court for its own controls (Stage.pad). */
   controls?: boolean;
+  /** Wants a court bigger than the arena is wide (or tall), its sides cropped. */
+  big?: boolean;
   /** Nu is here (or the game was just picked): set up. */
   enter(s: Stage): void;
   step(s: Stage, dt: number, now: number): void;
