@@ -29,7 +29,8 @@ import { gameCard } from '../puzzles/gameCard';
 import { icon, type IconName } from '../ui/icons';
 import { nuEnabled, nuIconHtml, nuShow } from '../ui/nu';
 import { NU_BAR_ICON } from '../nu/icon';
-import { nuPick } from '../nu/games';
+import { nuPick, nuReads } from '../nu/games';
+import { readWithNu } from '../nu/read';
 import { finds, foundToday, hideDue, treats } from '../nu/bond';
 import {
   atomOfDay, candidates, clues, finishQuiz, headlineOf, liveStreak, quizOf, readDay, today, writeDay,
@@ -70,6 +71,9 @@ export function renderHome(host: HTMLElement, go: HomeGo): void {
     + (nuEnabled() ? SEP + panel('nu', 'Nu', { html: NU_BAR_ICON }, nuBody()) : '');
   host.querySelectorAll<HTMLButtonElement>('[data-go]').forEach((b) => { b.onclick = () => go(b.dataset.go as HomeTarget); });
   host.querySelectorAll<HTMLButtonElement>('[data-nu-game]').forEach((b) => { b.onclick = () => go('nu', { game: b.dataset.nuGame }); });
+  host.querySelectorAll<HTMLButtonElement>('[data-nu-read]').forEach((b) => {
+    b.onclick = () => { const z = Number(b.dataset.nuRead); readWithNu(z); go('learn', { z }); };
+  });
   wireCollect(host, save);
   const day = today();
   const guess = host.querySelector<HTMLElement>('.home-guess')!;
@@ -347,7 +351,8 @@ function paintGame(box: HTMLElement, go: HomeGo): void {
 
 // ---------- Nu ----------
 
-/** Nu's section: the game it wants to play today (into its park), and what's waiting there:
+/** Nu's section: the game it wants to play today (into its park), or some days an atom it wants
+ *  to read about (its Atlas page, where Nu reads along), and what's waiting in its park:
  *  treats from wins, and a hint that it's hiding somewhere today (or how often it's been found). */
 function nuBody(): string {
   const g = nuPick(), n = treats(), f = finds();
@@ -355,6 +360,15 @@ function nuBody(): string {
   if (n) notes.push(`${n} ${n === 1 ? 'treat' : 'treats'} waiting`);
   if (hideDue()) notes.push('Hiding somewhere today');
   else if (foundToday()) notes.push(`Found ${f === 1 ? 'once' : `${f} times`}`);
+  const z = nuReads(undefined, MAX_Z);
+  if (z !== null) {
+    // Some days Nu would rather read: an atom's page in the Atlas, and it reads along.
+    const e = elementAt(z);
+    return `<button type="button" class="home-card home-link home-nupick" data-nu-read="${z}">`
+      + plate(e, 'home-nupick-atom')
+      + `<span class="home-grow"><b>Nu wants to read about ${esc(e.name)}</b>${notes.length ? `<small>${notes.join(' · ')}</small>` : '<small>In the Atlas</small>'}</span>`
+      + `${icon('chevron-right', { size: 20 })}</button>`;
+  }
   return `<button type="button" class="home-card home-link home-nupick" data-nu-game="${g.id}">`
     + `<span class="home-nupick-ico" aria-hidden="true">${g.icon}</span>`
     + `<span class="home-grow"><b>Nu wants to play ${g.label}</b>${notes.length ? `<small>${notes.join(' · ')}</small>` : ''}</span>`

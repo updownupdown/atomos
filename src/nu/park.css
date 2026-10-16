@@ -1,35 +1,38 @@
-/* Nu's park (park.ts): the score over an arena drawn like the logo, as large as the screen allows, and under it the round
-   button that opens the games, set round the middle of the arena like the logo's nucleus. */
+/* Nu's park (park.ts): an arena drawn like the logo, as large as the screen allows, and under it the score, the round
+   button that opens the games (a grid over the arena) and the best. */
 .nu-screen { position: fixed; inset: 0; z-index: 4; padding: var(--top) var(--sp-2) calc(var(--sp-3) + env(safe-area-inset-bottom, 0px)); background: var(--c-bg); color: var(--c-text); font-family: var(--font); }
 .nu-screen[hidden] { display: none; }
 .nup { height: 100%; max-width: 720px; margin: 0 auto; display: flex; flex-direction: column; align-items: center; padding-top: var(--sp-1); }
-
-/* The score: a big number, the best small beside it. Kept tall so the arena never moves. */
-.nup-score { flex: none; display: flex; align-items: baseline; justify-content: center; gap: var(--sp-2); min-height: 44px; margin: 0; font-variant-numeric: tabular-nums; }
-.nup-score b { font-size: 32px; font-weight: var(--fw-semibold); line-height: 1.1; }
-.nup-score small { font-size: var(--fs-sm); color: var(--c-text-2); }
 
 .nup-field { position: relative; flex: 1; min-height: 0; width: 100%; }
 .nup-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; user-select: none; -webkit-user-select: none; }
 
 /* The games, round Nu's home in the middle. park.ts places each button's middle. */
-.nup-pick { position: absolute; inset: 0; pointer-events: none; }
+.nup-pick { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; gap: var(--sp-4); padding: var(--sp-4) var(--sp-4); }
 .nup-pick[hidden] { display: none; }
-.nup-pick-btn { position: absolute; width: 54px; height: 54px; margin: -27px 0 0 -27px; display: flex; align-items: center; justify-content: center; padding: 0; border: 0; border-radius: 50%; background: var(--c-tile); color: var(--c-tile-ink); font: inherit; cursor: pointer; pointer-events: auto; -webkit-tap-highlight-color: transparent; animation: nup-pop 260ms ease-out both; }
+/* The games: a 3 by 4 grid of round buttons, each named under it. */
+.nup-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-3) var(--sp-2); }
+.nup-pick-btn { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 0; border: 0; background: none; color: var(--c-text); font: inherit; font-size: var(--fs-sm); font-weight: var(--fw-semibold); cursor: pointer; -webkit-tap-highlight-color: transparent; animation: nup-pop 260ms ease-out both; }
+.nup-pick-btn i { width: 56px; height: 56px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: var(--c-tile); color: var(--c-tile-ink); }
 .nup-pick-btn svg { width: 26px; height: 26px; display: block; }
-.nup-pick-btn span { position: absolute; top: 100%; left: 50%; transform: translateX(-50%); margin-top: 4px; font-size: var(--fs-sm); font-weight: var(--fw-semibold); color: var(--c-text); white-space: nowrap; }
-.nup-pick-btn.is-home { width: 72px; height: 72px; margin: -36px 0 0 -36px; background: var(--c-plate); color: var(--c-go); }
-.nup-pick-btn.is-home svg { width: 34px; height: 34px; }
-.nup-pick-btn.is-here { box-shadow: 0 0 0 3px var(--c-bg), 0 0 0 5px var(--c-accent); }
-.nup-pick-btn:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 3px; }
-@keyframes nup-pop { from { opacity: 0; transform: scale(0.6); } }
-@media (prefers-reduced-motion: reduce) { .nup-pick-btn { animation: none; } }
+.nup-pick-btn.is-here i { box-shadow: 0 0 0 3px var(--c-bg), 0 0 0 5px var(--c-accent); }
+.nup-pick-btn:focus-visible { outline: none; }
+.nup-pick-btn:focus-visible i { outline: 2px solid var(--c-accent); outline-offset: 3px; }
+/* Under the grid, full width: a random atom's page in the Atlas, which Nu reads along. */
+.nup-read { display: flex; align-items: center; justify-content: center; gap: var(--sp-2); min-height: 52px; padding: 0 var(--sp-4); border: 0; border-radius: var(--r-pill); background: var(--c-plate); color: var(--c-text); font: inherit; font-weight: var(--fw-semibold); cursor: pointer; -webkit-tap-highlight-color: transparent; animation: nup-pop 260ms ease-out both; }
+.nup-read svg { width: 22px; height: 22px; display: block; color: var(--c-accent); }
+.nup-read:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 3px; }
+@keyframes nup-pop { from { opacity: 0; transform: scale(0.8); } }
+@media (prefers-reduced-motion: reduce) { .nup-pick-btn, .nup-read { animation: none; } }
 
-/* The round button under the arena: opens and closes the games. */
-.nup-go { flex: none; width: 56px; height: 56px; margin-top: var(--sp-3); display: flex; align-items: center; justify-content: center; padding: 0; border: 0; border-radius: 50%; background: var(--c-plate); color: var(--c-text); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+/* Under the arena: the score at the left, the games button in the middle, the best at the right. */
+.nup-foot { flex: none; width: 100%; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; margin-top: var(--sp-3); padding: 0 var(--sp-3); }
+.nup-score { margin: 0; justify-self: start; font-size: 32px; font-weight: var(--fw-semibold); line-height: 1.1; font-variant-numeric: tabular-nums; }
+.nup-go { width: 56px; height: 56px; display: flex; align-items: center; justify-content: center; padding: 0; border: 0; border-radius: 50%; background: var(--c-plate); color: var(--c-text); cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .nup-go[hidden] { visibility: hidden; display: flex; }
 .nup-go svg { width: 26px; height: 26px; display: block; }
 .nup-go:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 3px; }
+.nup-best { margin: 0; justify-self: end; font-size: var(--fs-md); color: var(--c-text-2); font-variant-numeric: tabular-nums; }
 
 .nup-off { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--sp-3); text-align: center; color: var(--c-text-2); font-size: var(--fs-md); }
 .nup-off[hidden] { display: none; }
