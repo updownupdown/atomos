@@ -60,3 +60,19 @@ describe("Nu's bond", () => {
     expect(b.toysSeen()).toEqual([1]);
   });
 });
+
+describe("Nu's toy box", () => {
+  it('keeps what is boxed, and Nu moves a toy while you are away', async () => {
+    const b = await import('../src/nu/bond');
+    b.arrive(1_000_000_000_000);
+    b.keepBox(['hoop'], ['photon', 'hoop', 'pair']);
+    expect(b.boxedToys()).toEqual(['hoop']);
+    // A roll under 0.6 moves a toy: here the first one (photon) goes in.
+    const rolls = [0.1, 0];
+    b.arrive(1_000_000_100_000, () => rolls.shift() ?? 0.9);
+    expect(b.boxedToys().sort()).toEqual(['hoop', 'photon']);
+    // A roll over 0.6 leaves the box as it was.
+    b.arrive(1_000_000_200_000, () => 0.9);
+    expect(b.boxedToys().sort()).toEqual(['hoop', 'photon']);
+  });
+});
