@@ -93,8 +93,9 @@ const STORY: Record<LayoutId, Story> = {
   },
 };
 
-/** The shape in miniature: every cell in its period color, no text. */
-function figure(id: LayoutId): string {
+/** The shape in miniature: every cell in its period color, no text. Collect shows it the
+ *  moment a period is finished. */
+export function shapeFigure(id: LayoutId): string {
   const l = layout(id);
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
   for (const c of l.cells) {
@@ -111,7 +112,7 @@ const section = (title: string, ps: string[]) => `<h3>${title}</h3>${ps.map((p) 
 /** The sheet's body for one shape, under its title. */
 export function shapeStory(id: LayoutId): string {
   const s = STORY[id];
-  return `<div class="ss">${figure(id)}
+  return `<div class="ss">${shapeFigure(id)}
     <dl class="ss-facts">${s.facts.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('')}</dl>
     ${section('Where it comes from', s.origin)}${section('Why draw it this way', s.why)}${section('How to read it', s.read)}</div>`;
 }

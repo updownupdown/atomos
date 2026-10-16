@@ -35,6 +35,8 @@ describe('element dataset', () => {
     expect(formatHalfLife(null)).toBe('stable');
     expect(formatHalfLife(0.00069)).toBe('690 µs');
     expect(formatHalfLife(1.4e17)).toBe('4.44 billion y');
+    expect(formatHalfLife(2.29e15 * 3.156e7)).toBe('2.29 quadrillion y');
+    expect(formatHalfLife(2.2e24 * 3.156e7)).toBe('2.2 septillion y');
   });
 });
 

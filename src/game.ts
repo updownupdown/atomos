@@ -41,7 +41,7 @@ import { countPlay, GOAL_PLAYS } from './core/plays';
 import { recordWin } from './core/wins';
 import { icon, type IconName } from './ui/icons';
 import { scienceButton, setScienceHandler } from './ui/science';
-import { elementAt, shortConfiguration } from './gallery/data';
+import { elementAt, formatHalfLife, shortConfiguration } from './gallery/data';
 import * as sfx from './audio';
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -94,7 +94,7 @@ export class Game {
   /** The next step, as of the last time the Build page was drawn. */
   private nextHere: NextStep | null = null;
   /** The game cards renderHome() is about to mount, by stage. */
-  private cardMounts = new Map<string, { id: string; name: string; rating: number; verb: string; next: boolean; locked: boolean; what: string }>();
+  private cardMounts = new Map<string, { id: string; name: string; rating: number; verb: string; next: boolean; locked: boolean; what: string; extra?: string }>();
   /** The progress tracks down the right of the Build page. */
   private tracks: TrackOverlay | null = null;
   private busy = false;
@@ -428,16 +428,18 @@ export class Game {
     };
 
     const lasting = lastingIsotopes(z);
+    // One line each: the isotope and its share of Earth's atoms, or its half-life. The lock is
+    // said once, in the section's own line.
     const isoCard = (iso: (typeof lasting)[number]) => {
-      const life = iso.stable ? `stable${iso.abundance ? `, ${formatPercent(iso.abundance)} on Earth` : ''}` : `half-life ${formatDuration(iso.halfLife ?? 0)}`;
-      const n = iso.a - el.z;
+      const life = iso.stable ? (iso.abundance ? `${formatPercent(iso.abundance)} on Earth` : 'stable') : formatHalfLife(iso.halfLife);
       return this.card({
         stage: `iso-${iso.a}`,
         iso: `${el.symbol}-${iso.a}`,
-        text: `${n} neutron${n === 1 ? '' : 's'} · ${life}`,
+        text: life,
         done: isotopeCollected(this.save, z, iso.a),
         flawless: false,
         locked: built ? undefined : `Opens once ${name} is built`,
+        lockNote: false,
       });
     };
     const stable = lasting.filter((i) => i.stable);
@@ -614,7 +616,7 @@ export class Game {
    *  (or, for an isotope, the isotope's), a rough difficulty, what it adds and a note; on the
    *  right its button, every kind the same pill (Play, Replay, Unlock, Locked), with Built or
    *  Flawless above it once it is done. Everything is centred vertically. */
-  private card(o: { stage: Exclude<Stage, 'home'>; title?: string; iso?: string; text: string; done: boolean; flawless: boolean; best?: number; locked?: string; gate?: string }): string {
+  private card(o: { stage: Exclude<Stage, 'home'>; title?: string; iso?: string; text: string; done: boolean; flawless: boolean; best?: number; locked?: string; lockNote?: boolean; gate?: string }): string {
     const t = this.stagePuzzle(o.stage);
     const paused = this.suspended[o.stage];
     const gated = Boolean(o.gate) && !o.done;
@@ -622,7 +624,7 @@ export class Game {
     const flawless = o.done && o.flawless && !isIso(o.stage);
     const state = paused ? `<span class="bh-state is-paused">In progress</span><span class="bh-note">${paused.moves} move${paused.moves === 1 ? '' : 's'} so far</span>`
       : o.done ? `<span class="bh-state ${flawless ? 'is-flawless' : 'is-built'}">${o.gate ? 'Discovered' : flawless ? 'Flawless' : 'Built'}</span>${o.best !== undefined ? `<span class="bh-note">Best ${o.best}</span>` : ''}`
-      : o.locked ? `<span class="bh-note">${o.locked}</span>`
+      : o.locked ? (o.lockNote === false ? '' : `<span class="bh-note">${o.locked}</span>`)
       : gated ? `<span class="bh-note">${o.gate}</span>`
       : '';
     const verb = paused ? 'Resume' : o.done ? 'Replay' : gated ? 'Unlock' : 'Play';
@@ -635,9 +637,18 @@ export class Game {
       next: isNext,
       locked: Boolean(o.locked),
       what: `${t.name}${o.iso ? `: ${o.iso}` : ''}`,
+      // An isotope row: the isotope and its share or half-life on the card's own line.
+      extra: o.iso ? `${o.iso} · ${o.text}` : undefined,
     });
+    if (o.iso) {
+      return `
+      <li class="bh-row bh-row--iso ${cls}${isNext ? ' is-go' : ''}" data-row="${o.stage}">
+        <div class="bh-gc" data-gc="${o.stage}"></div>${state ? `
+        <div class="bh-side">${state}</div>` : ''}
+      </li>`;
+    }
     // What the step builds sits beside the card, over how far it has got.
-    const what = `<span class="bh-what">${o.iso ? `${o.iso} · ${o.text}` : o.text}</span>`;
+    const what = `<span class="bh-what">${o.text}</span>`;
     return `
       <li class="bh-row ${cls}${isNext ? ' is-go' : ''}" data-row="${o.stage}">
         <div class="bh-gc" data-gc="${o.stage}"></div>
@@ -685,7 +696,7 @@ export class Game {
       const button = m.next
         ? nextButton({ label: m.verb, onClick: go, compact: true, landKey: `build:${this.z}`, className: 'bh-go' })
         : playButton({ ariaLabel: `${m.verb} ${m.what}`, onClick: go, className: m.verb === 'Replay' ? 'gcard-replay' : '', icon: verbIcon[m.verb], locked: m.locked });
-      slot.append(gameCard({ id: m.id, name: m.name, difficulty: m.rating, button }));
+      slot.append(gameCard({ id: m.id, name: m.name, difficulty: m.rating, extra: m.extra, button }));
     });
     this.cardMounts.clear();
   }

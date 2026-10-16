@@ -22,6 +22,7 @@
 import { GalleryApp } from './gallery';
 import { Collect } from './gallery/collect';
 import type { LookId } from './gallery/looks';
+import type { AtlasView } from './gallery/atlas';
 import { atomListOpen, openAtomList } from './gallery/atomlist';
 import { Dock, type Section } from './ui/dock';
 import { Crumbs, atomCrumb, gameCrumb, type Crumb } from './ui/crumbs';
@@ -106,9 +107,9 @@ export class AppShell {
     });
     // An atom page's little table or "See in Atlas": the Atlas, with that atom picked.
     document.addEventListener('atomos:atlas', (ev) => {
-      const { z, look } = (ev as CustomEvent<{ z: number; look: LookId | null }>).detail;
+      const { z, look, view } = (ev as CustomEvent<{ z: number; look: LookId | null; view?: AtlasView }>).detail;
       this.z = z;
-      void this.go('gallery').then(() => this.gallery.showInAtlas(z, look));
+      void this.go('gallery').then(() => this.gallery.showInAtlas(z, look, view));
     });
     // The header: the mark (Home; again on Home, Nu shows what to do next), then on Home the
     // wordmark, Search and Settings, elsewhere the trail. The bar on Home: the sections.

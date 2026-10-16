@@ -607,6 +607,34 @@ export class Detail {
     this.scaffold.render(r, this.camera);
   }
 
+  /** View only: the atom as it shows now, drawn square at `size` pixels, for a picture to keep.
+   *  The canvas is restored before the page paints again. */
+  snapshot(size = 1080): HTMLCanvasElement | null {
+    if (this.variant !== 'view' || !this.set || !this.explorer) return null;
+    const r = this.renderer;
+    const pr = r.getPixelRatio();
+    const pixel = this.cloud.pixelScale;
+    r.setPixelRatio(1);
+    r.setSize(size, size, false);
+    this.width = this.height = size;
+    this.camera.aspect = 1;
+    this.camera.clearViewOffset();
+    this.camera.updateProjectionMatrix();
+    this.cloud.resize({ width: size, height: size });
+    this.cloud.pixelScale = 1;
+    try {
+      this.frameView(performance.now(), 0);
+      const out = document.createElement('canvas');
+      out.width = out.height = size;
+      out.getContext('2d')!.drawImage(this.canvas, 0, 0, size, size);
+      return out;
+    } finally {
+      this.cloud.pixelScale = pixel;
+      r.setPixelRatio(pr);
+      this.resize();
+    }
+  }
+
   private get ctx() {
     return { renderer: this.renderer, camera: this.camera, width: this.width, height: this.height };
   }
