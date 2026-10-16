@@ -19,7 +19,8 @@
 //   Course  lead Nu up a channel past orbiting electrons, against the clock.
 //   Trace   draw a path and Nu rides it, lighting stars and missing the red.
 //   Dive    tap to dive Nu through the gaps in turning shells, down to the nucleus.
-//   Hockey, Chain, Split, Pairs: see arcade.ts. Flash, Halo, Pulse: see court.ts.
+//   Hockey, Chain, Split, Pairs: see arcade.ts. Flash, Halo, Pulse: see court.ts. Comet, Rally,
+//   Ripple: see swim.ts.
 // Most games are learnt by trying, so they carry no words: just the score and best under the arena.
 // When the park opens, the guide Nu (src/ui/nu.ts) flies in from the logo and the park takes it
 // over; leaving, it hands Nu back where it is and Nu flies home. It never jumps. Bests are kept
@@ -30,12 +31,14 @@ import { nuBorrow, nuEnabled, nuGiveBack, reducedMotion } from '../ui/nu';
 import { boxedToys, eatTreat, giveToy, keepBox, periodsDone, toysSeen, treats, wake, warmth, warmUp } from './bond';
 import { F, GAMES, S, ST, nuPick, type GameId } from './games';
 import { readWithNu } from './read';
+import { openSheet, type Sheet } from '../ui/sheet';
 import { MAX_Z } from '../core/elements';
 import {
-  anywhere, arenaPath, best, Bests, Body, bounceIn, buzz, captureSound, chimeSound, clamp, completeSound, CYAN, dist, dot, edge, Fx, GREEN, inside, K300, K500, K800, K900, K975, missSound, Mover, NOTE_COLOURS, Pt, readBests, RED, rimPoint, ring, ROSE, seeded, setBest, Stage, TAU, tickSound, Toy, WHITE, writeBests,
+  dashed, anywhere, arenaPath, best, Bests, Body, bounceIn, buzz, captureSound, chimeSound, clamp, completeSound, CYAN, dist, dot, edge, Fx, GREEN, inside, K300, K500, K800, K900, K975, missSound, Mover, NOTE_COLOURS, Pt, readBests, RED, rimPoint, ring, ROSE, seeded, setBest, Stage, TAU, tickSound, Toy, WHITE, writeBests,
 } from './kit';
 import { Chain, Hockey, Pairs, Split } from './arcade';
 import { Flash, Halo, Pulse } from './court';
+import { Comet, Rally, Ripple } from './swim';
 import './park.css';
 
 type PlaceId = 'home' | GameId;
@@ -1015,11 +1018,13 @@ class Echo implements Toy {
 // ---- Orbit ---------------------------------------------------------------------------------
 
 /** Nu runs round two rings like an electron with two shells to choose from. Tap to turn it
- *  round; swipe in or out to hop to the other ring. Catch the photons; an antiparticle (red)
+ *  round; swipe in or out to hop to the other ring, or tap the ring's own button under the court
+ *  (the big round one for the outer ring, the small dashed one for the inner). Catch the photons; an antiparticle (red)
  *  meeting Nu on its ring ends the run, so when two close in from both sides, hop rings. Faster
  *  as it goes; antiparticles fade away after a while. */
 class Orbit implements Toy {
   court = true;
+  controls = true;
   private a = -Math.PI / 2;
   private dir = 1;
   private speed = 0.0012;
@@ -1036,6 +1041,20 @@ class Orbit implements Toy {
   private static LIFE = 16000;
   private rad(s: Stage, lane: number): number { return s.R * (0.8 - lane * 0.32); }
   private pos(s: Stage, a: number, lane: number): Pt { const r = this.rad(s, lane); return { x: s.c.x + Math.cos(a) * r, y: s.c.y + Math.sin(a) * r }; }
+  /** The lane buttons under the court, side by side: the outer ring's, then the inner's, sized
+   *  like their rings. */
+  private keys(s: Stage): { x: number; y: number; r: number }[] {
+    const p = s.pad;
+    if (!p) return [];
+    const big = clamp(Math.min(p.h, p.w / 3) / 2 - 18, 24, 42), small = big * 0.6, gap = big * 1.1;
+    const y = p.y + p.h / 2, mid = p.x + p.w / 2, x0 = mid - (2 * big + gap + 2 * small) / 2;
+    return [{ x: x0 + big, y, r: big }, { x: x0 + 2 * big + gap + small, y, r: small }];
+  }
+  private hopTo(lane: number): void {
+    if (lane === this.lane) return;
+    this.lane = lane;
+    tickSound(3);
+  }
 
   enter(s: Stage): void {
     s.nu.r = 9;
@@ -1104,7 +1123,8 @@ class Orbit implements Toy {
   }
 
   draw(s: Stage, ctx: CanvasRenderingContext2D, now: number): void {
-    for (const lane of [0, 1]) ring(ctx, s.c, this.rad(s, lane), K500, 3, 0.55);
+    ring(ctx, s.c, this.rad(s, 0), K500, 3, 0.55);
+    dashed(ctx, s.c, this.rad(s, 1), K500, 0.55);
     dot(ctx, s.c, 10, K300, 0.5);
     for (const q of this.photons) {
       ctx.save();
@@ -1121,8 +1141,19 @@ class Orbit implements Toy {
     s.nu.draw(ctx, now);
   }
 
+  /** The lane buttons: the one for the ring Nu is on (or hopping to) lit. */
+  drawPad(s: Stage, ctx: CanvasRenderingContext2D): void {
+    this.keys(s).forEach((k, lane) => {
+      dot(ctx, k, k.r, K900, 0.9);
+      const c = lane === this.lane ? WHITE : K500;
+      if (lane) dashed(ctx, k, k.r, c, 0.9); else ring(ctx, k, k.r, c, 3, 0.9);
+    });
+  }
+
   down(s: Stage, p: Pt): void {
     if (this.state === 'over') { if (performance.now() - this.overAt > 600) this.reset(s); return; }
+    const k = this.keys(s).findIndex((b) => dist(p, b) < b.r + 14);
+    if (k >= 0) { this.hopTo(k); return; }
     this.press = p;
   }
 
@@ -1131,9 +1162,8 @@ class Orbit implements Toy {
     if (!this.press) return;
     const r0 = dist(this.press, s.c), r1 = dist(p, s.c);
     if (Math.abs(r1 - r0) < 22) return;
-    const lane = r1 < r0 ? 1 : 0;
     this.press = null;
-    if (lane !== this.lane) { this.lane = lane; tickSound(3); }
+    this.hopTo(r1 < r0 ? 1 : 0);
   }
 
   up(): void {
@@ -1624,7 +1654,8 @@ class Dive implements Toy {
 
 const READ_ICON = S(`<path d="M3 5.5c3-1.3 6-1.3 9 .8v13c-3-2-6-2-9-.8zM21 5.5c-3-1.3-6-1.3-9 .8v13c3-2 6-2 9-.8z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>`);
 const PICK_ICON = S(`<circle cx="12" cy="12" r="2.6" ${F}/><circle cx="12" cy="4" r="2" ${F}/><circle cx="18.9" cy="8" r="2" ${F}/><circle cx="18.9" cy="16" r="2" ${F}/><circle cx="12" cy="20" r="2" ${F}/><circle cx="5.1" cy="16" r="2" ${F}/><circle cx="5.1" cy="8" r="2" ${F}/>`);
-const CLOSE_ICON = S(`<path d="M6 6l12 12M18 6L6 18" ${ST}/>`);
+/** The room a game's own controls get under the court (Halo's wheel, Orbit's lane buttons). */
+const PAD_ROOM = 150;
 
 export class NuPark {
   private root: HTMLElement;
@@ -1632,10 +1663,9 @@ export class NuPark {
   private ctx: CanvasRenderingContext2D;
   private scoreEl: HTMLElement;
   private bestEl: HTMLElement;
-  private pickEl: HTMLElement;
   private goBtn: HTMLButtonElement;
   private off: HTMLElement;
-  private toys: Record<PlaceId, Toy> = { home: new Home(), sling: new Sling(), course: new Course(), echo: new Echo(), orbit: new Orbit(), shells: new Shells(), herd: new Herd(), trace: new Trace(), hockey: new Hockey(), chain: new Chain(), split: new Split(), pairs: new Pairs(), dive: new Dive(), flash: new Flash(), halo: new Halo(), pulse: new Pulse() };
+  private toys: Record<PlaceId, Toy> = { home: new Home(), sling: new Sling(), course: new Course(), echo: new Echo(), orbit: new Orbit(), shells: new Shells(), herd: new Herd(), trace: new Trace(), hockey: new Hockey(), chain: new Chain(), split: new Split(), pairs: new Pairs(), dive: new Dive(), flash: new Flash(), halo: new Halo(), pulse: new Pulse(), comet: new Comet(), rally: new Rally(), ripple: new Ripple() };
   private place: PlaceId = 'home';
   private stage: Stage;
   private frame = 0;
@@ -1646,18 +1676,15 @@ export class NuPark {
   private borrowed = false;
   private size = { w: 0, h: 0 };
   /** The picker is open, and the game Nu fancies today (it circles it there). */
-  private picking = false;
-  private fancy: GameId = 'orbit';
+  private picking: Sheet | null = null;
+  /** Nu's own hidden state from before the picker hid it. */
+  private wasHidden = false;
   private since = 0;
-  private pickAt = 0;
 
   constructor(host: HTMLElement) {
     this.root = host;
     host.innerHTML = '<div class="nup">'
       + '<div class="nup-field"><canvas class="nup-canvas"></canvas>'
-      + `<div class="nup-pick" hidden role="menu" aria-label="Games"><div class="nup-grid">`
-      + GAMES.map((g) => `<button type="button" class="nup-pick-btn" data-place="${g.id}" role="menuitem"><i>${g.icon}</i><span>${g.label}</span></button>`).join('')
-      + `</div><button type="button" class="nup-read" role="menuitem">${READ_ICON}<span>Read from the Atlas</span></button></div>`
       + '<div class="nup-off" hidden><p>Nu is switched off in Settings.</p><button type="button" class="nup-on">Turn Nu on</button></div></div>'
       + '<div class="nup-foot"><p class="nup-score" aria-live="polite"></p>'
       + `<button type="button" class="nup-go" aria-label="Games" aria-expanded="false">${PICK_ICON}</button>`
@@ -1667,12 +1694,9 @@ export class NuPark {
     this.ctx = this.canvas.getContext('2d')!;
     this.scoreEl = host.querySelector('.nup-score')!;
     this.bestEl = host.querySelector('.nup-best')!;
-    this.pickEl = host.querySelector('.nup-pick')!;
     this.goBtn = host.querySelector('.nup-go')!;
     this.off = host.querySelector('.nup-off')!;
     this.goBtn.onclick = () => this.togglePick();
-    for (const b of this.pickEl.querySelectorAll<HTMLButtonElement>('.nup-pick-btn')) b.onclick = () => this.go(b.dataset.place as PlaceId);
-    host.querySelector<HTMLButtonElement>('.nup-read')!.onclick = () => this.read();
     host.querySelector<HTMLButtonElement>('.nup-on')!.onclick = () => {
       const save = loadSave();
       save.settings.nu = true;
@@ -1682,7 +1706,7 @@ export class NuPark {
     };
     const bests = readBests();
     this.stage = {
-      c: { x: 0, y: 0 }, hw: 100, hh: 100, rr: 40, R: 100, court: false, nu: new Body(), fx: new Fx(), bests, rim: null,
+      c: { x: 0, y: 0 }, m: { x: 0, y: 0 }, hw: 100, hh: 100, rr: 40, R: 100, court: false, pad: null, nu: new Body(), fx: new Fx(), bests, rim: null,
       save: () => writeBests(bests),
       score: (n, b) => {
         this.scoreEl.textContent = n === null ? '' : String(n);
@@ -1767,6 +1791,7 @@ export class NuPark {
     if (id === this.place) return;
     this.place = id;
     this.stage.court = !!this.toys[id].court;
+    this.layout();
     this.stage.fx.clear();
     this.stage.rim = null;
     this.stage.nu.scale = 1;
@@ -1777,38 +1802,33 @@ export class NuPark {
 
   private togglePick(): void { if (this.picking) this.closePick(); else this.openPick(); }
 
-  /** The games round Nu's home, like the logo's nucleus; Nu circles the one it fancies. */
+  /** The games, A to Z, in a sheet that scrolls, and under them "Read from the Atlas". Nu leaves
+   *  the arena for the sheet and circles the game it fancies today. */
   private openPick(): void {
     if (!this.have) return;
-    this.picking = true;
-    this.pickAt = performance.now();
-    this.fancy = nuPick().id;
-    this.pickEl.hidden = false;
-    this.scoreEl.style.visibility = 'hidden';
-    this.bestEl.style.visibility = 'hidden';
-    this.goBtn.innerHTML = CLOSE_ICON;
+    const fancy = nuPick().id;
+    const sheet = openSheet({ title: 'Games', icon: 'nu', label: 'Nu’s games', from: 'top', className: 'nup-sheet', onClose: () => this.picked(sheet) });
+    sheet.body.innerHTML = '<div class="nup-grid">' + GAMES.map((g) => {
+      const label = `${g.label}${g.id === fancy ? ', Nu’s pick today' : ''}`;
+      return `<button type="button" class="nup-pick-btn${g.id === this.place ? ' is-here' : ''}" data-place="${g.id}" aria-label="${label}"><i>${g.icon}${g.id === fancy ? '<b class="nup-nu" aria-hidden="true"></b>' : ''}</i><span>${g.label}</span></button>`;
+    }).join('') + '</div>';
+    sheet.foot.innerHTML = `<button type="button" class="nup-read">${READ_ICON}<span>Read from the Atlas</span></button>`;
+    for (const b of sheet.body.querySelectorAll<HTMLButtonElement>('.nup-pick-btn')) b.onclick = () => this.go(b.dataset.place as PlaceId);
+    sheet.foot.querySelector<HTMLButtonElement>('.nup-read')!.onclick = () => this.read();
+    this.picking = sheet;
+    this.wasHidden = this.stage.nu.hidden;
+    this.stage.nu.hidden = true;
     this.goBtn.setAttribute('aria-expanded', 'true');
-    for (const b of this.pickEl.querySelectorAll<HTMLElement>('.nup-pick-btn')) {
-      b.classList.toggle('is-here', b.dataset.place === this.place);
-      b.setAttribute('aria-label', `${GAMES.find((g) => g.id === b.dataset.place)!.label}${b.dataset.place === this.fancy ? ', Nu’s pick today' : ''}`);
-    }
   }
 
-  private closePick(): void {
-    this.picking = false;
-    this.pickEl.hidden = true;
-    this.scoreEl.style.visibility = '';
-    this.bestEl.style.visibility = '';
-    this.goBtn.innerHTML = PICK_ICON;
+  private closePick(): void { this.picking?.close(); }
+
+  /** The sheet has closed (its X, the mask, Back, a game picked): Nu comes back to the arena. */
+  private picked(sheet: Sheet): void {
+    if (this.picking !== sheet) return;
+    this.picking = null;
+    this.stage.nu.hidden = this.wasHidden;
     this.goBtn.setAttribute('aria-expanded', 'false');
-  }
-
-  /** Where a game's button is in the picker's grid, on the canvas. */
-  private pickSpot(id: GameId): Pt | null {
-    const b = this.pickEl.querySelector<HTMLElement>(`[data-place="${id}"] i`);
-    if (!b) return null;
-    const r = b.getBoundingClientRect(), c = this.canvas.getBoundingClientRect();
-    return { x: r.left + r.width / 2 - c.left, y: r.top + r.height / 2 - c.top };
   }
 
   /** "Read from the Atlas": a random atom's page, and Nu comes along to read it too. */
@@ -1828,14 +1848,38 @@ export class NuPark {
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const changed = Math.abs(r.width - this.size.w) > 1 || Math.abs(r.height - this.size.h) > 1;
     this.size = { w: r.width, h: r.height };
-    // The arena fills the field, its rim just inside the edge; the court is the biggest circle in it.
-    const st = this.stage;
-    st.c = { x: r.width / 2, y: r.height / 2 };
-    st.hw = Math.max(80, r.width / 2 - 14);
-    st.hh = Math.max(80, r.height / 2 - 14);
+    this.layout();
+    if (changed && this.have) this.toys[this.place].resize?.(this.stage);
+  }
+
+  /** The arena fills the field, its rim just inside the edge; the court is the biggest circle in
+   *  it, or, for a game with controls of its own, the biggest that leaves them room under it
+   *  (beside it, on a wide screen). */
+  private layout(): void {
+    const st = this.stage, w = this.size.w, h = this.size.h, toy = this.toys[this.place];
+    st.m = { x: w / 2, y: h / 2 };
+    st.hw = Math.max(80, w / 2 - 14);
+    st.hh = Math.max(80, h / 2 - 14);
     st.rr = Math.min(48, Math.min(st.hw, st.hh) * 0.3);
     st.R = Math.min(st.hw, st.hh) - 6;
-    if (changed && this.have) this.toys[this.place].resize?.(this.stage);
+    st.c = { ...st.m };
+    st.pad = null;
+    if (!toy.court || !toy.controls) return;
+    const room = PAD_ROOM + 12;
+    if (st.hh >= st.hw) {
+      st.R = Math.max(60, Math.min(st.hw - 6, st.hh - room / 2 - 6));
+      // Room to spare (a tall screen) goes above and below the two, not between them.
+      const spare = Math.max(0, 2 * st.hh - 12 - 2 * st.R - room);
+      st.c = { x: st.m.x, y: st.m.y - st.hh + 6 + spare / 2 + st.R };
+      const top = st.c.y + st.R + 6;
+      st.pad = { x: st.m.x - st.hw, y: top, w: 2 * st.hw, h: room };
+    } else {
+      st.R = Math.max(60, Math.min(st.hh - 6, st.hw - room / 2 - 6));
+      const spare = Math.max(0, 2 * st.hw - 12 - 2 * st.R - room);
+      st.c = { x: st.m.x - st.hw + 6 + spare / 2 + st.R, y: st.m.y };
+      const left = st.c.x + st.R + 6;
+      st.pad = { x: left, y: st.m.y - st.hh, w: room, h: 2 * st.hh };
+    }
   }
 
   private wirePointer(): void {
@@ -1883,18 +1927,6 @@ export class NuPark {
     ctx.restore();
   }
 
-  private drawPick(ctx: CanvasRenderingContext2D, now: number): void {
-    const s = this.stage, t = clamp((now - this.pickAt) / 260, 0, 1);
-    ctx.globalAlpha = 0.92 * t;
-    ctx.fillStyle = K975;
-    ctx.fillRect(0, 0, this.size.w, this.size.h);
-    ctx.globalAlpha = 1;
-    // Nu goes to circle the game it fancies.
-    const p = this.pickSpot(this.fancy) ?? s.c, a = now / 420;
-    s.nu.seek({ x: p.x + Math.cos(a) * 36, y: p.y + Math.sin(a) * 36 }, 16, 0.7, 0.04);
-    s.nu.draw(ctx, now);
-  }
-
   private loop(): void {
     cancelAnimationFrame(this.frame);
     this.last = performance.now();
@@ -1917,12 +1949,12 @@ export class NuPark {
       ctx.clip();
       // A game set on a ring plays in the round court, a lighter plate in the middle.
       s.court = court;
+      if (this.have && s.pad) this.toys[this.place].drawPad?.(s, ctx, now);
       if (court) { dot(ctx, s.c, s.R, K900, 0.9); arenaPath(ctx, s); ctx.clip(); }
       if (this.have) {
         const toy = this.toys[this.place];
         if (!this.picking) toy.step(s, dt, now);
         toy.draw(s, ctx, now);
-        if (this.picking) this.drawPick(ctx, now);
       }
       s.fx.draw(ctx, now, dt);
       ctx.restore();

@@ -3,7 +3,7 @@
 
 import { dayIndex } from './bond';
 
-export type GameId = 'sling' | 'course' | 'echo' | 'orbit' | 'shells' | 'herd' | 'trace' | 'hockey' | 'chain' | 'split' | 'pairs' | 'dive' | 'flash' | 'halo' | 'pulse';
+export type GameId = 'sling' | 'course' | 'echo' | 'orbit' | 'shells' | 'herd' | 'trace' | 'hockey' | 'chain' | 'split' | 'pairs' | 'dive' | 'flash' | 'halo' | 'pulse' | 'comet' | 'rally' | 'ripple';
 
 export const S = (d: string) => `<svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">${d}</svg>`;
 export const ST = 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"';
@@ -25,6 +25,9 @@ const LIST: { id: GameId; label: string; icon: string }[] = [
   { id: 'flash', label: 'Flash', icon: S(`<circle cx="12" cy="12" r="3" ${F}/><circle cx="12" cy="4.5" r="2" ${ST}/><circle cx="18.5" cy="8.2" r="2" ${ST}/><circle cx="18.5" cy="15.8" r="2" ${F}/><circle cx="12" cy="19.5" r="2" ${ST}/><circle cx="5.5" cy="15.8" r="2" ${ST}/><circle cx="5.5" cy="8.2" r="2" ${ST}/>`) },
   { id: 'halo', label: 'Halo', icon: S(`<circle cx="12" cy="12" r="8.5" ${ST}/><circle cx="12" cy="12" r="2.2" ${F}/><circle cx="18" cy="6" r="2.4" ${F}/><path d="M14 14.5l2 2" ${ST}/>`) },
   { id: 'pulse', label: 'Pulse', icon: S(`<circle cx="12" cy="12" r="2.4" ${F}/><circle cx="12" cy="12" r="6" ${ST}/><circle cx="12" cy="12" r="9.6" ${ST} stroke-dasharray="3 3"/>`) },
+  { id: 'comet', label: 'Comet', icon: S(`<circle cx="17" cy="7" r="3.6" ${F}/><circle cx="10.6" cy="8.6" r="2.2" ${ST}/><circle cx="6.4" cy="13.2" r="2.2" ${ST}/><circle cx="6" cy="19.4" r="2" ${ST}/>`) },
+  { id: 'rally', label: 'Rally', icon: S(`<path d="M5.2 17.5a8.5 8.5 0 0 0 13.6 0" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"/><circle cx="12" cy="9" r="3.2" ${F}/>`) },
+  { id: 'ripple', label: 'Ripple', icon: S(`<circle cx="6" cy="18" r="2.2" ${F}/><path d="M6 11.5a6.5 6.5 0 0 1 6.5 6.5" ${ST}/><path d="M6 5.5A12.5 12.5 0 0 1 18.5 18" ${ST}/><circle cx="18" cy="6" r="2.6" ${ST}/>`) },
   { id: 'dive', label: 'Dive', icon: S(`<path d="M8.4 4.3A8.5 8.5 0 1 0 15.6 4.3" ${ST}/><circle cx="12" cy="13" r="3" ${F}/><circle cx="12" cy="2.8" r="2" ${F}/>`) },
 ];
 

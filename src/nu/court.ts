@@ -2,12 +2,14 @@
 //   Flash   seven atoms, laid out like the logo; one lights up at a time: tap it before it
 //           fades. Never tap a red one. Three misses and it's over.
 //   Halo    the nucleus throws out photons; run Nu round the ring to catch them before they
-//           escape. Red ones stay away from. Three lost and it's over.
+//           escape. Red ones stay away from. Three lost and it's over. Steered from the ring
+//           itself, or from the wheel under the court: turn it and Nu goes round as far.
 //   Pulse   a wave spreads out from the nucleus with Nu riding it; tap as it crosses the
 //           marked ring. Each catch, the ring moves, the band narrows and the wave speeds up.
+//           Nu bounces on a catch as far as the tap was off: dead on, it hardly moves.
 
 import {
-  CYAN, GREEN, K300, K500, K800, RED, TAU, WHITE,
+  CYAN, GREEN, K300, K500, K800, K900, RED, TAU, WHITE,
   best, buzz, captureSound, chimeSound, clamp, completeSound, dist, dot, missSound, ring, setBest, tickSound,
   type Pt, type Stage, type Toy,
 } from './kit';
@@ -146,11 +148,21 @@ export class Flash implements Toy {
 // ---- Halo ------------------------------------------------------------------------------------
 
 /** The nucleus throws photons outward; Nu runs round the ring after your finger to catch them.
- *  A red one caught, or a photon that gets past, costs a life. */
+ *  A red one caught, or a photon that gets past, costs a life. Under the court, a wheel: turn it
+ *  and Nu goes round the ring just as far, with the finger off the ring it's watching. */
 export class Halo implements Toy {
   court = true;
+  controls = true;
   private a = -Math.PI / 2;
   private want: number | null = null;
+  /** Turning the wheel: where the finger was round it. `want` is then not wrapped, so a quick
+   *  turn of more than half a circle still goes the right way. */
+  private turn: number | null = null;
+  private wheel(s: Stage): { x: number; y: number; r: number } | null {
+    const p = s.pad;
+    if (!p) return null;
+    return { x: p.x + p.w / 2, y: p.y + p.h / 2, r: clamp(Math.min(p.w, p.h) / 2 - 10, 34, 64) };
+  }
   private shots: { a: number; r: number; v: number; red: boolean }[] = [];
   private caught = 0;
   private left = 3;
@@ -178,8 +190,9 @@ export class Halo implements Toy {
   step(s: Stage, dt: number, now: number): void {
     // Nu runs round after the finger, no faster than it can.
     if (this.want !== null) {
-      const d = Math.atan2(Math.sin(this.want - this.a), Math.cos(this.want - this.a));
-      this.a += clamp(d, -0.0075 * dt, 0.0075 * dt);
+      const d = this.turn !== null ? this.want - this.a : Math.atan2(Math.sin(this.want - this.a), Math.cos(this.want - this.a));
+      const top = this.turn !== null ? 0.012 : 0.0075;
+      this.a += clamp(d, -top * dt, top * dt);
     }
     s.nu.seek(this.pos(s, this.a), dt, 2, 0.2);
     if (this.overAt) return;
@@ -243,16 +256,48 @@ export class Halo implements Toy {
     s.nu.draw(ctx, now);
   }
 
+  /** The wheel, drawn after the court's clip is gone (park.ts calls it with the whole arena). */
+  drawPad(s: Stage, ctx: CanvasRenderingContext2D): void {
+    const w = this.wheel(s);
+    if (!w) return;
+    dot(ctx, w, w.r, K900, 0.9);
+    ring(ctx, w, w.r, this.turn !== null ? CYAN : K500, 3, 0.8);
+    dot(ctx, w, 6, K300, 0.85);
+    // The knob turns with Nu.
+    dot(ctx, { x: w.x + Math.cos(this.a) * w.r * 0.66, y: w.y + Math.sin(this.a) * w.r * 0.66 }, 9, WHITE, 0.9);
+  }
+
   private aim(s: Stage, p: Pt): void { this.want = Math.atan2(p.y - s.c.y, p.x - s.c.x); }
 
   down(s: Stage, p: Pt): void {
     if (this.overAt) { if (performance.now() - this.overAt > 1000) this.reset(s); return; }
+    const w = this.wheel(s);
+    if (w && dist(p, w) < w.r + 24) {
+      this.turn = Math.atan2(p.y - w.y, p.x - w.x);
+      this.want = this.a;
+      return;
+    }
     this.aim(s, p);
   }
 
-  move(s: Stage, p: Pt): void { this.aim(s, p); }
-  up(): void { this.want = null; }
+  move(s: Stage, p: Pt): void {
+    const w = this.wheel(s);
+    if (this.turn === null || !w) { if (this.turn === null) this.aim(s, p); return; }
+    // Near the middle the angle jumps about: hold still there.
+    if (dist(p, w) < 8) return;
+    const t = Math.atan2(p.y - w.y, p.x - w.x);
+    this.want = (this.want ?? this.a) + Math.atan2(Math.sin(t - this.turn), Math.cos(t - this.turn));
+    this.turn = t;
+  }
+
+  up(): void {
+    // Let go of the wheel, Nu still finishes the turn; off the ring, it stops where it is.
+    if (this.turn !== null) this.turn = null; else this.want = null;
+  }
 }
+
+/** How long Nu takes to drop back to the new wave after a catch in Pulse. */
+const BACK_MS = 260;
 
 // ---- Pulse -----------------------------------------------------------------------------------
 
@@ -267,9 +312,13 @@ export class Pulse implements Toy {
   private state: 'run' | 'over' = 'run';
   private overAt = 0;
   private hitAt = 0;
+  /** The last catch: where Nu was, and how far off the tap was (0 dead on .. 1 the band's edge). */
+  private from: Pt = { x: 0, y: 0 };
+  private off = 0;
 
   enter(s: Stage): void {
     s.nu.r = 8;
+    s.nu.scale = 1;
     this.reset(s);
   }
 
@@ -279,6 +328,10 @@ export class Pulse implements Toy {
     this.state = 'run';
     this.place(s);
     this.r = s.R * 0.1;
+    // From wherever Nu is onto the wave, smoothly.
+    this.from = { x: s.nu.x, y: s.nu.y };
+    this.hitAt = performance.now();
+    this.off = 0;
     s.score(0, best(s, 'pulse') || null);
   }
 
@@ -298,11 +351,27 @@ export class Pulse implements Toy {
       this.end(s, now);
       return;
     }
-    s.nu.seek({ x: s.c.x, y: s.c.y - this.r }, dt, 3, 0.5);
+    const nu = s.nu, ride = { x: s.c.x, y: s.c.y - this.r }, t = now - this.hitAt;
+    if (t < BACK_MS) {
+      // Back down to the new wave, smoothly, no overshoot.
+      const k = 1 - (1 - t / BACK_MS) ** 3;
+      nu.x = this.from.x + (ride.x - this.from.x) * k;
+      nu.y = this.from.y + (ride.y - this.from.y) * k;
+      nu.vx = nu.vy = 0;
+      return;
+    }
+    // Then it bounces on the wave, as much as the tap was off.
+    const u = t - BACK_MS, amp = (2 + this.off * 26) * Math.exp(-u / 320);
+    const b = amp * Math.abs(Math.sin(u / 70));
+    nu.x = ride.x;
+    nu.y = ride.y - b;
+    nu.vx = nu.vy = 0;
+    nu.scale = 1 + (amp > 1 ? (0.5 - Math.abs(Math.sin(u / 70))) * 0.012 * amp : 0);
   }
 
   private end(s: Stage, now: number): void {
     this.state = 'over';
+    s.nu.scale = 1;
     this.overAt = now;
     s.fx.ring(s.c, RED, this.r * 0.9, this.r + 10, 500);
     missSound();
@@ -312,7 +381,7 @@ export class Pulse implements Toy {
   }
 
   draw(s: Stage, ctx: CanvasRenderingContext2D, now: number): void {
-    const b = this.band, glow = clamp(1 - (now - this.hitAt) / 400, 0, 1);
+    const b = this.band, glow = this.streak ? clamp(1 - (now - this.hitAt) / 400, 0, 1) : 0;
     ctx.save();
     ctx.globalAlpha = 0.18 + glow * 0.3;
     ctx.strokeStyle = glow > 0 ? GREEN : CYAN;
@@ -333,6 +402,8 @@ export class Pulse implements Toy {
     if (Math.abs(this.r - this.band.r) <= this.band.w) {
       this.streak++;
       this.hitAt = now;
+      this.off = Math.abs(this.r - this.band.r) / this.band.w;
+      this.from = { x: s.nu.x, y: s.nu.y };
       s.fx.ring(s.c, GREEN, this.r, this.r + 16, 450);
       chimeSound(this.streak % 5);
       if (this.streak % 10 === 0) { completeSound(); buzz(14); }

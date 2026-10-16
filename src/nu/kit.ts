@@ -75,6 +75,17 @@ export function ring(ctx: CanvasRenderingContext2D, p: Pt, r: number, c: string,
   ctx.globalAlpha = 1;
 }
 
+/** A dashed ring, for telling one ring from another (Orbit's inner lane). */
+export function dashed(ctx: CanvasRenderingContext2D, p: Pt, r: number, c: string, alpha = 1): void {
+  // Whole dashes round the circle, so the join doesn't show.
+  const n = Math.max(6, Math.round((TAU * r) / 14));
+  ctx.save();
+  ctx.setLineDash([(TAU * r) / n * 0.55, (TAU * r) / n * 0.45]);
+  ctx.lineCap = 'round';
+  ring(ctx, p, r, c, 3, alpha);
+  ctx.restore();
+}
+
 // ---- Nu, as the park draws it ----------------------------------------------------------------
 
 export class Body {
@@ -176,6 +187,9 @@ export interface Stage {
   /** The arena, a rounded rectangle filling the screen: its middle, half its width and height,
    *  and its corner radius, in canvas px. */
   c: Pt;
+  /** The arena's own middle. The court's middle (`c`) is the same, unless the game wants room
+   *  under the court for its controls (`pad`): then the court sits at the top. */
+  m: Pt;
   hw: number;
   hh: number;
   rr: number;
@@ -183,6 +197,8 @@ export interface Stage {
    *  and are kept inside it; the rest use the whole arena. */
   R: number;
   court: boolean;
+  /** The room left for a game's controls under the court (beside it, on a wide screen), or null. */
+  pad: { x: number; y: number; w: number; h: number } | null;
   nu: Body;
   fx: Fx;
   bests: Bests;
@@ -198,11 +214,11 @@ export function setBest(s: Stage, k: string, n: number): void { if (n > best(s, 
 
 /** How far `p` is outside the arena's edge (negative inside), and the way out there. */
 export function edge(s: Stage, p: Pt): { d: number; nx: number; ny: number } {
-  const dx = p.x - s.c.x, dy = p.y - s.c.y;
   if (s.court) {
-    const d = Math.hypot(dx, dy) || 1;
+    const dx = p.x - s.c.x, dy = p.y - s.c.y, d = Math.hypot(dx, dy) || 1;
     return { d: d - s.R, nx: dx / d, ny: dy / d };
   }
+  const dx = p.x - s.m.x, dy = p.y - s.m.y;
   // A rounded rectangle, by its distance field.
   const sx = Math.sign(dx) || 1, sy = Math.sign(dy) || 1;
   const qx = Math.abs(dx) - (s.hw - s.rr), qy = Math.abs(dy) - (s.hh - s.rr);
@@ -233,7 +249,7 @@ export function inside(s: Stage, p: Pt, r: number): Pt {
 /** A random point in the arena, at least `r` in from its edge. */
 export function anywhere(s: Stage, r: number, rnd = Math.random): Pt {
   for (let i = 0; i < 40; i++) {
-    const p = { x: s.c.x + (rnd() * 2 - 1) * s.hw, y: s.c.y + (rnd() * 2 - 1) * s.hh };
+    const p = { x: s.m.x + (rnd() * 2 - 1) * s.hw, y: s.m.y + (rnd() * 2 - 1) * s.hh };
     if (edge(s, p).d < -r) return p;
   }
   return { ...s.c };
@@ -243,7 +259,7 @@ export function anywhere(s: Stage, r: number, rnd = Math.random): Pt {
 export function arenaPath(ctx: CanvasRenderingContext2D, s: Stage, out = 0): void {
   ctx.beginPath();
   if (s.court) { ctx.arc(s.c.x, s.c.y, s.R + out, 0, TAU); return; }
-  ctx.roundRect(s.c.x - s.hw - out, s.c.y - s.hh - out, 2 * (s.hw + out), 2 * (s.hh + out), s.rr + out);
+  ctx.roundRect(s.m.x - s.hw - out, s.m.y - s.hh - out, 2 * (s.hw + out), 2 * (s.hh + out), s.rr + out);
 }
 
 /** A point on the rounded rectangle `out` px outside the arena, `u` (0..1) of the way round it
@@ -252,32 +268,36 @@ export function rimPoint(s: Stage, u: number, out: number): Pt {
   const w = s.hw + out, h = s.hh + out, r = s.rr + out, sx = w - r, sy = h - r;
   const parts = [sx, (Math.PI / 2) * r, 2 * sy, (Math.PI / 2) * r, 2 * sx, (Math.PI / 2) * r, 2 * sy, (Math.PI / 2) * r, sx];
   let l = (((u % 1) + 1) % 1) * parts.reduce((a, b) => a + b, 0);
-  const corner = (cx: number, cy: number, a0: number, t: number): Pt => ({ x: s.c.x + cx + Math.cos(a0 + t * Math.PI / 2) * r, y: s.c.y + cy + Math.sin(a0 + t * Math.PI / 2) * r });
+  const corner = (cx: number, cy: number, a0: number, t: number): Pt => ({ x: s.m.x + cx + Math.cos(a0 + t * Math.PI / 2) * r, y: s.m.y + cy + Math.sin(a0 + t * Math.PI / 2) * r });
   for (let i = 0; i < parts.length; i++) {
     if (l > parts[i] && i < parts.length - 1) { l -= parts[i]; continue; }
     const t = parts[i] ? l / parts[i] : 0;
     switch (i) {
-      case 0: return { x: s.c.x + t * sx, y: s.c.y - h };
+      case 0: return { x: s.m.x + t * sx, y: s.m.y - h };
       case 1: return corner(sx, -sy, -Math.PI / 2, t);
-      case 2: return { x: s.c.x + w, y: s.c.y - sy + t * 2 * sy };
+      case 2: return { x: s.m.x + w, y: s.m.y - sy + t * 2 * sy };
       case 3: return corner(sx, sy, 0, t);
-      case 4: return { x: s.c.x + sx - t * 2 * sx, y: s.c.y + h };
+      case 4: return { x: s.m.x + sx - t * 2 * sx, y: s.m.y + h };
       case 5: return corner(-sx, sy, Math.PI / 2, t);
-      case 6: return { x: s.c.x - w, y: s.c.y + sy - t * 2 * sy };
+      case 6: return { x: s.m.x - w, y: s.m.y + sy - t * 2 * sy };
       case 7: return corner(-sx, -sy, Math.PI, t);
-      default: return { x: s.c.x - sx + t * sx, y: s.c.y - h };
+      default: return { x: s.m.x - sx + t * sx, y: s.m.y - h };
     }
   }
-  return { x: s.c.x, y: s.c.y - h };
+  return { x: s.m.x, y: s.m.y - h };
 }
 
 export interface Toy {
   /** Played in the round court rather than the whole arena. */
   court?: boolean;
+  /** Wants room under the court for its own controls (Stage.pad). */
+  controls?: boolean;
   /** Nu is here (or the game was just picked): set up. */
   enter(s: Stage): void;
   step(s: Stage, dt: number, now: number): void;
   draw(s: Stage, ctx: CanvasRenderingContext2D, now: number): void;
+  /** Draws its controls in Stage.pad, outside the court (`controls` games). */
+  drawPad?(s: Stage, ctx: CanvasRenderingContext2D, now: number): void;
   down?(s: Stage, p: Pt): void;
   move?(s: Stage, p: Pt): void;
   up?(s: Stage, p: Pt): void;
