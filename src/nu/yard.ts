@@ -13,7 +13,7 @@
 
 import {
   CYAN, K300, K500, K800, NOTE_COLOURS, RED, ROSE, TAU, WHITE,
-  anywhere, best, bounceIn, buzz, captureSound, chimeSound, clamp, completeSound, dist, dot, edge, inside, missSound, ring, setBest, tickSound,
+  anywhere, best, bounceIn, buzz, captureSound, chimeSound, clamp, completeSound, dist, dot, edge, inside, missSound, ring, finish, setBest, tickSound,
   type Mover, type Pt, type Stage, type Toy,
 } from './kit';
 
@@ -131,7 +131,7 @@ export class Bloom implements Toy {
       buzz(22);
       if (this.left <= 0) {
         this.overAt = now;
-        setBest(s, 'bloom', this.level - 1);
+        finish(s, 'bloom', this.level - 1);
       }
       return;
     }
@@ -261,7 +261,7 @@ export class Hop implements Toy {
       this.overAt = now;
       missSound();
       buzz(22);
-      setBest(s, 'hop', this.height);
+      finish(s, 'hop', this.height);
       s.score(this.height, best(s, 'hop') || null);
     }
     nu.x = this.x;
@@ -330,7 +330,7 @@ export class Juggle implements Toy {
       s.fx.ring({ x: b.x, y: b.y + nu.r }, RED, 6, 34, 600);
       missSound();
       buzz(22);
-      setBest(s, 'juggle', this.count);
+      finish(s, 'juggle', this.count);
       s.score(this.count, best(s, 'juggle') || null);
     } else if (bounceIn(s, b, nu.r, 0.85)) tickSound(0);
     nu.x = b.x;
@@ -436,7 +436,7 @@ export class Loop implements Toy {
       buzz(22);
       if (this.left <= 0) {
         this.overAt = performance.now();
-        setBest(s, 'loop', this.count);
+        finish(s, 'loop', this.count);
         s.score(this.count, best(s, 'loop') || null);
       }
       return;
@@ -542,7 +542,7 @@ export class Pull implements Toy {
         s.fx.ring(nu, RED, nu.r, nu.r + 30, 600);
         missSound();
         buzz(25);
-        setBest(s, 'pull', this.count);
+        finish(s, 'pull', this.count);
         s.score(this.count, best(s, 'pull') || null);
         return;
       }
@@ -649,7 +649,7 @@ export class Spark implements Toy {
         completeSound();
         setBest(s, 'spark', this.level);
         this.level++;
-      } else missSound();
+      } else { missSound(); s.end?.(this.level - 1); }
     }
   }
 
@@ -750,7 +750,7 @@ export class Twin implements Toy {
       s.fx.ring(hit, RED, 8, 36, 600);
       missSound();
       buzz(22);
-      setBest(s, 'twin', this.count);
+      finish(s, 'twin', this.count);
       s.score(this.count, best(s, 'twin') || null);
       return;
     }

@@ -222,10 +222,16 @@ export interface Stage {
   score(n: number | string | null, best?: number | string | null): void;
   /** The rim's own countdown, 0..1 left, or null for the plain rim (Tag's timer). */
   rim: number | null;
+  /** The run is over, at this count (in the game's own count: see points.ts). */
+  end?(raw: number): void;
+  /** Open the roulette (the wheel in Nu's home). */
+  roulette?(): void;
 }
 
 export function best(s: Stage, k: string): number { const v = s.bests[k]; return typeof v === 'number' ? v : 0; }
 export function setBest(s: Stage, k: string, n: number): void { if (n > best(s, k)) { s.bests[k] = n; s.save(); } }
+/** The run is over: keeps the best and says so (the score turns to points, a roulette moves on). */
+export function finish(s: Stage, k: string, n: number): void { setBest(s, k, n); s.end?.(n); }
 
 /** How far `p` is outside the arena's edge (negative inside), and the way out there. */
 export function edge(s: Stage, p: Pt): { d: number; nx: number; ny: number } {
@@ -320,5 +326,10 @@ export interface Toy {
   up?(s: Stage, p: Pt): void;
   /** The arena changed size. */
   resize?(s: Stage): void;
+  /** Its count so far, when the score it shows isn't (Course's time, Hockey's goals), for a
+   *  roulette whose time runs out. */
+  raw?(): number;
+  /** Its score shows its own count (Pairs' turns, Course's time) rather than points. */
+  tally?: boolean;
 }
 

@@ -3,7 +3,8 @@
 
 import { dayIndex } from './bond';
 
-export type GameId = 'sling' | 'course' | 'echo' | 'orbit' | 'shells' | 'herd' | 'trace' | 'hockey' | 'chain' | 'split' | 'pairs' | 'dive' | 'flash' | 'halo' | 'pulse' | 'rally' | 'ripple' | 'bloom' | 'hop' | 'juggle' | 'loop' | 'pull' | 'spark' | 'twin' | 'grow' | 'rain' | 'sort' | 'spot' | 'stack' | 'tilt' | 'brick' | 'drop' | 'flip' | 'maze' | 'more' | 'stick';
+export type GameId = 'sling' | 'course' | 'echo' | 'orbit' | 'shells' | 'herd' | 'trace' | 'hockey' | 'chain' | 'split' | 'pairs' | 'dive' | 'flash' | 'halo' | 'pulse' | 'rally' | 'ripple' | 'bloom' | 'hop' | 'juggle' | 'loop' | 'pull' | 'spark' | 'twin' | 'grow' | 'rain' | 'sort' | 'spot' | 'stack' | 'tilt' | 'brick' | 'drop' | 'flip' | 'maze' | 'more' | 'stick'
+  | 'blast' | 'bumper' | 'cross' | 'cue' | 'dodge' | 'hue' | 'land' | 'order' | 'pop' | 'ready' | 'recall' | 'swing';
 
 export const S = (d: string) => `<svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">${d}</svg>`;
 export const ST = 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"';
@@ -46,6 +47,18 @@ const LIST: { id: GameId; label: string; icon: string }[] = [
   { id: 'maze', label: 'Maze', icon: S(`<path d="M3.5 3.5h17v17h-17zM3.5 9.5h11M9.5 15v5.5M15 15h5.5" ${ST}/><circle cx="6.5" cy="17.5" r="2" ${F}/>`) },
   { id: 'more', label: 'More', icon: S(`<path d="M12 3v18" ${ST} stroke-dasharray="2 3.5"/><circle cx="4.5" cy="7" r="1.9" ${F}/><circle cx="8" cy="12" r="1.9" ${F}/><circle cx="4.5" cy="17" r="1.9" ${F}/><circle cx="18" cy="12" r="1.9" ${F}/>`) },
   { id: 'stick', label: 'Stick', icon: S(`<circle cx="12" cy="10" r="3.5" ${F}/><circle cx="12" cy="10" r="7" ${ST} stroke-dasharray="2 3"/><circle cx="5.5" cy="7.5" r="1.9" ${F}/><circle cx="17.5" cy="5" r="1.9" ${F}/><circle cx="12" cy="21" r="1.9" ${ST}/>`) },
+  { id: 'blast', label: 'Blast', icon: S(`<circle cx="12" cy="12" r="3.2" ${F}/><circle cx="4.5" cy="5" r="2" ${ST}/><circle cx="19.5" cy="17" r="2" ${ST}/><circle cx="17.5" cy="6.5" r="1.5" ${F}/><path d="M14.5 9.5l1.5-1.5" ${ST}/>`) },
+  { id: 'bumper', label: 'Bumper', icon: S(`<circle cx="8" cy="6" r="3" ${ST}/><circle cx="16.5" cy="9" r="3" ${ST}/><circle cx="12" cy="14" r="2" ${F}/><path d="M3.5 18l5 2.5M20.5 18l-5 2.5" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>`) },
+  { id: 'cross', label: 'Cross', icon: S(`<circle cx="12" cy="20" r="2.4" ${F}/><circle cx="5" cy="14" r="1.8" ${F}/><circle cx="17" cy="14" r="1.8" ${F}/><circle cx="9" cy="8.5" r="1.8" ${F}/><circle cx="20" cy="8.5" r="1.8" ${F}/><path d="M4 3.5h16" ${ST}/>`) },
+  { id: 'cue', label: 'Cue', icon: S(`<circle cx="7" cy="17" r="3" ${F}/><circle cx="14" cy="9" r="2.6" ${ST}/><circle cx="18.5" cy="5" r="2.6" ${ST}/><path d="M3 21l1.5-1.5" ${ST}/>`) },
+  { id: 'dodge', label: 'Dodge', icon: S(`<circle cx="12" cy="12" r="3" ${F}/><circle cx="4" cy="6" r="1.7" ${ST}/><circle cx="20" cy="8" r="1.7" ${ST}/><circle cx="6" cy="19.5" r="1.7" ${ST}/><circle cx="18.5" cy="19" r="1.7" ${ST}/>`) },
+  { id: 'hue', label: 'Hue', icon: S(`<path d="M12 3.5a6 6 0 0 1 6 6" ${ST}/><path d="M18 9.5a6 6 0 0 1-6 6" ${ST} stroke-dasharray="2 3"/><path d="M12 15.5a6 6 0 0 1-6-6" ${ST}/><path d="M6 9.5a6 6 0 0 1 6-6" ${ST} stroke-dasharray="2 3"/><circle cx="12" cy="20.5" r="2.3" ${F}/>`) },
+  { id: 'land', label: 'Land', icon: S(`<circle cx="9" cy="6" r="3" ${F}/><circle cx="9" cy="11.5" r="1.3" ${F}/><circle cx="9" cy="14.5" r="1" ${F}/><path d="M3 20.5h18" ${ST}/><path d="M13 20.5h6" fill="none" stroke="currentColor" stroke-width="3.6" stroke-linecap="round"/>`) },
+  { id: 'order', label: 'Order', icon: S(`<circle cx="4.5" cy="15" r="1.6" ${F}/><circle cx="9.5" cy="14" r="2.5" ${F}/><circle cx="17" cy="12.5" r="4.2" ${ST}/>`) },
+  { id: 'pop', label: 'Pop', icon: S(`<circle cx="5" cy="4.5" r="2.2" ${F}/><circle cx="10" cy="4.5" r="2.2" ${ST}/><circle cx="15" cy="4.5" r="2.2" ${F}/><circle cx="7.5" cy="9" r="2.2" ${F}/><circle cx="12.5" cy="9" r="2.2" ${ST}/><circle cx="12" cy="19.5" r="2.4" ${F}/><path d="M12 16l.8-3" ${ST}/>`) },
+  { id: 'ready', label: 'Ready', icon: S(`<circle cx="12" cy="12" r="3.5" ${F}/><circle cx="12" cy="12" r="8.5" ${ST}/><path d="M12 1.5v2M12 20.5v2" ${ST}/>`) },
+  { id: 'recall', label: 'Recall', icon: S(`<circle cx="5" cy="5" r="2.2" ${F}/><circle cx="12" cy="5" r="2.2" ${ST}/><circle cx="19" cy="5" r="2.2" ${ST}/><circle cx="5" cy="12" r="2.2" ${ST}/><circle cx="12" cy="12" r="2.2" ${F}/><circle cx="19" cy="12" r="2.2" ${ST}/><circle cx="5" cy="19" r="2.2" ${ST}/><circle cx="12" cy="19" r="2.2" ${ST}/><circle cx="19" cy="19" r="2.2" ${F}/>`) },
+  { id: 'swing', label: 'Swing', icon: S(`<circle cx="7" cy="4" r="2" ${F}/><path d="M7 6.5l5 7" ${ST} stroke-dasharray="1.5 2.5"/><circle cx="13.5" cy="15.5" r="3" ${F}/><circle cx="19.5" cy="5.5" r="2" ${ST}/>`) },
   { id: 'dive', label: 'Dive', icon: S(`<path d="M8.4 4.3A8.5 8.5 0 1 0 15.6 4.3" ${ST}/><circle cx="12" cy="13" r="3" ${F}/><circle cx="12" cy="2.8" r="2" ${F}/>`) },
 ];
 

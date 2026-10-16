@@ -8,7 +8,7 @@
 
 import {
   CYAN, GREEN, K300, K500, RED, WHITE,
-  anywhere, best, bounceIn, buzz, chimeSound, clamp, completeSound, dashed, dist, dot, missSound, ring, setBest, tickSound,
+  anywhere, best, bounceIn, buzz, chimeSound, clamp, completeSound, dashed, dist, dot, missSound, ring, finish, setBest, tickSound,
   type Mover, type Pt, type Stage, type Toy,
 } from './kit';
 
@@ -110,7 +110,7 @@ export class Rally implements Toy {
     s.nu.vx = s.nu.vy = 0;
     if (this.left <= 0) {
       this.overAt = now;
-      setBest(s, 'rally', this.count);
+      finish(s, 'rally', this.count);
       s.score(this.count, best(s, 'rally') || null);
       return;
     }
@@ -197,7 +197,7 @@ export class Ripple implements Toy {
     if (left <= 0) {
       this.overAt = now;
       completeSound();
-      setBest(s, 'ripple', this.count);
+      finish(s, 'ripple', this.count);
       s.score(this.count, best(s, 'ripple') || null);
       return;
     }

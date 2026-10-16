@@ -21,7 +21,8 @@
 //   Dive    tap to dive Nu through the gaps in turning shells, down to the nucleus.
 //   Hockey, Chain, Split, Pairs: see arcade.ts. Flash, Halo, Pulse: see court.ts. Rally, Ripple:
 //   see swim.ts. Bloom, Hop, Juggle, Loop, Pull, Spark, Twin: see yard.ts. Grow, Rain, Sort, Spot,
-//   Stack, Tilt: see field.ts. Brick, Drop, Flip, Maze, More, Stick: see lawn.ts.
+//   Stack, Tilt: see field.ts. Brick, Drop, Flip, Maze, More, Stick: see lawn.ts. Blast, Bumper,
+//   Cross, Cue, Dodge, Hue: see meadow.ts. Land, Order, Pop, Ready, Recall, Swing: see grove.ts.
 // Most games are learnt by trying, so they carry no words: just the score and best under the arena.
 // When the park opens, the guide Nu (src/ui/nu.ts) flies in from the logo and the park takes it
 // over; leaving, it hands Nu back where it is and Nu flies home. It never jumps. Bests are kept
@@ -32,10 +33,11 @@ import { nuBorrow, nuEnabled, nuGiveBack, reducedMotion } from '../ui/nu';
 import { boxedToys, eatTreat, giveToy, keepBox, periodsDone, toysSeen, treats, wake, warmth, warmUp } from './bond';
 import { F, GAMES, S, ST, nuPick, type GameId } from './games';
 import { readWithNu } from './read';
-import { openSheet, type Sheet } from '../ui/sheet';
+import { openSheet, openSheetPanel, type Sheet } from '../ui/sheet';
+import { icon } from '../ui/icons';
 import { MAX_Z } from '../core/elements';
 import {
-  dashed, anywhere, arenaPath, best, Bests, Body, bounceIn, buzz, captureSound, chimeSound, clamp, completeSound, CYAN, dist, dot, edge, Fx, GREEN, inside, K300, K500, K800, K900, K975, missSound, Mover, NOTE_COLOURS, Pt, readBests, RED, rimPoint, ring, ROSE, seeded, setBest, Stage, TAU, tickSound, Toy, WHITE, writeBests,
+  dashed, anywhere, arenaPath, best, Bests, Body, bounceIn, buzz, captureSound, chimeSound, clamp, completeSound, CYAN, dist, dot, edge, Fx, GREEN, inside, K300, K500, K800, K900, K975, missSound, Mover, NOTE_COLOURS, Pt, readBests, RED, rimPoint, ring, ROSE, seeded, finish, setBest, Stage, TAU, tickSound, Toy, WHITE, writeBests,
 } from './kit';
 import { hush } from './kit';
 import { Chain, Hockey, Pairs, Split } from './arcade';
@@ -44,6 +46,10 @@ import { Rally, Ripple } from './swim';
 import { Bloom, Hop, Juggle, Loop, Pull, Spark, Twin } from './yard';
 import { Grow, Rain, Sort, Spot, Stack, Tilt } from './field';
 import { Brick, Drop, Flip, Maze, More, Stick } from './lawn';
+import { Blast, Bumper, Cross, Cue, Dodge, Hue } from './meadow';
+import { Land, Order, Pop, Ready, Recall, Swing } from './grove';
+import { fmt, points } from './points';
+import { GAME_MS, NEXT_MS, ROULETTE_ICON, ROUND, chip, keepRun, pickSix, readBook, rouletteHtml, wheelSvg, type Run } from './roulette';
 import './park.css';
 
 type PlaceId = 'home' | GameId;
@@ -179,6 +185,14 @@ class Home implements Toy {
   /** Nu's pace: slower in the water. */
   private pace(s: Stage): number { return this.wet(s, s.nu) ? 0.38 : 1; }
 
+  /** The roulette wheel: round, in the bottom-right corner. Tap it and it spins, and the
+   *  roulette opens. */
+  private wheel(s: Stage): Pt & { r: number } {
+    return { x: s.c.x + s.hw - 46, y: s.c.y + s.hh - 46, r: 32 };
+  }
+  private spinAt = 0;
+  private turn = 0;
+
   /** The toy box: round, in the bottom-left corner. */
   private box(s: Stage): Pt & { r: number } {
     return { x: s.c.x - s.hw + 46, y: s.c.y + s.hh - 46, r: 34 };
@@ -238,6 +252,9 @@ class Home implements Toy {
   resize(s: Stage): void { for (const t of this.toys) Object.assign(t, inside(s, t, toyR(t))); }
 
   step(s: Stage, dt: number, now: number): void {
+    // The wheel turns slowly, fast for a moment when spun; then the roulette opens.
+    this.turn += dt * (this.spinAt ? 0.012 * Math.max(0.1, 1 - (now - this.spinAt) / 700) : 0.0004);
+    if (this.spinAt && now - this.spinAt > 700) { this.spinAt = 0; s.roulette?.(); }
     const nu = s.nu;
     for (const t of this.toys) {
       if (t.boxed) { Object.assign(t, this.inBox(s, t)); continue; }
@@ -383,6 +400,14 @@ class Home implements Toy {
     const b = this.box(s);
     dot(ctx, b, b.r, K900);
     ring(ctx, b, b.r, K500, 3, 0.9);
+    const wh = this.wheel(s);
+    dot(ctx, wh, wh.r, K900);
+    ring(ctx, wh, wh.r, K500, 3, 0.9);
+    for (let k = 0; k < 6; k++) {
+      const a = this.turn + (k * TAU) / 6;
+      dot(ctx, { x: wh.x + Math.cos(a) * wh.r * 0.6, y: wh.y + Math.sin(a) * wh.r * 0.6 }, 4.5, k < 5 ? NOTE_COLOURS[k] : WHITE, 0.95);
+    }
+    dot(ctx, wh, 4, K300);
     for (const t of this.toys) {
       if (t.kind === 'photon') {
         ctx.save();
@@ -446,6 +471,11 @@ class Home implements Toy {
       this.peekUntil = performance.now() + 1300;
       this.peekOut = Math.random() < 0.4;
       tickSound(2);
+      return;
+    }
+    const wh = this.wheel(s);
+    if (dist(p, wh) < wh.r + 6 && !this.held) {
+      if (!this.spinAt) { this.spinAt = performance.now(); tickSound(3); }
       return;
     }
     const b = this.box(s);
@@ -695,6 +725,7 @@ class Sling implements Toy {
 /** Lead Nu up a winding channel to the green ring without touching its walls or the electrons
  *  crossing it. A touch sends Nu back to the last gate. Each course is narrower and busier. */
 class Course implements Toy {
+  tally = true;
   private level = 1;
   private path: Pt[] = [];
   private half = 26;
@@ -707,6 +738,8 @@ class Course implements Toy {
    *  its distance, so the finger never hides Nu or the way ahead. Nu's offset from the finger. */
   private grab: Pt | null = null;
   private time = 0;
+  /** Courses run, and how far along this one. */
+  raw(): number { return this.level - 1 + (this.state === 'done' ? 1 : this.progress / Math.max(1, this.path.length - 3)); }
   private state: 'ready' | 'run' | 'back' | 'done' = 'ready';
   private hitAt = 0;
 
@@ -1005,6 +1038,7 @@ class Echo implements Toy {
       missSound();
       buzz(40);
       this.state = 'wrong';
+      s.end?.(this.tune.length - 1);
       this.wrongNode = i;
       this.wrongAt = performance.now();
       this.timer = 1800;
@@ -1122,7 +1156,7 @@ class Orbit implements Toy {
       if (now - q.born > 700 && near(q.a, q.lane)) {
         this.state = 'over';
         this.overAt = now;
-        setBest(s, 'orbit', this.count);
+        finish(s, 'orbit', this.count);
         s.fx.ring(at, RED, 8, 40, 700);
         missSound();
         s.score(this.count, best(s, 'orbit') || null);
@@ -1287,6 +1321,7 @@ class Shells implements Toy {
       s.fx.burst(this.pos[i], 10, ROSE, 0.12);
       completeSound();
     } else {
+      s.end?.(this.streak);
       this.streak = 0;
       missSound();
     }
@@ -1675,6 +1710,8 @@ const MAKE: Record<PlaceId, () => Toy> = {
   juggle: () => new Juggle(), loop: () => new Loop(), pull: () => new Pull(), spark: () => new Spark(), twin: () => new Twin(),
   grow: () => new Grow(), rain: () => new Rain(), sort: () => new Sort(), spot: () => new Spot(), stack: () => new Stack(), tilt: () => new Tilt(),
   brick: () => new Brick(), drop: () => new Drop(), flip: () => new Flip(), maze: () => new Maze(), more: () => new More(), stick: () => new Stick(),
+  blast: () => new Blast(), bumper: () => new Bumper(), cross: () => new Cross(), cue: () => new Cue(), dodge: () => new Dodge(), hue: () => new Hue(),
+  land: () => new Land(), order: () => new Order(), pop: () => new Pop(), ready: () => new Ready(), recall: () => new Recall(), swing: () => new Swing(),
 };
 
 /** The arena fills the field (w x h), its rim just inside the edge; the court is the biggest
@@ -1767,6 +1804,7 @@ type Bot =
   | { kind: 'drag'; path: 'wander' | 'circle' | 'row' | 'nu' }
   | { kind: 'hold'; on: number; off: number }
   | { kind: 'sling' }
+  | { kind: 'flick' }
   | { kind: 'loop' };
 
 const BOTS: Record<GameId, Bot> = {
@@ -1782,6 +1820,10 @@ const BOTS: Record<GameId, Bot> = {
   tilt: { kind: 'drag', path: 'wander' }, trace: { kind: 'drag', path: 'wander' }, twin: { kind: 'drag', path: 'wander' },
   brick: { kind: 'drag', path: 'row' }, drop: { kind: 'hold', on: 500, off: 2200 }, flip: { kind: 'tap', every: 750 },
   maze: { kind: 'drag', path: 'wander' }, more: { kind: 'tap', every: 1300, at: 'side' }, stick: { kind: 'tap', every: 950 },
+  blast: { kind: 'tap', every: 500 }, bumper: { kind: 'tap', every: 450, at: 'side' }, cross: { kind: 'tap', every: 700, at: 'nu' },
+  cue: { kind: 'flick' }, dodge: { kind: 'drag', path: 'wander' }, hue: { kind: 'tap', every: 420 },
+  land: { kind: 'hold', on: 450, off: 650 }, order: { kind: 'tap', every: 800 }, pop: { kind: 'tap', every: 1000 },
+  ready: { kind: 'tap', every: 700 }, recall: { kind: 'tap', every: 600 }, swing: { kind: 'hold', on: 650, off: 450 },
 };
 
 /** The size a tile plays at, before it's scaled down to fit: about a phone's arena. */
@@ -1883,6 +1925,22 @@ class Preview {
         this.press({ x: nu.x, y: nu.y });
         return;
       }
+      case 'flick': {
+        // A press, a pull back some way over half a second, and let go.
+        if (this.down) {
+          const k = clamp((900 - this.next) / 500, 0, 1);
+          this.drag({ x: this.flickAt!.x + this.flickBy.x * k, y: this.flickAt!.y + this.flickBy.y * k });
+          if (k >= 1) this.lift();
+          return;
+        }
+        if (this.next > 0) return;
+        this.next = 900;
+        this.flickAt = anywhere(s, 40);
+        const a = Math.random() * TAU;
+        this.flickBy = { x: Math.cos(a) * 90, y: Math.sin(a) * 90 };
+        this.press(this.flickAt);
+        return;
+      }
       case 'loop': {
         if (this.next <= 0) {
           this.lift();
@@ -1902,6 +1960,8 @@ class Preview {
   }
 
   private loopAt: Pt | null = null;
+  private flickAt: Pt | null = null;
+  private flickBy: Pt = { x: 0, y: 0 };
 }
 
 /** The picker's tiles, playing while they're in view; a frame for each one shown. */
@@ -1965,12 +2025,21 @@ export class NuPark {
   /** The picker's tiles, playing. */
   private shows: Shows | null = null;
   private since = 0;
+  /** A roulette under way: its six games, which one, the points so far, the time the game has
+   *  left, its count so far, and when it ended (the bar to the next is up). */
+  private rou: { ids: GameId[]; i: number; pts: number[]; left: number; raw: number; doneAt: number } | null = null;
+  private nextEl: HTMLElement;
+  private nextShow: Preview | null = null;
+  /** The last count the open game showed. */
+  private raw = 0;
+  private rouLast = 0;
 
   constructor(host: HTMLElement) {
     this.root = host;
     host.innerHTML = '<div class="nup">'
       + '<div class="nup-field"><canvas class="nup-canvas"></canvas>'
-      + '<div class="nup-off" hidden><p>Nu is switched off in Settings.</p><button type="button" class="nup-on">Turn Nu on</button></div></div>'
+      + '<div class="nup-off" hidden><p>Nu is switched off in Settings.</p><button type="button" class="nup-on">Turn Nu on</button></div>'
+      + '<button type="button" class="nup-next" hidden></button></div>'
       + '<div class="nup-foot"><p class="nup-score" aria-live="polite"></p>'
       + `<button type="button" class="nup-go" aria-label="Games" aria-expanded="false">${PICK_ICON}</button>`
       + '<p class="nup-best"></p></div>'
@@ -1981,6 +2050,8 @@ export class NuPark {
     this.bestEl = host.querySelector('.nup-best')!;
     this.goBtn = host.querySelector('.nup-go')!;
     this.off = host.querySelector('.nup-off')!;
+    this.nextEl = host.querySelector('.nup-next')!;
+    this.nextEl.onclick = () => { if (this.rou?.doneAt && performance.now() - this.rou.doneAt > 500) this.advance(); };
     this.goBtn.onclick = () => this.togglePick();
     host.querySelector<HTMLButtonElement>('.nup-on')!.onclick = () => {
       const save = loadSave();
@@ -1994,9 +2065,17 @@ export class NuPark {
       c: { x: 0, y: 0 }, m: { x: 0, y: 0 }, hw: 100, hh: 100, rr: 40, R: 100, court: false, pad: null, nu: new Body(), fx: new Fx(), bests, rim: null,
       save: () => writeBests(bests),
       score: (n, b) => {
-        this.scoreEl.textContent = n === null ? '' : String(n);
-        this.bestEl.textContent = n === null || b === null || b === undefined ? '' : `Best: ${b}`;
+        // A roulette game that's over keeps its points showing while the next one comes up.
+        if (this.rou?.doneAt) return;
+        const id = this.place === 'home' ? null : this.place, own = id && this.toys[id].tally;
+        if (typeof n === 'number') this.raw = n;
+        // Counts show as points (points.ts), but for games that keep their own (Pairs' turns).
+        const show = (v: number | string) => (typeof v === 'number' && id && !own ? fmt(points(id, v)) : String(v));
+        this.scoreEl.textContent = n === null ? '' : show(n);
+        this.bestEl.textContent = this.rou ? this.rouLine() : n === null || b === null || b === undefined ? '' : `Best: ${show(b)}`;
       },
+      end: (raw) => this.ended(raw),
+      roulette: () => this.openRoulette(),
     };
     this.wirePointer();
     new ResizeObserver(() => this.fit()).observe(this.canvas);
@@ -2023,6 +2102,7 @@ export class NuPark {
     this.root.hidden = true;
     cancelAnimationFrame(this.frame);
     this.frame = 0;
+    this.stopRoulette();
     // Time spent playing warms Nu up, a little per minute.
     if (this.have) warmUp(Math.min(0.3, ((performance.now() - this.since) / 60_000) * 0.05));
     this.giveBack();
@@ -2037,12 +2117,128 @@ export class NuPark {
   /** Opens straight into a game (Home's Nu section). */
   openGame(id: GameId): void { this.go(id); }
 
+  // ---- The roulette (roulette.ts) ----------------------------------------------------------
+
+  /** The roulette sheet: six games spin into place, one after the other; Play starts them.
+   *  After a run it shows the run's score instead, and Play spins a new six. */
+  openRoulette(run: Run | null = null, best = false): void {
+    if (!this.have) return;
+    this.closePick();
+    let ids = pickSix();
+    const sheet = openSheet({ title: 'Roulette', icon: 'nu', label: 'Nu’s roulette', from: 'top', className: 'nur-sheet' });
+    const spin = () => {
+      sheet.body.innerHTML = rouletteHtml(ids, null, false);
+      const slots = [...sheet.body.querySelectorAll<HTMLElement>('.nur-six li')];
+      const t0 = performance.now(), all = GAMES.map((g) => g.id);
+      // Each slot flicks through games, then settles, one after the other.
+      const roll = (now: number) => {
+        if (!sheet.body.isConnected) return;
+        let busy = false;
+        slots.forEach((el, k) => {
+          const stop = 350 + k * 260;
+          if (el.dataset.done) return;
+          if (now - t0 >= stop || reducedMotion()) { el.innerHTML = chip(ids[k]); el.dataset.done = '1'; el.classList.add('is-in'); return; }
+          busy = true;
+          if (!el.dataset.at || now - Number(el.dataset.at) > 70) { el.dataset.at = String(now); el.innerHTML = chip(all[Math.floor(Math.random() * all.length)]); }
+        });
+        if (busy) requestAnimationFrame(roll); else sheet.body.querySelector('.nur-six')?.classList.remove('is-spinning');
+      };
+      requestAnimationFrame(roll);
+    };
+    if (run) sheet.body.innerHTML = rouletteHtml(run.games.map((g) => g.id), run, best); else spin();
+    sheet.foot.innerHTML = `<button type="button" class="nur-again">${ROULETTE_ICON}<span>${run ? 'New six' : 'Spin again'}</span></button>`
+      + `<button type="button" class="nur-play"${run ? ' hidden' : ''}>${icon('play', { size: 22 })}<span>Play</span></button>`;
+    const again = sheet.foot.querySelector<HTMLButtonElement>('.nur-again')!, play = sheet.foot.querySelector<HTMLButtonElement>('.nur-play')!;
+    again.onclick = () => { ids = pickSix(); spin(); play.hidden = false; again.querySelector('span')!.textContent = 'Spin again'; };
+    play.onclick = () => { sheet.close(); this.startRoulette(ids); };
+  }
+
+  private startRoulette(ids: GameId[]): void {
+    this.go('home');
+    this.rou = { ids, i: 0, pts: [], left: GAME_MS, raw: 0, doneAt: 0 };
+    this.go(ids[0], true);
+    this.stage.score(0, null);
+  }
+
+  private stopRoulette(): void {
+    this.rou = null;
+    this.nextEl.hidden = true;
+    this.nextShow = null;
+  }
+
+  /** The foot's line in a roulette: the game's time left, which game, and the total so far. */
+  private rouLine(): string {
+    const r = this.rou!, secs = Math.ceil(r.left / 1000);
+    return `${r.i + 1} of ${ROUND} · ${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
+  }
+
+  /** A run is over: in a roulette, this game is done; the bar to the next comes up. */
+  private ended(raw: number): void {
+    const r = this.rou;
+    if (!r || r.doneAt || this.place !== r.ids[r.i]) return;
+    const id = r.ids[r.i], pts = points(id, raw);
+    r.pts[r.i] = pts;
+    r.doneAt = performance.now();
+    this.scoreEl.textContent = fmt(pts);
+    this.bestEl.textContent = this.rouLine();
+    const last = r.i >= ROUND - 1, next = last ? null : GAMES.find((g) => g.id === r.ids[r.i + 1])!;
+    this.nextEl.innerHTML = '<span class="nup-next-row">'
+      + (next ? '<span class="nup-shot"><canvas aria-hidden="true"></canvas></span>' : `<span class="nup-next-wheel">${wheelSvg(48)}</span>`)
+      + `<span class="nup-next-text"><small>${next ? 'Next' : 'Roulette done'}</small><b>${next ? `<i>${next.icon}</i>${next.label}` : `Total: ${fmt(r.pts.reduce((a, b) => a + b, 0))}`}</b></span>`
+      + `<span class="nup-next-pts">+${fmt(pts)}</span></span>`
+      + `<span class="nup-next-bar"><i style="animation-duration:${NEXT_MS}ms"></i></span>`;
+    this.nextEl.setAttribute('aria-label', next ? `Next: ${next.label}` : 'See the roulette score');
+    this.nextEl.hidden = false;
+    this.nextShow = next ? new Preview(next.id, this.nextEl.querySelector('canvas')!) : null;
+  }
+
+  /** On to the next game (or, after the sixth, the roulette's score). */
+  private advance(): void {
+    const r = this.rou;
+    if (!r) return;
+    this.nextEl.hidden = true;
+    this.nextShow = null;
+    if (r.i >= ROUND - 1) {
+      const run: Run = { at: Date.now(), total: Math.round(r.pts.reduce((a, b) => a + b, 0) * 10) / 10, games: r.ids.map((id, k) => ({ id, pts: r.pts[k] ?? 0 })) };
+      const best = keepRun(run);
+      this.rou = null;
+      this.go('home');
+      this.openRoulette(run, best);
+      return;
+    }
+    r.i++;
+    r.doneAt = 0;
+    r.left = GAME_MS;
+    this.go(r.ids[r.i], true);
+    this.stage.score(0, null);
+  }
+
+  /** The roulette's clock, each frame the game plays. */
+  private rouTick(now: number): void {
+    const r = this.rou;
+    // The game's own clock, by the wall: frames may be slow, but a minute is a minute (a pause,
+    // such as a sheet open over it, doesn't count).
+    const dt = Math.min(250, now - (this.rouLast || now));
+    this.rouLast = now;
+    if (!r) return;
+    if (r.doneAt) {
+      this.nextShow?.frame(now);
+      if (now - r.doneAt > NEXT_MS) this.advance();
+      return;
+    }
+    const was = Math.ceil(r.left / 1000);
+    r.left -= dt;
+    if (r.left <= 0) { const t = this.toys[r.ids[r.i]]; this.ended(t.raw?.() ?? this.raw); return; }
+    if (Math.ceil(r.left / 1000) !== was) this.bestEl.textContent = this.rouLine();
+  }
+
   /** Nu's home, from the header's trail. */
   goHome(): void { this.go('home'); }
 
   /** Back to Nu's home from a game (or the picker closes). False if already there. */
   back(): boolean {
     if (this.picking) { this.closePick(); return true; }
+    if (this.rou) this.stopRoulette();
     if (this.place === 'home') return false;
     this.go('home');
     return true;
@@ -2077,10 +2273,13 @@ export class NuPark {
     nuGiveBack({ x: r.left + clamp(nu.x, 0, r.width), y: r.top + clamp(nu.y, 0, r.height) });
   }
 
-  private go(id: PlaceId): void {
+  private go(id: PlaceId, roulette = false): void {
     this.closePick();
-    if (id === this.place) return;
+    // Picking a game (or going home) ends a roulette.
+    if (!roulette && this.rou) this.stopRoulette();
+    if (id === this.place && !roulette) return;
     this.place = id;
+    this.raw = 0;
     this.stage.court = !!this.toys[id].court;
     this.layout();
     this.stage.fx.clear();
@@ -2102,12 +2301,16 @@ export class NuPark {
     if (this.picking) { this.closePick(); return; }
     const fancy = nuPick().id;
     const sheet = openSheet({ title: 'Games', icon: 'nu', label: 'Nu’s games', from: 'top', className: 'nup-sheet', onClose: () => this.picked(sheet) });
-    sheet.body.innerHTML = '<div class="nup-tiles">' + GAMES.map((g) => {
+    const book = readBook();
+    sheet.body.innerHTML = `<button type="button" class="nup-rou">${wheelSvg(44)}<span class="nup-rou-text"><b>Roulette</b><small>Six games in a row</small></span>`
+      + `<span class="nup-rou-best">${book.best ? `Best: ${fmt(book.best)}` : ''}</span></button>`
+      + '<div class="nup-tiles">' + GAMES.map((g) => {
       const label = `${g.label}${g.id === fancy ? ', Nu’s pick today' : ''}`;
       return `<button type="button" class="nup-tile${g.id === this.place ? ' is-here' : ''}" data-place="${g.id}" aria-label="${label}">`
-        + '<span class="nup-shot"><canvas aria-hidden="true"></canvas></span>'
-        + `<span class="nup-name"><i>${g.icon}${g.id === fancy ? '<b class="nup-nu" aria-hidden="true"></b>' : ''}</i><span>${g.label}</span></span></button>`;
+        + '<span class="nup-shot"><canvas aria-hidden="true"></canvas>'
+        + `<span class="nup-name"><i>${g.icon}${g.id === fancy ? '<b class="nup-nu" aria-hidden="true"></b>' : ''}</i><span>${g.label}</span></span></span></button>`;
     }).join('') + '</div>';
+    sheet.body.querySelector<HTMLButtonElement>('.nup-rou')!.onclick = () => this.openRoulette();
     sheet.foot.innerHTML = `<button type="button" class="nup-read">${READ_ICON}<span>Read from the Atlas</span></button>`;
     for (const b of sheet.body.querySelectorAll<HTMLButtonElement>('.nup-tile')) b.onclick = () => this.go(b.dataset.place as PlaceId);
     sheet.foot.querySelector<HTMLButtonElement>('.nup-read')!.onclick = () => this.read();
@@ -2169,6 +2372,7 @@ export class NuPark {
     c.addEventListener('pointerdown', (e) => {
       if (!this.have) return;
       if (this.picking) { this.closePick(); return; }
+      if (this.rou?.doneAt) { if (performance.now() - this.rou.doneAt > 600) this.advance(); return; }
       down = true;
       c.setPointerCapture(e.pointerId);
       this.toys[this.place].down?.(this.stage, at(e));
@@ -2192,6 +2396,7 @@ export class NuPark {
       this.last = now;
       this.ctx.clearRect(0, 0, this.size.w, this.size.h);
       paintStage(this.stage, this.ctx, this.have ? this.toys[this.place] : null, dt, now, !this.picking);
+      if (this.have && !this.picking && !openSheetPanel()) this.rouTick(now); else this.rouLast = 0;
       this.frame = requestAnimationFrame(tick);
     };
     this.frame = requestAnimationFrame(tick);

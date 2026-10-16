@@ -13,7 +13,7 @@
 
 import {
   CYAN, K300, K500, K800, K975, NOTE_COLOURS, RED, TAU, WHITE,
-  anywhere, best, bounceIn, buzz, captureSound, chimeSound, clamp, completeSound, dist, dot, inside, missSound, ring, setBest, tickSound,
+  anywhere, best, bounceIn, buzz, captureSound, chimeSound, clamp, completeSound, dist, dot, inside, missSound, ring, finish, setBest, tickSound,
   type Mover, type Pt, type Stage, type Toy,
 } from './kit';
 
@@ -96,7 +96,7 @@ export class Grow implements Toy {
         s.fx.ring(nu, RED, nu.r, nu.r + 30, 600);
         missSound();
         buzz(22);
-        setBest(s, 'grow', this.count);
+        finish(s, 'grow', this.count);
         s.score(this.count, best(s, 'grow') || null);
         return;
       }
@@ -190,7 +190,7 @@ export class Rain implements Toy {
           if (this.left <= 0) {
             this.overAt = now;
             this.drops = [];
-            setBest(s, 'rain', this.count);
+            finish(s, 'rain', this.count);
             s.score(this.count, best(s, 'rain') || null);
             return;
           }
@@ -299,7 +299,7 @@ export class Sort implements Toy {
       buzz(22);
       if (this.left <= 0) {
         this.overAt = now;
-        setBest(s, 'sort', this.count);
+        finish(s, 'sort', this.count);
         s.score(this.count, best(s, 'sort') || null);
       }
     }
@@ -392,7 +392,7 @@ export class Spot implements Toy {
     buzz(22);
     if (this.left <= 0) {
       this.overAt = now;
-      setBest(s, 'spot', this.count);
+      finish(s, 'spot', this.count);
       s.score(this.count, best(s, 'spot') || null);
     }
   }
@@ -504,7 +504,7 @@ export class Stack implements Toy {
         buzz(22);
         if (this.left <= 0) {
           this.overAt = now;
-          setBest(s, 'stack', this.tower.length - 1);
+          finish(s, 'stack', this.tower.length - 1);
         }
       }
     }
@@ -608,7 +608,7 @@ export class Tilt implements Toy {
       this.sinkAt = now;
       missSound();
       buzz(22);
-      setBest(s, 'tilt', this.count);
+      finish(s, 'tilt', this.count);
       s.score(this.count, best(s, 'tilt') || null);
       return;
     }
