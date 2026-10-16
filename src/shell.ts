@@ -323,6 +323,7 @@ export class AppShell {
     } else if (showHome) {
       renderHome($('home-body'), (to, at) => {
         if (to === 'learn' && at?.z) { this.z = at.z; void this.go('gallery').then(() => this.gallery.openPage(at.z!)); }
+        else if (to === 'play' && at?.daily) void this.go('puzzles').then(() => this.playground?.openDaily());
         else if (to === 'play' && at?.game) void this.go('puzzles').then(() => this.playground?.open(at.game!));
         else if (to === 'nu' && at?.game) void this.go('nu').then(() => this.park?.openGame(at.game as GameId));
         else this.toSection(to);

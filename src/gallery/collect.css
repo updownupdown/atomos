@@ -63,8 +63,8 @@
 .co-period.is-locked > .icon { color: var(--c-warn); }
 /* The period's two bars (stable parts, fleeting isotopes), each behind its icon, in the middle. */
 .co-pbars { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: flex-end; gap: var(--sp-3); }
-.co-pbar { flex: 1; max-width: 96px; min-width: 40px; display: flex; align-items: center; gap: 6px; color: var(--c-text-2); }
-.co-pbar .co-trk { flex: 1; }
+.co-pbar { flex: none; display: flex; align-items: center; gap: 6px; color: var(--c-text-2); }
+.co-pnum { font-size: var(--fs-sm); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .co-pbar.is-done { color: var(--c-done); }
 .co-need { font-size: var(--fs-sm); color: var(--c-text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .co-more { flex: none; width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--c-text); cursor: pointer; -webkit-tap-highlight-color: transparent; }

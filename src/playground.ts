@@ -25,7 +25,7 @@ import { clearOffers, createGameBar, offerRules, type GameBar } from './puzzles/
 import { dialFor, difficultyLevel, difficultyRange, difficultyWord, elementForDial, levelInGame } from './puzzles/difficulty';
 import { lastDial, pinnedGames, recordWin, rememberDial, setPinned } from './core/wins';
 import { GameDemo } from './puzzles/demo';
-import { dailyPuzzle, dailyStreak, recordDaily, type DailyPuzzle } from './puzzles/daily';
+import { dailyPuzzle, recordDaily, type DailyPuzzle } from './puzzles/daily';
 import { askRestart, confirming, restartButton } from './puzzles/restart';
 import { icon } from './ui/icons';
 import { modalOpen } from './ui/modal';
@@ -142,7 +142,7 @@ export class Playground {
     $('puzzles-screen').hidden = false;
     document.body.classList.toggle('pg-playing', this.inPuzzle);
     if (this.inPuzzle) this.host.wake();
-    else { this.demo.start(); this.renderDaily(); }
+    else this.demo.start();
     window.dispatchEvent(new Event('resize'));
     this.layoutHome();
   }
@@ -243,46 +243,12 @@ export class Playground {
       }, true);
       list.append(sec);
     }
-    this.renderDaily();
     const hint = document.createElement('p');
     hint.className = 'pg-pin-hint';
     hint.textContent = 'Long-press to pin and unpin games';
     list.append(hint);
     this.focusId = games.some((g) => g.id === keep) ? keep : games[0]?.id ?? '';
     this.paintFocus(true);
-  }
-
-  /** The daily puzzle's card at the top of Play, above the box (it scrolls away under the
-   *  header as the list moves): today's game at the day's level, the streak beside its heading,
-   *  Play (or Replay once it is solved). */
-  private renderDaily(): void {
-    const d = dailyPuzzle();
-    const p = PUZZLES.find((g) => g.id === d.game);
-    $('pg-home').querySelector('.pg-daily')?.remove();
-    if (!p) return;
-    const s = dailyStreak();
-    const box = document.createElement('section');
-    box.className = `pg-daily${s.today ? ' is-done' : ''}`;
-    box.setAttribute('aria-label', 'Daily puzzle');
-    const head = document.createElement('div');
-    head.className = 'pg-daily-head';
-    const streak = s.streak ? `<span class="pg-daily-streak">${icon('star', { size: 16 })}${s.streak === 1 ? '1 day' : `${s.streak} days`} in a row</span>` : '';
-    head.innerHTML = `<h2 class="pg-daily-title">Daily puzzle</h2>${streak}`;
-    box.append(head, gameCard({
-      id: p.id,
-      name: p.name,
-      difficulty: d.dial,
-      pipsBeside: true,
-      action: s.today
-        ? { label: 'Replay', ariaLabel: `Replay today's ${p.name}`, onClick: () => this.openDaily() }
-        : { label: 'Play', ariaLabel: `Play today's ${p.name}`, onClick: () => this.openDaily() },
-      extra: s.today ? (s.flawless ? 'Solved today, flawless' : 'Solved today') : 'The same board for everyone today',
-    }));
-    box.addEventListener('click', (e) => {
-      if ((e.target as HTMLElement).closest('button')) return;
-      this.openDaily();
-    });
-    $('pg-focus').before(box);
   }
 
   /** A long press just fired: the click that ends it is swallowed. */
@@ -540,7 +506,6 @@ export class Playground {
     recordWin(t.id, this.dial, flawless);
     // The daily puzzle: its day solved, and the streak it makes.
     const streak = this.dailyKey ? recordDaily(this.dailyKey, flawless) : 0;
-    if (this.dailyKey) this.renderDaily();
     this.closeWin = showWin({
       outcome: flawless ? 'flawless' : 'won',
       headline: this.dailyKey ? (flawless ? 'Daily, flawless' : 'Daily solved') : flawless ? 'Flawless' : 'Solved',
