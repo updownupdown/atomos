@@ -454,7 +454,7 @@ export class Game {
     const shape = shapeAt(z);
     const shapeCard = shape ? this.card({
       stage: 'shape',
-      text: `The shape of ${shape} orbitals, for the 3D Shapes view`,
+      text: `The shape of ${shape} orbitals`,
       done: Boolean(this.save.shapes[shape]),
       flawless: false,
       best: this.save.shapes[shape]?.best,
@@ -479,7 +479,7 @@ export class Game {
       fleeting.length ? this.section('isotope-fleeting', 'Fleeting isotopes', `${fc.built} of ${fc.total}`, '',
         `Gone in under a year. Pick any isotope puzzle for each: the shorter it lives, the harder the board. They don't count toward ${name}'s 100%.${later}`,
         this.fleetingGrid(fleeting, Boolean(built)), fc.total > 0 && fc.built === fc.total) : '',
-      shapeCard ? this.section('unlock', 'Discoveries', '', shapeCard, '', '', Boolean(shape && this.save.shapes[shape])) : '',
+      shapeCard ? this.section('unlock', 'Discoveries', '', shapeCard, `${el.name} is the first atom with ${shape} orbitals. Crack the code to see their shape.`, '', Boolean(shape && this.save.shapes[shape])) : '',
       // The foot: the atom's page in the Atlas, and the guide to how it is built.
       `<div class="bh-foot" id="bh-foot">${this.hooks.onInfo ? `<button type="button" class="foot-card" id="bh-to-info" aria-label="View ${el.name} in the Atlas"><span class="foot-card-ico">${icon('atlas', { size: 40 })}</span><span class="foot-card-text"><b>View in Atlas</b></span><span class="foot-card-go">${icon('chevron-right', { size: 22 })}</span></button>` : ''}</div>`,
     ].join('');
@@ -621,14 +621,13 @@ export class Game {
     const paused = this.suspended[o.stage];
     const gated = Boolean(o.gate) && !o.done;
     const cls = o.locked ? 'is-locked' : gated ? 'is-gate is-next' : o.done ? (o.flawless ? 'is-flawless' : 'is-done') : 'is-next';
-    const flawless = o.done && o.flawless && !isIso(o.stage);
-    const state = paused ? `<span class="bh-state is-paused">In progress</span><span class="bh-note">${paused.moves} move${paused.moves === 1 ? '' : 's'} so far</span>`
-      : o.done ? `<span class="bh-state ${flawless ? 'is-flawless' : 'is-built'}">${o.gate ? 'Discovered' : flawless ? 'Flawless' : 'Built'}</span>${o.best !== undefined ? `<span class="bh-note">Best ${o.best}</span>` : ''}`
-      : o.locked ? (o.lockNote === false ? '' : `<span class="bh-note">${o.locked}</span>`)
-      : gated ? `<span class="bh-note">${o.gate}</span>`
-      : '';
     const verb = paused ? 'Resume' : o.done ? 'Replay' : gated ? 'Unlock' : 'Play';
     const isNext = !o.locked && this.nextHere?.z === this.z && this.nextHere.stage === o.stage;
+    // One line under the game's name: what the step builds (or why it is locked), then how it
+    // stands where that is worth a word (moves so far, the best score). Built shows as the card's
+    // Replay ring and on the track, so it is not said in words.
+    const what = o.iso ? `${o.iso} · ${o.text}` : o.locked && o.lockNote !== false ? o.locked : o.text;
+    const more = paused ? `${paused.moves} move${paused.moves === 1 ? '' : 's'} so far` : o.done && o.best !== undefined ? `Best ${o.best}` : '';
     this.cardMounts.set(o.stage, {
       id: t.id,
       name: o.title ?? t.name,
@@ -637,22 +636,11 @@ export class Game {
       next: isNext,
       locked: Boolean(o.locked),
       what: `${t.name}${o.iso ? `: ${o.iso}` : ''}`,
-      // An isotope row: the isotope and its share or half-life on the card's own line.
-      extra: o.iso ? `${o.iso} · ${o.text}` : undefined,
+      extra: more ? `${what} · ${more}` : what,
     });
-    if (o.iso) {
-      return `
-      <li class="bh-row bh-row--iso ${cls}${isNext ? ' is-go' : ''}" data-row="${o.stage}">
-        <div class="bh-gc" data-gc="${o.stage}"></div>${state ? `
-        <div class="bh-side">${state}</div>` : ''}
-      </li>`;
-    }
-    // What the step builds sits beside the card, over how far it has got.
-    const what = `<span class="bh-what">${o.text}</span>`;
     return `
       <li class="bh-row ${cls}${isNext ? ' is-go' : ''}" data-row="${o.stage}">
         <div class="bh-gc" data-gc="${o.stage}"></div>
-        <div class="bh-side">${what}${state}</div>
       </li>`;
   }
 
@@ -705,8 +693,7 @@ export class Game {
   private hydrogenNucleus(): string {
     return `
       <li class="bh-row is-done" data-row="nucleus">
-        <div class="bh-gc"><div class="gcard bh-proton"><div class="gcard-in"><span class="gcard-icon" aria-hidden="true">${icon('atom', { size: 36 })}</span><div class="gcard-body"><b class="gcard-name">A lone proton</b></div></div></div></div>
-        <div class="bh-side"><span class="bh-what">Ready from the start</span><span class="bh-state is-built">Built</span></div>
+        <div class="bh-gc"><div class="gcard bh-proton"><div class="gcard-in"><span class="gcard-icon" aria-hidden="true">${icon('atom', { size: 36 })}</span><div class="gcard-body"><b class="gcard-name">A lone proton</b><span class="gcard-extra">Ready from the start</span></div></div></div></div>
       </li>`;
   }
 
