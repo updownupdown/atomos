@@ -194,9 +194,11 @@ export class AtlasMap {
     if (zoomed) { this.clampView(); this.apply(); } else this.reset();
   }
 
+  /** Centered across, and just under the tools above (the legend), so the shape and the legend
+   *  that names its colors read as one piece; spare room goes to the bottom, where the peek opens. */
   private center(): void {
     this.tx = this.bounds.x + this.bounds.w / 2 - this.w / 2 / this.scale;
-    this.ty = this.bounds.y + this.bounds.h / 2 - (this.topRoom + (this.h - this.topRoom - FOOT_ROOM) / 2) / this.scale;
+    this.ty = this.bounds.y - this.topRoom / this.scale;
   }
 
   /** Keep some of the shape on screen however far it is dragged. */
@@ -205,10 +207,11 @@ export class AtlasMap {
     // The shape's edges can scroll clear of the tools above and the peek strip below.
     const vw = this.w / this.scale, vh = (this.h - this.topRoom - FOOT_ROOM) / this.scale;
     const b = this.bounds;
-    const fx = (lo: number, hi: number, v: number, span: number) => (span >= hi - lo ? (lo + hi) / 2 - span / 2 : Math.max(lo, Math.min(hi - span, v)));
+    // A shape smaller than the view: centered across, at the top down (see center()).
+    const fx = (lo: number, hi: number, v: number, span: number, top = false) => (span >= hi - lo ? (top ? lo : (lo + hi) / 2 - span / 2) : Math.max(lo, Math.min(hi - span, v)));
     this.tx = fx(b.x, b.x + b.w, this.tx, vw);
     const top = this.topRoom / this.scale;
-    this.ty = fx(b.y, b.y + b.h, this.ty + top, vh) - top;
+    this.ty = fx(b.y, b.y + b.h, this.ty + top, vh, true) - top;
   }
 
   /** The atom whose cell center is within half a cell of a screen point: a tap just off a small

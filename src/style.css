@@ -163,6 +163,7 @@ body.build-home #app .bottom { display: none; }
 .gbar-stats { flex: 1; display: flex; justify-content: flex-end; align-items: baseline; gap: 20px; min-width: 0; }
 .gbar-stat { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
 .gbar-k { font-size: var(--fs-min); color: var(--c-text-min); white-space: nowrap; }
+.gbar-k::after { content: ':'; }
 .gbar-v { font-size: var(--fs-md); font-weight: var(--fw-semibold); color: var(--c-text); font-variant-numeric: tabular-nums; white-space: nowrap; line-height: 1.3; }
 .gbar-pips { display: inline-flex; align-items: center; gap: 3px; align-self: center; }
 .gbar-pips i { width: 7px; height: 7px; border-radius: 50%; background: color-mix(in srgb, var(--c-text) 32%, var(--c-nav)); }
@@ -174,20 +175,21 @@ body.build-home #app .bottom { display: none; }
 .gbar-back { min-width: 0; flex: 0 1 auto; }
 .gbar-tools { flex: none; display: flex; align-items: center; gap: 6px; margin-left: auto; }
 .gbar--play .gbar-head, .gbar--play .gbar-back { display: none; }
-/* Play, under the header: one row with Moves and Par on the left (each word over its figure) and
-   the tools a size up on the right; then the status line on its own. The game's dropdown and
+/* Play, under the header: one row with "Moves: 0" and "Par: 67" on the left (they stack only
+   when a long label leaves no room) and the round tools a size up on the right; then the status
+   line on its own. The game's dropdown and
    its Difficulty are in the header. */
 .gbar--play .gbar-nav .gbar-in { gap: var(--sp-2); }
-.gbar--play .gbar-stats { flex: none; justify-content: flex-start; align-items: center; gap: var(--sp-4); padding-left: var(--sp-1); }
-.gbar--play .gbar-stat { flex-direction: column; align-items: flex-start; gap: 2px; }
-.gbar--play .gbar-k { font-size: 13px; color: var(--c-text-2); }
+.gbar--play .gbar-stats { flex: 0 1 auto; flex-wrap: wrap; justify-content: flex-start; align-items: baseline; gap: 2px var(--sp-4); padding-left: var(--sp-1); }
+.gbar--play .gbar-stat { gap: 5px; }
+.gbar--play .gbar-k { font-size: var(--fs-md); color: var(--c-text-2); }
 .gbar--play .gbar-tools { flex: 1 1 auto; justify-content: flex-end; gap: 8px; min-width: 0; }
 .gbar.gbar--play .gbar-tools > * { width: 48px; height: 48px; }
 .gbar--play .gbar-tools svg { width: 28px; height: 28px; }
 @media (max-width: 380px) {
   .gbar--play .gbar-tools { gap: 4px; }
   .gbar.gbar--play .gbar-tools > * { width: 44px; height: 44px; }
-  .gbar--play .gbar-stats { gap: var(--sp-3); }
+  .gbar--play .gbar-stats { gap: 2px var(--sp-3); }
 }
 .gbar--play .gbar-lead:empty { display: none; }
 .gbar--play .gfoot-line { min-height: 52px; grid-template-columns: 1fr auto; }
@@ -197,7 +199,7 @@ body.build-home #app .bottom { display: none; }
 .gbar--build .gbar-stat--diff { display: none; }
 .gbar--play.gbar--build .gfoot-line { grid-template-columns: auto 1fr auto; }
 .gbar--play.gbar--build .gbar-msg { grid-column: auto; }
-.gbar .gbar-tools > * { margin: 0; flex: none; width: 40px; height: 40px; background: var(--c-nav); border-radius: var(--r-sm); }
+.gbar .gbar-tools > * { margin: 0; flex: none; width: 40px; height: 40px; background: var(--c-nav); border-radius: 50%; }
 .gbar .gbar-tools > *:hover { background: var(--c-surface-3); }
 
 /* The status line, under the tools and over the board: the lead buttons (the microscope) on the
@@ -305,9 +307,10 @@ body:not(.build-home) .build-bar { display: none; }
 .bh-sec > .bh-fleet { width: calc(100% - var(--trk-room)); }
 /* The Info card keeps clear of the track too, the width of the sections above it. */
 .bh-in > #bh-to-info { width: calc(100% - var(--trk-room)); }
+/* So does Nu's line ("Each atom is two puzzles..."), which otherwise ran under the track. */
+.bh-in > .nu-line { box-sizing: border-box; width: calc(100% - var(--trk-room)); }
 /* A step is its game card alone, clear of the track; what it builds is the card's own line. */
 .bh-row { display: grid; grid-template-columns: minmax(0, 1fr); align-items: center; width: calc(100% - var(--trk-room)); }
-.bh-row .gcard-extra { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .bh-gc { min-width: 0; }
 .bh-gc .gcard { width: 100%; }
 
@@ -857,28 +860,25 @@ body.puzzling #overlay { pointer-events: auto; touch-action: none; }
 .pg-stats .lvl-stats-word { display: none; }
 
 /* ---- Level buttons and stats (src/puzzles/levelButtons.ts) -------------------------------------
-   Five buttons, each its level's word over a play icon; the picked level filled in its color,
-   levels never dealt an empty outline. The stats use the same five columns. */
+   Five buttons, each its level's word over a play icon, on plain plates: the level's color only
+   on the play disc, a ring in that color round the picked level, levels never dealt an empty
+   outline. The stats use the same five columns. */
 .lvl-btns, .lvl-stats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
-.lvl-btn { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; min-width: 0; min-height: 60px; padding: 6px 2px; border: 0; border-radius: var(--r-sm); background: var(--c-plate-2); color: #050607; font: inherit; text-align: center; cursor: pointer; -webkit-tap-highlight-color: transparent; }
-.lvl-btn.lvl-1 { background: var(--c-lvl-1); }
-.lvl-btn.lvl-2 { background: var(--c-lvl-2); }
-.lvl-btn.lvl-3 { background: var(--c-lvl-3); }
-.lvl-btn.lvl-4 { background: var(--c-lvl-4); }
-.lvl-btn.lvl-5 { background: var(--c-lvl-5); }
-.lvl-btn:hover:not(:disabled) { filter: brightness(1.08); }
+.lvl-btn { --lvl: var(--c-text); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; min-width: 0; min-height: 60px; padding: 6px 2px; border: 0; border-radius: var(--r-sm); background: var(--c-plate-2); color: var(--c-text); font: inherit; text-align: center; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.lvl-btn.lvl-1 { --lvl: var(--c-lvl-1); }
+.lvl-btn.lvl-2 { --lvl: var(--c-lvl-2); }
+.lvl-btn.lvl-3 { --lvl: var(--c-lvl-3); }
+.lvl-btn.lvl-4 { --lvl: var(--c-lvl-4); }
+.lvl-btn.lvl-5 { --lvl: var(--c-lvl-5); }
+.lvl-btn[aria-current="true"] { box-shadow: inset 0 0 0 2px var(--lvl); }
+.lvl-btn:hover:not(:disabled) { background: var(--c-pick); }
 .lvl-btn:active:not(:disabled) { transform: scale(0.97); }
 .lvl-btn:focus-visible { outline: 2px solid var(--c-text); outline-offset: 2px; }
-.lvl-btn-word { font-size: var(--fs-min); font-weight: var(--fw-semibold); color: #050607; white-space: nowrap; line-height: 1.2; }
-/* The play icon: a white disc with the triangle in the level's color. */
-.lvl-btn-icon { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: #fff; color: #050607; }
+.lvl-btn-word { font-size: var(--fs-min); font-weight: var(--fw-semibold); color: var(--c-text); white-space: nowrap; line-height: 1.2; }
+/* The play icon: a disc in the level's color with a black triangle. */
+.lvl-btn-icon { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--lvl); color: #050607; }
 .lvl-btn-icon svg { width: 13px; height: 13px; margin-left: 1px; }
-.lvl-btn.lvl-1 .lvl-btn-icon { color: var(--c-lvl-1); }
-.lvl-btn.lvl-2 .lvl-btn-icon { color: var(--c-lvl-2); }
-.lvl-btn.lvl-3 .lvl-btn-icon { color: var(--c-lvl-3); }
-.lvl-btn.lvl-4 .lvl-btn-icon { color: var(--c-lvl-4); }
-.lvl-btn.lvl-5 .lvl-btn-icon { color: var(--c-lvl-5); }
-.lvl-btn.is-off { cursor: default; }
+.lvl-btn.is-off { cursor: default; background: transparent; box-shadow: inset 0 0 0 1px var(--c-line-2); }
 .lvl-btn.is-off .lvl-btn-word { color: var(--c-text-min); font-weight: var(--fw-regular); }
 .lvl-stats-col { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 0; padding: 6px 2px; border-radius: var(--r-sm); background: var(--c-plate-2); }
 .lvl-stats-col.is-off { background: transparent; }
@@ -917,7 +917,7 @@ body.puzzling #overlay { pointer-events: auto; touch-action: none; }
    rest with the daily in view. */
 .pg-daily { scroll-snap-align: start; scroll-margin-top: calc(-1 * (var(--focus-h) + 14px)); }
 .pg-daily-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); padding: 0 var(--sp-2) var(--sp-2); }
-.pg-daily-title { margin: 0; font-size: 15px; font-weight: var(--fw-bold); letter-spacing: 0.24em; text-transform: uppercase; line-height: 1.2; color: var(--c-text-2); }
+.pg-daily-title { margin: 0; font-size: var(--fs-caps-min); font-weight: var(--fw-semibold); letter-spacing: var(--tracking-caps); text-transform: uppercase; line-height: 1.2; color: var(--c-text-2); }
 .pg-daily-streak { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-sm); font-weight: var(--fw-semibold); color: var(--c-text); white-space: nowrap; }
 .pg-daily-streak svg { color: var(--c-done); }
 .pg-daily .gcard-name { font-size: var(--fs-xl); }
@@ -973,7 +973,7 @@ body.puzzling #overlay { pointer-events: auto; touch-action: none; }
 .how-icon svg { width: 18px; height: 18px; }
 /* The goal leads, large, with room above and below so it is read first. */
 .how-goal { margin: 0 0 var(--sp-3); padding: var(--sp-5) 0; }
-.how :is(.how-goal, .how-stats, .how-specs) > h3 { margin: 0 0 var(--sp-3); font-size: 15px; font-weight: var(--fw-bold); letter-spacing: 0.24em; text-transform: uppercase; line-height: 1.2; color: var(--c-text-2); }
+.how :is(.how-goal, .how-stats, .how-specs) > h3 { margin: 0 0 var(--sp-3); font-size: var(--fs-caps-min); font-weight: var(--fw-semibold); letter-spacing: var(--tracking-caps); text-transform: uppercase; line-height: 1.2; color: var(--c-text-2); }
 .how-goal p { margin: 0; font-size: var(--fs-xl); font-weight: var(--fw-semibold); line-height: 1.3; color: var(--c-text); text-wrap: balance; }
 .how-blurb { margin: 0; font-size: var(--fs-md); color: var(--c-text-2); line-height: var(--lh); }
 .how .rules { list-style: none; padding: 0; margin: var(--sp-6) 0 0; display: flex; flex-direction: column; gap: var(--sp-6); }
@@ -1182,6 +1182,10 @@ body.puzzling #overlay { pointer-events: auto; touch-action: none; }
   gap: var(--sp-1);
   height: calc(var(--safe-top) + var(--nav-h));
   padding: var(--safe-top) var(--sp-3) 0 var(--sp-2);
+  /* On wide screens the header lines up with the page's 560px column instead of the window's
+     edges (the mark's 44px circle sits just outside it, so the mark itself is on the line). */
+  padding-left: max(var(--sp-2), calc((100% - 560px) / 2 - 7px));
+  padding-right: max(var(--sp-3), calc((100% - 560px) / 2 - 7px));
   background: var(--c-bg);
   backdrop-filter: none;
   border-bottom: 0;
@@ -1389,7 +1393,7 @@ body[data-screen^='atom'].build-home .science-fab, body[data-screen='atom-view']
 .settings-title { margin: var(--sp-2) 0 var(--sp-3); font-size: var(--fs-2xl); font-weight: var(--fw-bold); }
 /* Settings: the switches on one plate, then Progress (three counts and backup), Testing and
    Design, each under a heading in the modal heading style. */
-.settings-page .set-head { margin: var(--sp-6) 0 var(--sp-3); font-size: 15px; font-weight: var(--fw-bold); letter-spacing: 0.24em; text-transform: uppercase; line-height: 1.2; color: var(--c-text-2); }
+.settings-page .set-head { margin: var(--sp-6) 0 var(--sp-3); font-size: var(--fs-caps-min); font-weight: var(--fw-semibold); letter-spacing: var(--tracking-caps); text-transform: uppercase; line-height: 1.2; color: var(--c-text-2); }
 .set-card { display: flex; flex-direction: column; gap: var(--sp-1); padding: var(--sp-2); border-radius: var(--r-md); background: var(--c-plate); }
 .settings-page .set-row { min-height: 60px; padding: var(--sp-2); background: transparent; gap: var(--sp-3); }
 .settings-page .set-row + .set-row { margin-top: 0; }
@@ -1405,7 +1409,9 @@ body[data-screen^='atom'].build-home .science-fab, body[data-screen='atom-view']
 .set-note { margin: var(--sp-3) 0; font-size: var(--fs-md); line-height: var(--lh); color: var(--c-text-2); }
 .set-pair { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3); }
 .set-pair > button, .set-reset { min-height: 48px; }
-.set-reset { width: 100%; margin-top: var(--sp-3); }
+/* Reset wipes the save: red words on a plate, set a little apart, so it never reads as Restore. */
+.set-reset.secondary { width: 100%; margin-top: var(--sp-5); background: var(--c-plate); color: var(--c-bad); box-shadow: none; }
+.set-reset.secondary:hover { background: var(--c-plate-2); }
 #set-preset .ui-seg { width: 100%; }
 .set-links { gap: 0; padding: var(--sp-1) var(--sp-2); }
 .set-link { display: flex; align-items: center; justify-content: space-between; min-height: 52px; padding: 0 var(--sp-2); font-size: var(--fs-md); font-weight: var(--fw-semibold); color: var(--c-text); text-decoration: none; border-radius: var(--r-sm); }
@@ -1505,7 +1511,7 @@ body[data-screen^='atom'].build-home .science-fab, body[data-screen='atom-view']
 .tl figcaption { color: var(--c-text-2); margin-top: 4px; }
 .story-name { margin: var(--sp-2) 0 var(--sp-4); padding: var(--sp-4) var(--sp-4) var(--sp-5); border-radius: var(--r-md); background: var(--c-plate); font-size: var(--fs-xl); line-height: 1.35; color: var(--c-text); }
 .story-name span { display: block; font-size: var(--fs-2xs); letter-spacing: 0.14em; text-transform: uppercase; color: var(--c-accent); margin-bottom: 4px; }
-.story-cap { font-size: var(--fs-2xs); letter-spacing: 0.14em; text-transform: uppercase; color: var(--c-accent); }
+.story-cap { font-size: var(--fs-caps-min); font-weight: var(--fw-semibold); letter-spacing: var(--tracking-caps); text-transform: uppercase; line-height: 1.2; color: var(--c-text-2); }
 .story-year { font-size: var(--fs-3xl); font-weight: var(--fw-semibold); line-height: 1.1; color: var(--c-text); font-variant-numeric: tabular-nums; }
 .atom-page .story-h { margin: var(--sp-5) 0 var(--sp-2); font-size: var(--fs-lg); font-weight: var(--fw-semibold); color: var(--c-text); }
 .story-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--sp-2); }
