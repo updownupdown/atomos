@@ -5,7 +5,9 @@
 // The park opens on Nu's home: stroke Nu and it warms up and purrs; tap it and it hops; flick
 // one of its toys and it fetches it back to you. Left alone, it brings you a toy. Drop a toy in
 // the round toy box to put it away; tap the box a few times and Nu tidies up (if it listens,
-// and it may not finish). Throw a toy in the round pool and Nu swims out for it, slowly. The
+// and it may not finish). Throw a toy in the round pool and Nu swims out for it, slowly. Now and
+// then Nu takes itself off to its round doghouse: knock and it pokes its head out (and may come
+// out, or go back in); throw a toy and it almost always comes out for it. The
 // round button under the arena opens the games, a grid A to Z, and Nu circles the one it
 // fancies today; under the grid, "Read from the Atlas" opens a random atom's page and Nu reads
 // along (read.ts):
@@ -63,7 +65,13 @@ class Home implements Toy {
   private toys: PlayThing[] = [];
   private held: PlayThing | null = null;
   private trail: { x: number; y: number; t: number }[] = [];
-  private state: 'idle' | 'chase' | 'carry' = 'idle';
+  private state: 'idle' | 'chase' | 'carry' | 'house' = 'idle';
+  /** In the doghouse: on its way, in it, or poking its head out (and whether it'll stay out),
+   *  and when it means to come out on its own. */
+  private den: 'going' | 'in' | 'peek' = 'going';
+  private denUntil = 0;
+  private peekUntil = 0;
+  private peekOut = false;
   private target: PlayThing | null = null;
   private drop: Pt = { x: 0, y: 0 };
   private quiet = 0;
@@ -93,6 +101,7 @@ class Home implements Toy {
     }
     this.state = 'idle';
     this.quiet = 0;
+    s.nu.scale = 1;
     this.warm = warmth();
     this.treatsDue = treats();
     this.treatAt = performance.now();
@@ -116,10 +125,32 @@ class Home implements Toy {
         this.state = 'chase';
       }
     }
+    // Sometimes it's in its doghouse when you arrive.
+    if (this.state === 'idle' && !reducedMotion() && Math.random() < 0.25) this.toHouse();
     // What's in the box (it may have changed while you were away).
     const boxed = new Set(boxedToys());
     for (const t of this.toys) if (t.id && t !== this.target) t.boxed = boxed.has(t.id);
     this.keep();
+  }
+
+  /** Nu's doghouse: round, in the top-left corner, with a round door at the bottom. */
+  private house(s: Stage): Pt & { r: number; door: Pt } {
+    const r = 36, x = s.c.x - s.hw + r + 16, y = s.c.y - s.hh + r + 16;
+    return { x, y, r, door: { x, y: y + r * 0.38 } };
+  }
+
+  /** Off to the doghouse for a while. */
+  private toHouse(): void {
+    this.state = 'house';
+    this.den = 'going';
+    this.target = null;
+  }
+
+  /** Out of the doghouse, with a little hop. */
+  private outOfHouse(): void {
+    this.state = 'idle';
+    this.quiet = 0;
+    this.hop = 520;
   }
 
   /** The pool: round, in the top-right corner. Toys float in it, and Nu swims out for them,
@@ -255,6 +286,8 @@ class Home implements Toy {
         this.state = 'chase';
         return;
       }
+      // Left alone a while, now and then it takes itself off to its doghouse.
+      if (this.quiet > 6000 && !this.held && !reducedMotion() && Math.random() < dt / 14000) { this.quiet = 0; this.toHouse(); return; }
       // Bored: it fetches a toy for you, and drops it by the button.
       const free = this.toys.filter((t) => !t.boxed && t.kind !== 'treat');
       if (this.quiet > 9000 && !this.held && !reducedMotion() && free.length) {
@@ -262,6 +295,24 @@ class Home implements Toy {
         this.target = free[Math.floor(Math.random() * free.length)];
         this.drop = { x: s.c.x, y: s.c.y + s.hh * 0.7 };
         this.state = 'chase';
+      }
+    } else if (this.state === 'house') {
+      const h = this.house(s);
+      if (this.den === 'going') {
+        nu.scale = 1;
+        nu.seek(h.door, dt, 0.5 * this.pace(s), 0.012);
+        if (dist(nu, h.door) < 4) { this.den = 'in'; this.denUntil = now + 18000 + Math.random() * 24000; tickSound(0); }
+      } else if (this.den === 'in') {
+        // Curled up just inside the door: small and dim.
+        nu.seek(h.door, dt, 0.3, 0.02);
+        nu.scale = 0.55 + Math.sin(now / 1200) * 0.03;
+        // A treat, or enough time alone, brings it out.
+        if (now > this.denUntil || (this.treatsDue > 0 && now - this.treatAt > 1400)) this.outOfHouse();
+      } else {
+        // Poking its head out to see who knocked.
+        nu.seek({ x: h.door.x, y: h.door.y + h.r * 0.7 }, dt, 0.4, 0.03);
+        nu.scale = 0.9;
+        if (now > this.peekUntil) { if (this.peekOut) this.outOfHouse(); else this.den = 'in'; }
       }
     } else if (this.state === 'chase' && this.target) {
       nu.scale = 1;
@@ -311,6 +362,11 @@ class Home implements Toy {
   }
 
   draw(s: Stage, ctx: CanvasRenderingContext2D, now: number): void {
+    const hs = this.house(s);
+    dot(ctx, hs, hs.r, K900);
+    ring(ctx, hs, hs.r, K500, 3, 0.9);
+    dot(ctx, hs.door, 15, K975);
+    ring(ctx, hs.door, 15, K500, 2, 0.7);
     const q = this.pool(s), w = (now / 2600) % 1;
     dot(ctx, q, q.r, CYAN, 0.12);
     ring(ctx, q, q.r, CYAN, 3, 0.45);
@@ -375,6 +431,15 @@ class Home implements Toy {
     this.finger = p;
     this.downAt = performance.now();
     this.downP = p;
+    const hs = this.house(s);
+    if (this.state === 'house' && this.den !== 'going' && dist(p, hs) < hs.r + 8) {
+      // A knock on the doghouse: Nu pokes its head out, and may come out, or go back in.
+      this.den = 'peek';
+      this.peekUntil = performance.now() + 1300;
+      this.peekOut = Math.random() < 0.4;
+      tickSound(2);
+      return;
+    }
     const b = this.box(s);
     if (dist(p, b) < b.r + 6) {
       // On the box: drag a toy out of it, or tap it.
@@ -449,7 +514,8 @@ class Home implements Toy {
       if (sp > 2.2) { vx *= 2.2 / sp; vy *= 2.2 / sp; }
       t.vx = vx;
       t.vy = vy;
-      if (sp > 0.15) { this.target = t; this.drop = inside(s, p, 24); this.state = 'chase'; }
+      // Thrown: Nu fetches it, and almost always comes out of its doghouse for it.
+      if (sp > 0.15 && (this.state !== 'house' || Math.random() < 0.92)) { this.target = t; this.drop = inside(s, p, 24); this.state = 'chase'; }
     } else {
       const quick = performance.now() - this.downAt < 260 && this.downP && dist(p, this.downP) < 12;
       if (quick && this.state === 'idle' && dist(p, s.nu) < s.nu.r + 30) {
