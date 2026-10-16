@@ -59,7 +59,8 @@
 .at-key { display: inline-flex; align-items: center; gap: 6px; }
 .at-key i { width: 14px; height: 14px; border-radius: 4px; }
 /* Place's legend: the families, each a button that lights its atoms. */
-.at-legend:has(.at-fam) { height: auto; flex-wrap: wrap; justify-content: center; gap: 2px 4px; overflow: visible; white-space: normal; }
+/* The families on one row that scrolls sideways (James, 10/16), however many there are. */
+.at-legend:has(.at-fam) { height: auto; gap: 4px; }
 .at-fam { flex: none; display: inline-flex; align-items: center; gap: 6px; height: 34px; white-space: nowrap; padding: 0 12px 0 10px; border: 0; border-radius: var(--r-pill); background: transparent; color: var(--c-text-2); font: inherit; font-size: 13px; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .at-fam i { width: 14px; height: 14px; border-radius: 50%; }
 .at-fam:hover { color: var(--c-text); }

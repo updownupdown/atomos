@@ -72,14 +72,15 @@
 .home-q { margin: 0; font-size: 17px; font-weight: var(--fw-semibold); }
 .home-clues { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; font-size: var(--fs-md); line-height: 1.4; }
 .home-clues li::marker { color: var(--c-text-2); }
-/* Atom cards to pick from: big enough to tap, two to a row, the plate over the name so long
-   names fit. */
+/* Atom cards to pick from: big enough to tap, two to a row, the plate beside the name (and the
+   line Nu adds once answered) so the quizzes stay short. */
 .home-acards { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-2); }
-.home-acard { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; min-width: 0; padding: 12px; border: 0; border-radius: 11px; background: var(--c-surface-3); color: var(--c-text); font: inherit; text-align: left; cursor: pointer; }
+.home-acard { display: flex; flex-direction: row; align-items: center; gap: 10px; min-width: 0; padding: 8px 10px; border: 0; border-radius: 11px; background: var(--c-surface-3); color: var(--c-text); font: inherit; text-align: left; cursor: pointer; }
 .home-acard:hover:not(:disabled) { background: var(--c-pick); }
 .home-acard:disabled { cursor: default; }
 .home-acard-txt { display: flex; flex-direction: column; min-width: 0; max-width: 100%; }
-.home-acard-txt b { font-weight: var(--fw-semibold); overflow: hidden; text-overflow: ellipsis; }
+/* Long names (Rutherfordium) break with a hyphen rather than run out of the card. */
+.home-acard-txt b { font-weight: var(--fw-semibold); line-height: 1.25; overflow-wrap: break-word; hyphens: auto; }
 .home-acard-txt small { font-size: var(--fs-sm); color: var(--c-text-2); font-variant-numeric: tabular-nums; }
 .home-card .home-acard.is-out { background: transparent; box-shadow: inset 0 0 0 2px var(--c-pick); opacity: 0.6; }
 .home-acard.is-out b { text-decoration: line-through; }
@@ -99,10 +100,12 @@
 .home-ask { margin: 0; font-size: 17px; line-height: 1.35; font-weight: var(--fw-semibold); }
 .home-quizcard .home-acard, .home-tile { position: relative; }
 .home-quizcard .home-acard-txt small { visibility: hidden; }
+/* Nu's cards keep room for the line shown once answered: plate and name sit at the top. */
+.home-quizcard .home-acard { align-items: flex-start; }
 .home-quizcard.is-answered .home-acard-txt small { visibility: visible; }
-/* Two-way answers as tiles as tall as an atom card, so every question takes the same room. */
+/* Two-way answers as tiles as tall as a quiz atom card, so every question takes the same room. */
 .home-tiles { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: var(--sp-2); }
-.home-tile { min-height: 112px; padding: 12px; border: 0; border-radius: 11px; background: var(--c-pick); color: var(--c-text); font: inherit; font-size: 17px; font-weight: var(--fw-semibold); line-height: 1.3; cursor: pointer; }
+.home-tile { min-height: 68px; padding: 10px 12px; border: 0; border-radius: 11px; background: var(--c-pick); color: var(--c-text); font: inherit; font-size: 17px; font-weight: var(--fw-semibold); line-height: 1.3; cursor: pointer; }
 .home-tile:hover:not(:disabled) { background: #3b4147; }
 .home-tile:disabled { cursor: default; }
 .home-tile.is-right, .home-card .home-acard.is-right { background: var(--c-done); color: #05210f; }

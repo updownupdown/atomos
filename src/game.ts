@@ -533,7 +533,7 @@ export class Game {
       <tbody>${list.map((i) => {
         const done = isotopeCollected(this.save, this.z, i.a);
         const gone = done && this.fleetDecayed(i.a, i.halfLife);
-        const life = i.halfLife === null ? 'unknown' : formatDuration(i.halfLife);
+        const life = i.halfLife === null ? 'unknown' : formatHalfLife(i.halfLife);
         const state = done ? (gone ? ', built, decayed' : ', built') : '';
         return `<tr class="${done ? 'is-built' : ''}" data-a="${i.a}"${open ? ` data-fleet="${i.a}" tabindex="0" role="button" aria-label="${el.symbol}-${i.a}, half-life ${life}${state}"` : ''}>
           <th scope="row">${el.symbol}-${i.a}</th><td class="n">${i.a - el.z}</td><td class="n">${life}</td>
