@@ -252,7 +252,7 @@ function paintQuiz(box: HTMLElement, index: number): void {
   const streak = liveStreak(st);
   const bar = `<div class="home-qbar" aria-hidden="true">${qs.map((_, i) => `<i class="${i < n ? (st.quiz[i] ? 'is-right' : 'is-wrong') : ''}"><b></b></i>`).join('')}</div>`;
   const head = `<div class="home-row"><span class="home-nu">${nuIconHtml(20)}</span><b class="home-q home-grow">Nu asks</b>`
-    + `<span class="home-muted">${streak ? `Streak ${streak} day${streak === 1 ? '' : 's'}` : 'Start a streak'}</span></div>`;
+    + `<span class="home-muted">${streak ? `Streak: ${streak} day${streak === 1 ? '' : 's'}` : 'Start a streak'}</span></div>`;
   if (n >= qs.length) {
     // Done for today: Nu leaves the quiz.
     delete box.dataset.nuPerch;
