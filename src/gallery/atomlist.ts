@@ -1,16 +1,15 @@
-// The atom list: every atom in one plain list, for getting from one atom to another quickly. It
-// rises from the dock's dropdown (the atom's number and name) on any atom screen, as a sheet
-// (ui/sheet.ts), with Collect | Learn under its title; it opens on the tab of the section the
-// player is in. No pictures, so it opens at once.
+// The atom list: every atom in one plain list, for getting from one atom to another quickly. The
+// header's atom dropdown opens it on an atom's Build page or Atlas page, as the standard modal
+// sheet (ui/sheet.ts, as Search and Settings): the atom icon and Atoms, and the X. It opens as
+// the list of the section the player is in. No pictures, so it opens at once.
 //   Collect is built for progress: the whole collection's three rings on top, then the periods,
 //   each heading carrying its stable and fleeting percents, and per atom its number, symbol,
 //   name and two bars (stable parts, fleeting isotopes). Nu swims round the bar of the next thing
-//   to build. At the foot, Top scrolls back up and Next goes to the Up next atom.
-//   Learn is built for finding: a search field and the sorts (Number, A to Z, Family, Year
-//   found), and per atom its number, symbol, name and family, and its weight (or the year it
-//   was found).
-// Tapping a row picks that atom and closes the list, as do the dropdown again, the mask, Escape
-// and Back.
+//   to build. At the foot, Next goes to the Up next atom.
+//   Learn is built for finding: a search field and a dropdown of the sorts (Number, A to Z,
+//   Family, Year found) on one row, and per atom its number, symbol, name and family, and its
+//   weight (or the year it was found). Each group's heading carries its count: "Period 1 (2)".
+// Tapping a row picks that atom and closes the list, as do the X, the mask, Escape and Back.
 //
 //   openAtomList({ current: 26, tab: 'collect', onPick: (z) => show(z) });
 
@@ -20,7 +19,7 @@ import { loadSave, type SaveData } from '../core/save';
 import { nextStep } from '../core/next';
 import { fleetingOpen } from './locks';
 import { icon } from '../ui/icons';
-import { createPills, nextButton } from '../ui/components';
+import { nextButton } from '../ui/components';
 import { openSheet, sheetSearch, type Sheet } from '../ui/sheet';
 import { searchElements } from '../ui/search';
 import { COL, sortElements, type SortKey } from '../ui/elementlist';
@@ -122,9 +121,9 @@ const SORTS: { id: LearnSort; label: string }[] = [
   { id: 'discovered', label: 'Year found' },
 ];
 
-/** Open the list over the screen, rising from the dock. */
+/** Open the list over the screen. */
 export function openAtomList(o: AtomListOptions): void {
-  const sheet = openSheet({ title: 'Atoms', icon: 'atom', label: 'All atoms', from: 'bar', className: 'alist', onClose: () => { if (openList === sheet) openList = null; o.onClose?.(); } });
+  const sheet = openSheet({ title: 'Atoms', icon: 'atom', label: 'All atoms', from: 'top', className: 'alist', onClose: () => { if (openList === sheet) openList = null; o.onClose?.(); } });
   openList = sheet;
   const pick = (z: number) => { sheet.close(); o.onPick(z); };
   sheet.body.addEventListener('click', (e) => {
@@ -148,15 +147,6 @@ export function openAtomList(o: AtomListOptions): void {
   show(o.tab);
 }
 
-const topButton = (body: HTMLElement) => {
-  const b = document.createElement('button');
-  b.type = 'button';
-  b.className = 'sheet-pill';
-  b.innerHTML = `${icon('chevron-up', { size: 20 })}<span>Top</span>`;
-  b.onclick = () => body.scrollTo({ top: 0, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
-  return b;
-};
-
 /** Collect: the whole collection, then each period's atoms with their bars. */
 function paintCollect(sheet: Sheet, current: number, pick: (z: number) => void): void {
   const save = loadSave();
@@ -175,7 +165,7 @@ function paintCollect(sheet: Sheet, current: number, pick: (z: number) => void):
     const [first, last] = rowSpan(p);
     const ps = periodShares(p, save);
     const open = rowOpen(p, save);
-    html += `<h3 class="al-period${open ? '' : ' is-locked'}"><span class="al-period-name">${open ? '' : `<span class="al-lock">${icon('lock', { size: 16 })}</span>`}Period ${p}<small>${ps.built} of ${ps.atoms} built</small></span>`
+    html += `<h3 class="al-period${open ? '' : ' is-locked'}"><span class="al-period-name">${open ? '' : `<span class="al-lock">${icon('lock', { size: 16 })}</span>`}Period ${p} (${ps.built}/${ps.atoms})</span>`
       + `<span class="al-period-pcts"><span${ps.stable >= 1 ? ' class="is-done"' : ''}>${pctText(ps.stable)}</span><span${fleetOn && ps.fleeting >= 1 ? ' class="is-done"' : ''}>${fleetOn ? pctText(ps.fleeting) : '–'}</span></span></h3><ul class="al-rows">`;
     for (let z = first; z <= last; z++) {
       const e = elementAt(z);
@@ -189,8 +179,7 @@ function paintCollect(sheet: Sheet, current: number, pick: (z: number) => void):
     html += '</ul>';
   }
   sheet.body.innerHTML = html;
-  // The foot: Top, then Next.
-  sheet.foot.append(topButton(sheet.body));
+  // The foot: Next.
   if (step) sheet.foot.append(nextButton({ label: 'Next', compact: true, landKey: 'atom-list', onClick: () => pick(step.z) }));
 }
 
@@ -199,20 +188,22 @@ export const familyOf = (e: Element) => (e.series.endsWith('gases') ? e.series.s
 const yearSection = (e: Element) => (e.discoveryYear === null ? 'Known since ancient times' : e.discoveryYear < 1700 ? 'Before 1700' : `${Math.floor(e.discoveryYear / 50) * 50}s`);
 const weightText = (e: Element) => (e.weight === null ? '–' : String(+e.weight.toFixed(e.weight < 100 ? 3 : 2)));
 
-/** Learn: a search field and the sorts on top, then every atom with its family and weight. */
+/** Learn: a search field and the sort dropdown on one row, then every atom with its family and
+ *  weight. */
 function paintLearn(sheet: Sheet, current: number): void {
-  const { el: search, input } = sheetSearch({ placeholder: 'Name, symbol or number', label: 'Find an atom' });
-  const sorts = createPills(SORTS, { active: learnSort, label: 'Sort by', onChange: (id) => { learnSort = id as LearnSort; paint(); sheet.body.scrollTop = 0; } });
-  sorts.el.classList.add('al-sorts');
-  sheet.bar.append(search, sorts.el);
-  sheet.foot.append(topButton(sheet.body));
+  const { el: search, input } = sheetSearch({ placeholder: 'Name or symbol', label: 'Find an atom by name, symbol or number' });
+  const sorts = sortSelect((id) => { learnSort = id; paint(); sheet.body.scrollTop = 0; });
+  const row1 = document.createElement('div');
+  row1.className = 'al-find';
+  row1.append(search, sorts);
+  sheet.bar.append(row1);
   const row = (e: Element) => `<li><button type="button" class="sheet-row${e.z === current ? ' is-current' : ''}" data-z="${e.z}"${e.z === current ? ' aria-current="true"' : ''}>`
     + `<span class="sheet-z">${e.z}</span><b class="sheet-sym" style="--c:${placeColour(e)}">${e.symbol}</b>`
     + `<span class="sheet-name"><span>${esc(e.name)}</span><small>${esc(familyOf(e))}</small></span>`
     + `<span class="sheet-fig">${learnSort === 'discovered' ? (e.discoveryYear ?? 'Ancient') : weightText(e)}</span></button></li>`;
   const paint = () => {
     const q = input.value.trim();
-    sorts.el.hidden = Boolean(q);
+    sorts.hidden = Boolean(q);
     if (q) {
       const found = searchElements(q);
       sheet.body.innerHTML = found.length ? `<ul class="sheet-rows al-found">${found.map(row).join('')}</ul>` : `<p class="sheet-empty">No atom matches “${esc(q)}”.</p>`;
@@ -230,7 +221,7 @@ function paintLearn(sheet: Sheet, current: number): void {
       if (s !== open) {
         if (open) html += '</ul>';
         const n = counts.get(s) ?? 0;
-        html += `<h3 class="sheet-group">${esc(s)}<small>${n} ${n === 1 ? 'atom' : 'atoms'}</small></h3><ul class="sheet-rows">`;
+        html += `<h3 class="sheet-group" aria-label="${esc(`${s}, ${n} ${n === 1 ? 'atom' : 'atoms'}`)}">${esc(s)} (${n})</h3><ul class="sheet-rows">`;
         open = s;
       }
       html += row(e);
@@ -243,6 +234,16 @@ function paintLearn(sheet: Sheet, current: number): void {
     sheet.body.querySelector<HTMLElement>('[data-z]')?.click();
   });
   paint();
+}
+
+/** The sorts as a dropdown: the sort in use, a chevron, and the system's own list of the four. */
+function sortSelect(onChange: (id: LearnSort) => void): HTMLLabelElement {
+  const el = document.createElement('label');
+  el.className = 'al-sort';
+  el.innerHTML = `<span class="sr-only">Sort by</span><select>${SORTS.map((s) => `<option value="${s.id}"${s.id === learnSort ? ' selected' : ''}>${s.label}</option>`).join('')}</select>${icon('chevron-down', { size: 18 })}`;
+  const sel = el.querySelector('select')!;
+  sel.onchange = () => onChange(sel.value as LearnSort);
+  return el;
 }
 
 /** Close the list if it is open (the screen is changing). */

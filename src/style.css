@@ -1247,7 +1247,7 @@ button.crumb { cursor: pointer; }
 .crumb--drop ~ .crumb.is-last { flex: none; }
 .crumb-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .crumb-game { flex: none; width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%; background: var(--c-text); color: var(--c-bg); }
-.crumb--drop { height: 48px; gap: var(--sp-2); padding: 0 10px 0 5px; border-radius: 12px 24px 24px 12px; background: var(--c-nav); color: var(--c-text); font-size: 17px; }
+.crumb--drop { height: 48px; gap: var(--sp-2); padding: 0 10px 0 5px; border-radius: 12px; background: var(--c-nav); color: var(--c-text); font-size: 17px; }
 .crumb--drop:hover { background: var(--c-pick); }
 .crumb--drop:has(.crumb-game) { border-radius: 24px; padding-left: 7px; }
 .crumb--drop > svg { flex: none; margin-left: auto; color: var(--c-text-2); transition: transform 0.2s var(--ease); }

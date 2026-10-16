@@ -1,9 +1,9 @@
-// The sheets the header opens. Search and Settings drop from the top of the screen: a title row
-// with the sheet's icon and name and a round close button. The atom list and the game list drop
-// from the bar's dropdown, under the header, which stays above their mask so the dropdown and
+// The sheets the header opens. Search, Settings and the atom list drop from the top of the
+// screen: a title row with the sheet's icon and name and a round close button. The game list
+// drops from the bar's dropdown, under the header, which stays above their mask so the dropdown and
 // the mark still answer: their title is small, at the bottom left beside a chevron up that
 // pulls the list back up. Each has an optional bar that stays put at its top (the atom list's
-// Collect | Learn, search's field), a body that scrolls and an optional foot. One is open at a
+// search and sort, search's field), a body that scrolls and an optional foot. One is open at a
 // time; Escape, the close button, the mask and Back close it.
 //
 //   const s = openSheet({ title: 'Games', icon: 'puzzles', label: 'All games', from: 'bar' });
