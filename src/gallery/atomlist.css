@@ -22,8 +22,9 @@
 .al-sort svg { position: absolute; right: 12px; pointer-events: none; color: var(--c-text-2); }
 .al-sort:hover { background: var(--c-surface-3); }
 .al-sort:focus-within { outline: 2px solid var(--c-accent); outline-offset: 0; }
-/* Group headings, a size up from the sheets' caps, the count in brackets in the same blue. */
-.alist .sheet-group, .alist .al-period-name { font-size: 15px; }
+/* Period headings in the Atoms list (al-period) a size up; the sorted list's group headings are the
+   sheets' small caps ("Period 4 · 18 atoms"). */
+.alist .al-period-name { font-size: 15px; }
 .al-found { padding-top: var(--sp-2); }
 
 /* The whole collection: three rings on a plate, each with its icon, percent, word and a line. */

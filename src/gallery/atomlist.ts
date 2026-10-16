@@ -221,7 +221,7 @@ function paintLearn(sheet: Sheet, current: number): void {
       if (s !== open) {
         if (open) html += '</ul>';
         const n = counts.get(s) ?? 0;
-        html += `<h3 class="sheet-group" aria-label="${esc(`${s}, ${n} ${n === 1 ? 'atom' : 'atoms'}`)}">${esc(s)} (${n})</h3><ul class="sheet-rows">`;
+        html += `<h3 class="sheet-group" aria-label="${esc(`${s}, ${n} ${n === 1 ? 'atom' : 'atoms'}`)}">${esc(s)} · ${n} ${n === 1 ? 'atom' : 'atoms'}</h3><ul class="sheet-rows">`;
         open = s;
       }
       html += row(e);

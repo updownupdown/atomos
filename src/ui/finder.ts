@@ -1,10 +1,14 @@
 // Search, from the magnifier in the header: one field over atoms (name, symbol or number) and
 // games (name), as a sheet dropping from the top, titled like the others with the field under it. Results come in two groups, Atoms then
-// Games, the typed letters lit in each name. Enter opens the first result.
+// Games, the typed letters lit in each name. Enter opens the first result. Before anything is
+// typed: the atom that's next to build, then the atoms and games opened lately.
 //
 //   openFinder({ onAtom: (z) => open(z), onGame: (id) => play(id) });
 
-import { placeColour, type Element } from '../gallery/data';
+import { elementAt, placeColour, type Element } from '../gallery/data';
+import { MAX_Z } from '../core/elements';
+import { nextStep } from '../core/next';
+import { recentItems } from '../core/recent';
 import { familyOf } from '../gallery/atomlist';
 import { searchElements } from './search';
 import { gameRow, gamesInOrder } from './gamelist';
@@ -27,9 +31,21 @@ export function openFinder(o: { onAtom: (z: number) => void; onGame: (id: string
   const atomRow = (e: Element, q: string) => `<li><button type="button" class="sheet-row" data-z="${e.z}">`
     + `<b class="sheet-sym" style="--c:${placeColour(e)}">${e.symbol}</b>`
     + `<span class="sheet-name"><span>${lit(e.name, q)}</span><small>${e.z} · ${esc(familyOf(e))}</small></span>${icon('chevron-right', { size: 20 })}</button></li>`;
+  // Up next (the atom to build), then up to four recent atoms and games, Up next's atom left out.
+  const quickPicks = () => {
+    const next = nextStep();
+    const games = new Map(gamesInOrder().map((p) => [p.id, p]));
+    const recent = recentItems()
+      .filter((r) => (r.kind === 'atom' ? r.z !== next?.z && r.z >= 1 && r.z <= MAX_Z : games.has(r.id)))
+      .slice(0, 4);
+    let html = '';
+    if (next) html += `<h3 class="sheet-group">Up next</h3><ul class="sheet-rows">${atomRow(elementAt(next.z), '')}</ul>`;
+    if (recent.length) html += `<h3 class="sheet-group">Recent</h3><ul class="sheet-rows">${recent.map((r) => (r.kind === 'atom' ? atomRow(elementAt(r.z), '') : gameRow(games.get(r.id)!))).join('')}</ul>`;
+    return html;
+  };
   const paint = () => {
     const q = input.value.trim();
-    if (!q) { sheet.body.innerHTML = '<p class="sheet-empty">Find an atom by its name, symbol or number, or a game by its name.</p>'; return; }
+    if (!q) { sheet.body.innerHTML = '<p class="sheet-empty">Find an atom by its name, symbol or number, or a game by its name.</p>' + quickPicks(); return; }
     const atoms = searchElements(q).slice(0, ATOMS_SHOWN);
     const games = gamesInOrder().filter((p) => p.name.toLowerCase().includes(q.toLowerCase()));
     let html = '';

@@ -9,6 +9,7 @@
 //   document.body.append(page.el);
 //   page.open(26, order);
 
+import { noteRecent } from '../core/recent';
 import { elementAt, type Element } from './data';
 import { tabHTML, TABS, type Tab } from './info';
 import { guideHTML } from './guide';
@@ -84,6 +85,7 @@ export class AtlasPage {
   open(z: number, order: number[]): void {
     this.order = order;
     this.current = z;
+    noteRecent({ kind: 'atom', z });
     this.open_ = true;
     this.el.hidden = !this.shown;
     this.paint();
