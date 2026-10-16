@@ -524,9 +524,6 @@
 .nu-guide.is-on { opacity: 1; transition: none; }
 .nu-guide svg { position: absolute; inset: 0; overflow: visible; }
 .nu-guide line { stroke: var(--c-go); stroke-linecap: round; }
-/* Going round the far side of a toy's orbit, Nu dims, as if behind its nucleus. */
-.nu-guide > * { transition: opacity 0.3s ease; }
-.nu-guide.is-back > * { opacity: 0.4; }
 .nu-guide b { position: absolute; left: -5px; top: -5px; width: 10px; height: 10px; border-radius: 50%; background: var(--c-go); box-shadow: 0 0 calc(12px + 10px * var(--nu-warm, 0)) calc(3px + 4px * var(--nu-warm, 0)) var(--c-go-ring); will-change: transform; }
 /* Hide and seek (nu.ts): Nu peeks out from where it hides, fading in and out; found, it flashes. */
 .nu-guide.is-hiding b { animation: nu-peek 2.6s ease-in-out infinite; }

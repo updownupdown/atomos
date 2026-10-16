@@ -2,9 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { GAMES, nuPick, nuReads } from '../src/nu/games';
 
 describe("Nu's park games", () => {
-  it('has twelve games for the 3 by 4 grid, each once', () => {
-    expect(GAMES).toHaveLength(12);
-    expect(new Set(GAMES.map((g) => g.id)).size).toBe(12);
+  it('has fifteen games, each once, A to Z', () => {
+    expect(GAMES).toHaveLength(15);
+    expect(new Set(GAMES.map((g) => g.id)).size).toBe(15);
+    const names = GAMES.map((g) => g.label);
+    expect(names).toEqual(names.slice().sort((a, b) => a.localeCompare(b)));
   });
 
   it('wants to read one day in three, an atom that is real, the same all day', () => {
