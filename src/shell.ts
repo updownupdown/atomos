@@ -29,6 +29,7 @@ import { Crumbs, atomCrumb, gameCrumb, type Crumb } from './ui/crumbs';
 import { askNu, renderHome } from './home/home';
 import { closeSheet, openSheet } from './ui/sheet';
 import { gameListOpen, openGameList } from './ui/gamelist';
+import { startReadAlong } from './nu/read';
 import { openFinder } from './ui/finder';
 import type { Game } from './game';
 import type { Playground } from './playground';
@@ -110,6 +111,13 @@ export class AppShell {
       const { z, look, view } = (ev as CustomEvent<{ z: number; look: LookId | null; view?: AtlasView }>).detail;
       this.z = z;
       void this.go('gallery').then(() => this.gallery.showInAtlas(z, look, view));
+    });
+    // Nu's park and Home's Nu section: an atom's page in the Atlas, and Nu reads along.
+    startReadAlong();
+    window.addEventListener('atomos:nu-read', (ev) => {
+      const { z } = (ev as CustomEvent<{ z: number }>).detail;
+      this.z = z;
+      void this.go('gallery').then(() => this.gallery.openPage(z));
     });
     // The header: the mark (Home; again on Home, Nu shows what to do next), then on Home the
     // wordmark, Search and Settings, elsewhere the trail. The bar on Home: the sections.

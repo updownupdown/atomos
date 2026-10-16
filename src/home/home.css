@@ -147,3 +147,4 @@
 .home-nupick { gap: var(--sp-3); }
 .home-nupick-ico { width: 48px; height: 48px; flex: none; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; background: var(--c-go); color: var(--c-go-ink); }
 .home-nupick-ico svg { width: 26px; height: 26px; display: block; }
+.home-plate.home-nupick-atom { width: 48px; height: 48px; border-radius: 50%; font-size: 19px; }

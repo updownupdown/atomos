@@ -187,7 +187,7 @@ export interface Stage {
   fx: Fx;
   bests: Bests;
   save(): void;
-  /** The score over the arena (and the best beside it); null hides it. */
+  /** The score under the arena at the left (and the best at the right); null hides it. */
   score(n: number | string | null, best?: number | string | null): void;
   /** The rim's own countdown, 0..1 left, or null for the plain rim (Tag's timer). */
   rim: number | null;

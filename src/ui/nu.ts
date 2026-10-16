@@ -157,6 +157,11 @@ export interface NuShowOptions {
   ms?: number;
   /** The circle's radius in px; by default just outside the target. */
   r?: number;
+  /** Reading along: in place of circling, Nu runs under the target's lines of text, one after
+   *  another, like a finger following them, over `ms`. */
+  read?: boolean;
+  /** Called when Nu is done (or sent home early). */
+  onDone?: () => void;
 }
 
 interface Task {
@@ -173,6 +178,8 @@ interface Task {
   ring?: SVGEllipseElement;
   /** Hide and seek: Nu is hiding here, peeking out, until it's found. */
   hide?: boolean;
+  /** Reading along the target's lines, each `read` px tall. */
+  read?: number;
   onArrive?: () => void;
 }
 
@@ -194,6 +201,17 @@ function ringAngle(e: SVGEllipseElement, p: Pt): number {
   if (!m) return 0;
   const q = new DOMPoint(p.x, p.y).matrixTransform(m.inverse());
   return Math.atan2((q.y - e.cy.baseVal.value) / (e.ry.baseVal.value || 1), (q.x - e.cx.baseVal.value) / (e.rx.baseVal.value || 1));
+}
+
+/** Where Nu is, `u` (0..1) of the way through reading a block of text: just under each line in
+ *  turn, left to right, with a quick smooth sweep back to the start of the next. */
+function readPoint(r: DOMRect, lh: number, u: number): Pt {
+  const lines = Math.max(1, Math.round(r.height / lh)), step = r.height / lines;
+  const pos = Math.min(1, Math.max(0, u)) * lines, k = Math.min(lines - 1, Math.floor(pos)), f = pos - k;
+  const y = (i: number) => r.top + (i + 1) * step - step * 0.12;
+  if (f < 0.85 || k === lines - 1) return { x: r.left + Math.min(1, f / 0.85) * r.width, y: y(k) };
+  const q = (f - 0.85) / 0.15, e = q * q * (3 - 2 * q);
+  return { x: r.right - e * r.width, y: y(k) + e * step };
 }
 
 function middle(r: DOMRect): Pt {
@@ -371,7 +389,12 @@ class Guide {
       this.cool.set(o.key, now);
     }
     if (!this.rectOf(target)) return true;
-    this.begin({ target, ms: o.ms ?? NU_SHOW_MS, r: o.r, t0: now, a0: 0, arrived: 0 });
+    let read: number | undefined;
+    if (o.read && target instanceof Element) {
+      const cs = getComputedStyle(target);
+      read = parseFloat(cs.lineHeight) || (parseFloat(cs.fontSize) || 15) * 1.4;
+    }
+    this.begin({ target, ms: o.ms ?? NU_SHOW_MS, r: o.r, t0: now, a0: 0, arrived: 0, read, onArrive: o.onDone });
     return true;
   }
 
@@ -458,6 +481,7 @@ class Guide {
     }
     const c = middle(r);
     if (!(t.target instanceof Element) && typeof t.target !== 'function') return { p: c, c };
+    if (t.read) return { p: this.clamp(readPoint(r, t.read, t.arrived && !reducedMotion() ? (now - t.arrived) / t.ms : 0)), c };
     const rad = t.r ?? Math.max(16, Math.max(r.width, r.height) / 2 + 8);
     let o: Pt;
     if (reducedMotion()) o = { x: rad * Math.SQRT1_2, y: -rad * Math.SQRT1_2 };

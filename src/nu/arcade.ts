@@ -2,13 +2,15 @@
 //   Hockey  air hockey against Nu: your paddle at the bottom, Nu guarding the top; first to 5.
 //   Chain   steer Nu to catch electrons; each one trails behind it. Don't run into the chain.
 //   Split   Nu carries a shell along the bottom; bounce a neutron up to split the nuclei.
-//   Pairs   tiles face down; turn two at a time to find the pairs, in as few turns as you can.
+//   Pairs   atom cards face down; turn two at a time to find the pairs, in as few turns as you can.
 
 import {
   CYAN, K300, K500, K800, K900, NOTE_COLOURS, RED, TAU, WHITE,
   best, bounceIn, buzz, chimeSound, clamp, completeSound, dist, dot, edge, inside, missSound, ring, setBest, tickSound,
   type Mover, type Pt, type Stage, type Toy,
 } from './kit';
+import { ELEMENTS, placeColour } from '../gallery/data';
+import { inkOn } from '../gallery/looks';
 
 // ---- Hockey ----------------------------------------------------------------------------------
 
@@ -383,10 +385,11 @@ export class Split implements Toy {
 
 // ---- Pairs -----------------------------------------------------------------------------------
 
-type Glyph = { colour: string; kind: number };
+/** A round atom card: its symbol and number on the colour of its place in the table. */
+type Glyph = { z: number; symbol: string; colour: string; ink: string };
 
-/** Tiles face down. Turn two at a time (Nu flies to each); a pair stays up. Find them all in as
- *  few turns as you can: the best is the fewest. */
+/** Atom cards face down. Turn two at a time (Nu flies to each); a pair stays up. Find them all
+ *  in as few turns as you can: the best is the fewest. */
 export class Pairs implements Toy {
   private tiles: { p: Pt; g: Glyph; up: boolean; done: boolean; turned: number }[] = [];
   private open: number[] = [];
@@ -409,11 +412,12 @@ export class Pairs implements Toy {
 
   private deal(s: Stage): void {
     const cols = 4, rows = s.hh > s.hw * 1.25 ? 5 : 4, n = cols * rows;
-    const glyphs: Glyph[] = [];
-    for (let i = 0; i < n / 2; i++) glyphs.push({ colour: [...NOTE_COLOURS.slice(0, 4), WHITE][i % 5], kind: Math.floor(i / 5) });
+    // Atoms from all over the table, so no two cards look alike.
+    const pool = ELEMENTS.slice().sort(() => Math.random() - 0.5).slice(0, n / 2);
+    const glyphs: Glyph[] = pool.map((e) => { const colour = placeColour(e); return { z: e.z, symbol: e.symbol, colour, ink: inkOn(colour) }; });
     const deck = [...glyphs, ...glyphs].sort(() => Math.random() - 0.5);
     const gx = (s.hw * 2 - 30) / cols, gy = (s.hh * 2 - 30) / rows;
-    this.size = Math.min(gx, gy) * 0.36;
+    this.size = Math.min(gx, gy) * 0.42;
     this.tiles = deck.map((g, i) => ({
       p: { x: s.c.x - s.hw + 15 + gx * ((i % cols) + 0.5), y: s.c.y - s.hh + 15 + gy * (Math.floor(i / cols) + 0.5) },
       g, up: false, done: false, turned: 0,
@@ -442,13 +446,20 @@ export class Pairs implements Toy {
     for (const t of this.tiles) {
       const flip = clamp((now - t.turned) / 180, 0, 1), showing = t.up || t.done;
       if (!showing) { dot(ctx, t.p, r, K900); ring(ctx, t.p, r, K500, 2, 0.7); continue; }
-      dot(ctx, t.p, r * (0.6 + 0.4 * flip), K800);
-      const g = t.g, k = r * 0.42 * flip;
-      if (g.kind === 0) dot(ctx, t.p, k, g.colour);
-      else if (g.kind === 1) ring(ctx, t.p, k, g.colour, 3);
-      else {
-        dot(ctx, { x: t.p.x - k * 0.6, y: t.p.y }, k * 0.5, g.colour);
-        dot(ctx, { x: t.p.x + k * 0.6, y: t.p.y }, k * 0.5, g.colour);
+      // The card turns over: it grows from a sliver to the full atom card.
+      const g = t.g, rr = r * (0.6 + 0.4 * flip);
+      dot(ctx, t.p, rr, g.colour, t.done ? 0.75 : 1);
+      if (flip > 0.5) {
+        ctx.save();
+        ctx.fillStyle = g.ink;
+        ctx.globalAlpha = t.done ? 0.75 : 1;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.font = `600 ${Math.round(r * 0.72)}px Outfit, system-ui, sans-serif`;
+        ctx.fillText(g.symbol, t.p.x, t.p.y + r * 0.1);
+        ctx.font = `500 ${Math.max(13, Math.round(r * 0.3))}px Outfit, system-ui, sans-serif`;
+        ctx.fillText(String(g.z), t.p.x, t.p.y - r * 0.5);
+        ctx.restore();
       }
       if (t.done) ring(ctx, t.p, r, g.colour, 2, 0.5);
     }
@@ -469,10 +480,10 @@ export class Pairs implements Toy {
     if (this.open.length < 2) return;
     this.turns++;
     const [a, b] = this.open.map((k) => this.tiles[k]);
-    if (a.g.colour === b.g.colour && a.g.kind === b.g.kind) {
+    if (a.g.z === b.g.z) {
       a.done = b.done = true;
       this.open = [];
-      chimeSound(NOTE_COLOURS.indexOf(a.g.colour) >= 0 ? NOTE_COLOURS.indexOf(a.g.colour) : 4);
+      chimeSound(a.g.z % 5);
       s.fx.ring(a.p, a.g.colour, this.size, this.size + 18, 500);
       s.fx.ring(b.p, b.g.colour, this.size, this.size + 18, 500);
       if (this.tiles.every((q) => q.done)) {
