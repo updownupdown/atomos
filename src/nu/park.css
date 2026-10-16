@@ -44,3 +44,64 @@
 .nup-off[hidden] { display: none; }
 .nup-off p { margin: 0; }
 .nup-on { min-height: var(--hit, 44px); padding: 0 var(--sp-4); border: 0; border-radius: var(--r-pill); background: var(--c-tile); color: var(--c-tile-ink); font: inherit; font-weight: var(--fw-semibold); cursor: pointer; }
+
+/* Each tile's name sits on the bottom of its moving picture, on a black pill so it reads over anything. */
+.nup-shot .nup-name { position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); max-width: calc(100% - 16px); padding: 4px 14px 4px 4px; border-radius: var(--r-pill); background: #000; font-size: var(--fs-sm, 14px); gap: var(--sp-2); }
+.nup-shot .nup-name i { width: 28px; height: 28px; }
+.nup-shot .nup-name svg { width: 16px; height: 16px; }
+.nup-shot .nup-nu { inset: -6px; }
+
+/* The roulette (roulette.ts): a row at the top of the games sheet, the wheel in Nu's home, its own sheet, and the bar
+   between its games. */
+.nur-wheel { display: block; flex: none; color: var(--c-text); }
+.nur-turn { transform-origin: 20px 20px; animation: nur-turn 9s linear infinite; }
+@keyframes nur-turn { to { transform: rotate(360deg); } }
+.nup-rou { width: 100%; display: flex; align-items: center; gap: var(--sp-3); margin-bottom: var(--sp-4); padding: var(--sp-3) var(--sp-4) var(--sp-3) var(--sp-3); border: 0; border-radius: var(--r-pill); background: var(--c-plate); color: var(--c-text); font: inherit; text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.nup-rou:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 3px; }
+.nup-rou-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.nup-rou-text b { font-size: var(--fs-md); font-weight: var(--fw-semibold); }
+.nup-rou-text small, .nup-rou-best { font-size: var(--fs-sm, 14px); color: var(--c-text-2); font-variant-numeric: tabular-nums; }
+
+.nur-sheet .sheet-body { padding: var(--sp-2) var(--sp-4) var(--sp-4); }
+.nur-lead { margin: 0 0 var(--sp-4); color: var(--c-text-2); font-size: var(--fs-md); line-height: 1.45; }
+.nur-total { display: flex; flex-direction: column; align-items: center; margin: var(--sp-2) 0 var(--sp-4); }
+.nur-big { margin: 0; font-size: 56px; font-weight: var(--fw-semibold); line-height: 1; font-variant-numeric: tabular-nums; }
+.nur-sub { margin: var(--sp-2) 0 0; color: var(--c-text-2); font-size: var(--fs-md); }
+.nur-six { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-2); }
+.nur-six li { min-width: 0; }
+.nur-six.is-spinning li:not(.is-in) .nur-chip { opacity: 0.55; }
+.nur-chip { display: flex; align-items: center; gap: var(--sp-2); min-height: 48px; padding: 6px var(--sp-3) 6px 6px; border-radius: var(--r-pill); background: var(--c-plate); font-weight: var(--fw-semibold); }
+.nur-chip > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nur-chip i { flex: none; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: var(--c-tile); color: var(--c-tile-ink); }
+.nur-chip i svg { width: 20px; height: 20px; display: block; }
+.nur-chip b { font-variant-numeric: tabular-nums; color: var(--c-text-2); font-weight: var(--fw-semibold); }
+.nur-best { margin: var(--sp-3) 0 0; text-align: center; color: var(--c-text-2); font-size: var(--fs-md); }
+.nur-h { margin: var(--sp-5, 24px) 0 var(--sp-2); font-size: var(--fs-sm, 14px); font-weight: var(--fw-semibold); color: var(--c-text-2); }
+.nur-runs { list-style: none; margin: 0; padding: 0; }
+.nur-runs li { display: flex; justify-content: space-between; padding: var(--sp-2) 0; font-size: var(--fs-md); font-variant-numeric: tabular-nums; }
+.nur-runs li span { color: var(--c-text-2); }
+.nur-sheet .sheet-foot { display: flex; gap: var(--sp-3); }
+.nur-again, .nur-play { flex: 1; display: flex; align-items: center; justify-content: center; gap: var(--sp-2); min-height: 52px; padding: 0 var(--sp-4); border: 0; border-radius: var(--r-pill); font: inherit; font-weight: var(--fw-semibold); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.nur-again { background: var(--c-plate); color: var(--c-text); }
+.nur-again svg { width: 22px; height: 22px; display: block; color: var(--c-accent); }
+.nur-play { background: var(--c-tile); color: var(--c-tile-ink); }
+.nur-play[hidden] { display: none; }
+.nur-again:focus-visible, .nur-play:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 3px; }
+
+/* Between a roulette's games: the next one, playing, its name, the points just won, and the bar running down to it.
+   A tap goes now. */
+.nup-next { position: absolute; left: 12px; right: 12px; bottom: 12px; display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-3); border: 0; border-radius: 26px; background: #000; color: var(--c-text); font: inherit; text-align: left; cursor: pointer; box-shadow: 0 0 0 2px var(--c-plate); -webkit-tap-highlight-color: transparent; }
+.nup-next[hidden] { display: none; }
+.nup-next-row { display: flex; align-items: center; gap: var(--sp-3); }
+.nup-next .nup-shot { flex: none; width: 66px; border-radius: 16px; }
+.nup-next-wheel { flex: none; width: 66px; display: flex; justify-content: center; }
+.nup-next-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.nup-next-text small { font-size: var(--fs-sm, 14px); color: var(--m-500); font-weight: var(--fw-semibold); }
+.nup-next-text b { display: flex; align-items: center; gap: var(--sp-2); font-size: 22px; font-weight: var(--fw-semibold); }
+.nup-next-text i { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: var(--c-tile); color: var(--c-tile-ink); }
+.nup-next-text i svg { width: 18px; height: 18px; display: block; }
+.nup-next-pts { font-size: 22px; font-weight: var(--fw-semibold); color: var(--c-text-2); font-variant-numeric: tabular-nums; }
+.nup-next-bar { display: block; height: 6px; border-radius: 3px; background: var(--c-plate); overflow: hidden; }
+.nup-next-bar i { display: block; height: 100%; width: 100%; border-radius: 3px; background: var(--m-500); transform-origin: left; animation: nup-bar linear forwards; }
+@keyframes nup-bar { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@media (prefers-reduced-motion: reduce) { .nur-turn { animation: none; } }

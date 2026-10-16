@@ -13,12 +13,12 @@
 
 import {
   CYAN, GREEN, K300, K500, NOTE_COLOURS, RED, TAU, WHITE,
-  best, bounceIn, buzz, chimeSound, clamp, completeSound, dashed, dist, dot, missSound, ring, setBest, tickSound,
+  best, bounceIn, buzz, chimeSound, clamp, completeSound, dashed, dist, dot, missSound, ring, finish, setBest, tickSound,
   type Mover, type Pt, type Stage, type Toy,
 } from './kit';
 
 /** Lives left, as small dots across the top of the arena. */
-function lives(s: Stage, ctx: CanvasRenderingContext2D, left: number, of = 3): void {
+export function lives(s: Stage, ctx: CanvasRenderingContext2D, left: number, of = 3): void {
   for (let i = 0; i < of; i++) {
     const p = { x: s.m.x + (i - (of - 1) / 2) * 16, y: s.m.y - s.hh + 22 };
     if (i < left) dot(ctx, p, 4.5, WHITE, 0.85);
@@ -26,7 +26,7 @@ function lives(s: Stage, ctx: CanvasRenderingContext2D, left: number, of = 3): v
   }
 }
 
-function bar(ctx: CanvasRenderingContext2D, x0: number, y0: number, x1: number, y1: number, c: string, w = 4, alpha = 1): void {
+export function bar(ctx: CanvasRenderingContext2D, x0: number, y0: number, x1: number, y1: number, c: string, w = 4, alpha = 1): void {
   ctx.save();
   ctx.globalAlpha = alpha;
   ctx.strokeStyle = c;
@@ -124,7 +124,7 @@ export class Brick implements Toy {
       buzz(22);
       if (this.left <= 0) {
         this.overAt = now;
-        setBest(s, 'brick', this.count);
+        finish(s, 'brick', this.count);
         s.score(this.count, best(s, 'brick') || null);
         return;
       }
@@ -290,7 +290,7 @@ export class Drop implements Toy {
       s.fx.ring(at, RED, 12, 40, 600);
       missSound();
       buzz(22);
-      if (this.left <= 0) { this.overAt = now; setBest(s, 'drop', this.count); }
+      if (this.left <= 0) { this.overAt = now; finish(s, 'drop', this.count); }
     }
     s.score(this.count, best(s, 'drop') || null);
   }
@@ -428,7 +428,7 @@ export class Maze implements Toy {
     if (!this.overAt && left <= 0) {
       this.overAt = now;
       completeSound();
-      setBest(s, 'maze', this.count);
+      finish(s, 'maze', this.count);
       s.score(this.count, best(s, 'maze') || null);
     }
     const target = this.centre(this.to ?? this.at);
@@ -575,7 +575,7 @@ export class More implements Toy {
       s.fx.ring(at, RED, 16, 70, 600);
       missSound();
       buzz(22);
-      if (this.left <= 0) { this.overAt = now; setBest(s, 'more', this.count); }
+      if (this.left <= 0) { this.overAt = now; finish(s, 'more', this.count); }
     }
     s.score(this.count, best(s, 'more') || null);
   }
@@ -668,7 +668,7 @@ export class Stick implements Toy {
       s.fx.ring(at, RED, this.er, 34, 600);
       missSound();
       buzz(30);
-      setBest(s, 'stick', this.count);
+      finish(s, 'stick', this.count);
       s.score(this.count, best(s, 'stick') || null);
       return;
     }
@@ -774,7 +774,7 @@ export class Flip implements Toy {
         s.fx.ring(nu, RED, nu.r, nu.r + 30, 600);
         missSound();
         buzz(26);
-        setBest(s, 'flip', this.count);
+        finish(s, 'flip', this.count);
         s.score(this.count, best(s, 'flip') || null);
         return;
       }

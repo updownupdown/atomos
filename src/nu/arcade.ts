@@ -6,7 +6,7 @@
 
 import {
   CYAN, K300, K500, K800, K900, NOTE_COLOURS, RED, ROSE, TAU, WHITE,
-  best, bounceIn, buzz, chimeSound, clamp, completeSound, dist, dot, edge, inside, missSound, ring, setBest, tickSound,
+  best, bounceIn, buzz, chimeSound, clamp, completeSound, dist, dot, edge, inside, missSound, ring, finish, setBest, tickSound,
   type Mover, type Pt, type Stage, type Toy,
 } from './kit';
 import { ELEMENTS, placeColour } from '../gallery/data';
@@ -41,6 +41,8 @@ export class Hockey implements Toy {
     this.say(s);
   }
 
+  tally = true;
+  raw(): number { return this.you; }
   private say(s: Stage): void { s.score(`${this.you} : ${this.them}`, best(s, 'hockey') || null); }
 
   /** The puck back in the middle, drifting toward whoever conceded. */
@@ -118,6 +120,7 @@ export class Hockey implements Toy {
     if (this.you >= Hockey.TO || this.them >= Hockey.TO) {
       this.state = 'over';
       if (this.you > this.them) { this.wins++; setBest(s, 'hockey', this.wins); s.fx.burst(s.c, 18, WHITE, 0.15); }
+      s.end?.(this.you);
       this.puck = { x: s.c.x, y: s.c.y, vx: 0, vy: 0 };
     } else this.serve(s, mine);
     this.say(s);
@@ -232,7 +235,7 @@ export class Chain implements Toy {
     if (this.links().slice(3).some((q) => dist(q, nu) < nu.r + 3)) {
       this.state = 'over';
       this.overAt = now;
-      setBest(s, 'chain', this.length);
+      finish(s, 'chain', this.length);
       s.fx.ring(nu, RED, 8, 40, 600);
       missSound();
       buzz(30);
@@ -341,7 +344,7 @@ export class Split implements Toy {
         missSound();
         buzz(20);
         b.on = false;
-        if (this.lives <= 0) { this.state = 'over'; setBest(s, 'split', this.count); }
+        if (this.lives <= 0) { this.state = 'over'; finish(s, 'split', this.count); }
         return;
       }
     }
@@ -400,6 +403,13 @@ export class Pairs implements Toy {
   private flyTo: Pt | null = null;
   private doneAt = 0;
   private size = 26;
+  tally = true;
+
+  /** Turns for each pair, so far: two more turns for each pair still to find. */
+  raw(): number {
+    const pairs = this.tiles.length / 2, left = this.tiles.filter((t) => !t.done).length / 2;
+    return pairs ? (this.turns + left * 2) / pairs : 0;
+  }
 
   enter(s: Stage): void {
     s.nu.r = 8;
@@ -520,6 +530,7 @@ export class Pairs implements Toy {
         const was = s.bests.pairs as number | undefined;
         if (!was || this.turns < was) { s.bests.pairs = this.turns; s.save(); }
         s.fx.burst(s.c, 18, WHITE, 0.15);
+        s.end?.(this.turns / (this.tiles.length / 2));
       }
     } else this.hold = 800;
     s.score(this.turns, (s.bests.pairs as number | undefined) ?? null);

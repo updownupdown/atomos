@@ -10,7 +10,7 @@
 
 import {
   CYAN, GREEN, K300, K500, K800, K900, RED, TAU, WHITE,
-  best, buzz, captureSound, chimeSound, clamp, completeSound, dist, dot, missSound, ring, setBest, tickSound,
+  best, buzz, captureSound, chimeSound, clamp, completeSound, dist, dot, missSound, ring, finish, setBest, tickSound,
   type Pt, type Stage, type Toy,
 } from './kit';
 
@@ -77,7 +77,7 @@ export class Flash implements Toy {
     buzz(25);
     if (this.left <= 0) {
       this.overAt = now;
-      setBest(s, 'flash', this.hits);
+      finish(s, 'flash', this.hits);
       s.score(this.hits, best(s, 'flash') || null);
     }
   }
@@ -233,7 +233,7 @@ export class Halo implements Toy {
     if (this.left <= 0) {
       this.overAt = now;
       this.shots = [];
-      setBest(s, 'halo', this.caught);
+      finish(s, 'halo', this.caught);
       s.score(this.caught, best(s, 'halo') || null);
     }
   }
@@ -377,7 +377,7 @@ export class Pulse implements Toy {
     s.fx.ring(s.c, RED, this.r * 0.9, this.r + 10, 500);
     missSound();
     buzz(25);
-    setBest(s, 'pulse', this.streak);
+    finish(s, 'pulse', this.streak);
     s.score(this.streak, best(s, 'pulse') || null);
   }
 
