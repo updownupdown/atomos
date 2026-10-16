@@ -249,11 +249,6 @@ export function orbitalTogether(e: Element): string {
   </div>`;
 }
 
-export const STRUCTURE_VIEWS: { id: string; label: string }[] = [
-  { id: 'together', label: 'Together' },
-  { id: 'shells', label: 'Shells' },
-];
-
 // ---------- Isotopes: an album of tiles ----------
 
 /** 0..1 for how long an isotope lasts, on a log scale from a nanosecond to the age of the universe. */

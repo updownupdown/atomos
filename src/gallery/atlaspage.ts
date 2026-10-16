@@ -165,7 +165,9 @@ export class AtlasPage {
     this.panel.innerHTML = `<div class="atom-page">${tabHTML(e, this.tab, save.settings.unlockAll || Boolean(save.built[e.z]), save)}</div>`;
     mountInfoPage(this.panel, this.state);
     if (this.tab === 'overview') {
-      this.panel.querySelector('.ov-stats')?.append(this.view);
+      // View on its own row, just above the photo.
+      const photo = this.panel.querySelector('.ov-photo');
+      if (photo) photo.before(this.view); else this.panel.querySelector('.ov-band')?.after(this.view);
       this.panel.firstElementChild!.append(this.foot);
     }
     this.panel.firstElementChild!.append(this.guide);

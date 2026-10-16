@@ -7,7 +7,7 @@ import { SHAPE_AT } from '../core/progress';
 import type { OrbitalShape } from '../core/save';
 import { createSegments, createSlider } from '../ui/components';
 import { icon } from '../ui/icons';
-import { buildOrder, ISO_FILTERS, orbitalFill, orbitalGlyphs, STRUCTURE_VIEWS } from './visuals';
+import { buildOrder, ISO_FILTERS, orbitalFill, orbitalGlyphs } from './visuals';
 import { Together3D } from './together3d';
 import { scienceButton } from '../ui/science';
 
@@ -34,19 +34,15 @@ export interface InfoState {
 /** Wire up whatever the page just rendered into `root` holds. */
 export function mountInfoPage(root: HTMLElement, st: InfoState): void {
   mountIsotopeFilter(root, st);
-  mountStructureSwitch(root, st);
   mountTogether(root, st);
   mountLinks(root);
 }
 
 /** The ways out of a page: the little table and "See in Atlas" go to the Atlas (colored by that
- *  property, with this atom picked); 3D opens the atom full screen. The app shell answers. */
+ *  property, with this atom picked). The app shell answers. */
 function mountLinks(root: HTMLElement): void {
   root.querySelectorAll<HTMLButtonElement>('.ov-locate, .see-atlas').forEach((b) => (b.onclick = () => {
     b.dispatchEvent(new CustomEvent('atomos:atlas', { bubbles: true, detail: { z: Number(b.dataset.z), look: b.dataset.look ?? null } }));
-  }));
-  root.querySelectorAll<HTMLButtonElement>('.st-3d').forEach((b) => (b.onclick = () => {
-    b.dispatchEvent(new CustomEvent('atomos:view3d', { bubbles: true, detail: { z: Number(b.dataset.z) } }));
   }));
 }
 
@@ -159,22 +155,6 @@ function mountTogether(root: HTMLElement, st: InfoState): void {
   }
   paintPlay();
   paint();
-}
-
-/** The structure page's ways to see the atom: every orbital together, and the shells. */
-function mountStructureSwitch(root: HTMLElement, st: InfoState): void {
-  const slot = root.querySelector<HTMLElement>('#struct-switch');
-  if (!slot) return;
-  const views = [...root.querySelectorAll<HTMLElement>('.st-view')];
-  const apply = (id: string) => {
-    st.structView = id;
-    for (const v of views) v.hidden = v.dataset.view !== id;
-  };
-  if (!STRUCTURE_VIEWS.some((v) => v.id === st.structView)) st.structView = 'together';
-  const seg = createSegments(STRUCTURE_VIEWS, { active: st.structView, label: 'How to see the structure', onChange: apply });
-  slot.append(seg.el);
-  seg.select(st.structView);
-  apply(st.structView);
 }
 
 /** The isotope page's filter: Lasting, Fleeting, All; kept while stepping through elements. A row

@@ -7,7 +7,6 @@ import { ORBITAL_NAMES } from './orbital';
 import FACTS from '../data/element-facts.json';
 import STORY from '../data/element-story.json';
 import IMAGES from '../data/element-images.json';
-import { disclosureHTML } from '../ui/components';
 import { loadSave, type SaveData } from '../core/save';
 import { discoveryTimeline, discoveryWords, isotopeTable, orbitalTogether, propertyAxes, shellPlot } from './visuals';
 import { lookColor, inkOn } from './looks';
@@ -199,10 +198,9 @@ function structure(e: Element): string {
   }).join('');
   const key = keyIsotope(e);
   return `
-    <div class="st-top"><div class="st-switch" id="struct-switch"></div><button type="button" class="st-3d" data-z="${e.z}" aria-label="See ${esc(e.name.toLowerCase())} in 3D, full screen">3D${icon('fullscreen', { size: 18 })}</button></div>
-    <div class="st-view" data-view="together">${orbitalTogether(e)}</div>
-    <div class="st-view" data-view="shells" hidden>${shellPlot(e)}</div>
-    ${disclosureHTML({ title: 'All the numbers', hint: `${e.subshells.length} layers`, body: `
+    <section class="st-sec"><h3 class="story-h">Together</h3>${orbitalTogether(e)}</section>
+    <section class="st-sec"><h3 class="story-h">Shells</h3>${shellPlot(e)}</section>
+    <section class="st-sec"><h3 class="story-h">All the numbers</h3>
     ${row('Configuration', `${e.configuration.split(' ').map((s) => s.slice(0, 2) + sup(s.slice(2))).join(' ')}`)}
     ${row('Short form', shortConfiguration(e))}
     <div class="shells">${shellRow}</div>
@@ -214,7 +212,8 @@ function structure(e: Element): string {
     ${row('Van der Waals radius', `${e.vdw} pm${e.vdwEstimated ? ' <span class="dim">(estimated from the element above it)</span>' : ''}`)}
     ${row('Covalent radius', num(e.covalent, ' pm'))}
     ${row('Nucleus', `${key ? `${e.z} protons, ${key.a - e.z} neutrons (${e.symbol}-${key.a})` : `${e.z} protons`}, radius about ${e.nucleusRadius.toFixed(1)} fm`)}
-    ${row('Cloud to nucleus', `about ${Math.round((e.vdw * 1e3) / e.nucleusRadius / 1000)},000 to 1`)}` })}`;
+    ${row('Cloud to nucleus', `about ${Math.round((e.vdw * 1e3) / e.nucleusRadius / 1000)},000 to 1`)}
+    </section>`;
 }
 
 function isotopes(e: Element, _save: SaveData): string {
