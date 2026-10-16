@@ -175,7 +175,7 @@ body:not([data-screen='gallery']) .at-page { display: none; }
 .earn-bar i { display: block; height: 100%; border-radius: 4px; background: var(--c-accent); }
 
 /* View, at the right of Overview's card (atlaspage.ts): the 3D atom full screen. */
-.ov-view { flex: none; align-self: center; margin-left: auto; height: 40px; display: inline-flex; align-items: center; gap: 6px; padding: 0 16px 0 12px; border: 0; border-radius: var(--r-pill); background: var(--c-surface-3); color: var(--c-text); font-family: var(--font); font-size: var(--fs-md); font-weight: var(--fw-semibold); cursor: pointer; }
+.ov-view { width: 100%; justify-content: center; margin: var(--sp-3) 0; height: 48px; display: flex; align-items: center; gap: 6px; padding: 0 16px 0 12px; border: 0; border-radius: var(--r-pill); background: var(--c-surface-3); color: var(--c-text); font-family: var(--font); font-size: var(--fs-md); font-weight: var(--fw-semibold); cursor: pointer; }
 .ov-view:hover { background: var(--c-pick); }
 .ov-view:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
 

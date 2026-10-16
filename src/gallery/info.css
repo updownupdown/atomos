@@ -45,11 +45,6 @@
 .story-more[open] summary { display: none; }
 
 /* Structure: the views and the 3D button on one line. */
-.st-top { display: flex; align-items: center; gap: var(--sp-2); margin: var(--sp-2) 0 var(--sp-4); }
-.st-top .st-switch { flex: 1 1 auto; min-width: 0; margin: 0; }
-.st-3d { flex: none; display: inline-flex; align-items: center; gap: 4px; height: 40px; padding: 0 var(--sp-3); border: 0; border-radius: 20px; background: var(--c-surface-2); color: var(--c-text); font: inherit; font-size: var(--fs-sm); font-weight: var(--fw-semibold); cursor: pointer; }
-.st-3d:hover { background: var(--c-surface-3); }
-.st-3d svg { color: var(--c-accent); }
 
 /* Structure › Together: every orbital at once, the inner layers inside the outer. */
 .tg { display: flex; flex-direction: column; gap: var(--sp-3); }
@@ -177,3 +172,7 @@
 .info-guide { margin: var(--sp-5) 0 var(--sp-3); }
 .gd-anatomy .ov-plate { flex: none; }
 .gd-anatomy .gd-strip { width: 14px; height: 14px; border-radius: 4px; }
+
+/* Structure: Together, Shells and All the numbers as sections of one page. */
+.st-sec { display: flex; flex-direction: column; gap: var(--sp-3); margin-top: var(--sp-5); }
+.st-sec:first-child { margin-top: var(--sp-2); }
