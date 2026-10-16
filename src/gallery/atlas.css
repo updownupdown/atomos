@@ -131,6 +131,8 @@ body:not([data-screen='gallery']) .at-page { display: none; }
 .ap-panel { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-bottom: calc(var(--safe-bottom) + var(--sp-4)); }
 /* The one way into play at the foot, as wide as the page, like the guide card under it. */
 .ap-foot { padding-top: var(--sp-6); }
+/* Under View in Collect, the guide card sits as close as Build's foot cards do. */
+.ap-foot + .info-guide { margin-top: var(--sp-3); }
 
 /* A phone on its side: slimmer rows so the flat table has room. */
 @media (max-height: 500px) {
