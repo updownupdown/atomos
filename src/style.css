@@ -1224,7 +1224,8 @@ body.puzzling #overlay { pointer-events: auto; touch-action: none; }
 .nav-btn[aria-current='page'] { background: var(--c-pick); color: var(--c-accent); }
 /* The wordmark: Outfit bold, all caps, widely tracked. */
 .wordmark { font-family: var(--font); font-weight: var(--fw-bold); font-size: 12px; letter-spacing: 0.32em; text-transform: uppercase; line-height: 1; }
-.nav-logo:focus-visible, .nav-btn:focus-visible, .dock button:focus-visible, .crumb:focus-visible, .nav-tools button:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
+.dock button:focus-visible { outline: 2px solid var(--c-tile-ink); outline-offset: -4px; }
+.nav-logo:focus-visible, .nav-btn:focus-visible, .crumb:focus-visible, .nav-tools button:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
 /* Off Home the header keeps only the mark; the trail takes the rest. */
 body:not([data-screen='home']) :is(.nav-title, .nav-aside, .nav-btn) { display: none; }
 body[data-screen='atom-view'] .nav { display: none; }
@@ -1289,8 +1290,10 @@ body[data-screen='puzzles'].pg-playing .nav-tools { display: flex; }
   gap: 4px;
   padding: 6px;
   border-radius: var(--r-pill);
-  background: var(--c-nav);
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.55);
+  /* A pale pill, the one light thing at the foot of a black page, so it reads at once over the
+     plates scrolling under it; a black ring keeps its edge clean against them. */
+  background: var(--c-tile);
+  box-shadow: 0 0 0 4px var(--c-bg), 0 10px 28px rgba(0, 0, 0, 0.7);
 }
 .dock[hidden] { display: none; }
 .dock button {
@@ -1303,15 +1306,16 @@ body[data-screen='puzzles'].pg-playing .nav-tools { display: flex; }
   border: 0;
   border-radius: var(--r-pill);
   background: transparent;
-  color: var(--c-text);
+  color: var(--c-tile-ink);
   font-family: var(--font);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
-.dock button:hover { background: var(--c-surface-2); }
+.dock button:hover { background: var(--k-200); }
+.dock button:active { background: var(--k-300); }
 .nav-ico { display: grid; place-items: center; }
 .nav-ico svg { width: 29px; height: 29px; display: block; }
-.nav-lab { font-size: 15px; font-weight: var(--fw-semibold); line-height: 1.1; }
+.nav-lab { font-size: 15px; font-weight: var(--fw-bold); line-height: 1.1; }
 /* Small phones: the pill and the header give their margins to the names. */
 @media (max-width: 400px) {
   .dock { width: calc(100% - 2 * var(--sp-2)); }
