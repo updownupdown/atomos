@@ -533,6 +533,9 @@ export class Atlas {
 
   /** The microscope: a page's guide, why the atoms are arranged this way (a map), or nothing (Details). */
   registerScience(): void {
+    // Only while the Atlas is the screen showing: progress (a new unlock) redraws it from behind
+    // other screens, and the floating microscope would then appear over them.
+    if (this.root.closest('[hidden]') || !document.getElementById('loupe-screen')?.hidden) return;
     if (this.page.isOpen) { setScienceHandler(() => this.page.openGuide(), 'How to read this page'); return; }
     if (this.view === 'details') { setScienceHandler(null); return; }
     const l = LAYOUTS.find((x) => x.id === this.view)!;
