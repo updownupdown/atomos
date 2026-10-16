@@ -8,8 +8,8 @@
 // and it may not finish). Throw a toy in the round pool and Nu swims out for it, slowly. Now and
 // then Nu takes itself off to its round doghouse: knock and it pokes its head out (and may come
 // out, or go back in); throw a toy and it almost always comes out for it. The
-// round button under the arena opens the games, a grid A to Z, and Nu circles the one it
-// fancies today; under the grid, "Read from the Atlas" opens a random atom's page and Nu reads
+// round button under the arena opens the games, a sheet A to Z, and Nu circles the one it
+// fancies today; under them, "Read from the Atlas" opens a random atom's page and Nu reads
 // along (read.ts):
 //   Orbit   Nu runs round two rings; tap to turn, swipe to hop rings, catch photons, dodge red.
 //   Sling   pull Nu back and let go; it swings round nuclei on gravity into the green ring.
@@ -19,8 +19,8 @@
 //   Course  lead Nu up a channel past orbiting electrons, against the clock.
 //   Trace   draw a path and Nu rides it, lighting stars and missing the red.
 //   Dive    tap to dive Nu through the gaps in turning shells, down to the nucleus.
-//   Hockey, Chain, Split, Pairs: see arcade.ts. Flash, Halo, Pulse: see court.ts. Comet, Rally,
-//   Ripple: see swim.ts.
+//   Hockey, Chain, Split, Pairs: see arcade.ts. Flash, Halo, Pulse: see court.ts. Rally, Ripple:
+//   see swim.ts. Bloom, Hop, Juggle, Loop, Pull, Spark, Twin: see yard.ts.
 // Most games are learnt by trying, so they carry no words: just the score and best under the arena.
 // When the park opens, the guide Nu (src/ui/nu.ts) flies in from the logo and the park takes it
 // over; leaving, it hands Nu back where it is and Nu flies home. It never jumps. Bests are kept
@@ -38,7 +38,8 @@ import {
 } from './kit';
 import { Chain, Hockey, Pairs, Split } from './arcade';
 import { Flash, Halo, Pulse } from './court';
-import { Comet, Rally, Ripple } from './swim';
+import { Rally, Ripple } from './swim';
+import { Bloom, Hop, Juggle, Loop, Pull, Spark, Twin } from './yard';
 import './park.css';
 
 type PlaceId = 'home' | GameId;
@@ -1019,7 +1020,7 @@ class Echo implements Toy {
 
 /** Nu runs round two rings like an electron with two shells to choose from. Tap to turn it
  *  round; swipe in or out to hop to the other ring, or tap the ring's own button under the court
- *  (the big round one for the outer ring, the small dashed one for the inner). Catch the photons; an antiparticle (red)
+ *  (the small dashed one on the left for the inner ring, the big round one for the outer). Catch the photons; an antiparticle (red)
  *  meeting Nu on its ring ends the run, so when two close in from both sides, hop rings. Faster
  *  as it goes; antiparticles fade away after a while. */
 class Orbit implements Toy {
@@ -1041,14 +1042,15 @@ class Orbit implements Toy {
   private static LIFE = 16000;
   private rad(s: Stage, lane: number): number { return s.R * (0.8 - lane * 0.32); }
   private pos(s: Stage, a: number, lane: number): Pt { const r = this.rad(s, lane); return { x: s.c.x + Math.cos(a) * r, y: s.c.y + Math.sin(a) * r }; }
-  /** The lane buttons under the court, side by side: the outer ring's, then the inner's, sized
-   *  like their rings. */
+  /** The lane buttons under the court, side by side: the inner ring's small dashed one, then the
+   *  outer's, sized like their rings; listed by lane (outer first). */
   private keys(s: Stage): { x: number; y: number; r: number }[] {
     const p = s.pad;
     if (!p) return [];
     const big = clamp(Math.min(p.h, p.w / 3) / 2 - 18, 24, 42), small = big * 0.6, gap = big * 1.1;
     const y = p.y + p.h / 2, mid = p.x + p.w / 2, x0 = mid - (2 * big + gap + 2 * small) / 2;
-    return [{ x: x0 + big, y, r: big }, { x: x0 + 2 * big + gap + small, y, r: small }];
+    // The inner ring's small one on the left, the outer's big one on the right; by lane.
+    return [{ x: x0 + 2 * small + gap + big, y, r: big }, { x: x0 + small, y, r: small }];
   }
   private hopTo(lane: number): void {
     if (lane === this.lane) return;
@@ -1665,7 +1667,7 @@ export class NuPark {
   private bestEl: HTMLElement;
   private goBtn: HTMLButtonElement;
   private off: HTMLElement;
-  private toys: Record<PlaceId, Toy> = { home: new Home(), sling: new Sling(), course: new Course(), echo: new Echo(), orbit: new Orbit(), shells: new Shells(), herd: new Herd(), trace: new Trace(), hockey: new Hockey(), chain: new Chain(), split: new Split(), pairs: new Pairs(), dive: new Dive(), flash: new Flash(), halo: new Halo(), pulse: new Pulse(), comet: new Comet(), rally: new Rally(), ripple: new Ripple() };
+  private toys: Record<PlaceId, Toy> = { home: new Home(), sling: new Sling(), course: new Course(), echo: new Echo(), orbit: new Orbit(), shells: new Shells(), herd: new Herd(), trace: new Trace(), hockey: new Hockey(), chain: new Chain(), split: new Split(), pairs: new Pairs(), dive: new Dive(), flash: new Flash(), halo: new Halo(), pulse: new Pulse(), rally: new Rally(), ripple: new Ripple(), bloom: new Bloom(), hop: new Hop(), juggle: new Juggle(), loop: new Loop(), pull: new Pull(), spark: new Spark(), twin: new Twin() };
   private place: PlaceId = 'home';
   private stage: Stage;
   private frame = 0;
@@ -1677,6 +1679,8 @@ export class NuPark {
   private size = { w: 0, h: 0 };
   /** The picker is open, and the game Nu fancies today (it circles it there). */
   private picking: Sheet | null = null;
+  /** The trail's dropdown list, when open. */
+  private list: Sheet | null = null;
   /** Nu's own hidden state from before the picker hid it. */
   private wasHidden = false;
   private since = 0;
@@ -1741,6 +1745,29 @@ export class NuPark {
     // Time spent playing warms Nu up, a little per minute.
     if (this.have) warmUp(Math.min(0.3, ((performance.now() - this.since) / 60_000) * 0.05));
     this.giveBack();
+  }
+
+  /** The open game's icon, for the trail's dropdown. */
+  get gameIcon(): string | null { return this.place === 'home' ? null : GAMES.find((g) => g.id === this.place)?.icon ?? null; }
+
+  /** The trail's dropdown is open. */
+  get listOpen(): boolean { return this.list !== null; }
+
+  /** The trail's dropdown: Nu's games as a list dropping from under the header, like Play's,
+   *  the one open marked. */
+  openList(onClose: () => void): void {
+    const sheet = openSheet({ title: 'Games', icon: 'nu', label: 'Nu’s games', from: 'bar', onClose: () => { if (this.list === sheet) this.list = null; onClose(); } });
+    this.list = sheet;
+    sheet.body.innerHTML = '<ul class="sheet-rows">' + GAMES.map((g) => {
+      const on = g.id === this.place;
+      return `<li><button type="button" class="sheet-row${on ? ' is-current' : ''}" data-place="${g.id}"${on ? ' aria-current="true"' : ''}><span class="sheet-ico" aria-hidden="true">${g.icon}</span><span class="sheet-name"><span>${g.label}</span></span></button></li>`;
+    }).join('') + '</ul>';
+    for (const b of sheet.body.querySelectorAll<HTMLButtonElement>('[data-place]')) b.onclick = () => { sheet.close(); this.go(b.dataset.place as PlaceId); };
+    const cur = sheet.body.querySelector<HTMLElement>('.is-current');
+    requestAnimationFrame(() => {
+      if (cur) sheet.body.scrollTop = Math.max(0, cur.offsetTop - sheet.body.clientHeight / 2 + cur.offsetHeight / 2);
+      cur?.focus({ preventScroll: true });
+    });
   }
 
   /** Opens straight into a game (Home's Nu section). */
@@ -1864,6 +1891,8 @@ export class NuPark {
     st.R = Math.min(st.hw, st.hh) - 6;
     st.c = { ...st.m };
     st.pad = null;
+    // A big court (Pulse) runs past the arena's sides, cropped by them.
+    if (toy.court && toy.big) st.R = Math.min(Math.max(st.hw, st.hh), Math.min(st.hw, st.hh) * 1.3) - 6;
     if (!toy.court || !toy.controls) return;
     const room = PAD_ROOM + 12;
     if (st.hh >= st.hw) {

@@ -305,6 +305,7 @@ const BACK_MS = 260;
  *  band. Each catch moves the band, narrows it and quickens the wave; a miss ends the run. */
 export class Pulse implements Toy {
   court = true;
+  big = true;
   private r = 0;
   private speed = 0.09;
   private band = { r: 0, w: 0 };

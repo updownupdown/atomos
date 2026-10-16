@@ -23,6 +23,8 @@ export interface Crumb {
   /** An atom (its plate, in a dropdown) or a game (its icon) leading the words. */
   atom?: number;
   game?: string;
+  /** Or its own icon, as SVG (a game in Nu's park). */
+  icon?: string;
   /** A link back to this step. */
   go?: () => void;
   /** A dropdown: opens the list of its kind. */
@@ -72,7 +74,8 @@ export class Crumbs {
 
   private crumb(c: Crumb, last: boolean): HTMLElement {
     const lead = c.atom && c.drop ? this.plate(c.atom)
-      : c.game ? `<span class="crumb-game">${puzzleIcon(c.game, 18)}</span>` : '';
+      : c.game ? `<span class="crumb-game">${puzzleIcon(c.game, 18)}</span>`
+      : c.icon ? `<span class="crumb-game">${c.icon.replace(/width="\d+" height="\d+"/, 'width="18" height="18"')}</span>` : '';
     const name = `<span class="crumb-name">${esc(c.label)}</span>`;
     let el: HTMLElement;
     if (c.drop || c.go) {
