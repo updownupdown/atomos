@@ -28,6 +28,9 @@ import { fleetingOpen, periodNeed } from './locks';
 import type { TrackRow } from '../ui/tracks';
 import { tableCell } from '../ui/picker';
 import { inkOn } from './looks';
+import { shapeFigure } from './shapestory';
+import { LAYOUTS, type LayoutId } from './layouts';
+import { SHAPE_PERIOD } from '../core/unlocks';
 import { icon } from '../ui/icons';
 import { nuShow, reducedMotion } from '../ui/nu';
 import './progressbox.css';
@@ -99,6 +102,16 @@ function statusOf(z: number, save: SaveData): Status {
 /** What an atom has, to tell what a win just added: the stable parts done and the fleeting
  *  isotopes built. */
 interface Held { parts: string[]; fleeting: number; status: Status }
+
+/** Every atom of period `p` built, as of what Collect held. */
+function periodDone(held: Map<number, Held>, p: number): boolean {
+  const [first, last] = rowSpan(p);
+  for (let z = first; z <= last; z++) {
+    const h = held.get(z);
+    if (!h || h.status === 'unbuilt' || h.status === 'started') return false;
+  }
+  return true;
+}
 
 /** The line shown for a moment when Collect opens on an atom that just gained something:
  *  "+ Electrons" and "Iron is now stable collected", or how far it has come. */
@@ -500,6 +513,40 @@ export class Collect {
     this.placeNu();
   }
 
+  /** The moment a period is finished: its row lights up across the table, cell by cell, and a
+   *  card over the atom says so and shows the Atlas shape it opens (shapestory.ts), with a way
+   *  there. The card goes on a tap or by itself. */
+  private finished(p: number): void {
+    const [first, last] = rowSpan(p);
+    const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let i = 0;
+    for (let z = first; z <= last; z++) {
+      const cell = this.table.querySelector<HTMLElement>(`.co-cell[data-z="${z}"]`);
+      if (!cell) continue;
+      cell.style.setProperty('--i', String(i++));
+      cell.classList.remove('is-lit');
+      void cell.offsetWidth;
+      cell.classList.add('is-lit');
+    }
+    window.setTimeout(() => this.table.querySelectorAll('.co-cell.is-lit').forEach((c) => c.classList.remove('is-lit')), still ? 0 : 3200);
+    const shape = (Object.keys(SHAPE_PERIOD) as LayoutId[]).find((id) => SHAPE_PERIOD[id] === p);
+    const label = shape ? LAYOUTS.find((l) => l.id === shape)?.label ?? shape : '';
+    this.el.querySelector('.co-moment')?.remove();
+    const card = document.createElement('div');
+    card.className = 'co-moment';
+    card.setAttribute('role', 'status');
+    card.innerHTML = `<b>Period ${p} complete</b>${shape
+      ? `<figure class="co-moment-fig">${shapeFigure(shape)}</figure><p>${esc(label)} is open in the Atlas: the table drawn its way.</p><button type="button" class="co-moment-go">${icon('atlas', { size: 20 })}<span>See it in the Atlas</span></button>`
+      : '<p>Every atom in it is built.</p>'}`;
+    const go = card.querySelector<HTMLButtonElement>('.co-moment-go');
+    const close = () => { card.classList.add('is-going'); window.setTimeout(() => card.remove(), still ? 0 : 300); };
+    if (go) go.onclick = (ev) => { ev.stopPropagation(); close(); document.dispatchEvent(new CustomEvent('atomos:atlas', { detail: { z: last, look: null, view: shape } })); };
+    card.onclick = close;
+    // Over the foot of the screen, so it shows whether the table is open or the atom is.
+    this.atom.before(card);
+    window.setTimeout(() => { if (card.isConnected) close(); }, 9000);
+  }
+
   /** For a moment, in place of the counts: a green line of what the atom just gained. */
   private news(n: { added: string; note: string }): void {
     window.clearTimeout(this.newsTimer);
@@ -545,6 +592,8 @@ export class Collect {
       const news = newsLine(elementAt(z).name, before, after, segmentsOf(z, this.save).length);
       if (news) this.news(news);
     }
+    // A period finished by what just happened gets its moment.
+    if (this.shown && this.held.size) for (const p of PERIODS) if (!periodDone(this.held, p) && periodDone(fresh, p)) this.finished(p);
     this.held = fresh;
     this.nextZ = nextStep(this.save)?.z ?? null;
     requestAnimationFrame(() => this.placeNu());

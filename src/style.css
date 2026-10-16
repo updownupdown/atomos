@@ -303,11 +303,13 @@ body:not(.build-home) .build-bar { display: none; }
 .bh-sec > .bh-fleet { width: calc(100% - var(--trk-room)); }
 /* The Info card keeps clear of the track too, the width of the sections above it. */
 .bh-in > #bh-to-info { width: calc(100% - var(--trk-room)); }
-.bh-row { display: grid; grid-template-columns: minmax(0, 1fr) clamp(140px, 40%, 240px); align-items: center; gap: var(--sp-3); }
+.bh-row { display: grid; grid-template-columns: minmax(0, 1fr) clamp(176px, 48%, 260px); align-items: center; gap: var(--sp-3); }
+/* An isotope row is its card alone, the isotope and its share or half-life on the card's own line; its state, when it has one, beside. */
+.bh-row--iso { grid-template-columns: minmax(0, 1fr) auto; }
 .bh-gc { min-width: 0; }
 .bh-gc .gcard { width: 100%; }
 
-.bh-side { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 2px; min-width: 0; padding-right: var(--trk-room); }
+.bh-side { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 2px; min-width: 0; padding-right: var(--sp-3); }
 .bh-state { display: inline-flex; align-items: center; gap: 4px; font-size: var(--fs-min); font-weight: var(--fw-semibold); color: var(--c-text-2); }
 .bh-state svg { flex: none; }
 .bh-state.is-built, .bh-state.is-flawless { color: var(--c-done); }
@@ -710,7 +712,7 @@ body.puzzling #overlay { pointer-events: auto; touch-action: none; }
 .loupe-screen.is-full .loupe-hud .loupe-tools { bottom: var(--foot); }
 .loupe-screen.is-full .lh-tl { top: calc(var(--sp-2) + var(--safe-top)); }
 .loupe-screen.is-full .lh-tr { top: calc(var(--sp-2) + var(--safe-top)); }
-.loupe-screen.is-full .lh-full { width: 64px; height: 64px; border-radius: var(--r-lg); background: var(--c-surface-2); color: var(--c-text); }
+.loupe-screen.is-full .lh-full, .loupe-screen.is-full .lh-share { width: 64px; height: 64px; border-radius: var(--r-lg); background: var(--c-surface-2); color: var(--c-text); }
 .loupe-screen.is-full .lh-full svg { width: 34px; height: 34px; }
 .loupe-screen.is-full .lh-btns { align-items: center; }
 /* The Build page before its nucleus is built: a quiet line where the atom will be. */

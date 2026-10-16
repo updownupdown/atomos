@@ -119,3 +119,23 @@
 .co-chip.is-on { background: var(--c-pick); color: var(--c-text); }
 
 @media (prefers-reduced-motion: reduce) { .co-gem > .gem-atom, .co-count { transition: none; } }
+
+/* A period just finished: its cells flare in their place colors one after another, and a card
+   over the atom shows the Atlas shape it opened. */
+.co-cell.is-lit { z-index: 3; animation: co-lit 1.4s var(--ease) both; animation-delay: calc(var(--i, 0) * 50ms); }
+@keyframes co-lit {
+  0% { box-shadow: 0 0 0 0 transparent; transform: scale(1); }
+  30% { box-shadow: 0 0 10px 3px var(--blk); transform: scale(1.2); }
+  100% { box-shadow: 0 0 0 0 transparent; transform: scale(1); }
+}
+.co-moment { position: absolute; left: var(--sp-4); right: var(--sp-4); bottom: calc(var(--safe-bottom) + 92px + var(--sp-3)); z-index: 3; display: flex; flex-direction: column; align-items: stretch; gap: var(--sp-3); max-width: 420px; margin: 0 auto; padding: var(--sp-4); border-radius: 22px; background: var(--c-surface-2); box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5); animation: co-moment-in 0.5s var(--ease) both; cursor: pointer; }
+.co-moment.is-going { animation: co-moment-out 0.3s var(--ease) both; }
+@keyframes co-moment-in { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+@keyframes co-moment-out { to { opacity: 0; transform: translateY(8px); } }
+.co-moment b { font-size: 20px; font-weight: var(--fw-semibold); color: var(--c-done); }
+.co-moment p { margin: 0; font-size: var(--fs-md); line-height: var(--lh); color: var(--c-text); }
+.co-moment-fig { margin: 0; }
+.co-moment-fig .ss-fig { max-height: 150px; padding: var(--sp-2); background: var(--c-bg); }
+.co-moment-go { align-self: flex-start; display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 18px 0 14px; border: 0; border-radius: var(--r-pill); background: var(--c-accent); color: var(--c-accent-ink); font-family: var(--font); font-size: var(--fs-md); font-weight: var(--fw-semibold); cursor: pointer; }
+.co-moment-go:hover { background: color-mix(in srgb, var(--c-accent) 85%, white); }
+@media (prefers-reduced-motion: reduce) { .co-cell.is-lit, .co-moment, .co-moment.is-going { animation: none; } }

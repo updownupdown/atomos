@@ -208,7 +208,7 @@ export function shortConfiguration(e: Element): string {
 export function formatHalfLife(s: number | null, short = false): string {
   if (s == null) return 'stable';
   const y = 3.156e7;
-  const SHORT: Record<string, string> = { 'thousand y': 'ky', 'million y': 'My', 'billion y': 'Gy', 'trillion y': 'Ty' };
+  const SHORT: Record<string, string> = { 'thousand y': 'ky', 'million y': 'My', 'billion y': 'Gy', 'trillion y': 'Ty', 'quadrillion y': 'Py', 'quintillion y': 'Ey', 'sextillion y': 'Zy', 'septillion y': 'Yy' };
   const f = (v: number, u: string) => `${Number(v.toPrecision(3))} ${short ? SHORT[u] ?? u : u}`;
   if (s < 1e-15) return f(s * 1e18, 'as');
   if (s < 1e-12) return f(s * 1e15, 'fs');
@@ -224,7 +224,11 @@ export function formatHalfLife(s: number | null, short = false): string {
   if (s < 1e6 * y) return f(s / y / 1e3, 'thousand y');
   if (s < 1e9 * y) return f(s / y / 1e6, 'million y');
   if (s < 1e12 * y) return f(s / y / 1e9, 'billion y');
-  return f(s / y / 1e12, 'trillion y');
+  if (s < 1e15 * y) return f(s / y / 1e12, 'trillion y');
+  if (s < 1e18 * y) return f(s / y / 1e15, 'quadrillion y');
+  if (s < 1e21 * y) return f(s / y / 1e18, 'quintillion y');
+  if (s < 1e24 * y) return f(s / y / 1e21, 'sextillion y');
+  return f(s / y / 1e24, 'septillion y');
 }
 
 /** The most abundant stable isotope, or the longest-lived one. */

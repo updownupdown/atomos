@@ -8,12 +8,13 @@ import { CLOUD_RINGS, ELEMENTS, MAX_Z, elementAt, type Element } from './data';
 import { NUCLEUS_RINGS } from './nucleus';
 import type { OrbitalShape } from '../core/save';
 import { Detail } from './detail';
-import { Atlas } from './atlas';
+import { Atlas, type AtlasView } from './atlas';
 import { tabHTML, TABS, type ViewTab } from './info';
 import { guideHTML } from './guide';
 import { icon } from '../ui/icons';
 import { fullScreen, type FullScreen } from './fullscreen';
-import { createPills, createTabs, iconButton, type Tabs } from '../ui/components';
+import { createPills, createTabs, iconButton, showToast, type Tabs } from '../ui/components';
+import { atomPicture, sharePicture } from './share';
 import { guideFoot, mountInfoPage, type InfoState } from './infopage';
 import { createAtomBar, type AtomBar } from './atombar';
 import { setScienceHandler } from '../ui/science';
@@ -47,6 +48,7 @@ export class GalleryApp {
   private atlas: Atlas;
   private current: Element | null = null;
   private tab: ViewTab = 'model';
+  private sharing = false;
   /** The Info page last open, kept while View shows the 3D atom. */
   private page: Exclude<ViewTab, 'model'> = 'overview';
   /** The Info pages' remembered choices (infopage.ts). */
@@ -148,7 +150,8 @@ export class GalleryApp {
     $('loupe-tl').append(this.buildLookPicker());
     const play = iconButton({ icon: icon('pause'), label: 'Pause', className: 'ui-icon-btn--ghost lh-btn', onClick: () => this.detail.setPlaying(!this.detail.playing) });
     const full = iconButton({ icon: icon('fullscreen'), label: 'Full screen', className: 'ui-icon-btn--ghost lh-btn lh-full', onClick: () => this.full.toggle() });
-    $('loupe-btns').append(play, full);
+    const share = iconButton({ icon: icon('share'), label: 'Share a picture of this atom', className: 'ui-icon-btn--ghost lh-btn lh-share', onClick: () => void this.share() });
+    $('loupe-btns').append(play, share, full);
     this.detail.onPlay = (on) => {
       play.innerHTML = icon(on ? 'pause' : 'play');
       play.setAttribute('aria-label', on ? 'Pause: stay on this orbital' : 'Play: walk through the orbitals');
@@ -336,7 +339,23 @@ export class GalleryApp {
     if (this.atlas.page.isOpen) this.atlas.page.close();
   }
 
-  showInAtlas(z: number, look: LookId | null): void {
+  /** A square picture of the atom as View shows it, through the share sheet or saved as a file. */
+  private async share(): Promise<void> {
+    if (!this.current || this.sharing) return;
+    const e = this.current;
+    const atom = this.detail.snapshot();
+    if (!atom) { showToast('The atom is still loading'); return; }
+    this.sharing = true;
+    try {
+      const picture = await atomPicture(e, atom);
+      const did = await sharePicture(e, picture);
+      if (did === 'saved') showToast(`${e.name} saved as a picture`, { tone: 'good' });
+      else if (did === 'failed') showToast('The picture could not be made');
+    } finally { this.sharing = false; }
+  }
+
+  showInAtlas(z: number, look: LookId | null, view?: AtlasView): void {
+    if (view) this.atlas.setView(view);
     this.atlas.focus(z, look);
   }
 
