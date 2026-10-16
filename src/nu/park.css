@@ -1,15 +1,15 @@
-/* Nu's park (park.ts): the score over a round arena drawn like the logo, and under it the round
+/* Nu's park (park.ts): the score over an arena drawn like the logo, as large as the screen allows, and under it the round
    button that opens the games, set round the middle of the arena like the logo's nucleus. */
-.nu-screen { position: fixed; inset: 0; z-index: 4; padding: var(--top) var(--sp-3) calc(var(--sp-4) + env(safe-area-inset-bottom, 0px)); background: var(--c-bg); color: var(--c-text); font-family: var(--font); }
+.nu-screen { position: fixed; inset: 0; z-index: 4; padding: var(--top) var(--sp-2) calc(var(--sp-3) + env(safe-area-inset-bottom, 0px)); background: var(--c-bg); color: var(--c-text); font-family: var(--font); }
 .nu-screen[hidden] { display: none; }
-.nup { height: 100%; max-width: 640px; margin: 0 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; padding-top: var(--sp-2); }
+.nup { height: 100%; max-width: 720px; margin: 0 auto; display: flex; flex-direction: column; align-items: center; padding-top: var(--sp-1); }
 
 /* The score: a big number, the best small beside it. Kept tall so the arena never moves. */
 .nup-score { flex: none; display: flex; align-items: baseline; justify-content: center; gap: var(--sp-2); min-height: 44px; margin: 0; font-variant-numeric: tabular-nums; }
 .nup-score b { font-size: 32px; font-weight: var(--fw-semibold); line-height: 1.1; }
 .nup-score small { font-size: var(--fs-sm); color: var(--c-text-2); }
 
-.nup-field { position: relative; flex: none; width: min(100%, calc(100dvh - var(--top) - 150px)); aspect-ratio: 1; }
+.nup-field { position: relative; flex: 1; min-height: 0; width: 100%; }
 .nup-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; user-select: none; -webkit-user-select: none; }
 
 /* The games, round Nu's home in the middle. park.ts places each button's middle. */

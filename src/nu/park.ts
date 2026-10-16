@@ -81,7 +81,7 @@ function dot(ctx: CanvasRenderingContext2D, p: Pt, r: number, c: string, alpha =
   ctx.globalAlpha = alpha;
   ctx.fillStyle = c;
   ctx.beginPath();
-  ctx.arc(p.x, p.y, r, 0, TAU);
+  ctx.arc(p.x, p.y, Math.max(0, r), 0, TAU);
   ctx.fill();
   ctx.globalAlpha = 1;
 }
@@ -91,7 +91,7 @@ function ring(ctx: CanvasRenderingContext2D, p: Pt, r: number, c: string, w = 2,
   ctx.strokeStyle = c;
   ctx.lineWidth = w;
   ctx.beginPath();
-  ctx.arc(p.x, p.y, r, 0, TAU);
+  ctx.arc(p.x, p.y, Math.max(0, r), 0, TAU);
   ctx.stroke();
   ctx.globalAlpha = 1;
 }
@@ -176,11 +176,12 @@ class Fx {
     this.rings = this.rings.filter((r) => now - r.t0 < r.ms);
     this.sparks = this.sparks.filter((s) => now - s.t0 < s.ms);
     for (const r of this.rings) {
-      const t = (now - r.t0) / r.ms;
+      // The frame's clock can be a touch behind when the ring was made.
+      const t = clamp((now - r.t0) / r.ms, 0, 1);
       ring(ctx, r, r.r0 + (r.r1 - r.r0) * (1 - (1 - t) * (1 - t)), r.c, 2, 0.55 * (1 - t));
     }
     for (const s of this.sparks) {
-      const t = (now - s.t0) / s.ms;
+      const t = clamp((now - s.t0) / s.ms, 0, 1);
       s.x += s.vx * dt;
       s.y += s.vy * dt;
       s.vx *= 0.985;
@@ -193,9 +194,16 @@ class Fx {
 // ---- The arena -------------------------------------------------------------------------------
 
 interface Stage {
-  /** The arena: its middle and radius, in canvas px. */
+  /** The arena, a rounded rectangle filling the screen: its middle, half its width and height,
+   *  and its corner radius, in canvas px. */
   c: Pt;
+  hw: number;
+  hh: number;
+  rr: number;
+  /** The round court: the biggest circle in the arena. Games set on a ring (`court`) play in it
+   *  and are kept inside it; the rest use the whole arena. */
   R: number;
+  court: boolean;
   nu: Body;
   fx: Fx;
   bests: Bests;
@@ -209,25 +217,84 @@ interface Stage {
 function best(s: Stage, k: string): number { const v = s.bests[k]; return typeof v === 'number' ? v : 0; }
 function setBest(s: Stage, k: string, n: number): void { if (n > best(s, k)) { s.bests[k] = n; s.save(); } }
 
+/** How far `p` is outside the arena's edge (negative inside), and the way out there. */
+function edge(s: Stage, p: Pt): { d: number; nx: number; ny: number } {
+  const dx = p.x - s.c.x, dy = p.y - s.c.y;
+  if (s.court) {
+    const d = Math.hypot(dx, dy) || 1;
+    return { d: d - s.R, nx: dx / d, ny: dy / d };
+  }
+  // A rounded rectangle, by its distance field.
+  const sx = Math.sign(dx) || 1, sy = Math.sign(dy) || 1;
+  const qx = Math.abs(dx) - (s.hw - s.rr), qy = Math.abs(dy) - (s.hh - s.rr);
+  if (qx > 0 && qy > 0) {
+    const l = Math.hypot(qx, qy);
+    return { d: l - s.rr, nx: (qx / l) * sx, ny: (qy / l) * sy };
+  }
+  return qx > qy ? { d: qx - s.rr, nx: sx, ny: 0 } : { d: qy - s.rr, nx: 0, ny: sy };
+}
+
 /** Keeps a moving thing inside the arena, bouncing it off the rim. True if it bounced. */
 function bounceIn(s: Stage, o: Mover, r: number, k = 0.8): boolean {
-  const dx = o.x - s.c.x, dy = o.y - s.c.y, d = Math.hypot(dx, dy), lim = s.R - r;
-  if (d <= lim || d === 0) return false;
-  const nx = dx / d, ny = dy / d;
-  o.x = s.c.x + nx * lim;
-  o.y = s.c.y + ny * lim;
-  const vn = o.vx * nx + o.vy * ny;
-  if (vn > 0) { o.vx -= (1 + k) * vn * nx; o.vy -= (1 + k) * vn * ny; }
+  const e = edge(s, o), out = e.d + r;
+  if (out <= 0) return false;
+  o.x -= e.nx * out;
+  o.y -= e.ny * out;
+  const vn = o.vx * e.nx + o.vy * e.ny;
+  if (vn > 0) { o.vx -= (1 + k) * vn * e.nx; o.vy -= (1 + k) * vn * e.ny; }
   return true;
 }
 
 /** A point pulled inside the arena. */
 function inside(s: Stage, p: Pt, r: number): Pt {
-  const dx = p.x - s.c.x, dy = p.y - s.c.y, d = Math.hypot(dx, dy), lim = s.R - r;
-  return d <= lim ? p : { x: s.c.x + (dx / d) * lim, y: s.c.y + (dy / d) * lim };
+  const e = edge(s, p), out = e.d + r;
+  return out <= 0 ? p : { x: p.x - e.nx * out, y: p.y - e.ny * out };
+}
+
+/** A random point in the arena, at least `r` in from its edge. */
+function anywhere(s: Stage, r: number, rnd = Math.random): Pt {
+  for (let i = 0; i < 40; i++) {
+    const p = { x: s.c.x + (rnd() * 2 - 1) * s.hw, y: s.c.y + (rnd() * 2 - 1) * s.hh };
+    if (edge(s, p).d < -r) return p;
+  }
+  return { ...s.c };
+}
+
+/** The arena's outline, `out` px outside its edge. */
+function arenaPath(ctx: CanvasRenderingContext2D, s: Stage, out = 0): void {
+  ctx.beginPath();
+  if (s.court) { ctx.arc(s.c.x, s.c.y, s.R + out, 0, TAU); return; }
+  ctx.roundRect(s.c.x - s.hw - out, s.c.y - s.hh - out, 2 * (s.hw + out), 2 * (s.hh + out), s.rr + out);
+}
+
+/** A point on the rounded rectangle `out` px outside the arena, `u` (0..1) of the way round it
+ *  clockwise from the top middle. */
+function rimPoint(s: Stage, u: number, out: number): Pt {
+  const w = s.hw + out, h = s.hh + out, r = s.rr + out, sx = w - r, sy = h - r;
+  const parts = [sx, (Math.PI / 2) * r, 2 * sy, (Math.PI / 2) * r, 2 * sx, (Math.PI / 2) * r, 2 * sy, (Math.PI / 2) * r, sx];
+  let l = (((u % 1) + 1) % 1) * parts.reduce((a, b) => a + b, 0);
+  const corner = (cx: number, cy: number, a0: number, t: number): Pt => ({ x: s.c.x + cx + Math.cos(a0 + t * Math.PI / 2) * r, y: s.c.y + cy + Math.sin(a0 + t * Math.PI / 2) * r });
+  for (let i = 0; i < parts.length; i++) {
+    if (l > parts[i] && i < parts.length - 1) { l -= parts[i]; continue; }
+    const t = parts[i] ? l / parts[i] : 0;
+    switch (i) {
+      case 0: return { x: s.c.x + t * sx, y: s.c.y - h };
+      case 1: return corner(sx, -sy, -Math.PI / 2, t);
+      case 2: return { x: s.c.x + w, y: s.c.y - sy + t * 2 * sy };
+      case 3: return corner(sx, sy, 0, t);
+      case 4: return { x: s.c.x + sx - t * 2 * sx, y: s.c.y + h };
+      case 5: return corner(-sx, sy, Math.PI / 2, t);
+      case 6: return { x: s.c.x - w, y: s.c.y + sy - t * 2 * sy };
+      case 7: return corner(-sx, -sy, Math.PI, t);
+      default: return { x: s.c.x - sx + t * sx, y: s.c.y - h };
+    }
+  }
+  return { x: s.c.x, y: s.c.y - h };
 }
 
 interface Toy {
+  /** Played in the round court rather than the whole arena. */
+  court?: boolean;
   /** Nu is here (or the game was just picked): set up. */
   enter(s: Stage): void;
   step(s: Stage, dt: number, now: number): void;
@@ -306,7 +373,7 @@ class Home implements Toy {
         s.fx.burst(t, 12, periodColour(p), 0.12);
         chimeSound(p % 5);
         this.target = t;
-        this.drop = { x: s.c.x, y: s.c.y + s.R * 0.62 };
+        this.drop = { x: s.c.x, y: s.c.y + s.hh * 0.7 };
         this.state = 'chase';
       }
     }
@@ -342,7 +409,8 @@ class Home implements Toy {
       if (this.treatsDue > 0 && !this.held && now - this.treatAt > 1400) {
         this.treatsDue--;
         this.treatAt = now;
-        const a = Math.random() * TAU, t: PlayThing = { x: s.c.x + Math.cos(a) * (s.R - 8), y: s.c.y + Math.sin(a) * (s.R - 8), vx: -Math.cos(a) * 0.12, vy: -Math.sin(a) * 0.12, kind: 'treat', spin: 0 };
+        const a = Math.random() * TAU, from = inside(s, { x: s.c.x + Math.cos(a) * 2000, y: s.c.y + Math.sin(a) * 2000 }, 8);
+        const t: PlayThing = { ...from, vx: -Math.cos(a) * 0.12, vy: -Math.sin(a) * 0.12, kind: 'treat', spin: 0 };
         this.toys.push(t);
         this.target = t;
         this.state = 'chase';
@@ -352,7 +420,7 @@ class Home implements Toy {
       if (this.quiet > 9000 && !this.held && !reducedMotion()) {
         this.quiet = 0;
         this.target = this.toys[Math.floor(Math.random() * this.toys.length)];
-        this.drop = { x: s.c.x, y: s.c.y + s.R * 0.62 };
+        this.drop = { x: s.c.x, y: s.c.y + s.hh * 0.7 };
         this.state = 'chase';
       }
     } else if (this.state === 'chase' && this.target) {
@@ -529,15 +597,14 @@ class Sling implements Toy {
 
   private layout(s: Stage): void {
     const rnd = seeded(this.level * 7919);
-    const { c, R } = s;
-    this.pad = { x: c.x + (rnd() - 0.5) * R * 0.5, y: c.y + R * 0.72 };
-    this.goal = { x: c.x + (rnd() - 0.5) * R * 0.9, y: c.y - R * (0.5 + rnd() * 0.15), r: Math.max(16, 26 - this.level) };
+    const { c, hw, hh } = s;
+    this.pad = { x: c.x + (rnd() - 0.5) * hw * 0.5, y: c.y + hh - 56 };
+    this.goal = { x: c.x + (rnd() - 0.5) * hw * 1.1, y: c.y - hh * (0.62 + rnd() * 0.15), r: Math.max(16, 26 - this.level) };
     const n = Math.min(3, 1 + Math.floor(this.level / 3));
     this.nuclei = [];
     for (let i = 0; i < n; i++) {
       for (let tries = 0; tries < 30; tries++) {
-        const a = rnd() * TAU, k = rnd() * 0.45;
-        const q = { x: c.x + Math.cos(a) * R * k, y: c.y + Math.sin(a) * R * k * 0.8, m: 9 + rnd() * 10, r: 0 };
+        const q = { x: c.x + (rnd() * 2 - 1) * hw * 0.6, y: c.y + (rnd() * 2 - 1) * hh * 0.45, m: 9 + rnd() * 10, r: 0 };
         q.r = 7 + q.m * 0.6;
         if (this.nuclei.every((o) => dist(o, q) > 80) && dist(q, this.goal) > 64 && dist(q, this.pad) > 76) { this.nuclei.push(q); break; }
       }
@@ -680,13 +747,13 @@ class Course implements Toy {
 
   private build(s: Stage): void {
     const rnd = seeded(this.level * 104729);
-    const { c, R } = s;
+    const { c, hw, hh } = s;
     this.half = Math.max(15, 27 - this.level * 2);
-    const rows = 4 + Math.min(3, this.level);
+    const rows = 4 + Math.min(3, this.level) + (hh > hw * 1.3 ? 2 : 0);
     const ctrl: Pt[] = [];
     for (let i = 0; i <= rows; i++) {
-      const y = c.y + R * 0.8 - (i / rows) * R * 1.6;
-      const chord = Math.sqrt(Math.max(0, R * R - (y - c.y) ** 2)) - this.half - 10;
+      const y = c.y + (hh - this.half - 16) - (i / rows) * 2 * (hh - this.half - 16);
+      const chord = hw - this.half - 14;
       const side = i % 2 ? 1 : -1;
       const x = i === 0 || i === rows ? c.x : c.x + side * chord * (0.55 + rnd() * 0.3);
       ctrl.push({ x, y });
@@ -819,6 +886,7 @@ class Course implements Toy {
 /** Five atoms in a ring, like the logo's nucleus. Nu flies a tune between them; play it back.
  *  Each round the tune is a note longer. */
 class Echo implements Toy {
+  court = true;
   private nodes: Pt[] = [];
   private tune: number[] = [];
   private state: 'show' | 'listen' | 'wrong' | 'wait' = 'wait';
@@ -931,6 +999,7 @@ class Echo implements Toy {
 /** Nu runs round a ring like an electron. Tap to turn it round. Catch the photons that appear
  *  on the ring; an antiparticle (red) coming the other way ends the run. Faster as it goes. */
 class Orbit implements Toy {
+  court = true;
   private a = -Math.PI / 2;
   private dir = 1;
   private speed = 0.0012;
@@ -1025,6 +1094,7 @@ class Orbit implements Toy {
 /** Three shells. Nu hides under one and the shells shuffle; tap the one it is under. Each find
  *  in a row shuffles a little longer and faster. */
 class Shells implements Toy {
+  court = true;
   private spots: Pt[] = [];
   /** Which spot each shell is at. */
   private at = [0, 1, 2];
@@ -1152,8 +1222,9 @@ class Herd implements Toy {
     const n = Math.min(10, 2 + this.level);
     this.free = [];
     for (let i = 0; i < n; i++) {
-      const a = Math.random() * TAU, r = s.R * (0.45 + Math.random() * 0.4);
-      this.free.push({ x: s.c.x + Math.cos(a) * r, y: s.c.y + Math.sin(a) * r, vx: 0, vy: 0 });
+      let p = anywhere(s, 12);
+      for (let k = 0; k < 20 && dist(p, s.c) < this.zone(s) * 2.2; k++) p = anywhere(s, 12);
+      this.free.push({ ...p, vx: 0, vy: 0 });
     }
     this.caught = 0;
     this.doneAt = 0;
@@ -1240,9 +1311,8 @@ class Trace implements Toy {
 
   private sky(s: Stage): void {
     this.stars = [];
-    for (let tries = 0; this.stars.length < 6 && tries < 200; tries++) {
-      const a = Math.random() * TAU, r = s.R * (0.15 + Math.random() * 0.7);
-      const p = { x: s.c.x + Math.cos(a) * r, y: s.c.y + Math.sin(a) * r, on: 0 };
+    for (let tries = 0, n = s.hh > s.hw * 1.3 ? 8 : 6; this.stars.length < n && tries < 200; tries++) {
+      const p = { ...anywhere(s, 24), on: 0 };
       if (this.stars.every((q) => dist(q, p) > 50)) this.stars.push(p);
     }
   }
@@ -1461,7 +1531,7 @@ export class NuPark {
     };
     const bests = readBests();
     this.stage = {
-      c: { x: 0, y: 0 }, R: 100, nu: new Body(), fx: new Fx(), bests, rim: null,
+      c: { x: 0, y: 0 }, hw: 100, hh: 100, rr: 40, R: 100, court: false, nu: new Body(), fx: new Fx(), bests, rim: null,
       save: () => writeBests(bests),
       score: (n, b) => {
         if (n === null) { this.scoreEl.innerHTML = ''; return; }
@@ -1545,6 +1615,7 @@ export class NuPark {
     this.closePick();
     if (id === this.place) return;
     this.place = id;
+    this.stage.court = !!this.toys[id].court;
     this.stage.fx.clear();
     this.stage.rim = null;
     this.stage.nu.scale = 1;
@@ -1605,8 +1676,13 @@ export class NuPark {
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const changed = Math.abs(r.width - this.size.w) > 1 || Math.abs(r.height - this.size.h) > 1;
     this.size = { w: r.width, h: r.height };
-    this.stage.c = { x: r.width / 2, y: r.height / 2 };
-    this.stage.R = Math.max(80, Math.min(r.width, r.height) / 2 - 16);
+    // The arena fills the field, its rim just inside the edge; the court is the biggest circle in it.
+    const st = this.stage;
+    st.c = { x: r.width / 2, y: r.height / 2 };
+    st.hw = Math.max(80, r.width / 2 - 14);
+    st.hh = Math.max(80, r.height / 2 - 14);
+    st.rr = Math.min(48, Math.min(st.hw, st.hh) * 0.3);
+    st.R = Math.min(st.hw, st.hh) - 6;
     if (this.picking) this.layoutPick();
     if (changed && this.have) this.toys[this.place].resize?.(this.stage);
   }
@@ -1632,35 +1708,45 @@ export class NuPark {
     c.addEventListener('pointercancel', end);
   }
 
-  /** The arena's rim, after the logo: two arcs with an electron in each gap, slowly turning.
-   *  In Tag the arcs shorten as the time runs out. */
+  /** The arena's rim, after the logo: two arcs with an electron in each gap, slowly going
+   *  round. In Tag the arcs shorten as the time runs out. */
   private drawRim(ctx: CanvasRenderingContext2D, now: number): void {
-    const { c, R, rim } = this.stage, r = R + 8, turn = now / 40000, gap = 0.22;
+    const s = this.stage, rim = s.rim, out = 7, turn = now / 90000, gap = 0.035;
+    const line = (u0: number, u1: number) => {
+      const n = Math.max(2, Math.ceil((u1 - u0) * 160));
+      ctx.beginPath();
+      for (let i = 0; i <= n; i++) {
+        const p = rimPoint(s, u0 + ((u1 - u0) * i) / n, out);
+        if (i) ctx.lineTo(p.x, p.y); else ctx.moveTo(p.x, p.y);
+      }
+      ctx.stroke();
+    };
     ctx.save();
     ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
     ctx.lineWidth = 3;
     for (let k = 0; k < 2; k++) {
-      const a0 = turn + k * Math.PI + gap / 2, span = Math.PI - gap;
+      const u0 = turn + k / 2 + gap / 2, span = 0.5 - gap;
       ctx.strokeStyle = K500;
       ctx.globalAlpha = 0.8;
-      ctx.beginPath();
-      ctx.arc(c.x, c.y, r, a0, a0 + span);
-      ctx.stroke();
+      line(u0, u0 + span);
       if (rim !== null) {
         ctx.strokeStyle = CYAN;
         ctx.globalAlpha = 1;
-        ctx.beginPath();
-        ctx.arc(c.x, c.y, r, a0, a0 + span * rim);
-        ctx.stroke();
+        if (rim > 0) line(u0, u0 + span * rim);
       }
-      dot(ctx, { x: c.x + Math.cos(turn + k * Math.PI) * r, y: c.y + Math.sin(turn + k * Math.PI) * r }, 4.5, WHITE);
+      ctx.globalAlpha = 1;
+      dot(ctx, rimPoint(s, turn + k / 2, out), 4.5, WHITE);
     }
     ctx.restore();
   }
 
   private drawPick(ctx: CanvasRenderingContext2D, now: number): void {
     const s = this.stage, t = clamp((now - this.pickAt) / 260, 0, 1);
-    dot(ctx, s.c, s.R, K975, 0.92 * t);
+    ctx.globalAlpha = 0.92 * t;
+    ctx.fillStyle = K975;
+    ctx.fillRect(0, 0, this.size.w, this.size.h);
+    ctx.globalAlpha = 1;
     ring(ctx, s.c, s.R * 0.62, K500, 2, 0.35 * t);
     // Nu goes to circle the game it fancies.
     const i = GAMES.findIndex((g) => g.id === this.fancy), p = this.pickSpot(i), a = now / 420;
@@ -1678,11 +1764,19 @@ export class NuPark {
       const s = this.stage, ctx = this.ctx;
       ctx.clearRect(0, 0, this.size.w, this.size.h);
       ctx.save();
-      dot(ctx, s.c, s.R, K975, 0.55);
+      const court = s.court;
+      s.court = false;
+      ctx.fillStyle = K975;
+      ctx.globalAlpha = 0.55;
+      arenaPath(ctx, s);
+      ctx.fill();
+      ctx.globalAlpha = 1;
       this.drawRim(ctx, now);
-      ctx.beginPath();
-      ctx.arc(s.c.x, s.c.y, s.R, 0, TAU);
+      arenaPath(ctx, s);
       ctx.clip();
+      // A game set on a ring plays in the round court, a lighter plate in the middle.
+      s.court = court;
+      if (court) { dot(ctx, s.c, s.R, K900, 0.9); arenaPath(ctx, s); ctx.clip(); }
       if (this.have) {
         const toy = this.toys[this.place];
         if (!this.picking) toy.step(s, dt, now);
