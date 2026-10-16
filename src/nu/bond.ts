@@ -7,6 +7,8 @@
 //   toys     each period finished gives Nu a new toy for its park: a tiny model of that period's
 //            atom. `toysSeen` are the ones it has already been given.
 //   hiding   once a day Nu hides by something on a screen you visit; tap it there to find it.
+//   toy box  which of Nu's toys are in its box in the park. While you're away Nu plays, so a toy
+//            or two may be in or out of the box when you come back.
 // No DOM here: src/ui/nu.ts (the guide), the park and Home read and write it.
 
 import { loadSave, type SaveData } from '../core/save';
@@ -33,9 +35,11 @@ interface Bond {
   hideDay: string;
   hides: number;
   foundDay: string;
+  boxed: string[];
+  toyIds: string[];
 }
 
-const fresh = (): Bond => ({ warm: 0, warmAt: 0, seen: 0, napping: false, treats: 0, toysSeen: [], finds: 0, hideDay: '', hides: 0, foundDay: '' });
+const fresh = (): Bond => ({ warm: 0, warmAt: 0, seen: 0, napping: false, treats: 0, toysSeen: [], finds: 0, hideDay: '', hides: 0, foundDay: '', boxed: [], toyIds: [] });
 
 function read(): Bond {
   const b = fresh();
@@ -47,6 +51,7 @@ function read(): Bond {
       for (const k of ['hideDay', 'foundDay'] as const) if (typeof o[k] === 'string') b[k] = o[k] as string;
       b.napping = o.napping === true;
       if (Array.isArray(o.toysSeen)) b.toysSeen = o.toysSeen.filter((n): n is number => Number.isInteger(n));
+      for (const k of ['boxed', 'toyIds'] as const) if (Array.isArray(o[k])) b[k] = (o[k] as unknown[]).filter((n): n is string => typeof n === 'string');
     }
   } catch { /* nothing kept */ }
   return b;
@@ -89,9 +94,14 @@ export function warmUp(k: number, now = Date.now()): number {
 }
 
 /** The app opens: away a few days, and Nu is napping. Then notes that you're here. */
-export function arrive(now = Date.now()): boolean {
+export function arrive(now = Date.now(), rnd = Math.random): boolean {
   const b = change((o) => {
     if (o.seen && now - o.seen > NAP_AFTER_MS) o.napping = true;
+    // Nu played while you were away: a toy came out of the box, or went back in.
+    if (o.seen && o.toyIds.length && rnd() < 0.6) {
+      const id = o.toyIds[Math.floor(rnd() * o.toyIds.length)];
+      o.boxed = o.boxed.includes(id) ? o.boxed.filter((x) => x !== id) : [...o.boxed, id];
+    }
     o.seen = now;
   });
   return b.napping;
@@ -172,3 +182,13 @@ export function finds(): number { return read().finds; }
 
 /** Found today already. */
 export function foundToday(now = new Date()): boolean { return read().foundDay === dayKey(now); }
+
+// ---- The toy box ----
+
+/** The toys in Nu's box, by id. */
+export function boxedToys(): string[] { return read().boxed; }
+
+/** Notes which toys are in the box, and every toy Nu has. */
+export function keepBox(boxed: string[], all: string[]): void {
+  change((b) => { b.boxed = boxed; b.toyIds = all; });
+}

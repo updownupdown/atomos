@@ -3,7 +3,7 @@
 
 import { dayIndex } from './bond';
 
-export type GameId = 'sling' | 'course' | 'echo' | 'orbit' | 'shells' | 'herd' | 'trace' | 'tag';
+export type GameId = 'sling' | 'course' | 'echo' | 'orbit' | 'shells' | 'herd' | 'trace' | 'hockey' | 'chain' | 'split' | 'pairs';
 
 export const S = (d: string) => `<svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">${d}</svg>`;
 export const ST = 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"';
@@ -18,7 +18,10 @@ export const GAMES: { id: GameId; label: string; icon: string }[] = [
   { id: 'herd', label: 'Herd', icon: S(`<circle cx="12" cy="12" r="3" ${F}/><circle cx="12" cy="12" r="7" ${ST} stroke-dasharray="2 4"/><circle cx="20" cy="5" r="1.8" ${F}/><circle cx="4" cy="19" r="1.8" ${F}/>`) },
   { id: 'course', label: 'Course', icon: S(`<path d="M7 21V17c0-3 10-2 10-5.5S7 8.5 7 5.5V3" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="7" cy="3.2" r="2" ${F}/>`) },
   { id: 'trace', label: 'Trace', icon: S(`<path d="M4 18c3-8 6 2 9-5s5-6 7-4" ${ST}/><circle cx="20" cy="9" r="2.2" ${F}/>`) },
-  { id: 'tag', label: 'Tag', icon: S(`<circle cx="15" cy="9" r="3.4" ${F}/><path d="M4 20l6-6M9 20H4v-5" ${ST} stroke-linejoin="round"/>`) },
+  { id: 'hockey', label: 'Hockey', icon: S(`<circle cx="12" cy="5.5" r="3" ${F}/><circle cx="12" cy="18" r="3.6" ${ST}/><circle cx="15" cy="11.5" r="1.8" ${F}/><path d="M4 2.5v3M20 2.5v3" ${ST}/>`) },
+  { id: 'chain', label: 'Chain', icon: S(`<circle cx="18" cy="6" r="3" ${F}/><circle cx="12" cy="9.5" r="2" ${F}/><circle cx="7.5" cy="13.5" r="2" ${F}/><circle cx="6" cy="19" r="2" ${F}/>`) },
+  { id: 'split', label: 'Split', icon: S(`<circle cx="8" cy="5" r="2.2" ${F}/><circle cx="12.5" cy="4.5" r="2.2" ${ST}/><circle cx="16.5" cy="6.5" r="2.2" ${F}/><circle cx="12" cy="13" r="1.8" ${ST}/><path d="M6 20.5a8 8 0 0 1 12 0" ${ST}/>`) },
+  { id: 'pairs', label: 'Pairs', icon: S(`<rect x="3" y="3" width="8" height="8" rx="4" ${F}/><rect x="13" y="3" width="8" height="8" rx="4" ${ST}/><rect x="3" y="13" width="8" height="8" rx="4" ${ST}/><rect x="13" y="13" width="8" height="8" rx="4" ${F}/>`) },
 ];
 
 /** The game Nu fancies today: the same all day, a different one most days. It circles it in the
