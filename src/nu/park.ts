@@ -20,7 +20,8 @@
 //   Trace   draw a path and Nu rides it, lighting stars and missing the red.
 //   Dive    tap to dive Nu through the gaps in turning shells, down to the nucleus.
 //   Hockey, Chain, Split, Pairs: see arcade.ts. Flash, Halo, Pulse: see court.ts. Rally, Ripple:
-//   see swim.ts. Bloom, Hop, Juggle, Loop, Pull, Spark, Twin: see yard.ts.
+//   see swim.ts. Bloom, Hop, Juggle, Loop, Pull, Spark, Twin: see yard.ts. Grow, Rain, Sort, Spot,
+//   Stack, Tilt: see field.ts.
 // Most games are learnt by trying, so they carry no words: just the score and best under the arena.
 // When the park opens, the guide Nu (src/ui/nu.ts) flies in from the logo and the park takes it
 // over; leaving, it hands Nu back where it is and Nu flies home. It never jumps. Bests are kept
@@ -36,10 +37,12 @@ import { MAX_Z } from '../core/elements';
 import {
   dashed, anywhere, arenaPath, best, Bests, Body, bounceIn, buzz, captureSound, chimeSound, clamp, completeSound, CYAN, dist, dot, edge, Fx, GREEN, inside, K300, K500, K800, K900, K975, missSound, Mover, NOTE_COLOURS, Pt, readBests, RED, rimPoint, ring, ROSE, seeded, setBest, Stage, TAU, tickSound, Toy, WHITE, writeBests,
 } from './kit';
+import { hush } from './kit';
 import { Chain, Hockey, Pairs, Split } from './arcade';
 import { Flash, Halo, Pulse } from './court';
 import { Rally, Ripple } from './swim';
 import { Bloom, Hop, Juggle, Loop, Pull, Spark, Twin } from './yard';
+import { Grow, Rain, Sort, Spot, Stack, Tilt } from './field';
 import './park.css';
 
 type PlaceId = 'home' | GameId;
@@ -896,7 +899,7 @@ class Echo implements Toy {
   court = true;
   private nodes: Pt[] = [];
   private tune: number[] = [];
-  private state: 'show' | 'listen' | 'wrong' | 'wait' = 'wait';
+  private state: 'show' | 'listen' | 'wrong' | 'wait' | 'round' = 'wait';
   private at = 0;
   private lit = new Map<number, number>();
   private timer = 0;
@@ -953,6 +956,9 @@ class Echo implements Toy {
     } else if (this.state === 'wrong') {
       this.timer -= dt;
       if (this.timer <= 0) { this.tune = []; this.next(s); }
+    } else if (this.state === 'round') {
+      this.timer -= dt;
+      if (this.timer <= 0) this.next(s);
     }
   }
 
@@ -1009,9 +1015,9 @@ class Echo implements Toy {
     if (this.at >= this.tune.length) {
       setBest(s, 'echo', this.tune.length);
       s.fx.burst(this.nodes[i], 10, NOTE_COLOURS[i], 0.12);
-      this.state = 'wait';
-      this.timer = 1e9;
-      window.setTimeout(() => { if (this.state === 'wait') this.next(s); }, 650);
+      // A breath, then one note longer (step).
+      this.state = 'round';
+      this.timer = 650;
     }
   }
 }
@@ -1659,6 +1665,275 @@ const PICK_ICON = S(`<circle cx="12" cy="12" r="2.6" ${F}/><circle cx="12" cy="4
 /** The room a game's own controls get under the court (Halo's wheel, Orbit's lane buttons). */
 const PAD_ROOM = 150;
 
+/** Each place in the park, made fresh: the park's own, and each preview in the picker its own. */
+const MAKE: Record<PlaceId, () => Toy> = {
+  home: () => new Home(), sling: () => new Sling(), course: () => new Course(), echo: () => new Echo(), orbit: () => new Orbit(),
+  shells: () => new Shells(), herd: () => new Herd(), trace: () => new Trace(), hockey: () => new Hockey(), chain: () => new Chain(),
+  split: () => new Split(), pairs: () => new Pairs(), dive: () => new Dive(), flash: () => new Flash(), halo: () => new Halo(),
+  pulse: () => new Pulse(), rally: () => new Rally(), ripple: () => new Ripple(), bloom: () => new Bloom(), hop: () => new Hop(),
+  juggle: () => new Juggle(), loop: () => new Loop(), pull: () => new Pull(), spark: () => new Spark(), twin: () => new Twin(),
+  grow: () => new Grow(), rain: () => new Rain(), sort: () => new Sort(), spot: () => new Spot(), stack: () => new Stack(), tilt: () => new Tilt(),
+};
+
+/** The arena fills the field (w x h), its rim just inside the edge; the court is the biggest
+ *  circle in it, or, for a game with controls of its own, the biggest that leaves them room
+ *  under it (beside it, on a wide screen). */
+function layoutStage(st: Stage, w: number, h: number, toy: Toy): void {
+  st.m = { x: w / 2, y: h / 2 };
+  st.hw = Math.max(80, w / 2 - 14);
+  st.hh = Math.max(80, h / 2 - 14);
+  st.rr = Math.min(48, Math.min(st.hw, st.hh) * 0.3);
+  st.R = Math.min(st.hw, st.hh) - 6;
+  st.c = { ...st.m };
+  st.pad = null;
+  // A big court (Pulse) runs past the arena's sides, cropped by them.
+  if (toy.court && toy.big) st.R = Math.min(Math.max(st.hw, st.hh), Math.min(st.hw, st.hh) * 1.3) - 6;
+  if (!toy.court || !toy.controls) return;
+  const room = PAD_ROOM + 12;
+  if (st.hh >= st.hw) {
+    st.R = Math.max(60, Math.min(st.hw - 6, st.hh - room / 2 - 6));
+    // Room to spare (a tall screen) goes above and below the two, not between them.
+    const spare = Math.max(0, 2 * st.hh - 12 - 2 * st.R - room);
+    st.c = { x: st.m.x, y: st.m.y - st.hh + 6 + spare / 2 + st.R };
+    const top = st.c.y + st.R + 6;
+    st.pad = { x: st.m.x - st.hw, y: top, w: 2 * st.hw, h: room };
+  } else {
+    st.R = Math.max(60, Math.min(st.hh - 6, st.hw - room / 2 - 6));
+    const spare = Math.max(0, 2 * st.hw - 12 - 2 * st.R - room);
+    st.c = { x: st.m.x - st.hw + 6 + spare / 2 + st.R, y: st.m.y };
+    const left = st.c.x + st.R + 6;
+    st.pad = { x: left, y: st.m.y - st.hh, w: room, h: 2 * st.hh };
+  }
+}
+
+/** The arena's rim: a plain line round it, still, or the rim's countdown in cyan. */
+function drawRim(s: Stage, ctx: CanvasRenderingContext2D): void {
+  ctx.save();
+  ctx.strokeStyle = K500;
+  ctx.globalAlpha = 0.8;
+  ctx.lineWidth = 3;
+  arenaPath(ctx, s, 7);
+  ctx.stroke();
+  if (s.rim !== null && s.rim > 0) {
+    ctx.strokeStyle = CYAN;
+    ctx.globalAlpha = 1;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    const n = Math.ceil(s.rim * 200);
+    for (let i = 0; i <= n; i++) {
+      const p = rimPoint(s, (s.rim * i) / n, 7);
+      if (i) ctx.lineTo(p.x, p.y); else ctx.moveTo(p.x, p.y);
+    }
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+/** One frame of the arena and the game in it (stepped on when `play`). */
+function paintStage(s: Stage, ctx: CanvasRenderingContext2D, toy: Toy | null, dt: number, now: number, play: boolean): void {
+  ctx.save();
+  const court = s.court;
+  s.court = false;
+  ctx.fillStyle = K975;
+  ctx.globalAlpha = 0.55;
+  arenaPath(ctx, s);
+  ctx.fill();
+  ctx.globalAlpha = 1;
+  drawRim(s, ctx);
+  arenaPath(ctx, s);
+  ctx.clip();
+  // A game set on a ring plays in the round court, a lighter plate in the middle.
+  s.court = court;
+  if (toy && s.pad) toy.drawPad?.(s, ctx, now);
+  if (court) { dot(ctx, s.c, s.R, K900, 0.9); arenaPath(ctx, s); ctx.clip(); }
+  if (toy) {
+    if (play) toy.step(s, dt, now);
+    toy.draw(s, ctx, now);
+  }
+  s.fx.draw(ctx, now, dt);
+  ctx.restore();
+}
+
+// ---- The picker's tiles ----------------------------------------------------------------------
+
+/** How each game's tile plays itself: taps every so often (anywhere, near Nu, or on one side),
+ *  a finger wandering about (or round the court, along the bottom, after Nu), presses held and
+ *  let go, a pull and let go (Sling), or loops drawn (Loop). Each press also starts a game
+ *  that's over again. */
+type Bot =
+  | { kind: 'tap'; every: number; at?: 'any' | 'nu' | 'near' | 'side' }
+  | { kind: 'drag'; path: 'wander' | 'circle' | 'row' | 'nu' }
+  | { kind: 'hold'; on: number; off: number }
+  | { kind: 'sling' }
+  | { kind: 'loop' };
+
+const BOTS: Record<GameId, Bot> = {
+  bloom: { kind: 'hold', on: 600, off: 700 }, chain: { kind: 'drag', path: 'wander' }, course: { kind: 'drag', path: 'wander' },
+  dive: { kind: 'tap', every: 1100 }, echo: { kind: 'tap', every: 800 }, flash: { kind: 'tap', every: 650 },
+  grow: { kind: 'drag', path: 'wander' }, halo: { kind: 'drag', path: 'circle' }, herd: { kind: 'drag', path: 'wander' },
+  hockey: { kind: 'drag', path: 'row' }, hop: { kind: 'drag', path: 'row' }, juggle: { kind: 'tap', every: 650, at: 'nu' },
+  loop: { kind: 'loop' }, orbit: { kind: 'tap', every: 1500 }, pairs: { kind: 'tap', every: 700 },
+  pull: { kind: 'hold', on: 1100, off: 900 }, pulse: { kind: 'tap', every: 1000 }, rain: { kind: 'drag', path: 'row' },
+  rally: { kind: 'drag', path: 'nu' }, ripple: { kind: 'tap', every: 700, at: 'near' }, shells: { kind: 'tap', every: 900 },
+  sling: { kind: 'sling' }, sort: { kind: 'tap', every: 900, at: 'side' }, spark: { kind: 'tap', every: 2600 },
+  split: { kind: 'drag', path: 'row' }, spot: { kind: 'tap', every: 1300 }, stack: { kind: 'tap', every: 1250 },
+  tilt: { kind: 'drag', path: 'wander' }, trace: { kind: 'drag', path: 'wander' }, twin: { kind: 'drag', path: 'wander' },
+};
+
+/** The size a tile plays at, before it's scaled down to fit: about a phone's arena. */
+const SHOT_W = 300;
+const SHOT_H = 400;
+
+/** One tile's game, playing itself on its own small stage, silently. */
+class Preview {
+  private stage: Stage;
+  private toy: Toy;
+  private ctx: CanvasRenderingContext2D;
+  private bot: Bot;
+  private t0 = performance.now();
+  private last = performance.now();
+  private down: Pt | null = null;
+  private next = 600;
+  private round = 0;
+
+  constructor(id: GameId, private canvas: HTMLCanvasElement) {
+    this.ctx = canvas.getContext('2d')!;
+    this.toy = MAKE[id]();
+    this.bot = BOTS[id];
+    this.stage = {
+      c: { x: 0, y: 0 }, m: { x: 0, y: 0 }, hw: 100, hh: 100, rr: 40, R: 100, court: !!this.toy.court, pad: null,
+      nu: new Body(), fx: new Fx(), bests: { course: {} }, rim: null, save: () => {}, score: () => {},
+    };
+    layoutStage(this.stage, SHOT_W, SHOT_H, this.toy);
+    this.stage.nu.at(this.stage.c);
+    hush(() => this.toy.enter(this.stage));
+    this.fit();
+  }
+
+  private fit(): void {
+    const r = this.canvas.getBoundingClientRect(), dpr = Math.min(2, window.devicePixelRatio || 1);
+    if (!r.width) return;
+    this.canvas.width = Math.round(r.width * dpr);
+    this.canvas.height = Math.round(r.height * dpr);
+    const k = (r.width / SHOT_W) * dpr;
+    this.ctx.setTransform(k, 0, 0, k, 0, 0);
+  }
+
+  frame(now: number): void {
+    const dt = Math.min(40, now - this.last);
+    this.last = now;
+    hush(() => {
+      this.drive(now - this.t0, dt);
+      this.ctx.clearRect(0, 0, SHOT_W, SHOT_H);
+      paintStage(this.stage, this.ctx, this.toy, dt, now, true);
+    });
+  }
+
+  private press(p: Pt): void { this.down = p; this.toy.down?.(this.stage, p); }
+  private drag(p: Pt): void { if (this.down) { this.down = p; this.toy.move?.(this.stage, p); } }
+  private lift(): void { if (this.down) { this.toy.up?.(this.stage, this.down); this.down = null; } }
+
+  /** The finger's part, `t` ms in. */
+  private drive(t: number, dt: number): void {
+    const s = this.stage, b = this.bot, nu = s.nu;
+    this.next -= dt;
+    switch (b.kind) {
+      case 'tap': {
+        if (this.next > 0) return;
+        this.next = b.every * (0.8 + Math.random() * 0.4);
+        const p = b.at === 'nu' ? { x: nu.x + (Math.random() - 0.5) * 10, y: nu.y + nu.r * 0.8 }
+          : b.at === 'near' ? { x: nu.x + (Math.random() - 0.5) * 120, y: nu.y + (Math.random() - 0.5) * 120 }
+          : b.at === 'side' ? { x: s.m.x + (Math.random() < 0.5 ? -1 : 1) * s.hw * 0.5, y: s.m.y }
+          : s.court ? { x: s.c.x + (Math.random() - 0.5) * s.R * 1.4, y: s.c.y + (Math.random() - 0.5) * s.R * 1.4 } : anywhere(s, 20);
+        this.press(p);
+        this.lift();
+        return;
+      }
+      case 'drag': {
+        const p = b.path === 'circle' ? { x: s.c.x + Math.cos(t / 900) * s.R * 0.7, y: s.c.y + Math.sin(t / 900) * s.R * 0.7 }
+          : b.path === 'row' ? { x: s.m.x + Math.sin(t / 700) * s.hw * 0.7, y: s.m.y + s.hh * 0.6 }
+          : b.path === 'nu' ? { x: nu.x, y: nu.y }
+          : { x: s.m.x + Math.sin(t / 900) * s.hw * 0.55, y: s.m.y + Math.sin(t / 1300) * s.hh * 0.5 };
+        // A fresh press now and then, which also starts a game that's over again.
+        if (this.next <= 0) { this.lift(); this.next = 5000; this.press(p); return; }
+        this.drag(p);
+        return;
+      }
+      case 'hold': {
+        if (this.next > 0) return;
+        if (this.down) { this.lift(); this.next = b.off; } else {
+          this.press(s.court ? { x: s.c.x + (Math.random() - 0.5) * s.R, y: s.c.y + (Math.random() - 0.5) * s.R } : anywhere(s, 30));
+          this.next = b.on;
+        }
+        return;
+      }
+      case 'sling': {
+        if (this.down) {
+          const k = Math.min(1, (2800 - this.next) / 500);
+          this.drag({ x: this.down.x + 3 * k, y: this.down.y + 6 * k });
+          if (this.next < 2300) this.lift();
+          return;
+        }
+        if (this.next > 0) return;
+        this.next = 2800;
+        this.press({ x: nu.x, y: nu.y });
+        return;
+      }
+      case 'loop': {
+        if (this.next <= 0) {
+          this.lift();
+          this.next = 2200;
+          this.round++;
+          const at = anywhere(s, 90);
+          this.loopAt = at;
+          this.press({ x: at.x + 70, y: at.y });
+          return;
+        }
+        if (!this.loopAt) return;
+        const a = ((2200 - this.next) / 1600) * TAU;
+        if (a <= TAU * 1.05) this.drag({ x: this.loopAt.x + Math.cos(a) * 70, y: this.loopAt.y + Math.sin(a) * 70 });
+        else this.lift();
+      }
+    }
+  }
+
+  private loopAt: Pt | null = null;
+}
+
+/** The picker's tiles, playing while they're in view; a frame for each one shown. */
+class Shows {
+  private live = new Map<Element, Preview>();
+  private seen = new Set<Element>();
+  private io: IntersectionObserver;
+  private frame = 0;
+
+  constructor(root: HTMLElement) {
+    this.io = new IntersectionObserver((es) => {
+      for (const e of es) if (e.isIntersecting) this.seen.add(e.target); else this.seen.delete(e.target);
+    }, { root, rootMargin: '60px' });
+    for (const c of root.querySelectorAll('.nup-shot canvas')) this.io.observe(c);
+    const tick = (now: number) => {
+      for (const c of this.seen) {
+        let p = this.live.get(c);
+        if (!p) {
+          const id = c.closest<HTMLElement>('[data-place]')?.dataset.place as GameId;
+          p = new Preview(id, c as HTMLCanvasElement);
+          this.live.set(c, p);
+        }
+        p.frame(now);
+      }
+      this.frame = requestAnimationFrame(tick);
+    };
+    this.frame = requestAnimationFrame(tick);
+  }
+
+  stop(): void {
+    cancelAnimationFrame(this.frame);
+    this.io.disconnect();
+    this.live.clear();
+  }
+}
+
 export class NuPark {
   private root: HTMLElement;
   private canvas: HTMLCanvasElement;
@@ -1667,7 +1942,7 @@ export class NuPark {
   private bestEl: HTMLElement;
   private goBtn: HTMLButtonElement;
   private off: HTMLElement;
-  private toys: Record<PlaceId, Toy> = { home: new Home(), sling: new Sling(), course: new Course(), echo: new Echo(), orbit: new Orbit(), shells: new Shells(), herd: new Herd(), trace: new Trace(), hockey: new Hockey(), chain: new Chain(), split: new Split(), pairs: new Pairs(), dive: new Dive(), flash: new Flash(), halo: new Halo(), pulse: new Pulse(), rally: new Rally(), ripple: new Ripple(), bloom: new Bloom(), hop: new Hop(), juggle: new Juggle(), loop: new Loop(), pull: new Pull(), spark: new Spark(), twin: new Twin() };
+  private toys = Object.fromEntries((Object.keys(MAKE) as PlaceId[]).map((k) => [k, MAKE[k]()])) as Record<PlaceId, Toy>;
   private place: PlaceId = 'home';
   private stage: Stage;
   private frame = 0;
@@ -1679,10 +1954,12 @@ export class NuPark {
   private size = { w: 0, h: 0 };
   /** The picker is open, and the game Nu fancies today (it circles it there). */
   private picking: Sheet | null = null;
-  /** The trail's dropdown list, when open. */
-  private list: Sheet | null = null;
+  /** Called when the picker closes (the trail's dropdown, when it opened it). */
+  private onPicked: (() => void) | null = null;
   /** Nu's own hidden state from before the picker hid it. */
   private wasHidden = false;
+  /** The picker's tiles, playing. */
+  private shows: Shows | null = null;
   private since = 0;
 
   constructor(host: HTMLElement) {
@@ -1747,28 +2024,11 @@ export class NuPark {
     this.giveBack();
   }
 
-  /** The open game's icon, for the trail's dropdown. */
+  /** The open game's icon, for the trail. */
   get gameIcon(): string | null { return this.place === 'home' ? null : GAMES.find((g) => g.id === this.place)?.icon ?? null; }
 
-  /** The trail's dropdown is open. */
-  get listOpen(): boolean { return this.list !== null; }
-
-  /** The trail's dropdown: Nu's games as a list dropping from under the header, like Play's,
-   *  the one open marked. */
-  openList(onClose: () => void): void {
-    const sheet = openSheet({ title: 'Games', icon: 'nu', label: 'Nu’s games', from: 'bar', onClose: () => { if (this.list === sheet) this.list = null; onClose(); } });
-    this.list = sheet;
-    sheet.body.innerHTML = '<ul class="sheet-rows">' + GAMES.map((g) => {
-      const on = g.id === this.place;
-      return `<li><button type="button" class="sheet-row${on ? ' is-current' : ''}" data-place="${g.id}"${on ? ' aria-current="true"' : ''}><span class="sheet-ico" aria-hidden="true">${g.icon}</span><span class="sheet-name"><span>${g.label}</span></span></button></li>`;
-    }).join('') + '</ul>';
-    for (const b of sheet.body.querySelectorAll<HTMLButtonElement>('[data-place]')) b.onclick = () => { sheet.close(); this.go(b.dataset.place as PlaceId); };
-    const cur = sheet.body.querySelector<HTMLElement>('.is-current');
-    requestAnimationFrame(() => {
-      if (cur) sheet.body.scrollTop = Math.max(0, cur.offsetTop - sheet.body.clientHeight / 2 + cur.offsetHeight / 2);
-      cur?.focus({ preventScroll: true });
-    });
-  }
+  /** The games picker is open (the trail's dropdown shows it as open). */
+  get pickerOpen(): boolean { return this.picking !== null; }
 
   /** Opens straight into a game (Home's Nu section). */
   openGame(id: GameId): void { this.go(id); }
@@ -1827,25 +2087,37 @@ export class NuPark {
     window.dispatchEvent(new Event('atomos:nav'));
   }
 
-  private togglePick(): void { if (this.picking) this.closePick(); else this.openPick(); }
+  private togglePick(): void { this.openGames(); }
 
-  /** The games, A to Z, in a sheet that scrolls, and under them "Read from the Atlas". Nu leaves
-   *  the arena for the sheet and circles the game it fancies today. */
-  private openPick(): void {
+  /** The games, A to Z, in a sheet that scrolls: two to a row, each a tile playing a little of
+   *  itself, and under them "Read from the Atlas". The round button under the arena and the
+   *  trail's dropdown both open it. Nu leaves the arena for the sheet and circles the game it
+   *  fancies today. */
+  openGames(onClose: (() => void) | null = null): void {
     if (!this.have) return;
+    if (this.picking) { this.closePick(); return; }
     const fancy = nuPick().id;
     const sheet = openSheet({ title: 'Games', icon: 'nu', label: 'Nu’s games', from: 'top', className: 'nup-sheet', onClose: () => this.picked(sheet) });
-    sheet.body.innerHTML = '<div class="nup-grid">' + GAMES.map((g) => {
+    sheet.body.innerHTML = '<div class="nup-tiles">' + GAMES.map((g) => {
       const label = `${g.label}${g.id === fancy ? ', Nu’s pick today' : ''}`;
-      return `<button type="button" class="nup-pick-btn${g.id === this.place ? ' is-here' : ''}" data-place="${g.id}" aria-label="${label}"><i>${g.icon}${g.id === fancy ? '<b class="nup-nu" aria-hidden="true"></b>' : ''}</i><span>${g.label}</span></button>`;
+      return `<button type="button" class="nup-tile${g.id === this.place ? ' is-here' : ''}" data-place="${g.id}" aria-label="${label}">`
+        + '<span class="nup-shot"><canvas aria-hidden="true"></canvas></span>'
+        + `<span class="nup-name"><i>${g.icon}${g.id === fancy ? '<b class="nup-nu" aria-hidden="true"></b>' : ''}</i><span>${g.label}</span></span></button>`;
     }).join('') + '</div>';
     sheet.foot.innerHTML = `<button type="button" class="nup-read">${READ_ICON}<span>Read from the Atlas</span></button>`;
-    for (const b of sheet.body.querySelectorAll<HTMLButtonElement>('.nup-pick-btn')) b.onclick = () => this.go(b.dataset.place as PlaceId);
+    for (const b of sheet.body.querySelectorAll<HTMLButtonElement>('.nup-tile')) b.onclick = () => this.go(b.dataset.place as PlaceId);
     sheet.foot.querySelector<HTMLButtonElement>('.nup-read')!.onclick = () => this.read();
     this.picking = sheet;
+    this.onPicked = onClose;
     this.wasHidden = this.stage.nu.hidden;
     this.stage.nu.hidden = true;
     this.goBtn.setAttribute('aria-expanded', 'true');
+    this.shows = new Shows(sheet.body);
+    const here = sheet.body.querySelector<HTMLElement>('.is-here');
+    requestAnimationFrame(() => {
+      if (here) sheet.body.scrollTop = Math.max(0, here.offsetTop - sheet.body.clientHeight / 2 + here.offsetHeight / 2);
+      here?.focus({ preventScroll: true });
+    });
   }
 
   private closePick(): void { this.picking?.close(); }
@@ -1854,6 +2126,11 @@ export class NuPark {
   private picked(sheet: Sheet): void {
     if (this.picking !== sheet) return;
     this.picking = null;
+    this.shows?.stop();
+    this.shows = null;
+    const then = this.onPicked;
+    this.onPicked = null;
+    then?.();
     this.stage.nu.hidden = this.wasHidden;
     this.goBtn.setAttribute('aria-expanded', 'false');
   }
@@ -1879,37 +2156,7 @@ export class NuPark {
     if (changed && this.have) this.toys[this.place].resize?.(this.stage);
   }
 
-  /** The arena fills the field, its rim just inside the edge; the court is the biggest circle in
-   *  it, or, for a game with controls of its own, the biggest that leaves them room under it
-   *  (beside it, on a wide screen). */
-  private layout(): void {
-    const st = this.stage, w = this.size.w, h = this.size.h, toy = this.toys[this.place];
-    st.m = { x: w / 2, y: h / 2 };
-    st.hw = Math.max(80, w / 2 - 14);
-    st.hh = Math.max(80, h / 2 - 14);
-    st.rr = Math.min(48, Math.min(st.hw, st.hh) * 0.3);
-    st.R = Math.min(st.hw, st.hh) - 6;
-    st.c = { ...st.m };
-    st.pad = null;
-    // A big court (Pulse) runs past the arena's sides, cropped by them.
-    if (toy.court && toy.big) st.R = Math.min(Math.max(st.hw, st.hh), Math.min(st.hw, st.hh) * 1.3) - 6;
-    if (!toy.court || !toy.controls) return;
-    const room = PAD_ROOM + 12;
-    if (st.hh >= st.hw) {
-      st.R = Math.max(60, Math.min(st.hw - 6, st.hh - room / 2 - 6));
-      // Room to spare (a tall screen) goes above and below the two, not between them.
-      const spare = Math.max(0, 2 * st.hh - 12 - 2 * st.R - room);
-      st.c = { x: st.m.x, y: st.m.y - st.hh + 6 + spare / 2 + st.R };
-      const top = st.c.y + st.R + 6;
-      st.pad = { x: st.m.x - st.hw, y: top, w: 2 * st.hw, h: room };
-    } else {
-      st.R = Math.max(60, Math.min(st.hh - 6, st.hw - room / 2 - 6));
-      const spare = Math.max(0, 2 * st.hw - 12 - 2 * st.R - room);
-      st.c = { x: st.m.x - st.hw + 6 + spare / 2 + st.R, y: st.m.y };
-      const left = st.c.x + st.R + 6;
-      st.pad = { x: left, y: st.m.y - st.hh, w: room, h: 2 * st.hh };
-    }
-  }
+  private layout(): void { layoutStage(this.stage, this.size.w, this.size.h, this.toys[this.place]); }
 
   private wirePointer(): void {
     const c = this.canvas;
@@ -1932,30 +2179,6 @@ export class NuPark {
     c.addEventListener('pointercancel', end);
   }
 
-  /** The arena's rim: a plain line round it, still. Hockey's goal mouths are drawn by the game. */
-  private drawRim(ctx: CanvasRenderingContext2D): void {
-    const s = this.stage;
-    ctx.save();
-    ctx.strokeStyle = K500;
-    ctx.globalAlpha = 0.8;
-    ctx.lineWidth = 3;
-    arenaPath(ctx, s, 7);
-    ctx.stroke();
-    if (s.rim !== null && s.rim > 0) {
-      ctx.strokeStyle = CYAN;
-      ctx.globalAlpha = 1;
-      ctx.lineCap = 'round';
-      ctx.beginPath();
-      const n = Math.ceil(s.rim * 200);
-      for (let i = 0; i <= n; i++) {
-        const p = rimPoint(s, (s.rim * i) / n, 7);
-        if (i) ctx.lineTo(p.x, p.y); else ctx.moveTo(p.x, p.y);
-      }
-      ctx.stroke();
-    }
-    ctx.restore();
-  }
-
   private loop(): void {
     cancelAnimationFrame(this.frame);
     this.last = performance.now();
@@ -1963,30 +2186,8 @@ export class NuPark {
       if (!this.open) return;
       const dt = Math.min(40, now - this.last);
       this.last = now;
-      const s = this.stage, ctx = this.ctx;
-      ctx.clearRect(0, 0, this.size.w, this.size.h);
-      ctx.save();
-      const court = s.court;
-      s.court = false;
-      ctx.fillStyle = K975;
-      ctx.globalAlpha = 0.55;
-      arenaPath(ctx, s);
-      ctx.fill();
-      ctx.globalAlpha = 1;
-      this.drawRim(ctx);
-      arenaPath(ctx, s);
-      ctx.clip();
-      // A game set on a ring plays in the round court, a lighter plate in the middle.
-      s.court = court;
-      if (this.have && s.pad) this.toys[this.place].drawPad?.(s, ctx, now);
-      if (court) { dot(ctx, s.c, s.R, K900, 0.9); arenaPath(ctx, s); ctx.clip(); }
-      if (this.have) {
-        const toy = this.toys[this.place];
-        if (!this.picking) toy.step(s, dt, now);
-        toy.draw(s, ctx, now);
-      }
-      s.fx.draw(ctx, now, dt);
-      ctx.restore();
+      this.ctx.clearRect(0, 0, this.size.w, this.size.h);
+      paintStage(this.stage, this.ctx, this.have ? this.toys[this.place] : null, dt, now, !this.picking);
       this.frame = requestAnimationFrame(tick);
     };
     this.frame = requestAnimationFrame(tick);

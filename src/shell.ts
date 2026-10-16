@@ -416,12 +416,12 @@ export class AppShell {
   private openPick(): void {
     const crumbs = this.crumbs;
     if (!crumbs) return;
-    if (atomListOpen() || gameListOpen() || this.park?.listOpen) { closeSheet(); return; }
+    if (atomListOpen() || gameListOpen() || this.park?.pickerOpen) { closeSheet(); return; }
     const onClose = () => crumbs.setOpen(false);
     const id = this.screen === 'puzzles' ? this.playground?.gameId : null;
     if (id) openGameList({ current: id, onPick: (g, level) => this.playground?.open(g, level), onClose });
     else if (this.screen === 'gallery' && this.gallery.pageZ !== null) openAtomList({ current: this.gallery.pageZ, tab: 'learn', onPick: (n) => { this.z = n; this.gallery.openPage(n); }, onClose });
-    else if (this.screen === 'nu' && this.park?.gameName) this.park.openList(onClose);
+    else if (this.screen === 'nu' && this.park?.gameName) this.park.openGames(onClose);
     else if (this.screen === 'atom' && this.mode === 'build') openAtomList({ current: this.z, tab: 'collect', onPick: (n) => { this.z = n; this.game?.openElement(n); this.paintDock(); }, onClose });
     else return;
     crumbs.setOpen(true);

@@ -1,9 +1,24 @@
 // The park's kit (park.ts and arcade.ts): Nu as the park draws it, the soft effects, the arena
 // (a rounded rectangle, or the round court in its middle) and the helpers every game shares.
 
-import { buzz, captureSound, chimeSound, completeSound, missSound, tickSound } from '../audio';
+import * as audio from '../audio';
 
-export { buzz, captureSound, chimeSound, completeSound, missSound, tickSound };
+/** While above 0 (the games' previews in the park's picker are running), the games are silent
+ *  and still: no sounds, no buzzing. */
+let quiet = 0;
+
+/** Runs `f` with the games hushed. */
+export function hush<T>(f: () => T): T {
+  quiet++;
+  try { return f(); } finally { quiet--; }
+}
+
+export const buzz = (p: number | number[]): void => { if (!quiet) audio.buzz(p); };
+export const captureSound = (): void => { if (!quiet) audio.captureSound(); };
+export const chimeSound = (i: number): void => { if (!quiet) audio.chimeSound(i); };
+export const completeSound = (): void => { if (!quiet) audio.completeSound(); };
+export const missSound = (): void => { if (!quiet) audio.missSound(); };
+export const tickSound = (n: number): void => { if (!quiet) audio.tickSound(n); };
 
 export type Pt = { x: number; y: number };
 export type Mover = Pt & { vx: number; vy: number };
