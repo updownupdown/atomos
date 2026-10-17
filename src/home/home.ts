@@ -6,9 +6,9 @@
 //             Build button; then a row for the fleeting isotope to build next.
 //   Atlas   — the atom of the day to find among four plates; a row into the Atlas.
 //   Play    — today's puzzle beside the game playing itself; a row into all the games.
-//   Nu      — Nu's three questions with their streak; the game Nu wants to play, playing itself.
-// The shell mounts it on every visit and puts it away on leaving (the atom and the two games
-// stop drawing):
+//   Nu      — Nu's three questions with their streak; a row into the game Nu wants to play.
+// The shell mounts it on every visit and puts it away on leaving (the atom and the game stop
+// drawing):
 //
 //   renderHome($('home-body'), (to, at) => ...);   // at: { z } opens an atom in Learn, { game } a game
 //   hideHome();
@@ -32,7 +32,7 @@ import { dailyPuzzle, dailyStreak } from '../puzzles/daily';
 import { difficultyLevel, levelWord } from '../puzzles/difficulty';
 import { icon } from '../ui/icons';
 import { nuEnabled, nuIconHtml, nuShow, reducedMotion } from '../ui/nu';
-import { nuPick, type GameId } from '../nu/games';
+import { nuPick } from '../nu/games';
 import { finds, foundToday, hideDue, treats } from '../nu/bond';
 import {
   atomOfDay, candidates, clues, finishQuiz, headlineOf, liveStreak, quizOf, readDay, today, writeDay,
@@ -53,13 +53,10 @@ function plate(e: Element, cls = ''): string {
   return `<span class="home-plate ${cls}" style="background:${bg};color:${inkOn(bg)}" aria-hidden="true"><small>${e.z}</small>${e.symbol}</span>`;
 }
 
-/** What draws while Home shows: the next step's atom, today's puzzle playing itself and Nu's
- *  game playing itself. Made once and kept; each visit points them at the day's things. */
+/** What draws while Home shows: the next step's atom and today's puzzle playing itself. Made
+ *  once and kept; each visit points them at the day's things. */
 let gem: GemAtom | null | undefined;
 let demo: GameDemo | null = null;
-let nuRaf = 0;
-/** Bumped on each visit and on leaving, so a preview still loading for an old visit stays off. */
-let visit = 0;
 
 function homeGem(): GemAtom | null {
   if (gem === undefined) {
@@ -71,11 +68,8 @@ function homeGem(): GemAtom | null {
 
 /** Leaving Home: everything that draws stops. */
 export function hideHome(): void {
-  visit++;
   gem?.stop();
   demo?.stop();
-  cancelAnimationFrame(nuRaf);
-  nuRaf = 0;
 }
 
 export function renderHome(host: HTMLElement, go: HomeGo): void {
@@ -93,8 +87,6 @@ export function renderHome(host: HTMLElement, go: HomeGo): void {
   paintGuess(host.querySelector<HTMLElement>('.home-guess')!, day.index, go);
   paintQuiz(host.querySelector<HTMLElement>('.home-quiz')!, day.index);
   paintGame(host.querySelector<HTMLElement>('.home-game')!, go);
-  const shot = host.querySelector<HTMLCanvasElement>('.home-nushot canvas');
-  if (shot) playNu(shot, shot.closest<HTMLElement>('[data-nu-game]')!.dataset.nuGame as GameId);
   // Nu comes out to circle the next step for a moment; once a minute at most for the same one.
   const step = nextStep(save);
   if (step && typeof requestAnimationFrame === 'function') requestAnimationFrame(() => askNu(host, `home:${step.z}:${step.stage}`));
@@ -119,8 +111,8 @@ export function askNu(host: HTMLElement, key?: string): void {
 
 // ---------- Collect ----------
 
-/** The strip at the top: atoms built, and a track per period as wide as it is long, filled by
- *  its stable share (green once done, darker while the period is shut). Into Collect. */
+/** The strip at the top: a track per period as wide as it is long, filled by its stable share
+ *  (green once done, darker while the period is shut), then atoms built. Into Collect. */
 function strip(save: SaveData): string {
   let built = 0;
   for (let z = 1; z <= MAX_Z; z++) if (atomBuilt(z, save)) built++;
@@ -131,7 +123,7 @@ function strip(save: SaveData): string {
     pers += `<i class="home-trk${open ? '' : ' is-locked'}${s.stable >= 1 ? ' is-done' : ''}" style="flex:${s.atoms}"><b style="width:${open ? pct(s.stable) : '0%'}"></b></i>`;
   }
   return `<button type="button" class="home-strip" data-go="collect" aria-label="Collect: ${built} of ${MAX_Z} atoms built">`
-    + `<span class="home-strip-n"><b>${built}</b>/${MAX_Z} atoms</span><span class="home-pers" aria-hidden="true">${pers}</span></button>`;
+    + `<span class="home-pers" aria-hidden="true">${pers}</span><span class="home-strip-n"><b>${built}</b>/${MAX_Z} atoms</span></button>`;
 }
 
 /** The fleeting isotope to offer: on the atom the next step is on if it is built, else on the
@@ -149,17 +141,15 @@ function fleetingPick(save: SaveData, step: NextStep | null): { z: number; a: nu
   return null;
 }
 
-/** The step's title ("Build Silver", "Build Silver-107") and the line under it: the part, the
- *  game that builds it and how many of the atom's parts are built. */
+/** The step's title ("Build Silver", "Build Silver-107") and the line under it: what it builds
+ *  and with which game ("Build electrons with Flux"). */
 function stepTitle(s: NextStep): string {
   const name = s.a !== undefined ? `${elementAt(s.z).name}-${s.a}` : elementAt(s.z).name;
   return s.kind === 'resume' ? `Resume ${name}` : s.kind === 'discovery' ? s.label : `Build ${name}`;
 }
-function stepLine(s: NextStep, save: SaveData): string {
-  const part = s.kind === 'nucleus' ? 'Nucleus' : s.kind === 'electrons' ? 'Electrons' : s.kind === 'lasting' ? 'Lasting isotope' : s.kind === 'discovery' ? 'Orbital shape' : 'Where you left off';
-  const segs = segmentsOf(s.z, save);
-  const done = segs.filter((g) => g.done).length;
-  return [part, s.gameName, segs.length ? `${done} of ${segs.length} parts built` : ''].filter(Boolean).join(' · ');
+function stepLine(s: NextStep): string {
+  const what = s.kind === 'nucleus' ? 'Build the nucleus' : s.kind === 'electrons' ? 'Build electrons' : s.kind === 'lasting' ? 'Build the isotope' : s.kind === 'discovery' ? 'Find the shape' : 'Carry on';
+  return s.gameName ? `${what} with ${s.gameName}` : what;
 }
 
 /** The next step: the atom, live, over its plate and what the step builds; Build at the foot. */
@@ -174,7 +164,7 @@ function nextCard(save: SaveData): string {
   return `<section class="home-feed home-next" aria-label="Next step"><span class="home-caps">Next step</span>`
     + `<div class="home-gem" aria-hidden="true"></div>`
     + `<div class="home-nextrow">${plate(e, 'is-big')}<span class="home-grow"><b class="home-big">${esc(stepTitle(step))}</b>`
-    + `<small>${esc(stepLine(step, save))}</small></span></div>`
+    + `<small>${esc(stepLine(step))}</small></span></div>`
     + `<button type="button" class="home-go is-next" data-step="stable" aria-label="${esc(`${stepTitle(step)}: ${step.gameName}`)}">`
     + `${icon('build', { size: 22 })}${step.kind === 'resume' ? 'Resume' : 'Build'}</button></section>`;
 }
@@ -266,8 +256,8 @@ function paintGuess(box: HTMLElement, index: number, go: HomeGo): void {
 function learnRow(save: SaveData): string {
   const all = earnables(save);
   const open = all.filter((e) => e.open).length + 1; // the plain table is always open
-  return `<button type="button" class="home-line" data-go="learn">${icon('atlas', { size: 24 })}`
-    + `<span class="home-grow"><b>Explore all ${MAX_Z} atoms</b><small>${open} of ${all.length + 1} ways to see them open</small></span>${CHEVRON()}</button>`;
+  return `<button type="button" class="home-line is-minor" data-go="learn" aria-label="Explore all atoms: ${open} of ${all.length + 1} ways to see them open">${icon('atlas', { size: 24 })}`
+    + `<span class="home-grow"><b>Explore all atoms</b></span>${CHEVRON()}</button>`;
 }
 
 // ---------- Play ----------
@@ -304,8 +294,8 @@ function paintGame(box: HTMLElement, go: HomeGo): void {
 
 function gamesRow(): string {
   const n = PUZZLES.filter((g) => g.make).length;
-  return `<button type="button" class="home-line" data-go="play">${icon('puzzles', { size: 24 })}`
-    + `<span class="home-grow"><b>Explore all games</b><small>${n} games, from very easy to expert</small></span>${CHEVRON()}</button>`;
+  return `<button type="button" class="home-line is-minor" data-go="play" aria-label="Explore all ${n} games">${icon('puzzles', { size: 24 })}`
+    + `<span class="home-grow"><b>Explore all games</b></span>${CHEVRON()}</button>`;
 }
 
 // ---------- Nu ----------
@@ -375,34 +365,15 @@ function paintQuiz(box: HTMLElement, index: number): void {
   });
 }
 
-/** The game Nu wants to play today, playing itself beside its name, into Nu's park; with what's
- *  waiting there: treats from wins, and a hint that Nu is hiding somewhere today (or how often
- *  it's been found). */
+/** The game Nu wants to play today, a row like the others, into Nu's park. */
 function nuCard(): string {
-  const g = nuPick(), n = treats(), f = finds();
+  const g = nuPick();
   const notes: string[] = [];
+  const n = treats(), f = finds();
   if (n) notes.push(`${n} ${n === 1 ? 'treat' : 'treats'} waiting`);
-  if (hideDue()) notes.push('Hiding somewhere today');
-  else if (foundToday()) notes.push(`Found ${f === 1 ? 'once' : `${f} times`}`);
-  return `<button type="button" class="home-feed home-nugame" data-nu-game="${g.id}" aria-label="Play ${esc(g.label)} with Nu">`
-    + `<span class="home-nushot" aria-hidden="true"><canvas></canvas></span>`
-    + `<span class="home-grow home-nuinfo"><span class="home-caps">Nu wants to play</span><b class="home-big">${esc(g.label)}</b>`
-    + `${notes.length ? `<small>${notes.join(' · ')}</small>` : ''}</span>`
-    + `<span class="home-nugo" aria-hidden="true">${icon('play', { size: 22 })}</span></button>`;
-}
-
-/** Nu's game playing itself, silently, on the card (the park's own tile preview, loaded with
- *  the park); one still frame under Reduce motion. */
-function playNu(canvas: HTMLCanvasElement, id: GameId): void {
-  const mine = visit;
-  void import('../nu/park').then(({ nuPreview }) => {
-    if (mine !== visit || !canvas.isConnected) return;
-    const p = nuPreview(id, canvas);
-    const tick = (now: number) => {
-      if (mine !== visit || !canvas.isConnected) return;
-      if (canvas.offsetParent !== null) p.frame(now);
-      nuRaf = reducedMotion() ? 0 : requestAnimationFrame(tick);
-    };
-    nuRaf = requestAnimationFrame(tick);
-  }).catch(() => { /* a picture is decoration */ });
+  if (hideDue()) notes.push('Nu is hiding somewhere today');
+  else if (foundToday()) notes.push(`Found ${f === 1 ? 'once' : `${f} times`} today`);
+  return `<button type="button" class="home-line is-minor" data-nu-game="${g.id}"${notes.length ? ` aria-description="${esc(notes.join('. '))}"` : ''}>`
+    + `<span class="home-nu" aria-hidden="true">${nuIconHtml(24)}</span>`
+    + `<span class="home-grow"><b>Play ${esc(g.label)} with Nu</b></span>${CHEVRON()}</button>`;
 }
