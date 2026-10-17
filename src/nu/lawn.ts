@@ -7,7 +7,7 @@
 
 import {
   CYAN, GREEN, K300, K500, NOTE_COLOURS, RED, TAU, WHITE,
-  best, bounceIn, buzz, chimeSound, clamp, completeSound, dashed, dist, dot, missSound, ring, finish, setBest, tickSound,
+  best, captureSound, bounceIn, buzz, chimeSound, clamp, completeSound, dashed, dist, dot, missSound, ring, finish, setBest, tickSound,
   type Mover, type Pt, type Stage, type Toy,
 } from './kit';
 
@@ -105,7 +105,7 @@ export class More implements Toy {
     if (side === this.more && !late) {
       this.count++;
       s.fx.ring(at, GREEN, 16, 70, 600);
-      chimeSound(this.count % 5);
+      captureSound();
     } else {
       this.left--;
       s.fx.ring(at, RED, 16, 70, 600);
@@ -212,7 +212,7 @@ export class Stick implements Toy {
     this.count++;
     this.toGo--;
     s.fx.ring(at, CYAN, this.er, this.er + 16, 400);
-    chimeSound(this.count % 5);
+    captureSound();
     s.score(this.count, best(s, 'stick') || null);
     if (!this.toGo) { completeSound(); this.nextAt = now + 700; }
   }

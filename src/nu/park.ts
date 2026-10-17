@@ -21,7 +21,7 @@
 //   Juggle, Pull, Twin: see yard.ts. Grow, Rain, Spot, Tilt: see field.ts. Flip, More, Stick:
 //   see lawn.ts. Blast, Bumper, Cross, Cue, Dodge, Hue: see meadow.ts. Land, Order, Pop, Ready,
 //   Recall, Swing: see grove.ts. Bank, Carve: see glade.ts. Shade, Surf: see heath.ts. Fuse,
-//   Gate, Tune: see brook.ts. Ferry, Poise, Pole: see marsh.ts.
+//   Gate, Tune: see brook.ts. Beat, Chord, Phase: see fen.ts. Ferry, Poise, Pole: see marsh.ts.
 // Most games are learnt by trying, so they carry no words: just the score and best under the
 // arena, drawn as tiny atoms (score-atom.ts). When a run is over, a card over the arena shows
 // its atom and an Again button; when a level is done, a Next button.
@@ -50,6 +50,7 @@ import { Land, Order, Pop, Ready, Recall, Swing } from './grove';
 import { Bank, Carve } from './glade';
 import { Shade, Surf } from './heath';
 import { Fuse, Gate, Tune } from './brook';
+import { Beat, Chord, Phase } from './fen';
 import { Ferry, Poise, Pole } from './marsh';
 import { fmt, points } from './points';
 import { atomSvg } from './score-atom';
@@ -1693,7 +1694,7 @@ const MAKE: Record<PlaceId, () => Toy> = {
   blast: () => new Blast(), bumper: () => new Bumper(), cross: () => new Cross(), cue: () => new Cue(), dodge: () => new Dodge(), hue: () => new Hue(),
   land: () => new Land(), order: () => new Order(), pop: () => new Pop(), ready: () => new Ready(), recall: () => new Recall(), swing: () => new Swing(),
   carve: () => new Carve(), bank: () => new Bank(), surf: () => new Surf(), shade: () => new Shade(),
-  pole: () => new Pole(), poise: () => new Poise(), ferry: () => new Ferry(), fuse: () => new Fuse(), gate: () => new Gate(), tune: () => new Tune(),
+  pole: () => new Pole(), poise: () => new Poise(), ferry: () => new Ferry(), fuse: () => new Fuse(), gate: () => new Gate(), tune: () => new Tune(), beat: () => new Beat(), chord: () => new Chord(), phase: () => new Phase(),
 };
 
 /** The arena fills the field (w x h), its rim just inside the edge; the court is the biggest
@@ -1795,16 +1796,16 @@ const BOTS: Record<GameId, Bot> = { course: { kind: 'drag', path: 'wander' },
   grow: { kind: 'drag', path: 'wander' }, halo: { kind: 'drag', path: 'circle' }, herd: { kind: 'drag', path: 'wander' },
   hockey: { kind: 'drag', path: 'row' }, hop: { kind: 'drag', path: 'row' }, juggle: { kind: 'tap', every: 650, at: 'nu' },
   orbit: { kind: 'tap', every: 1200 }, pairs: { kind: 'tap', every: 700 },
-  pull: { kind: 'hold', on: 380, off: 2600 }, pulse: { kind: 'tap', every: 1000 }, rain: { kind: 'drag', path: 'row' }, ripple: { kind: 'tap', every: 700, at: 'near' }, shells: { kind: 'tap', every: 900 },
+  pull: { kind: 'tap', every: 1200 }, pulse: { kind: 'tap', every: 1000 }, rain: { kind: 'drag', path: 'row' }, ripple: { kind: 'tap', every: 700, at: 'near' }, shells: { kind: 'tap', every: 900 },
   sling: { kind: 'sling' }, spot: { kind: 'tap', every: 1300 },
   tilt: { kind: 'drag', path: 'wander' }, twin: { kind: 'drag', path: 'wander' },
   flip: { kind: 'tap', every: 750 }, more: { kind: 'tap', every: 1300, at: 'side' }, stick: { kind: 'tap', every: 950 },
   blast: { kind: 'tap', every: 500 }, bumper: { kind: 'tap', every: 450, at: 'side' }, cross: { kind: 'tap', every: 700, at: 'nu' },
   cue: { kind: 'flick' }, dodge: { kind: 'drag', path: 'wander' }, hue: { kind: 'tap', every: 420 },
-  land: { kind: 'hold', on: 450, off: 650 }, order: { kind: 'tap', every: 800 }, pop: { kind: 'tap', every: 1000 },
+  land: { kind: 'hold', on: 450, off: 650 }, order: { kind: 'tap', every: 800 }, pop: { kind: 'tap', every: 1000, at: 'near' },
   ready: { kind: 'tap', every: 700 }, recall: { kind: 'tap', every: 600 }, swing: { kind: 'hold', on: 650, off: 450 },
   carve: { kind: 'flick' }, bank: { kind: 'flick' }, surf: { kind: 'hold', on: 450, off: 650 }, shade: { kind: 'drag', path: 'wander' },
-  pole: { kind: 'tap', every: 900, at: 'any' }, poise: { kind: 'tap', every: 1200, at: 'any' }, ferry: { kind: 'drag', path: 'wander' }, fuse: { kind: 'tap', every: 900 }, gate: { kind: 'drag', path: 'wander' }, tune: { kind: 'drag', path: 'wander' },
+  pole: { kind: 'tap', every: 900, at: 'any' }, poise: { kind: 'tap', every: 1200, at: 'any' }, ferry: { kind: 'drag', path: 'wander' }, fuse: { kind: 'tap', every: 900 }, gate: { kind: 'drag', path: 'wander' }, tune: { kind: 'drag', path: 'wander' }, beat: { kind: 'drag', path: 'row' }, chord: { kind: 'drag', path: 'row' }, phase: { kind: 'drag', path: 'row' },
 };
 
 /** The size a tile plays at, before it's scaled down to fit: about a phone's arena. */
@@ -2196,14 +2197,17 @@ export class NuPark {
     this.nextShow = next ? new Preview(next.id, this.nextEl.querySelector('canvas')!) : null;
   }
 
-  /** Over the arena: a run's score as an atom (ringed for a new best) and Again; or, with `next`,
+  /** Next level: play into a bar, so it doesn't read as resume. */
+  private static readonly NEXT = '<svg viewBox="0 0 24 24" width="36" height="36" fill="none" aria-hidden="true"><path d="M5 5.6V18.4C5 19.2 5.9 19.7 6.6 19.2L15.6 12.8C16.2 12.4 16.2 11.6 15.6 11.2L6.6 4.8C5.9 4.3 5 4.8 5 5.6Z" fill="currentColor"/><rect x="17" y="4.5" width="3" height="15" rx="1.5" fill="currentColor"/></svg>';
+
+/** Over the arena: a run's score as an atom (ringed for a new best) and Again; or, with `next`,
    *  a level done and the Next button. While it shows, the arena takes no taps. */
   private showOver(raw: number | null, next: (() => void) | null): void {
     const id = this.place;
     if (id === 'home') return;
     this.overGo = next;
     if (next) {
-      this.overEl.innerHTML = `<button type="button" class="nup-again is-next" aria-label="Next">${icon('play', { size: 36 })}</button>`;
+      this.overEl.innerHTML = `<button type="button" class="nup-again is-next" aria-label="Next level">${NuPark.NEXT}</button>`;
     } else {
       // The run's atom (all in the accent for a new best), then Again.
       const toy = this.toys[id], own = toy.tally && !toy.raw, pts = points(id, toy.tally && toy.raw ? toy.raw() : raw ?? 0), fresh = !toy.tally && (raw ?? 0) > this.bestWas;

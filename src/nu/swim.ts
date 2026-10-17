@@ -5,7 +5,7 @@
 
 import {
   CYAN, GREEN, K300, K500, RED, WHITE,
-  anywhere, best, bounceIn, buzz, chimeSound, clamp, completeSound, dashed, dist, dot, missSound, ring, finish, setBest, tickSound,
+  anywhere, best, captureSound, bounceIn, buzz, chimeSound, clamp, completeSound, dashed, dist, dot, missSound, ring, finish, setBest, tickSound,
   type Mover, type Pt, type Stage, type Toy,
 } from './kit';
 
@@ -85,7 +85,7 @@ export class Ripple implements Toy {
     if (dist(b, this.goal) < this.goal.r - nu.r * 0.4) {
       this.count++;
       s.fx.ring(this.goal, GREEN, this.goal.r, this.goal.r + 20, 500);
-      chimeSound(this.count % 5);
+      captureSound();
       s.score(this.count, best(s, 'ripple') || null);
       this.place(s);
     }
