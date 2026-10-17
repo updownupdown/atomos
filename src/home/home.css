@@ -15,9 +15,10 @@
 .home-big { display: block; font-size: 24px; line-height: 1.15; font-weight: var(--fw-semibold); }
 .home-ok { color: var(--c-done) !important; display: inline-flex; align-items: center; gap: 4px; }
 
-/* A card: a plate on black (--c-plate, the shade of Play's game cards); what is in it sits on
+/* A card: a plate on black, one step paler than Play's game cards (--c-plate-2, James
+   2026-10-17); what is in it sits on
    K700 so it reads against the plate. */
-.home-feed { display: flex; flex-direction: column; gap: 14px; padding: 20px; border-radius: 28px; background: var(--c-plate); color: var(--c-text); }
+.home-feed { display: flex; flex-direction: column; gap: 14px; padding: 20px; border-radius: 28px; background: var(--c-plate-2); color: var(--c-text); }
 .home-btn { display: inline-flex; align-items: center; gap: 6px; height: 40px; padding: 0 var(--sp-4); border: 0; border-radius: var(--r-pill); background: var(--c-pick); color: var(--c-text); font: inherit; font-size: var(--fs-md); font-weight: var(--fw-semibold); cursor: pointer; }
 .home-btn:hover { background: #3b4147; }
 /* The card's one big button, at its foot: rose for the next step, cyan to play, a cyan ring to
@@ -29,10 +30,10 @@
 .home-go.is-white { background: var(--c-text); color: #000; }
 .home-go:hover { filter: brightness(1.08); }
 
-/* A minor row under a card, a step lighter than the cards: one line (and a note), into
+/* A minor row under a card, straight on black (no plate): one line (and a note), into
    somewhere. */
-.home-line { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 60px; padding: 8px 14px 8px 12px; border: 0; border-radius: 22px; background: var(--c-plate-2); color: var(--c-text); font: inherit; text-align: left; cursor: pointer; }
-.home-line:hover { background: var(--c-pick); }
+.home-line { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 60px; padding: 8px 14px 8px 12px; border: 0; border-radius: 22px; background: transparent; color: var(--c-text); font: inherit; text-align: left; cursor: pointer; }
+.home-line:hover { background: var(--c-plate); }
 .home-line > svg { flex: none; margin: 0 4px; color: var(--c-text); }
 .home-line > svg:last-child { margin: 0; color: var(--c-text-2); }
 .home-line .home-grow { display: flex; flex-direction: column; gap: 1px; }
@@ -41,7 +42,7 @@
 .home-line.is-locked, .home-line.is-done { cursor: default; }
 .home-line.is-locked > svg:first-child { color: var(--c-warn); }
 .home-line.is-done > svg:first-child { color: var(--c-done); }
-.home-line.is-locked:hover, .home-line.is-done:hover { background: var(--c-plate-2); }
+.home-line.is-locked:hover, .home-line.is-done:hover { background: transparent; }
 .home-line > .home-nu { margin: 0 4px; }
 
 /* An atom's plate: number over symbol, in its place color. */
@@ -98,7 +99,7 @@
 .home-gsmall { width: 24px; height: 24px; flex: none; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: var(--c-pick); color: var(--c-text-2); }
 .home-lvl { display: flex; align-items: center; gap: 8px; font-size: var(--fs-md); }
 .home-pips { display: inline-flex; gap: 4px; }
-.home-pips i { width: 8px; height: 8px; border-radius: 50%; background: var(--c-pick); }
+.home-pips i { width: 8px; height: 8px; border-radius: 50%; background: var(--k-600); }
 .home-pips.lvl-1 i.on { background: var(--c-lvl-1); }
 .home-pips.lvl-2 i.on { background: var(--c-lvl-2); }
 .home-pips.lvl-3 i.on { background: var(--c-lvl-3); }
@@ -127,7 +128,7 @@
 .home-tile { position: relative; min-height: 68px; padding: 10px 12px; border: 0; border-radius: 14px; background: var(--c-pick); color: var(--c-text); font: inherit; font-size: 17px; font-weight: var(--fw-semibold); line-height: 1.3; cursor: pointer; }
 .home-tile.is-right, .home-acard.is-right { background: var(--c-done) !important; color: #05210f; }
 .home-acard.is-right .home-acard-txt small { color: #05210f; }
-.home-tile.is-wrong, .home-acard.is-wrong { background: var(--c-plate-2) !important; color: var(--c-text-2); }
+.home-tile.is-wrong, .home-acard.is-wrong { background: var(--c-plate) !important; color: var(--c-text-2); }
 .home-acard.is-wrong .home-acard-txt b { color: var(--c-text-2); }
 .home-mark { position: absolute; top: 8px; right: 8px; width: 24px; height: 24px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: #05210f; color: var(--c-done); }
 .is-wrong > .home-mark { background: var(--c-pick); color: var(--c-text-2); }
@@ -142,7 +143,7 @@
 /* A segment a question: green right, gray wrong; the one just answered fills as the countdown
    to the next question. */
 .home-qbar { display: flex; gap: 6px; }
-.home-qbar i { flex: 1; height: 6px; border-radius: 3px; background: var(--c-pick); overflow: hidden; }
+.home-qbar i { flex: 1; height: 6px; border-radius: 3px; background: var(--k-600); overflow: hidden; }
 .home-qbar b { display: block; height: 100%; width: 0; border-radius: inherit; }
 .home-qbar i.is-right b, .home-qbar i.is-wrong b { width: 100%; }
 .home-qbar i.is-right b { background: var(--c-done); }
