@@ -1,6 +1,6 @@
 // The bar on Home: a dark pill at the foot holding Collect, Atlas, Play and Nu (its park, to play
-// with it), each an icon over its name, and in the middle Next, a rose button raised out of the
-// pill that opens the next step (design 3, James 2026-10-17). Off Home the header's trail (crumbs.ts) says where you
+// with it), each an icon over its name, and in the middle Next, a rose circle with no name that
+// opens the next step (design 3, James 2026-10-17). Off Home the header's trail (crumbs.ts) says where you
 // are instead, so the bar hides.
 // Nu rests in the mark (src/ui/mark.ts), not here.
 
@@ -26,7 +26,7 @@ export class Dock {
       b.onclick = () => o.onSection(s.id);
     }
     const next = document.getElementById('nav-next')!;
-    next.querySelector('.nav-ico')!.innerHTML = icon('build', { size: 24 });
+    next.querySelector('.nav-ico')!.innerHTML = icon('build', { size: 32 });
     next.setAttribute('aria-label', 'Next step');
     next.onclick = () => o.onNext();
     startNu();

@@ -1261,15 +1261,16 @@ body[data-screen='puzzles'].pg-playing .nav-tools { display: flex; }
 .nav-tools .pg-fold[aria-expanded='true']::before { content: ''; position: absolute; right: 100%; top: calc(100% + var(--pg-stem, 14px) - 12px); width: 12px; height: 12px; border-bottom-right-radius: 12px; box-shadow: 6px 6px 0 6px var(--c-nav); clip-path: inset(0 -6px -6px 0); }
 
 /* The bar on Home (src/ui/dock.ts): Collect, Atlas, Next, Play and Nu in a dark pill floating at
-   the foot, each an icon over its name; Next a smaller rose button raised out of the middle, its
-   name under it in rose (design 3, James 2026-10-17). --safe-bottom grows by the pill on Home,
-   so whatever sits at the foot stays clear of it. Off Home it hides; the trail says where you are. */
+   the foot, as wide as Home's column, each an icon over its name; Next a rose circle in the
+   middle, set in the pill, with no name (design 3, James 2026-10-17). --safe-bottom grows by the
+   pill on Home, so whatever sits at the foot stays clear of it. Off Home it hides; the trail says
+   where you are. */
 :root { --dock-h: 68px; --bar-h: 48px; }
 .dock {
   position: fixed;
   left: 50%;
   bottom: calc(env(safe-area-inset-bottom, 0px) + var(--dock-gap, 12px));
-  width: min(400px, calc(100% - 2 * var(--sp-3)));
+  width: min(560px, calc(100% - 2 * var(--sp-4)));
   height: var(--dock-h);
   transform: translateX(-50%);
   z-index: 16;
@@ -1305,13 +1306,11 @@ body[data-screen='puzzles'].pg-playing .nav-tools { display: flex; }
 .nav-ico { display: grid; place-items: center; }
 .nav-ico svg { width: 26px; height: 26px; display: block; }
 .nav-lab { font-size: 13px; font-weight: var(--fw-semibold); line-height: 1.1; color: var(--c-text-2); }
-/* Next: a rose circle standing out of the pill, a clear gap above its name. */
-.dock .nav-next { min-height: 0; justify-content: flex-end; gap: 10px; padding-bottom: 7px; }
+/* Next: a rose circle, centred in the pill like the others, its icon large. */
 .dock .nav-next:hover, .dock .nav-next:active { background: transparent; }
-.nav-next .nav-ico { flex: none; width: 52px; height: 52px; border-radius: 50%; background: var(--c-go); color: var(--c-go-ink); box-shadow: 0 0 0 5px var(--c-bg); }
+.nav-next .nav-ico { flex: none; width: 54px; height: 54px; border-radius: 50%; background: var(--c-go); color: var(--c-go-ink); }
 .nav-next:hover .nav-ico { filter: brightness(1.08); }
-.nav-next .nav-ico svg { width: 24px; height: 24px; }
-.nav-next .nav-lab { color: var(--c-go); }
+.nav-next .nav-ico svg { width: 32px; height: 32px; }
 /* Small phones: the pill and the header give their margins to the names. */
 @media (max-width: 400px) {
   .dock { width: calc(100% - 2 * var(--sp-2)); }

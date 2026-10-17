@@ -29,9 +29,10 @@
 .home-go.is-white { background: var(--c-text); color: #000; }
 .home-go:hover { filter: brightness(1.08); }
 
-/* A row under a card: smaller, one line and its note, into somewhere. */
-.home-line { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 64px; padding: 10px 14px 10px 12px; border: 0; border-radius: 22px; background: var(--c-plate); color: var(--c-text); font: inherit; text-align: left; cursor: pointer; }
-.home-line:hover { background: var(--c-plate-2); }
+/* A minor row under a card, a step lighter than the cards: one line (and a note), into
+   somewhere. */
+.home-line { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 60px; padding: 8px 14px 8px 12px; border: 0; border-radius: 22px; background: var(--c-plate-2); color: var(--c-text); font: inherit; text-align: left; cursor: pointer; }
+.home-line:hover { background: var(--c-pick); }
 .home-line > svg { flex: none; margin: 0 4px; color: var(--c-text); }
 .home-line > svg:last-child { margin: 0; color: var(--c-text-2); }
 .home-line .home-grow { display: flex; flex-direction: column; gap: 1px; }
@@ -40,7 +41,8 @@
 .home-line.is-locked, .home-line.is-done { cursor: default; }
 .home-line.is-locked > svg:first-child { color: var(--c-warn); }
 .home-line.is-done > svg:first-child { color: var(--c-done); }
-.home-line.is-locked:hover, .home-line.is-done:hover { background: var(--c-plate); }
+.home-line.is-locked:hover, .home-line.is-done:hover { background: var(--c-plate-2); }
+.home-line > .home-nu { margin: 0 4px; }
 
 /* An atom's plate: number over symbol, in its place color. */
 .home-plate { width: 40px; height: 40px; flex: none; border-radius: 10px; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; font-weight: var(--fw-bold); font-size: 17px; line-height: 1; }
@@ -67,7 +69,7 @@
 .home-gem canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; opacity: 0; transition: opacity 0.4s; }
 .home-gem canvas.is-shown { opacity: 1; }
 .home-nextrow { display: flex; align-items: center; gap: 14px; }
-.home-nextrow small { display: block; margin-top: 4px; font-size: var(--fs-md); color: var(--c-text-2); }
+.home-nextrow .home-grow small { display: block; margin-top: 4px; font-size: var(--fs-md); color: var(--c-text-2); }
 .home-alldone { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 20px; font-weight: var(--fw-semibold); color: var(--c-done); }
 
 /* Atlas: the atom of the day. The latest clue large; the ones before it smaller over it. */
@@ -152,12 +154,3 @@
 .home-qdone span { display: flex; flex-direction: column; }
 .home-qdone span b { font-size: 17px; font-weight: var(--fw-semibold); }
 .home-qdone small { font-size: var(--fs-md); color: var(--c-text-2); }
-
-/* Nu: the game Nu wants to play, playing itself on the left, its name, and a rose Play. */
-.home-nugame { flex-direction: row; align-items: center; gap: 16px; padding: 14px 16px 14px 14px; border: 0; font: inherit; text-align: left; cursor: pointer; }
-.home-nugame:hover { background: var(--c-plate-2); }
-.home-nushot { width: 96px; height: 128px; flex: none; border-radius: 18px; background: var(--c-bg); overflow: hidden; }
-.home-nushot canvas { width: 100%; height: 100%; display: block; }
-.home-nuinfo { display: flex; flex-direction: column; gap: 6px; }
-.home-nuinfo small { font-size: var(--fs-sm); color: var(--c-text-2); }
-.home-nugo { width: 48px; height: 48px; flex: none; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: var(--c-go); color: var(--c-go-ink); }

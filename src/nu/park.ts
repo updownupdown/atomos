@@ -1955,11 +1955,6 @@ class Preview {
   private flickBy: Pt = { x: 0, y: 0 };
 }
 
-/** A game playing itself, silently, as on its tile (Home's Nu card); call frame(now) to draw. */
-export function nuPreview(id: GameId, canvas: HTMLCanvasElement): { frame(now: number): void } {
-  return new Preview(id, canvas);
-}
-
 /** The picker's tiles, playing while they're in view; a frame for each one shown. */
 class Shows {
   private live = new Map<Element, Preview>();
