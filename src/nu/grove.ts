@@ -1,13 +1,14 @@
 // Six more of Nu's park games (park.ts), on the same kit:
 //   Land    Nu falls; hold to fire it up, and lean the finger left or right to drift that way.
-//           Set it down gently on the green pad, along its lane, in the wind. The rim is the fuel.
+//           Set it down gently on the green pad, in the wind. The rim is the fuel.
 //   Order   atoms of all sizes: tap them smallest first, up to the biggest, before the rim runs out.
 //   Pop     fire atoms up from Nu at the cluster above; three or more of a color together pop,
 //           and whatever hangs from them falls. Every few shots the cluster comes down a row.
 //   Ready   wait for Nu to glow green, then tap, quick. Not before, and never on red.
 //   Recall  some dots light up for a moment; tap the same ones back. One more each time.
-//   Swing   press near a dot to hook on and swing, slide up or down to reel the rope; let go to
-//           fly on. Don't fall, and don't touch the red.
+//   Swing   press near a dot to hook on and swing; swipe back and forth with the swing to pump
+//           it, slide up or down to reel the rope a little; let go to fly on. Don't fall, and
+//           don't touch the red.
 
 import {
   CYAN, GREEN, K300, K500, K800, NOTE_COLOURS, RED, TAU, WHITE,
@@ -18,23 +19,21 @@ import { bar, lives } from './lawn';
 
 // ---- Land ------------------------------------------------------------------------------------
 
-/** Fast enough to hurt, coming down (px/ms), and how far off the pad's lane it may come in. */
-const LAND_SAFE = 0.15;
-const LAND_SLACK = 0.38;
+/** Fast enough to hurt, coming down (px/ms). */
+const LAND_SAFE = 0.2;
 
 /** Nu drops in from the top and falls. Hold to fire it upward (the finger left or right of Nu
  *  pushes it that way too); let go and it falls again. A ring round Nu shows its speed: green
- *  while it's slow enough and coming in along the pad's lane (the dots rising from the pad),
- *  red when not. Down green on the pad and it counts; the pad shrinks, its lane leans, and later
- *  a wind pushes. Too hard, off the lane or off the pad costs one of three lives. The rim is the
+ *  while it's slow enough, red when not. Down green on the pad and it counts; the pad shrinks,
+ *  and later a wind pushes. Too hard or off the pad costs one of three lives. The rim is the
  *  fuel for each landing. */
 export class Land implements Toy {
   private vx = 0;
   private vy = 0;
   private finger: Pt | null = null;
   private fuel = 1;
-  /** The pad, and the lean of its lane from straight down (+ comes in moving right). */
-  private pad = { x: 0, w: 70, lean: 0 };
+  /** The pad. */
+  private pad = { x: 0, w: 70 };
   /** The wind's push across (px/ms²), and the motes that show it. */
   private wind = 0;
   private motes: Pt[] = [];
@@ -63,20 +62,13 @@ export class Land implements Toy {
     this.fuel = 1;
     s.rim = 1;
     const w = Math.max(30, 70 - this.count * 6);
-    // The lane leans more as you go, either way.
-    const lean = this.count ? (Math.random() < 0.5 ? -1 : 1) * Math.min(0.75, 0.25 + this.count * 0.1) * (0.6 + Math.random() * 0.4) : 0;
-    this.pad = { x: s.m.x + (Math.random() - 0.5) * (2 * s.hw - w - 60), w, lean };
-    this.wind = this.count >= 2 ? (Math.random() < 0.5 ? -1 : 1) * Math.min(0.00006, 0.00001 + this.count * 0.00001) : 0;
+    this.pad = { x: s.m.x + (Math.random() - 0.5) * (2 * s.hw - w - 60), w };
+    this.wind = this.count >= 2 ? (Math.random() < 0.5 ? -1 : 1) * Math.min(0.000072, 0.000012 + this.count * 0.000012) : 0;
     this.motes = Array.from({ length: this.wind ? 7 : 0 }, () => ({ x: s.m.x + (Math.random() * 2 - 1) * s.hw, y: s.m.y + (Math.random() * 2 - 1) * (s.hh - 40) }));
   }
 
-  /** Safe now: slow enough, and coming in along the lane (or barely moving). */
-  private safe(): boolean {
-    const sp = Math.hypot(this.vx, this.vy);
-    if (sp >= LAND_SAFE) return false;
-    if (sp < 0.04) return true;
-    return this.vy > 0 && Math.abs(Math.atan2(this.vx, this.vy) - this.pad.lean) < LAND_SLACK;
-  }
+  /** Safe now: slow enough. */
+  private safe(): boolean { return Math.hypot(this.vx, this.vy) < LAND_SAFE; }
 
   step(s: Stage, dt: number, now: number): void {
     const nu = s.nu;
@@ -139,8 +131,6 @@ export class Land implements Toy {
     for (const m of this.motes) bar(ctx, m.x, m.y, m.x - Math.sign(this.wind) * 10, m.y, K500, 2, 0.7);
     bar(ctx, s.m.x - s.hw, f + 3, s.m.x + s.hw, f + 3, K500, 4, 0.9);
     bar(ctx, pad.x - pad.w / 2, f + 1, pad.x + pad.w / 2, f + 1, this.overAt ? K500 : GREEN, 8, 0.95);
-    // The lane: dots rising from the pad the way Nu should come in.
-    if (!this.overAt) for (let k = 1; k <= 6; k++) dot(ctx, { x: pad.x - Math.sin(pad.lean) * k * 22, y: f - Math.cos(pad.lean) * k * 22 }, 3, GREEN, 0.75 - k * 0.09);
     if (this.state === 'fly') {
       if (this.finger && this.fuel > 0) {
         // The thrust: small dots under Nu.
@@ -268,7 +258,8 @@ export class Order implements Toy {
 const POP_R = 12;
 
 /** A cluster of atoms in four colors hangs from the top. Nu, at the bottom, holds the next
- *  atom: press in the bottom half to aim, let go to fire (it glances off the sides). It sticks
+ *  atom: press under the dashed line to aim, let go to fire (it glances off the sides); above
+ *  the line there's no aim, and letting go there doesn't fire. It sticks
  *  where it lands; three or more of a color touching pop, and any left hanging from nothing fall.
  *  Every eight shots the cluster comes down a row; down to the dashed line halfway and it's over. */
 export class Pop implements Toy {
@@ -290,9 +281,11 @@ export class Pop implements Toy {
   private home(s: Stage): Pt { return { x: s.m.x, y: s.m.y + s.hh - 34 }; }
   /** The line the cluster mustn't reach, halfway up; the finger aims only below it. */
   private line(s: Stage): number { return s.m.y; }
-  /** Where the finger aims: kept in the bottom half, and always a little up from Nu. */
+  /** The finger is under the line, so it aims. */
+  private aiming(s: Stage, p: Pt | null): p is Pt { return !!p && p.y >= this.line(s); }
+  /** Where the finger aims: always a little up from Nu. */
   private dir(s: Stage, p: Pt): Pt {
-    const nu = s.nu, dx = p.x - nu.x, dy = Math.min(-10, Math.max(p.y, this.line(s)) - nu.y), l = Math.hypot(dx, dy);
+    const nu = s.nu, dx = p.x - nu.x, dy = Math.min(-10, p.y - nu.y), l = Math.hypot(dx, dy);
     return { x: dx / l, y: dy / l };
   }
   private off(j: number): number { return (j + this.shift) % 2 ? POP_R : 0; }
@@ -435,7 +428,7 @@ export class Pop implements Toy {
     ctx.restore();
     if (this.shot) dot(ctx, this.shot, POP_R - 1, NOTE_COLOURS[this.shot.c]);
     const nu = s.nu;
-    if (this.aim && !this.shot) {
+    if (this.aiming(s, this.aim) && !this.shot) {
       const d = this.dir(s, this.aim);
       for (let k = 1; k <= 12; k++) dot(ctx, { x: nu.x + d.x * k * 14, y: nu.y + d.y * k * 14 }, 2.4, WHITE, 0.8 - k * 0.05);
     }
@@ -453,7 +446,7 @@ export class Pop implements Toy {
   up(s: Stage): void {
     const p = this.aim;
     this.aim = null;
-    if (!p || this.shot || this.overAt) return;
+    if (!this.aiming(s, p) || this.shot || this.overAt) return;
     const nu = s.nu, d = this.dir(s, p);
     this.shot = { x: nu.x, y: nu.y, vx: d.x * 0.8, vy: d.y * 0.8, c: this.load };
     tickSound(2);
@@ -464,16 +457,22 @@ export class Pop implements Toy {
 
 /** Nu waits, dim, in the middle. Then it glows green: tap, quick, before the ring closes on it.
  *  Too soon, too slow, or a tap when it glows red instead, costs one of three lives. Each catch
- *  the ring closes a little faster. */
+ *  the ring closes a little faster, and the reds come more often. A tap shows at once where it
+ *  landed, and the closing ring stops where it was at that moment. */
 export class Ready implements Toy {
   court = true;
   private state: 'wait' | 'go' | 'red' | 'after' = 'wait';
   private at = 0;
-  private limit = 520;
+  private limit = 470;
   private left = 3;
   private count = 0;
   private overAt = 0;
-  private lastMs = 0;
+  /** The last press: where, when, how it went, and the closing ring's size just then. */
+  private mark: { p: Pt; t: number; ok: boolean; r: number } | null = null;
+  private ringR(s: Stage, now: number): number {
+    const k = clamp(1 - (now - this.at) / this.limit, 0, 1), nu = s.nu;
+    return nu.r + 12 + k * (s.R * 0.6 - nu.r - 12);
+  }
 
   enter(s: Stage): void {
     s.nu.r = 14;
@@ -483,15 +482,16 @@ export class Ready implements Toy {
   private reset(s: Stage): void {
     this.left = 3;
     this.count = 0;
-    this.limit = 520;
+    this.limit = 470;
     this.overAt = 0;
+    this.mark = null;
     this.wait();
     s.score(0, best(s, 'ready') || null);
   }
 
   private wait(): void {
     this.state = 'wait';
-    this.at = performance.now() + 800 + Math.random() * 2600;
+    this.at = performance.now() + 700 + Math.random() * 2800;
   }
 
   step(s: Stage, dt: number, now: number): void {
@@ -500,21 +500,21 @@ export class Ready implements Toy {
     nu.glow = this.state === 'go' ? 2 : 0.5;
     if (this.overAt) return;
     if (this.state === 'wait' && now >= this.at) {
-      // Now and then, after a few, a red one instead.
-      this.state = this.count >= 2 && Math.random() < 0.27 ? 'red' : 'go';
+      // After the first one, now and then a red one instead; more often as it goes.
+      this.state = this.count >= 1 && Math.random() < Math.min(0.4, 0.22 + this.count * 0.015) ? 'red' : 'go';
       this.at = now;
     } else if (this.state === 'go' && now - this.at > this.limit) {
+      this.mark = { p: { ...nu }, t: now, ok: false, r: nu.r + 12 };
       this.lose(s, now);
     } else if (this.state === 'red' && now - this.at > 900) {
       this.wait();
-    } else if (this.state === 'after' && now - this.at > 700) {
+    } else if (this.state === 'after' && now - this.at > 600) {
       this.wait();
     }
   }
 
   private lose(s: Stage, now: number): void {
     this.left--;
-    s.fx.ring(s.nu, RED, s.nu.r, s.nu.r + 34, 600);
     missSound();
     buzz(24);
     this.state = 'after';
@@ -529,16 +529,22 @@ export class Ready implements Toy {
   draw(s: Stage, ctx: CanvasRenderingContext2D, now: number): void {
     const nu = s.nu;
     if (this.state === 'go') {
-      const k = clamp(1 - (now - this.at) / this.limit, 0, 1);
       dot(ctx, nu, nu.r + 10, GREEN, 0.35);
-      ring(ctx, nu, nu.r + 12 + k * (s.R * 0.6 - nu.r - 12), GREEN, 4, 0.9);
+      ring(ctx, nu, this.ringR(s, now), GREEN, 4, 0.9);
     } else if (this.state === 'red') {
       dot(ctx, nu, nu.r + 10, RED, 0.35);
       ring(ctx, nu, nu.r + 12, RED, 4, 0.9);
-    } else {
+    } else if (!this.mark || now - this.mark.t > 260) {
       dashed(ctx, nu, s.R * 0.6, K500, 0.6);
     }
-    if (this.state === 'after' && this.lastMs && !this.overAt) ring(ctx, nu, nu.r + 18, CYAN, 3, clamp(1 - (now - this.at) / 700, 0, 1));
+    // The last press, brief: a ring where the finger came down, and the closing ring held still
+    // where it was then (green caught, red not).
+    const m = this.mark, t = m ? (now - m.t) / 260 : 1;
+    if (m && t < 1) {
+      const c = m.ok ? GREEN : RED, a = 1 - t;
+      ring(ctx, nu, m.r, c, 4, 0.9 * a);
+      if (m.p.x !== nu.x || m.p.y !== nu.y) ring(ctx, m.p, 10 + 8 * t, c, 3, 0.9 * a);
+    }
     for (let i = 0; i < 3; i++) {
       const p = { x: s.c.x + (i - 1) * 16, y: s.c.y - s.R + 30 };
       if (i < this.left) dot(ctx, p, 4.5, WHITE, 0.85); else ring(ctx, p, 4.5, K500, 2, 0.8);
@@ -546,20 +552,23 @@ export class Ready implements Toy {
     nu.draw(ctx, now);
   }
 
-  down(s: Stage): void {
+  down(s: Stage, p: Pt): void {
     const now = performance.now();
     if (this.overAt) return;
     if (this.state === 'go') {
-      this.lastMs = now - this.at;
+      this.mark = { p: { ...p }, t: now, ok: true, r: this.ringR(s, now) };
       this.count++;
-      this.limit = Math.max(230, this.limit - 24);
+      this.limit = Math.max(210, this.limit - 26);
       chimeSound(this.count % 5);
       s.score(this.count, best(s, 'ready') || null);
       this.state = 'after';
       this.at = now;
       return;
     }
-    if (this.state === 'wait' || this.state === 'red') { this.lastMs = 0; this.lose(s, now); }
+    if (this.state === 'wait' || this.state === 'red') {
+      this.mark = { p: { ...p }, t: now, ok: false, r: s.nu.r + 12 };
+      this.lose(s, now);
+    }
   }
 }
 
@@ -673,11 +682,15 @@ const SWING_REACH = 300;
 const SWING_MIN = 40;
 const SWING_MAX = 300;
 
+/** How hard a swipe pumps the swing: speed gained per ms for each px/ms the finger moves along
+ *  Nu's way (against it, the same lost). */
+const SWING_PUMP = 0.0007;
+
 /** Dots hang along the way, high and low, near and far, on and on. Press near a dot in reach
- *  (they're ringed) and Nu hooks onto it and swings; while holding, slide the finger up to reel
- *  in (faster, like a swing pumped) or down to let the rope out; let go and it flies on, keeping
- *  its speed. Each dot passed counts. Later, red dots float in the gaps: touch one, or fall past
- *  the bottom, and it's over. */
+ *  (they're ringed) and Nu hooks onto it and swings; while holding, swipe left and right with
+ *  the swing to pump it higher (against it to brake), and slide up or down to reel the rope in
+ *  or out a little; let go and it flies on, keeping its speed. Each dot passed counts. Later, red
+ *  dots float in the gaps: touch one, or fall past the bottom, and it's over. */
 export class Swing implements Toy {
   private pins: (Pt & { passed?: boolean; red?: boolean })[] = [];
   private x = 0;
@@ -690,6 +703,9 @@ export class Swing implements Toy {
   /** The rope's length the finger asks for, and where the finger was when it asked. */
   private want = 0;
   private from: { y: number; len: number } | null = null;
+  /** The finger's last place and time, and how fast it's moving across (px/ms, smoothed). */
+  private last: { x: number; t: number } | null = null;
+  private fvx = 0;
   private started = false;
   private count = 0;
   private overAt = 0;
@@ -708,6 +724,8 @@ export class Swing implements Toy {
     this.overAt = 0;
     this.started = false;
     this.from = null;
+    this.last = null;
+    this.fvx = 0;
     this.pins.push({ x: s.m.x - s.hw * 0.4, y: s.m.y - s.hh * 0.45 });
     this.more(s);
     this.x = this.pins[0].x - 70;
@@ -754,16 +772,26 @@ export class Swing implements Toy {
       return;
     }
     if (this.overAt) { nu.seek({ x: nu.x, y: Math.min(nu.y, s.m.y + s.hh - nu.r) }, dt, 0.3, 0.02); return; }
+    // A finger that stops moving stops pumping.
+    this.fvx *= Math.exp(-dt / 70);
     const k = 4;
     for (let n = 0; n < k; n++) {
       const h = dt / k;
+      if (this.hook && this.from && this.fvx) {
+        // Pumping: the finger's sweep across, along the way round the dot, adds speed that way
+        // (with the swing) or takes it off (against it).
+        const dx = this.x - this.hook.x, dy = this.y - this.hook.y, d = Math.hypot(dx, dy) || 1;
+        const tx = -dy / d, ty = dx / d, dv = this.fvx * tx * SWING_PUMP * h;
+        this.vx += tx * dv;
+        this.vy += ty * dv;
+      }
       if (this.hook && this.len !== this.want) {
         // Reeling: the rope changes, and Nu's speed round the dot with it (shorter, faster).
         const was = this.len;
-        this.len = clamp(this.want, this.len - 0.35 * h, this.len + 0.35 * h);
+        this.len = clamp(this.want, this.len - 0.22 * h, this.len + 0.22 * h);
         const dx = this.x - this.hook.x, dy = this.y - this.hook.y, d = Math.hypot(dx, dy) || 1;
         if (d >= was - 1) {
-          const tx = -dy / d, ty = dx / d, vt = this.vx * tx + this.vy * ty, f = clamp(was / this.len, 0.9, 1.1) - 1;
+          const tx = -dy / d, ty = dx / d, vt = this.vx * tx + this.vy * ty, f = (clamp(was / this.len, 0.9, 1.1) - 1) * 0.6;
           this.vx += tx * vt * f;
           this.vy += ty * vt * f;
         }
@@ -836,6 +864,8 @@ export class Swing implements Toy {
 
   down(_s: Stage, p: Pt): void {
     if (this.overAt) return;
+    this.last = { x: p.x, t: performance.now() };
+    this.fvx = 0;
     if (!this.started) { this.started = true; this.vx = 0.25; this.vy = -0.1; this.from = { y: p.y, len: this.len }; return; }
     // The dot in reach nearest the finger.
     const f = { x: p.x + this.cam, y: p.y };
@@ -848,13 +878,21 @@ export class Swing implements Toy {
   }
 
   move(_s: Stage, p: Pt): void {
+    const now = performance.now();
+    if (this.last) {
+      const ms = now - this.last.t;
+      if (ms > 0) this.fvx += (clamp((p.x - this.last.x) / ms, -1.5, 1.5) - this.fvx) * Math.min(1, ms / 40);
+      this.last = { x: p.x, t: now };
+    }
     if (!this.from || !this.hook) return;
-    // Up reels in, down lets out.
-    this.want = clamp(this.from.len + (p.y - this.from.y) * 1.2, SWING_MIN, SWING_MAX);
+    // Up reels in, down lets out: gently.
+    this.want = clamp(this.from.len + (p.y - this.from.y) * 0.6, SWING_MIN, SWING_MAX);
   }
 
   up(): void {
     this.from = null;
+    this.last = null;
+    this.fvx = 0;
     if (this.started) this.hook = null;
   }
 }

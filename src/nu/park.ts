@@ -18,10 +18,10 @@
 //   Course  lead Nu up a channel past orbiting electrons, against the clock.
 //   Dive    tap to dive Nu through the gaps in turning shells, down to the nucleus.
 //   Hockey, Pairs: see arcade.ts. Flash, Halo, Pulse: see court.ts. Ripple: see swim.ts. Hop,
-//   Juggle, Loop, Pull, Spark, Twin: see yard.ts. Grow, Rain, Spot, Tilt: see field.ts. Brick,
-//   Flip, More, Stick: see lawn.ts. Blast, Bumper, Cross, Cue, Dodge, Hue: see meadow.ts. Land,
-//   Order, Pop, Ready, Recall, Swing: see grove.ts. Bank, Carve, Trail: see glade.ts. Bend,
-//   Spin: see dell.ts. Shade, Surf: see heath.ts.
+//   Juggle, Pull, Twin: see yard.ts. Grow, Rain, Spot, Tilt: see field.ts. Flip, More, Stick:
+//   see lawn.ts. Blast, Bumper, Cross, Cue, Dodge, Hue: see meadow.ts. Land, Order, Pop, Ready,
+//   Recall, Swing: see grove.ts. Bank, Carve: see glade.ts. Shade, Surf: see heath.ts. Fuse,
+//   Gate, Tune: see brook.ts. Ferry, Poise, Pole: see marsh.ts.
 // Most games are learnt by trying, so they carry no words: just the score and best under the
 // arena, drawn as tiny atoms (score-atom.ts). When a run is over, a card over the arena shows
 // its atom and an Again button; when a level is done, a Next button.
@@ -42,14 +42,15 @@ import { hush, newTheme } from './kit';
 import { Hockey, Pairs } from './arcade';
 import { Flash, Halo, Pulse } from './court';
 import { Ripple } from './swim';
-import { Hop, Juggle, Loop, Pull, Spark, Twin } from './yard';
+import { Hop, Juggle, Pull, Twin } from './yard';
 import { Grow, Rain, Spot, Tilt } from './field';
-import { Brick, Flip, More, Stick } from './lawn';
+import { Flip, More, Stick } from './lawn';
 import { Blast, Bumper, Cross, Cue, Dodge, Hue } from './meadow';
 import { Land, Order, Pop, Ready, Recall, Swing } from './grove';
-import { Bank, Carve, Trail } from './glade';
-import { Bend, Spin } from './dell';
+import { Bank, Carve } from './glade';
 import { Shade, Surf } from './heath';
+import { Fuse, Gate, Tune } from './brook';
+import { Ferry, Poise, Pole } from './marsh';
 import { fmt, points } from './points';
 import { atomSvg } from './score-atom';
 import { GAME_MS, NEXT_MS, ROULETTE_ICON, ROUND, chip, keepRun, pickSix, readBook, rouletteHtml, wheelSvg, type Run } from './roulette';
@@ -762,31 +763,53 @@ class Course implements Toy {
     // Never narrower than a fingertip can follow (a 40px channel at its tightest).
     const base = Math.max(22, 30 - this.level * 1.5);
     this.half = kind === 1 ? Math.max(20, base - 5) : kind === 2 ? Math.max(21, base - 3) : base;
-    const rows = kind === 1 ? 3 + (tall ? 1 : 0) : kind === 2 ? 5 + (tall ? 2 : 0) : 4 + Math.min(3, this.level) + (tall ? 2 : 0);
+    let rows = kind === 1 ? 3 + (tall ? 1 : 0) : kind === 2 ? 5 + (tall ? 2 : 0) : 4 + Math.min(3, this.level) + (tall ? 2 : 0);
+    // The zigzag turns on arcs a little wider than the channel's half, so the wall on the inside
+    // of each turn is round, never a sharp sliver of grey too thin to see; its rows are spaced so
+    // those turns fit, with a wall between them.
+    const span = hh - this.half - 16, turn = this.half + 6;
+    if (kind === 0) rows = Math.max(3, Math.min(rows, Math.floor((2 * span) / (2 * turn + 16))));
     const chord = hw - this.half - 14, side = rnd() < 0.5 ? -1 : 1;
     const ctrl: Pt[] = [];
     for (let i = 0; i <= rows; i++) {
-      const y = c.y + (hh - this.half - 16) - (i / rows) * 2 * (hh - this.half - 16);
+      const y = c.y + span - (i / rows) * 2 * span;
       let x = c.x;
       if (kind === 0 && i > 0 && i < rows) x = c.x + (i % 2 ? 1 : -1) * chord * (0.55 + rnd() * 0.3);
       else if (kind === 1 && i > 0 && i < rows) x = c.x + (rnd() - 0.5) * chord * 0.5;
       else if (kind === 2) x = c.x + side * Math.sin((i / rows) * Math.PI) * chord * 0.85 - side * chord * 0.35;
       ctrl.push({ x, y });
     }
-    // A smooth line through the points (Catmull-Rom), sampled every few px.
-    const pts: Pt[] = [];
-    for (let i = 0; i < ctrl.length - 1; i++) {
-      const p0 = ctrl[Math.max(0, i - 1)], p1 = ctrl[i], p2 = ctrl[i + 1], p3 = ctrl[Math.min(ctrl.length - 1, i + 2)];
-      const n = Math.ceil(dist(p1, p2) / 4);
-      for (let k = 0; k < n; k++) {
-        const t = k / n, t2 = t * t, t3 = t2 * t;
-        const cr = (a: number, b: number, cc: number, d: number) => 0.5 * (2 * b + (-a + cc) * t + (2 * a - 5 * b + 4 * cc - d) * t2 + (-a + 3 * b - 3 * cc + d) * t3);
-        pts.push({ x: cr(p0.x, p1.x, p2.x, p3.x), y: cr(p0.y, p1.y, p2.y, p3.y) });
+    let pts: Pt[];
+    if (kind === 0) {
+      // Straight runs with round turns. Rounding cuts the corners in, so the corners are pushed
+      // out until the turns reach about as far across as the corners were meant to.
+      const want = Math.max(...ctrl.map((q) => Math.abs(q.x - c.x)));
+      let k = 1;
+      pts = [];
+      for (let it = 0; it < 6; it++) {
+        pts = Course.rounded(ctrl.map((q, i) => (i > 0 && i < rows ? { x: c.x + (q.x - c.x) * k, y: q.y } : q)), turn);
+        const reach = Math.max(...pts.map((q) => Math.abs(q.x - c.x)));
+        if (reach >= want * 0.97 || k >= 1.8) break;
+        k = Math.min(1.8, (k * want) / reach);
       }
+    } else {
+      // A smooth line through the points (Catmull-Rom), sampled every few px.
+      pts = [];
+      for (let i = 0; i < ctrl.length - 1; i++) {
+        const p0 = ctrl[Math.max(0, i - 1)], p1 = ctrl[i], p2 = ctrl[i + 1], p3 = ctrl[Math.min(ctrl.length - 1, i + 2)];
+        const n = Math.ceil(dist(p1, p2) / 4);
+        for (let k = 0; k < n; k++) {
+          const t = k / n, t2 = t * t, t3 = t2 * t;
+          const cr = (a: number, b: number, cc: number, d: number) => 0.5 * (2 * b + (-a + cc) * t + (2 * a - 5 * b + 4 * cc - d) * t2 + (-a + 3 * b - 3 * cc + d) * t3);
+          pts.push({ x: cr(p0.x, p1.x, p2.x, p3.x), y: cr(p0.y, p1.y, p2.y, p3.y) });
+        }
+      }
+      pts.push(ctrl[ctrl.length - 1]);
     }
-    pts.push(ctrl[ctrl.length - 1]);
-    this.path = pts;
-    const n = pts.length;
+    // Whatever the course, no bend left tighter than the channel's half and a little more: drawn
+    // and tested alike, the inside wall of every bend is round.
+    this.path = Course.ease(pts, this.half + 4);
+    const n = this.path.length;
     this.gates = [0, Math.floor(n / 3), Math.floor((2 * n) / 3)];
     this.orbits = [];
     const count = Math.min(5, this.level + 1);
@@ -800,6 +823,69 @@ class Course implements Toy {
     this.state = 'back';
     this.time = 0;
     this.say(s);
+  }
+
+  /** The radius of the circle through three points (Infinity if they're in a line). */
+  private static bend(a: Pt, b: Pt, c: Pt): number {
+    const cross = Math.abs((b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x));
+    return cross < 1e-9 ? Infinity : (dist(a, b) * dist(b, c) * dist(a, c)) / (2 * cross);
+  }
+
+  /** The same line, its points every `h` px along it. */
+  private static even(p: Pt[], h: number): Pt[] {
+    const out = [p[0]];
+    let carry = 0;
+    for (let i = 0; i < p.length - 1; i++) {
+      const a = p[i], b = p[i + 1], l = dist(a, b);
+      let t = h - carry;
+      for (; t <= l; t += h) out.push({ x: a.x + ((b.x - a.x) * t) / l, y: a.y + ((b.y - a.y) * t) / l });
+      carry = l - (t - h);
+    }
+    const end = p[p.length - 1];
+    if (dist(out[out.length - 1], end) > h * 0.4) out.push(end); else out[out.length - 1] = end;
+    return out;
+  }
+
+  /** Straight runs between the points, each corner turned on an arc of radius `r` (or as round
+   *  as the runs either side leave room for), every 4px. */
+  private static rounded(q: Pt[], r: number): Pt[] {
+    const out: Pt[] = [q[0]];
+    for (let i = 1; i < q.length - 1; i++) {
+      const a = q[i - 1], b = q[i], c = q[i + 1], l1 = dist(a, b), l2 = dist(b, c);
+      const u = { x: (b.x - a.x) / l1, y: (b.y - a.y) / l1 }, v = { x: (c.x - b.x) / l2, y: (c.y - b.y) / l2 };
+      const turn = Math.acos(clamp(u.x * v.x + u.y * v.y, -1, 1));
+      if (turn < 1e-3) { out.push(b); continue; }
+      const t = Math.min(r * Math.tan(turn / 2), 0.48 * Math.min(l1, l2)), rr = t / Math.tan(turn / 2);
+      const side = Math.sign(u.x * v.y - u.y * v.x), p = { x: b.x - u.x * t, y: b.y - u.y * t };
+      const o = { x: p.x - u.y * side * rr, y: p.y + u.x * side * rr }, a0 = Math.atan2(p.y - o.y, p.x - o.x);
+      const n = Math.max(2, Math.ceil((turn * rr) / 3));
+      for (let k = 0; k <= n; k++) {
+        const an = a0 + side * turn * (k / n);
+        out.push({ x: o.x + Math.cos(an) * rr, y: o.y + Math.sin(an) * rr });
+      }
+    }
+    out.push(q[q.length - 1]);
+    return Course.even(out, 4);
+  }
+
+  /** Smooths out any bend tighter than radius `rmin`, a little at a time and only there, the
+   *  ends staying put. With every bend at least the channel's half, the inside wall has no
+   *  sharp point: just where a fine sliver of grey, too thin to see, would still count as wall. */
+  private static ease(line: Pt[], rmin: number): Pt[] {
+    let p = Course.even(line, 4);
+    for (let pass = 0; pass < 1500; pass++) {
+      const n = p.length, tight = new Uint8Array(n);
+      let any = false;
+      for (let i = 1; i < n - 1; i++) {
+        if (Course.bend(p[i - 1], p[i], p[i + 1]) >= rmin) continue;
+        any = true;
+        for (let k = Math.max(1, i - 6); k <= Math.min(n - 2, i + 6); k++) tight[k] = 1;
+      }
+      if (!any) break;
+      const q = p.map((v, i) => (tight[i] ? { x: 0.5 * v.x + 0.25 * (p[i - 1].x + p[i + 1].x), y: 0.5 * v.y + 0.25 * (p[i - 1].y + p[i + 1].y) } : v));
+      p = pass % 8 === 7 ? Course.even(q, 4) : q;
+    }
+    return Course.even(p, 4);
   }
 
   private say(s: Stage): void {
@@ -864,7 +950,7 @@ class Course implements Toy {
         nu.x += (ux * go) / steps;
         nu.y += (uy * go) / steps;
         this.progress = this.nearest(nu).i;
-        hit = this.off(nu) > this.half - nu.r * 0.75;
+        hit = this.off(nu) > this.half - nu.r * 0.6;
       }
       // Where Nu is now, for its trail.
       nu.vx = (ux * go) / dt;
@@ -1146,7 +1232,7 @@ class Orbit implements Toy {
       this.photons.splice(i, 1);
       this.count++;
       this.speed = Math.min(0.0028, this.speed + 0.00005);
-      s.fx.burst(at, 6, CYAN, 0.1);
+      s.fx.burst(at, 5, CYAN, 0.08);
       tickSound(this.count % 5);
       s.score(this.count, best(s, 'orbit') || null);
       // A new photon somewhere ahead, on either ring.
@@ -1165,7 +1251,7 @@ class Orbit implements Toy {
         this.state = 'over';
         this.overAt = now;
         finish(s, 'orbit', this.count);
-        s.fx.ring(at, RED, 8, 40, 700);
+        s.fx.ring(at, RED, 8, 32, 700);
         missSound();
         s.score(this.count, best(s, 'orbit') || null);
         return;
@@ -1178,12 +1264,12 @@ class Orbit implements Toy {
     dashed(ctx, s.c, this.rad(s, 1), K500, 0.55);
     // The ring just tapped, lit and fading.
     const f = this.lit ? clamp(1 - (now - this.lit.at) / 450, 0, 1) : 0;
-    if (this.lit && f > 0) ring(ctx, s.c, this.rad(s, this.lit.lane), this.lit.c, 3 + 3 * f, 0.85 * f);
+    if (this.lit && f > 0) ring(ctx, s.c, this.rad(s, this.lit.lane), this.lit.c, 3 + 2.25 * f, 0.64 * f);
     dot(ctx, s.c, 10, K300, 0.5);
     for (const q of this.photons) {
       ctx.save();
-      ctx.shadowColor = 'rgba(111, 208, 230, 0.8)';
-      ctx.shadowBlur = 10;
+      ctx.shadowColor = 'rgba(111, 208, 230, 0.6)';
+      ctx.shadowBlur = 7.5;
       dot(ctx, this.pos(s, q.a, q.lane), 5, CYAN);
       ctx.restore();
     }
@@ -1475,7 +1561,7 @@ class Dive implements Toy {
     this.shells = [];
     for (let k = 0; k < n; k++) {
       const sp = (0.0006 + rnd() * 0.0006 + this.level * 0.00008) * (k % 2 ? -1 : 1);
-      const n = 2 + Math.floor(rnd() * 3), wide = Math.max(0.3, 0.55 - this.level * 0.03), gaps: { at: number; w: number }[] = [];
+      const n = 2 + Math.floor(rnd() * 3), wide = 0.83 * Math.max(0.3, 0.55 - this.level * 0.03), gaps: { at: number; w: number }[] = [];
       for (let g = 0; g < n; g++) {
         // Spread round the shell, a little off even; one wide, the rest narrower.
         const at = (g * TAU) / n + (rnd() - 0.5) * (TAU / n) * 0.35;
@@ -1486,7 +1572,7 @@ class Dive implements Toy {
     // No gap too small to get through with room to spare: at least Nu's width and a fingertip's
     // timing on its shell. Small inner shells, then, keep fewer gaps.
     this.shells.forEach((sh, k) => {
-      const least = (2 * s.nu.r + 24) / this.radius(s, k);
+      const least = (2 * s.nu.r + 20) / this.radius(s, k);
       for (const g of sh.gaps) g.w = Math.max(g.w, least);
       while (sh.gaps.length > 1 && sh.gaps.reduce((a, g) => a + g.w, 0) > TAU * 0.45) sh.gaps.pop();
     });
@@ -1601,12 +1687,13 @@ const MAKE: Record<PlaceId, () => Toy> = {
   home: () => new Home(), sling: () => new Sling(), course: () => new Course(), echo: () => new Echo(), orbit: () => new Orbit(),
   shells: () => new Shells(), herd: () => new Herd(), hockey: () => new Hockey(), pairs: () => new Pairs(), dive: () => new Dive(), flash: () => new Flash(), halo: () => new Halo(),
   pulse: () => new Pulse(), ripple: () => new Ripple(), hop: () => new Hop(),
-  juggle: () => new Juggle(), loop: () => new Loop(), pull: () => new Pull(), spark: () => new Spark(), twin: () => new Twin(),
+  juggle: () => new Juggle(), pull: () => new Pull(), twin: () => new Twin(),
   grow: () => new Grow(), rain: () => new Rain(), spot: () => new Spot(), tilt: () => new Tilt(),
-  brick: () => new Brick(), flip: () => new Flip(), more: () => new More(), stick: () => new Stick(),
+  flip: () => new Flip(), more: () => new More(), stick: () => new Stick(),
   blast: () => new Blast(), bumper: () => new Bumper(), cross: () => new Cross(), cue: () => new Cue(), dodge: () => new Dodge(), hue: () => new Hue(),
   land: () => new Land(), order: () => new Order(), pop: () => new Pop(), ready: () => new Ready(), recall: () => new Recall(), swing: () => new Swing(),
-  carve: () => new Carve(), trail: () => new Trail(), bank: () => new Bank(), surf: () => new Surf(), shade: () => new Shade(), spin: () => new Spin(), bend: () => new Bend(),
+  carve: () => new Carve(), bank: () => new Bank(), surf: () => new Surf(), shade: () => new Shade(),
+  pole: () => new Pole(), poise: () => new Poise(), ferry: () => new Ferry(), fuse: () => new Fuse(), gate: () => new Gate(), tune: () => new Tune(),
 };
 
 /** The arena fills the field (w x h), its rim just inside the edge; the court is the biggest
@@ -1707,16 +1794,17 @@ const BOTS: Record<GameId, Bot> = { course: { kind: 'drag', path: 'wander' },
   dive: { kind: 'tap', every: 1100 }, echo: { kind: 'tap', every: 800 }, flash: { kind: 'tap', every: 650 },
   grow: { kind: 'drag', path: 'wander' }, halo: { kind: 'drag', path: 'circle' }, herd: { kind: 'drag', path: 'wander' },
   hockey: { kind: 'drag', path: 'row' }, hop: { kind: 'drag', path: 'row' }, juggle: { kind: 'tap', every: 650, at: 'nu' },
-  loop: { kind: 'loop' }, orbit: { kind: 'tap', every: 1200 }, pairs: { kind: 'tap', every: 700 },
-  pull: { kind: 'hold', on: 1100, off: 900 }, pulse: { kind: 'tap', every: 1000 }, rain: { kind: 'drag', path: 'row' }, ripple: { kind: 'tap', every: 700, at: 'near' }, shells: { kind: 'tap', every: 900 },
-  sling: { kind: 'sling' }, spark: { kind: 'tap', every: 2600 }, spot: { kind: 'tap', every: 1300 },
+  orbit: { kind: 'tap', every: 1200 }, pairs: { kind: 'tap', every: 700 },
+  pull: { kind: 'hold', on: 380, off: 2600 }, pulse: { kind: 'tap', every: 1000 }, rain: { kind: 'drag', path: 'row' }, ripple: { kind: 'tap', every: 700, at: 'near' }, shells: { kind: 'tap', every: 900 },
+  sling: { kind: 'sling' }, spot: { kind: 'tap', every: 1300 },
   tilt: { kind: 'drag', path: 'wander' }, twin: { kind: 'drag', path: 'wander' },
-  brick: { kind: 'drag', path: 'row' }, flip: { kind: 'tap', every: 750 }, more: { kind: 'tap', every: 1300, at: 'side' }, stick: { kind: 'tap', every: 950 },
+  flip: { kind: 'tap', every: 750 }, more: { kind: 'tap', every: 1300, at: 'side' }, stick: { kind: 'tap', every: 950 },
   blast: { kind: 'tap', every: 500 }, bumper: { kind: 'tap', every: 450, at: 'side' }, cross: { kind: 'tap', every: 700, at: 'nu' },
   cue: { kind: 'flick' }, dodge: { kind: 'drag', path: 'wander' }, hue: { kind: 'tap', every: 420 },
   land: { kind: 'hold', on: 450, off: 650 }, order: { kind: 'tap', every: 800 }, pop: { kind: 'tap', every: 1000 },
   ready: { kind: 'tap', every: 700 }, recall: { kind: 'tap', every: 600 }, swing: { kind: 'hold', on: 650, off: 450 },
-  carve: { kind: 'flick' }, trail: { kind: 'drag', path: 'wander' }, bank: { kind: 'flick' }, surf: { kind: 'hold', on: 450, off: 650 }, shade: { kind: 'drag', path: 'wander' }, spin: { kind: 'drag', path: 'circle' }, bend: { kind: 'flick' },
+  carve: { kind: 'flick' }, bank: { kind: 'flick' }, surf: { kind: 'hold', on: 450, off: 650 }, shade: { kind: 'drag', path: 'wander' },
+  pole: { kind: 'tap', every: 900, at: 'any' }, poise: { kind: 'tap', every: 1200, at: 'any' }, ferry: { kind: 'drag', path: 'wander' }, fuse: { kind: 'tap', every: 900 }, gate: { kind: 'drag', path: 'wander' }, tune: { kind: 'drag', path: 'wander' },
 };
 
 /** The size a tile plays at, before it's scaled down to fit: about a phone's arena. */
@@ -1978,12 +2066,15 @@ export class NuPark {
         if (this.rou?.doneAt) return;
         const id = this.place === 'home' ? null : this.place, own = id && this.toys[id].tally;
         if (typeof n === 'number') this.raw = n;
-        // Counts show as points (points.ts), drawn as tiny atoms (score-atom.ts), but for games
-        // that keep their own count (Pairs' turns, Course's time).
+        // Counts show as points (points.ts), drawn as tiny atoms (score-atom.ts). Games that
+        // keep their own count show the atom of the run so far (Course's grows along the
+        // course; Pairs' loses electrons with every turn), with no best beside it; Hockey keeps
+        // its match score. The best is the smaller atom at the right, without a word.
+        const toy = id ? this.toys[id] : null, live = own && toy?.raw && id !== 'hockey';
         const show = (v: number | string, size: number) => (typeof v === 'number' && id && !own ? atomSvg(points(id, v), size) : `<span>${v}</span>`);
-        this.scoreEl.innerHTML = n === null ? '' : show(n, 48);
+        this.scoreEl.innerHTML = n === null ? '' : live ? atomSvg(points(id!, toy!.raw!()), 48) : show(n, 48);
         if (this.rou) this.bestEl.textContent = this.rouLine();
-        else this.bestEl.innerHTML = n === null || b === null || b === undefined ? '' : `<span>Best:</span>${show(b, 30)}`;
+        else this.bestEl.innerHTML = n === null || b === null || b === undefined || live ? '' : show(b, 26);
       },
       end: (raw) => this.ended(raw),
       prompt: (go) => this.showOver(null, go),
@@ -2112,11 +2203,12 @@ export class NuPark {
     if (id === 'home') return;
     this.overGo = next;
     if (next) {
-      this.overEl.innerHTML = `<button type="button" class="nup-again is-next" aria-label="Next">${icon('play', { size: 30 })}</button>`;
+      this.overEl.innerHTML = `<button type="button" class="nup-again is-next" aria-label="Next">${icon('play', { size: 36 })}</button>`;
     } else {
-      const own = this.toys[id].tally, pts = points(id, raw ?? 0), fresh = !own && (raw ?? 0) > this.bestWas;
-      this.overEl.innerHTML = (own ? '' : `<span class="nup-over-atom${fresh ? ' is-best' : ''}">${atomSvg(pts, 120, { ring: fresh ? 'var(--c-accent)' : undefined, label: `${fmt(pts)} points${fresh ? ', a new best' : ''}` })}</span>`)
-        + `<button type="button" class="nup-again" aria-label="Play again">${icon('restart', { size: 30 })}</button>`;
+      // The run's atom (all in the accent for a new best), then Again.
+      const toy = this.toys[id], own = toy.tally && !toy.raw, pts = points(id, toy.tally && toy.raw ? toy.raw() : raw ?? 0), fresh = !toy.tally && (raw ?? 0) > this.bestWas;
+      this.overEl.innerHTML = (own ? '' : `<span class="nup-over-atom${fresh ? ' is-best' : ''}">${atomSvg(pts, 84, { tone: fresh ? 'var(--c-accent)' : undefined, label: `${fmt(pts)} points${fresh ? ', a new best' : ''}` })}</span>`)
+        + `<button type="button" class="nup-again" aria-label="Play again">${icon('restart', { size: 36 })}</button>`;
     }
     this.overEl.hidden = false;
     const btn = this.overEl.querySelector<HTMLButtonElement>('.nup-again')!;
@@ -2259,7 +2351,7 @@ export class NuPark {
     const sheet = openSheet({ title: 'Games', icon: 'nu', label: 'Nu’s games', from: 'top', className: 'nup-sheet', onClose: () => this.picked(sheet) });
     const book = readBook();
     sheet.body.innerHTML = `<button type="button" class="nup-rou">${wheelSvg(44)}<span class="nup-rou-text"><b>Roulette</b><small>Six games in a row</small></span>`
-      + `<span class="nup-rou-best">${book.best ? `<span>Best:</span>${atomSvg(book.best, 30)}` : ''}</span></button>`
+      + `<span class="nup-rou-best">${book.best ? atomSvg(book.best, 26) : ''}</span></button>`
       + '<div class="nup-tiles">' + GAMES.map((g) => {
       const label = `${g.label}${g.id === fancy ? ', Nu’s pick today' : ''}`;
       return `<button type="button" class="nup-tile${g.id === this.place ? ' is-here' : ''}" data-place="${g.id}" aria-label="${label}">`

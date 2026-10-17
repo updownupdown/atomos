@@ -9,7 +9,7 @@
 //           Ten shots, and two more for each rack cleared. Nu in a pocket loses a shot.
 //   Dodge   drag Nu clear of the red flying in from every side, for as long as you can.
 //   Hue     tap to hop Nu up through the turning rings, only through their part in Nu's color
-//           (two colors at first, up to five). The small dots change Nu's color. Fall, or touch another color, and it's over.
+//           (two colors, then three, four, five, set after set). The small dots change Nu's color. Fall, or touch another color, and it's over.
 
 import {
   CYAN, GREEN, K300, K500, K800, NOTE_COLOURS, RED, TAU, WHITE,
@@ -168,11 +168,12 @@ export class Bumper implements Toy {
     return { p: { x: px, y: py }, tip: { x: px + Math.cos(a) * L, y: py + Math.sin(a) * L }, a };
   }
 
-  /** A guide, from the wall down to its flipper's pivot, and its kicker: the middle of it. */
+  /** A guide, from the wall down to its flipper's pivot, and its kicker: a short piece in the
+   *  middle of it (short, so Nu reaches the flippers more often than not). */
   private guide(s: Stage, side: 0 | 1): { a: Pt; b: Pt; k0: Pt; k1: Pt } {
     const p = this.flipper(s, side).p, a = { x: side ? s.m.x + s.hw + 10 : s.m.x - s.hw - 10, y: this.floorY(s) - 80 };
     const at = (t: number): Pt => ({ x: a.x + (p.x - a.x) * t, y: a.y + (p.y - a.y) * t });
-    return { a, b: p, k0: at(0.25), k1: at(0.65) };
+    return { a, b: p, k0: at(0.35), k1: at(0.55) };
   }
 
   enter(s: Stage): void {
@@ -195,13 +196,14 @@ export class Bumper implements Toy {
   private place(s: Stage): void {
     const w = s.hw, top = s.m.y - s.hh + 70, h = (this.floorY(s) - top) * 0.62, C = NOTE_COLOURS;
     this.bumps = [
-      { x: s.m.x, y: top + h * 0.2, r: 22, c: C[3], at: 0 },
-      { x: s.m.x - w * 0.5, y: top + h * 0.4, r: 16, c: C[0], at: 0 },
-      { x: s.m.x + w * 0.42, y: top + h * 0.37, r: 19, c: C[1], at: 0 },
+      // Small, so Nu gets down to the flippers more often.
+      { x: s.m.x, y: top + h * 0.2, r: 16, c: C[3], at: 0 },
+      { x: s.m.x - w * 0.5, y: top + h * 0.4, r: 11, c: C[0], at: 0 },
+      { x: s.m.x + w * 0.42, y: top + h * 0.37, r: 13, c: C[1], at: 0 },
       // The one that slides across the middle.
-      { x: s.m.x, y: top + h * 0.62, r: 15, c: C[2], at: 0, ox: s.m.x, slide: w * 0.5, vx: 0 },
-      { x: s.m.x - w * 0.25, y: top + h * 0.88, r: 12, c: C[4], at: 0 },
-      { x: s.m.x + w * 0.3, y: top + h * 0.85, r: 13, c: C[0], at: 0 },
+      { x: s.m.x, y: top + h * 0.62, r: 11, c: C[2], at: 0, ox: s.m.x, slide: w * 0.5, vx: 0 },
+      { x: s.m.x - w * 0.25, y: top + h * 0.88, r: 9, c: C[4], at: 0 },
+      { x: s.m.x + w * 0.3, y: top + h * 0.85, r: 9, c: C[0], at: 0 },
     ];
   }
 
@@ -351,13 +353,16 @@ export class Bumper implements Toy {
 
 /** The colors of things to keep clear of: red, and its warm neighbors (never Nu's rose). */
 const DANGER = [RED, '#f07a3a', '#c8323c', '#e09a2a'];
+/** More of them, for Cross's electrons. */
+const WARM = [...DANGER, '#ff7a5c', '#e2552a', '#f2b33d', '#b02a48', '#ff9a3c', '#d9463a'];
+const pick = <T,>(a: T[]): T => a[Math.floor(Math.random() * a.length)];
 
 /** Lanes across the arena, electrons going by in each, this way or that, each lane at its own
  *  speed, its electrons in their own color and size. Tap above Nu and it hops up a lane; tap
  *  beside it and it steps aside. Across to the top counts, and the lanes come again a little
  *  faster. A touch sends Nu back to the bottom and costs one of three lives. */
 export class Cross implements Toy {
-  private lanes: { y: number; v: number; xs: number[]; rs: number[]; c: string }[] = [];
+  private lanes: { y: number; v: number; xs: number[]; rs: number[]; cs: string[] }[] = [];
   private row = 0;
   private col = 0;
   private left = 3;
@@ -388,22 +393,22 @@ export class Cross implements Toy {
   private build(s: Stage): void {
     const n = this.rows(s);
     this.lanes = [];
-    // A few kinds of electron each time (a color, a size), shared out among the lanes, so some
-    // lanes match.
-    const kinds = [0, 1, 2].map(() => ({ c: DANGER[Math.floor(Math.random() * DANGER.length)], r: 6 + Math.random() * 4 }));
     // Rows 1..n-2 have traffic, now and then a still one to rest in; the last row is the far side.
     for (let j = 1; j < n - 1; j++) {
-      const rest = j % 4 === 0, k = kinds[Math.floor(Math.random() * kinds.length)];
+      // Each lane has its own size (small to big) and a color or two of its own; each electron in
+      // it is a little bigger or smaller than the next.
+      const rest = j % 4 === 0, r = 4.5 + Math.random() * 7, cols = [pick(WARM), pick(WARM)];
       // Smaller electrons go a little faster, bigger ones slower.
-      const v = rest ? 0 : (j % 2 ? 1 : -1) * (0.03 + Math.random() * 0.04 + Math.min(0.04, this.count * 0.007)) * (8 / k.r);
-      const gap = 120 + Math.random() * 70 - Math.min(24, this.count * 4), xs: number[] = [], rs: number[] = [];
+      const v = rest ? 0 : (j % 2 ? 1 : -1) * (0.03 + Math.random() * 0.04 + Math.min(0.04, this.count * 0.007)) * Math.min(1.5, 8 / r);
+      const gap = 120 + Math.random() * 70 - Math.min(24, this.count * 4), xs: number[] = [], rs: number[] = [], cs: string[] = [];
       if (!rest) {
         for (let x = s.m.x - s.hw - Math.random() * gap; x < s.m.x + s.hw + gap; x += gap + Math.random() * 50) {
           xs.push(x);
-          rs.push(k.r * (0.9 + Math.random() * 0.2));
+          rs.push(r * (0.7 + Math.random() * 0.6));
+          cs.push(Math.random() < 0.3 ? pick(WARM) : pick(cols));
         }
       }
-      this.lanes.push({ y: this.rowY(s, j), v, xs, rs, c: k.c });
+      this.lanes.push({ y: this.rowY(s, j), v, xs, rs, cs });
     }
   }
 
@@ -448,10 +453,13 @@ export class Cross implements Toy {
 
   draw(s: Stage, ctx: CanvasRenderingContext2D, now: number): void {
     const n = this.rows(s);
-    bar(ctx, s.m.x - s.hw, this.rowY(s, n - 1), s.m.x + s.hw, this.rowY(s, n - 1), GREEN, 6, 0.35);
+    // The far side: a wide green band, with a brighter line along its edge.
+    const top = this.rowY(s, n - 1), w = this.step_ * 0.75;
+    bar(ctx, s.m.x - s.hw, top, s.m.x + s.hw, top, GREEN, w, 0.2);
+    bar(ctx, s.m.x - s.hw, top + w / 2, s.m.x + s.hw, top + w / 2, GREEN, 4, 0.55);
     for (const l of this.lanes) {
       if (!l.v) { bar(ctx, s.m.x - s.hw, l.y, s.m.x + s.hw, l.y, K800, 20, 0.8); continue; }
-      l.xs.forEach((x, i) => danger(ctx, { x, y: l.y }, l.rs[i], this.overAt ? K500 : l.c, this.overAt ? 0.6 : 1));
+      l.xs.forEach((x, i) => danger(ctx, { x, y: l.y }, l.rs[i], this.overAt ? K500 : l.cs[i], this.overAt ? 0.6 : 1));
     }
     lives(s, ctx, this.left);
     if (now - this.hitAt > 600 || Math.floor(now / 120) % 2) s.nu.draw(ctx, now);
@@ -707,11 +715,11 @@ export class Dodge implements Toy {
 // ---- Hue -------------------------------------------------------------------------------------
 
 const HUES = NOTE_COLOURS;
-/** How many rings in a set: the first set's rings are in two colors, then three, four, five. */
-const HUE_SET = 4;
-const huesOf = (i: number): number => Math.min(HUES.length, 2 + Math.floor(i / HUE_SET));
+/** How many colors a ring has: the first (bottom) ring two, the next three, then four, then
+ *  five, and five from then on. */
+const huesOf = (i: number): number => Math.min(HUES.length, 5, 2 + i);
 
-/** Rings stacked up the arena, turning, in two colors at first and up to five later. Nu wears one
+/** Rings stacked up the arena, turning: in each set of four, two colors, then three, four, five. Nu wears one
  *  of the colors (the ring round it). Tap and Nu hops up; it falls between taps. It may pass a ring only where the ring is
  *  in its color. A small dot between rings changes Nu's color. Each ring passed counts; fall off
  *  the bottom, or touch another color, and it's over. */

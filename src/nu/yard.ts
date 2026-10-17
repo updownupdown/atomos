@@ -1,19 +1,14 @@
-// Seven more of Nu's park games (park.ts), on the same kit:
-//   Bloom   red electrons bounce round the court. Hold to blow a bubble where you press; an
-//           electron touching it while it grows pops it. Fill most of the court to clear it.
+// Four more of Nu's park games (park.ts), on the same kit:
 //   Hop     Nu hops up from pad to pad; slide the finger to steer it. Cyan pads spring higher.
 //           Down at the bottom and it's over.
 //   Juggle  keep Nu up: tap near it to kick it into the air. It mustn't touch the floor.
-//   Loop    draw a loop round electrons to catch them, but never round a red one.
-//   Pull    Nu orbits a nucleus; hold to pull it toward the finger and reshape its orbit, so it
-//           runs through photons and misses the reds circling on their own rings.
-//   Spark   one spark a round: aim, let go, and Nu bursts there; every atom a burst touches
-//           bursts too, wider for bigger atoms. Set off enough of them to go on.
+//   Pull    Nu circles a nucleus on one of four rings; hold to burn and swing out (or in) to
+//           another ring, catching the photons riding them and missing the reds.
 //   Twin    Nu has a twin on the far side of the middle that goes where it goes, mirrored.
 //           Catch photons with either; neither may touch red.
 
 import {
-  CYAN, K300, K500, K800, NOTE_COLOURS, RED, ROSE, TAU, WHITE,
+  CYAN, GREEN, K300, K500, K800, NOTE_COLOURS, RED, ROSE, TAU, WHITE,
   anywhere, best, bounceIn, buzz, captureSound, chimeSound, clamp, completeSound, dist, dot, edge, inside, missSound, ring, finish, setBest, tickSound,
   type Mover, type Pt, type Stage, type Toy,
 } from './kit';
@@ -313,144 +308,38 @@ export class Juggle implements Toy {
   }
 }
 
-// ---- Loop ------------------------------------------------------------------------------------
-
-function insidePoly(p: Pt, poly: Pt[]): boolean {
-  let on = false;
-  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-    const a = poly[i], b = poly[j];
-    if ((a.y > p.y) !== (b.y > p.y) && p.x < ((b.x - a.x) * (p.y - a.y)) / (b.y - a.y) + a.x) on = !on;
-  }
-  return on;
-}
-
-/** Electrons drift about. Draw a loop round some (Nu follows the finger, drawing it): when the
- *  line meets itself, or you let go near where you began, the electrons inside are caught. A
- *  red one inside spoils the loop and costs a life. */
-export class Loop implements Toy {
-  private dots: (Mover & { red: boolean })[] = [];
-  private line: Pt[] = [];
-  private count = 0;
-  private left = 3;
-  private overAt = 0;
-
-  enter(s: Stage): void {
-    s.nu.r = 9;
-    this.reset(s);
-  }
-
-  private reset(s: Stage): void {
-    this.dots = [];
-    this.line = [];
-    this.count = 0;
-    this.left = 3;
-    this.overAt = 0;
-    this.stock(s);
-    s.score(0, best(s, 'loop') || null);
-  }
-
-  /** Six electrons, and a red one more for every eight caught (up to four). */
-  private stock(s: Stage): void {
-    const reds = Math.min(4, 1 + Math.floor(this.count / 8));
-    const add = (red: boolean) => {
-      let p = anywhere(s, 20);
-      for (let k = 0; k < 20 && dist(p, s.nu) < 70; k++) p = anywhere(s, 20);
-      this.dots.push({ ...drift(p, 0.04 + Math.random() * 0.04), red });
-    };
-    while (this.dots.filter((d) => !d.red).length < 6) add(false);
-    while (this.dots.filter((d) => d.red).length < reds) add(true);
-  }
-
-  step(s: Stage, dt: number): void {
-    for (const d of this.dots) {
-      d.x += d.vx * dt;
-      d.y += d.vy * dt;
-      bounceIn(s, d, 6, 1);
-    }
-    const end = this.line[this.line.length - 1];
-    if (end && !this.overAt) s.nu.seek(end, dt, 1.4, 0.06);
-  }
-
-  private close(s: Stage, poly: Pt[]): void {
-    this.line = [];
-    if (poly.length < 8) return;
-    const caught = this.dots.filter((d) => insidePoly(d, poly));
-    if (caught.some((d) => d.red)) {
-      for (const d of caught.filter((q) => q.red)) s.fx.ring(d, RED, 6, 30, 500);
-      this.left--;
-      missSound();
-      buzz(22);
-      if (this.left <= 0) {
-        this.overAt = performance.now();
-        finish(s, 'loop', this.count);
-        s.score(this.count, best(s, 'loop') || null);
-      }
-      return;
-    }
-    if (!caught.length) return;
-    for (const d of caught) s.fx.burst(d, 6, CYAN, 0.1);
-    this.dots = this.dots.filter((d) => !caught.includes(d));
-    this.count += caught.length;
-    captureSound();
-    if (caught.length >= 3) completeSound();
-    s.score(this.count, best(s, 'loop') || null);
-    this.stock(s);
-  }
-
-  draw(s: Stage, ctx: CanvasRenderingContext2D, now: number): void {
-    for (let i = 0; i < this.line.length; i += 2) dot(ctx, this.line[i], 2.6, WHITE, 0.55);
-    for (const d of this.dots) if (d.red) dot(ctx, d, 6, RED); else glow(ctx, d, 5.5);
-    lives(s, ctx, this.left);
-    s.nu.draw(ctx, now);
-  }
-
-  down(s: Stage, p: Pt): void {
-    if (this.overAt) return;
-    this.line = [p];
-  }
-
-  move(s: Stage, p: Pt): void {
-    if (this.overAt || !this.line.length) return;
-    const last = this.line[this.line.length - 1];
-    if (dist(p, last) < 6) return;
-    this.line.push(p);
-    if (this.line.length > 400) this.line.shift();
-    // The line meets itself: the loop is what lies between.
-    for (let i = 0; i < this.line.length - 12; i++) {
-      if (dist(p, this.line[i]) < 16) { this.close(s, this.line.slice(i)); return; }
-    }
-  }
-
-  up(s: Stage): void {
-    const l = this.line;
-    if (l.length > 12 && dist(l[0], l[l.length - 1]) < 44) this.close(s, l);
-    this.line = [];
-  }
-}
-
 // ---- Pull ------------------------------------------------------------------------------------
 
-/** Pull's time for one round of Nu's starting orbit, in ms. */
-const PULL_LAP = 4200;
-/** Nu's starting orbit, and the nucleus, as parts of the court's radius. */
-const PULL_START = 0.55;
+/** Pull's rings, as parts of the court's radius, and the nucleus. */
+const PULL_RINGS = [0.3, 0.48, 0.66, 0.84];
 const PULL_CORE = 0.08;
+/** Nu starts on this ring, which takes PULL_LAP ms to go round. */
+const PULL_HOME = 1;
+const PULL_LAP = 3800;
 /** Physics in small fixed steps, so the orbits hold. */
 const PULL_STEP = 4;
+/** How hard a burn pushes: a second's hold changes the speed by a fifth. */
+const PULL_BURN = 0.2;
+/** How round, and how near a ring, an orbit must be for Nu to settle on that ring: forgiving
+ *  for a new ring, strict for the one it left (so a small burn there isn't undone). */
+const PULL_ROUND = 0.12;
+const PULL_ROUND_HOME = 0.04;
+const PULL_NEAR = 0.06;
 
-/** A red danger on its own round orbit. */
-type Red = { rr: number; a: number; w: number };
+/** Something riding a ring: a photon or a red, at angle `a`, turning at `w` (rad/ms). */
+type Rider = { k: number; a: number; w: number };
 
-/** Nu orbits the nucleus at the middle of the court, on an ellipse, under its pull (the faint
- *  line ahead of Nu is where it will go). Hold anywhere and Nu is pulled toward the finger: hold
- *  ahead of it to speed up and swing wider, behind to slow down and drop in. Shape the orbit to
- *  run through photons, which are caught on touch; red dangers circle on their own rings, and
- *  one touching Nu costs a life. Waiting is fine: let a red go round before crossing its ring. */
+/** Nu circles the nucleus on one of four faint rings. Hold to burn: press outside Nu's ring to
+ *  speed up, and the far side of its orbit swings out (the dotted line is where it will go, the
+ *  small ring its far point); press inside to slow down and drop in. Out on the far side, burn
+ *  again until that ring turns green and let go: Nu settles on it. Photons ride the rings, caught
+ *  on touch (the dotted line marks it green when it will meet one); reds ride them too, and
+ *  one touching Nu costs a life (the dotted line stops at a red ring where it would). */
 export class Pull implements Toy {
   court = true;
   private b: Mover = { x: 0, y: 0, vx: 0, vy: 0 };
-  private photons: Pt[] = [];
-  private reds: Red[] = [];
+  private photons: Rider[] = [];
+  private reds: Rider[] = [];
   private press: Pt | null = null;
   private count = 0;
   private left = 3;
@@ -458,20 +347,27 @@ export class Pull implements Toy {
   /** After a hit, a moment when no red can hit again. */
   private safeUntil = 0;
   private spare = 0;
+  /** The ring Nu has settled on, or -1 out between them. */
+  private on = PULL_HOME;
+  /** The ring Nu last left (or is on). */
+  private from = PULL_HOME;
+  /** Light on a ring Nu just settled on, by when. */
+  private litAt = 0;
 
   enter(s: Stage): void {
     s.nu.r = 9;
     this.reset(s);
   }
 
-  /** The nucleus's pull (GM), set so the starting orbit takes PULL_LAP. */
-  private gm(s: Stage): number { const r = s.R * PULL_START, w = TAU / PULL_LAP; return r * r * r * w * w; }
-  /** How hard the finger pulls (px/ms²): a second's hold changes the speed by about 15%. */
-  private thrust(s: Stage): number { return Math.sqrt(this.gm(s) / (s.R * PULL_START)) * 0.15 / 1000; }
+  private rr(s: Stage, k: number): number { return s.R * PULL_RINGS[k]; }
+  /** The nucleus's pull (GM), set so the home ring takes PULL_LAP. */
+  private gm(s: Stage): number { const r = this.rr(s, PULL_HOME), w = TAU / PULL_LAP; return r * r * r * w * w; }
+  /** A round orbit's turning speed on ring `k` (rad/ms). */
+  private spin(s: Stage, k: number): number { return Math.sqrt(this.gm(s) / this.rr(s, k) ** 3); }
 
   private reset(s: Stage): void {
-    const r = s.R * PULL_START, v = Math.sqrt(this.gm(s) / r);
-    // Nu starts on a round orbit, going round anticlockwise (on screen).
+    const r = this.rr(s, PULL_HOME), v = Math.sqrt(this.gm(s) / r);
+    // Nu starts on its ring, going round anticlockwise (on screen).
     this.b = { x: s.c.x, y: s.c.y + r, vx: v, vy: 0 };
     s.nu.at(this.b);
     this.count = 0;
@@ -480,51 +376,60 @@ export class Pull implements Toy {
     this.safeUntil = 0;
     this.spare = 0;
     this.press = null;
+    this.on = this.from = PULL_HOME;
     this.reds = [];
     this.photons = [];
     this.stock(s);
     s.score(0, best(s, 'pull') || null);
   }
 
-  /** Three photons waiting, and a red ring more for every five caught (up to four). */
+  /** The ring nearest Nu now. */
+  private near(s: Stage): number {
+    const r = dist(this.b, s.c);
+    let k = 0;
+    for (let i = 1; i < PULL_RINGS.length; i++) if (Math.abs(this.rr(s, i) - r) < Math.abs(this.rr(s, k) - r)) k = i;
+    return k;
+  }
+
+  /** Two photons waiting on rings away from Nu's, still at first and drifting later; and a red
+   *  more for every four caught (up to four), starting across the court from Nu. */
   private stock(s: Stage): void {
-    while (this.photons.length < 3) {
-      let p: Pt = s.c;
-      for (let k = 0; k < 30; k++) {
-        const a = Math.random() * TAU, r = s.R * (0.22 + Math.random() * 0.66);
-        p = { x: s.c.x + Math.cos(a) * r, y: s.c.y + Math.sin(a) * r };
-        if (dist(p, this.b) > 70 && this.photons.every((q) => dist(p, q) > 50)) break;
-      }
-      this.photons.push(p);
+    const home = this.near(s), nuA = Math.atan2(this.b.y - s.c.y, this.b.x - s.c.x);
+    while (this.photons.length < 2) {
+      const free = [0, 1, 2, 3].filter((k) => k !== home && this.photons.every((p) => p.k !== k));
+      const k = free[Math.floor(Math.random() * free.length)];
+      const drift = this.count < 3 ? 0 : Math.min(0.35, (this.count - 2) * 0.04);
+      this.photons.push({ k, a: nuA + 0.8 + Math.random() * (TAU - 1.6), w: this.spin(s, k) * drift * (Math.random() < 0.5 ? -1 : 1) });
     }
-    const want = Math.min(4, 1 + Math.floor(this.count / 5));
+    const want = Math.min(4, 1 + Math.floor(this.count / 4));
     while (this.reds.length < want) {
-      // A ring of its own, clear of the others and of Nu's way round now, starting across the
-      // court from Nu.
-      const nuR = dist(this.b, s.c);
-      let rr = 0;
-      for (let k = 0; k < 30; k++) {
-        rr = s.R * (0.22 + Math.random() * 0.68);
-        if (Math.abs(rr - nuR) > 30 && this.reds.every((q) => Math.abs(q.rr - rr) > s.R * 0.12)) break;
-      }
-      const nuA = Math.atan2(this.b.y - s.c.y, this.b.x - s.c.x);
-      // Slower than an orbit there would be, either way round.
-      const w = Math.sqrt(this.gm(s) / (rr * rr * rr)) * (0.45 + Math.random() * 0.2) * (Math.random() < 0.5 ? -1 : 1);
-      this.reds.push({ rr, a: nuA + Math.PI + (Math.random() - 0.5), w });
+      const free = [0, 1, 2, 3].filter((k) => k !== home);
+      free.sort((a, b) => this.reds.filter((q) => q.k === a).length - this.reds.filter((q) => q.k === b).length);
+      const k = free[Math.random() < 0.6 ? 0 : Math.floor(Math.random() * free.length)];
+      // Slower than a round orbit there, either way round.
+      const w = this.spin(s, k) * (0.45 + Math.random() * 0.3) * (Math.random() < 0.5 ? -1 : 1);
+      this.reds.push({ k, a: nuA + Math.PI + (Math.random() - 0.5), w });
     }
   }
 
-  private red(s: Stage, q: Red): Pt { return { x: s.c.x + Math.cos(q.a) * q.rr, y: s.c.y + Math.sin(q.a) * q.rr }; }
+  private at(s: Stage, q: Rider, t = 0): Pt {
+    const a = q.a + q.w * t, r = this.rr(s, q.k);
+    return { x: s.c.x + Math.cos(a) * r, y: s.c.y + Math.sin(a) * r };
+  }
 
-  /** One small step of Nu under the nucleus's pull (and the finger's, if held). */
-  private fall(s: Stage, b: Mover, dt: number, held: Pt | null): void {
+  /** The way a press burns: +1 speeding up (pressed outside Nu's ring), -1 slowing down. */
+  private way(s: Stage, p: Pt): number { return dist(p, s.c) >= dist(this.b, s.c) ? 1 : -1; }
+
+  /** One small step of Nu under the nucleus's pull (and a burn along its way, if pressed). */
+  private fall(s: Stage, b: Mover, dt: number, burn: number): void {
     const dx = b.x - s.c.x, dy = b.y - s.c.y, r = Math.max(s.R * PULL_CORE, Math.hypot(dx, dy));
     const g = this.gm(s) / (r * r * r);
     b.vx -= dx * g * dt;
     b.vy -= dy * g * dt;
-    if (held) {
-      const hx = held.x - b.x, hy = held.y - b.y, d = Math.hypot(hx, hy);
-      if (d > 4) { const t = this.thrust(s); b.vx += (hx / d) * t * dt; b.vy += (hy / d) * t * dt; }
+    if (burn) {
+      const v = Math.hypot(b.vx, b.vy) || 1, t = Math.sqrt(this.gm(s) / r) * PULL_BURN / 1000 * burn;
+      b.vx += (b.vx / v) * t * dt;
+      b.vy += (b.vy / v) * t * dt;
     }
     b.x += b.vx * dt;
     b.y += b.vy * dt;
@@ -546,24 +451,57 @@ export class Pull implements Toy {
     return bounceIn(s, b, r, 0.7);
   }
 
+  /** The ring Nu's orbit now is round enough, and near enough, to settle on; or -1. */
+  private settles(s: Stage, b: Mover): number {
+    const gm = this.gm(s), x = b.x - s.c.x, y = b.y - s.c.y, r = Math.hypot(x, y);
+    const e2 = (b.vx * b.vx + b.vy * b.vy) / 2 - gm / r;
+    if (e2 >= 0) return -1;
+    const a = -gm / (2 * e2), h = x * b.vy - y * b.vx, e = Math.sqrt(Math.max(0, 1 + (2 * e2 * h * h) / (gm * gm)));
+    if (e > PULL_ROUND) return -1;
+    for (let k = 0; k < PULL_RINGS.length; k++) {
+      const rr = this.rr(s, k);
+      if (Math.abs(a - rr) < s.R * PULL_NEAR && Math.abs(r - rr) < s.R * PULL_NEAR && (k !== this.from || e < PULL_ROUND_HOME)) return k;
+    }
+    return -1;
+  }
+
   step(s: Stage, dt: number, now: number): void {
     const nu = s.nu, b = this.b;
     for (const q of this.reds) q.a += q.w * dt;
+    for (const q of this.photons) q.a += q.w * dt;
     if (this.overAt) return;
+    const burn = this.press ? this.way(s, this.press) : 0;
     this.spare += dt;
     while (this.spare >= PULL_STEP) {
       this.spare -= PULL_STEP;
-      this.fall(s, b, PULL_STEP, this.press);
+      this.fall(s, b, PULL_STEP, burn);
       if (this.bounce(s, b, nu.r)) tickSound(0);
+    }
+    if (burn) this.on = -1;
+    else {
+      // Let go round enough near a ring: Nu settles on it, exactly.
+      const k = this.settles(s, b);
+      if (k >= 0) {
+        const x = b.x - s.c.x, y = b.y - s.c.y, r = Math.hypot(x, y) || 1, rr = this.rr(s, k);
+        const v = Math.sqrt(this.gm(s) / rr), turn = Math.sign(x * b.vy - y * b.vx) || 1;
+        b.x = s.c.x + (x / r) * rr;
+        b.y = s.c.y + (y / r) * rr;
+        b.vx = (-y / r) * v * turn;
+        b.vy = (x / r) * v * turn;
+        if (this.on !== k) { chimeSound(k); this.litAt = now; }
+        this.from = k;
+      }
+      this.on = k;
     }
     nu.x = b.x;
     nu.y = b.y;
     nu.vx = b.vx;
     nu.vy = b.vy;
     for (let i = 0; i < this.photons.length; i++) {
-      if (dist(this.photons[i], nu) > nu.r + 8) continue;
+      const p = this.at(s, this.photons[i]);
+      if (dist(p, nu) > nu.r + 8) continue;
       this.count++;
-      s.fx.burst(this.photons[i], 6, CYAN, 0.1);
+      s.fx.burst(p, 6, CYAN, 0.1);
       captureSound();
       s.score(this.count, best(s, 'pull') || null);
       this.photons.splice(i--, 1);
@@ -571,7 +509,7 @@ export class Pull implements Toy {
     this.stock(s);
     if (now < this.safeUntil) return;
     for (const q of this.reds) {
-      const p = this.red(s, q);
+      const p = this.at(s, q);
       if (dist(p, nu) > nu.r + 5) continue;
       this.left--;
       this.safeUntil = now + 1500;
@@ -590,60 +528,81 @@ export class Pull implements Toy {
     }
   }
 
-  /** Where Nu will go if let be: about one orbit ahead (less if it hits something). */
-  private ahead(s: Stage): Pt[] {
-    const b = { ...this.b }, out: Pt[] = [{ x: b.x, y: b.y }];
-    let turned = 0, last = Math.atan2(b.y - s.c.y, b.x - s.c.x);
-    for (let i = 0; i < 1200 && turned < TAU * 0.97; i++) {
-      this.fall(s, b, 8, null);
+  /** Where Nu will go if let be, about one orbit ahead: the way, its far point, the photons it
+   *  will meet, and the red it would run into (where the way stops). */
+  private ahead(s: Stage, now: number): { path: Pt[]; far: Pt | null; meets: Set<Rider>; hit: Pt | null; lo: number; hi: number } {
+    const b = { ...this.b }, path: Pt[] = [{ x: b.x, y: b.y }], meets = new Set<Rider>(), r0 = dist(b, s.c);
+    let turned = 0, last = Math.atan2(b.y - s.c.y, b.x - s.c.x), t = 0, far: Pt | null = null, fd = 0, hit: Pt | null = null;
+    let lo = r0, hi = r0, gap = 0;
+    const safe = now < this.safeUntil, reach = s.nu.r + 8, bump = s.nu.r + 5;
+    for (let i = 0; i < 1600 && turned < TAU * 0.98; i++) {
+      const px = b.x, py = b.y;
+      this.fall(s, b, 8, 0);
+      t += 8;
       if (this.bounce(s, b, s.nu.r)) break;
-      const a = Math.atan2(b.y - s.c.y, b.x - s.c.x);
+      const a = Math.atan2(b.y - s.c.y, b.x - s.c.x), r = Math.hypot(b.x - s.c.x, b.y - s.c.y);
       let da = a - last;
       if (da > Math.PI) da -= TAU;
       if (da < -Math.PI) da += TAU;
       turned += Math.abs(da);
       last = a;
-      if (i % 3 === 2) out.push({ x: b.x, y: b.y });
+      lo = Math.min(lo, r);
+      hi = Math.max(hi, r);
+      if (Math.abs(r - r0) > fd) { fd = Math.abs(r - r0); far = { x: b.x, y: b.y }; }
+      for (const q of this.photons) if (!meets.has(q) && dist(this.at(s, q, t), b) < reach) meets.add(q);
+      if (!safe || t > this.safeUntil - now) {
+        const red = this.reds.find((q) => dist(this.at(s, q, t), b) < bump);
+        if (red) { hit = { x: b.x, y: b.y }; path.push(hit); break; }
+      }
+      // A dot about every 11 px.
+      gap += Math.hypot(b.x - px, b.y - py);
+      if (gap >= 11) { gap = 0; path.push({ x: b.x, y: b.y }); }
     }
-    return out;
+    return { path, far: fd > 6 ? far : null, meets, hit, lo, hi };
   }
 
   draw(s: Stage, ctx: CanvasRenderingContext2D, now: number): void {
-    // The red rings, faintly.
-    for (const q of this.reds) ring(ctx, s.c, q.rr, RED, 2, 0.16);
+    const view = this.overAt ? null : this.ahead(s, now);
+    // The rings, faintly: one the way reaches with a photon on it lights up, one Nu would settle
+    // on if let go now turns green, and the one Nu has just settled on flashes.
+    const ready = this.press && !this.overAt ? this.settles(s, this.b) : -1;
+    for (let k = 0; k < PULL_RINGS.length; k++) {
+      const rr = this.rr(s, k);
+      if (k === ready && k !== this.from) { ring(ctx, s.c, rr, GREEN, 3, 0.7); continue; }
+      const reached = !!view && this.on !== k && view.lo - 6 <= rr && view.hi + 6 >= rr && this.photons.some((p) => p.k === k);
+      const flash = this.on === k ? clamp(1 - (now - this.litAt) / 700, 0, 1) : 0;
+      ring(ctx, s.c, rr, reached ? CYAN : K500, reached ? 3 : 2, reached ? 0.45 + Math.sin(now / 180) * 0.1 : 0.45 + flash * 0.4);
+    }
     // The nucleus.
     dot(ctx, s.c, s.R * PULL_CORE, K800, 1);
     ring(ctx, s.c, s.R * PULL_CORE - 1.5, K300, 3, 0.7);
-    // Nu's way ahead, fading out.
-    if (!this.overAt) {
-      const path = this.ahead(s), n = path.length;
-      ctx.save();
-      ctx.lineCap = 'round';
-      ctx.lineWidth = 2;
-      ctx.strokeStyle = WHITE;
-      for (let i = 1; i < n; i++) {
-        ctx.globalAlpha = 0.35 * (1 - i / n);
-        ctx.beginPath();
-        ctx.moveTo(path[i - 1].x, path[i - 1].y);
-        ctx.lineTo(path[i].x, path[i].y);
-        ctx.stroke();
-      }
-      ctx.restore();
+    // Nu's way ahead, dotted and fading out; its far point; a red ring where it would hit.
+    if (view) {
+      const n = view.path.length;
+      for (let i = 1; i < n; i++) dot(ctx, view.path[i], 1.6, WHITE, 0.55 * (1 - (i / n) * 0.7));
+      if (view.far) ring(ctx, view.far, 6, WHITE, 2, 0.7);
+      if (view.hit) ring(ctx, view.hit, 10, RED, 3, 0.8);
     }
-    for (const p of this.photons) glow(ctx, p, 5 + Math.sin(now / 260) * 0.6);
+    for (const q of this.photons) {
+      const p = this.at(s, q);
+      glow(ctx, p, 5 + Math.sin(now / 260) * 0.6);
+      // On course: a green ring round it, beating.
+      if (view?.meets.has(q)) ring(ctx, p, 11 + Math.sin(now / 120) * 2, GREEN, 3, 0.8);
+    }
     const safe = now < this.safeUntil;
-    for (const q of this.reds) dot(ctx, this.red(s, q), 6, RED, safe ? 0.5 : 1);
-    // The finger's pull: a line from Nu toward it.
+    for (const q of this.reds) dot(ctx, this.at(s, q), 6, RED, safe ? 0.5 : 1);
+    // The burn: a short line from Nu along its way (ahead speeding up, behind slowing down).
     if (this.press && !this.overAt) {
-      const nu = s.nu, dx = this.press.x - nu.x, dy = this.press.y - nu.y, d = Math.hypot(dx, dy) || 1, l = Math.min(d, 36);
+      const nu = s.nu, v = Math.hypot(this.b.vx, this.b.vy) || 1, w = this.way(s, this.press);
+      const ux = (this.b.vx / v) * w, uy = (this.b.vy / v) * w;
       ctx.save();
       ctx.lineCap = 'round';
       ctx.lineWidth = 3;
       ctx.strokeStyle = WHITE;
-      ctx.globalAlpha = 0.5;
+      ctx.globalAlpha = 0.6;
       ctx.beginPath();
-      ctx.moveTo(nu.x + (dx / d) * (nu.r + 4), nu.y + (dy / d) * (nu.r + 4));
-      ctx.lineTo(nu.x + (dx / d) * (nu.r + 4 + l), nu.y + (dy / d) * (nu.r + 4 + l));
+      ctx.moveTo(nu.x + ux * (nu.r + 4), nu.y + uy * (nu.r + 4));
+      ctx.lineTo(nu.x + ux * (nu.r + 22), nu.y + uy * (nu.r + 22));
       ctx.stroke();
       ctx.restore();
       ring(ctx, this.press, 12, K300, 2, 0.5);
@@ -659,202 +618,6 @@ export class Pull implements Toy {
 
   move(_s: Stage, p: Pt): void { if (this.press && !this.overAt) this.press = p; }
   up(): void { this.press = null; }
-}
-
-// ---- Spark -----------------------------------------------------------------------------------
-
-const BURST_GROW = 260;
-const BURST_HOLD = 1500;
-const BURST_SHRINK = 320;
-const BURST_MS = BURST_GROW + BURST_HOLD + BURST_SHRINK;
-
-/** Spark's atoms come in three sizes: the bigger the atom, the wider its burst (on a phone-sized
- *  arena; bigger arenas scale up). Nu's own burst is in between. */
-const SPARK_KINDS = [
-  { r: 4.5, burst: 46, c: NOTE_COLOURS[0], odds: 0.4 },
-  { r: 6, burst: 64, c: CYAN, odds: 0.4 },
-  { r: 8, burst: 92, c: NOTE_COLOURS[3], odds: 0.2 },
-];
-const SPARK_NU = 50;
-
-function burstR(t: number, R: number): number {
-  if (t < 0 || t > BURST_MS) return 0;
-  if (t < BURST_GROW) return R * (1 - (1 - t / BURST_GROW) ** 2);
-  if (t < BURST_GROW + BURST_HOLD) return R;
-  return R * (1 - (t - BURST_GROW - BURST_HOLD) / BURST_SHRINK);
-}
-
-/** Atoms of three sizes float in place. One spark a round: press to aim (the ring shows Nu's
- *  burst, and the atoms it would touch), let go and Nu flies there and bursts; any atom a burst
- *  touches bursts too, as wide as its size, and so on down the chain. Each round is dealt with a
- *  best spark in mind, and asks for a share of what that spark would set off: more of it each
- *  round, so later rounds want the best spot, found by reading the field. Set off enough (the rim
- *  fills as you do) to go on; short, and the run is over. */
-export class Spark implements Toy {
-  private atoms: (Pt & { kind: number; at: number | null; ph: number })[] = [];
-  /** For each atom, the atoms its burst reaches. */
-  private links: number[][] = [];
-  private level = 1;
-  private need = 1;
-  private caught = 0;
-  private state: 'aim' | 'fly' | 'chain' | 'done' | 'over' = 'aim';
-  private spot: Pt = { x: 0, y: 0 };
-  private aim: Pt | null = null;
-  private nuAt = 0;
-  private doneAt = 0;
-  /** Bursts and atoms scale with the arena. */
-  private u = 1;
-
-  enter(s: Stage): void {
-    s.nu.r = 9;
-    this.level = 1;
-    this.round(s);
-  }
-
-  private burst(kind: number): number { return SPARK_KINDS[kind].burst * this.u; }
-
-  /** Atoms Nu's burst at `p` touches itself. */
-  private first(p: Pt): number[] {
-    const out: number[] = [];
-    this.atoms.forEach((a, i) => { if (dist(a, p) < SPARK_NU * this.u + 6) out.push(i); });
-    return out;
-  }
-
-  /** How many a spark at `p` sets off, chain and all (the atoms float in place, so it's known). */
-  private reach(p: Pt): number {
-    const todo = this.first(p), hit = new Set(todo);
-    while (todo.length) for (const j of this.links[todo.pop()!]) if (!hit.has(j)) { hit.add(j); todo.push(j); }
-    return hit.size;
-  }
-
-  /** The most one spark could set off, trying the arena over in a loose grid. */
-  private bestSpark(s: Stage): number {
-    let most = 0;
-    const step = 14 * this.u;
-    for (let x = s.m.x - s.hw; x <= s.m.x + s.hw; x += step) {
-      for (let y = s.m.y - s.hh; y <= s.m.y + s.hh; y += step) most = Math.max(most, this.reach({ x, y }));
-    }
-    return most;
-  }
-
-  private deal(s: Stage, n: number): void {
-    this.atoms = [];
-    for (let k = 0; this.atoms.length < n && k < 2000; k++) {
-      const p = anywhere(s, 16);
-      if (this.atoms.some((a) => dist(a, p) < 22 * this.u)) continue;
-      let roll = Math.random(), kind = 0;
-      while (kind < SPARK_KINDS.length - 1 && (roll -= SPARK_KINDS[kind].odds) >= 0) kind++;
-      this.atoms.push({ ...p, kind, at: null, ph: Math.random() * TAU });
-    }
-    this.links = this.atoms.map((a, i) => {
-      const r = this.burst(a.kind) + 6, out: number[] = [];
-      this.atoms.forEach((b, j) => { if (j !== i && dist(a, b) < r) out.push(j); });
-      return out;
-    });
-  }
-
-  private round(s: Stage): void {
-    this.u = clamp(Math.sqrt((s.hw * s.hh) / (170 * 320)), 0.8, 1.6);
-    const n = Math.min(28, 16 + this.level);
-    // A field where a good spark sets off at least half; the best of a few tries if none does.
-    let most = 0, keep = { atoms: this.atoms, links: this.links };
-    for (let k = 0; k < 12; k++) {
-      this.deal(s, n);
-      const m = this.bestSpark(s);
-      if (m > most) { most = m; keep = { atoms: this.atoms, links: this.links }; }
-      if (m >= n * 0.5) break;
-    }
-    this.atoms = keep.atoms;
-    this.links = keep.links;
-    // A share of the best: two thirds at first, nine tenths of it from round six.
-    const share = Math.min(0.9, 0.6 + this.level * 0.05);
-    this.need = Math.max(2, Math.round(most * share));
-    this.caught = 0;
-    this.state = 'aim';
-    this.aim = null;
-    s.rim = 0;
-    s.score(this.level, best(s, 'spark') || null);
-  }
-
-  step(s: Stage, dt: number, now: number): void {
-    const nu = s.nu;
-    if (this.state === 'aim' || this.state === 'over') { nu.seek(this.aim ?? s.m, dt, 0.3, 0.01); return; }
-    if (this.state === 'fly') {
-      nu.seek(this.spot, dt, 0.9, 0.04);
-      // Arrived: the burst is right where it was aimed.
-      if (dist(nu, this.spot) < 6) { nu.x = this.spot.x; nu.y = this.spot.y; this.state = 'chain'; this.nuAt = now; captureSound(); }
-      return;
-    }
-    if (this.state === 'done') {
-      nu.seek(s.m, dt, 0.4, 0.01);
-      if (now - this.doneAt > 1300) this.round(s);
-      return;
-    }
-    // The chain: every burst still going sets off the atoms it touches.
-    const bursts: { p: Pt; r: number }[] = [];
-    if (now - this.nuAt < BURST_MS) bursts.push({ p: nu, r: burstR(now - this.nuAt, SPARK_NU * this.u) });
-    for (const a of this.atoms) if (a.at !== null && now - a.at < BURST_MS) bursts.push({ p: a, r: burstR(now - a.at, this.burst(a.kind)) });
-    for (const a of this.atoms) {
-      if (a.at !== null || !bursts.some((b) => dist(a, b.p) < b.r + 6)) continue;
-      a.at = now;
-      this.caught++;
-      chimeSound(this.caught % 5);
-    }
-    s.rim = clamp(this.caught / this.need, 0, 1);
-    if (!bursts.length) {
-      this.doneAt = now;
-      if (this.caught >= this.need) {
-        this.state = 'done';
-        completeSound();
-        setBest(s, 'spark', this.level);
-        this.level++;
-      } else {
-        this.state = 'over';
-        missSound();
-        finish(s, 'spark', this.level - 1);
-      }
-    }
-  }
-
-  draw(s: Stage, ctx: CanvasRenderingContext2D, now: number): void {
-    const near = new Set(this.state === 'aim' && this.aim ? this.first(this.aim) : []);
-    this.atoms.forEach((a, i) => {
-      const k = SPARK_KINDS[a.kind];
-      if (a.at === null) {
-        // Floating in place, just about: a small sway that the bursts don't heed.
-        const p = { x: a.x + Math.cos(now / 900 + a.ph) * 1.5, y: a.y + Math.sin(now / 1100 + a.ph) * 1.5 };
-        dot(ctx, p, k.r * this.u, k.c);
-        if (near.has(i)) ring(ctx, p, k.r * this.u + 4, WHITE, 2, 0.8);
-        return;
-      }
-      const r = burstR(now - a.at, this.burst(a.kind));
-      if (r <= 0) return;
-      dot(ctx, a, r, k.c, 0.25);
-      ring(ctx, a, r, k.c, 3, 0.7);
-    });
-    // Aiming: Nu's burst, where it would be.
-    if (this.state === 'aim' && this.aim) ring(ctx, this.aim, SPARK_NU * this.u, ROSE, 2, 0.45);
-    if (this.state === 'chain') {
-      const r = burstR(now - this.nuAt, SPARK_NU * this.u);
-      if (r > 0) { dot(ctx, s.nu, r, ROSE, 0.2); ring(ctx, s.nu, r, ROSE, 3, 0.6); }
-    }
-    s.nu.draw(ctx, now);
-  }
-
-  down(_s: Stage, p: Pt): void {
-    if (this.state !== 'aim') return;
-    this.aim = p;
-  }
-
-  move(_s: Stage, p: Pt): void { if (this.state === 'aim' && this.aim) this.aim = p; }
-
-  up(_s: Stage, p: Pt): void {
-    if (this.state !== 'aim' || !this.aim) return;
-    this.spot = p;
-    this.aim = null;
-    this.state = 'fly';
-    tickSound(2);
-  }
 }
 
 // ---- Twin ------------------------------------------------------------------------------------
