@@ -1,34 +1,46 @@
-/* Home (home.ts), design H11: Collect, Atlas and Play each under a big heading with a round
-   button into the section, straight on black (no panels, James 2026-10-15) and set apart by a
-   wide gap with a small round orbit in it. */
+/* Home (home.ts), design 3 "Today": a feed of graphite cards on black, each naming itself in
+   small caps and built round one thing to look at, in groups set apart by a wide black gap. */
 .home-screen { position: fixed; inset: 0; z-index: 4; overflow-y: auto; overscroll-behavior: contain; padding: var(--top) var(--sp-4) calc(var(--sp-6) + var(--safe-bottom)); background: var(--c-bg); font-family: var(--font); color: var(--c-text); }
 .home-screen[hidden] { display: none; }
-.home-body { max-width: 560px; margin: 0 auto; display: flex; flex-direction: column; padding-top: var(--sp-2); }
-
-.home-sec { display: flex; flex-direction: column; gap: 14px; }
-/* Between sections: an orbit with its nucleus, something for Nu to play around when it's idle
-   (nu.ts finds them by [data-nu-toy]). */
-.home-sep { display: flex; justify-content: center; margin: 26px 0; color: #6c7479; }
-.home-sep svg { display: block; width: 40px; height: 40px; overflow: visible; }
-.home-head { display: flex; align-items: center; gap: var(--sp-3); }
-.home-ico { width: 34px; height: 40px; flex: none; display: inline-flex; align-items: center; justify-content: center; color: var(--c-text); }
-.home-h { flex: 1; margin: 0; font-size: 22px; font-weight: var(--fw-semibold); line-height: 1.15; }
-.home-round { width: var(--hit); height: var(--hit); flex: none; border: 0; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: var(--c-pick); color: var(--c-text); cursor: pointer; }
-.home-round:hover { background: #434950; }
-.home-btn:hover:not(:disabled), .home-link:hover, .home-pick:hover { background: var(--c-pick); }
-.home-sec button:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
+.home-body { max-width: 560px; margin: 0 auto; display: flex; flex-direction: column; gap: 44px; padding-top: var(--sp-2); }
+.home-group { display: flex; flex-direction: column; gap: 10px; }
+.home-body button:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
 
 .home-row { display: flex; align-items: center; gap: var(--sp-2); justify-content: space-between; flex-wrap: wrap; }
 .home-grow { flex: 1; min-width: 0; }
 .home-muted { font-size: var(--fs-sm); color: var(--c-text-2); }
+.home-num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.home-c { margin: 0; text-align: center; }
 .home-caps { display: block; font-size: var(--fs-caps-min); letter-spacing: var(--tracking-caps); text-transform: uppercase; font-weight: var(--fw-semibold); color: var(--c-text-2); }
-/* Cards on black are plates (--c-plate, the shade of Play's game cards); what is in them sits on
+.home-big { display: block; font-size: 24px; line-height: 1.15; font-weight: var(--fw-semibold); }
+.home-ok { color: var(--c-done) !important; display: inline-flex; align-items: center; gap: 4px; }
+
+/* A card: a plate on black (--c-plate, the shade of Play's game cards); what is in it sits on
    K700 so it reads against the plate. */
-.home-card { display: flex; flex-direction: column; gap: var(--sp-3); padding: 14px; border-radius: var(--r-lg); background: var(--c-plate); }
-.home-card .home-btn, .home-card .home-acard { background: var(--c-pick); }
-.home-card .home-btn:hover:not(:disabled), .home-card .home-acard:hover:not(:disabled), .home-link:hover { background: #3b4147; }
-.home-btn { display: inline-flex; align-items: center; gap: 6px; height: 40px; padding: 0 var(--sp-4); border: 0; border-radius: var(--r-pill); background: var(--c-surface-3); color: var(--c-text); font: inherit; font-size: var(--fs-md); font-weight: var(--fw-semibold); cursor: pointer; }
-.home-btn:disabled { cursor: default; }
+.home-feed { display: flex; flex-direction: column; gap: 14px; padding: 20px; border-radius: 28px; background: var(--c-plate); color: var(--c-text); }
+.home-btn { display: inline-flex; align-items: center; gap: 6px; height: 40px; padding: 0 var(--sp-4); border: 0; border-radius: var(--r-pill); background: var(--c-pick); color: var(--c-text); font: inherit; font-size: var(--fs-md); font-weight: var(--fw-semibold); cursor: pointer; }
+.home-btn:hover { background: #3b4147; }
+/* The card's one big button, at its foot: rose for the next step, cyan to play, a cyan ring to
+   play again, white otherwise. */
+.home-go { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; height: 52px; border: 0; border-radius: var(--r-pill); font: inherit; font-size: 17px; font-weight: var(--fw-semibold); cursor: pointer; }
+.home-go.is-next { background: var(--c-go); color: var(--c-go-ink); }
+.home-go.is-play { background: var(--c-accent); color: var(--c-accent-ink); }
+.home-go.is-ring { background: transparent; color: var(--c-accent); box-shadow: inset 0 0 0 2px var(--c-accent); }
+.home-go.is-white { background: var(--c-text); color: #000; }
+.home-go:hover { filter: brightness(1.08); }
+
+/* A row under a card: smaller, one line and its note, into somewhere. */
+.home-line { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 64px; padding: 10px 14px 10px 12px; border: 0; border-radius: 22px; background: var(--c-plate); color: var(--c-text); font: inherit; text-align: left; cursor: pointer; }
+.home-line:hover { background: var(--c-plate-2); }
+.home-line > svg { flex: none; margin: 0 4px; color: var(--c-text); }
+.home-line > svg:last-child { margin: 0; color: var(--c-text-2); }
+.home-line .home-grow { display: flex; flex-direction: column; gap: 1px; }
+.home-line b { font-weight: var(--fw-semibold); }
+.home-line small { font-size: var(--fs-sm); color: var(--c-text-2); }
+.home-line.is-locked, .home-line.is-done { cursor: default; }
+.home-line.is-locked > svg:first-child { color: var(--c-warn); }
+.home-line.is-done > svg:first-child { color: var(--c-done); }
+.home-line.is-locked:hover, .home-line.is-done:hover { background: var(--c-plate); }
 
 /* An atom's plate: number over symbol, in its place color. */
 .home-plate { width: 40px; height: 40px; flex: none; border-radius: 10px; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; font-weight: var(--fw-bold); font-size: 17px; line-height: 1; }
@@ -37,80 +49,84 @@
 .home-plate.is-big small { font-size: 13px; }
 .home-plate.is-fleet { background: var(--c-pick) !important; color: var(--c-text) !important; }
 
-/* Collect */
-.home-count { margin: 0; font-size: var(--fs-md); color: var(--c-text-2); }
-.home-count b { font-size: 32px; font-weight: var(--fw-semibold); color: var(--c-text); margin-right: 6px; font-variant-numeric: tabular-nums; }
-.home-pers { display: flex; gap: 4px; }
-.home-per { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
-.home-trk { display: block; border-radius: 5px; background: var(--c-surface-3); overflow: hidden; }
-.home-trk.is-stable { height: 10px; }
-.home-trk.is-fleeting { height: 4px; border-radius: 2px; }
+/* Collect: the strip at the top. */
+.home-strip { display: flex; align-items: center; gap: 14px; width: 100%; padding: 4px 2px 8px; border: 0; background: none; color: var(--c-text-2); font: inherit; text-align: left; cursor: pointer; }
+.home-strip-n { flex: none; font-size: var(--fs-md); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.home-strip-n b { font-size: 24px; font-weight: var(--fw-semibold); color: var(--c-text); margin-right: 3px; }
+.home-pers { flex: 1; min-width: 0; display: flex; gap: 4px; }
+.home-trk { display: block; height: 6px; border-radius: 3px; background: var(--c-surface-3); overflow: hidden; }
 .home-trk b { display: block; height: 100%; border-radius: inherit; background: var(--c-accent); }
-.home-trk.is-fleeting b { background: var(--c-text); }
 .home-trk.is-done b { background: var(--c-done); }
-.home-per.is-locked .home-trk { background: var(--c-surface-2); }
-.home-per-n { display: flex; justify-content: center; font-size: var(--fs-sm); color: var(--c-text-2); font-variant-numeric: tabular-nums; }
-.home-per.is-locked .home-per-n { color: var(--c-warn); }
+.home-trk.is-locked { background: var(--c-surface-2); }
 
-/* Stable and fleeting share one grid, so both choices start at the same place and are as wide. */
-.home-lanes { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 14px var(--sp-3); }
-.home-lane { display: contents; }
-.home-lane-sum { display: flex; align-items: center; gap: var(--sp-2); }
-.home-lane-sum span { display: flex; flex-direction: column; min-width: 0; }
-.home-lane-sum b { font-weight: var(--fw-semibold); }
-.home-lane-sum small { white-space: nowrap; font-size: var(--fs-sm); color: var(--c-text-2); font-variant-numeric: tabular-nums; }
-.home-pick { display: flex; align-items: center; gap: 10px; min-width: 0; min-height: 56px; padding: 8px 10px 8px 8px; border: 0; border-radius: 18px; background: var(--c-plate); color: var(--c-text); font: inherit; text-align: left; cursor: pointer; }
-.home-pick.is-done { color: var(--c-done); cursor: default; }
-.home-pick.is-locked { color: var(--c-warn); cursor: default; }
-.home-pick-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.home-pick-txt b { font-weight: var(--fw-semibold); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--c-text); }
-.home-gi { width: 34px; height: 34px; flex: none; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: #fff; color: #000; box-shadow: 0 0 0 2px var(--c-plate), 0 0 0 3px var(--c-line-2); }
-/* Fleeting: the player picks the game, so a question mark in place of its icon. */
-.home-gi.is-ask { background: var(--c-pick); color: var(--c-text); font-size: 19px; font-weight: var(--fw-bold); }
+/* Collect: the next step. The atom, live, stands over the row with its plate; its light may
+   reach past its box over the card. */
+.home-gem { position: relative; height: 210px; margin: -6px -20px 0; }
+/* Its faint outer haze fades out before the box's edges, so no edge shows on the card. */
+.home-gem { -webkit-mask-image: radial-gradient(closest-side, #000 72%, transparent); mask-image: radial-gradient(closest-side, #000 72%, transparent); }
+.home-gem canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; opacity: 0; transition: opacity 0.4s; }
+.home-gem canvas.is-shown { opacity: 1; }
+.home-nextrow { display: flex; align-items: center; gap: 14px; }
+.home-nextrow small { display: block; margin-top: 4px; font-size: var(--fs-md); color: var(--c-text-2); }
+.home-alldone { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 20px; font-weight: var(--fw-semibold); color: var(--c-done); }
 
-/* Learn: the atom of the day */
-.home-q { margin: 0; font-size: 17px; font-weight: var(--fw-semibold); }
-.home-clues { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; font-size: var(--fs-md); line-height: 1.4; }
-.home-clues li::marker { color: var(--c-text-2); }
-/* Atom cards to pick from: big enough to tap, two to a row, the plate beside the name (and the
-   line Nu adds once answered) so the quizzes stay short. */
-.home-acards { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-2); }
-.home-acard { display: flex; flex-direction: row; align-items: center; gap: 10px; min-width: 0; padding: 8px 10px; border: 0; border-radius: 11px; background: var(--c-surface-3); color: var(--c-text); font: inherit; text-align: left; cursor: pointer; }
-.home-acard:hover:not(:disabled) { background: var(--c-pick); }
-.home-acard:disabled { cursor: default; }
-.home-acard-txt { display: flex; flex-direction: column; min-width: 0; max-width: 100%; }
-/* Long names (Rutherfordium) break with a hyphen rather than run out of the card. */
-.home-acard-txt b { font-weight: var(--fw-semibold); line-height: 1.25; overflow-wrap: break-word; hyphens: auto; }
-.home-acard-txt small { font-size: var(--fs-sm); color: var(--c-text-2); font-variant-numeric: tabular-nums; }
-.home-card .home-acard.is-out { background: transparent; box-shadow: inset 0 0 0 2px var(--c-pick); opacity: 0.6; }
-.home-acard.is-out b { text-decoration: line-through; }
-.home-acard.is-right, .home-card .home-acard.is-right { background: var(--c-done); color: #05210f; }
-.home-acard.is-right .home-acard-txt small { color: #05210f; }
-.home-acard.is-wrong { opacity: 0.6; }
+/* Atlas: the atom of the day. The latest clue large; the ones before it smaller over it. */
+.home-clues { display: flex; flex-direction: column; gap: 8px; text-align: center; }
+.home-clues p { margin: 0; font-size: var(--fs-md); line-height: 1.4; color: var(--c-text-2); text-wrap: balance; }
+.home-clues p.is-now { font-size: 20px; line-height: 1.35; color: var(--c-text); }
+.home-four { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; justify-items: center; padding: 4px 0; }
+.home-aplate { padding: 0; border: 0; border-radius: 16px; background: none; cursor: pointer; }
+.home-aplate .home-plate { transition: transform 0.15s; }
+.home-aplate:hover:not(:disabled) .home-plate { transform: scale(1.06); }
+.home-aplate.is-out { cursor: default; }
+.home-aplate.is-out .home-plate { background: transparent !important; color: var(--c-text-3) !important; box-shadow: inset 0 0 0 2px var(--c-pick); text-decoration: line-through; }
 .home-reveal-top { display: flex; align-items: center; gap: var(--sp-3); }
 .home-reveal-top > div { display: flex; flex-direction: column; gap: 2px; }
-.home-reveal-name { font-size: 22px; font-weight: var(--fw-semibold); }
+.home-reveal-name { font-size: 24px; font-weight: var(--fw-semibold); }
 .home-reveal-top > div > small { font-size: var(--fs-sm); color: var(--c-text-2); display: inline-flex; align-items: center; gap: 4px; }
-.home-reveal-top > div > small.home-ok { color: var(--c-done); }
 .home-reveal-h { margin: 0; font-size: 17px; line-height: 1.4; }
 .home-facts { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; font-size: var(--fs-md); line-height: 1.4; color: var(--c-text-2); }
 .home-facts li::marker { color: var(--c-accent); }
 
-/* Learn: Nu's questions. The card keeps its shape from question to answer (home.ts). */
-.home-ask { margin: 0; font-size: 17px; line-height: 1.35; font-weight: var(--fw-semibold); }
-.home-quizcard .home-acard, .home-tile { position: relative; }
-.home-quizcard .home-acard-txt small { visibility: hidden; }
-/* Nu's cards keep room for the line shown once answered: plate and name sit at the top. */
-.home-quizcard .home-acard { align-items: flex-start; }
+/* Play: today's puzzle, its name and level left, the game playing itself right. */
+.home-todayrow { display: flex; align-items: center; gap: 16px; }
+.home-todayinfo { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.home-gname { display: flex; align-items: center; gap: 8px; }
+/* The game's icon, kept small and quiet beside its name. */
+.home-gsmall { width: 24px; height: 24px; flex: none; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: var(--c-pick); color: var(--c-text-2); }
+.home-lvl { display: flex; align-items: center; gap: 8px; font-size: var(--fs-md); }
+.home-pips { display: inline-flex; gap: 4px; }
+.home-pips i { width: 8px; height: 8px; border-radius: 50%; background: var(--c-pick); }
+.home-pips.lvl-1 i.on { background: var(--c-lvl-1); }
+.home-pips.lvl-2 i.on { background: var(--c-lvl-2); }
+.home-pips.lvl-3 i.on { background: var(--c-lvl-3); }
+.home-pips.lvl-4 i.on { background: var(--c-lvl-4); }
+.home-pips.lvl-5 i.on { background: var(--c-lvl-5); }
+.home-shot { width: 136px; height: 136px; flex: none; border-radius: 20px; background: var(--c-bg); overflow: hidden; }
+.home-shot canvas { width: 100%; height: 100%; display: block; }
+
+/* Nu: Nu's questions. The card keeps its shape from question to answer (home.ts). */
+.home-qhead { flex-wrap: nowrap; }
+.home-nu { color: var(--c-go); display: inline-flex; }
+.home-ask { margin: 0; font-size: 20px; line-height: 1.3; font-weight: var(--fw-semibold); }
+/* Atom cards to pick from: two to a row, the plate beside the name and the line Nu adds once
+   answered, so the quiz stays short. */
+.home-acards { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-2); }
+.home-acard { position: relative; display: flex; align-items: flex-start; gap: 10px; min-width: 0; padding: 8px 10px; border: 0; border-radius: 14px; background: var(--c-pick); color: var(--c-text); font: inherit; text-align: left; cursor: pointer; }
+.home-acard:hover:not(:disabled), .home-tile:hover:not(:disabled) { background: #3b4147; }
+.home-acard:disabled, .home-tile:disabled { cursor: default; }
+.home-acard-txt { display: flex; flex-direction: column; min-width: 0; max-width: 100%; }
+/* Long names (Rutherfordium) break with a hyphen rather than run out of the card. */
+.home-acard-txt b { font-weight: var(--fw-semibold); line-height: 1.25; overflow-wrap: break-word; hyphens: auto; }
+.home-acard-txt small { font-size: var(--fs-sm); color: var(--c-text-2); font-variant-numeric: tabular-nums; visibility: hidden; }
 .home-quizcard.is-answered .home-acard-txt small { visibility: visible; }
 /* Two-way answers as tiles as tall as a quiz atom card, so every question takes the same room. */
 .home-tiles { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: var(--sp-2); }
-.home-tile { min-height: 68px; padding: 10px 12px; border: 0; border-radius: 11px; background: var(--c-pick); color: var(--c-text); font: inherit; font-size: 17px; font-weight: var(--fw-semibold); line-height: 1.3; cursor: pointer; }
-.home-tile:hover:not(:disabled) { background: #3b4147; }
-.home-tile:disabled { cursor: default; }
-.home-tile.is-right, .home-card .home-acard.is-right { background: var(--c-done); color: #05210f; }
-.home-tile.is-wrong, .home-card .home-acard.is-wrong { background: var(--c-plate-2); color: var(--c-text-2); opacity: 1; }
-.home-card .home-acard.is-wrong .home-acard-txt b { color: var(--c-text-2); }
+.home-tile { position: relative; min-height: 68px; padding: 10px 12px; border: 0; border-radius: 14px; background: var(--c-pick); color: var(--c-text); font: inherit; font-size: 17px; font-weight: var(--fw-semibold); line-height: 1.3; cursor: pointer; }
+.home-tile.is-right, .home-acard.is-right { background: var(--c-done) !important; color: #05210f; }
+.home-acard.is-right .home-acard-txt small { color: #05210f; }
+.home-tile.is-wrong, .home-acard.is-wrong { background: var(--c-plate-2) !important; color: var(--c-text-2); }
+.home-acard.is-wrong .home-acard-txt b { color: var(--c-text-2); }
 .home-mark { position: absolute; top: 8px; right: 8px; width: 24px; height: 24px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: #05210f; color: var(--c-done); }
 .is-wrong > .home-mark { background: var(--c-pick); color: var(--c-text-2); }
 /* Under the answers: which question this is, and once answered the verdict and its note, in
@@ -136,18 +152,12 @@
 .home-qdone span { display: flex; flex-direction: column; }
 .home-qdone span b { font-size: 17px; font-weight: var(--fw-semibold); }
 .home-qdone small { font-size: var(--fs-md); color: var(--c-text-2); }
-.home-nu { color: var(--c-go); display: inline-flex; }
 
-/* Learn: the row into Learn itself */
-.home-link { flex-direction: row; align-items: center; border: 0; color: var(--c-text); font: inherit; text-align: left; cursor: pointer; }
-.home-link b { display: block; font-weight: var(--fw-semibold); }
-.home-link small { font-size: var(--fs-sm); color: var(--c-text-2); }
-
-/* Play */
-.home-game { display: flex; flex-direction: column; gap: var(--sp-2); }
-
-/* Nu (home.ts nuBody): the game Nu wants to play today, on a round in Nu's own rose. */
-.home-nupick { gap: var(--sp-3); }
-.home-nupick-ico { width: 48px; height: 48px; flex: none; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; background: var(--c-go); color: var(--c-go-ink); }
-.home-nupick-ico svg { width: 26px; height: 26px; display: block; }
-.home-plate.home-nupick-atom { width: 48px; height: 48px; border-radius: 50%; font-size: 19px; }
+/* Nu: the game Nu wants to play, playing itself on the left, its name, and a rose Play. */
+.home-nugame { flex-direction: row; align-items: center; gap: 16px; padding: 14px 16px 14px 14px; border: 0; font: inherit; text-align: left; cursor: pointer; }
+.home-nugame:hover { background: var(--c-plate-2); }
+.home-nushot { width: 96px; height: 128px; flex: none; border-radius: 18px; background: var(--c-bg); overflow: hidden; }
+.home-nushot canvas { width: 100%; height: 100%; display: block; }
+.home-nuinfo { display: flex; flex-direction: column; gap: 6px; }
+.home-nuinfo small { font-size: var(--fs-sm); color: var(--c-text-2); }
+.home-nugo { width: 48px; height: 48px; flex: none; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: var(--c-go); color: var(--c-go-ink); }

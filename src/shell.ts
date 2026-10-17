@@ -27,7 +27,7 @@ import type { AtlasView } from './gallery/atlas';
 import { atomListOpen, openAtomList } from './gallery/atomlist';
 import { Dock, type Section } from './ui/dock';
 import { Crumbs, atomCrumb, gameCrumb, type Crumb } from './ui/crumbs';
-import { askNu, renderHome } from './home/home';
+import { askNu, hideHome, renderHome } from './home/home';
 import { closeSheet, openSheet } from './ui/sheet';
 import { gameListOpen, openGameList } from './ui/gamelist';
 import { startReadAlong } from './nu/read';
@@ -48,7 +48,7 @@ import { reducedMotion } from './ui/nu';
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
 import { readPlace, type Screen } from './core/place';
-import { setNavigator } from './core/next';
+import { nextStep, openStep, setNavigator } from './core/next';
 import { loadSave } from './core/save';
 export type { Screen };
 export type { AtomMode };
@@ -128,7 +128,11 @@ export class AppShell {
     $('nav-search').onclick = () => this.search();
     $('nav-settings').innerHTML = icon('settings');
     $('nav-settings').onclick = () => this.openSettings();
-    this.dock = new Dock($('dock'), { onSection: (s) => this.toSection(s) });
+    this.dock = new Dock($('dock'), {
+      onSection: (s) => this.toSection(s),
+      // Next: straight into the next step (Collect once everything is built).
+      onNext: () => { const step = nextStep(); if (step) openStep(step); else this.toSection('collect'); },
+    });
     this.crumbs = new Crumbs($('crumbs'));
     // A puzzle, a game or an Atlas page opened or closed from inside its screen.
     window.addEventListener('atomos:nav', () => this.paintDock());
@@ -305,6 +309,7 @@ export class AppShell {
     if (!showPlay) this.playground?.hide();
     if (screen !== 'nu') this.park?.hide();
     $('home-screen').hidden = !showHome;
+    if (!showHome) hideHome();
     $('settings-screen').hidden = !showSettings;
     $('icons-screen').hidden = !showIcons;
     $('components-screen').hidden = !showComponents;

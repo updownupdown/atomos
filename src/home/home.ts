@@ -1,22 +1,22 @@
-// Home: where the app opens for a returning player, and the Home button in the dock. A jumping
-// point to the three sections, each under its heading (design H11, James 2026-10-14) with a round
-// button into the section, set apart by a small orbit Nu can play around:
-//   Collect — atoms built, then a track per period (stable thick, fleeting thin), then one
-//             stable step and one fleeting isotope to build next, each beside its total.
-//   Learn   — the atom of the day to find among four atom cards, Nu's three two-choice questions
-//             with their streak, and a row into Learn itself.
-//   Play    — the game played last, then a game picked at random for the day, on their cards.
-// The shell mounts it on every visit:
+// Home: where the app opens for a returning player, and the Home button in the dock. A feed of
+// cards on black, each saying what it is in small caps and built round one thing to look at
+// (design 3, "Today", James 2026-10-17), in groups set apart by a wide black gap:
+//   Collect — atoms built and a track per period in a strip at the top; the next step on a card
+//             with the atom itself, live, over its plate and what the step builds, and the rose
+//             Build button; then a row for the fleeting isotope to build next.
+//   Atlas   — the atom of the day to find among four plates; a row into the Atlas.
+//   Play    — today's puzzle beside the game playing itself; a row into all the games.
+//   Nu      — Nu's three questions with their streak; the game Nu wants to play, playing itself.
+// The shell mounts it on every visit and puts it away on leaving (the atom and the two games
+// stop drawing):
 //
 //   renderHome($('home-body'), (to, at) => ...);   // at: { z } opens an atom in Learn, { game } a game
+//   hideHome();
 
 import { loadSave, type SaveData } from '../core/save';
 import { nextStep, openStep, type NextStep } from '../core/next';
 import { atomBuilt, fleetingIsotopes, isotopeCollected, rowOpen, segmentsOf } from '../core/progress';
 import { formatDuration } from '../core/isotopes';
-import { lastPlayed, playsOf } from '../core/plays';
-import { lastDial, pinnedGames, winsOf } from '../core/wins';
-import { difficultyLevel, levelWord } from '../puzzles/difficulty';
 import { factsOf } from '../core/facts';
 import { MAX_Z, elementAt, placeColour, type Element } from '../gallery/data';
 import { inkOn } from '../gallery/looks';
@@ -24,13 +24,15 @@ import { seriesOne } from '../gallery/table';
 import { periodShares } from '../gallery/atomlist';
 import { fleetingOpen } from '../gallery/locks';
 import { earnables } from '../gallery/earn';
+import { GemAtom } from '../gallery/gem';
+import { atomSlice } from '../gallery/scaffold';
 import { PUZZLES, puzzleIcon } from '../puzzles/catalog';
-import { gameCard } from '../puzzles/gameCard';
+import { GameDemo } from '../puzzles/demo';
 import { dailyPuzzle, dailyStreak } from '../puzzles/daily';
-import { icon, type IconName } from '../ui/icons';
-import { nuEnabled, nuIconHtml, nuShow } from '../ui/nu';
-import { NU_BAR_ICON } from '../nu/icon';
-import { nuPick } from '../nu/games';
+import { difficultyLevel, levelWord } from '../puzzles/difficulty';
+import { icon } from '../ui/icons';
+import { nuEnabled, nuIconHtml, nuShow, reducedMotion } from '../ui/nu';
+import { nuPick, type GameId } from '../nu/games';
 import { finds, foundToday, hideDue, treats } from '../nu/bond';
 import {
   atomOfDay, candidates, clues, finishQuiz, headlineOf, liveStreak, quizOf, readDay, today, writeDay,
@@ -44,40 +46,55 @@ export type HomeGo = (to: HomeTarget, at?: { z?: number; game?: string; daily?: 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 const pct = (f: number) => `${Math.round(Math.max(0, Math.min(1, f)) * 100)}%`;
 const fmt = (n: number) => n.toLocaleString('en-US');
+const CHEVRON = () => icon('chevron-right', { size: 20 });
 
 function plate(e: Element, cls = ''): string {
   const bg = placeColour(e);
   return `<span class="home-plate ${cls}" style="background:${bg};color:${inkOn(bg)}" aria-hidden="true"><small>${e.z}</small>${e.symbol}</span>`;
 }
 
-function panel(to: HomeTarget, title: string, ico: IconName | { html: string }, body: string): string {
-  return `<section class="home-sec" aria-labelledby="home-h-${to}">`
-    + `<div class="home-head"><span class="home-ico">${typeof ico === 'string' ? icon(ico, { size: 26 }) : ico.html}</span><h2 class="home-h" id="home-h-${to}">${title}</h2>`
-    + `<button type="button" class="home-round" data-go="${to}" aria-label="Open ${title}">${icon('chevron-right', { size: 22 })}</button></div>`
-    + body + '</section>';
+/** What draws while Home shows: the next step's atom, today's puzzle playing itself and Nu's
+ *  game playing itself. Made once and kept; each visit points them at the day's things. */
+let gem: GemAtom | null | undefined;
+let demo: GameDemo | null = null;
+let nuRaf = 0;
+/** Bumped on each visit and on leaving, so a preview still loading for an old visit stays off. */
+let visit = 0;
+
+function homeGem(): GemAtom | null {
+  if (gem === undefined) {
+    try { gem = new GemAtom(); } catch { gem = null; }
+    if (gem && !gem.ok) gem = null;
+  }
+  return gem;
 }
 
-/** The break between two sections: a round orbit around its nucleus (an <ellipse>, which is what
- *  Nu flies along when it plays here). */
-const SEP = '<div class="home-sep" data-nu-toy aria-hidden="true"><svg viewBox="0 0 40 40">'
-  + '<ellipse cx="20" cy="20" rx="16" ry="16" fill="none" stroke="currentColor" stroke-width="2"/>'
-  + '<circle cx="20" cy="20" r="3.5" fill="currentColor"/></svg></div>';
+/** Leaving Home: everything that draws stops. */
+export function hideHome(): void {
+  visit++;
+  gem?.stop();
+  demo?.stop();
+  cancelAnimationFrame(nuRaf);
+  nuRaf = 0;
+}
 
 export function renderHome(host: HTMLElement, go: HomeGo): void {
+  hideHome();
   const save = loadSave();
-  host.innerHTML = panel('collect', 'Collect', 'collect', collectBody(save)) + SEP
-    + panel('learn', 'Atlas', 'atlas', '<div class="home-guess"></div><div class="home-quiz"></div>' + learnRow(save)) + SEP
-    + panel('play', 'Play', 'puzzles', '<div class="home-game"></div>')
-    + (nuEnabled() ? SEP + panel('nu', 'Nu', { html: NU_BAR_ICON }, nuBody()) : '');
+  const group = (body: string) => `<div class="home-group">${body}</div>`;
+  host.innerHTML = group(strip(save) + nextCard(save) + fleetRow(save))
+    + group('<div class="home-guess"></div>' + learnRow(save))
+    + group('<div class="home-game"></div>' + gamesRow())
+    + group('<div class="home-quiz"></div>' + (nuEnabled() ? nuCard() : ''));
   host.querySelectorAll<HTMLButtonElement>('[data-go]').forEach((b) => { b.onclick = () => go(b.dataset.go as HomeTarget); });
   host.querySelectorAll<HTMLButtonElement>('[data-nu-game]').forEach((b) => { b.onclick = () => go('nu', { game: b.dataset.nuGame }); });
   wireCollect(host, save);
   const day = today();
-  const guess = host.querySelector<HTMLElement>('.home-guess')!;
-  const quiz = host.querySelector<HTMLElement>('.home-quiz')!;
-  paintGuess(guess, day.index, go);
-  paintQuiz(quiz, day.index);
+  paintGuess(host.querySelector<HTMLElement>('.home-guess')!, day.index, go);
+  paintQuiz(host.querySelector<HTMLElement>('.home-quiz')!, day.index);
   paintGame(host.querySelector<HTMLElement>('.home-game')!, go);
+  const shot = host.querySelector<HTMLCanvasElement>('.home-nushot canvas');
+  if (shot) playNu(shot, shot.closest<HTMLElement>('[data-nu-game]')!.dataset.nuGame as GameId);
   // Nu comes out to circle the next step for a moment; once a minute at most for the same one.
   const step = nextStep(save);
   if (step && typeof requestAnimationFrame === 'function') requestAnimationFrame(() => askNu(host, `home:${step.z}:${step.stage}`));
@@ -102,35 +119,19 @@ export function askNu(host: HTMLElement, key?: string): void {
 
 // ---------- Collect ----------
 
-interface Tally { built: number; stDone: number; stAll: number; flDone: number; flAll: number }
-
-function tally(save: SaveData): Tally {
-  const t: Tally = { built: 0, stDone: 0, stAll: 0, flDone: 0, flAll: 0 };
-  for (let z = 1; z <= MAX_Z; z++) {
-    if (atomBuilt(z, save)) t.built++;
-    const segs = segmentsOf(z, save);
-    t.stAll += segs.length;
-    t.stDone += segs.filter((s) => s.done).length;
-    for (const i of fleetingIsotopes(z)) {
-      t.flAll++;
-      if (isotopeCollected(save, z, i.a)) t.flDone++;
-    }
-  }
-  return t;
-}
-
-/** One column per period, as wide as it is long: the stable track, the fleeting track under it
- *  and the period's number, or an amber lock while it is shut. */
-function tracks(save: SaveData, fleetOn: boolean): string {
-  let out = '';
+/** The strip at the top: atoms built, and a track per period as wide as it is long, filled by
+ *  its stable share (green once done, darker while the period is shut). Into Collect. */
+function strip(save: SaveData): string {
+  let built = 0;
+  for (let z = 1; z <= MAX_Z; z++) if (atomBuilt(z, save)) built++;
+  let pers = '';
   for (let p = 1; p <= 7; p++) {
     const s = periodShares(p, save);
     const open = rowOpen(p, save);
-    const bar = (f: number, cls: string) => `<i class="home-trk ${cls}${f >= 1 ? ' is-done' : ''}"><b style="width:${open ? pct(f) : '0%'}"></b></i>`;
-    out += `<div class="home-per${open ? '' : ' is-locked'}" style="flex:${s.atoms}">${bar(s.stable, 'is-stable')}${bar(fleetOn ? s.fleeting : 0, 'is-fleeting')}`
-      + `<span class="home-per-n">${open ? p : icon('lock', { size: 14 })}<span class="sr-only">${open ? `Period ${p}: ${pct(s.stable)} stable, ${pct(s.fleeting)} fleeting` : `Period ${p} is locked`}</span></span></div>`;
+    pers += `<i class="home-trk${open ? '' : ' is-locked'}${s.stable >= 1 ? ' is-done' : ''}" style="flex:${s.atoms}"><b style="width:${open ? pct(s.stable) : '0%'}"></b></i>`;
   }
-  return `<div class="home-pers">${out}</div>`;
+  return `<button type="button" class="home-strip" data-go="collect" aria-label="Collect: ${built} of ${MAX_Z} atoms built">`
+    + `<span class="home-strip-n"><b>${built}</b>/${MAX_Z} atoms</span><span class="home-pers" aria-hidden="true">${pers}</span></button>`;
 }
 
 /** The fleeting isotope to offer: on the atom the next step is on if it is built, else on the
@@ -148,33 +149,52 @@ function fleetingPick(save: SaveData, step: NextStep | null): { z: number; a: nu
   return null;
 }
 
-function laneRow(kind: 'stable' | 'fleeting', done: number, all: number, choice: string): string {
-  const name = kind === 'stable' ? 'Stable' : 'Fleeting';
-  return `<div class="home-lane is-${kind}"><div class="home-lane-sum">${icon(kind === 'stable' ? 'isotope-stable' : 'isotope-fleeting', { size: 22 })}`
-    + `<span><b>${name}</b><small>${fmt(done)}/${fmt(all)}</small></span></div>${choice}</div>`;
+/** The step's title ("Build Silver", "Build Silver-107") and the line under it: the part, the
+ *  game that builds it and how many of the atom's parts are built. */
+function stepTitle(s: NextStep): string {
+  const name = s.a !== undefined ? `${elementAt(s.z).name}-${s.a}` : elementAt(s.z).name;
+  return s.kind === 'resume' ? `Resume ${name}` : s.kind === 'discovery' ? s.label : `Build ${name}`;
+}
+function stepLine(s: NextStep, save: SaveData): string {
+  const part = s.kind === 'nucleus' ? 'Nucleus' : s.kind === 'electrons' ? 'Electrons' : s.kind === 'lasting' ? 'Lasting isotope' : s.kind === 'discovery' ? 'Orbital shape' : 'Where you left off';
+  const segs = segmentsOf(s.z, save);
+  const done = segs.filter((g) => g.done).length;
+  return [part, s.gameName, segs.length ? `${done} of ${segs.length} parts built` : ''].filter(Boolean).join(' · ');
 }
 
-/** The stable step: the atom (or isotope) on the card; the part and its game for screen readers. */
-const pickTitle = (s: NextStep): string => (s.a !== undefined ? `${elementAt(s.z).name}-${s.a}` : elementAt(s.z).name);
-const pickPart = (s: NextStep): string => (s.kind === 'nucleus' ? 'Nucleus · ' : s.kind === 'electrons' ? 'Electrons · ' : s.kind === 'discovery' ? 'Orbital shape · ' : s.kind === 'resume' && s.a === undefined ? 'Resume · ' : '');
-
-function collectBody(save: SaveData): string {
-  const t = tally(save);
-  const fleetOn = fleetingOpen(save);
+/** The next step: the atom, live, over its plate and what the step builds; Build at the foot. */
+function nextCard(save: SaveData): string {
   const step = nextStep(save);
-  const stableChoice = step
-    ? `<button type="button" class="home-pick" data-step="stable" aria-label="${esc(`${pickTitle(step)}: ${pickPart(step)}${step.gameName}`)}">${plate(elementAt(step.z))}<span class="home-pick-txt"><b>${esc(pickTitle(step))}</b></span><span class="home-gi">${puzzleIcon(step.game, 20)}</span></button>`
-    : `<span class="home-pick is-done">${icon('check', { size: 22 })}<span class="home-pick-txt"><b>All built</b></span></span>`;
-  const f = fleetOn ? fleetingPick(save, step) : null;
-  const fleetChoice = !fleetOn
-    ? `<span class="home-pick is-fleet is-locked">${icon('lock', { size: 20 })}<span class="home-pick-txt"><b>Build an atom first</b></span></span>`
-    : f
-      ? `<button type="button" class="home-pick is-fleet" data-step="fleeting" aria-label="${esc(`${elementAt(f.z).name}-${f.a}, ${f.halfLife === null ? 'half-life unknown' : formatDuration(f.halfLife)}: pick a game`)}">${plate(elementAt(f.z), 'is-fleet')}<span class="home-pick-txt"><b>${esc(elementAt(f.z).name)}-${f.a}</b></span><span class="home-gi is-ask">?</span></button>`
-      : `<span class="home-pick is-fleet is-done">${icon('check', { size: 22 })}<span class="home-pick-txt"><b>All built so far</b></span></span>`;
-  return `<p class="home-count"><b>${t.built}</b> of ${MAX_Z} atoms built</p>`
-    + tracks(save, fleetOn)
-    + `<div class="home-lanes">${laneRow('stable', t.stDone, t.stAll, stableChoice)}`
-    + `${laneRow('fleeting', fleetOn ? t.flDone : 0, t.flAll, fleetChoice)}</div>`;
+  if (!step) {
+    return `<section class="home-feed home-next" aria-label="Next step"><span class="home-caps">Next step</span>`
+      + `<p class="home-alldone">${icon('check', { size: 22 })}Every atom is built</p>`
+      + `<button type="button" class="home-go is-white" data-go="collect">${icon('collect', { size: 22 })}Open Collect</button></section>`;
+  }
+  const e = elementAt(step.z);
+  return `<section class="home-feed home-next" aria-label="Next step"><span class="home-caps">Next step</span>`
+    + `<div class="home-gem" aria-hidden="true"></div>`
+    + `<div class="home-nextrow">${plate(e, 'is-big')}<span class="home-grow"><b class="home-big">${esc(stepTitle(step))}</b>`
+    + `<small>${esc(stepLine(step, save))}</small></span></div>`
+    + `<button type="button" class="home-go is-next" data-step="stable" aria-label="${esc(`${stepTitle(step)}: ${step.gameName}`)}">`
+    + `${icon('build', { size: 22 })}${step.kind === 'resume' ? 'Resume' : 'Build'}</button></section>`;
+}
+
+/** Under the next step, a row for the fleeting isotope to build next (the player picks the game),
+ *  beside how many fleeting isotopes are built. */
+function fleetRow(save: SaveData): string {
+  if (!fleetingOpen(save)) {
+    return `<div class="home-line is-locked">${icon('lock', { size: 20 })}<span class="home-grow"><b>Fleeting isotopes</b><small>They open once an atom is built</small></span></div>`;
+  }
+  let done = 0, all = 0;
+  for (let z = 1; z <= MAX_Z; z++) {
+    for (const i of fleetingIsotopes(z)) { all++; if (isotopeCollected(save, z, i.a)) done++; }
+  }
+  const f = fleetingPick(save, nextStep(save));
+  const count = `<span class="home-muted home-num">${fmt(done)}/${fmt(all)}</span>`;
+  if (!f) return `<div class="home-line is-done">${icon('check', { size: 20 })}<span class="home-grow"><b>Every fleeting isotope so far</b><small>Fleeting</small></span>${count}</div>`;
+  const e = elementAt(f.z);
+  return `<button type="button" class="home-line" data-step="fleeting" aria-label="${esc(`Fleeting: ${e.name}-${f.a}, ${f.halfLife === null ? 'half-life unknown' : formatDuration(f.halfLife)}; you pick the game. ${done} of ${all} built`)}">`
+    + `${plate(e, 'is-fleet')}<span class="home-grow"><b>${esc(e.name)}-${f.a}</b><small>Fleeting · you pick the game</small></span>${count}${CHEVRON()}</button>`;
 }
 
 function wireCollect(host: HTMLElement, save: SaveData): void {
@@ -186,17 +206,21 @@ function wireCollect(host: HTMLElement, save: SaveData): void {
   if (f && pick) {
     f.onclick = () => openStep({ z: pick.z, kind: 'resume', a: pick.a, game: '', gameName: '', label: `${elementAt(pick.z).name}-${pick.a}`, stage: `fl-${pick.a}` });
   }
+  // The atom itself, live, as Collect draws it: as far as it is collected, turning once its
+  // stable parts are built. Without WebGL the card goes without it.
+  const box = host.querySelector<HTMLElement>('.home-gem');
+  if (!box || !step) return;
+  const g = homeGem();
+  if (!g) { box.remove(); return; }
+  box.append(g.canvas);
+  g.show(step.z, atomSlice(step.z, save), reducedMotion());
+  g.start();
 }
 
-// ---------- Learn ----------
+// ---------- Atlas ----------
 
-/** An atom as a card to tap: its plate and name, with a line under it once there is one. */
-function atomCard(z: number, attrs: string, cls = '', sub = ''): string {
-  const e = elementAt(z);
-  return `<button type="button" class="home-acard ${cls}" ${attrs}>${plate(e)}<span class="home-acard-txt"><b>${esc(e.name)}</b>`
-    + `${sub ? `<small>${sub}</small>` : ''}</span></button>`;
-}
-
+/** The atom of the day: the clues so far over four plates to tap; once found, the atom and what
+ *  it is known for. */
 function paintGuess(box: HTMLElement, index: number, go: HomeGo): void {
   const z = atomOfDay(index);
   const cands = candidates(z, index);
@@ -207,28 +231,28 @@ function paintGuess(box: HTMLElement, index: number, go: HomeGo): void {
   if (g.done) {
     const won = !g.wrong.length || g.wrong.length < cands.length - 1;
     const extra = factsOf(z).filter((f) => f !== headlineOf(z)).slice(0, 2);
-    box.innerHTML = `<div class="home-card home-reveal">`
+    box.innerHTML = `<section class="home-feed home-reveal" aria-label="Atom of the day">`
       + `<div class="home-reveal-top">${plate(e, 'is-big')}<div><span class="home-caps">Atom of the day</span><b class="home-reveal-name">${esc(e.name)}</b>`
       + `<small class="${won ? 'home-ok' : ''}">${won ? `${icon('check', { size: 14 })} Got it with ${g.clues} clue${g.clues === 1 ? '' : 's'}` : `Period ${e.period} · ${esc(seriesOne(e))}`}</small></div></div>`
       + `<p class="home-reveal-h">${esc(headlineOf(z))}</p>`
       + (extra.length ? `<ul class="home-facts">${extra.map((f) => `<li>${esc(f)}</li>`).join('')}</ul>` : '')
-      + `<div class="home-row"><button type="button" class="home-btn" data-more>${icon('atlas', { size: 18 })}Read more</button><span class="home-muted">A new atom tomorrow</span></div></div>`;
+      + `<div class="home-row"><button type="button" class="home-btn" data-more>${icon('atlas', { size: 18 })}Read more</button><span class="home-muted">A new atom tomorrow</span></div></section>`;
     box.querySelector<HTMLButtonElement>('[data-more]')!.onclick = () => go('learn', { z });
     return;
   }
   const shown = clues(z, index).slice(0, g.clues);
-  box.innerHTML = `<div class="home-card">`
-    + `<div class="home-row"><span class="home-caps">Atom of the day</span><span class="home-muted">Clue ${g.clues} of 3</span></div>`
-    + `<p class="home-q">Which atom is it?</p>`
-    + `<ol class="home-clues">${shown.map((c) => `<li>${esc(c)}</li>`).join('')}</ol>`
-    + `<div class="home-acards">${cands.map((c) => (g.wrong.includes(c)
-      ? atomCard(c, `disabled aria-label="Not ${esc(elementAt(c).name)}"`, 'is-out', 'Not this one')
-      : atomCard(c, `data-z="${c}" aria-label="Guess ${esc(elementAt(c).name)}"`))).join('')}</div>`
-    + (g.clues < 3 ? '<div class="home-row"><span class="home-muted">A wrong guess shows the next clue.</span><button type="button" class="home-btn" data-clue>Another clue</button></div>' : '')
-    + '</div>';
+  box.innerHTML = `<section class="home-feed home-aotd" aria-label="Atom of the day">`
+    + `<span class="home-caps">Atom of the day · Clue ${g.clues} of 3</span>`
+    + `<div class="home-clues">${shown.map((c, i) => `<p class="${i === shown.length - 1 ? 'is-now' : ''}">${esc(c)}</p>`).join('')}</div>`
+    + `<div class="home-four">${cands.map((c) => {
+      const n = esc(elementAt(c).name);
+      return g.wrong.includes(c)
+        ? `<button type="button" class="home-aplate is-out" disabled aria-label="Not ${n}">${plate(elementAt(c), 'is-big')}</button>`
+        : `<button type="button" class="home-aplate" data-z="${c}" aria-label="Guess ${n}">${plate(elementAt(c), 'is-big')}</button>`;
+    }).join('')}</div>`
+    + '<p class="home-muted home-c">Tap the atom. A wrong guess shows the next clue.</p></section>';
   const save = (next: DayState['guess']) => { const s = readDay(); writeDay({ ...s, guess: next }); paintGuess(box, index, go); };
-  box.querySelector<HTMLButtonElement>('[data-clue]')?.addEventListener('click', () => save({ ...g, clues: Math.min(3, g.clues + 1) }));
-  box.querySelectorAll<HTMLButtonElement>('.home-acard[data-z]').forEach((b) => {
+  box.querySelectorAll<HTMLButtonElement>('.home-aplate[data-z]').forEach((b) => {
     b.onclick = () => {
       const pick = Number(b.dataset.z);
       if (pick === z) { save({ ...g, done: true }); return; }
@@ -238,6 +262,53 @@ function paintGuess(box: HTMLElement, index: number, go: HomeGo): void {
     };
   });
 }
+
+function learnRow(save: SaveData): string {
+  const all = earnables(save);
+  const open = all.filter((e) => e.open).length + 1; // the plain table is always open
+  return `<button type="button" class="home-line" data-go="learn">${icon('atlas', { size: 24 })}`
+    + `<span class="home-grow"><b>Explore all ${MAX_Z} atoms</b><small>${open} of ${all.length + 1} ways to see them open</small></span>${CHEVRON()}</button>`;
+}
+
+// ---------- Play ----------
+
+/** Five pips, the first `level` lit in the level's color. */
+function pips(level: number): string {
+  return `<span class="home-pips lvl-${level}" aria-hidden="true">${Array.from({ length: 5 }, (_, i) => `<i class="${i < level ? 'on' : ''}"></i>`).join('')}</span>`;
+}
+
+/** Today's puzzle: what it is on the left, the game playing itself on the right (its icon kept
+ *  small by its name), and Play (Replay once solved) at the foot. */
+function paintGame(box: HTMLElement, go: HomeGo): void {
+  const d = dailyPuzzle();
+  const p = PUZZLES.find((g) => g.id === d.game);
+  if (!p) return;
+  const s = dailyStreak();
+  const level = difficultyLevel(d.dial);
+  const word = levelWord(level);
+  const status = s.today ? `Solved today${s.flawless ? ', flawless' : ''}` : s.streak ? `Streak: ${s.streak} day${s.streak === 1 ? '' : 's'}` : 'Same board for everyone';
+  box.innerHTML = `<section class="home-feed home-today" aria-label="Today's puzzle"><div class="home-todayrow">`
+    + `<div class="home-todayinfo"><span class="home-caps">Today's puzzle</span>`
+    + `<b class="home-big home-gname"><span class="home-gsmall" aria-hidden="true">${puzzleIcon(p.id, 16)}</span>${esc(p.name)}</b>`
+    + `<span class="home-lvl">${pips(level)}${word}</span><small class="home-muted${s.today ? ' home-ok' : ''}">${s.today ? `${icon('check', { size: 14 })} ` : ''}${status}</small></div>`
+    + `<span class="home-shot" aria-hidden="true"><canvas></canvas></span></div>`
+    + `<button type="button" class="home-go ${s.today ? 'is-ring' : 'is-play'}" data-daily aria-label="${s.today ? 'Replay' : 'Play'} today's ${esc(p.name)}, ${word}">`
+    + `${icon(s.today ? 'restart' : 'play', { size: 22 })}${s.today ? 'Replay' : `Play · ${word}`}</button></section>`;
+  box.querySelector<HTMLButtonElement>('[data-daily]')!.onclick = () => go('play', { game: p.id, daily: true });
+  if (p.makeAt) {
+    demo = new GameDemo(box.querySelector('canvas')!, () => reducedMotion());
+    demo.show(p);
+    demo.start();
+  }
+}
+
+function gamesRow(): string {
+  const n = PUZZLES.filter((g) => g.make).length;
+  return `<button type="button" class="home-line" data-go="play">${icon('puzzles', { size: 24 })}`
+    + `<span class="home-grow"><b>Explore all games</b><small>${n} games, from very easy to expert</small></span>${CHEVRON()}</button>`;
+}
+
+// ---------- Nu ----------
 
 /** How long an answer stays up before the next question; a note gets time to be read. */
 const QUIZ_SHOW_MS = 2200, QUIZ_NOTE_MS = 3600;
@@ -252,26 +323,29 @@ function paintQuiz(box: HTMLElement, index: number): void {
   const n = st.quiz.length;
   const streak = liveStreak(st);
   const bar = `<div class="home-qbar" aria-hidden="true">${qs.map((_, i) => `<i class="${i < n ? (st.quiz[i] ? 'is-right' : 'is-wrong') : ''}"><b></b></i>`).join('')}</div>`;
-  const head = `<div class="home-row"><span class="home-nu">${nuIconHtml(20)}</span><b class="home-q home-grow">Nu asks</b>`
+  const head = `<div class="home-row home-qhead"><span class="home-nu">${nuIconHtml(20)}</span><span class="home-caps home-grow">Nu asks${n < qs.length ? ` · ${n + 1} of ${qs.length}` : ''}</span>`
     + `<span class="home-muted">${streak ? `Streak: ${streak} day${streak === 1 ? '' : 's'}` : 'Start a streak'}</span></div>`;
   if (n >= qs.length) {
     // Done for today: Nu leaves the quiz.
     delete box.dataset.nuPerch;
     const right = st.quiz.filter(Boolean).length;
-    box.innerHTML = `<div class="home-card home-quizcard">${head}`
-      + `<div class="home-qdone"><b>${right}/${qs.length}</b><span><b>right today</b><small>Three more tomorrow</small></span></div>${bar}</div>`;
+    box.innerHTML = `<section class="home-feed home-quizcard" aria-label="Nu asks">${head}`
+      + `<div class="home-qdone"><b>${right}/${qs.length}</b><span><b>right today</b><small>Three more tomorrow</small></span></div>${bar}</section>`;
     return;
   }
   const q = qs[n];
-  const choice = (o: QuizOption, i: number) => ('z' in o
-    ? atomCard(o.z, `data-ans="${i}" aria-label="${esc(elementAt(o.z).name)}"`, '', esc(q.after[i] || '\u00a0'))
-    : `<button type="button" class="home-tile" data-ans="${i}">${esc(o.text)}</button>`);
+  const choice = (o: QuizOption, i: number) => {
+    if (!('z' in o)) return `<button type="button" class="home-tile" data-ans="${i}">${esc(o.text)}</button>`;
+    const e = elementAt(o.z);
+    return `<button type="button" class="home-acard" data-ans="${i}" aria-label="${esc(e.name)}">${plate(e)}<span class="home-acard-txt"><b>${esc(e.name)}</b>`
+      + `<small>${esc(q.after[i] || ' ')}</small></span></button>`;
+  };
   const atoms = 'z' in q.options[0];
   // "Not quite." is the longer verdict, so the line is laid out at its widest.
-  box.innerHTML = `<div class="home-card home-quizcard">${head}<p class="home-ask">${esc(q.text)}</p>`
+  box.innerHTML = `<section class="home-feed home-quizcard" aria-label="Nu asks">${head}<p class="home-ask">${esc(q.text)}</p>`
     + `<div class="${atoms ? 'home-acards' : 'home-tiles'}">${q.options.map(choice).join('')}</div>`
     + `<p class="home-qline"><span class="home-qnow">Question ${n + 1} of ${qs.length}</span>`
-    + `<span class="home-qafter" aria-live="polite"><b>Not quite.</b>${q.note ? ` ${esc(q.note)}` : ''}</span></p>${bar}</div>`;
+    + `<span class="home-qafter" aria-live="polite"><b>Not quite.</b>${q.note ? ` ${esc(q.note)}` : ''}</span></p>${bar}</section>`;
   const card = box.firstElementChild as HTMLElement;
   box.querySelectorAll<HTMLButtonElement>('[data-ans]').forEach((b) => {
     b.onclick = () => {
@@ -301,78 +375,34 @@ function paintQuiz(box: HTMLElement, index: number): void {
   });
 }
 
-function learnRow(save: SaveData): string {
-  const all = earnables(save);
-  const open = all.filter((e) => e.open).length + 1; // the plain table is always open
-  return `<button type="button" class="home-card home-link" data-go="learn">${icon('atlas', { size: 22 })}`
-    + `<span class="home-grow"><b>Explore all ${MAX_Z} atoms</b><small>${open} of ${all.length + 1} ways to see them open</small></span>${icon('chevron-right', { size: 20 })}</button>`;
-}
-
-// ---------- Play ----------
-
-/** The day's random game: any playable game but the one above it, the same all day; one not
- *  played yet when there is one. */
-function randomGame(ids: string[], not: string, index: number): string {
-  const others = ids.filter((g) => g !== not);
-  const fresh = others.filter((g) => playsOf(g) === 0);
-  const pool = fresh.length ? fresh : others;
-  return pool[((index * 7919) % pool.length + pool.length) % pool.length];
-}
-
-/** Under the first game: the level it was last played at and the wins there ("Hard · 3 wins"). */
-function levelLine(game: string): string {
-  const dial = lastDial(game);
-  if (dial === null) return lastPlayed() === game ? 'Played last' : 'Not played yet';
-  const level = difficultyLevel(dial);
-  const won = winsOf(game)[level - 1].solved;
-  return `${levelWord(level)} · ${won ? `${fmt(won)} win${won === 1 ? '' : 's'}` : 'no wins yet'}`;
-}
-
-function paintGame(box: HTMLElement, go: HomeGo): void {
-  const ids = PUZZLES.filter((g) => g.make).map((g) => g.id);
-  const id = [lastPlayed(), ...pinnedGames(), 'merge'].find((g): g is string => Boolean(g) && ids.includes(g!)) ?? ids[0];
-  const card = (gid: string, extra: string) => {
-    const p = PUZZLES.find((g) => g.id === gid)!;
-    const dial = lastDial(gid);
-    return gameCard({
-      id: gid, name: p.name,
-      ...(dial !== null ? { difficulty: dial } : {}),
-      extra,
-      action: { label: 'Play', ariaLabel: `Play ${p.name}`, onClick: () => go('play', { game: gid }) },
-    });
-  };
-  // The daily puzzle first (moved here from Play, James 10/16): today's game at the day's level,
-  // the same board for everyone; Replay once it is solved.
-  const d = dailyPuzzle();
-  const dp = PUZZLES.find((g) => g.id === d.game);
-  if (dp) {
-    const s = dailyStreak();
-    const level = levelWord(d.level);
-    box.append(gameCard({
-      id: dp.id, name: dp.name, difficulty: d.dial,
-      extra: s.today ? `Solved today${s.flawless ? ', flawless' : ''} · ${level}` : `Today's puzzle · ${level}`,
-      action: s.today
-        ? { label: 'Replay', ariaLabel: `Replay today's ${dp.name}`, onClick: () => go('play', { game: dp.id, daily: true }) }
-        : { label: 'Play', ariaLabel: `Play today's ${dp.name}`, onClick: () => go('play', { game: dp.id, daily: true }) },
-    }));
-  }
-  box.append(card(id, levelLine(id)));
-  const other = randomGame(ids, id, today().index);
-  if (other) box.append(card(other, playsOf(other) ? 'Random pick' : 'Random pick · new to you'));
-}
-
-// ---------- Nu ----------
-
-/** Nu's section: the game it wants to play today (into its park), and what's waiting in its park:
- *  treats from wins, and a hint that it's hiding somewhere today (or how often it's been found). */
-function nuBody(): string {
+/** The game Nu wants to play today, playing itself beside its name, into Nu's park; with what's
+ *  waiting there: treats from wins, and a hint that Nu is hiding somewhere today (or how often
+ *  it's been found). */
+function nuCard(): string {
   const g = nuPick(), n = treats(), f = finds();
   const notes: string[] = [];
   if (n) notes.push(`${n} ${n === 1 ? 'treat' : 'treats'} waiting`);
   if (hideDue()) notes.push('Hiding somewhere today');
   else if (foundToday()) notes.push(`Found ${f === 1 ? 'once' : `${f} times`}`);
-  return `<button type="button" class="home-card home-link home-nupick" data-nu-game="${g.id}">`
-    + `<span class="home-nupick-ico" aria-hidden="true">${g.icon}</span>`
-    + `<span class="home-grow"><b>Nu wants to play ${g.label}</b>${notes.length ? `<small>${notes.join(' · ')}</small>` : ''}</span>`
-    + `${icon('chevron-right', { size: 20 })}</button>`;
+  return `<button type="button" class="home-feed home-nugame" data-nu-game="${g.id}" aria-label="Play ${esc(g.label)} with Nu">`
+    + `<span class="home-nushot" aria-hidden="true"><canvas></canvas></span>`
+    + `<span class="home-grow home-nuinfo"><span class="home-caps">Nu wants to play</span><b class="home-big">${esc(g.label)}</b>`
+    + `${notes.length ? `<small>${notes.join(' · ')}</small>` : ''}</span>`
+    + `<span class="home-nugo" aria-hidden="true">${icon('play', { size: 22 })}</span></button>`;
+}
+
+/** Nu's game playing itself, silently, on the card (the park's own tile preview, loaded with
+ *  the park); one still frame under Reduce motion. */
+function playNu(canvas: HTMLCanvasElement, id: GameId): void {
+  const mine = visit;
+  void import('../nu/park').then(({ nuPreview }) => {
+    if (mine !== visit || !canvas.isConnected) return;
+    const p = nuPreview(id, canvas);
+    const tick = (now: number) => {
+      if (mine !== visit || !canvas.isConnected) return;
+      if (canvas.offsetParent !== null) p.frame(now);
+      nuRaf = reducedMotion() ? 0 : requestAnimationFrame(tick);
+    };
+    nuRaf = requestAnimationFrame(tick);
+  }).catch(() => { /* a picture is decoration */ });
 }
