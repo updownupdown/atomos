@@ -713,6 +713,8 @@ export class Swing implements Toy {
   private vx = 0;
   private vy = 0;
   private cam = 0;
+  /** The furthest on the view has been. */
+  private far = 0;
   private hook: Pt | null = null;
   private len = 0;
   /** The rope's length the finger asks for, and where the finger was when it asked. */
@@ -735,7 +737,7 @@ export class Swing implements Toy {
   }
 
   private reset(s: Stage): void {
-    this.cam = 0;
+    this.cam = this.far = 0;
     this.pins = [];
     this.count = 0;
     this.placed = 0;
@@ -839,9 +841,17 @@ export class Swing implements Toy {
     const sp = Math.hypot(this.vx, this.vy);
     if (sp > 1) { this.vx /= sp; this.vy /= sp; }
     if (this.y < s.m.y - s.hh + nu.r) { this.y = s.m.y - s.hh + nu.r; this.vy = Math.abs(this.vy) * 0.3; }
-    // The view follows Nu on, never back.
-    const want = this.x - (s.m.x - s.hw * 0.25);
-    if (want > this.cam) this.cam += (want - this.cam) * Math.min(1, dt / 120);
+    // The view follows Nu on, and back too when it swings back toward the left edge, so Nu is
+    // never out of sight for more than a moment. It never goes far behind the furthest it has been.
+    const ahead = this.x - (s.m.x - s.hw * 0.25), behind = this.x - (s.m.x - s.hw * 0.7);
+    if (ahead > this.cam) this.cam += (ahead - this.cam) * Math.min(1, dt / 120);
+    else if (behind < this.cam) this.cam += (behind - this.cam) * Math.min(1, dt / 90);
+    this.cam = Math.min(this.cam, this.x - (s.m.x - s.hw + nu.r));
+    this.far = Math.max(this.far, this.cam);
+    this.cam = Math.max(this.cam, this.far - s.hw * 3);
+    // Past that, the left edge turns Nu back.
+    const edge = this.cam + s.m.x - s.hw + nu.r;
+    if (this.x < edge) { this.x = edge; this.vx = Math.abs(this.vx) * 0.5; }
     for (const p of this.pins) {
       if (p.red) {
         if (dist(p, this.me()) < 7 + nu.r) { this.over(s, now, p); return; }
@@ -855,7 +865,7 @@ export class Swing implements Toy {
       s.score(this.count, best(s, 'swing') || null);
     }
     this.more(s);
-    this.pins = this.pins.filter((p) => p.x - this.cam > s.m.x - s.hw * 2 || p === this.hook);
+    this.pins = this.pins.filter((p) => p.x - this.far > s.m.x - s.hw * 5 || p === this.hook);
     nu.x = this.x - this.cam;
     nu.y = this.y;
     nu.vx = this.vx;

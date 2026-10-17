@@ -18,10 +18,10 @@
 //   Course  lead Nu up a channel past orbiting electrons, against the clock.
 //   Dive    tap to dive Nu through the gaps in turning shells, down to the nucleus.
 //   Hockey, Pairs: see arcade.ts. Flash, Halo, Pulse: see court.ts. Ripple: see swim.ts. Hop,
-//   Juggle, Pull, Twin: see yard.ts. Grow, Rain, Spot, Tilt: see field.ts. Flip, More, Stick:
+//   Juggle, Twin: see yard.ts. Grow, Rain, Spot, Tilt: see field.ts. Flip, More, Stick:
 //   see lawn.ts. Blast, Bumper, Cross, Cue, Dodge, Hue: see meadow.ts. Land, Order, Pop, Ready,
 //   Recall, Swing: see grove.ts. Bank, Carve: see glade.ts. Shade, Surf: see heath.ts. Fuse,
-//   Gate, Tune: see brook.ts. Beat, Chord, Phase: see fen.ts. Ferry, Poise, Pole: see marsh.ts.
+//   Gate, Tune: see brook.ts. Ferry, Poise: see marsh.ts.
 // Most games are learnt by trying, so they carry no words: just the score and best under the
 // arena, drawn as tiny atoms (score-atom.ts). When a run is over, a card over the arena shows
 // its atom and an Again button; when a level is done, a Next button.
@@ -42,7 +42,7 @@ import { hush, newTheme } from './kit';
 import { Hockey, Pairs } from './arcade';
 import { Flash, Halo, Pulse } from './court';
 import { Ripple } from './swim';
-import { Hop, Juggle, Pull, Twin } from './yard';
+import { Hop, Juggle, Twin } from './yard';
 import { Grow, Rain, Spot, Tilt } from './field';
 import { Flip, More, Stick } from './lawn';
 import { Blast, Bumper, Cross, Cue, Dodge, Hue } from './meadow';
@@ -50,8 +50,7 @@ import { Land, Order, Pop, Ready, Recall, Swing } from './grove';
 import { Bank, Carve } from './glade';
 import { Shade, Surf } from './heath';
 import { Fuse, Gate, Tune } from './brook';
-import { Beat, Chord, Phase } from './fen';
-import { Ferry, Poise, Pole } from './marsh';
+import { Ferry, Poise } from './marsh';
 import { fmt, points } from './points';
 import { atomSvg } from './score-atom';
 import { GAME_MS, NEXT_MS, ROULETTE_ICON, ROUND, chip, keepRun, pickSix, readBook, rouletteHtml, wheelSvg, type Run } from './roulette';
@@ -1688,13 +1687,13 @@ const MAKE: Record<PlaceId, () => Toy> = {
   home: () => new Home(), sling: () => new Sling(), course: () => new Course(), echo: () => new Echo(), orbit: () => new Orbit(),
   shells: () => new Shells(), herd: () => new Herd(), hockey: () => new Hockey(), pairs: () => new Pairs(), dive: () => new Dive(), flash: () => new Flash(), halo: () => new Halo(),
   pulse: () => new Pulse(), ripple: () => new Ripple(), hop: () => new Hop(),
-  juggle: () => new Juggle(), pull: () => new Pull(), twin: () => new Twin(),
+  juggle: () => new Juggle(), twin: () => new Twin(),
   grow: () => new Grow(), rain: () => new Rain(), spot: () => new Spot(), tilt: () => new Tilt(),
   flip: () => new Flip(), more: () => new More(), stick: () => new Stick(),
   blast: () => new Blast(), bumper: () => new Bumper(), cross: () => new Cross(), cue: () => new Cue(), dodge: () => new Dodge(), hue: () => new Hue(),
   land: () => new Land(), order: () => new Order(), pop: () => new Pop(), ready: () => new Ready(), recall: () => new Recall(), swing: () => new Swing(),
   carve: () => new Carve(), bank: () => new Bank(), surf: () => new Surf(), shade: () => new Shade(),
-  pole: () => new Pole(), poise: () => new Poise(), ferry: () => new Ferry(), fuse: () => new Fuse(), gate: () => new Gate(), tune: () => new Tune(), beat: () => new Beat(), chord: () => new Chord(), phase: () => new Phase(),
+  poise: () => new Poise(), ferry: () => new Ferry(), fuse: () => new Fuse(), gate: () => new Gate(), tune: () => new Tune(),
 };
 
 /** The arena fills the field (w x h), its rim just inside the edge; the court is the biggest
@@ -1796,7 +1795,7 @@ const BOTS: Record<GameId, Bot> = { course: { kind: 'drag', path: 'wander' },
   grow: { kind: 'drag', path: 'wander' }, halo: { kind: 'drag', path: 'circle' }, herd: { kind: 'drag', path: 'wander' },
   hockey: { kind: 'drag', path: 'row' }, hop: { kind: 'drag', path: 'row' }, juggle: { kind: 'tap', every: 650, at: 'nu' },
   orbit: { kind: 'tap', every: 1200 }, pairs: { kind: 'tap', every: 700 },
-  pull: { kind: 'tap', every: 1200 }, pulse: { kind: 'tap', every: 1000 }, rain: { kind: 'drag', path: 'row' }, ripple: { kind: 'tap', every: 700, at: 'near' }, shells: { kind: 'tap', every: 900 },
+  pulse: { kind: 'tap', every: 1000 }, rain: { kind: 'drag', path: 'row' }, ripple: { kind: 'tap', every: 700, at: 'near' }, shells: { kind: 'tap', every: 900 },
   sling: { kind: 'sling' }, spot: { kind: 'tap', every: 1300 },
   tilt: { kind: 'drag', path: 'wander' }, twin: { kind: 'drag', path: 'wander' },
   flip: { kind: 'tap', every: 750 }, more: { kind: 'tap', every: 1300, at: 'side' }, stick: { kind: 'tap', every: 950 },
@@ -1805,7 +1804,7 @@ const BOTS: Record<GameId, Bot> = { course: { kind: 'drag', path: 'wander' },
   land: { kind: 'hold', on: 450, off: 650 }, order: { kind: 'tap', every: 800 }, pop: { kind: 'tap', every: 1000, at: 'near' },
   ready: { kind: 'tap', every: 700 }, recall: { kind: 'tap', every: 600 }, swing: { kind: 'hold', on: 650, off: 450 },
   carve: { kind: 'flick' }, bank: { kind: 'flick' }, surf: { kind: 'hold', on: 450, off: 650 }, shade: { kind: 'drag', path: 'wander' },
-  pole: { kind: 'tap', every: 900, at: 'any' }, poise: { kind: 'tap', every: 1200, at: 'any' }, ferry: { kind: 'drag', path: 'wander' }, fuse: { kind: 'tap', every: 900 }, gate: { kind: 'drag', path: 'wander' }, tune: { kind: 'drag', path: 'wander' }, beat: { kind: 'drag', path: 'row' }, chord: { kind: 'drag', path: 'row' }, phase: { kind: 'drag', path: 'row' },
+  poise: { kind: 'tap', every: 1200, at: 'any' }, ferry: { kind: 'drag', path: 'wander' }, fuse: { kind: 'tap', every: 900 }, gate: { kind: 'drag', path: 'wander' }, tune: { kind: 'drag', path: 'wander' },
 };
 
 /** The size a tile plays at, before it's scaled down to fit: about a phone's arena. */
