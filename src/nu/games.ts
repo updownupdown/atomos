@@ -6,7 +6,7 @@ import { dayIndex } from './bond';
 export type GameId = 'sling' | 'course' | 'echo' | 'orbit' | 'shells' | 'herd' | 'hockey' | 'pairs' | 'dive' | 'flash' | 'halo' | 'pulse' | 'ripple' | 'hop' | 'juggle' | 'pull' | 'twin' | 'grow' | 'rain' | 'spot' | 'tilt' | 'flip' | 'more' | 'stick'
   | 'blast' | 'bumper' | 'cross' | 'cue' | 'dodge' | 'hue' | 'land' | 'order' | 'pop' | 'ready' | 'recall' | 'swing'
   | 'carve' | 'bank' | 'surf' | 'shade'
-  | 'pole' | 'poise' | 'ferry' | 'fuse' | 'gate' | 'tune';
+  | 'pole' | 'poise' | 'ferry' | 'fuse' | 'gate' | 'tune' | 'beat' | 'chord' | 'phase';
 
 export const S = (d: string) => `<svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">${d}</svg>`;
 export const ST = 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"';
@@ -56,6 +56,9 @@ const LIST: { id: GameId; label: string; icon: string }[] = [
   { id: 'fuse', label: 'Fuse', icon: S(`<circle cx="9" cy="3.8" r="2.3" ${F}/><path d="M3 8.5h18" ${ST} stroke-dasharray="2 3"/><circle cx="7" cy="17.5" r="3.5" ${F}/><circle cx="15.5" cy="16" r="5" ${ST}/>`) },
   { id: 'gate', label: 'Gate', icon: S(`<circle cx="12" cy="5" r="2.8" ${F}/><circle cx="5" cy="13" r="1.8" ${F}/><circle cx="13" cy="13" r="1.8" ${F}/><circle cx="11" cy="20.5" r="1.8" ${ST}/><circle cx="19" cy="20.5" r="1.8" ${ST}/>`) },
   { id: 'tune', label: 'Tune', icon: S(`<path d="M2 12c2-6 4-6 6 0s4 6 6 0" ${ST}/><path d="M14 12c1.5-4 2.5-4 4 0s2.5 4 4 0" ${ST} stroke-dasharray="2 2.5"/><circle cx="14" cy="12" r="2.6" ${F}/>`) },
+  { id: 'beat', label: 'Beat', icon: S(`<path d="M2 12Q7 3 12 12T22 12" ${ST}/><path d="M2 12Q7 21 12 12T22 12" ${ST} stroke-dasharray="2 2.5"/><circle cx="7" cy="7.5" r="2.4" ${F}/>`) },
+  { id: 'chord', label: 'Chord', icon: S(`<path d="M3 4v12M21 4v12" ${ST}/><path d="M3 10c2-5 4-5 6 0s4 5 6 0 4-5 6 0" ${ST}/><circle cx="15" cy="10" r="2.6" ${ST}/><circle cx="9" cy="20.5" r="2" ${F}/>`) },
+  { id: 'phase', label: 'Phase', icon: S(`<path d="M2 16c2.5-8 5.5-8 8 0s5.5 8 8 0" ${ST}/><circle cx="6" cy="9.5" r="3" ${ST}/><circle cx="18" cy="9.5" r="3" ${ST} stroke-dasharray="2 2"/><circle cx="10" cy="16" r="2.4" ${F}/>`) },
   { id: 'carve', label: 'Carve', icon: S(`<rect x="3" y="3" width="18" height="18" rx="3" ${ST}/><path d="M11 3v18M11 12h10" ${ST}/><rect x="13" y="14" width="6" height="5" rx="1" ${F}/><circle cx="7" cy="8" r="1.8" ${F}/>`) },
   { id: 'bank', label: 'Bank', icon: S(`<path d="M11 17.5L3.5 11L15 5" ${ST} stroke-dasharray="2 3"/><circle cx="18" cy="4.5" r="2.6" ${ST}/><circle cx="12" cy="20" r="2.6" ${F}/>`) },
   { id: 'surf', label: 'Surf', icon: S(`<path d="M2 17c3-6 6-6 9 0s6 6 9 0" ${ST}/><circle cx="9" cy="7" r="2.8" ${F}/><circle cx="17" cy="5" r="1.6" ${F}/>`) },

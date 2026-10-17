@@ -2,13 +2,13 @@
 //   Fuse   Nu carries atoms along the top; drag to place one and let go to drop it. They pile
 //          up, and two of a kind that touch fuse into the next size. Keep the pile under the line.
 //   Gate   Nu glides down through pairs of posts. Drag to steer through the green gate; a missed
-//          gate or a red dot costs one of three lives. Faster as it goes.
-//   Tune   a grey wave rolls in from the right. Drag up and down to set Nu's own wave (and later
-//          left and right for its height) to match it as it passes: both turn green.
+//          gate or a red dot costs one of three lives. The course comes in sections of its own pace.
+//   Tune   a grey wave rolls in from the right. Slide along the bottom to set Nu's own wave (and
+//          later a second slider for its height) to match it as it passes: both turn green.
 
 import {
-  GREEN, K300, K500, K800, NOTE_COLOURS, RED, TAU, WHITE,
-  best, bounceIn, buzz, captureSound, clamp, completeSound, dist, dot, finish, missSound, ring, tickSound,
+  CYAN, GREEN, K300, K500, K800, NOTE_COLOURS, RED, TAU, WHITE,
+  best, bounceIn, buzz, captureSound, chimeSound, clamp, completeSound, dist, dot, finish, missSound, ring, tickSound,
   type Mover, type Pt, type Stage, type Toy,
 } from './kit';
 import { bar, lives } from './lawn';
@@ -231,23 +231,37 @@ export class Fuse implements Toy {
 // ---- Gate ------------------------------------------------------------------------------------
 
 /** The scroll speed at the start and at most (px/ms, times the height scale), and how long that
- *  takes to grow (ms). */
+ *  takes to grow (ms). A section's pace multiplies it, up to GATE_TOP of the most. */
 const GATE_V0 = 0.13;
 const GATE_V1 = 0.27;
 const GATE_RAMP = 55000;
+const GATE_TOP = 1.1;
 /** The room between gates (px, times the height scale). */
 const GATE_GAP = 180;
 
-/** A gate: its place down the course (world px), its middle and width, and whether it's ahead,
- *  passed or missed. */
-type Pair = { y: number; cx: number; w: number; state: 'ahead' | 'passed' | 'missed' };
+/** The course comes in sections a few gates long, each with its own pace: calm stretches, rushes
+ *  of close gates, wide swings from side to side and tight slaloms through narrow gates. Each
+ *  sets the room between gates, their width, how far they swing, the speed and the red dots. */
+type Kind = 'calm' | 'rush' | 'wide' | 'tight';
+const GATE_KINDS: Record<Kind, { gap: number; w: number; off: number; v: number; mines: number; c: string; n: [number, number] }> = {
+  calm: { gap: 1.3, w: 1.2, off: 0.45, v: 0.8, mines: 0, c: NOTE_COLOURS[0], n: [3, 5] },
+  rush: { gap: 0.72, w: 1.1, off: 0.45, v: 1.35, mines: 0.35, c: CYAN, n: [5, 8] },
+  wide: { gap: 1.25, w: 1.15, off: 1.6, v: 1.05, mines: 0.6, c: NOTE_COLOURS[3], n: [4, 6] },
+  tight: { gap: 0.95, w: 0.7, off: 0.55, v: 0.85, mines: 1.2, c: NOTE_COLOURS[2], n: [4, 6] },
+};
+
+/** A gate: its place down the course (world px), its middle and width, whether it's ahead,
+ *  passed or missed, its section's kind, and whether it starts that section. */
+type Pair = { y: number; cx: number; w: number; state: 'ahead' | 'passed' | 'missed'; kind: Kind; first: boolean };
 type Mine = { x: number; y: number; vx: number; r: number; hit: boolean };
 
 /** Slalom, Nu's way. Nu glides down the arena while the course rolls up past it. Each gate is two
  *  posts; the next one to pass is green. Drag left and right to steer (Nu follows a little behind,
  *  and swings on a touch past where it's sent). Through a gate scores; past it outside the posts
- *  costs one of three lives, and so does a red dot. The gates swing wider from side to side and
- *  narrow, red dots come in between and later drift, and the course speeds up. */
+ *  costs one of three lives, and so does a red dot. The course comes in sections, each with its
+ *  own pace and its own colour on the posts, a row of small dots across the start of each: calm
+ *  wide gates, rushes of quick close ones, wide swings and tight slaloms between red dots. The
+ *  gates narrow and the course speeds up as it goes. */
 export class Gate implements Toy {
   private pairs: Pair[] = [];
   private mines: Mine[] = [];
@@ -256,8 +270,12 @@ export class Gate implements Toy {
   private x = 0;
   private vx = 0;
   private tx = 0;
+  private pace = GATE_KINDS.calm.v;
   private grab: number | null = null;
   private side = 1;
+  private kind: Kind = 'calm';
+  private run = 0;
+  private sections = 0;
   private left = 3;
   private safeUntil = 0;
   private count = 0;
@@ -277,8 +295,13 @@ export class Gate implements Toy {
     this.t = 0;
     this.x = this.tx = s.m.x;
     this.vx = 0;
+    this.pace = GATE_KINDS.calm.v;
     this.grab = null;
     this.side = Math.random() < 0.5 ? 1 : -1;
+    // The first section is a calm one, four gates long.
+    this.kind = 'calm';
+    this.run = 4;
+    this.sections = 0;
     this.left = 3;
     this.safeUntil = 0;
     this.count = 0;
@@ -288,6 +311,15 @@ export class Gate implements Toy {
     s.score(0, best(s, 'gate') || null);
   }
 
+  /** The next section: never the same kind twice running; rushes and slaloms after a few gates. */
+  private nextKind(n: number): void {
+    const all: Kind[] = n < 6 ? ['calm', 'wide'] : ['calm', 'rush', 'wide', 'tight'];
+    const pick = all.filter((k) => k !== this.kind);
+    this.kind = pick[Math.floor(Math.random() * pick.length)];
+    const [lo, hi] = GATE_KINDS[this.kind].n;
+    this.run = lo + Math.floor(Math.random() * (hi - lo + 1));
+  }
+
   /** More gates below, as far as the arena shows and a bit. */
   private grow(s: Stage): void {
     const u = this.u(s), sz = this.sz(s), far = this.cam + 2 * s.hh + 80;
@@ -295,19 +327,24 @@ export class Gate implements Toy {
     while (last < far) {
       const n = this.count + this.pairs.filter((p) => p.state === 'ahead').length;
       const prev = this.pairs[this.pairs.length - 1];
-      const y = last + GATE_GAP * u;
-      const w = s.hw * Math.max(0.3, 0.62 - n * 0.007);
+      let first = false;
+      if (this.run <= 0) { this.nextKind(n); first = true; }
+      this.run--;
+      const k = GATE_KINDS[this.kind];
+      // The gap before a gate is set by its own section, so a rush starts close.
+      const y = last + GATE_GAP * u * k.gap;
+      const w = Math.min(s.hw * 0.8, s.hw * Math.max(0.3, 0.62 - n * 0.007) * k.w);
       const reach = s.hw - w / 2 - 14 * sz;
-      const off = reach * Math.min(0.95, 0.25 + n * 0.02 + Math.random() * 0.3);
+      const off = reach * Math.min(0.95, (0.25 + Math.min(0.4, n * 0.02) + Math.random() * 0.3) * k.off);
       this.side = -this.side;
       const cx = s.m.x + this.side * Math.max(0, off);
       // A red dot between this gate and the last, from the fourth gate on; later they drift.
-      if (prev && n >= 3 && Math.random() < Math.min(0.75, 0.35 + n * 0.01)) {
+      if (prev && n >= 3 && Math.random() < Math.min(0.9, (0.35 + n * 0.01) * k.mines)) {
         const r = 7 * sz, mx = (prev.cx + cx) / 2 + (Math.random() - 0.5) * s.hw * 0.5;
         const vx = n >= 12 ? (Math.random() < 0.5 ? -1 : 1) * (0.03 + Math.random() * 0.04) * sz : 0;
         this.mines.push({ x: clamp(mx, s.m.x - s.hw + r + 10, s.m.x + s.hw - r - 10), y: (prev.y + y) / 2, vx, r, hit: false });
       }
-      this.pairs.push({ y, cx, w, state: 'ahead' });
+      this.pairs.push({ y, cx, w, state: 'ahead', kind: this.kind, first });
       last = y;
     }
     const gone = this.cam - 60;
@@ -324,7 +361,11 @@ export class Gate implements Toy {
       return;
     }
     this.t += dt;
-    const v = (GATE_V0 + (GATE_V1 - GATE_V0) * Math.min(1, this.t / GATE_RAMP)) * u;
+    // The pace eases toward that of the section of the gate ahead.
+    const ahead = this.pairs.find((p) => p.state === 'ahead');
+    this.pace += ((ahead ? GATE_KINDS[ahead.kind].v : 1) - this.pace) * (1 - Math.exp(-dt / 700));
+    const base = GATE_V0 + (GATE_V1 - GATE_V0) * Math.min(1, this.t / GATE_RAMP);
+    const v = Math.min(GATE_V1 * GATE_TOP, base * this.pace) * u;
     this.cam += v * dt;
     // Nu swings toward where it's sent, a little behind, with a touch of overshoot.
     const w = 0.011, damp = 2 * 0.62 * w;
@@ -346,10 +387,13 @@ export class Gate implements Toy {
     for (const p of this.pairs) {
       if (p.state !== 'ahead' || p.y > at) continue;
       const py = p.y - this.cam + this.top(s);
+      if (p.first) this.section(s, p);
       if (Math.abs(this.x - p.cx) <= p.w / 2 - 3) {
         p.state = 'passed';
         this.count++;
         captureSound();
+        // In a rush, each gate gets an accent too, its pitch from where across Nu went through.
+        if (p.kind === 'rush') tickSound(Math.round(4 * clamp((this.x - (s.m.x - s.hw)) / (2 * s.hw), 0, 1)));
         s.fx.ring(nu, GREEN, nu.r, nu.r + 26, 500);
         s.score(this.count, best(s, 'gate') || null);
       } else {
@@ -376,6 +420,17 @@ export class Gate implements Toy {
     this.grow(s);
   }
 
+  /** Nu enters a new section: a wave in its colour, a chime for its kind, and every fourth
+   *  section a cadence. */
+  private section(s: Stage, p: Pair): void {
+    this.sections++;
+    const c = GATE_KINDS[p.kind].c;
+    s.fx.ring(s.nu, c, s.nu.r + 4, s.hw * 0.7, 900);
+    s.fx.burst(s.nu, 10, c, 0.16);
+    if (this.sections % 4 === 0) completeSound();
+    else chimeSound(['calm', 'wide', 'tight', 'rush'].indexOf(p.kind) + 1);
+  }
+
   private hurt(s: Stage, now: number): void {
     this.left--;
     this.safeUntil = now + 1200;
@@ -390,13 +445,21 @@ export class Gate implements Toy {
   }
 
   draw(s: Stage, ctx: CanvasRenderingContext2D, now: number): void {
-    const nu = s.nu, sz = this.sz(s), Y = (y: number): number => y - this.cam + this.top(s);
+    const nu = s.nu, sz = this.sz(s), u = this.u(s), Y = (y: number): number => y - this.cam + this.top(s);
     const next = this.pairs.find((p) => p.state === 'ahead');
+    // The start of each section: a row of small dots across the arena in its colour.
+    for (const p of this.pairs) {
+      if (!p.first) continue;
+      const y = Y(p.y - GATE_GAP * u * GATE_KINDS[p.kind].gap * 0.3);
+      if (y < this.top(s) - 10 || y > s.m.y + s.hh + 10) continue;
+      const n = Math.max(6, Math.round((2 * s.hw) / 26)), a = p.state === 'ahead' ? 0.75 : 0.3;
+      for (let i = 0; i < n; i++) dot(ctx, { x: s.m.x - s.hw + ((i + 0.5) / n) * 2 * s.hw, y }, 2.6, GATE_KINDS[p.kind].c, a);
+    }
     for (const m of this.mines) if (!m.hit) dot(ctx, { x: m.x, y: Y(m.y) }, m.r, RED, 0.95);
     for (const p of this.pairs) {
       const y = Y(p.y), a = { x: p.cx - p.w / 2, y }, b = { x: p.cx + p.w / 2, y };
       if (y < this.top(s) - 20 || y > s.m.y + s.hh + 20) continue;
-      const c = p === next && !this.overAt ? GREEN : p.state === 'passed' ? WHITE : p.state === 'missed' ? RED : K300;
+      const c = p === next && !this.overAt ? GREEN : p.state === 'passed' ? WHITE : p.state === 'missed' ? RED : GATE_KINDS[p.kind].c;
       const alpha = p.state === 'passed' ? 0.35 : 0.95;
       if (p === next && !this.overAt) bar(ctx, a.x, y, b.x, y, GREEN, 2, 0.22);
       dot(ctx, a, 6 * sz, c, alpha);
@@ -443,33 +506,48 @@ const TUNE_SHORT = 2300;
 const TUNE_AMP_AT = 6;
 /** The share of a target's passing that must match to score. */
 const TUNE_GOAL = 0.5;
+/** How close Nu's wave is, by its colour: matched, near, nearer than far, and far (red). How
+ *  near is how many times the match's tolerance it's off by. */
+const TUNE_BLUE = '#5f8ae0';
+const TUNE_AMBER = '#d98a2b';
+const TUNE_NEAR = 2.2;
+const TUNE_MID = 4.5;
 
 /** A stretch of the target wave: where it starts (world px), how long it is, its frequency and
  *  height, its phase at the start, and how long it matched as it passed Nu. */
 type Seg = { u0: number; len: number; c: number; a: number; ph0: number; on: number; all: number };
 
 /** Resonance. A flat grey wave rolls in from the right, a stretch at a time, each with its own
- *  frequency. Nu rides its own wave, leaving its trace to the left. Drag up to quicken Nu's wave
- *  and down to slow it; when it matches the stretch going past, both turn green. Match a stretch
- *  for half its passing and it scores; less and one of three lives empties. Later the waves'
- *  heights differ too, set by dragging left and right; the stretches come quicker and the match
- *  must be closer. */
+ *  frequency. Nu rides its own wave, leaving its trace to the left. The slider along the bottom
+ *  sets Nu's wave: right to quicken it, left to slow it (a drag anywhere above moves it too). Nu's
+ *  trace shows how close it is: red far off, amber, blue near, and green when it matches the
+ *  stretch going past, which turns green too. Match a stretch for half its passing and it scores;
+ *  less and one of three lives empties. Later the waves' heights differ too, set by a second
+ *  slider just above the first; the stretches come quicker and the match must be closer. */
 export class Tune implements Toy {
   private segs: Seg[] = [];
-  private trail: { u: number; y: number }[] = [];
+  private trail: { u: number; y: number; c: string }[] = [];
   private scroll = 0;
   private c = 3;
   private a = 0;
   private ph = 0;
-  private grab: { x: number; y: number; c: number; a: number } | null = null;
+  private grab: { x: number; c: number; slider: 'f' | 'a' | null } | null = null;
   private started = false;
   private matched = false;
+  private near = Infinity;
   private left = 3;
   private count = 0;
   private overAt = 0;
   private W(s: Stage): number { return 2 * s.hw; }
   private X0(s: Stage): number { return s.m.x - s.hw * 0.3; }
-  private amax(s: Stage): number { return s.hh * 0.36; }
+  /** The strip along the bottom kept for the sliders, and the wave's middle above it. */
+  private strip(s: Stage): number { return clamp(2 * s.hh * 0.2, 90, 130); }
+  private cy(s: Stage): number { return s.m.y - this.strip(s) / 2 + 8; }
+  private amax(s: Stage): number { return (2 * s.hh - this.strip(s)) * 0.36; }
+  /** The sliders: their ends across, and their heights (frequency below, height above it). */
+  private sx(s: Stage): [number, number] { return [s.m.x - s.hw + 34, s.m.x + s.hw - 34]; }
+  private fy(s: Stage): number { return s.m.y + s.hh - 30; }
+  private ay(s: Stage): number { return this.fy(s) - 44; }
   /** The scroll speed (px/ms). */
   private v(s: Stage): number { return this.W(s) / 5200; }
   private ampOn(): boolean { return this.count >= TUNE_AMP_AT; }
@@ -489,6 +567,7 @@ export class Tune implements Toy {
     this.grab = null;
     this.started = false;
     this.matched = false;
+    this.near = Infinity;
     this.left = 3;
     this.count = 0;
     this.overAt = 0;
@@ -528,7 +607,13 @@ export class Tune implements Toy {
 
   private place(s: Stage): void {
     s.nu.x = this.X0(s);
-    s.nu.y = s.m.y - this.a * Math.sin(this.ph);
+    s.nu.y = this.cy(s) - this.a * Math.sin(this.ph);
+  }
+
+  /** Nu's wave's colour: white before the first touch, then by how close it is. */
+  private hue(): string {
+    if (!this.started || this.overAt) return WHITE;
+    return this.matched ? GREEN : this.near < TUNE_NEAR ? TUNE_BLUE : this.near < TUNE_MID ? TUNE_AMBER : RED;
   }
 
   step(s: Stage, dt: number, now: number): void {
@@ -537,15 +622,18 @@ export class Tune implements Toy {
     this.scroll += v * dt;
     this.ph += TAU * (this.c / this.W(s)) * v * dt;
     this.place(s);
-    this.trail.push({ u: this.scroll, y: s.nu.y });
-    const keep = this.scroll - (this.X0(s) - (s.m.x - s.hw)) - 10;
-    while (this.trail.length > 2 && this.trail[0].u < keep) this.trail.shift();
-    // The stretch going past Nu, and whether Nu's wave matches it.
+    // The stretch going past Nu, how far off Nu's wave is (in tolerances), and whether it matches.
     const g = this.segs.find((q) => this.scroll >= q.u0 && this.scroll < q.u0 + q.len);
-    const ok = !!g && Math.abs(Math.log(this.c / g.c)) < this.tolF() && (!this.ampOn() || Math.abs(this.a - g.a) / g.a < this.tolA());
+    const offF = g ? Math.abs(Math.log(this.c / g.c)) / this.tolF() : Infinity;
+    const offA = g && this.ampOn() ? Math.abs(this.a - g.a) / g.a / this.tolA() : 0;
+    this.near = Math.max(offF, offA);
+    const ok = this.near < 1;
     if (ok && !this.matched && this.started) tickSound(2);
     this.matched = ok;
     if (g && this.started) { g.all += dt; if (ok) g.on += dt; }
+    this.trail.push({ u: this.scroll, y: s.nu.y, c: this.hue() });
+    const keep = this.scroll - (this.X0(s) - (s.m.x - s.hw)) - 10;
+    while (this.trail.length > 2 && this.trail[0].u < keep) this.trail.shift();
     // Stretches that have gone by: scored, or a life.
     while (this.segs.length > 1 && this.segs[0].u0 + this.segs[0].len <= this.scroll) {
       const d = this.segs.shift() as Seg;
@@ -574,8 +662,8 @@ export class Tune implements Toy {
   }
 
   draw(s: Stage, ctx: CanvasRenderingContext2D, now: number): void {
-    const X0 = this.X0(s), x1 = s.m.x + s.hw + 4, cy = s.m.y, live = this.matched && this.started && !this.overAt;
-    bar(ctx, X0, s.m.y - s.hh + 40, X0, s.m.y + s.hh - 16, K800, 2, 0.9);
+    const X0 = this.X0(s), x1 = s.m.x + s.hw + 4, cy = this.cy(s), live = this.matched && this.started && !this.overAt;
+    bar(ctx, X0, s.m.y - s.hh + 40, X0, s.m.y + s.hh - this.strip(s) - 4, K800, 2, 0.9);
     // The target: grey, and green along the stretch going past while it matches.
     const g = this.segs.find((q) => this.scroll >= q.u0 && this.scroll < q.u0 + q.len);
     const split = g && live ? X0 + (g.u0 + g.len - this.scroll) : X0;
@@ -599,42 +687,68 @@ export class Tune implements Toy {
       const x = X0 + (q.u0 - this.scroll);
       if (x > X0 + 4 && x < x1) dot(ctx, { x, y: cy - this.target(s, q.u0) }, 3.5, K300, 0.9);
     }
-    // Nu's trace, to the left.
-    ctx.strokeStyle = live ? GREEN : WHITE;
+    // Nu's trace, to the left, in the colour of how close it was at each point.
     ctx.globalAlpha = 0.85;
-    ctx.beginPath();
-    this.trail.forEach((h, i) => {
-      const x = X0 - (this.scroll - h.u);
-      if (i === 0) ctx.moveTo(x, h.y); else ctx.lineTo(x, h.y);
-    });
-    ctx.stroke();
+    let i = 0;
+    while (i < this.trail.length - 1) {
+      const c = this.trail[i + 1].c;
+      ctx.strokeStyle = c;
+      ctx.beginPath();
+      ctx.moveTo(X0 - (this.scroll - this.trail[i].u), this.trail[i].y);
+      while (i < this.trail.length - 1 && this.trail[i + 1].c === c) {
+        i++;
+        ctx.lineTo(X0 - (this.scroll - this.trail[i].u), this.trail[i].y);
+      }
+      ctx.stroke();
+    }
     ctx.restore();
-    // Nu's dials: its frequency up the left side, and later its height along the bottom.
-    const lx = s.m.x - s.hw + 18, ty0 = s.m.y + s.hh - 40, ty1 = s.m.y - s.hh + 50;
-    bar(ctx, lx, ty0, lx, ty1, K500, 2, 0.7);
+    // Nu's sliders along the bottom: its frequency, and later its height just above.
+    const [sx0, sx1] = this.sx(s), hue = this.hue();
     const f = Math.log(this.c / TUNE_LO) / Math.log(TUNE_HI / TUNE_LO);
-    dot(ctx, { x: lx, y: ty0 + (ty1 - ty0) * f }, 5, WHITE, 0.9);
+    this.slider(ctx, sx0, sx1, this.fy(s), f, hue, this.grab?.slider === 'f');
     if (this.ampOn()) {
-      const by = s.m.y + s.hh - 18, bx0 = s.m.x - s.hw * 0.5, bx1 = s.m.x + s.hw * 0.5;
-      bar(ctx, bx0, by, bx1, by, K500, 2, 0.7);
       const af = (this.a - this.amax(s) * 0.2) / (this.amax(s) * 0.8);
-      dot(ctx, { x: bx0 + (bx1 - bx0) * af, y: by }, 5, WHITE, 0.9);
+      this.slider(ctx, sx0, sx1, this.ay(s), af, hue, this.grab?.slider === 'a');
     }
     s.nu.draw(ctx, now);
     lives(s, ctx, this.left);
   }
 
+  /** A slider: its track, the part up to the knob in Nu's colour, and the knob (bigger when held). */
+  private slider(ctx: CanvasRenderingContext2D, x0: number, x1: number, y: number, f: number, c: string, held: boolean): void {
+    const x = x0 + (x1 - x0) * clamp(f, 0, 1);
+    bar(ctx, x0, y, x1, y, K500, 4, 0.7);
+    bar(ctx, x0, y, x, y, c, 4, 0.8);
+    dot(ctx, { x, y }, held ? 12 : 10, c, 0.95);
+    ring(ctx, { x, y }, held ? 18 : 15, c, 2, 0.4);
+  }
+
+  private setF(s: Stage, f: number): void {
+    this.c = clamp(TUNE_LO * Math.exp(f * Math.log(TUNE_HI / TUNE_LO)), TUNE_LO, TUNE_HI);
+  }
+
+  private setA(s: Stage, f: number): void {
+    this.a = clamp(this.amax(s) * (0.2 + 0.8 * f), this.amax(s) * 0.2, this.amax(s));
+  }
+
   down(s: Stage, p: Pt): void {
     if (this.overAt) return;
     this.started = true;
-    this.grab = { x: p.x, y: p.y, c: this.c, a: this.a };
+    const [x0, x1] = this.sx(s), f = clamp((p.x - x0) / (x1 - x0), 0, 1);
+    // On a slider, its knob jumps to the finger; above them, a drag moves the frequency from where it is.
+    const slider = this.ampOn() && Math.abs(p.y - this.ay(s)) < 22 ? 'a' : p.y > this.ay(s) + 22 - (this.ampOn() ? 0 : 30) ? 'f' : null;
+    this.grab = { x: p.x, c: this.c, slider };
+    if (slider === 'f') this.setF(s, f);
+    if (slider === 'a') this.setA(s, f);
   }
 
   move(s: Stage, p: Pt): void {
     const g = this.grab;
     if (!g) return;
-    this.c = clamp(g.c * Math.exp(-(p.y - g.y) / (s.hh * 0.55)), TUNE_LO, TUNE_HI);
-    if (this.ampOn()) this.a = clamp(g.a + (p.x - g.x) * (this.amax(s) / (s.hw * 0.9)), this.amax(s) * 0.2, this.amax(s));
+    const [x0, x1] = this.sx(s), f = clamp((p.x - x0) / (x1 - x0), 0, 1);
+    if (g.slider === 'f') this.setF(s, f);
+    else if (g.slider === 'a') this.setA(s, f);
+    else this.c = clamp(g.c * Math.exp(((p.x - g.x) / (x1 - x0)) * Math.log(TUNE_HI / TUNE_LO)), TUNE_LO, TUNE_HI);
   }
 
   up(): void { this.grab = null; }

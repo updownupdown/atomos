@@ -6,7 +6,7 @@
 
 import {
   CYAN, K300, K500, K800, K900, NOTE_COLOURS, RED, ROSE, TAU, WHITE,
-  best, bounceIn, buzz, chimeSound, clamp, completeSound, dist, dot, edge, inside, missSound, ring, finish, setBest, tickSound,
+  best, hitSound, bounceIn, buzz, chimeSound, clamp, completeSound, dist, dot, edge, inside, missSound, ring, finish, setBest, tickSound,
   type Mover, type Pt, type Stage, type Toy,
 } from './kit';
 import { ELEMENTS, placeColour } from '../gallery/data';
@@ -296,7 +296,7 @@ export class Pairs implements Toy {
       this.flyTo = null;
       s.fx.burst({ x: (a.p.x + b.p.x) / 2, y: (a.p.y + b.p.y) / 2 }, 8, ROSE, 0.1);
       this.open = [];
-      chimeSound(a.g.z % 5);
+      hitSound(a.g.z / 118);
       s.fx.ring(a.p, a.g.colour, this.size, this.size + 18, 500);
       s.fx.ring(b.p, b.g.colour, this.size, this.size + 18, 500);
       if (this.tiles.every((q) => q.done)) {

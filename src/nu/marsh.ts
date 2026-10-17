@@ -1,14 +1,14 @@
 // Three more of Nu's park games (park.ts), on the same kit:
-//   Pole   Nu sits in the middle with a charge, cyan or white; tap to flip it. Opposite charges
-//          drifting in are pulled in and caught, like ones pushed away. Red is pulled in by cyan.
+//   Pole   Nu sits in the middle with a charge, red (+) or blue (−); tap to flip it. Opposite
+//          charges drifting in are caught and fill its ring; likes bounce off. Voids are pulled by red.
 //   Poise  a seesaw on a pivot. Tap to drop the atom Nu carries where the finger is; keep the
 //          beam within its tilt and every atom on it.
 //   Ferry  shells round a nucleus turn, each with a gap. Drag Nu to an electron on the rim and
 //          through the gaps to the shell of its colour; any other shell knocks it loose.
 
 import {
-  CYAN, K300, K500, K800, K975, NOTE_COLOURS, RED, TAU, WHITE,
-  best, buzz, captureSound, clamp, completeSound, dist, dot, finish, inside, missSound, ring, tickSound,
+  K300, K500, K800, K975, NOTE_COLOURS, RED, TAU, WHITE,
+  best, buzz, captureSound, clamp, completeSound, dashed, dist, dot, edge, finish, hitSound, inside, missSound, rimPoint, ring, tickSound,
   type Pt, type Stage, type Toy,
 } from './kit';
 import { bar, lives } from './lawn';
@@ -18,40 +18,50 @@ const wrap = (a: number): number => ((a + Math.PI) % TAU + TAU) % TAU - Math.PI;
 
 // ---- Pole ------------------------------------------------------------------------------------
 
-/** The pull (or push) on a particle, scaled by the court's size, and the drag that lets a pulled
+/** The pull (or push) on a particle, scaled by the arena's size, and the drag that lets a pulled
  *  one spiral in rather than swing round Nu. */
 const POLE_PULL = 0.00002;
 const POLE_DRAG = 0.0015;
 /** How long the charge lasts with nothing caught (ms), and what a catch gives back (0..1). */
 const POLE_CHARGE = 8000;
 const POLE_REFILL = 0.3;
+/** The charges' colours: + red, − blue. */
+const POLE_PLUS = RED;
+const POLE_MINUS = '#4f86f0';
 
-/** A particle, relative to the court's middle: +1 cyan, -1 white, 0 red. */
-type Charge = { x: number; y: number; vx: number; vy: number; q: 1 | -1 | 0; r: number };
+/** A particle, relative to the arena's middle: +1 red, -1 blue, 0 a dark void (the danger). */
+type Charge = { x: number; y: number; vx: number; vy: number; q: 1 | -1 | 0; r: number; near: boolean };
 
-/** Nu sits in the middle of the court and carries a charge: a cyan ring is +, a white one −. Tap
- *  anywhere to flip it. Particles drift in from the rim, cyan (+) or white (−), each with its
- *  sign on it. Opposites attract: they curve in and are caught. Likes repel and curve away. Red
- *  ones are pulled in only while Nu is cyan, and a red one touching Nu costs one of three lives.
- *  Nu's charge (the rim) runs down by itself; each catch tops it up, and empty, the run is over.
- *  More particles, quicker ones, more white and more red as the count goes up. */
+const poleColour = (q: 1 | -1): string => (q === 1 ? POLE_PLUS : POLE_MINUS);
+
+/** Nu sits in the middle of the arena and carries a charge, shown by the ring round it: red is +,
+ *  blue −. Tap anywhere to flip it. The ring is also Nu's charge, draining round as time goes;
+ *  it empties and the run is over. Particles drift in from the edges, red (+) or blue (−), each
+ *  with its sign on it. Opposites attract: they curve in, are caught and fill the ring back up.
+ *  Likes are pushed away and bounce off. Dark voids (a hollow dashed ring) are pulled in only
+ *  while Nu is red, and one touching Nu costs one of three lives. More particles, quicker ones,
+ *  more blue and more voids as the count goes up. */
 export class Pole implements Toy {
-  court = true;
   private parts: Charge[] = [];
   private q: 1 | -1 = 1;
   private charge = 1;
+  private shown = 1;
   private next = 0;
   private count = 0;
   private left = 3;
   private overAt = 0;
-  private k(s: Stage): number { return s.R / 180; }
+  /** The size scale, and the reach: from the middle to the arena's nearer side. */
+  private k(s: Stage): number { return clamp(Math.min(s.hw, s.hh) / 180, 0.6, 1.6); }
+  private reach(s: Stage): number { return Math.min(s.hw, s.hh); }
+  /** The charge ring's radius round Nu. */
+  private rr(s: Stage): number { return s.nu.r + 9; }
 
   enter(s: Stage): void {
     s.nu.r = 9;
-    s.nu.at(s.c);
+    s.nu.at(s.m);
     this.parts = [];
     this.q = 1;
-    this.charge = 1;
+    this.charge = this.shown = 1;
     this.next = 600;
     this.count = 0;
     this.left = 3;
@@ -60,25 +70,25 @@ export class Pole implements Toy {
     s.score(0, best(s, 'pole') || null);
   }
 
-  /** A new particle at the rim, heading across the court to pass Nu by a little. */
+  /** A new particle just outside the edge, heading across to pass Nu by a little. */
   private spawn(s: Stage): void {
     const k = this.k(s), n = this.count;
-    const red = n >= 4 && Math.random() < Math.min(0.32, 0.1 + n * 0.008);
-    // More white than cyan as it goes on, so a cyan Nu (and so the red) pays.
-    const q: 1 | -1 | 0 = red ? 0 : Math.random() < Math.max(0.35, 0.5 - n * 0.005) ? 1 : -1;
-    const a = Math.random() * TAU, R = s.R + 10;
-    // Red passes wide of Nu; the rest anywhere from close to wide.
-    const b = (red ? 0.32 + Math.random() * 0.35 : 0.1 + Math.random() * 0.6) * s.R * (Math.random() < 0.5 ? -1 : 1);
+    const bad = n >= 4 && Math.random() < Math.min(0.32, 0.1 + n * 0.008);
+    // More blue than red as it goes on, so a red Nu (and so the voids) pays.
+    const q: 1 | -1 | 0 = bad ? 0 : Math.random() < Math.max(0.35, 0.5 - n * 0.005) ? 1 : -1;
+    const at = rimPoint(s, Math.random(), 10), x = at.x - s.m.x, y = at.y - s.m.y, d = Math.hypot(x, y) || 1;
+    // Voids pass wide of Nu; the rest anywhere from close to wide.
+    const b = (bad ? 0.32 + Math.random() * 0.35 : 0.1 + Math.random() * 0.6) * this.reach(s) * (Math.random() < 0.5 ? -1 : 1);
     const v = (0.065 + Math.min(0.06, n * 0.0015)) * k * (0.85 + Math.random() * 0.3);
     // Inward, offset sideways by b.
-    const ix = -Math.cos(a), iy = -Math.sin(a), off = Math.asin(clamp(b / R, -0.95, 0.95));
+    const ix = -x / d, iy = -y / d, off = Math.asin(clamp(b / d, -0.95, 0.95));
     const dx = ix * Math.cos(off) - iy * Math.sin(off), dy = ix * Math.sin(off) + iy * Math.cos(off);
-    this.parts.push({ x: Math.cos(a) * R, y: Math.sin(a) * R, vx: dx * v, vy: dy * v, q, r: (q ? 6.5 : 6) * clamp(k, 0.8, 1.3) });
+    this.parts.push({ x, y, vx: dx * v, vy: dy * v, q, r: (q ? 6.5 : 7) * clamp(k, 0.8, 1.3), near: false });
   }
 
   step(s: Stage, dt: number, now: number): void {
     const nu = s.nu;
-    nu.seek(s.c, dt);
+    nu.seek(s.m, dt);
     const k = this.k(s);
     if (!this.overAt) {
       this.next -= dt;
@@ -90,10 +100,12 @@ export class Pole implements Toy {
       s.rim = clamp(this.charge, 0, 1);
       if (this.charge <= 0) { this.over(s, now); return; }
     }
-    const A = POLE_PULL * s.R * k;
+    // The ring shown round Nu follows the charge: a catch sweeps it back up.
+    this.shown += (clamp(this.charge, 0, 1) - this.shown) * (1 - Math.exp(-dt / 140));
+    const A = POLE_PULL * this.reach(s) * k, guard = this.rr(s) + 6 * k;
     for (let i = this.parts.length - 1; i >= 0; i--) {
       const p = this.parts[i], d = Math.hypot(p.x, p.y) || 1;
-      // Opposites attract, likes repel; red is pulled by cyan only. Nothing once the run is over.
+      // Opposites attract, likes repel; voids are pulled by red only. Nothing once the run is over.
       const pull = this.overAt ? 0 : p.q === 0 ? (this.q === 1 ? 1 : 0) : p.q === this.q ? -1 : 1;
       if (pull) {
         const a = (A / Math.max(d, 20 * k)) * pull;
@@ -106,24 +118,40 @@ export class Pole implements Toy {
           p.vy = vr * ry + (p.vy - vr * ry) * f;
         }
       }
+      // A like that gets to Nu's ring bounces off it, with a flash of the ring.
+      if (pull < 0 && d < guard + p.r) {
+        const rx = p.x / d, ry = p.y / d, vr = p.vx * rx + p.vy * ry;
+        if (vr < 0) {
+          p.vx -= 1.8 * vr * rx;
+          p.vy -= 1.8 * vr * ry;
+          p.x = rx * (guard + p.r);
+          p.y = ry * (guard + p.r);
+          const at = { x: s.m.x + p.x, y: s.m.y + p.y };
+          s.fx.ring(at, poleColour(this.q), p.r, p.r + 16, 350);
+          hitSound(clamp(-vr / (0.15 * k), 0, 1));
+        }
+      }
       p.x += p.vx * dt;
       p.y += p.vy * dt;
-      const dd = Math.hypot(p.x, p.y);
-      if (dd > s.R + 24 && p.x * p.vx + p.y * p.vy > 0) { this.parts.splice(i, 1); continue; }
-      if (this.overAt || dd > nu.r + p.r) continue;
-      const at = { x: s.c.x + p.x, y: s.c.y + p.y };
+      p.near = d < guard * 2.2;
+      const e = edge(s, { x: s.m.x + p.x, y: s.m.y + p.y });
+      if (e.d > 24 && p.x * p.vx + p.y * p.vy > 0) { this.parts.splice(i, 1); continue; }
+      if (this.overAt || Math.hypot(p.x, p.y) > nu.r + p.r) continue;
+      const at = { x: s.m.x + p.x, y: s.m.y + p.y };
       this.parts.splice(i, 1);
       if (p.q === 0) {
         this.left--;
-        s.fx.ring(at, RED, p.r, 40, 600);
-        s.fx.burst(at, 8, RED);
+        s.fx.ring(at, WHITE, p.r, 40, 600);
+        s.fx.burst(at, 8, K300);
         missSound();
         buzz(24);
         if (this.left <= 0) { this.over(s, now); return; }
       } else if (p.q !== this.q) {
         this.count++;
         this.charge = Math.min(1, this.charge + POLE_REFILL);
-        s.fx.ring(nu, p.q === 1 ? CYAN : WHITE, nu.r + 4, nu.r + 30, 500);
+        // The catch pours into Nu's ring: a ring of its colour closing in, and a spark.
+        s.fx.ring(nu, poleColour(p.q), this.rr(s) + 22, this.rr(s), 400);
+        s.fx.burst(nu, 6, poleColour(p.q), 0.08);
         captureSound();
         s.score(this.count, best(s, 'pole') || null);
       }
@@ -133,7 +161,7 @@ export class Pole implements Toy {
   private over(s: Stage, now: number): void {
     this.overAt = now;
     s.rim = null;
-    s.fx.ring(s.nu, RED, s.nu.r, s.nu.r + 34, 700);
+    s.fx.ring(s.nu, WHITE, s.nu.r, s.nu.r + 34, 700);
     missSound();
     finish(s, 'pole', this.count);
     s.score(this.count, best(s, 'pole') || null);
@@ -142,16 +170,39 @@ export class Pole implements Toy {
   draw(s: Stage, ctx: CanvasRenderingContext2D, now: number): void {
     const nu = s.nu;
     for (const p of this.parts) {
-      const at = { x: s.c.x + p.x, y: s.c.y + p.y };
-      if (p.q === 0) { dot(ctx, at, p.r, RED, 0.95); continue; }
-      dot(ctx, at, p.r, p.q === 1 ? CYAN : WHITE, 0.95);
+      const at = { x: s.m.x + p.x, y: s.m.y + p.y };
+      if (p.q === 0) {
+        // A void: dark inside, a white dashed ring round it that turns.
+        dot(ctx, at, p.r, K975, 1);
+        ctx.save();
+        ctx.translate(at.x, at.y);
+        ctx.rotate(now / 400);
+        dashed(ctx, { x: 0, y: 0 }, p.r + 1.5, WHITE, 0.9);
+        ctx.restore();
+        continue;
+      }
+      dot(ctx, at, p.r, poleColour(p.q), 0.95);
       // Its sign, in the dark: + or −.
       const h = p.r * 0.55;
       bar(ctx, at.x - h, at.y, at.x + h, at.y, K975, 2);
       if (p.q === 1) bar(ctx, at.x, at.y - h, at.x, at.y + h, K975, 2);
     }
-    // Nu's charge: a flat ring round it.
-    if (!this.overAt) ring(ctx, nu, nu.r + 7, this.q === 1 ? CYAN : WHITE, 3, 0.9);
+    // Nu's charge: a ring round it in its colour, draining round as the charge runs down; low,
+    // it pulses.
+    if (!this.overAt) {
+      const c = poleColour(this.q), r = this.rr(s), f = clamp(this.shown, 0, 1);
+      ring(ctx, nu, r, c, 3, 0.22);
+      const low = f < 0.25 ? 0.6 + 0.4 * Math.sin(now / 90) : 1;
+      ctx.save();
+      ctx.globalAlpha = 0.95 * low;
+      ctx.strokeStyle = c;
+      ctx.lineWidth = 4;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.arc(nu.x, nu.y, r, -Math.PI / 2, -Math.PI / 2 + TAU * f);
+      ctx.stroke();
+      ctx.restore();
+    }
     lives(s, ctx, this.left);
     nu.draw(ctx, now);
   }
@@ -159,10 +210,11 @@ export class Pole implements Toy {
   down(s: Stage): void {
     if (this.overAt) return;
     this.q = this.q === 1 ? -1 : 1;
-    s.fx.ring(s.nu, this.q === 1 ? CYAN : WHITE, s.nu.r + 7, s.nu.r + 22, 300);
+    s.fx.ring(s.nu, poleColour(this.q), this.rr(s), this.rr(s) + 16, 300);
     tickSound(this.q === 1 ? 3 : 1);
   }
 
+  resize(s: Stage): void { s.nu.at(s.m); }
 }
 
 // ---- Poise -----------------------------------------------------------------------------------

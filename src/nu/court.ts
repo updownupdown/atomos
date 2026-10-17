@@ -10,7 +10,7 @@
 
 import {
   CYAN, GREEN, K300, K500, K800, K900, RED, TAU, WHITE,
-  best, buzz, captureSound, chimeSound, clamp, completeSound, dist, dot, missSound, ring, finish, setBest, tickSound,
+  best, hitSound, buzz, captureSound, chimeSound, clamp, completeSound, dist, dot, missSound, ring, finish, setBest, tickSound,
   type Pt, type Stage, type Toy,
 } from './kit';
 
@@ -136,7 +136,8 @@ export class Flash implements Toy {
       this.gap = 200 + Math.random() * 400;
       this.flash.set(i, { at: now, c: GREEN });
       s.fx.burst(this.nodes[i], 6, CYAN, 0.1);
-      tickSound(this.hits % 5);
+      // Pitched by where the atom sits, and a little by chance.
+      hitSound((i + Math.random() * 0.8) / 6);
       s.score(this.hits, best(s, 'flash') || null);
       return;
     }
@@ -423,7 +424,7 @@ export class Pulse implements Toy {
       this.off = Math.abs(this.r - this.band.r) / this.band.w;
       this.from = { x: s.nu.x, y: s.nu.y };
       s.fx.ring(s.c, GREEN, this.r, this.r + 16, 450);
-      chimeSound(this.streak % 5);
+      captureSound();
       if (this.streak % 10 === 0) { completeSound(); buzz(14); }
       this.speed = Math.min(0.26, this.speed + 0.006);
       this.place(s);

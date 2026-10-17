@@ -13,7 +13,7 @@
 
 import {
   CYAN, K300, K500, K800, K975, NOTE_COLOURS, RED, TAU, WHITE,
-  anywhere, best, bounceIn, buzz, captureSound, chimeSound, clamp, completeSound, dist, dot, edge, inside, rimPoint, missSound, ring, finish, setBest, tickSound,
+  anywhere, best, bounceIn, buzz, captureSound, chimeSound, clamp, completeSound, dist, dot, edge, inside, rimPoint, missSound, ring, finish, setBest, tickSound, hitSound,
   type Mover, type Pt, type Stage, type Toy,
 } from './kit';
 
@@ -40,18 +40,45 @@ function lives(s: Stage, ctx: CanvasRenderingContext2D, left: number, of = 3): v
 const GROW_TOP = 33;
 const GROW_BASE = 12;
 const GROW_ZOOM_MS = 1600;
-/** Food comes in cool colors, never near red. */
-const FOOD = [CYAN, '#3cc9b4', '#a865d6', '#5f8ae0'];
 /** How many motes drift about at once. */
 const GROW_MOTES = 12;
 
-type Mote = Mover & { r: number; c: string; in: boolean; hunt: boolean };
+/** What a mote does: chases motes smaller than it (a fifth), wanders about (a quarter), runs
+ *  from whatever chases it (half), or just drifts (the rest). */
+type Way = 'chase' | 'wander' | 'flee' | 'drift';
+/** Each way has its own cool colors (never near red), so you learn which is which. */
+const WAY_COLOURS: Record<Way, string[]> = {
+  chase: ['#a865d6', '#c48cf0'],
+  wander: ['#3cc9b4', '#2ea57a'],
+  flee: ['#5f8ae0', CYAN],
+  drift: [K300, WHITE],
+};
+/** How fast each way goes at most (px/ms); a fleeing mote, while scared. */
+const WAY_TOP: Record<Way, number> = { chase: 0.075, wander: 0.06, flee: 0.05, drift: 0.06 };
+const FLEE_TOP = 0.13;
+/** How near a chaser looks for prey, and a fleeing mote for something after it (px). */
+const CHASE_SEE = 170;
+const FLEE_SEE = 110;
 
-/** Motes of every size drift about. Drag Nu (from anywhere): what's smaller than Nu (cool
+type Mote = Mover & { r: number; c: string; in: boolean; way: Way; head: number; scared: number };
+
+function pickWay(): Way {
+  const u = Math.random();
+  return u < 0.2 ? 'chase' : u < 0.45 ? 'wander' : u < 0.95 ? 'flee' : 'drift';
+}
+
+function mote(p: Pt, r: number, a: number, v: number, isIn: boolean): Mote {
+  const way = pickWay(), cs = WAY_COLOURS[way];
+  return { x: p.x, y: p.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, r, c: cs[Math.floor(Math.random() * cs.length)], in: isIn, way, head: a, scared: 0 };
+}
+
+/** Motes of every size move about. Drag Nu (from anywhere): what's smaller than Nu (cool
  *  colors) it eats and grows; what's bigger (red) ends the run. Nothing appears out of nowhere:
  *  new motes drift in from beyond the rim, and motes eat each other too, so a small one can
- *  grow red before your eyes. Later, some motes hunt the ones smaller than them. Grown big, the
- *  view slowly pulls back: Nu and everything shrink together, and new motes come sized to it. */
+ *  grow red before your eyes. Purple ones slowly chase anything smaller (Nu too), teal ones
+ *  wander, blue ones run from whatever chases them (Nu too), and pale ones just drift. Grown
+ *  big, the view slowly pulls back: Nu and everything shrink together, and new motes come sized
+ *  to it. */
 export class Grow implements Toy {
   private motes: Mote[] = [];
   private grab: Pt | null = null;
@@ -80,14 +107,13 @@ export class Grow implements Toy {
       const r = s.nu.r * (0.35 + Math.random() * 0.5);
       let p = anywhere(s, r + 4);
       for (let k = 0; k < 30 && dist(p, s.nu) < s.nu.r + r + 70; k++) p = anywhere(s, r + 4);
-      const a = Math.random() * TAU, v = 0.02 + Math.random() * 0.04;
-      this.motes.push({ x: p.x, y: p.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, r, c: FOOD[Math.floor(Math.random() * FOOD.length)], in: true, hunt: false });
+      this.motes.push(mote(p, r, Math.random() * TAU, 0.02 + Math.random() * 0.04, true));
     }
     s.score(0, best(s, 'grow') || null);
   }
 
-  /** A new mote drifting in from beyond the rim (never right by Nu): more of them bigger, and
-   *  more hunters, as the run goes on. */
+  /** A new mote drifting in from beyond the rim (never right by Nu): more of them bigger as the
+   *  run goes on. */
   private add(s: Stage): void {
     const big = Math.min(0.55, 0.3 + this.count * 0.006);
     const r = s.nu.r * (Math.random() < big ? 1 + Math.random() * 0.9 : 0.35 + Math.random() * 0.55);
@@ -96,8 +122,7 @@ export class Grow implements Toy {
     // Headed in, roughly at the middle.
     const a = Math.atan2(s.m.y - p.y, s.m.x - p.x) + (Math.random() - 0.5) * 1.2;
     const v = 0.025 + Math.random() * 0.035 + Math.min(0.02, this.count * 0.0004);
-    const hunt = this.count > 8 && Math.random() < Math.min(0.4, 0.1 + this.count * 0.006);
-    this.motes.push({ x: p.x, y: p.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, r, c: FOOD[Math.floor(Math.random() * FOOD.length)], in: false, hunt });
+    this.motes.push(mote(p, r, a, v, false));
   }
 
   step(s: Stage, dt: number, now: number): void {
@@ -108,26 +133,13 @@ export class Grow implements Toy {
       Object.assign(nu, inside(s, nu, nu.r));
     } else nu.vx = nu.vy = 0;
     for (const m of this.motes) {
-      // A hunter leans toward the nearest mote smaller than it (never Nu).
-      if (m.hunt) {
-        let prey: Mote | null = null, pd = 160;
-        for (const o of this.motes) {
-          if (o === m || o.r * 1.2 > m.r || !o.in) continue;
-          const d = dist(o, m);
-          if (d < pd) { pd = d; prey = o; }
-        }
-        if (prey) {
-          m.vx += ((prey.x - m.x) / pd) * 0.00004 * dt;
-          m.vy += ((prey.y - m.y) / pd) * 0.00004 * dt;
-        }
-        const v = Math.hypot(m.vx, m.vy), top = 0.07;
-        if (v > top) { m.vx *= top / v; m.vy *= top / v; }
-      }
+      if (m.in) this.steer(s, m, dt);
       m.x += m.vx * dt;
       m.y += m.vy * dt;
       // Coming in from beyond the rim: free until it's all the way in.
       if (!m.in) { if (edge(s, m).d < -m.r) m.in = true; else continue; }
-      bounceIn(s, m, m.r, 1);
+      // Off the rim, a wanderer heads the new way.
+      if (bounceIn(s, m, m.r, 1)) m.head = Math.atan2(m.vy, m.vx);
     }
     // Motes eat motes well smaller than them, and grow (a small one can turn red this way).
     for (let i = this.motes.length - 1; i >= 0; i--) {
@@ -151,7 +163,8 @@ export class Grow implements Toy {
         this.motes.splice(i, 1);
         nu.r = Math.sqrt(nu.r * nu.r + m.r * m.r * 0.5);
         this.count++;
-        tickSound(this.count % 5);
+        // A bigger bite, a higher note.
+        hitSound(clamp((m.r / nu.r - 0.3) / 0.65, 0, 1));
         s.score(this.count, best(s, 'grow') || null);
         continue;
       }
@@ -193,6 +206,58 @@ export class Grow implements Toy {
     while (this.motes.length < GROW_MOTES) this.add(s);
   }
 
+  /** What chases `m` (a bigger mote or Nu, near and coming its way), or null. */
+  private chaser(s: Stage, m: Mote): Pt | null {
+    const nu = s.nu;
+    if (nu.r > m.r * 1.05 && dist(nu, m) < FLEE_SEE + nu.r && nu.vx * (m.x - nu.x) + nu.vy * (m.y - nu.y) > 0.05 * dist(nu, m)) return nu;
+    for (const o of this.motes) {
+      if (o === m || !o.in || o.r < m.r * 1.2 || dist(o, m) > FLEE_SEE + o.r) continue;
+      if (o.way === 'chase' || (o.vx * (m.x - o.x) + o.vy * (m.y - o.y)) > 0) return o;
+    }
+    return null;
+  }
+
+  /** A mote's own way of moving, by easing its speed toward what it wants. */
+  private steer(s: Stage, m: Mote, dt: number): void {
+    let tx = m.vx, ty = m.vy, top = WAY_TOP[m.way], k = 1 - Math.exp(-dt / 900);
+    if (m.way === 'chase') {
+      // Slowly toward the nearest thing smaller than it: a mote, or Nu.
+      let prey: Pt | null = null, pd = CHASE_SEE;
+      for (const o of this.motes) {
+        if (o === m || !o.in || o.r * 1.2 > m.r) continue;
+        const d = dist(o, m);
+        if (d < pd) { pd = d; prey = o; }
+      }
+      const nd = dist(s.nu, m);
+      if (s.nu.r * 1.05 < m.r && nd < pd) { pd = nd; prey = s.nu; }
+      if (prey) { tx = ((prey.x - m.x) / pd) * top; ty = ((prey.y - m.y) / pd) * top; k = 1 - Math.exp(-dt / 600); }
+    } else if (m.way === 'wander') {
+      // A heading that turns this way and that.
+      m.head += (Math.random() - 0.5) * 0.006 * dt;
+      tx = Math.cos(m.head) * top;
+      ty = Math.sin(m.head) * top;
+    } else if (m.way === 'flee') {
+      const from = this.chaser(s, m);
+      if (from) {
+        const d = dist(from, m) || 1;
+        tx = ((m.x - from.x) / d) * FLEE_TOP;
+        ty = ((m.y - from.y) / d) * FLEE_TOP;
+        k = 1 - Math.exp(-dt / 250);
+        m.scared = 600;
+      } else if (m.scared > 0) { m.scared -= dt; k = 0; }
+      else {
+        // Calm again: back to an easy drift.
+        const v = Math.hypot(m.vx, m.vy) || 1;
+        tx = (m.vx / v) * 0.04;
+        ty = (m.vy / v) * 0.04;
+      }
+    }
+    m.vx += (tx - m.vx) * k;
+    m.vy += (ty - m.vy) * k;
+    const v = Math.hypot(m.vx, m.vy), cap = m.scared > 0 ? FLEE_TOP : Math.max(top, 0.02);
+    if (v > cap) { m.vx *= cap / v; m.vy *= cap / v; }
+  }
+
   draw(s: Stage, ctx: CanvasRenderingContext2D, now: number): void {
     for (const m of this.motes) {
       const food = m.r < s.nu.r * 0.95;
@@ -214,8 +279,9 @@ export class Grow implements Toy {
 // ---- Rain ------------------------------------------------------------------------------------
 
 /** Nu runs along the bottom, as far as the finger slides. Photons rain down: each caught counts.
- *  Red ones rain too: each caught costs a life. Faster, thicker and redder from the first catch;
- *  some drops fall faster than the rest, later some drift sideways and reds come in pairs. */
+ *  Red ones rain too: each caught costs a life. Red from the start, and faster, thicker and
+ *  redder with every catch; some drops fall faster than the rest, soon some drift sideways and
+ *  reds come in pairs, and later in rows with one gap to slip through. */
 export class Rain implements Toy {
   private drops: (Pt & { v: number; vx: number; red: boolean })[] = [];
   private x = 0;
@@ -253,21 +319,32 @@ export class Rain implements Toy {
     this.next -= dt;
     if (this.next <= 0) {
       // Drops come quicker as it goes, from the first catch.
-      this.next = Math.max(210, 720 - this.count * 16) * (0.6 + Math.random() * 0.8) / 1.2;
-      const n = this.count;
-      // More red as it goes: from a third to over half.
-      const red = n > 1 && Math.random() < Math.min(0.55, 0.32 + n * 0.008);
-      // About two in five fall faster, up to half as fast again.
-      const fast = Math.random() < 0.4 ? 1 + Math.random() * 0.5 : 1;
-      // Later, some drift sideways (bouncing off the walls).
-      const vx = n > 8 && Math.random() < Math.min(0.5, (n - 8) * 0.03) ? (Math.random() - 0.5) * 0.12 : 0;
-      const x = s.m.x + (Math.random() * 2 - 1) * (s.hw - 24);
-      const v = (0.14 + Math.min(0.22, n * 0.007) + Math.random() * 0.05) * fast;
-      this.drops.push({ x, y: s.m.y - s.hh - 10, v, vx, red });
-      // Later still, reds can come in pairs, a Nu's width or two apart.
-      if (red && n > 12 && Math.random() < Math.min(0.4, (n - 12) * 0.03)) {
-        const x2 = clamp(x + (Math.random() < 0.5 ? -1 : 1) * (34 + Math.random() * 24), s.m.x - s.hw + 24, s.m.x + s.hw - 24);
-        this.drops.push({ x: x2, y: s.m.y - s.hh - 10 - Math.random() * 30, v, vx, red: true });
+      this.next = Math.max(150, 580 - this.count * 15) * (0.6 + Math.random() * 0.8) / 1.2;
+      const n = this.count, top = s.m.y - s.hh - 10, lo = s.m.x - s.hw + 24, hi = s.m.x + s.hw - 24;
+      // Red from the first drop: from two in five to near two in three.
+      const red = Math.random() < Math.min(0.62, 0.4 + n * 0.01);
+      // Nearly half fall faster, up to 60% faster.
+      const fast = Math.random() < 0.45 ? 1 + Math.random() * 0.6 : 1;
+      // Soon some drift sideways (bouncing off the walls).
+      const vx = n > 4 && Math.random() < Math.min(0.6, (n - 4) * 0.04) ? (Math.random() - 0.5) * 0.16 : 0;
+      const x = lo + Math.random() * (hi - lo);
+      const v = (0.17 + Math.min(0.26, n * 0.008) + Math.random() * 0.06) * fast;
+      // Later, now and then a row of reds across, with one gap wide enough for Nu: a moment's
+      // calm after it, so the row can be read.
+      if (n > 14 && Math.random() < Math.min(0.22, (n - 14) * 0.02)) {
+        const gap = Math.max(76, nuGap(s)), g0 = lo + Math.random() * (hi - lo - gap), sv = 0.17 + Math.min(0.2, n * 0.006);
+        for (let gx = lo; gx <= hi; gx += 30) if (gx < g0 - 8 || gx > g0 + gap + 8) this.drops.push({ x: gx, y: top, v: sv, vx: 0, red: true });
+        this.next += 500;
+      } else {
+        this.drops.push({ x, y: top, v, vx, red });
+        // Soon reds can come in pairs or threes, spread a Nu's width or two apart.
+        if (red && n > 5 && Math.random() < Math.min(0.55, (n - 5) * 0.04)) {
+          const more = n > 12 && Math.random() < 0.35 ? 2 : 1, side = Math.random() < 0.5 ? -1 : 1;
+          for (let j = 1; j <= more; j++) {
+            const x2 = clamp(x + side * j * (34 + Math.random() * 30), lo, hi);
+            this.drops.push({ x: x2, y: top - Math.random() * 40, v, vx, red: true });
+          }
+        }
       }
     }
     for (let i = this.drops.length - 1; i >= 0; i--) {
@@ -316,6 +393,9 @@ export class Rain implements Toy {
   move(_s: Stage, p: Pt): void { if (this.grab !== null) this.want = p.x + this.grab; }
   up(): void { this.grab = null; this.want = null; }
 }
+
+/** The gap in a row of reds Nu can slip through, with room to spare. */
+function nuGap(s: Stage): number { return s.nu.r * 2 + 50; }
 
 // ---- Spot ------------------------------------------------------------------------------------
 

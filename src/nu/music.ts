@@ -327,6 +327,28 @@ export function melody(): void {
   if (t.at >= LEN) moveOn();
 }
 
+let hits = 0;
+
+/** A hit whose pitch says something about it: `x` (0..1, how near, how fast, where) picks one
+ *  of the current chord's notes over two octaves, low to high, so a run of hits is never the
+ *  same few notes in turn. Every few hits the harmony moves on a chord, and a new chord brings
+ *  its bass. */
+export function hit(x: number): void {
+  const now = performance.now();
+  if (now - lastAt < 45) return;
+  lastAt = now;
+  const t = theme, i = Math.min(LEN - 1, t.at), c = t.chords[i];
+  const notes: number[] = [];
+  for (let o = 0; o < 2; o++) for (const tn of c.tones) notes.push(tn + 7 * o);
+  const d = notes[Math.max(0, Math.min(notes.length - 1, Math.floor(x * notes.length)))];
+  play(t.root + 12 + semis(t, d, c), 0.22, 0.06, t.voice, 0, (x - 0.5) * 0.5);
+  if (++hits % 3 === 0) {
+    t.at++;
+    if (t.at >= LEN) moveOn();
+    else if (t.chords[t.at] !== c) play(t.root - 12 + semis(t, t.chords[t.at].root, t.chords[t.at]), 0.45, 0.04, 'pluck', 0.05, -0.25);
+  }
+}
+
 /** A small tick in the key: the current chord's `n`th note up (higher n, higher). */
 export function tick(n: number): void {
   const t = theme, c = t.chords[Math.min(LEN - 1, t.at)];

@@ -13,7 +13,7 @@
 
 import {
   CYAN, GREEN, K300, K500, K800, NOTE_COLOURS, RED, TAU, WHITE,
-  best, bounceIn, buzz, chimeSound, clamp, completeSound, dist, dot, finish, inside, missSound, ring, tickSound,
+  best, hitSound, captureSound, bounceIn, buzz, chimeSound, clamp, completeSound, dist, dot, finish, inside, missSound, ring, tickSound,
   type Mover, type Pt, type Stage, type Toy,
 } from './kit';
 import { bar, lives } from './lawn';
@@ -90,7 +90,8 @@ export class Blast implements Toy {
         this.reds.splice(i, 1);
         this.count++;
         s.fx.burst(r, 8, RED, 0.1);
-        chimeSound(this.count % 5);
+        // Pitched by how near it got and how fast it came: higher the nearer and faster.
+        hitSound(0.65 * (1 - d / s.R) + 0.35 * Math.min(1, Math.hypot(r.vx, r.vy) / 0.12));
         s.score(this.count, best(s, 'blast') || null);
         continue;
       }
@@ -215,7 +216,7 @@ export class Bumper implements Toy {
   /** Counts `n` more. */
   private add(s: Stage, n: number): void {
     this.count += n;
-    chimeSound(this.count % 5);
+    captureSound();
     s.score(this.count, best(s, 'bumper') || null);
   }
 
@@ -563,7 +564,7 @@ export class Cue implements Toy {
       this.balls.splice(i, 1);
       this.count++;
       s.fx.ring(q, GREEN, 8, 30, 500);
-      chimeSound(this.count % 5);
+      captureSound();
       s.score(this.count, best(s, 'cue') || null);
     }
     const into = pk.find((p) => dist(p, c) < 16);
@@ -803,7 +804,7 @@ export class Hue implements Toy {
       if (!q.passed && this.y < q.y - q.r - 10) {
         q.passed = true;
         this.count++;
-        chimeSound(this.count % 5);
+        captureSound();
         s.score(this.count, best(s, 'hue') || null);
         this.add(s);
       }

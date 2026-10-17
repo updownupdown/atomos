@@ -22,6 +22,8 @@ export const chimeSound = (i: number): void => { if (!quiet) music.chime(i); };
 export const completeSound = (): void => { if (!quiet) music.cadence(); };
 export const missSound = (): void => { if (!quiet) { music.sigh(); audio.buzz([15, 50, 15]); } };
 export const tickSound = (n: number): void => { if (!quiet) { music.tick(n); audio.buzz(6); } };
+/** A hit pitched by `x` (0..1): how near or fast it came, or where. */
+export const hitSound = (x: number): void => { if (!quiet) music.hit(Math.max(0, Math.min(1, x))); };
 /** A new theme for the game that just opened. */
 export const newTheme = (): void => { if (!quiet) music.newTheme(); };
 
