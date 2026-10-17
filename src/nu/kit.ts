@@ -226,6 +226,8 @@ export interface Stage {
   end?(raw: number): void;
   /** Open the roulette (the wheel in Nu's home). */
   roulette?(): void;
+  /** A level is done and the next waits on the player: shows the Next button, which calls `go`. */
+  prompt?(go: () => void): void;
 }
 
 export function best(s: Stage, k: string): number { const v = s.bests[k]; return typeof v === 'number' ? v : 0; }

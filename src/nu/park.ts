@@ -9,21 +9,21 @@
 // then Nu takes itself off to its round doghouse: knock and it pokes its head out (and may come
 // out, or go back in); throw a toy and it almost always comes out for it. The
 // round button under the arena opens the games, a sheet A to Z, and Nu circles the one it
-// fancies today; under them, "Read from the Atlas" opens a random atom's page and Nu reads
-// along (read.ts):
+// fancies today:
 //   Orbit   Nu runs round two rings; tap to turn, swipe to hop rings, catch photons, dodge red.
 //   Sling   pull Nu back and let go; it swings round nuclei on gravity into the green ring.
 //   Shells  Nu hides under a shell, the shells shuffle; find it.
 //   Echo    Nu flies a tune between five atoms; play it back, one note longer each round.
 //   Herd    Nu chases electrons into the nucleus until the atom is whole.
 //   Course  lead Nu up a channel past orbiting electrons, against the clock.
-//   Trace   draw a path and Nu rides it, lighting stars and missing the red.
 //   Dive    tap to dive Nu through the gaps in turning shells, down to the nucleus.
-//   Hockey, Chain, Split, Pairs: see arcade.ts. Flash, Halo, Pulse: see court.ts. Rally, Ripple:
-//   see swim.ts. Bloom, Hop, Juggle, Loop, Pull, Spark, Twin: see yard.ts. Grow, Rain, Sort, Spot,
-//   Stack, Tilt: see field.ts. Brick, Drop, Flip, Maze, More, Stick: see lawn.ts. Blast, Bumper,
-//   Cross, Cue, Dodge, Hue: see meadow.ts. Land, Order, Pop, Ready, Recall, Swing: see grove.ts.
-// Most games are learnt by trying, so they carry no words: just the score and best under the arena.
+//   Hockey, Pairs: see arcade.ts. Flash, Halo, Pulse: see court.ts. Ripple: see swim.ts. Hop,
+//   Juggle, Loop, Pull, Spark, Twin: see yard.ts. Grow, Rain, Spot, Tilt: see field.ts. Brick,
+//   Flip, More, Stick: see lawn.ts. Blast, Bumper, Cross, Cue, Dodge, Hue: see meadow.ts. Land,
+//   Order, Pop, Ready, Recall, Swing: see grove.ts.
+// Most games are learnt by trying, so they carry no words: just the score and best under the
+// arena, drawn as tiny atoms (score-atom.ts). When a run is over, a card over the arena shows
+// its atom and an Again button; when a level is done, a Next button.
 // When the park opens, the guide Nu (src/ui/nu.ts) flies in from the logo and the park takes it
 // over; leaving, it hands Nu back where it is and Nu flies home. It never jumps. Bests are kept
 // on the device under PARK_KEY.
@@ -32,23 +32,22 @@ import { loadSave, writeSave } from '../core/save';
 import { nuBorrow, nuEnabled, nuGiveBack, reducedMotion } from '../ui/nu';
 import { boxedToys, eatTreat, giveToy, keepBox, periodsDone, toysSeen, treats, wake, warmth, warmUp } from './bond';
 import { F, GAMES, S, ST, nuPick, type GameId } from './games';
-import { readWithNu } from './read';
 import { openSheet, openSheetPanel, type Sheet } from '../ui/sheet';
 import { icon } from '../ui/icons';
-import { MAX_Z } from '../core/elements';
 import {
   dashed, anywhere, arenaPath, best, Bests, Body, bounceIn, buzz, captureSound, chimeSound, clamp, completeSound, CYAN, dist, dot, edge, Fx, GREEN, inside, K300, K500, K800, K900, K975, missSound, Mover, NOTE_COLOURS, Pt, readBests, RED, rimPoint, ring, ROSE, seeded, finish, setBest, Stage, TAU, tickSound, Toy, WHITE, writeBests,
 } from './kit';
 import { hush } from './kit';
-import { Chain, Hockey, Pairs, Split } from './arcade';
+import { Hockey, Pairs } from './arcade';
 import { Flash, Halo, Pulse } from './court';
-import { Rally, Ripple } from './swim';
-import { Bloom, Hop, Juggle, Loop, Pull, Spark, Twin } from './yard';
-import { Grow, Rain, Sort, Spot, Stack, Tilt } from './field';
-import { Brick, Drop, Flip, Maze, More, Stick } from './lawn';
+import { Ripple } from './swim';
+import { Hop, Juggle, Loop, Pull, Spark, Twin } from './yard';
+import { Grow, Rain, Spot, Tilt } from './field';
+import { Brick, Flip, More, Stick } from './lawn';
 import { Blast, Bumper, Cross, Cue, Dodge, Hue } from './meadow';
 import { Land, Order, Pop, Ready, Recall, Swing } from './grove';
 import { fmt, points } from './points';
+import { atomSvg } from './score-atom';
 import { GAME_MS, NEXT_MS, ROULETTE_ICON, ROUND, chip, keepRun, pickSix, readBook, rouletteHtml, wheelSvg, type Run } from './roulette';
 import './park.css';
 
@@ -872,6 +871,7 @@ class Course implements Toy {
       const b = s.bests.course[String(this.level)];
       if (!b || this.time < b) { s.bests.course[String(this.level)] = Math.round(this.time); s.save(); }
       this.say(s);
+      s.prompt?.(() => { this.level++; this.build(s); });
       return;
     }
     if (Math.floor(this.time / 100) !== Math.floor((this.time - dt) / 100)) this.say(s);
@@ -916,7 +916,7 @@ class Course implements Toy {
   }
 
   down(s: Stage, p: Pt): void {
-    if (this.state === 'done') { this.level++; this.build(s); return; }
+    if (this.state === 'done') return;
     this.finger = p;
     this.grab = this.state === 'run' || this.state === 'ready' ? { x: s.nu.x - p.x, y: s.nu.y - p.y } : null;
   }
@@ -1435,140 +1435,6 @@ class Herd implements Toy {
   up(): void { this.finger = null; }
 }
 
-// ---- Trace -----------------------------------------------------------------------------------
-
-/** Draw a path with your finger; let go and Nu rides it. Stars it passes light up; light them
- *  all for a new sky. */
-class Trace implements Toy {
-  private line: Pt[] = [];
-  private ride: Pt[] | null = null;
-  private along = 0;
-  private stars: { x: number; y: number; on: number }[] = [];
-  /** Antiparticles in the sky: touch one and the ride stops and the sky's stars go out. One
-   *  more each sky; from the third they drift. */
-  private mines: Mover[] = [];
-  private skies = 0;
-  private hitAt = -Infinity;
-
-  enter(s: Stage): void {
-    s.nu.r = 9;
-    this.sky(s);
-    this.skies = 0;
-    s.score(0, best(s, 'trace') || null);
-  }
-
-  resize(s: Stage): void { this.sky(s); }
-
-  private sky(s: Stage): void {
-    this.stars = [];
-    for (let tries = 0, n = s.hh > s.hw * 1.3 ? 8 : 6; this.stars.length < n && tries < 200; tries++) {
-      const p = { ...anywhere(s, 24), on: 0 };
-      if (this.stars.every((q) => dist(q, p) > 50)) this.stars.push(p);
-    }
-    this.mines = [];
-    const n = Math.min(6, 1 + this.skies), drift = this.skies >= 2 ? 0.03 : 0;
-    for (let tries = 0; this.mines.length < n && tries < 300; tries++) {
-      const p = anywhere(s, 20);
-      if (dist(p, s.c) > 60 && this.stars.every((q) => dist(q, p) > 44) && this.mines.every((q) => dist(q, p) > 50)) {
-        const a = Math.random() * TAU;
-        this.mines.push({ ...p, vx: Math.cos(a) * drift, vy: Math.sin(a) * drift });
-      }
-    }
-  }
-
-  step(s: Stage, dt: number, now: number): void {
-    const nu = s.nu;
-    for (const m of this.mines) { m.x += m.vx * dt; m.y += m.vy * dt; bounceIn(s, m, 8, 1); }
-    if (!this.ride) { if (!this.line.length) nu.seek({ x: s.c.x, y: s.c.y + Math.sin(now / 800) * 4 }, dt, 0.4, 0.01); return; }
-    // Glides along the drawn path at an even speed, joining it smoothly at its start.
-    const path = this.ride;
-    if (this.along === 0 && dist(nu, path[0]) > 4) { nu.seek(path[0], dt, 0.6, 0.02); return; }
-    this.along += dt * 0.38;
-    let left = this.along, i = 1;
-    for (; i < path.length; i++) { const d = dist(path[i - 1], path[i]); if (left <= d) break; left -= d; }
-    if (i >= path.length) { this.ride = null; this.along = 0; return; }
-    const a = path[i - 1], b = path[i], d = dist(a, b) || 1;
-    const p = { x: a.x + ((b.x - a.x) * left) / d, y: a.y + ((b.y - a.y) * left) / d };
-    nu.vx = (p.x - nu.x) / Math.max(1, dt);
-    nu.vy = (p.y - nu.y) / Math.max(1, dt);
-    nu.x = p.x;
-    nu.y = p.y;
-    const mine = this.mines.find((m) => dist(m, nu) < nu.r + 6);
-    if (mine) {
-      // Hit: the ride stops, Nu is knocked back, and this sky's stars go out.
-      this.ride = null;
-      this.along = 0;
-      this.hitAt = now;
-      nu.vx = (nu.x - mine.x) * 0.02;
-      nu.vy = (nu.y - mine.y) * 0.02;
-      for (const st of this.stars) st.on = 0;
-      s.fx.ring(mine, RED, 6, 40, 600);
-      missSound();
-      buzz(30);
-      return;
-    }
-    for (const st of this.stars) {
-      if (st.on || dist(st, nu) > nu.r + 9) continue;
-      st.on = now;
-      chimeSound(this.stars.filter((q) => q.on).length - 1);
-      s.fx.ring(st, WHITE, 4, 22, 600);
-    }
-    if (this.stars.every((q) => q.on)) {
-      this.skies++;
-      setBest(s, 'trace', this.skies);
-      s.score(this.skies, best(s, 'trace') || null);
-      s.fx.burst(nu, 14, WHITE, 0.13);
-      completeSound();
-      this.sky(s);
-    }
-  }
-
-  draw(s: Stage, ctx: CanvasRenderingContext2D, now: number): void {
-    for (const st of this.stars) {
-      if (st.on) { ctx.save(); ctx.shadowColor = 'rgba(228, 232, 234, 0.8)'; ctx.shadowBlur = 12; dot(ctx, st, 5.5, WHITE); ctx.restore(); }
-      else {
-        dot(ctx, st, 4.5, K300, 0.85);
-        ring(ctx, st, 9 + Math.sin(now / 500 + st.x) * 1.5, K300, 2, 0.35);
-      }
-    }
-    for (const m of this.mines) dot(ctx, m, 6.5, RED, 0.9);
-    const flash = clamp(1 - (now - this.hitAt) / 500, 0, 1);
-    if (flash > 0) { ctx.save(); ctx.globalAlpha = 0.18 * flash; ctx.fillStyle = RED; arenaPath(ctx, s); ctx.fill(); ctx.restore(); }
-    const drawn = this.ride ?? this.line;
-    if (drawn.length > 1) {
-      ctx.save();
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      ctx.strokeStyle = ROSE;
-      ctx.globalAlpha = 0.28;
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.moveTo(drawn[0].x, drawn[0].y);
-      for (const q of drawn) ctx.lineTo(q.x, q.y);
-      ctx.stroke();
-      ctx.restore();
-    }
-    s.nu.draw(ctx, now);
-  }
-
-  down(s: Stage, p: Pt): void {
-    if (this.ride) return;
-    this.line = [inside(s, p, 10)];
-  }
-
-  move(s: Stage, p: Pt): void {
-    if (this.ride || !this.line.length) return;
-    const q = inside(s, p, 10);
-    if (dist(q, this.line[this.line.length - 1]) > 5) this.line.push(q);
-  }
-
-  up(): void {
-    if (this.ride) return;
-    if (this.line.length > 3) { this.ride = this.line; this.along = 0; }
-    this.line = [];
-  }
-}
-
 // ---- The screen ------------------------------------------------------------------------------
 
 
@@ -1696,7 +1562,6 @@ class Dive implements Toy {
   }
 }
 
-const READ_ICON = S(`<path d="M3 5.5c3-1.3 6-1.3 9 .8v13c-3-2-6-2-9-.8zM21 5.5c-3-1.3-6-1.3-9 .8v13c3-2 6-2 9-.8z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>`);
 const PICK_ICON = S(`<circle cx="12" cy="12" r="2.6" ${F}/><circle cx="12" cy="4" r="2" ${F}/><circle cx="18.9" cy="8" r="2" ${F}/><circle cx="18.9" cy="16" r="2" ${F}/><circle cx="12" cy="20" r="2" ${F}/><circle cx="5.1" cy="16" r="2" ${F}/><circle cx="5.1" cy="8" r="2" ${F}/>`);
 /** The room a game's own controls get under the court (Halo's wheel, Orbit's lane buttons). */
 const PAD_ROOM = 150;
@@ -1704,12 +1569,11 @@ const PAD_ROOM = 150;
 /** Each place in the park, made fresh: the park's own, and each preview in the picker its own. */
 const MAKE: Record<PlaceId, () => Toy> = {
   home: () => new Home(), sling: () => new Sling(), course: () => new Course(), echo: () => new Echo(), orbit: () => new Orbit(),
-  shells: () => new Shells(), herd: () => new Herd(), trace: () => new Trace(), hockey: () => new Hockey(), chain: () => new Chain(),
-  split: () => new Split(), pairs: () => new Pairs(), dive: () => new Dive(), flash: () => new Flash(), halo: () => new Halo(),
-  pulse: () => new Pulse(), rally: () => new Rally(), ripple: () => new Ripple(), bloom: () => new Bloom(), hop: () => new Hop(),
+  shells: () => new Shells(), herd: () => new Herd(), hockey: () => new Hockey(), pairs: () => new Pairs(), dive: () => new Dive(), flash: () => new Flash(), halo: () => new Halo(),
+  pulse: () => new Pulse(), ripple: () => new Ripple(), hop: () => new Hop(),
   juggle: () => new Juggle(), loop: () => new Loop(), pull: () => new Pull(), spark: () => new Spark(), twin: () => new Twin(),
-  grow: () => new Grow(), rain: () => new Rain(), sort: () => new Sort(), spot: () => new Spot(), stack: () => new Stack(), tilt: () => new Tilt(),
-  brick: () => new Brick(), drop: () => new Drop(), flip: () => new Flip(), maze: () => new Maze(), more: () => new More(), stick: () => new Stick(),
+  grow: () => new Grow(), rain: () => new Rain(), spot: () => new Spot(), tilt: () => new Tilt(),
+  brick: () => new Brick(), flip: () => new Flip(), more: () => new More(), stick: () => new Stick(),
   blast: () => new Blast(), bumper: () => new Bumper(), cross: () => new Cross(), cue: () => new Cue(), dodge: () => new Dodge(), hue: () => new Hue(),
   land: () => new Land(), order: () => new Order(), pop: () => new Pop(), ready: () => new Ready(), recall: () => new Recall(), swing: () => new Swing(),
 };
@@ -1746,14 +1610,14 @@ function layoutStage(st: Stage, w: number, h: number, toy: Toy): void {
 }
 
 /** The arena's rim: a plain line round it, still, or the rim's countdown in cyan. */
-function drawRim(s: Stage, ctx: CanvasRenderingContext2D): void {
+function drawRim(s: Stage, ctx: CanvasRenderingContext2D, still = false): void {
   ctx.save();
   ctx.strokeStyle = K500;
   ctx.globalAlpha = 0.8;
   ctx.lineWidth = 3;
   arenaPath(ctx, s, 7);
   ctx.stroke();
-  if (s.rim !== null && s.rim > 0) {
+  if (!still && s.rim !== null && s.rim > 0) {
     ctx.strokeStyle = CYAN;
     ctx.globalAlpha = 1;
     ctx.lineCap = 'round';
@@ -1768,8 +1632,9 @@ function drawRim(s: Stage, ctx: CanvasRenderingContext2D): void {
   ctx.restore();
 }
 
-/** One frame of the arena and the game in it (stepped on when `play`). */
-function paintStage(s: Stage, ctx: CanvasRenderingContext2D, toy: Toy | null, dt: number, now: number, play: boolean): void {
+/** One frame of the arena and the game in it (stepped on when `play`). A preview (`still`) leaves
+ *  out the rim's countdown, which would make the picker busy. */
+function paintStage(s: Stage, ctx: CanvasRenderingContext2D, toy: Toy | null, dt: number, now: number, play: boolean, still = false): void {
   ctx.save();
   const court = s.court;
   s.court = false;
@@ -1778,7 +1643,7 @@ function paintStage(s: Stage, ctx: CanvasRenderingContext2D, toy: Toy | null, dt
   arenaPath(ctx, s);
   ctx.fill();
   ctx.globalAlpha = 1;
-  drawRim(s, ctx);
+  drawRim(s, ctx, still);
   arenaPath(ctx, s);
   ctx.clip();
   // A game set on a ring plays in the round court, a lighter plate in the middle.
@@ -1807,19 +1672,15 @@ type Bot =
   | { kind: 'flick' }
   | { kind: 'loop' };
 
-const BOTS: Record<GameId, Bot> = {
-  bloom: { kind: 'hold', on: 600, off: 700 }, chain: { kind: 'drag', path: 'wander' }, course: { kind: 'drag', path: 'wander' },
+const BOTS: Record<GameId, Bot> = { course: { kind: 'drag', path: 'wander' },
   dive: { kind: 'tap', every: 1100 }, echo: { kind: 'tap', every: 800 }, flash: { kind: 'tap', every: 650 },
   grow: { kind: 'drag', path: 'wander' }, halo: { kind: 'drag', path: 'circle' }, herd: { kind: 'drag', path: 'wander' },
   hockey: { kind: 'drag', path: 'row' }, hop: { kind: 'drag', path: 'row' }, juggle: { kind: 'tap', every: 650, at: 'nu' },
   loop: { kind: 'loop' }, orbit: { kind: 'tap', every: 1500 }, pairs: { kind: 'tap', every: 700 },
-  pull: { kind: 'hold', on: 1100, off: 900 }, pulse: { kind: 'tap', every: 1000 }, rain: { kind: 'drag', path: 'row' },
-  rally: { kind: 'drag', path: 'nu' }, ripple: { kind: 'tap', every: 700, at: 'near' }, shells: { kind: 'tap', every: 900 },
-  sling: { kind: 'sling' }, sort: { kind: 'tap', every: 900, at: 'side' }, spark: { kind: 'tap', every: 2600 },
-  split: { kind: 'drag', path: 'row' }, spot: { kind: 'tap', every: 1300 }, stack: { kind: 'tap', every: 1250 },
-  tilt: { kind: 'drag', path: 'wander' }, trace: { kind: 'drag', path: 'wander' }, twin: { kind: 'drag', path: 'wander' },
-  brick: { kind: 'drag', path: 'row' }, drop: { kind: 'hold', on: 500, off: 2200 }, flip: { kind: 'tap', every: 750 },
-  maze: { kind: 'drag', path: 'wander' }, more: { kind: 'tap', every: 1300, at: 'side' }, stick: { kind: 'tap', every: 950 },
+  pull: { kind: 'hold', on: 1100, off: 900 }, pulse: { kind: 'tap', every: 1000 }, rain: { kind: 'drag', path: 'row' }, ripple: { kind: 'tap', every: 700, at: 'near' }, shells: { kind: 'tap', every: 900 },
+  sling: { kind: 'sling' }, spark: { kind: 'tap', every: 2600 }, spot: { kind: 'tap', every: 1300 },
+  tilt: { kind: 'drag', path: 'wander' }, twin: { kind: 'drag', path: 'wander' },
+  brick: { kind: 'drag', path: 'row' }, flip: { kind: 'tap', every: 750 }, more: { kind: 'tap', every: 1300, at: 'side' }, stick: { kind: 'tap', every: 950 },
   blast: { kind: 'tap', every: 500 }, bumper: { kind: 'tap', every: 450, at: 'side' }, cross: { kind: 'tap', every: 700, at: 'nu' },
   cue: { kind: 'flick' }, dodge: { kind: 'drag', path: 'wander' }, hue: { kind: 'tap', every: 420 },
   land: { kind: 'hold', on: 450, off: 650 }, order: { kind: 'tap', every: 800 }, pop: { kind: 'tap', every: 1000 },
@@ -1871,7 +1732,7 @@ class Preview {
     hush(() => {
       this.drive(now - this.t0, dt);
       this.ctx.clearRect(0, 0, SHOT_W, SHOT_H);
-      paintStage(this.stage, this.ctx, this.toy, dt, now, true);
+      paintStage(this.stage, this.ctx, this.toy, dt, now, true, true);
     });
   }
 
@@ -2032,6 +1893,11 @@ export class NuPark {
   private nextShow: Preview | null = null;
   /** The last count the open game showed. */
   private raw = 0;
+  /** The card over the arena when a run is over (its score and Again) or a level is done (Next). */
+  private overEl: HTMLElement;
+  private overGo: (() => void) | null = null;
+  /** The open game's best when it started, to tell a new best. */
+  private bestWas = 0;
   private rouLast = 0;
 
   constructor(host: HTMLElement) {
@@ -2039,7 +1905,7 @@ export class NuPark {
     host.innerHTML = '<div class="nup">'
       + '<div class="nup-field"><canvas class="nup-canvas"></canvas>'
       + '<div class="nup-off" hidden><p>Nu is switched off in Settings.</p><button type="button" class="nup-on">Turn Nu on</button></div>'
-      + '<button type="button" class="nup-next" hidden></button></div>'
+      + '<button type="button" class="nup-next" hidden></button><div class="nup-over" hidden></div></div>'
       + '<div class="nup-foot"><p class="nup-score" aria-live="polite"></p>'
       + `<button type="button" class="nup-go" aria-label="Games" aria-expanded="false">${PICK_ICON}</button>`
       + '<p class="nup-best"></p></div>'
@@ -2051,6 +1917,7 @@ export class NuPark {
     this.goBtn = host.querySelector('.nup-go')!;
     this.off = host.querySelector('.nup-off')!;
     this.nextEl = host.querySelector('.nup-next')!;
+    this.overEl = host.querySelector('.nup-over')!;
     this.nextEl.onclick = () => { if (this.rou?.doneAt && performance.now() - this.rou.doneAt > 500) this.advance(); };
     this.goBtn.onclick = () => this.togglePick();
     host.querySelector<HTMLButtonElement>('.nup-on')!.onclick = () => {
@@ -2069,12 +1936,15 @@ export class NuPark {
         if (this.rou?.doneAt) return;
         const id = this.place === 'home' ? null : this.place, own = id && this.toys[id].tally;
         if (typeof n === 'number') this.raw = n;
-        // Counts show as points (points.ts), but for games that keep their own (Pairs' turns).
-        const show = (v: number | string) => (typeof v === 'number' && id && !own ? fmt(points(id, v)) : String(v));
-        this.scoreEl.textContent = n === null ? '' : show(n);
-        this.bestEl.textContent = this.rou ? this.rouLine() : n === null || b === null || b === undefined ? '' : `Best: ${show(b)}`;
+        // Counts show as points (points.ts), drawn as tiny atoms (score-atom.ts), but for games
+        // that keep their own count (Pairs' turns, Course's time).
+        const show = (v: number | string, size: number) => (typeof v === 'number' && id && !own ? atomSvg(points(id, v), size) : `<span>${v}</span>`);
+        this.scoreEl.innerHTML = n === null ? '' : show(n, 48);
+        if (this.rou) this.bestEl.textContent = this.rouLine();
+        else this.bestEl.innerHTML = n === null || b === null || b === undefined ? '' : `<span>Best:</span>${show(b, 30)}`;
       },
       end: (raw) => this.ended(raw),
+      prompt: (go) => this.showOver(null, go),
       roulette: () => this.openRoulette(),
     };
     this.wirePointer();
@@ -2175,21 +2045,61 @@ export class NuPark {
   /** A run is over: in a roulette, this game is done; the bar to the next comes up. */
   private ended(raw: number): void {
     const r = this.rou;
-    if (!r || r.doneAt || this.place !== r.ids[r.i]) return;
+    if (!r) { if (this.place !== 'home') this.showOver(raw, null); return; }
+    if (r.doneAt || this.place !== r.ids[r.i]) return;
     const id = r.ids[r.i], pts = points(id, raw);
     r.pts[r.i] = pts;
     r.doneAt = performance.now();
-    this.scoreEl.textContent = fmt(pts);
+    this.scoreEl.innerHTML = atomSvg(pts, 48);
     this.bestEl.textContent = this.rouLine();
     const last = r.i >= ROUND - 1, next = last ? null : GAMES.find((g) => g.id === r.ids[r.i + 1])!;
     this.nextEl.innerHTML = '<span class="nup-next-row">'
       + (next ? '<span class="nup-shot"><canvas aria-hidden="true"></canvas></span>' : `<span class="nup-next-wheel">${wheelSvg(48)}</span>`)
-      + `<span class="nup-next-text"><small>${next ? 'Next' : 'Roulette done'}</small><b>${next ? `<i>${next.icon}</i>${next.label}` : `Total: ${fmt(r.pts.reduce((a, b) => a + b, 0))}`}</b></span>`
-      + `<span class="nup-next-pts">+${fmt(pts)}</span></span>`
+      + `<span class="nup-next-text"><small>${next ? 'Next' : 'Roulette done'}</small><b>${next ? `<i>${next.icon}</i>${next.label}` : 'Total'}</b></span>`
+      + `<span class="nup-next-pts">${atomSvg(last ? r.pts.reduce((a, b) => a + b, 0) : pts, 44)}</span></span>`
       + `<span class="nup-next-bar"><i style="animation-duration:${NEXT_MS}ms"></i></span>`;
     this.nextEl.setAttribute('aria-label', next ? `Next: ${next.label}` : 'See the roulette score');
     this.nextEl.hidden = false;
     this.nextShow = next ? new Preview(next.id, this.nextEl.querySelector('canvas')!) : null;
+  }
+
+  /** Over the arena: a run's score as an atom (ringed for a new best) and Again; or, with `next`,
+   *  a level done and the Next button. While it shows, the arena takes no taps. */
+  private showOver(raw: number | null, next: (() => void) | null): void {
+    const id = this.place;
+    if (id === 'home') return;
+    this.overGo = next;
+    if (next) {
+      this.overEl.innerHTML = `<button type="button" class="nup-again is-next" aria-label="Next">${icon('play', { size: 30 })}</button>`;
+    } else {
+      const own = this.toys[id].tally, pts = points(id, raw ?? 0), fresh = !own && (raw ?? 0) > this.bestWas;
+      this.overEl.innerHTML = (own ? '' : `<span class="nup-over-atom${fresh ? ' is-best' : ''}">${atomSvg(pts, 120, { ring: fresh ? 'var(--c-accent)' : undefined, label: `${fmt(pts)} points${fresh ? ', a new best' : ''}` })}</span>`)
+        + `<button type="button" class="nup-again" aria-label="Play again">${icon('restart', { size: 30 })}</button>`;
+    }
+    this.overEl.hidden = false;
+    const btn = this.overEl.querySelector<HTMLButtonElement>('.nup-again')!;
+    btn.onclick = () => this.again();
+    // Not at once: a tap meant for the game shouldn't land on the button.
+    btn.disabled = true;
+    setTimeout(() => { btn.disabled = false; }, 450);
+  }
+
+  private hideOver(): void {
+    this.overEl.hidden = true;
+    this.overEl.innerHTML = '';
+    this.overGo = null;
+  }
+
+  /** Again (the run starts over) or Next (the next level). */
+  private again(): void {
+    const go = this.overGo;
+    this.hideOver();
+    if (go) { go(); return; }
+    if (this.place === 'home') return;
+    this.bestWas = best(this.stage, this.place);
+    this.stage.fx.clear();
+    this.stage.rim = null;
+    this.toys[this.place].enter(this.stage);
   }
 
   /** On to the next game (or, after the sixth, the roulette's score). */
@@ -2280,6 +2190,8 @@ export class NuPark {
     if (id === this.place && !roulette) return;
     this.place = id;
     this.raw = 0;
+    this.hideOver();
+    this.bestWas = id === 'home' ? 0 : best(this.stage, id);
     this.stage.court = !!this.toys[id].court;
     this.layout();
     this.stage.fx.clear();
@@ -2303,7 +2215,7 @@ export class NuPark {
     const sheet = openSheet({ title: 'Games', icon: 'nu', label: 'Nu’s games', from: 'top', className: 'nup-sheet', onClose: () => this.picked(sheet) });
     const book = readBook();
     sheet.body.innerHTML = `<button type="button" class="nup-rou">${wheelSvg(44)}<span class="nup-rou-text"><b>Roulette</b><small>Six games in a row</small></span>`
-      + `<span class="nup-rou-best">${book.best ? `Best: ${fmt(book.best)}` : ''}</span></button>`
+      + `<span class="nup-rou-best">${book.best ? `<span>Best:</span>${atomSvg(book.best, 30)}` : ''}</span></button>`
       + '<div class="nup-tiles">' + GAMES.map((g) => {
       const label = `${g.label}${g.id === fancy ? ', Nu’s pick today' : ''}`;
       return `<button type="button" class="nup-tile${g.id === this.place ? ' is-here' : ''}" data-place="${g.id}" aria-label="${label}">`
@@ -2311,9 +2223,8 @@ export class NuPark {
         + `<span class="nup-name"><i>${g.icon}${g.id === fancy ? '<b class="nup-nu" aria-hidden="true"></b>' : ''}</i><span>${g.label}</span></span></span></button>`;
     }).join('') + '</div>';
     sheet.body.querySelector<HTMLButtonElement>('.nup-rou')!.onclick = () => this.openRoulette();
-    sheet.foot.innerHTML = `<button type="button" class="nup-read">${READ_ICON}<span>Read from the Atlas</span></button>`;
+    sheet.foot.remove();
     for (const b of sheet.body.querySelectorAll<HTMLButtonElement>('.nup-tile')) b.onclick = () => this.go(b.dataset.place as PlaceId);
-    sheet.foot.querySelector<HTMLButtonElement>('.nup-read')!.onclick = () => this.read();
     this.picking = sheet;
     this.onPicked = onClose;
     this.wasHidden = this.stage.nu.hidden;
@@ -2342,14 +2253,6 @@ export class NuPark {
     this.goBtn.setAttribute('aria-expanded', 'false');
   }
 
-  /** "Read from the Atlas": a random atom's page, and Nu comes along to read it too. */
-  private read(): void {
-    this.closePick();
-    const z = 1 + Math.floor(Math.random() * MAX_Z);
-    readWithNu(z);
-    window.dispatchEvent(new CustomEvent('atomos:nu-read', { detail: { z } }));
-  }
-
   private fit(): void {
     const r = this.canvas.getBoundingClientRect();
     if (!r.width || !r.height) return;
@@ -2373,6 +2276,7 @@ export class NuPark {
       if (!this.have) return;
       if (this.picking) { this.closePick(); return; }
       if (this.rou?.doneAt) { if (performance.now() - this.rou.doneAt > 600) this.advance(); return; }
+      if (!this.overEl.hidden) return;
       down = true;
       c.setPointerCapture(e.pointerId);
       this.toys[this.place].down?.(this.stage, at(e));

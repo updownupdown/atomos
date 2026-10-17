@@ -7,6 +7,7 @@
 
 import { F, GAMES, S, type GameId } from './games';
 import { fmt } from './points';
+import { atomSvg } from './score-atom';
 
 const KEY = 'atomos.nu-roulette';
 export const ROUND = 6;
@@ -63,7 +64,7 @@ const game = (id: GameId) => GAMES.find((g) => g.id === id)!;
 /** The game's chip: its icon and name, and its points once played. */
 export function chip(id: GameId, pts?: number): string {
   const g = game(id);
-  return `<span class="nur-chip"><i>${g.icon}</i><span>${g.label}</span>${pts === undefined ? '' : `<b>${fmt(pts)}</b>`}</span>`;
+  return `<span class="nur-chip"><i>${g.icon}</i><span>${g.label}</span>${pts === undefined ? '' : `<b>${atomSvg(pts, 30)}</b>`}</span>`;
 }
 
 const when = (t: number): string => new Date(t).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
@@ -73,11 +74,11 @@ const when = (t: number): string => new Date(t).toLocaleString('en-US', { month:
 export function rouletteHtml(ids: GameId[], run: Run | null, best: boolean): string {
   const book = readBook();
   const head = run
-    ? `<div class="nur-total"><p class="nur-big">${fmt(run.total)}</p><p class="nur-sub">${best ? 'New best' : `Best: ${fmt(book.best)}`}</p></div>`
+    ? `<div class="nur-total"><p class="nur-big">${atomSvg(run.total, 120, { ring: best ? 'var(--c-accent)' : undefined })}</p>${best ? '<p class="nur-sub">New best</p>' : `<p class="nur-sub nur-best"><span>Best:</span>${atomSvg(book.best, 36)}</p>`}</div>`
     : `<p class="nur-lead">Six games, one after the other. Each ends when you fail, or after a minute. Ten points is a fair run in any of them.</p>`;
   const slots = (run ? run.games.map((g) => chip(g.id, g.pts)) : ids.map((id) => chip(id))).map((c, k) => `<li style="--k:${k}">${c}</li>`).join('');
   const past = book.runs.filter((r) => r !== book.runs[0] || !run).slice(0, 5);
   return `${head}<ol class="nur-six${run ? '' : ' is-spinning'}">${slots}</ol>`
-    + (!run && book.best ? `<p class="nur-best">Best: ${fmt(book.best)}</p>` : '')
-    + (past.length ? `<h3 class="nur-h">Last runs</h3><ul class="nur-runs">${past.map((r) => `<li><span>${when(r.at)}</span><b>${fmt(r.total)}</b></li>`).join('')}</ul>` : '');
+    + (!run && book.best ? `<p class="nur-best"><span>Best:</span>${atomSvg(book.best, 36)}</p>` : '')
+    + (past.length ? `<h3 class="nur-h">Last runs</h3><ul class="nur-runs">${past.map((r) => `<li><span>${when(r.at)}</span><b>${atomSvg(r.total, 30)}</b></li>`).join('')}</ul>` : '');
 }

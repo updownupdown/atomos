@@ -7,11 +7,11 @@ import type { GameId } from './games';
 
 /** About what a fair run reaches, in the game's own count. */
 export const PAR: Record<GameId, number> = {
-  orbit: 12, sling: 4, shells: 4, echo: 6, herd: 3, course: 2, trace: 4, dive: 4,
-  hockey: 3, chain: 15, split: 15, pairs: 1.9, flash: 20, halo: 15, pulse: 8,
-  rally: 10, ripple: 6, bloom: 2, hop: 60, juggle: 12, loop: 10, pull: 10, spark: 3, twin: 12,
-  grow: 25, rain: 20, sort: 15, spot: 8, stack: 6, tilt: 8,
-  brick: 25, drop: 3, flip: 15, maze: 3, more: 10, stick: 8,
+  orbit: 12, sling: 4, shells: 4, echo: 6, herd: 3, course: 2, dive: 4,
+  hockey: 3, pairs: 1.9, flash: 20, halo: 15, pulse: 8,
+  ripple: 6, hop: 60, juggle: 12, loop: 10, pull: 10, spark: 3, twin: 12,
+  grow: 25, rain: 20, spot: 8, tilt: 8,
+  brick: 25, flip: 15, more: 10, stick: 8,
   blast: 15, bumper: 12, cross: 3, cue: 4, dodge: 20, hue: 8,
   land: 4, order: 5, pop: 30, ready: 15, recall: 5, swing: 8,
 };
