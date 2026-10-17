@@ -3,7 +3,7 @@
 //          up, and two of a kind that touch fuse into the next size. Keep the pile under the line.
 //   Gate   Nu glides down through pairs of posts. Drag to steer through the green gate; a missed
 //          gate or a red dot costs one of three lives. The course comes in sections of its own pace.
-//   Tune   a grey wave rolls in from the right. Two sliders along the bottom set Nu's own dashed
+//   Tune   a grey wave rolls in from the right. Two sliders along the bottom set Nu's own thin
 //          wave, its frequency and its phase, to lie on it as it passes: both turn green.
 
 import {
@@ -526,16 +526,13 @@ const TUNE_SHORT = 3000;
 /** From this stretch on, a new stretch's wave also jumps along (its phase), more as it goes. */
 const TUNE_JUMP_AT = 2;
 /** The share of a target's passing that must match to score. */
-const TUNE_GOAL = 0.5;
+const TUNE_GOAL = 0.25;
 /** How close Nu's wave is, by its colour: matched, near, nearer than far, and far (red). How
  *  near is how many times the match's tolerance it's off by. */
 const TUNE_BLUE = '#5f8ae0';
 const TUNE_AMBER = '#d98a2b';
 const TUNE_NEAR = 2.2;
 const TUNE_MID = 4.5;
-/** Nu's wave is dashed: a dash and a gap, along the course (px), so the dashes roll with it. */
-const TUNE_DASH = 12;
-const TUNE_GAP = 9;
 
 /** A stretch of the target wave: where it starts (world px), how long it is, its frequency, its
  *  phase at the start, and how long it matched as it passed Nu. */
@@ -544,16 +541,15 @@ type Seg = { u0: number; len: number; c: number; ph0: number; on: number; all: n
 /** An angle brought into -π..π. */
 const wrap = (x: number): number => ((((x + Math.PI) % TAU) + TAU) % TAU) - Math.PI;
 /** Whether world place `u` falls on a dash of Nu's wave. */
-const onDash = (u: number): boolean => ((u % (TUNE_DASH + TUNE_GAP)) + TUNE_DASH + TUNE_GAP) % (TUNE_DASH + TUNE_GAP) < TUNE_DASH;
 
 /** Resonance. A solid grey wave rolls in from the right, a stretch at a time, each with its own
  *  frequency, and later each a little along from where the last left off. Nu rides its own wave,
- *  drawn dashed over the incoming one ahead of it and left behind as a trace. Two sliders along
+ *  drawn thin over the incoming one ahead of it and left behind as a trace. Two sliders along
  *  the bottom set it: the lower its frequency (right to quicken, left to slow), the upper its
- *  phase (sliding the dashed wave along); a drag anywhere above moves both, across and up. When
- *  both are right the dashed wave lies on the solid one. Nu's wave shows how close it is: red far
+ *  phase (sliding Nu's wave along); a drag anywhere above moves both, across and up. When
+ *  both are right Nu's thin wave lies on the thicker one. Nu's wave shows how close it is: red far
  *  off, amber, blue near, and green when it matches the stretch going past, which turns green
- *  too. Match a stretch for half its passing and it scores; less and one of three lives empties.
+ *  too. Match a stretch for a quarter of its passing and it scores; less and one of three lives empties.
  *  The stretches come quicker and the match must be closer as it goes. */
 export class Tune implements Toy {
   private segs: Seg[] = [];
@@ -710,13 +706,13 @@ export class Tune implements Toy {
     const g = this.segs.find((q) => this.scroll >= q.u0 && this.scroll < q.u0 + q.len);
     const split = g && live ? X0 + (g.u0 + g.len - this.scroll) : X0;
     ctx.save();
-    ctx.lineWidth = 3;
+    ctx.lineWidth = 5;
     ctx.lineJoin = 'round';
     ctx.lineCap = 'round';
     for (const [from, to, c] of [[X0, split, GREEN], [split, x1, K300]] as [number, number, string][]) {
       if (to <= from) continue;
       ctx.strokeStyle = c;
-      ctx.globalAlpha = 0.9;
+      ctx.globalAlpha = 0.55;
       ctx.beginPath();
       for (let x = from; x <= to + 3; x += 3) {
         const px = Math.min(x, to), y = cy - this.target(s, this.scroll + (px - X0));
@@ -729,7 +725,7 @@ export class Tune implements Toy {
       const x = X0 + (q.u0 - this.scroll);
       if (x > X0 + 4 && x < x1) dot(ctx, { x, y: cy - this.target(s, q.u0) }, 3.5, K300, 0.9);
     }
-    // Nu's wave, dashed: its trace to the left in the colour of how close it was at each point,
+    // Nu's wave, thin and solid: its trace to the left in the colour of how close it was at each point,
     // and ahead of it as it is set now, over the incoming wave.
     const pts = this.trail.map((p) => ({ x: X0 - (this.scroll - p.u), y: p.y, u: p.u, c: p.c }));
     const hue = this.hue();
@@ -737,16 +733,17 @@ export class Tune implements Toy {
       const u = this.scroll + (x - X0);
       pts.push({ x, y: cy - this.mine(s, u), u, c: hue });
     }
-    ctx.lineWidth = 3;
-    ctx.lineCap = 'butt';
-    ctx.globalAlpha = 0.9;
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.globalAlpha = 1;
     for (const c of new Set(pts.map((p) => p.c))) {
       ctx.strokeStyle = c;
       ctx.beginPath();
       let pen = false;
       for (let i = 1; i < pts.length; i++) {
         const a = pts[i - 1], b = pts[i];
-        if (b.c !== c || !onDash((a.u + b.u) / 2)) { pen = false; continue; }
+        if (b.c !== c) { pen = false; continue; }
         if (!pen) ctx.moveTo(a.x, a.y);
         ctx.lineTo(b.x, b.y);
         pen = true;
