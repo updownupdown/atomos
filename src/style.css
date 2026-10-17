@@ -1212,7 +1212,7 @@ body.puzzling #overlay { pointer-events: auto; touch-action: none; }
 .nav-btn[aria-current='page'] { background: var(--c-pick); color: var(--c-accent); }
 /* The wordmark: Outfit bold, all caps, widely tracked. */
 .wordmark { font-family: var(--font); font-weight: var(--fw-bold); font-size: 12px; letter-spacing: 0.32em; text-transform: uppercase; line-height: 1; }
-.dock button:focus-visible { outline: 2px solid var(--c-tile-ink); outline-offset: -4px; }
+.dock button:focus-visible { outline: 2px solid var(--c-accent); outline-offset: -4px; }
 .nav-logo:focus-visible, .nav-btn:focus-visible, .crumb:focus-visible, .nav-tools button:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
 /* Off Home the header keeps only the mark; the trail takes the rest. */
 body:not([data-screen='home']) :is(.nav-title, .nav-aside, .nav-btn) { display: none; }
@@ -1260,27 +1260,28 @@ body[data-screen='puzzles'].pg-playing .nav-tools { display: flex; }
 .nav-tools .pg-fold[aria-expanded='true']::after { content: ''; position: absolute; left: 0; right: 0; top: 100%; height: var(--pg-stem, 14px); background: var(--c-nav); }
 .nav-tools .pg-fold[aria-expanded='true']::before { content: ''; position: absolute; right: 100%; top: calc(100% + var(--pg-stem, 14px) - 12px); width: 12px; height: 12px; border-bottom-right-radius: 12px; box-shadow: 6px 6px 0 6px var(--c-nav); clip-path: inset(0 -6px -6px 0); }
 
-/* The bar on Home (src/ui/dock.ts): Collect, Atlas and Play in a pill floating at the foot, each
-   an icon over its name. --safe-bottom grows by the pill on Home, so whatever sits at the foot
-   stays clear of it. Off Home it hides; the trail says where you are. */
-:root { --dock-h: 72px; --bar-h: 48px; }
+/* The bar on Home (src/ui/dock.ts): Collect, Atlas, Next, Play and Nu in a dark pill floating at
+   the foot, each an icon over its name; Next a smaller rose button raised out of the middle, its
+   name under it in rose (design 3, James 2026-10-17). --safe-bottom grows by the pill on Home,
+   so whatever sits at the foot stays clear of it. Off Home it hides; the trail says where you are. */
+:root { --dock-h: 68px; --bar-h: 48px; }
 .dock {
   position: fixed;
   left: 50%;
   bottom: calc(env(safe-area-inset-bottom, 0px) + var(--dock-gap, 12px));
-  width: min(360px, calc(100% - 2 * var(--sp-3)));
+  width: min(400px, calc(100% - 2 * var(--sp-3)));
   height: var(--dock-h);
   transform: translateX(-50%);
   z-index: 16;
   display: grid;
   grid-auto-flow: column;
   grid-auto-columns: minmax(0, 1fr);
-  gap: 4px;
+  grid-template-rows: 100%;
+  gap: 2px;
   padding: 6px;
   border-radius: var(--r-pill);
-  /* A pale pill, the one light thing at the foot of a black page, so it reads at once over the
-     plates scrolling under it; a black ring keeps its edge clean against them. */
-  background: var(--c-tile);
+  /* A graphite pill like the cards over it; a black ring keeps its edge clean against them. */
+  background: var(--c-plate);
   box-shadow: 0 0 0 4px var(--c-bg), 0 10px 28px rgba(0, 0, 0, 0.7);
 }
 .dock[hidden] { display: none; }
@@ -1289,21 +1290,28 @@ body[data-screen='puzzles'].pg-playing .nav-tools { display: flex; }
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 5px;
   padding: 0;
   border: 0;
   border-radius: var(--r-pill);
   background: transparent;
-  color: var(--c-tile-ink);
+  color: var(--c-text);
   font-family: var(--font);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
-.dock button:hover { background: var(--k-200); }
-.dock button:active { background: var(--k-300); }
+.dock button:hover { background: var(--c-plate-2); }
+.dock button:active { background: var(--c-pick); }
 .nav-ico { display: grid; place-items: center; }
-.nav-ico svg { width: 29px; height: 29px; display: block; }
-.nav-lab { font-size: 15px; font-weight: var(--fw-bold); line-height: 1.1; }
+.nav-ico svg { width: 26px; height: 26px; display: block; }
+.nav-lab { font-size: 13px; font-weight: var(--fw-semibold); line-height: 1.1; color: var(--c-text-2); }
+/* Next: a rose circle standing out of the pill, a clear gap above its name. */
+.dock .nav-next { min-height: 0; justify-content: flex-end; gap: 10px; padding-bottom: 7px; }
+.dock .nav-next:hover, .dock .nav-next:active { background: transparent; }
+.nav-next .nav-ico { flex: none; width: 52px; height: 52px; border-radius: 50%; background: var(--c-go); color: var(--c-go-ink); box-shadow: 0 0 0 5px var(--c-bg); }
+.nav-next:hover .nav-ico { filter: brightness(1.08); }
+.nav-next .nav-ico svg { width: 24px; height: 24px; }
+.nav-next .nav-lab { color: var(--c-go); }
 /* Small phones: the pill and the header give their margins to the names. */
 @media (max-width: 400px) {
   .dock { width: calc(100% - 2 * var(--sp-2)); }
