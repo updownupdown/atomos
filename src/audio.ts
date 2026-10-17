@@ -34,6 +34,9 @@ function tone(freq: number, dur: number, gain = 0.08, type: OscillatorType = 'si
   o.stop(t + dur + 0.05);
 }
 
+/** The shared audio context (null while sound is off), for sounds made elsewhere (Nu's music). */
+export function audioContext(): AudioContext | null { return typeof window === 'undefined' ? null : audio(); }
+
 export function buzz(pattern: number | number[]): void {
   if (haptics && 'vibrate' in navigator) navigator.vibrate(pattern);
 }

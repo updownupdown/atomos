@@ -7,13 +7,14 @@ import type { GameId } from './games';
 
 /** About what a fair run reaches, in the game's own count. */
 export const PAR: Record<GameId, number> = {
-  orbit: 12, sling: 4, shells: 4, echo: 6, herd: 3, course: 2, dive: 4,
-  hockey: 3, pairs: 1.9, flash: 20, halo: 15, pulse: 8,
-  ripple: 6, hop: 60, juggle: 12, loop: 10, pull: 10, spark: 3, twin: 12,
-  grow: 25, rain: 20, spot: 8, tilt: 8,
-  brick: 25, flip: 15, more: 10, stick: 8,
-  blast: 15, bumper: 12, cross: 3, cue: 4, dodge: 20, hue: 8,
-  land: 4, order: 5, pop: 30, ready: 15, recall: 5, swing: 8,
+  orbit: 12, sling: 4, shells: 4, echo: 6, herd: 3, course: 2, dive: 5,
+  hockey: 3, pairs: 1.9, flash: 20, halo: 18, pulse: 8,
+  ripple: 6, hop: 60, juggle: 15, loop: 10, pull: 10, spark: 3, twin: 12,
+  grow: 25, rain: 22, spot: 8, tilt: 8,
+  brick: 35, flip: 15, more: 10, stick: 8,
+  blast: 15, bumper: 18, cross: 5, cue: 4, dodge: 20, hue: 10,
+  land: 3, order: 5, pop: 25, ready: 12, recall: 5, swing: 8,
+  carve: 3, trail: 15, bank: 10, surf: 30, shade: 25, spin: 3, bend: 30,
 };
 
 /** Games whose count is better lower: Pairs counts turns for each pair. */

@@ -1,7 +1,4 @@
-// Two more of Nu's park games (park.ts), on the same kit:
-//   Rally   in the round court Nu bounces about like a ball; keep it in with the paddle on the
-//           rim, which follows the finger round. Faster each return, the paddle a little shorter.
-//           Three let past and it's over.
+// One of Nu's park games (park.ts), on the same kit:
 //   Ripple  Nu floats on still water. Tap the water and a ripple spreads, pushing Nu away from
 //           where it started; float Nu into the ring, as many times as you can before the rim
 //           runs out.
@@ -95,9 +92,13 @@ export class Ripple implements Toy {
   }
 
   draw(s: Stage, ctx: CanvasRenderingContext2D, now: number): void {
+    // Each ripple a bright front ring with a fainter one following, and a mark where it started
+    // while it's young.
     for (const w of this.waves) {
-      const r = (now - w.t0) * RIPPLE_SPEED;
-      ring(ctx, w, r, CYAN, 3, 0.5 * (1 - r / RIPPLE_REACH));
+      const r = (now - w.t0) * RIPPLE_SPEED, f = 1 - r / RIPPLE_REACH;
+      ring(ctx, w, r, CYAN, 4, 0.95 * f);
+      if (r > 16) ring(ctx, w, r - 14, CYAN, 3, 0.45 * f);
+      if (r < 60) dot(ctx, w, 5, CYAN, 0.8 * (1 - r / 60));
     }
     if (!this.overAt) {
       ring(ctx, this.goal, this.goal.r, WHITE, 3, 0.85);
@@ -108,7 +109,8 @@ export class Ripple implements Toy {
 
   down(s: Stage, p: Pt): void {
     const now = performance.now();
-    if (this.overAt) { if (now - this.overAt > 1000) this.reset(s); return; }
+    // Over: the park's card starts it again (a preview, with no card, on the next tap).
+    if (this.overAt) { if (!s.end && now - this.overAt > 1000) this.reset(s); return; }
     if (!this.start) this.start = now;
     // A few at a time at most: the water needs to settle.
     if (this.waves.length >= 4) return;

@@ -2,6 +2,7 @@
 // (a rounded rectangle, or the round court in its middle) and the helpers every game shares.
 
 import * as audio from '../audio';
+import * as music from './music';
 
 /** While above 0 (the games' previews in the park's picker are running), the games are silent
  *  and still: no sounds, no buzzing. */
@@ -14,11 +15,15 @@ export function hush<T>(f: () => T): T {
 }
 
 export const buzz = (p: number | number[]): void => { if (!quiet) audio.buzz(p); };
-export const captureSound = (): void => { if (!quiet) audio.captureSound(); };
-export const chimeSound = (i: number): void => { if (!quiet) audio.chimeSound(i); };
-export const completeSound = (): void => { if (!quiet) audio.completeSound(); };
-export const missSound = (): void => { if (!quiet) audio.missSound(); };
-export const tickSound = (n: number): void => { if (!quiet) audio.tickSound(n); };
+// The games' sounds are Nu's music (music.ts): a catch plays the tune's next note, a tick a note
+// of its chord, a level done a cadence, a miss a sigh, all in the open game's own theme.
+export const captureSound = (): void => { if (!quiet) { music.melody(); audio.buzz(12); } };
+export const chimeSound = (i: number): void => { if (!quiet) music.chime(i); };
+export const completeSound = (): void => { if (!quiet) music.cadence(); };
+export const missSound = (): void => { if (!quiet) { music.sigh(); audio.buzz([15, 50, 15]); } };
+export const tickSound = (n: number): void => { if (!quiet) { music.tick(n); audio.buzz(6); } };
+/** A new theme for the game that just opened. */
+export const newTheme = (): void => { if (!quiet) music.newTheme(); };
 
 export type Pt = { x: number; y: number };
 export type Mover = Pt & { vx: number; vy: number };

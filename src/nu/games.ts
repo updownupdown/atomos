@@ -4,7 +4,8 @@
 import { dayIndex } from './bond';
 
 export type GameId = 'sling' | 'course' | 'echo' | 'orbit' | 'shells' | 'herd' | 'hockey' | 'pairs' | 'dive' | 'flash' | 'halo' | 'pulse' | 'ripple' | 'hop' | 'juggle' | 'loop' | 'pull' | 'spark' | 'twin' | 'grow' | 'rain' | 'spot' | 'tilt' | 'brick' | 'flip' | 'more' | 'stick'
-  | 'blast' | 'bumper' | 'cross' | 'cue' | 'dodge' | 'hue' | 'land' | 'order' | 'pop' | 'ready' | 'recall' | 'swing';
+  | 'blast' | 'bumper' | 'cross' | 'cue' | 'dodge' | 'hue' | 'land' | 'order' | 'pop' | 'ready' | 'recall' | 'swing'
+  | 'carve' | 'trail' | 'bank' | 'surf' | 'shade' | 'spin' | 'bend';
 
 export const S = (d: string) => `<svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">${d}</svg>`;
 export const ST = 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"';
@@ -51,6 +52,13 @@ const LIST: { id: GameId; label: string; icon: string }[] = [
   { id: 'recall', label: 'Recall', icon: S(`<circle cx="5" cy="5" r="2.2" ${F}/><circle cx="12" cy="5" r="2.2" ${ST}/><circle cx="19" cy="5" r="2.2" ${ST}/><circle cx="5" cy="12" r="2.2" ${ST}/><circle cx="12" cy="12" r="2.2" ${F}/><circle cx="19" cy="12" r="2.2" ${ST}/><circle cx="5" cy="19" r="2.2" ${ST}/><circle cx="12" cy="19" r="2.2" ${ST}/><circle cx="19" cy="19" r="2.2" ${F}/>`) },
   { id: 'swing', label: 'Swing', icon: S(`<circle cx="7" cy="4" r="2" ${F}/><path d="M7 6.5l5 7" ${ST} stroke-dasharray="1.5 2.5"/><circle cx="13.5" cy="15.5" r="3" ${F}/><circle cx="19.5" cy="5.5" r="2" ${ST}/>`) },
   { id: 'dive', label: 'Dive', icon: S(`<path d="M8.4 4.3A8.5 8.5 0 1 0 15.6 4.3" ${ST}/><circle cx="12" cy="13" r="3" ${F}/><circle cx="12" cy="2.8" r="2" ${F}/>`) },
+  { id: 'carve', label: 'Carve', icon: S(`<rect x="3" y="3" width="18" height="18" rx="3" ${ST}/><path d="M11 3v18M11 12h10" ${ST}/><rect x="13" y="14" width="6" height="5" rx="1" ${F}/><circle cx="7" cy="8" r="1.8" ${F}/>`) },
+  { id: 'trail', label: 'Trail', icon: S(`<circle cx="18" cy="6" r="3" ${F}/><circle cx="12.5" cy="9.5" r="2" ${ST}/><circle cx="8" cy="13.5" r="2" ${ST}/><circle cx="6" cy="19" r="2" ${ST}/>`) },
+  { id: 'bank', label: 'Bank', icon: S(`<path d="M11 17.5L3.5 11L15 5" ${ST} stroke-dasharray="2 3"/><circle cx="18" cy="4.5" r="2.6" ${ST}/><circle cx="12" cy="20" r="2.6" ${F}/>`) },
+  { id: 'surf', label: 'Surf', icon: S(`<path d="M2 17c3-6 6-6 9 0s6 6 9 0" ${ST}/><circle cx="9" cy="7" r="2.8" ${F}/><circle cx="17" cy="5" r="1.6" ${F}/>`) },
+  { id: 'shade', label: 'Shade', icon: S(`<circle cx="4" cy="4" r="2.2" ${F}/><path d="M5.5 5.5L21 12M5.5 5.5L12 21" ${ST}/><circle cx="18" cy="19" r="3.5" ${ST}/><circle cx="18" cy="19" r="1.6" ${F}/>`) },
+  { id: 'spin', label: 'Spin', icon: S(`<path d="M12 2.5a9.5 9.5 0 1 0 6.7 2.8" ${ST}/><path d="M12 7a5 5 0 1 1-5 5" ${ST}/><circle cx="12" cy="12" r="2" ${F}/>`) },
+  { id: 'bend', label: 'Bend', icon: S(`<circle cx="3.5" cy="16" r="2" ${F}/><path d="M7 16h6.5l4-8" ${ST}/><path d="M10 18.2L17 13.8" ${ST}/><circle cx="19" cy="5" r="3" ${ST}/>`) },
 ];
 
 export const GAMES = LIST.slice().sort((a, b) => a.label.localeCompare(b.label));
