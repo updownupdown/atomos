@@ -1,15 +1,15 @@
 // Six more of Nu's park games (park.ts), on the same kit:
 //   Blast   red atoms drift in on Nu from the rim; tap and Nu fires a photon that way. One that
 //           reaches Nu costs one of three lives.
-//   Bumper  pinball: Nu drops onto the bumpers; tap left or right to flick that flipper. Down the
-//           middle costs one of three balls.
+//   Bumper  pinball: Nu drops onto the bumpers (one slides), the kickers and the top lanes; tap
+//           left or right to flick that flipper. Down the middle costs one of three balls.
 //   Cross   Nu hops up across lanes of electrons going by; tap above Nu to hop on, beside it to
 //           step aside. A touch sends it back to the bottom and costs a life.
 //   Cue     pool: pull back from Nu and let go to shoot it; knock the atoms into the pockets.
 //           Ten shots, and two more for each rack cleared. Nu in a pocket loses a shot.
 //   Dodge   drag Nu clear of the red flying in from every side, for as long as you can.
-//   Hue     tap to hop Nu up through the turning rings, only through their part in Nu's color.
-//           The small dots change Nu's color. Fall, or touch another color, and it's over.
+//   Hue     tap to hop Nu up through the turning rings, only through their part in Nu's color
+//           (two colors at first, up to five). The small dots change Nu's color. Fall, or touch another color, and it's over.
 
 import {
   CYAN, GREEN, K300, K500, K800, NOTE_COLOURS, RED, TAU, WHITE,
@@ -122,7 +122,7 @@ export class Blast implements Toy {
 
   down(s: Stage, p: Pt): void {
     const now = performance.now();
-    if (this.overAt) { if (now - this.overAt > 900) this.reset(s); return; }
+    if (this.overAt) return;
     const dx = p.x - s.nu.x, dy = p.y - s.nu.y, d = Math.hypot(dx, dy);
     if (d < 4 || this.shots.length >= 4) return;
     this.shots.push({ x: s.nu.x, y: s.nu.y, vx: (dx / d) * 0.6, vy: (dy / d) * 0.6, t0: now });
@@ -132,12 +132,23 @@ export class Blast implements Toy {
 
 // ---- Bumper ----------------------------------------------------------------------------------
 
+/** A bumper: where it is, its size and color, and when it was last hit. One slides to and fro
+ *  about `ox`, `slide` px each way. */
+type Bump = Pt & { r: number; c: string; at: number; ox?: number; slide?: number; vx?: number };
+
 /** Pinball. Nu drops in from the top and falls onto round bumpers that kick it away; each bump
- *  counts. Two flippers at the bottom: tap (or hold) the left or right half to flick that one.
- *  Down the gap between them and that ball is gone; three balls. */
+ *  counts. One bumper slides to and fro. Two kickers on the guides throw Nu back up, and three
+ *  lanes at the top light as Nu rolls up through them (all three: a bonus). Two flippers at the
+ *  bottom: tap (or hold) the left or right half to flick that one. Down the gap between them and
+ *  that ball is gone; three balls. */
 export class Bumper implements Toy {
   private ball: Mover = { x: 0, y: 0, vx: 0, vy: 0 };
-  private bumps: (Pt & { r: number; at: number })[] = [];
+  private bumps: Bump[] = [];
+  /** The kickers on the left and right guides, lit at. */
+  private kicks = [0, 0];
+  /** The top lanes: lit, and when the last set was made. */
+  private lanes = [false, false, false];
+  private setAt = 0;
   /** Each flipper's angle up from rest (0..1), held, and kicked until. */
   private flips = [{ up: 0, held: false, kick: 0, w: 0 }, { up: 0, held: false, kick: 0, w: 0 }];
   private serveAt = 0;
@@ -146,6 +157,7 @@ export class Bumper implements Toy {
   private overAt = 0;
   private L(s: Stage): number { return Math.min(78, s.hw * 0.5); }
   private floorY(s: Stage): number { return s.m.y + s.hh - 64; }
+  private laneAt(s: Stage, i: number): Pt { return { x: s.m.x + (i - 1) * s.hw * 0.5, y: s.m.y - s.hh + 62 }; }
 
   /** A flipper's pivot and tip. */
   private flipper(s: Stage, side: 0 | 1): { p: Pt; tip: Pt; a: number } {
@@ -154,6 +166,13 @@ export class Bumper implements Toy {
     const px = side ? s.m.x + gap + L * Math.cos(rest) : s.m.x - gap - L * Math.cos(rest), py = this.floorY(s);
     const a = side ? Math.PI - a0 : a0;
     return { p: { x: px, y: py }, tip: { x: px + Math.cos(a) * L, y: py + Math.sin(a) * L }, a };
+  }
+
+  /** A guide, from the wall down to its flipper's pivot, and its kicker: the middle of it. */
+  private guide(s: Stage, side: 0 | 1): { a: Pt; b: Pt; k0: Pt; k1: Pt } {
+    const p = this.flipper(s, side).p, a = { x: side ? s.m.x + s.hw + 10 : s.m.x - s.hw - 10, y: this.floorY(s) - 80 };
+    const at = (t: number): Pt => ({ x: a.x + (p.x - a.x) * t, y: a.y + (p.y - a.y) * t });
+    return { a, b: p, k0: at(0.25), k1: at(0.65) };
   }
 
   enter(s: Stage): void {
@@ -167,25 +186,35 @@ export class Bumper implements Toy {
     this.left = 3;
     this.count = 0;
     this.overAt = 0;
+    this.lanes = [false, false, false];
     this.place(s);
     this.serve(s);
     s.score(0, best(s, 'bumper') || null);
   }
 
   private place(s: Stage): void {
-    const w = s.hw, top = s.m.y - s.hh + 70, h = (this.floorY(s) - top) * 0.62;
+    const w = s.hw, top = s.m.y - s.hh + 70, h = (this.floorY(s) - top) * 0.62, C = NOTE_COLOURS;
     this.bumps = [
-      { x: s.m.x, y: top + h * 0.25, r: 20, at: 0 },
-      { x: s.m.x - w * 0.45, y: top + h * 0.45, r: 17, at: 0 },
-      { x: s.m.x + w * 0.45, y: top + h * 0.45, r: 17, at: 0 },
-      { x: s.m.x - w * 0.15, y: top + h * 0.8, r: 14, at: 0 },
-      { x: s.m.x + w * 0.2, y: top + h * 0.75, r: 14, at: 0 },
+      { x: s.m.x, y: top + h * 0.2, r: 22, c: C[3], at: 0 },
+      { x: s.m.x - w * 0.5, y: top + h * 0.4, r: 16, c: C[0], at: 0 },
+      { x: s.m.x + w * 0.42, y: top + h * 0.37, r: 19, c: C[1], at: 0 },
+      // The one that slides across the middle.
+      { x: s.m.x, y: top + h * 0.62, r: 15, c: C[2], at: 0, ox: s.m.x, slide: w * 0.5, vx: 0 },
+      { x: s.m.x - w * 0.25, y: top + h * 0.88, r: 12, c: C[4], at: 0 },
+      { x: s.m.x + w * 0.3, y: top + h * 0.85, r: 13, c: C[0], at: 0 },
     ];
   }
 
   private serve(s: Stage): void {
     this.serveAt = performance.now() + 800;
     this.ball = { x: s.nu.x, y: s.nu.y, vx: 0, vy: 0 };
+  }
+
+  /** Counts `n` more. */
+  private add(s: Stage, n: number): void {
+    this.count += n;
+    chimeSound(this.count % 5);
+    s.score(this.count, best(s, 'bumper') || null);
   }
 
   step(s: Stage, dt: number, now: number): void {
@@ -195,6 +224,13 @@ export class Bumper implements Toy {
       f.up = want ? Math.min(1, f.up + dt * 0.016) : Math.max(0, f.up - dt * 0.007);
       f.w = (f.up - was) / Math.max(1, dt);
     }
+    for (const q of this.bumps) {
+      if (q.ox === undefined || !q.slide) continue;
+      const x = q.ox + Math.sin(now / 1500) * q.slide;
+      q.vx = (x - q.x) / Math.max(1, dt);
+      q.x = x;
+    }
+    if (this.setAt && now - this.setAt > 700) { this.setAt = 0; this.lanes = [false, false, false]; }
     if (this.overAt) { nu.seek(s.m, dt, 0.4, 0.02); return; }
     if (now < this.serveAt) {
       const at = { x: s.m.x + (Math.random() - 0.5) * 30, y: s.m.y - s.hh + 36 };
@@ -215,19 +251,38 @@ export class Bumper implements Toy {
       b.x = q.x + nx * (q.r + nu.r);
       b.y = q.y + ny * (q.r + nu.r);
       const kick = Math.max(0.42, Math.hypot(b.vx, b.vy));
-      b.vx = nx * kick;
+      // The sliding one carries Nu a little its way.
+      b.vx = nx * kick + (q.vx ?? 0) * 0.5;
       b.vy = ny * kick;
-      if (now - q.at > 120) {
-        q.at = now;
-        this.count++;
-        chimeSound(this.count % 5);
-        s.score(this.count, best(s, 'bumper') || null);
+      if (now - q.at > 120) { q.at = now; this.add(s, 1); }
+    }
+    // The lanes at the top light as Nu rolls up through them.
+    if (b.vy < 0 && !this.setAt) {
+      for (let i = 0; i < 3; i++) {
+        if (this.lanes[i] || dist(b, this.laneAt(s, i)) > 14) continue;
+        this.lanes[i] = true;
+        s.fx.ring(this.laneAt(s, i), GREEN, 8, 26, 450);
+        this.add(s, 1);
+        if (this.lanes.every(Boolean)) {
+          this.setAt = now;
+          for (let k = 0; k < 3; k++) s.fx.ring(this.laneAt(s, k), GREEN, 10, 40, 700);
+          completeSound();
+          this.add(s, 3);
+        }
       }
     }
-    // The guides down to the flippers, then the flippers.
-    const L = this.flipper(s, 0), R = this.flipper(s, 1), gy = this.floorY(s) - 80;
-    offSegment(b, nu.r, { x: s.m.x - s.hw - 10, y: gy }, L.p, 0.3);
-    offSegment(b, nu.r, { x: s.m.x + s.hw + 10, y: gy }, R.p, 0.3);
+    // The guides down to the flippers (their kickers throw Nu back up), then the flippers.
+    ([0, 1] as const).forEach((side) => {
+      const g = this.guide(s, side);
+      if (offSegment(b, nu.r, g.k0, g.k1, 0.3)) {
+        // Out from the guide, up and in.
+        const ex = g.k1.x - g.k0.x, ey = g.k1.y - g.k0.y, l = Math.hypot(ex, ey) || 1;
+        const nx = (side ? -ey : ey) / l, ny = (side ? ex : -ex) / l, vn = b.vx * nx + b.vy * ny;
+        if (vn < 0.45) { b.vx += nx * (0.45 - vn); b.vy += ny * (0.45 - vn); }
+        if (now - this.kicks[side] > 200) { this.kicks[side] = now; this.add(s, 1); }
+      } else offSegment(b, nu.r, g.a, g.b, 0.3);
+    });
+    const L = this.flipper(s, 0), R = this.flipper(s, 1);
     ([L, R] as const).forEach((f, i) => {
       const w = this.flips[i].w * 0.95 * (i ? 1 : -1);
       if (offSegment(b, nu.r + 3, f.p, f.tip, 0.4, (q) => ({ x: -w * (q.y - f.p.y), y: w * (q.x - f.p.x) }))) tickSound(i);
@@ -252,15 +307,29 @@ export class Bumper implements Toy {
   }
 
   draw(s: Stage, ctx: CanvasRenderingContext2D, now: number): void {
+    const dim = this.overAt ? 0.45 : 1;
+    // The top lanes: rings that fill when lit.
+    for (let i = 0; i < 3; i++) {
+      const p = this.laneAt(s, i), on = this.lanes[i];
+      ring(ctx, p, 9, on ? GREEN : K500, 3, 0.9 * dim);
+      if (on) dot(ctx, p, 4.5, GREEN, 0.9 * dim);
+    }
+    for (const q of this.bumps) {
+      // The slider's track.
+      if (q.ox !== undefined && q.slide) bar(ctx, q.ox - q.slide, q.y, q.ox + q.slide, q.y, K800, 4, 0.9);
+    }
     for (const q of this.bumps) {
       const lit = clamp(1 - (now - q.at) / 300, 0, 1);
       dot(ctx, q, q.r, K800, 0.9);
-      ring(ctx, q, q.r - 1.5, lit ? CYAN : K300, 3, 0.6 + lit * 0.4);
-      if (lit) dot(ctx, q, q.r * 0.45, CYAN, lit);
+      ring(ctx, q, q.r - 1.5, q.c, 3, (0.6 + lit * 0.4) * dim);
+      dot(ctx, q, q.r * (0.3 + lit * 0.2), q.c, (0.45 + lit * 0.55) * dim);
     }
-    const L = this.flipper(s, 0), R = this.flipper(s, 1), gy = this.floorY(s) - 80;
-    bar(ctx, s.m.x - s.hw - 10, gy, L.p.x, L.p.y, K500, 4, 0.9);
-    bar(ctx, s.m.x + s.hw + 10, gy, R.p.x, R.p.y, K500, 4, 0.9);
+    ([0, 1] as const).forEach((side) => {
+      const g = this.guide(s, side), lit = clamp(1 - (now - this.kicks[side]) / 300, 0, 1);
+      bar(ctx, g.a.x, g.a.y, g.b.x, g.b.y, K500, 4, 0.9);
+      bar(ctx, g.k0.x, g.k0.y, g.k1.x, g.k1.y, lit ? WHITE : CYAN, 7, (0.7 + lit * 0.3) * dim);
+    });
+    const L = this.flipper(s, 0), R = this.flipper(s, 1);
     for (const f of [L, R]) bar(ctx, f.p.x, f.p.y, f.tip.x, f.tip.y, this.overAt ? K500 : WHITE, 10, 0.9);
     lives(s, ctx, this.left);
     s.nu.draw(ctx, now);
@@ -268,7 +337,7 @@ export class Bumper implements Toy {
 
   down(s: Stage, p: Pt): void {
     const now = performance.now();
-    if (this.overAt) { if (now - this.overAt > 900) this.reset(s); return; }
+    if (this.overAt) return;
     const f = this.flips[p.x < s.m.x ? 0 : 1];
     f.held = true;
     f.kick = now + 160;
@@ -280,11 +349,15 @@ export class Bumper implements Toy {
 
 // ---- Cross -----------------------------------------------------------------------------------
 
-/** Lanes across the arena, electrons going by in each, this way or that. Tap above Nu and it
- *  hops up a lane; tap beside it and it steps aside. Across to the top counts, and the lanes
- *  come again faster. A touch sends Nu back to the bottom and costs one of three lives. */
+/** The colors of things to keep clear of: red, and its warm neighbors (never Nu's rose). */
+const DANGER = [RED, '#f07a3a', '#c8323c', '#e09a2a'];
+
+/** Lanes across the arena, electrons going by in each, this way or that, each lane at its own
+ *  speed, its electrons in their own color and size. Tap above Nu and it hops up a lane; tap
+ *  beside it and it steps aside. Across to the top counts, and the lanes come again a little
+ *  faster. A touch sends Nu back to the bottom and costs one of three lives. */
 export class Cross implements Toy {
-  private lanes: { y: number; v: number; xs: number[]; gap: number }[] = [];
+  private lanes: { y: number; v: number; xs: number[]; rs: number[]; c: string }[] = [];
   private row = 0;
   private col = 0;
   private left = 3;
@@ -315,13 +388,22 @@ export class Cross implements Toy {
   private build(s: Stage): void {
     const n = this.rows(s);
     this.lanes = [];
+    // A few kinds of electron each time (a color, a size), shared out among the lanes, so some
+    // lanes match.
+    const kinds = [0, 1, 2].map(() => ({ c: DANGER[Math.floor(Math.random() * DANGER.length)], r: 6 + Math.random() * 4 }));
     // Rows 1..n-2 have traffic, now and then a still one to rest in; the last row is the far side.
     for (let j = 1; j < n - 1; j++) {
-      const rest = j % 4 === 0;
-      const v = rest ? 0 : (j % 2 ? 1 : -1) * (0.05 + Math.random() * 0.05 + Math.min(0.08, this.count * 0.012));
-      const gap = 70 + Math.random() * 70 - Math.min(20, this.count * 4), xs: number[] = [];
-      if (!rest) for (let x = s.m.x - s.hw - Math.random() * gap; x < s.m.x + s.hw + gap; x += gap + Math.random() * 40) xs.push(x);
-      this.lanes.push({ y: this.rowY(s, j), v, xs, gap });
+      const rest = j % 4 === 0, k = kinds[Math.floor(Math.random() * kinds.length)];
+      // Smaller electrons go a little faster, bigger ones slower.
+      const v = rest ? 0 : (j % 2 ? 1 : -1) * (0.03 + Math.random() * 0.04 + Math.min(0.04, this.count * 0.007)) * (8 / k.r);
+      const gap = 120 + Math.random() * 70 - Math.min(24, this.count * 4), xs: number[] = [], rs: number[] = [];
+      if (!rest) {
+        for (let x = s.m.x - s.hw - Math.random() * gap; x < s.m.x + s.hw + gap; x += gap + Math.random() * 50) {
+          xs.push(x);
+          rs.push(k.r * (0.9 + Math.random() * 0.2));
+        }
+      }
+      this.lanes.push({ y: this.rowY(s, j), v, xs, rs, c: k.c });
     }
   }
 
@@ -339,7 +421,7 @@ export class Cross implements Toy {
     if (this.overAt || now - this.hitAt < 600) return;
     for (const l of this.lanes) {
       if (Math.abs(l.y - nu.y) > 12) continue;
-      if (l.xs.some((x) => Math.abs(x - nu.x) < nu.r + 8)) {
+      if (l.xs.some((x, i) => Math.abs(x - nu.x) < nu.r + l.rs[i])) {
         this.left--;
         this.hitAt = now;
         this.row = 0;
@@ -369,15 +451,14 @@ export class Cross implements Toy {
     bar(ctx, s.m.x - s.hw, this.rowY(s, n - 1), s.m.x + s.hw, this.rowY(s, n - 1), GREEN, 6, 0.35);
     for (const l of this.lanes) {
       if (!l.v) { bar(ctx, s.m.x - s.hw, l.y, s.m.x + s.hw, l.y, K800, 20, 0.8); continue; }
-      for (const x of l.xs) dot(ctx, { x, y: l.y }, 8, this.overAt ? K500 : RED, this.overAt ? 0.6 : 0.9);
+      l.xs.forEach((x, i) => danger(ctx, { x, y: l.y }, l.rs[i], this.overAt ? K500 : l.c, this.overAt ? 0.6 : 1));
     }
     lives(s, ctx, this.left);
     if (now - this.hitAt > 600 || Math.floor(now / 120) % 2) s.nu.draw(ctx, now);
   }
 
   down(s: Stage, p: Pt): void {
-    const now = performance.now();
-    if (this.overAt) { if (now - this.overAt > 900) this.reset(s); return; }
+    if (this.overAt) return;
     const dx = p.x - s.nu.x, dy = p.y - s.nu.y;
     if (Math.abs(dx) > Math.abs(dy) * 1.2 && Math.abs(dx) > 20) {
       this.col = clamp(this.col + Math.sign(dx) * 40, s.m.x - s.hw + 20, s.m.x + s.hw - 20);
@@ -387,9 +468,17 @@ export class Cross implements Toy {
   }
 }
 
+/** Something to keep clear of: a solid dot in a faint halo of its own color. */
+function danger(ctx: CanvasRenderingContext2D, p: Pt, r: number, c: string, alpha = 1): void {
+  dot(ctx, p, r + 4, c, 0.22 * alpha);
+  dot(ctx, p, r, c, 0.92 * alpha);
+}
+
 // ---- Cue -------------------------------------------------------------------------------------
 
 const CUE_R = 11;
+/** The atoms are smaller than Nu, and drawn as rings round a core, not solid. */
+const BALL_R = 9;
 
 /** Pool. A rack of atoms, six pockets. Press anywhere, pull back and let go: Nu shoots off the
  *  other way, as hard as you pulled, and knocks atoms about. Each one pocketed counts. Ten shots,
@@ -426,7 +515,7 @@ export class Cue implements Toy {
 
   private rack(s: Stage): void {
     this.balls = [];
-    const top = { x: s.m.x, y: s.m.y - s.hh * 0.4 }, d = CUE_R * 2 + 1;
+    const top = { x: s.m.x, y: s.m.y - s.hh * 0.4 }, d = BALL_R * 2 + 1;
     for (let row = 0; row < 3; row++) for (let i = 0; i <= row; i++) this.balls.push({ x: top.x + (i - row / 2) * d, y: top.y - row * d * 0.87, vx: 0, vy: 0 });
   }
 
@@ -447,13 +536,13 @@ export class Cue implements Toy {
       b.vx *= f;
       b.vy *= f;
       if (Math.hypot(b.vx, b.vy) < 0.006) b.vx = b.vy = 0; else still = false;
-      if (bounceIn(s, b, CUE_R, 0.8) && b === c) tickSound(0);
+      if (bounceIn(s, b, b === c ? CUE_R : BALL_R, 0.8) && b === c) tickSound(0);
     }
     for (let i = 0; i < all.length; i++) {
       for (let j = i + 1; j < all.length; j++) {
-        const a = all[i], b = all[j], d = dist(a, b);
-        if (d >= 2 * CUE_R || d === 0) continue;
-        const nx = (b.x - a.x) / d, ny = (b.y - a.y) / d, o = (2 * CUE_R - d) / 2;
+        const a = all[i], b = all[j], d = dist(a, b), rr = (a === c ? CUE_R : BALL_R) + BALL_R;
+        if (d >= rr || d === 0) continue;
+        const nx = (b.x - a.x) / d, ny = (b.y - a.y) / d, o = (rr - d) / 2;
         a.x -= nx * o; a.y -= ny * o; b.x += nx * o; b.y += ny * o;
         const p = (a.vx - b.vx) * nx + (a.vy - b.vy) * ny;
         if (p > 0) { a.vx -= p * nx; a.vy -= p * ny; b.vx += p * nx; b.vy += p * ny; tickSound(1); }
@@ -492,8 +581,18 @@ export class Cue implements Toy {
   }
 
   draw(s: Stage, ctx: CanvasRenderingContext2D, now: number): void {
-    for (const p of this.pockets(s)) dot(ctx, p, 17, '#000', 0.9);
-    this.balls.forEach((b, i) => dot(ctx, b, CUE_R, NOTE_COLOURS[i % NOTE_COLOURS.length], 0.95));
+    // The pockets: black holes in a bright rim, with a faint ring round them.
+    for (const p of this.pockets(s)) {
+      ring(ctx, p, 26, K300, 2, 0.35);
+      dot(ctx, p, 19, '#000', 1);
+      ring(ctx, p, 19, WHITE, 3, 0.8);
+    }
+    this.balls.forEach((b, i) => {
+      const c = NOTE_COLOURS[i % NOTE_COLOURS.length];
+      dot(ctx, b, BALL_R, K800, 0.95);
+      ring(ctx, b, BALL_R - 1.5, c, 3, 0.95);
+      dot(ctx, b, BALL_R * 0.4, c, 0.95);
+    });
     if (this.from && this.pull && !this.moving) {
       // The way Nu will go, as dots, longer the harder the pull.
       const dx = this.from.x - this.pull.x, dy = this.from.y - this.pull.y, d = Math.min(160, Math.hypot(dx, dy));
@@ -506,7 +605,7 @@ export class Cue implements Toy {
   }
 
   down(s: Stage, p: Pt): void {
-    if (this.overAt) { if (performance.now() - this.overAt > 900) this.reset(s); return; }
+    if (this.overAt) return;
     if (this.moving || this.sunkAt) return;
     this.from = p;
     this.pull = p;
@@ -530,10 +629,11 @@ export class Cue implements Toy {
 
 // ---- Dodge -----------------------------------------------------------------------------------
 
-/** Drag Nu (from anywhere) clear of the red flying in from every side, straight across. They
- *  come thicker and faster. The count is the seconds you last. */
+/** Drag Nu (from anywhere) clear of the red flying in from every side, straight across: big slow
+ *  ones, small quick ones, in red and its warm neighbors. They come thicker and faster. The count
+ *  is the seconds you last. */
 export class Dodge implements Toy {
-  private reds: Mover[] = [];
+  private reds: (Mover & { r: number; c: string })[] = [];
   private grab: Pt | null = null;
   private want: Pt | null = null;
   private t = 0;
@@ -561,7 +661,7 @@ export class Dodge implements Toy {
     if (!this.grab && !this.t) return;
     this.t += dt;
     const was = Math.floor((this.t - dt) / 1000), sec = Math.floor(this.t / 1000);
-    if (sec !== was) { s.score(sec, best(s, 'dodge') || null); tickSound(sec % 5); }
+    if (sec !== was) s.score(sec, best(s, 'dodge') || null);
     this.nextAt -= dt;
     if (this.nextAt <= 0) {
       this.nextAt = Math.max(160, 650 - this.t / 60);
@@ -569,12 +669,15 @@ export class Dodge implements Toy {
       const from = { x: s.m.x + Math.cos(a) * far, y: s.m.y + Math.sin(a) * far };
       // At Nu, or near it.
       const to = { x: nu.x + (Math.random() - 0.5) * 140, y: nu.y + (Math.random() - 0.5) * 140 };
-      const d = dist(from, to) || 1, v = 0.12 + Math.min(0.14, this.t / 200_000) + Math.random() * 0.05;
-      this.reds.push({ ...from, vx: ((to.x - from.x) / d) * v, vy: ((to.y - from.y) / d) * v });
+      // Bigger is slower, smaller quicker.
+      const r = 4 + Math.random() * 6, d = dist(from, to) || 1;
+      const v = (0.12 + Math.min(0.14, this.t / 200_000) + Math.random() * 0.05) * (1.35 - (r - 4) * 0.1);
+      const c = DANGER[Math.floor(Math.random() * DANGER.length)];
+      this.reds.push({ ...from, vx: ((to.x - from.x) / d) * v, vy: ((to.y - from.y) / d) * v, r, c });
     }
     for (const r of this.reds) { r.x += r.vx * dt; r.y += r.vy * dt; }
     this.reds = this.reds.filter((r) => Math.abs(r.x - s.m.x) < s.hw + 120 && Math.abs(r.y - s.m.y) < s.hh + 120);
-    if (this.reds.some((r) => dist(r, nu) < nu.r + 5)) {
+    if (this.reds.some((r) => dist(r, nu) < nu.r + r.r - 2)) {
       this.overAt = now;
       this.want = null;
       s.fx.ring(nu, RED, nu.r, nu.r + 30, 600);
@@ -587,12 +690,12 @@ export class Dodge implements Toy {
   }
 
   draw(s: Stage, ctx: CanvasRenderingContext2D, now: number): void {
-    for (const r of this.reds) dot(ctx, r, 6, RED, this.overAt ? 0.4 : 0.9);
+    for (const r of this.reds) danger(ctx, r, r.r, r.c, this.overAt ? 0.45 : 1);
     s.nu.draw(ctx, now);
   }
 
   down(s: Stage, p: Pt): void {
-    if (this.overAt) { if (performance.now() - this.overAt > 900) this.reset(s); return; }
+    if (this.overAt) return;
     this.grab = { x: s.nu.x - p.x, y: s.nu.y - p.y };
     this.want = { x: p.x + this.grab.x, y: p.y + this.grab.y };
   }
@@ -603,10 +706,13 @@ export class Dodge implements Toy {
 
 // ---- Hue -------------------------------------------------------------------------------------
 
-const HUES = NOTE_COLOURS.slice(0, 4);
+const HUES = NOTE_COLOURS;
+/** How many rings in a set: the first set's rings are in two colors, then three, four, five. */
+const HUE_SET = 4;
+const huesOf = (i: number): number => Math.min(HUES.length, 2 + Math.floor(i / HUE_SET));
 
-/** Rings stacked up the arena, each in four colors, turning. Nu wears one of the colors (the ring
- *  round it). Tap and Nu hops up; it falls between taps. It may pass a ring only where the ring is
+/** Rings stacked up the arena, turning, in two colors at first and up to five later. Nu wears one
+ *  of the colors (the ring round it). Tap and Nu hops up; it falls between taps. It may pass a ring only where the ring is
  *  in its color. A small dot between rings changes Nu's color. Each ring passed counts; fall off
  *  the bottom, or touch another color, and it's over. */
 export class Hue implements Toy {
@@ -614,7 +720,8 @@ export class Hue implements Toy {
   private vy = 0;
   private cam = 0;
   private hue = 0;
-  private rings: { y: number; r: number; a: number; v: number; passed: boolean; swap: boolean }[] = [];
+  private rings: { y: number; r: number; a: number; v: number; n: number; i: number; passed: boolean; swap: boolean }[] = [];
+  private made = 0;
   private started = false;
   private count = 0;
   private overAt = 0;
@@ -629,7 +736,8 @@ export class Hue implements Toy {
     this.y = this.base(s);
     this.vy = 0;
     this.cam = 0;
-    this.hue = Math.floor(Math.random() * 4);
+    this.made = 0;
+    this.hue = Math.floor(Math.random() * huesOf(0));
     this.started = false;
     this.count = 0;
     this.overAt = 0;
@@ -641,15 +749,17 @@ export class Hue implements Toy {
   private add(s: Stage): void {
     const last = this.rings[this.rings.length - 1], r = Math.min(70, s.hw * 0.55);
     const y = last ? last.y - (r * 2 + 120) : this.base(s) - 200;
-    const v = (Math.random() < 0.5 ? -1 : 1) * (0.0011 + Math.min(0.0012, this.rings.length * 0.00004));
-    this.rings.push({ y, r, a: Math.random() * TAU, v, passed: false, swap: true });
+    // A little slower than it was, and slower still with fewer colors.
+    const i = this.made++, n = huesOf(i);
+    const v = (Math.random() < 0.5 ? -1 : 1) * (0.0009 + Math.min(0.0009, i * 0.00003)) * (0.7 + n * 0.06);
+    this.rings.push({ y, r, a: Math.random() * TAU, v, n, i, passed: false, swap: true });
   }
 
   /** The color of a ring at the bottom (dir 1) or top (-1) of it. */
-  private colorAt(q: { a: number }, dir: number): number {
+  private colorAt(q: { a: number; n: number }, dir: number): number {
     const at = dir > 0 ? Math.PI / 2 : -Math.PI / 2;
-    const k = ((((at - q.a) % TAU) + TAU) % TAU) / (TAU / 4);
-    return Math.floor(k) % 4;
+    const k = ((((at - q.a) % TAU) + TAU) % TAU) / (TAU / q.n);
+    return Math.floor(k) % q.n;
   }
 
   step(s: Stage, dt: number, now: number): void {
@@ -674,10 +784,12 @@ export class Hue implements Toy {
     for (const q of this.rings) {
       const d = this.y - q.y;
       // Passing one of its two crossings, top or bottom.
-      if (Math.abs(Math.abs(d) - q.r) < 5 + nu.r * 0.7 && this.colorAt(q, Math.sign(d) || 1) !== this.hue) return this.lose(s, now);
+      if (Math.abs(Math.abs(d) - q.r) < 4 + nu.r * 0.55 && this.colorAt(q, Math.sign(d) || 1) !== this.hue) return this.lose(s, now);
       if (q.swap && this.y < q.y - q.r - 60) {
         q.swap = false;
-        this.hue = (this.hue + 1 + Math.floor(Math.random() * 3)) % 4;
+        // A color of the next ring, not the one Nu has.
+        const n = huesOf(q.i + 1);
+        this.hue = (this.hue + 1 + Math.floor(Math.random() * (n - 1))) % n;
         tickSound(3);
       }
       if (!q.passed && this.y < q.y - q.r - 10) {
@@ -706,17 +818,17 @@ export class Hue implements Toy {
     ctx.lineCap = 'butt';
     for (const q of this.rings) {
       const c = { x: s.m.x, y: q.y - this.cam };
-      for (let k = 0; k < 4; k++) {
+      for (let k = 0; k < q.n; k++) {
         ctx.strokeStyle = HUES[k];
         ctx.globalAlpha = this.overAt ? 0.4 : 0.95;
         ctx.beginPath();
-        ctx.arc(c.x, c.y, q.r, q.a + (k * TAU) / 4 + 0.04, q.a + ((k + 1) * TAU) / 4 - 0.04);
+        ctx.arc(c.x, c.y, q.r, q.a + (k * TAU) / q.n + 0.04, q.a + ((k + 1) * TAU) / q.n - 0.04);
         ctx.stroke();
       }
       if (q.swap) {
-        // The color-changer, above the ring.
-        const p = { x: s.m.x, y: q.y - q.r - 60 - this.cam };
-        HUES.forEach((h, k) => dot(ctx, { x: p.x + Math.cos(now / 400 + (k * TAU) / 4) * 5, y: p.y + Math.sin(now / 400 + (k * TAU) / 4) * 5 }, 3.5, h));
+        // The color-changer, above the ring, in the next ring's colors.
+        const p = { x: s.m.x, y: q.y - q.r - 60 - this.cam }, n = huesOf(q.i + 1);
+        for (let k = 0; k < n; k++) dot(ctx, { x: p.x + Math.cos(now / 400 + (k * TAU) / n) * 5, y: p.y + Math.sin(now / 400 + (k * TAU) / n) * 5 }, 3.5, HUES[k]);
       }
     }
     ctx.restore();
@@ -726,7 +838,7 @@ export class Hue implements Toy {
   }
 
   down(s: Stage): void {
-    if (this.overAt) { if (performance.now() - this.overAt > 900) this.reset(s); return; }
+    if (this.overAt) return;
     if (!this.started) { this.started = true; this.y = s.nu.y + this.cam; }
     this.vy = -0.42;
     tickSound(1);

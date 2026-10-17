@@ -36,15 +36,26 @@ function lives(s: Stage, ctx: CanvasRenderingContext2D, left: number, of = 3): v
 
 // ---- Grow ------------------------------------------------------------------------------------
 
-/** Motes of every size drift about. Drag Nu (from anywhere): what's smaller than Nu (cyan) it
- *  eats and grows; what's bigger (red) ends the run. Grown big, the view pulls back: Nu and
- *  everything shrink together, and new motes come sized to it again. */
+/** Nu's size when the view pulls back, and after; and how long the pulling back takes. */
+const GROW_TOP = 33;
+const GROW_BASE = 12;
+const GROW_ZOOM_MS = 1600;
+/** Food comes in cool colors, never near red. */
+const FOOD = [CYAN, '#3cc9b4', '#a865d6', '#5f8ae0'];
+
+/** Motes of every size drift about. Drag Nu (from anywhere): what's smaller than Nu (cool
+ *  colors) it eats and grows; what's bigger (red) ends the run. Grown big, the view slowly pulls
+ *  back: Nu and everything shrink together, and new motes come sized to it again. */
 export class Grow implements Toy {
-  private motes: (Mover & { r: number })[] = [];
+  private motes: (Mover & { r: number; c: string })[] = [];
   private grab: Pt | null = null;
   private want: Pt | null = null;
   private count = 0;
   private overAt = 0;
+  /** Pulling back: when it began, the whole shrink, and how much of it (eased, 0..1) is done. */
+  private zoomAt = 0;
+  private zoomBy = 1;
+  private zoomed = 0;
 
   enter(s: Stage): void {
     s.nu.r = 9;
@@ -56,6 +67,8 @@ export class Grow implements Toy {
     this.motes = [];
     this.count = 0;
     this.overAt = 0;
+    this.zoomAt = 0;
+    this.grab = this.want = null;
     for (let i = 0; i < 12; i++) this.add(s, true);
     s.score(0, best(s, 'grow') || null);
   }
@@ -66,7 +79,7 @@ export class Grow implements Toy {
     let p = anywhere(s, r + 4);
     for (let k = 0; k < 30 && dist(p, s.nu) < s.nu.r + r + 70; k++) p = anywhere(s, r + 4);
     const a = Math.random() * TAU, v = 0.02 + Math.random() * 0.04;
-    this.motes.push({ x: p.x, y: p.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, r });
+    this.motes.push({ x: p.x, y: p.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, r, c: FOOD[Math.floor(Math.random() * FOOD.length)] });
   }
 
   step(s: Stage, dt: number, now: number): void {
@@ -101,17 +114,27 @@ export class Grow implements Toy {
         return;
       }
     }
-    // Grown big: pull the view back.
-    if (nu.r > 26) {
-      const k = 12 / nu.r;
-      nu.r = 12;
+    // Grown big: pull the view back, slowly, round Nu.
+    if (!this.zoomAt && nu.r > GROW_TOP) {
+      this.zoomAt = now;
+      this.zoomBy = GROW_BASE / nu.r;
+      this.zoomed = 0;
+      completeSound();
+      s.fx.ring(nu, CYAN, nu.r, nu.r + 50, 1200);
+    }
+    if (this.zoomAt) {
+      const t = clamp((now - this.zoomAt) / GROW_ZOOM_MS, 0, 1), e = t * t * (3 - 2 * t);
+      // This frame's share of the shrink, so what Nu eats meanwhile shrinks with it.
+      const k = this.zoomBy ** (e - this.zoomed);
+      this.zoomed = e;
+      nu.r *= k;
       for (const m of this.motes) {
         m.r *= k;
         m.x = nu.x + (m.x - nu.x) * k;
         m.y = nu.y + (m.y - nu.y) * k;
       }
-      completeSound();
-      s.fx.ring(nu, CYAN, 12, 60, 700);
+      if (t >= 1) this.zoomAt = 0;
+      return;
     }
     while (this.motes.length < 12) this.add(s);
   }
@@ -119,13 +142,13 @@ export class Grow implements Toy {
   draw(s: Stage, ctx: CanvasRenderingContext2D, now: number): void {
     for (const m of this.motes) {
       const food = m.r < s.nu.r * 0.95;
-      if (food) { dot(ctx, m, m.r, CYAN, 0.85); } else { dot(ctx, m, m.r, RED, 0.25); ring(ctx, m, m.r - 1.5, RED, 3, 0.85); }
+      if (food) { dot(ctx, m, m.r, m.c, 0.85); } else { dot(ctx, m, m.r, RED, 0.25); ring(ctx, m, m.r - 1.5, RED, 3, 0.85); }
     }
     s.nu.draw(ctx, now);
   }
 
   down(s: Stage, p: Pt): void {
-    if (this.overAt) { if (performance.now() - this.overAt > 800) this.reset(s); return; }
+    if (this.overAt) return;
     this.grab = { x: s.nu.x - p.x, y: s.nu.y - p.y };
     this.want = { x: p.x + this.grab.x, y: p.y + this.grab.y };
   }
@@ -137,7 +160,8 @@ export class Grow implements Toy {
 // ---- Rain ------------------------------------------------------------------------------------
 
 /** Nu runs along the bottom, as far as the finger slides. Photons rain down: each caught counts.
- *  Red ones rain too: each caught costs a life. Faster as it goes. */
+ *  Red ones rain too: each caught costs a life. Faster as it goes, and some drops fall faster
+ *  than the rest. */
 export class Rain implements Toy {
   private drops: (Pt & { v: number; red: boolean })[] = [];
   private x = 0;
@@ -162,6 +186,7 @@ export class Rain implements Toy {
     this.left = 3;
     this.next = 800;
     this.overAt = 0;
+    this.grab = this.want = null;
     s.score(0, best(s, 'rain') || null);
   }
 
@@ -173,9 +198,12 @@ export class Rain implements Toy {
     if (this.overAt) return;
     this.next -= dt;
     if (this.next <= 0) {
-      this.next = Math.max(260, 850 - this.count * 10) * (0.6 + Math.random() * 0.8);
+      // A fifth more drops than it used to have.
+      this.next = (Math.max(260, 850 - this.count * 10) * (0.6 + Math.random() * 0.8)) / 1.2;
       const red = this.count > 2 && Math.random() < 0.3;
-      this.drops.push({ x: s.m.x + (Math.random() * 2 - 1) * (s.hw - 24), y: s.m.y - s.hh - 10, v: 0.12 + Math.min(0.18, this.count * 0.004) + Math.random() * 0.05, red });
+      // About a third fall faster, up to 30% faster.
+      const fast = Math.random() < 0.35 ? 1 + Math.random() * 0.3 : 1;
+      this.drops.push({ x: s.m.x + (Math.random() * 2 - 1) * (s.hw - 24), y: s.m.y - s.hh - 10, v: (0.12 + Math.min(0.18, this.count * 0.004) + Math.random() * 0.05) * fast, red });
     }
     for (let i = this.drops.length - 1; i >= 0; i--) {
       const d = this.drops[i];
@@ -213,7 +241,7 @@ export class Rain implements Toy {
   }
 
   down(s: Stage, p: Pt): void {
-    if (this.overAt) { if (performance.now() - this.overAt > 700) this.reset(s); return; }
+    if (this.overAt) return;
     this.grab = this.x - p.x;
     this.want = p.x + this.grab;
   }
@@ -304,8 +332,7 @@ export class Spot implements Toy {
 
   down(s: Stage, p: Pt): void {
     const now = performance.now();
-    if (this.overAt) { if (now - this.overAt > 1200) this.enter(s); return; }
-    if (this.showAt) return;
+    if (this.overAt || this.showAt) return;
     const hit = this.atoms.findIndex((a) => dist(a, p) < a.r + 8);
     if (hit < 0) return;
     if (hit !== this.odd) { this.miss(s, now); return; }
@@ -348,6 +375,8 @@ export class Tilt implements Toy {
     this.holes = [];
     this.count = 0;
     this.overAt = 0;
+    this.press = null;
+    this.lean = { x: 0, y: 0 };
     this.addHole(s, performance.now());
     this.photon = this.spot(s);
     s.score(0, best(s, 'tilt') || null);
@@ -423,7 +452,7 @@ export class Tilt implements Toy {
   }
 
   down(s: Stage, p: Pt): void {
-    if (this.overAt) { if (performance.now() - this.overAt > 900) this.reset(s); return; }
+    if (this.overAt) return;
     this.press = p;
     this.lean = { x: 0, y: 0 };
   }

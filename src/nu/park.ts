@@ -10,7 +10,7 @@
 // out, or go back in); throw a toy and it almost always comes out for it. The
 // round button under the arena opens the games, a sheet A to Z, and Nu circles the one it
 // fancies today:
-//   Orbit   Nu runs round two rings; tap to turn, swipe to hop rings, catch photons, dodge red.
+//   Orbit   Nu runs round two rings; tap its ring to turn, the other to hop; catch photons, dodge red.
 //   Sling   pull Nu back and let go; it swings round nuclei on gravity into the green ring.
 //   Shells  Nu hides under a shell, the shells shuffle; find it.
 //   Echo    Nu flies a tune between five atoms; play it back, one note longer each round.
@@ -20,7 +20,8 @@
 //   Hockey, Pairs: see arcade.ts. Flash, Halo, Pulse: see court.ts. Ripple: see swim.ts. Hop,
 //   Juggle, Loop, Pull, Spark, Twin: see yard.ts. Grow, Rain, Spot, Tilt: see field.ts. Brick,
 //   Flip, More, Stick: see lawn.ts. Blast, Bumper, Cross, Cue, Dodge, Hue: see meadow.ts. Land,
-//   Order, Pop, Ready, Recall, Swing: see grove.ts.
+//   Order, Pop, Ready, Recall, Swing: see grove.ts. Bank, Carve, Trail: see glade.ts. Bend,
+//   Spin: see dell.ts. Shade, Surf: see heath.ts.
 // Most games are learnt by trying, so they carry no words: just the score and best under the
 // arena, drawn as tiny atoms (score-atom.ts). When a run is over, a card over the arena shows
 // its atom and an Again button; when a level is done, a Next button.
@@ -37,7 +38,7 @@ import { icon } from '../ui/icons';
 import {
   dashed, anywhere, arenaPath, best, Bests, Body, bounceIn, buzz, captureSound, chimeSound, clamp, completeSound, CYAN, dist, dot, edge, Fx, GREEN, inside, K300, K500, K800, K900, K975, missSound, Mover, NOTE_COLOURS, Pt, readBests, RED, rimPoint, ring, ROSE, seeded, finish, setBest, Stage, TAU, tickSound, Toy, WHITE, writeBests,
 } from './kit';
-import { hush } from './kit';
+import { hush, newTheme } from './kit';
 import { Hockey, Pairs } from './arcade';
 import { Flash, Halo, Pulse } from './court';
 import { Ripple } from './swim';
@@ -46,6 +47,9 @@ import { Grow, Rain, Spot, Tilt } from './field';
 import { Brick, Flip, More, Stick } from './lawn';
 import { Blast, Bumper, Cross, Cue, Dodge, Hue } from './meadow';
 import { Land, Order, Pop, Ready, Recall, Swing } from './grove';
+import { Bank, Carve, Trail } from './glade';
+import { Bend, Spin } from './dell';
+import { Shade, Surf } from './heath';
 import { fmt, points } from './points';
 import { atomSvg } from './score-atom';
 import { GAME_MS, NEXT_MS, ROULETTE_ICON, ROUND, chip, keepRun, pickSix, readBook, rouletteHtml, wheelSvg, type Run } from './roulette';
@@ -808,6 +812,21 @@ class Course implements Toy {
     return { x: q.x + Math.cos(a) * o.r, y: q.y + Math.sin(a) * o.r };
   }
 
+  /** How far `p` is from the channel's middle line, anywhere along it: the channel as drawn.
+   *  (Measured to each piece of the line, not just its points, and over the whole course, since
+   *  on the inside of a tight bend the nearest part can be far along it.) */
+  private off(p: Pt): number {
+    const q = this.path;
+    let b = Infinity;
+    for (let i = 0; i < q.length - 1; i++) {
+      const a = q[i], c = q[i + 1], dx = c.x - a.x, dy = c.y - a.y, l = dx * dx + dy * dy;
+      const t = l ? clamp(((p.x - a.x) * dx + (p.y - a.y) * dy) / l, 0, 1) : 0;
+      const d = Math.hypot(p.x - a.x - dx * t, p.y - a.y - dy * t);
+      if (d < b) b = d;
+    }
+    return b;
+  }
+
   /** The nearest point of the channel's middle to `p`, looking near where Nu has got to. */
   private nearest(p: Pt): { i: number; d: number } {
     let b = { i: this.progress, d: Infinity };
@@ -844,9 +863,8 @@ class Course implements Toy {
       for (let k = 0; k < steps && !hit; k++) {
         nu.x += (ux * go) / steps;
         nu.y += (uy * go) / steps;
-        const n = this.nearest(nu);
-        this.progress = n.i;
-        hit = n.d > this.half - nu.r * 0.75;
+        this.progress = this.nearest(nu).i;
+        hit = this.off(nu) > this.half - nu.r * 0.75;
       }
       // Where Nu is now, for its trail.
       nu.vx = (ux * go) / dt;
@@ -884,9 +902,13 @@ class Course implements Toy {
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     const line = () => { ctx.beginPath(); ctx.moveTo(p[0].x, p[0].y); for (const q of p) ctx.lineTo(q.x, q.y); };
+    // The board a shade of grey, the channel through it black.
+    ctx.fillStyle = K800;
+    arenaPath(ctx, s);
+    ctx.fill();
     const flash = clamp(1 - (now - this.hitAt) / 400, 0, 1);
     if (flash > 0) { ctx.strokeStyle = RED; ctx.globalAlpha = flash * 0.6; ctx.lineWidth = this.half * 2 + 6; line(); ctx.stroke(); ctx.globalAlpha = 1; }
-    ctx.strokeStyle = K900;
+    ctx.strokeStyle = '#000';
     ctx.lineWidth = this.half * 2;
     line();
     ctx.stroke();
@@ -1059,14 +1081,13 @@ class Echo implements Toy {
 
 // ---- Orbit ---------------------------------------------------------------------------------
 
-/** Nu runs round two rings like an electron with two shells to choose from. Tap to turn it
- *  round; swipe in or out to hop to the other ring, or tap the ring's own button under the court
- *  (the small dashed one on the left for the inner ring, the big round one for the outer). Catch the photons; an antiparticle (red)
- *  meeting Nu on its ring ends the run, so when two close in from both sides, hop rings. Faster
- *  as it goes; antiparticles fade away after a while. */
+/** Nu runs round two rings like an electron with two shells to choose from. Tap a ring: the one
+ *  Nu is on turns it round (the ring flashes white), the other hops it across (the ring flashes
+ *  cyan). Catch the photons; an antiparticle (red) meeting Nu on its ring ends the run, so when
+ *  two close in from both sides, hop rings. Faster as it goes; antiparticles fade away after a
+ *  while. */
 class Orbit implements Toy {
   court = true;
-  controls = true;
   private a = -Math.PI / 2;
   private dir = 1;
   private speed = 0.0012;
@@ -1079,25 +1100,11 @@ class Orbit implements Toy {
   private state: 'run' | 'over' = 'run';
   private overAt = 0;
   private spawn = 0;
-  private press: Pt | null = null;
+  /** The ring last tapped, lit for a moment in the colour of what the tap did. */
+  private lit: { lane: number; c: string; at: number } | null = null;
   private static LIFE = 16000;
   private rad(s: Stage, lane: number): number { return s.R * (0.8 - lane * 0.32); }
   private pos(s: Stage, a: number, lane: number): Pt { const r = this.rad(s, lane); return { x: s.c.x + Math.cos(a) * r, y: s.c.y + Math.sin(a) * r }; }
-  /** The lane buttons under the court, side by side: the inner ring's small dashed one, then the
-   *  outer's, sized like their rings; listed by lane (outer first). */
-  private keys(s: Stage): { x: number; y: number; r: number }[] {
-    const p = s.pad;
-    if (!p) return [];
-    const big = clamp(Math.min(p.h, p.w / 3) / 2 - 18, 24, 42), small = big * 0.6, gap = big * 1.1;
-    const y = p.y + p.h / 2, mid = p.x + p.w / 2, x0 = mid - (2 * big + gap + 2 * small) / 2;
-    // The inner ring's small one on the left, the outer's big one on the right; by lane.
-    return [{ x: x0 + 2 * small + gap + big, y, r: big }, { x: x0 + small, y, r: small }];
-  }
-  private hopTo(lane: number): void {
-    if (lane === this.lane) return;
-    this.lane = lane;
-    tickSound(3);
-  }
 
   enter(s: Stage): void {
     s.nu.r = 9;
@@ -1114,6 +1121,7 @@ class Orbit implements Toy {
     this.count = 0;
     this.spawn = 2600;
     this.state = 'run';
+    this.lit = null;
     s.score(0, best(s, 'orbit') || null);
   }
 
@@ -1168,6 +1176,9 @@ class Orbit implements Toy {
   draw(s: Stage, ctx: CanvasRenderingContext2D, now: number): void {
     ring(ctx, s.c, this.rad(s, 0), K500, 3, 0.55);
     dashed(ctx, s.c, this.rad(s, 1), K500, 0.55);
+    // The ring just tapped, lit and fading.
+    const f = this.lit ? clamp(1 - (now - this.lit.at) / 450, 0, 1) : 0;
+    if (this.lit && f > 0) ring(ctx, s.c, this.rad(s, this.lit.lane), this.lit.c, 3 + 3 * f, 0.85 * f);
     dot(ctx, s.c, 10, K300, 0.5);
     for (const q of this.photons) {
       ctx.save();
@@ -1184,36 +1195,21 @@ class Orbit implements Toy {
     s.nu.draw(ctx, now);
   }
 
-  /** The lane buttons: the one for the ring Nu is on (or hopping to) lit. */
-  drawPad(s: Stage, ctx: CanvasRenderingContext2D): void {
-    this.keys(s).forEach((k, lane) => {
-      dot(ctx, k, k.r, K900, 0.9);
-      const c = lane === this.lane ? WHITE : K500;
-      if (lane) dashed(ctx, k, k.r, c, 0.9); else ring(ctx, k, k.r, c, 3, 0.9);
-    });
-  }
-
+  /** A tap goes to the nearer ring: Nu's own turns it round, the other hops it across. */
   down(s: Stage, p: Pt): void {
-    if (this.state === 'over') { if (performance.now() - this.overAt > 600) this.reset(s); return; }
-    const k = this.keys(s).findIndex((b) => dist(p, b) < b.r + 14);
-    if (k >= 0) { this.hopTo(k); return; }
-    this.press = p;
-  }
-
-  /** A swipe toward the middle or away from it hops rings; anything else is a tap. */
-  move(s: Stage, p: Pt): void {
-    if (!this.press) return;
-    const r0 = dist(this.press, s.c), r1 = dist(p, s.c);
-    if (Math.abs(r1 - r0) < 22) return;
-    this.press = null;
-    this.hopTo(r1 < r0 ? 1 : 0);
-  }
-
-  up(): void {
-    if (!this.press) return;
-    this.press = null;
-    this.dir *= -1;
-    tickSound(1);
+    // Over: the park's card starts it again (a preview, with no card, on the next tap).
+    if (this.state === 'over') { if (!s.end && performance.now() - this.overAt > 600) this.reset(s); return; }
+    const d = dist(p, s.c), lane = Math.abs(d - this.rad(s, 1)) < Math.abs(d - this.rad(s, 0)) ? 1 : 0;
+    const now = performance.now();
+    if (lane === this.lane) {
+      this.dir *= -1;
+      this.lit = { lane, c: WHITE, at: now };
+      tickSound(1);
+    } else {
+      this.lane = lane;
+      this.lit = { lane, c: CYAN, at: now };
+      tickSound(3);
+    }
   }
 }
 
@@ -1487,6 +1483,13 @@ class Dive implements Toy {
       }
       this.shells.push({ phase: rnd() * TAU, speed: sp, gaps });
     }
+    // No gap too small to get through with room to spare: at least Nu's width and a fingertip's
+    // timing on its shell. Small inner shells, then, keep fewer gaps.
+    this.shells.forEach((sh, k) => {
+      const least = (2 * s.nu.r + 24) / this.radius(s, k);
+      for (const g of sh.gaps) g.w = Math.max(g.w, least);
+      while (sh.gaps.length > 1 && sh.gaps.reduce((a, g) => a + g.w, 0) > TAU * 0.45) sh.gaps.pop();
+    });
     this.band = 0;
     this.doneAt = 0;
     s.nu.at(this.spot(s, 0));
@@ -1497,9 +1500,18 @@ class Dive implements Toy {
   private turn(k: number, now: number): number { const sh = this.shells[k]; return sh.phase + now * sh.speed; }
 
   /** Nu is at the top (straight up from the nucleus): is one of shell k's gaps there? */
-  private open(s: Stage, k: number, now: number): boolean {
-    const top = -Math.PI / 2, t = this.turn(k, now), pad = s.nu.r / this.radius(s, k);
-    return this.shells[k].gaps.some((g) => Math.abs(Math.atan2(Math.sin(t + g.at - top), Math.cos(t + g.at - top))) < g.w / 2 - pad);
+  private open(s: Stage, k: number, now: number): boolean { return this.room(s, k, now).px > 0; }
+
+  /** How much room Nu would have, in px either way, diving through shell k now (0 or less: none),
+   *  and the gap it would go through. */
+  private room(s: Stage, k: number, now: number): { px: number; gap: { at: number; w: number } | null } {
+    const top = -Math.PI / 2, t = this.turn(k, now), r = this.radius(s, k), pad = s.nu.r / r;
+    let b: { px: number; gap: { at: number; w: number } | null } = { px: -Infinity, gap: null };
+    for (const g of this.shells[k].gaps) {
+      const px = (g.w / 2 - pad - Math.abs(Math.atan2(Math.sin(t + g.at - top), Math.cos(t + g.at - top)))) * r;
+      if (px > b.px) b = { px, gap: g };
+    }
+    return b;
   }
 
   step(s: Stage, dt: number, now: number): void {
@@ -1528,6 +1540,24 @@ class Dive implements Toy {
     ctx.restore();
     const won = this.band >= this.shells.length;
     dot(ctx, s.c, 8, won ? GREEN : K300, won ? 1 : 0.8);
+    // A tap now would get through: the gap under Nu glows softly green, and so does a ring round
+    // Nu, fading in as the gap comes round and out as it goes.
+    if (!won && !this.doneAt && dist(s.nu, this.spot(s, this.band)) <= 6) {
+      const k = this.band, { px, gap } = this.room(s, k, now), o = clamp(px / 6, 0, 1);
+      if (gap && o > 0) {
+        const r = this.radius(s, k), a = this.turn(k, now) + gap.at;
+        ctx.save();
+        ctx.lineCap = 'round';
+        ctx.strokeStyle = GREEN;
+        ctx.globalAlpha = 0.45 * o;
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.arc(s.c.x, s.c.y, r, a - gap.w / 2 + 0.06, a + gap.w / 2 - 0.06);
+        ctx.stroke();
+        ctx.restore();
+        ring(ctx, s.nu, s.nu.r + 6, GREEN, 2, 0.5 * o);
+      }
+    }
     s.nu.draw(ctx, now);
   }
 
@@ -1563,7 +1593,7 @@ class Dive implements Toy {
 }
 
 const PICK_ICON = S(`<circle cx="12" cy="12" r="2.6" ${F}/><circle cx="12" cy="4" r="2" ${F}/><circle cx="18.9" cy="8" r="2" ${F}/><circle cx="18.9" cy="16" r="2" ${F}/><circle cx="12" cy="20" r="2" ${F}/><circle cx="5.1" cy="16" r="2" ${F}/><circle cx="5.1" cy="8" r="2" ${F}/>`);
-/** The room a game's own controls get under the court (Halo's wheel, Orbit's lane buttons). */
+/** The room a game's own controls get under the court (Halo's wheel). */
 const PAD_ROOM = 150;
 
 /** Each place in the park, made fresh: the park's own, and each preview in the picker its own. */
@@ -1576,6 +1606,7 @@ const MAKE: Record<PlaceId, () => Toy> = {
   brick: () => new Brick(), flip: () => new Flip(), more: () => new More(), stick: () => new Stick(),
   blast: () => new Blast(), bumper: () => new Bumper(), cross: () => new Cross(), cue: () => new Cue(), dodge: () => new Dodge(), hue: () => new Hue(),
   land: () => new Land(), order: () => new Order(), pop: () => new Pop(), ready: () => new Ready(), recall: () => new Recall(), swing: () => new Swing(),
+  carve: () => new Carve(), trail: () => new Trail(), bank: () => new Bank(), surf: () => new Surf(), shade: () => new Shade(), spin: () => new Spin(), bend: () => new Bend(),
 };
 
 /** The arena fills the field (w x h), its rim just inside the edge; the court is the biggest
@@ -1676,7 +1707,7 @@ const BOTS: Record<GameId, Bot> = { course: { kind: 'drag', path: 'wander' },
   dive: { kind: 'tap', every: 1100 }, echo: { kind: 'tap', every: 800 }, flash: { kind: 'tap', every: 650 },
   grow: { kind: 'drag', path: 'wander' }, halo: { kind: 'drag', path: 'circle' }, herd: { kind: 'drag', path: 'wander' },
   hockey: { kind: 'drag', path: 'row' }, hop: { kind: 'drag', path: 'row' }, juggle: { kind: 'tap', every: 650, at: 'nu' },
-  loop: { kind: 'loop' }, orbit: { kind: 'tap', every: 1500 }, pairs: { kind: 'tap', every: 700 },
+  loop: { kind: 'loop' }, orbit: { kind: 'tap', every: 1200 }, pairs: { kind: 'tap', every: 700 },
   pull: { kind: 'hold', on: 1100, off: 900 }, pulse: { kind: 'tap', every: 1000 }, rain: { kind: 'drag', path: 'row' }, ripple: { kind: 'tap', every: 700, at: 'near' }, shells: { kind: 'tap', every: 900 },
   sling: { kind: 'sling' }, spark: { kind: 'tap', every: 2600 }, spot: { kind: 'tap', every: 1300 },
   tilt: { kind: 'drag', path: 'wander' }, twin: { kind: 'drag', path: 'wander' },
@@ -1685,6 +1716,7 @@ const BOTS: Record<GameId, Bot> = { course: { kind: 'drag', path: 'wander' },
   cue: { kind: 'flick' }, dodge: { kind: 'drag', path: 'wander' }, hue: { kind: 'tap', every: 420 },
   land: { kind: 'hold', on: 450, off: 650 }, order: { kind: 'tap', every: 800 }, pop: { kind: 'tap', every: 1000 },
   ready: { kind: 'tap', every: 700 }, recall: { kind: 'tap', every: 600 }, swing: { kind: 'hold', on: 650, off: 450 },
+  carve: { kind: 'flick' }, trail: { kind: 'drag', path: 'wander' }, bank: { kind: 'flick' }, surf: { kind: 'hold', on: 450, off: 650 }, shade: { kind: 'drag', path: 'wander' }, spin: { kind: 'drag', path: 'circle' }, bend: { kind: 'flick' },
 };
 
 /** The size a tile plays at, before it's scaled down to fit: about a phone's arena. */
@@ -1710,11 +1742,21 @@ class Preview {
     this.stage = {
       c: { x: 0, y: 0 }, m: { x: 0, y: 0 }, hw: 100, hh: 100, rr: 40, R: 100, court: !!this.toy.court, pad: null,
       nu: new Body(), fx: new Fx(), bests: { course: {} }, rim: null, save: () => {}, score: () => {},
+      // A preview plays on: a run over starts again, and a level done goes on, after a moment.
+      end: () => this.later(() => this.toy.enter(this.stage)),
+      prompt: (go) => this.later(go),
     };
     layoutStage(this.stage, SHOT_W, SHOT_H, this.toy);
     this.stage.nu.at(this.stage.c);
     hush(() => this.toy.enter(this.stage));
     this.fit();
+  }
+
+  private waiting = false;
+  private later(f: () => void): void {
+    if (this.waiting) return;
+    this.waiting = true;
+    setTimeout(() => { this.waiting = false; hush(f); }, 1200);
   }
 
   private fit(): void {
@@ -2099,6 +2141,7 @@ export class NuPark {
     this.bestWas = best(this.stage, this.place);
     this.stage.fx.clear();
     this.stage.rim = null;
+    newTheme();
     this.toys[this.place].enter(this.stage);
   }
 
@@ -2192,6 +2235,7 @@ export class NuPark {
     this.raw = 0;
     this.hideOver();
     this.bestWas = id === 'home' ? 0 : best(this.stage, id);
+    newTheme();
     this.stage.court = !!this.toys[id].court;
     this.layout();
     this.stage.fx.clear();

@@ -185,6 +185,11 @@ export class Halo implements Toy {
     s.score(0, best(s, 'halo') || null);
   }
 
+  /** Where Nu is round the ring, and how far either side of it (px along the ring) the paddle
+   *  catches: twice Nu's width in all, and a photon's own size. */
+  private at(s: Stage): number { return Math.atan2(s.nu.y - s.c.y, s.nu.x - s.c.x); }
+  private reach(s: Stage): number { return 2 * s.nu.r + 4.5; }
+
   private pos(s: Stage, a: number, r = this.track(s)): Pt { return { x: s.c.x + Math.cos(a) * r, y: s.c.y + Math.sin(a) * r }; }
 
   step(s: Stage, dt: number, now: number): void {
@@ -201,13 +206,13 @@ export class Halo implements Toy {
       this.next = Math.max(420, 1300 - this.caught * 18) * (0.7 + Math.random() * 0.6);
       this.shots.push({ a: Math.random() * TAU, r: s.R * 0.1, v: 0.06 + Math.min(0.08, this.caught * 0.002), red: this.caught > 3 && Math.random() < 0.25 });
     }
-    const T = this.track(s);
+    const T = this.track(s), at = this.at(s), reach = this.reach(s);
     for (let i = this.shots.length - 1; i >= 0; i--) {
       const q = this.shots[i], was = q.r;
       q.r += q.v * dt;
       // Crossing the ring: is Nu there?
       if (was < T && q.r >= T) {
-        const near = dist(this.pos(s, q.a, T), s.nu) < s.nu.r + 9;
+        const near = Math.abs(Math.atan2(Math.sin(q.a - at), Math.cos(q.a - at))) * T < reach;
         if (near && !q.red) {
           this.caught++;
           this.shots.splice(i, 1);
@@ -253,6 +258,17 @@ export class Halo implements Toy {
       }
     }
     lives(s, ctx, this.left);
+    // The paddle: a white arc on the ring under Nu, as wide as it catches.
+    const T = this.track(s), half = (2 * s.nu.r - 2.5) / T, a = this.at(s);
+    ctx.save();
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = WHITE;
+    ctx.globalAlpha = this.overAt ? 0.4 : 0.9;
+    ctx.lineWidth = 5;
+    ctx.beginPath();
+    ctx.arc(s.c.x, s.c.y, T, a - half, a + half);
+    ctx.stroke();
+    ctx.restore();
     s.nu.draw(ctx, now);
   }
 
@@ -263,14 +279,15 @@ export class Halo implements Toy {
     dot(ctx, w, w.r, K900, 0.9);
     ring(ctx, w, w.r, this.turn !== null ? CYAN : K500, 3, 0.8);
     dot(ctx, w, 6, K300, 0.85);
-    // The knob turns with Nu.
-    dot(ctx, { x: w.x + Math.cos(this.a) * w.r * 0.66, y: w.y + Math.sin(this.a) * w.r * 0.66 }, 9, WHITE, 0.9);
+    // The knob turns with Nu, on the wheel's rim.
+    dot(ctx, { x: w.x + Math.cos(this.a) * w.r, y: w.y + Math.sin(this.a) * w.r }, 9, WHITE, 0.9);
   }
 
   private aim(s: Stage, p: Pt): void { this.want = Math.atan2(p.y - s.c.y, p.x - s.c.x); }
 
   down(s: Stage, p: Pt): void {
-    if (this.overAt) { if (performance.now() - this.overAt > 1000) this.reset(s); return; }
+    // Over: the park's card starts it again (a preview, with no card, on the next tap).
+    if (this.overAt) { if (!s.end && performance.now() - this.overAt > 1000) this.reset(s); return; }
     const w = this.wheel(s);
     if (w && dist(p, w) < w.r + 24) {
       this.turn = Math.atan2(p.y - w.y, p.x - w.x);

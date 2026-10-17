@@ -58,7 +58,7 @@ export class Brick implements Toy {
 
   private padY(s: Stage): number { return s.m.y + s.hh - 46; }
   private padW(): number { return Math.max(56, 96 - this.wave * 8); }
-  private speed(): number { return 0.27 + Math.min(0.15, this.count * 0.0025); }
+  private speed(): number { return 0.324 + Math.min(0.18, this.count * 0.0025); }
 
   enter(s: Stage): void {
     s.nu.r = 8;
@@ -77,9 +77,9 @@ export class Brick implements Toy {
   }
 
   private build(s: Stage): void {
-    const rows = Math.min(7, 3 + this.wave), w = 2 * s.hw - 28;
-    const cols = Math.max(5, Math.floor(w / 30)), step = w / cols;
-    this.ar = Math.min(11, step * 0.36);
+    const rows = Math.min(9, 4 + this.wave), w = 2 * s.hw - 28;
+    const cols = Math.max(6, Math.floor(w / 24)), step = w / cols;
+    this.ar = Math.min(10, step * 0.36);
     this.atoms = [];
     for (let j = 0; j < rows; j++) {
       const odd = j % 2, n = cols - odd;
@@ -96,7 +96,7 @@ export class Brick implements Toy {
 
   step(s: Stage, dt: number, now: number): void {
     const nu = s.nu, b = this.ball, half = this.padW() / 2, py = this.padY(s);
-    if (this.want !== null) this.px += clamp(this.want - this.px, -1.3 * dt, 1.3 * dt);
+    if (this.want !== null) this.px += clamp(this.want - this.px, -1.6 * dt, 1.6 * dt);
     this.px = clamp(this.px, s.m.x - s.hw + half + 6, s.m.x + s.hw - half - 6);
     if (this.overAt) { nu.seek({ x: s.m.x, y: s.m.y }, dt, 0.4, 0.02); return; }
     if (now < this.serveAt) {
@@ -164,8 +164,8 @@ export class Brick implements Toy {
     s.nu.draw(ctx, now);
   }
 
-  down(s: Stage, p: Pt): void {
-    if (this.overAt) { if (performance.now() - this.overAt > 900) this.reset(s); return; }
+  down(_s: Stage, p: Pt): void {
+    if (this.overAt) return;
     this.want = p.x;
   }
 
@@ -271,7 +271,7 @@ export class More implements Toy {
 
   down(s: Stage, p: Pt): void {
     const now = performance.now();
-    if (this.overAt) { if (now - this.overAt > 900) { this.reset(s); } return; }
+    if (this.overAt) return;
     if (this.answered !== null) return;
     this.answer(s, now, p.x < s.m.x ? 0 : 1);
   }
@@ -371,8 +371,7 @@ export class Stick implements Toy {
   }
 
   down(s: Stage): void {
-    const now = performance.now();
-    if (this.overAt) { if (now - this.overAt > 900) this.reset(s); return; }
+    if (this.overAt) return;
     if (this.shot !== null || this.nextAt) return;
     this.shot = this.launch(s);
     tickSound(2);
@@ -485,8 +484,8 @@ export class Flip implements Toy {
     s.nu.draw(ctx, now);
   }
 
-  down(s: Stage): void {
-    if (this.overAt) { if (performance.now() - this.overAt > 900) this.reset(s); return; }
+  down(_s: Stage): void {
+    if (this.overAt) return;
     if (this.settling) return;
     this.side = -this.side;
     this.vy = this.side * 0.12;
