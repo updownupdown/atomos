@@ -74,7 +74,7 @@ const when = (t: number): string => new Date(t).toLocaleString('en-US', { month:
 export function rouletteHtml(ids: GameId[], run: Run | null, best: boolean): string {
   const book = readBook();
   const head = run
-    ? `<div class="nur-total"><p class="nur-big">${atomSvg(run.total, 120, { ring: best ? 'var(--c-accent)' : undefined })}</p>${best ? '<p class="nur-sub">New best</p>' : `<p class="nur-sub nur-best"><span>Best:</span>${atomSvg(book.best, 36)}</p>`}</div>`
+    ? `<div class="nur-total"><p class="nur-big">${atomSvg(run.total, 96, { tone: best ? 'var(--c-accent)' : undefined })}</p>${best ? '<p class="nur-sub">New best</p>' : `<p class="nur-sub nur-best"><span>Best:</span>${atomSvg(book.best, 36)}</p>`}</div>`
     : `<p class="nur-lead">Six games, one after the other. Each ends when you fail, or after a minute. Ten points is a fair run in any of them.</p>`;
   const slots = (run ? run.games.map((g) => chip(g.id, g.pts)) : ids.map((id) => chip(id))).map((c, k) => `<li style="--k:${k}">${c}</li>`).join('');
   const past = book.runs.filter((r) => r !== book.runs[0] || !run).slice(0, 5);

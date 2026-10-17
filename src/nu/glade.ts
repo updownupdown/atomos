@@ -1,15 +1,13 @@
-// Three more of Nu's park games (park.ts), on the same kit:
-//   Carve   red dots bounce about one big block. Swipe across or up and down and Nu draws a wall
+// Two more of Nu's park games (park.ts), on the same kit:
+//   Carve   red dots bounce about the whole arena. Swipe across or up and down and Nu draws a wall
 //           both ways from there; a dot touching it before it's done breaks it. Blocks left
 //           with no red in them are won; win three quarters and on to the next, with one more dot.
-//   Trail   Nu glides on and turns toward the finger, a chain of electrons behind it. Catch the
-//           green to grow it; never cross the chain, never touch the red.
 //   Bank    pull back and let go to send Nu off the rim and the grey posts through the green
 //           rings, so many shots a layout. Red stops the shot.
 
 import {
   CYAN, GREEN, K300, K500, NOTE_COLOURS, RED, TAU, WHITE,
-  anywhere, best, bounceIn, buzz, captureSound, clamp, completeSound, dist, dot, edge, finish, inside, missSound, ring, tickSound,
+  anywhere, arenaPath, best, bounceIn, buzz, captureSound, clamp, completeSound, dist, dot, edge, finish, inside, missSound, ring, tickSound,
   type Mover, type Pt, type Stage, type Toy,
 } from './kit';
 import { bar, lives } from './lawn';
@@ -31,7 +29,8 @@ type Wall = { b: Box; h: boolean; at: number; o: number; a: number; z: number };
 /** JezzBall, Nu's way. The arena starts as one block with red dots bouncing about in it. Swipe
  *  (mostly across, or mostly up and down) and Nu draws a wall from where the finger went down,
  *  growing both ways across the block it's in. If a red dot touches it before it's done, it
- *  breaks: one of three lives. A finished wall splits the block in two, and a block with no red
+ *  breaks: one of three lives. The arena's rounded rim is a wall too: dots bounce off it and
+ *  walls stop at it. A finished wall splits the block in two, and a block with no red
  *  in it is won, a calm green plate. Win three quarters of the arena and the next level starts by
  *  itself, with one more dot, a little faster; each level won gives a life back. The count is the
  *  levels won and a tenth for each tenth of the way through this one. */
@@ -49,10 +48,35 @@ export class Carve implements Toy {
   private overAt = 0;
   private f: Box = { x0: 0, y0: 0, x1: 0, y1: 0, won: false };
 
-  /** The playing field: the arena less its corners, and room at the top for the lives. */
+  /** The playing field: the whole arena, as its bounding box; the rounded rim cuts its corners. */
   private field(s: Stage): Box {
-    const m = Math.max(14, s.rr * 0.3 + 6);
-    return { x0: s.m.x - s.hw + m, y0: s.m.y - s.hh + 40, x1: s.m.x + s.hw - m, y1: s.m.y + s.hh - m, won: false };
+    return { x0: s.m.x - s.hw, y0: s.m.y - s.hh, x1: s.m.x + s.hw, y1: s.m.y + s.hh, won: false };
+  }
+
+  /** Where the arena's inside starts and ends along a line across (`h`, at y = `at`) or up and
+   *  down (at x = `at`): its rounded corners cut the ends short. */
+  private span(s: Stage, h: boolean, at: number): [number, number] {
+    const mid = h ? s.m.x : s.m.y, half = h ? s.hw : s.hh;
+    const q = Math.abs(at - (h ? s.m.y : s.m.x)) - ((h ? s.hh : s.hw) - s.rr);
+    const cut = q > 0 ? s.rr - Math.sqrt(Math.max(0, s.rr * s.rr - q * q)) : 0;
+    return [mid - half + cut, mid + half - cut];
+  }
+
+  /** How far a wall can grow each way: to its block's sides, or the rim if that comes first. */
+  private ends(s: Stage, w: Wall): [number, number] {
+    const [rlo, rhi] = this.span(s, w.h, w.at);
+    return [Math.max(w.h ? w.b.x0 : w.b.y0, rlo), Math.min(w.h ? w.b.x1 : w.b.y1, rhi)];
+  }
+
+  /** A block's area inside the rim, summed in thin strips. */
+  private area(s: Stage, q: Box): number {
+    const n = 48, dx = (q.x1 - q.x0) / n;
+    let a = 0;
+    for (let i = 0; i < n; i++) {
+      const [lo, hi] = this.span(s, false, q.x0 + (i + 0.5) * dx);
+      a += Math.max(0, Math.min(q.y1, hi) - Math.max(q.y0, lo)) * dx;
+    }
+    return a;
   }
 
   /** Levels won, and tenths of the way through this one. */
@@ -80,14 +104,11 @@ export class Carve implements Toy {
     this.press = null;
     this.won = 0;
     this.clearAt = 0;
-    const n = 2 + this.lv, v = Math.min(0.26, 0.1 + this.lv * 0.015), f = this.f;
+    const n = 2 + this.lv, v = Math.min(0.26, 0.1 + this.lv * 0.015);
     this.dots = Array.from({ length: n }, () => {
       // Never straight along a wall: diagonals, give or take.
       const a = (Math.floor(Math.random() * 4) + 0.5) * (Math.PI / 2) + (Math.random() - 0.5) * 0.6;
-      return {
-        x: f.x0 + 20 + Math.random() * (f.x1 - f.x0 - 40), y: f.y0 + 20 + Math.random() * (f.y1 - f.y0 - 40),
-        vx: Math.cos(a) * v, vy: Math.sin(a) * v,
-      };
+      return { ...anywhere(s, 24), vx: Math.cos(a) * v, vy: Math.sin(a) * v };
     });
   }
 
@@ -104,7 +125,7 @@ export class Carve implements Toy {
       return;
     }
     if (w) {
-      const lo = w.h ? w.b.x0 : w.b.y0, hi = w.h ? w.b.x1 : w.b.y1;
+      const [lo, hi] = this.ends(s, w);
       w.a = Math.max(lo, w.a - CARVE_GROW * dt);
       w.z = Math.min(hi, w.z + CARVE_GROW * dt);
     }
@@ -118,13 +139,18 @@ export class Carve implements Toy {
         if (d.x > b.x1 - CARVE_DOT) { d.x = b.x1 - CARVE_DOT; d.vx = -Math.abs(d.vx); }
         if (d.y < b.y0 + CARVE_DOT) { d.y = b.y0 + CARVE_DOT; d.vy = Math.abs(d.vy); }
         if (d.y > b.y1 - CARVE_DOT) { d.y = b.y1 - CARVE_DOT; d.vy = -Math.abs(d.vy); }
+        // And off the rim's rounded corners, keeping their speed.
+        bounceIn(s, d, CARVE_DOT, 1);
         const ww = this.wall;
         if (ww && ww.b === b && this.touches(ww, d)) { this.breakWall(s, d, now); break; }
       }
     }
     if (this.overAt) return;
     const ww = this.wall;
-    if (ww && ww.a <= (ww.h ? ww.b.x0 : ww.b.y0) && ww.z >= (ww.h ? ww.b.x1 : ww.b.y1)) this.split(s, ww, now);
+    if (ww) {
+      const [lo, hi] = this.ends(s, ww);
+      if (ww.a <= lo && ww.z >= hi) this.split(s, ww, now);
+    }
   }
 
   private touches(w: Wall, d: Pt): boolean {
@@ -156,8 +182,7 @@ export class Carve implements Toy {
       q.won = !this.dots.some((d) => d.x >= q.x0 && d.x <= q.x1 && d.y >= q.y0 && d.y <= q.y1);
       if (q.won) { gained = true; s.fx.ring({ x: (q.x0 + q.x1) / 2, y: (q.y0 + q.y1) / 2 }, GREEN, 8, 40, 600); }
     }
-    const area = (q: Box) => (q.x1 - q.x0) * (q.y1 - q.y0);
-    this.won = this.boxes.filter((q) => q.won).reduce((n, q) => n + area(q), 0) / area(this.f);
+    this.won = this.boxes.filter((q) => q.won).reduce((n, q) => n + this.area(s, q), 0) / this.area(s, this.f);
     if (this.won >= CARVE_GOAL) {
       this.lv++;
       this.won = 0;
@@ -170,17 +195,30 @@ export class Carve implements Toy {
   }
 
   draw(s: Stage, ctx: CanvasRenderingContext2D, now: number): void {
+    // Plates and walls, cut to the arena's rounded rim (its own line is the park's).
     ctx.save();
+    arenaPath(ctx, s);
+    ctx.clip();
     for (const b of this.boxes) {
       if (!b.won) continue;
       ctx.globalAlpha = this.clearAt ? 0.6 : 0.42;
       ctx.fillStyle = CARVE_PLATE;
       ctx.fillRect(b.x0, b.y0, b.x1 - b.x0, b.y1 - b.y0);
     }
+    // Only the walls Nu drew: a block's side on the field's edge is the rim.
     ctx.globalAlpha = 0.8;
     ctx.strokeStyle = K300;
     ctx.lineWidth = 3;
-    for (const b of this.boxes) ctx.strokeRect(b.x0, b.y0, b.x1 - b.x0, b.y1 - b.y0);
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    const f = this.f, e = 0.5;
+    for (const b of this.boxes) {
+      if (b.y0 > f.y0 + e) { ctx.moveTo(b.x0, b.y0); ctx.lineTo(b.x1, b.y0); }
+      if (b.y1 < f.y1 - e) { ctx.moveTo(b.x0, b.y1); ctx.lineTo(b.x1, b.y1); }
+      if (b.x0 > f.x0 + e) { ctx.moveTo(b.x0, b.y0); ctx.lineTo(b.x0, b.y1); }
+      if (b.x1 < f.x1 - e) { ctx.moveTo(b.x1, b.y0); ctx.lineTo(b.x1, b.y1); }
+    }
+    ctx.stroke();
     ctx.restore();
     const line = (w: Wall, c: string, alpha: number) => w.h ? bar(ctx, w.a, w.at, w.z, w.at, c, 3, alpha) : bar(ctx, w.at, w.a, w.at, w.z, c, 3, alpha);
     if (this.wall) line(this.wall, CYAN, 0.95);
@@ -190,8 +228,10 @@ export class Carve implements Toy {
     s.nu.draw(ctx, now);
   }
 
-  down(_s: Stage, p: Pt): void {
+  down(s: Stage, p: Pt): void {
     if (this.overAt || this.clearAt || this.wall) return;
+    // Not out in a rounded corner, past the rim.
+    if (edge(s, p).d > -4) return;
     this.press = p;
   }
 
@@ -204,8 +244,9 @@ export class Carve implements Toy {
     const b = this.boxAt(o), h = Math.abs(dx) >= Math.abs(dy);
     if (!b || b.won || this.wall || this.clearAt || this.overAt) return;
     const at = h ? o.y : o.x, lo = h ? b.y0 : b.x0, hi = h ? b.y1 : b.x1;
-    // Not right against the block's own edge: no block that thin.
-    if (at - lo < 5 || hi - at < 5) return;
+    // Not right against the block's own edge, or the rim: no block that thin.
+    const [rlo, rhi] = this.span(s, !h, h ? o.x : o.y);
+    if (at - Math.max(lo, rlo) < 5 || Math.min(hi, rhi) - at < 5) return;
     const along = h ? o.x : o.y;
     this.wall = { b, h, at, o: along, a: along, z: along };
     tickSound(2);
@@ -227,173 +268,6 @@ export class Carve implements Toy {
     }
     this.broke = null;
     this.f = f;
-  }
-}
-
-// ---- Trail -----------------------------------------------------------------------------------
-
-/** The room between electrons on the chain, and how fast Nu turns (rad/ms). */
-const TRAIL_GAP = 16;
-const TRAIL_TURN = 0.0045;
-const TRAIL_FOOD = 6;
-
-/** Snake, Nu's way. Nu glides on by itself and turns toward the finger as it drags; behind it
- *  trails a chain of electrons, one for each green dot caught, and each catch quickens it a
- *  little. The rim only turns Nu along it, but crossing its own chain or touching a red dot ends
- *  the run. More red drifts in as the chain grows. The count is the dots caught. */
-export class Trail implements Toy {
-  private head = -Math.PI / 2;
-  /** Where Nu has been, newest first, for the chain to follow. */
-  private path: Pt[] = [];
-  private food: Pt = { x: 0, y: 0 };
-  private reds: Mover[] = [];
-  private finger: Pt | null = null;
-  private started = false;
-  private count = 0;
-  private overAt = 0;
-  private speed(): number { return Math.min(0.24, 0.1 + this.count * 0.006); }
-
-  enter(s: Stage): void {
-    s.nu.r = 8;
-    s.rim = null;
-    this.reset(s);
-  }
-
-  private reset(s: Stage): void {
-    this.head = -Math.PI / 2;
-    this.path = [];
-    this.reds = [];
-    this.finger = null;
-    this.started = false;
-    this.count = 0;
-    this.overAt = 0;
-    this.addRed(s);
-    this.place(s);
-    s.score(0, best(s, 'trail') || null);
-  }
-
-  /** The electrons' places, nearest Nu first, spaced along the way it came. */
-  private links(): Pt[] {
-    const out: Pt[] = [];
-    let want = TRAIL_GAP, run = 0;
-    for (let i = 1; i < this.path.length && out.length < this.count; i++) {
-      const a = this.path[i - 1], b = this.path[i], l = dist(a, b);
-      while (l > 0 && run + l >= want && out.length < this.count) {
-        const t = (want - run) / l;
-        out.push({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
-        want += TRAIL_GAP;
-      }
-      run += l;
-    }
-    return out;
-  }
-
-  private place(s: Stage): void {
-    const chain = this.links();
-    let p = anywhere(s, 26);
-    for (let k = 0; k < 60; k++) {
-      if (dist(p, s.nu) > 90 && this.reds.every((r) => dist(r, p) > 40) && chain.every((c) => dist(c, p) > 18)) break;
-      p = anywhere(s, 26);
-    }
-    this.food = p;
-  }
-
-  private addRed(s: Stage): void {
-    let p = anywhere(s, 30);
-    for (let k = 0; k < 40 && dist(p, s.nu) < 150; k++) p = anywhere(s, 30);
-    const a = Math.random() * TAU, v = 0.03 + Math.min(0.03, this.count * 0.002);
-    this.reds.push({ x: p.x, y: p.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v });
-  }
-
-  step(s: Stage, dt: number, now: number): void {
-    const nu = s.nu;
-    if (this.overAt) { nu.vx = nu.vy = 0; return; }
-    if (!this.started) { nu.seek(s.m, dt); return; }
-    const f = this.finger;
-    if (f && dist(f, nu) > 14) {
-      let d = Math.atan2(f.y - nu.y, f.x - nu.x) - this.head;
-      d = Math.atan2(Math.sin(d), Math.cos(d));
-      this.head += clamp(d, -TRAIL_TURN * dt, TRAIL_TURN * dt);
-    }
-    const v = this.speed();
-    let hx = Math.cos(this.head), hy = Math.sin(this.head);
-    nu.x += hx * v * dt;
-    nu.y += hy * v * dt;
-    // The rim turns Nu along it.
-    const e = edge(s, nu);
-    if (e.d + nu.r > 0) {
-      Object.assign(nu, inside(s, nu, nu.r));
-      const vn = hx * e.nx + hy * e.ny;
-      if (vn > 0) {
-        hx -= vn * e.nx;
-        hy -= vn * e.ny;
-        if (Math.hypot(hx, hy) < 0.2) {
-          // Head on: turn whichever way the finger is, else to the right.
-          const tx = -e.ny, ty = e.nx, side = f ? (f.x - nu.x) * tx + (f.y - nu.y) * ty : 1;
-          hx = side >= 0 ? tx : -tx;
-          hy = side >= 0 ? ty : -ty;
-        }
-        this.head = Math.atan2(hy, hx);
-      }
-    }
-    nu.vx = Math.cos(this.head) * v;
-    nu.vy = Math.sin(this.head) * v;
-    if (!this.path.length || dist(this.path[0], nu) >= 2) this.path.unshift({ x: nu.x, y: nu.y });
-    // Keep only as much of the way as the chain needs.
-    let run = 0;
-    for (let i = 1; i < this.path.length; i++) {
-      run += dist(this.path[i - 1], this.path[i]);
-      if (run > (this.count + 2) * TRAIL_GAP) { this.path.length = i + 1; break; }
-    }
-    for (const r of this.reds) {
-      r.x += r.vx * dt;
-      r.y += r.vy * dt;
-      bounceIn(s, r, 7, 1);
-    }
-    // The first few links are too close to Nu to be crossed.
-    const crossed = this.links().some((c, i) => i >= 3 && dist(c, nu) < nu.r + 2);
-    if (crossed || this.reds.some((r) => dist(r, nu) < nu.r + 6)) { this.over(s, now); return; }
-    if (dist(nu, this.food) < nu.r + TRAIL_FOOD + 1) {
-      this.count++;
-      s.fx.ring(this.food, GREEN, TRAIL_FOOD, 30, 500);
-      captureSound();
-      s.score(this.count, best(s, 'trail') || null);
-      if (this.count % 4 === 0 && this.reds.length < 6) this.addRed(s);
-      this.place(s);
-    }
-  }
-
-  private over(s: Stage, now: number): void {
-    this.overAt = now;
-    s.fx.ring(s.nu, RED, s.nu.r, 40, 600);
-    missSound();
-    buzz(30);
-    finish(s, 'trail', this.count);
-    s.score(this.count, best(s, 'trail') || null);
-  }
-
-  draw(s: Stage, ctx: CanvasRenderingContext2D, now: number): void {
-    const out = !!this.overAt;
-    if (!out) dot(ctx, this.food, TRAIL_FOOD, GREEN, 0.95);
-    for (const r of this.reds) dot(ctx, r, 7, RED, out ? 0.5 : 0.95);
-    for (const c of this.links()) ring(ctx, c, 4.5, out ? K500 : CYAN, 2.5, 0.9);
-    s.nu.draw(ctx, now);
-  }
-
-  down(_s: Stage, p: Pt): void {
-    if (this.overAt) return;
-    this.started = true;
-    this.finger = p;
-  }
-
-  move(_s: Stage, p: Pt): void { if (this.finger) this.finger = p; }
-  up(): void { this.finger = null; }
-
-  resize(s: Stage): void {
-    Object.assign(s.nu, inside(s, s.nu, s.nu.r));
-    this.food = inside(s, this.food, TRAIL_FOOD + 20);
-    for (const r of this.reds) Object.assign(r, inside(s, r, 8));
-    this.path = this.path.map((p) => inside(s, p, 4));
   }
 }
 

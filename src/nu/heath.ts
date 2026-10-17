@@ -1,21 +1,28 @@
 // Two more of Nu's park games (park.ts), on the same kit:
 //   Surf   rolling hills of a wave go by. Hold to make Nu heavy, let go to make it light: heavy
-//          down the slopes, light up them, and Nu flies. Catch the green dots; outrun the tide.
+//          down the slopes, light up them, and Nu flies. Tap to jump. Catch the green dots;
+//          outrun the tide.
 //   Shade  searchlights sweep the arena from lamps on its rim. Drag Nu about for the green dots;
 //          stay out of the light, or under a grey shade plate, or the ring round Nu fills.
 
 import {
-  GREEN, K300, K500, K800, RED, TAU, WHITE,
+  CYAN, GREEN, K300, K500, K800, RED, ROSE, TAU, WHITE,
   best, buzz, captureSound, clamp, completeSound, dist, dot, finish, inside, missSound, ring, rimPoint, tickSound,
   type Pt, type Stage, type Toy,
 } from './kit';
+import { bar } from './lawn';
 
 // ---- Surf ------------------------------------------------------------------------------------
 
 // The wave is laid out in its own units: the arena is 640 of them tall, whatever its size.
 /** Gravity (units/ms²), and how much heavier Nu is while held. */
 const SURF_G = 0.0008;
-const SURF_HEAVY = 2.6;
+const SURF_HEAVY = 3.4;
+/** A tap shorter than this (ms) is a jump, and the jump's push off the wave (units/ms). */
+const SURF_TAP = 220;
+const SURF_JUMP = 0.3;
+/** Landing along a downslope: the speed it gives on top. */
+const SURF_BOOST = 0.1;
 /** Nu's radius, and its top speed (units/ms). */
 const SURF_R = 10;
 const SURF_TOP = 1.5;
@@ -34,7 +41,9 @@ type Gem = { x: number; y: number; high: boolean };
  *  pressing into the wave; let go and it floats. Heavy on the way down and light on the way up
  *  builds speed, and over a crest Nu takes off; come down along a downslope and it keeps its
  *  speed, into an upslope and it loses it. Green dots hang in the air to catch, the higher the
- *  bigger the push they give. The tide, a red dashed line, creeps up from the left, a little
+ *  bigger the push they give. A quick tap on the wave jumps: come down along a downslope and Nu
+ *  gets a push (a green ring), into an upslope and it stumbles. The bar at the top is Nu's speed,
+ *  the red mark on it the tide's. The tide, a red dashed line, creeps up from the left, a little
  *  faster all the time: if it catches Nu, the run is over. */
 export class Surf implements Toy {
   private keys: Key[] = [];
@@ -47,14 +56,22 @@ export class Surf implements Toy {
   private sp = 0;
   private grounded = true;
   private heavy = false;
+  /** When the finger went down (for telling a tap from a hold), and Nu's last spots, for its wake. */
+  private downAt = 0;
+  private wake: { x: number; y: number }[] = [];
+  /** Lately off the wave (ms), so a tap just after a crest still jumps. */
+  private airMs = 0;
+  /** The last landing's flash: when, and good or not. */
+  private landAt = 0;
+  private landGood = false;
   private tide = 0;
   private camY = 0;
   private t = 0;
   private count = 0;
   private overAt = 0;
   /** Its scale (px per unit) and where Nu sits across the arena (px). */
-  private k(s: Stage): number { return s.hh / 320; }
-  private ax(s: Stage): number { return s.m.x - s.hw * 0.42; }
+  private k(s: Stage): number { return s.hh / 400; }
+  private ax(s: Stage): number { return s.m.x - s.hw * 0.45; }
 
   enter(s: Stage): void {
     this.reset(s);
@@ -69,6 +86,10 @@ export class Surf implements Toy {
     this.y = this.ground(this.x).y - SURF_R;
     this.vx = this.vy = 0;
     this.heavy = false;
+    this.downAt = 0;
+    this.wake = [];
+    this.airMs = 0;
+    this.landAt = 0;
     this.camY = 0;
     this.t = 0;
     this.count = 0;
@@ -76,6 +97,7 @@ export class Surf implements Toy {
     this.tide = this.x - this.leftRoom(s) + 30;
     this.grow(s);
     s.nu.r = SURF_R * this.k(s);
+    s.nu.scale = 1;
     this.place(s);
     s.score(0, best(s, 'surf') || null);
   }
@@ -141,16 +163,23 @@ export class Surf implements Toy {
     if (this.overAt) {
       // The tide washes on over Nu.
       this.tide += SURF_TIDE * dt;
+      s.nu.scale = 1;
       return;
     }
     this.t += dt;
-    for (let left = dt; left > 0; left -= 8) this.roll(Math.min(8, left));
+    for (let left = dt; left > 0; left -= 8) this.roll(s, Math.min(8, left), now);
+    this.airMs = this.grounded ? 0 : this.airMs + dt;
+    // Nu's wake: where it was over the last moments, longer the faster it goes.
+    this.wake.unshift({ x: this.x, y: this.y });
+    if (this.wake.length > 16) this.wake.length = 16;
+    // Heavy, Nu squashes into the wave.
+    s.nu.scale += ((this.heavy ? 0.82 : 1) - s.nu.scale) * (1 - Math.exp(-dt / 60));
     // The tide: slow at first, then faster, never too far behind.
     const tv = SURF_TIDE + this.t * SURF_TIDE_GROW;
     if (this.t > 1500) this.tide += tv * dt;
     this.tide = Math.max(this.tide, this.x - SURF_TIDE_GAP);
     // The view rises with Nu when it flies high.
-    const want = Math.min(0, this.y + 250);
+    const want = Math.min(0, this.y + 300);
     this.camY += (want - this.camY) * (1 - Math.exp(-dt / 160));
     this.grow(s);
     this.place(s);
@@ -179,7 +208,7 @@ export class Surf implements Toy {
   }
 
   /** One small step of Nu on (or over) the wave. */
-  private roll(dt: number): void {
+  private roll(s: Stage, dt: number, now: number): void {
     const g = SURF_G * (this.heavy ? SURF_HEAVY : 1);
     if (this.grounded) {
       const w = this.ground(this.x), c = 1 / Math.sqrt(1 + w.d1 * w.d1);
@@ -207,10 +236,37 @@ export class Surf implements Toy {
     this.y = w.y - SURF_R;
     this.grounded = true;
     const c = 1 / Math.sqrt(1 + w.d1 * w.d1), along = (this.vx + this.vy * w.d1) * c, speed = Math.hypot(this.vx, this.vy) || 1;
-    const smooth = along / speed > 0.9;
-    this.sp = smooth ? Math.min(SURF_TOP, speed) : Math.max(0.02, along * 0.9);
-    if (smooth) tickSound(3);
-    else buzz(14);
+    const smooth = along / speed > 0.9, downhill = w.d1 > 0.12;
+    this.landAt = now;
+    this.landGood = smooth && downhill;
+    if (this.landGood) {
+      // Along a downslope: a push on top, more the steeper it is.
+      this.sp = Math.min(SURF_TOP, speed + SURF_BOOST * Math.min(1, w.d1 * 1.5));
+      tickSound(3);
+      buzz(10);
+      s.fx.ring(s.nu, GREEN, s.nu.r, s.nu.r + 30, 450);
+    } else if (smooth) {
+      this.sp = Math.min(SURF_TOP, speed);
+      tickSound(1);
+    } else {
+      this.sp = Math.max(0.02, along * 0.8);
+      buzz(18);
+      s.fx.ring(s.nu, K300, s.nu.r, s.nu.r + 18, 350);
+    }
+  }
+
+  /** A jump: a push off the wave, up from its face. */
+  private jump(s: Stage): void {
+    const w = this.ground(this.x), c = 1 / Math.sqrt(1 + w.d1 * w.d1);
+    const sp = this.grounded ? this.sp : Math.hypot(this.vx, this.vy);
+    const vx = this.grounded ? sp * c : this.vx, vy = this.grounded ? sp * w.d1 * c : this.vy;
+    this.grounded = false;
+    this.airMs = 1000;
+    this.vx = vx + w.d1 * c * SURF_JUMP * 0.4;
+    this.vy = Math.min(vy, 0) - SURF_JUMP * c;
+    this.y -= 2;
+    tickSound(2);
+    s.fx.ring(s.nu, WHITE, s.nu.r, s.nu.r + 16, 300);
   }
 
   draw(s: Stage, ctx: CanvasRenderingContext2D, now: number): void {
@@ -269,35 +325,79 @@ export class Surf implements Toy {
       ctx.stroke();
       ctx.restore();
     }
+    // Nu's wake, behind it on the wave: the faster, the longer.
+    ctx.save();
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = ROSE;
+    for (let i = 1; i < this.wake.length; i++) {
+      const f = 1 - i / this.wake.length;
+      ctx.globalAlpha = 0.5 * f;
+      ctx.lineWidth = Math.max(2, s.nu.r * 1.2 * f);
+      ctx.beginPath();
+      ctx.moveTo(X(this.wake[i - 1].x), Y(this.wake[i - 1].y));
+      ctx.lineTo(X(this.wake[i].x), Y(this.wake[i].y));
+      ctx.stroke();
+    }
+    ctx.restore();
+    // The speed bar across the top: Nu's speed in white (cyan when flying fast), the tide's a red mark.
+    const sp = this.grounded ? this.sp : Math.hypot(this.vx, this.vy);
+    const bx0 = s.m.x - s.hw * 0.5, bx1 = s.m.x + s.hw * 0.5, by = s.m.y - s.hh + 22, bw = bx1 - bx0;
+    bar(ctx, bx0, by, bx1, by, K800, 6, 0.9);
+    const u = clamp(sp / SURF_TOP, 0, 1);
+    if (u > 0.01) bar(ctx, bx0, by, bx0 + bw * u, by, u > 0.55 ? CYAN : WHITE, 6, 0.9);
+    const tu = clamp((SURF_TIDE + this.t * SURF_TIDE_GROW) / SURF_TOP, 0, 1);
+    bar(ctx, bx0 + bw * tu, by - 7, bx0 + bw * tu, by + 7, RED, 3, 0.9);
+    // A landing: green along a downslope (a push), grey into an upslope.
+    const lf = clamp(1 - (now - this.landAt) / 400, 0, 1);
+    if (lf > 0 && this.landGood) ring(ctx, s.nu, s.nu.r + 7, GREEN, 3, 0.8 * lf);
     // Heavy: a white ring hugging Nu.
-    if (this.heavy && !this.overAt) ring(ctx, s.nu, s.nu.r + 4, WHITE, 2.5, 0.75);
+    if (this.heavy && !this.overAt) ring(ctx, s.nu, s.nu.r + 4, WHITE, 3, 0.85);
     s.nu.draw(ctx, now);
   }
 
-  down(): void { if (!this.overAt) this.heavy = true; }
-  up(): void { this.heavy = false; }
+  down(): void {
+    if (this.overAt) return;
+    this.heavy = true;
+    this.downAt = performance.now();
+  }
+
+  up(s: Stage): void {
+    this.heavy = false;
+    // A quick tap on the wave (or just off a crest) jumps.
+    const tap = this.downAt && performance.now() - this.downAt < SURF_TAP;
+    this.downAt = 0;
+    if (tap && !this.overAt && (this.grounded || this.airMs < 140)) this.jump(s);
+  }
   resize(s: Stage): void { this.grow(s); this.place(s); }
 }
 
 // ---- Shade -----------------------------------------------------------------------------------
 
 /** How long the light takes to fill the ring (ms), and to empty it again in the dark. */
-const SHADE_FILL = 1300;
-const SHADE_EMPTY = 3200;
+const SHADE_FILL = 1000;
+const SHADE_EMPTY = 4000;
 /** How long a shade plate lasts with Nu under it (ms). */
 const SHADE_WEAR = 6000;
 /** A beam's half width at the start and at its widest (radians), and how far it swings each way. */
-const SHADE_BEAM = 0.15;
-const SHADE_WIDE = 0.3;
+const SHADE_BEAM = 0.13;
+const SHADE_WIDE = 0.26;
 const SHADE_SWING = 0.95;
+/** Nu's top speed (px/ms, before the arena's scale): slow, so a dash through a beam costs. */
+const SHADE_SPEED = 0.2;
+/** How many lamps at the start, and the counts that bring another. */
+const SHADE_LAMPS = 3;
+const SHADE_MORE = [5, 11, 18];
 
-type Lamp = Pt & { aim: number; phase: number };
+/** A lamp: where, the way it faces, how far through its sweep, and its own pace. */
+type Lamp = Pt & { aim: number; phase: number; pace: number };
 
-/** Searchlights on the arena's rim sweep slowly to and fro. Drag Nu about (it follows the finger
- *  a little behind) to the green dots. In a beam, and not under one of the grey shade plates,
- *  the ring round Nu fills; out of the light it empties slowly. Full, and the run is over. A plate
- *  wears thin while Nu hides under it, and each dot has its time on the rim: let it run out and
- *  the ring fills by a third. More lamps, wider beams and quicker sweeps as the count goes up. */
+/** Searchlights on the arena's rim sweep slowly to and fro, each at its own pace. Drag Nu about
+ *  (it follows the finger a little behind, and slowly: a dash through a beam costs) to the green dots.
+ *  In a beam, and not under one of the grey shade plates, the ring round Nu fills, quickly; out
+ *  of the light it empties slowly. Full, and the run is over. A plate wears thin while Nu hides
+ *  under it, and each dot has its time on the rim, a generous one: wait for the gap, then go.
+ *  Let it run out and the ring fills by a third. The dots sit well away from Nu, so each one is a
+ *  route to plan. More lamps, wider beams and quicker sweeps as the count goes up. */
 export class Shade implements Toy {
   private lamps: Lamp[] = [];
   /** The shade plates; each wears thin while Nu hides under it (`wear` 0..1) and grows back. */
@@ -344,7 +444,7 @@ export class Shade implements Toy {
       if (this.plates.some((q) => dist(p, q) < r + q.r + 40 * k)) continue;
       this.plates.push({ ...p, r, wear: 0 });
     }
-    const want = this.lamps.length || 2;
+    const want = this.lamps.length || SHADE_LAMPS;
     this.lamps = [];
     while (this.lamps.length < want) this.addLamp(s);
     this.newGem(s);
@@ -356,15 +456,25 @@ export class Shade implements Toy {
     const u = at[this.lamps.length % at.length], p = rimPoint(s, u, -8);
     // It starts swung away to one side, clear of the middle.
     const phase = (this.lamps.length % 2 ? 1 : -1) * Math.PI / 2 + (Math.random() - 0.5) * 0.6;
-    this.lamps.push({ ...p, aim: Math.atan2(s.m.y - p.y, s.m.x - p.x), phase });
+    const pace = 0.75 + Math.random() * 0.5;
+    this.lamps.push({ ...p, aim: Math.atan2(s.m.y - p.y, s.m.x - p.x), phase, pace });
   }
 
   private newGem(s: Stage): void {
-    const k = this.k(s);
-    let p = this.gemSpot(s);
-    for (let i = 0; i < 40 && dist(p, s.nu) < 130 * k; i++) p = this.gemSpot(s);
+    // Well away from Nu (most of the arena's width, when there's room), and not under a plate.
+    const far = 0.75 * Math.min(Math.max(s.hw, s.hh), 1.6 * Math.min(s.hw, s.hh));
+    let p = this.gemSpot(s), bestD = -1;
+    for (let i = 0; i < 60; i++) {
+      const q = this.gemSpot(s), d = dist(q, s.nu);
+      if (this.plates.some((o) => dist(o, q) < o.r + 6)) continue;
+      // The first spot far enough, else the farthest.
+      if (d > bestD) { p = q; bestD = d; }
+      if (d > far) break;
+    }
     this.gem = p;
-    this.gemMs = this.gemLeft = Math.max(5000, 10000 - this.count * 200);
+    // Time to wait for a gap: about twice what a straight dash would take, and a bit.
+    const dash = dist(p, s.nu) / (SHADE_SPEED * this.k(s));
+    this.gemMs = this.gemLeft = Math.max(6000, Math.min(16000, 2 * dash + 9000 - this.count * 150));
     s.rim = 1;
   }
 
@@ -373,7 +483,7 @@ export class Shade implements Toy {
   }
 
   /** A beam's half width now: wider as the count goes up. */
-  private beam(): number { return Math.min(SHADE_WIDE, SHADE_BEAM + this.count * 0.005); }
+  private beam(): number { return Math.min(SHADE_WIDE, SHADE_BEAM + this.count * 0.004); }
 
   /** Where a lamp's beam points now. */
   private angle(l: Lamp): number { return l.aim + Math.sin(l.phase) * SHADE_SWING; }
@@ -401,10 +511,10 @@ export class Shade implements Toy {
     const nu = s.nu;
     if (this.overAt) { nu.seek(nu, dt); return; }
     // The beams swing quicker as the count goes up.
-    const w = 0.0004 + this.count * 0.00004;
-    for (const l of this.lamps) l.phase += w * dt;
+    const w = 0.0003 + Math.min(this.count, 30) * 0.00002;
+    for (const l of this.lamps) l.phase += w * l.pace * dt;
     if (this.want) {
-      nu.seek(inside(s, this.want, nu.r + 2), dt, 0.3 * this.k(s), 0.025);
+      nu.seek(inside(s, this.want, nu.r + 2), dt, SHADE_SPEED * this.k(s), 0.025);
       Object.assign(nu, inside(s, nu, nu.r));
     } else nu.seek(nu, dt);
     // A plate wears thin while Nu hides under it, and slowly grows back once it's left.
@@ -438,8 +548,8 @@ export class Shade implements Toy {
       this.count++;
       captureSound();
       s.fx.ring(this.gem, GREEN, 6, 30, 500);
-      // Another lamp at 4, 9, 15 and 22.
-      if ([4, 9, 15, 22].includes(this.count)) { this.addLamp(s); completeSound(); }
+      // Another lamp now and then.
+      if (SHADE_MORE.includes(this.count)) { this.addLamp(s); completeSound(); }
       this.newGem(s);
       s.score(this.count, best(s, 'shade') || null);
     }
