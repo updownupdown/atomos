@@ -3,7 +3,7 @@
 
 import { dayIndex } from './bond';
 
-export type GameId = 'sling' | 'course' | 'echo' | 'orbit' | 'shells' | 'herd' | 'trace' | 'hockey' | 'chain' | 'split' | 'pairs' | 'dive' | 'flash' | 'halo' | 'pulse' | 'rally' | 'ripple' | 'bloom' | 'hop' | 'juggle' | 'loop' | 'pull' | 'spark' | 'twin' | 'grow' | 'rain' | 'sort' | 'spot' | 'stack' | 'tilt' | 'brick' | 'drop' | 'flip' | 'maze' | 'more' | 'stick'
+export type GameId = 'sling' | 'course' | 'echo' | 'orbit' | 'shells' | 'herd' | 'hockey' | 'pairs' | 'dive' | 'flash' | 'halo' | 'pulse' | 'ripple' | 'hop' | 'juggle' | 'loop' | 'pull' | 'spark' | 'twin' | 'grow' | 'rain' | 'spot' | 'tilt' | 'brick' | 'flip' | 'more' | 'stick'
   | 'blast' | 'bumper' | 'cross' | 'cue' | 'dodge' | 'hue' | 'land' | 'order' | 'pop' | 'ready' | 'recall' | 'swing';
 
 export const S = (d: string) => `<svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">${d}</svg>`;
@@ -18,17 +18,12 @@ const LIST: { id: GameId; label: string; icon: string }[] = [
   { id: 'echo', label: 'Echo', icon: S(`<circle cx="12" cy="4.5" r="2.3" ${F}/><circle cx="19.5" cy="10" r="2.3" ${F}/><circle cx="16.7" cy="19" r="2.3" ${F}/><circle cx="7.3" cy="19" r="2.3" ${F}/><circle cx="4.5" cy="10" r="2.3" ${F}/>`) },
   { id: 'herd', label: 'Herd', icon: S(`<circle cx="12" cy="12" r="3" ${F}/><circle cx="12" cy="12" r="7" ${ST} stroke-dasharray="2 4"/><circle cx="20" cy="5" r="1.8" ${F}/><circle cx="4" cy="19" r="1.8" ${F}/>`) },
   { id: 'course', label: 'Course', icon: S(`<path d="M7 21V17c0-3 10-2 10-5.5S7 8.5 7 5.5V3" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="7" cy="3.2" r="2" ${F}/>`) },
-  { id: 'trace', label: 'Trace', icon: S(`<path d="M4 18c3-8 6 2 9-5s5-6 7-4" ${ST}/><circle cx="20" cy="9" r="2.2" ${F}/>`) },
   { id: 'hockey', label: 'Hockey', icon: S(`<circle cx="12" cy="5.5" r="3" ${F}/><circle cx="12" cy="18" r="3.6" ${ST}/><circle cx="15" cy="11.5" r="1.8" ${F}/><path d="M4 2.5v3M20 2.5v3" ${ST}/>`) },
-  { id: 'chain', label: 'Chain', icon: S(`<circle cx="18" cy="6" r="3" ${F}/><circle cx="12" cy="9.5" r="2" ${F}/><circle cx="7.5" cy="13.5" r="2" ${F}/><circle cx="6" cy="19" r="2" ${F}/>`) },
-  { id: 'split', label: 'Split', icon: S(`<circle cx="8" cy="5" r="2.2" ${F}/><circle cx="12.5" cy="4.5" r="2.2" ${ST}/><circle cx="16.5" cy="6.5" r="2.2" ${F}/><circle cx="12" cy="13" r="1.8" ${ST}/><path d="M6 20.5a8 8 0 0 1 12 0" ${ST}/>`) },
   { id: 'pairs', label: 'Pairs', icon: S(`<rect x="3" y="3" width="8" height="8" rx="4" ${F}/><rect x="13" y="3" width="8" height="8" rx="4" ${ST}/><rect x="3" y="13" width="8" height="8" rx="4" ${ST}/><rect x="13" y="13" width="8" height="8" rx="4" ${F}/>`) },
   { id: 'flash', label: 'Flash', icon: S(`<circle cx="12" cy="12" r="3" ${F}/><circle cx="12" cy="4.5" r="2" ${ST}/><circle cx="18.5" cy="8.2" r="2" ${ST}/><circle cx="18.5" cy="15.8" r="2" ${F}/><circle cx="12" cy="19.5" r="2" ${ST}/><circle cx="5.5" cy="15.8" r="2" ${ST}/><circle cx="5.5" cy="8.2" r="2" ${ST}/>`) },
   { id: 'halo', label: 'Halo', icon: S(`<circle cx="12" cy="12" r="8.5" ${ST}/><circle cx="12" cy="12" r="2.2" ${F}/><circle cx="18" cy="6" r="2.4" ${F}/><path d="M14 14.5l2 2" ${ST}/>`) },
   { id: 'pulse', label: 'Pulse', icon: S(`<circle cx="12" cy="12" r="2.4" ${F}/><circle cx="12" cy="12" r="6" ${ST}/><circle cx="12" cy="12" r="9.6" ${ST} stroke-dasharray="3 3"/>`) },
-  { id: 'rally', label: 'Rally', icon: S(`<path d="M5.2 17.5a8.5 8.5 0 0 0 13.6 0" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"/><circle cx="12" cy="9" r="3.2" ${F}/>`) },
   { id: 'ripple', label: 'Ripple', icon: S(`<circle cx="6" cy="18" r="2.2" ${F}/><path d="M6 11.5a6.5 6.5 0 0 1 6.5 6.5" ${ST}/><path d="M6 5.5A12.5 12.5 0 0 1 18.5 18" ${ST}/><circle cx="18" cy="6" r="2.6" ${ST}/>`) },
-  { id: 'bloom', label: 'Bloom', icon: S(`<circle cx="9" cy="9.5" r="5.5" ${F}/><circle cx="17" cy="15.5" r="4" ${ST}/><circle cx="7.5" cy="19" r="2.4" ${F}/><circle cx="19" cy="5" r="1.8" ${ST}/>`) },
   { id: 'hop', label: 'Hop', icon: S(`<circle cx="15" cy="5" r="2.8" ${F}/><path d="M13.5 12.5h6M4.5 19h6" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>`) },
   { id: 'juggle', label: 'Juggle', icon: S(`<circle cx="12" cy="7.5" r="4" ${F}/><path d="M7 15.5l2 2M17 15.5l-2 2" ${ST}/><path d="M4 21h16" ${ST}/>`) },
   { id: 'loop', label: 'Loop', icon: S(`<path d="M12 3.5c4.7 0 8 2.8 8 6.3S16.7 16 12 16s-8-2.7-8-6.2S7.3 3.5 12 3.5z" ${ST}/><circle cx="9.5" cy="10" r="1.8" ${F}/><circle cx="14.5" cy="9.5" r="1.8" ${F}/><path d="M8.5 15.5L6.5 21" ${ST}/>`) },
@@ -37,14 +32,10 @@ const LIST: { id: GameId; label: string; icon: string }[] = [
   { id: 'twin', label: 'Twin', icon: S(`<circle cx="6.5" cy="6.5" r="3.5" ${F}/><circle cx="17.5" cy="17.5" r="3.5" ${ST}/><circle cx="12" cy="12" r="1.3" ${F}/>`) },
   { id: 'grow', label: 'Grow', icon: S(`<circle cx="10" cy="13" r="6" ${F}/><circle cx="19" cy="6" r="1.8" ${F}/><circle cx="19.5" cy="17.5" r="3" ${ST}/>`) },
   { id: 'rain', label: 'Rain', icon: S(`<circle cx="7" cy="4.5" r="1.9" ${F}/><circle cx="16" cy="7" r="1.9" ${F}/><circle cx="11" cy="11" r="1.9" ${ST}/><circle cx="12" cy="19" r="3.2" ${F}/>`) },
-  { id: 'sort', label: 'Sort', icon: S(`<circle cx="12" cy="5" r="2.6" ${F}/><circle cx="5.5" cy="17" r="3.8" ${ST}/><circle cx="18.5" cy="17" r="3.8" ${ST}/><path d="M10 8.5l-2 3.5M14 8.5l2 3.5" ${ST}/>`) },
   { id: 'spot', label: 'Spot', icon: S(`<circle cx="6" cy="6" r="2.4" ${F}/><circle cx="12" cy="6" r="2.4" ${F}/><circle cx="18" cy="6" r="2.4" ${F}/><circle cx="6" cy="12.5" r="2.4" ${F}/><circle cx="12.5" cy="12.5" r="3.4" ${ST}/><circle cx="18" cy="12.5" r="2.4" ${F}/><circle cx="6" cy="19" r="2.4" ${F}/><circle cx="12" cy="19" r="2.4" ${F}/><circle cx="18" cy="19" r="2.4" ${F}/>`) },
-  { id: 'stack', label: 'Stack', icon: S(`<circle cx="12" cy="18.5" r="3" ${F}/><circle cx="13" cy="12.5" r="3" ${F}/><circle cx="6" cy="5" r="3" ${ST}/>`) },
   { id: 'tilt', label: 'Tilt', icon: S(`<path d="M3 17L21 9" ${ST}/><circle cx="10" cy="10.5" r="3" ${F}/><circle cx="17" cy="18" r="2.6" ${ST}/>`) },
   { id: 'brick', label: 'Brick', icon: S(`<circle cx="5" cy="4.5" r="2.2" ${F}/><circle cx="12" cy="4.5" r="2.2" ${F}/><circle cx="19" cy="4.5" r="2.2" ${F}/><circle cx="8.5" cy="10" r="2.2" ${F}/><circle cx="14" cy="15" r="2.4" ${ST}/><path d="M6 20.5h12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>`) },
-  { id: 'drop', label: 'Drop', icon: S(`<circle cx="12" cy="3.5" r="2.4" ${F}/><circle cx="7.5" cy="9.5" r="1.6" ${F}/><circle cx="16.5" cy="9.5" r="1.6" ${F}/><circle cx="12" cy="14" r="1.6" ${F}/><path d="M3 21h18M8 17v4M16 17v4" ${ST}/>`) },
   { id: 'flip', label: 'Flip', icon: S(`<path d="M3 3h18M3 21h18" ${ST}/><circle cx="7" cy="6.8" r="2.8" ${F}/><rect x="14.5" y="12" width="4.5" height="9" rx="2.25" ${ST}/>`) },
-  { id: 'maze', label: 'Maze', icon: S(`<path d="M3.5 3.5h17v17h-17zM3.5 9.5h11M9.5 15v5.5M15 15h5.5" ${ST}/><circle cx="6.5" cy="17.5" r="2" ${F}/>`) },
   { id: 'more', label: 'More', icon: S(`<path d="M12 3v18" ${ST} stroke-dasharray="2 3.5"/><circle cx="4.5" cy="7" r="1.9" ${F}/><circle cx="8" cy="12" r="1.9" ${F}/><circle cx="4.5" cy="17" r="1.9" ${F}/><circle cx="18" cy="12" r="1.9" ${F}/>`) },
   { id: 'stick', label: 'Stick', icon: S(`<circle cx="12" cy="10" r="3.5" ${F}/><circle cx="12" cy="10" r="7" ${ST} stroke-dasharray="2 3"/><circle cx="5.5" cy="7.5" r="1.9" ${F}/><circle cx="17.5" cy="5" r="1.9" ${F}/><circle cx="12" cy="21" r="1.9" ${ST}/>`) },
   { id: 'blast', label: 'Blast', icon: S(`<circle cx="12" cy="12" r="3.2" ${F}/><circle cx="4.5" cy="5" r="2" ${ST}/><circle cx="19.5" cy="17" r="2" ${ST}/><circle cx="17.5" cy="6.5" r="1.5" ${F}/><path d="M14.5 9.5l1.5-1.5" ${ST}/>`) },
@@ -68,11 +59,4 @@ export const GAMES = LIST.slice().sort((a, b) => a.label.localeCompare(b.label))
  *  park's picker, and Home's Nu section offers it. */
 export function nuPick(index = dayIndex()): (typeof GAMES)[number] {
   return GAMES[((index * 5 + 3) % GAMES.length + GAMES.length) % GAMES.length];
-}
-
-/** Some days Nu would rather read than play: the atom it wants to read about in the Atlas
- *  today, or null on a day it wants to play. One day in three, the same atom all day. */
-export function nuReads(index = dayIndex(), atoms = 118): number | null {
-  if (((index % 3) + 3) % 3 !== 1) return null;
-  return 1 + (((index * 37 + 11) % atoms) + atoms) % atoms;
 }
